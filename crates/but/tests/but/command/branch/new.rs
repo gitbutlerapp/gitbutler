@@ -137,6 +137,8 @@ fn rejects_branch_name_already_applied_in_workspace() {
         .stderr_eq(str![[r#"
 Error: A branch named 'A' is already applied
 
+Hint: Pick another name
+
 "#]]);
 }
 
@@ -152,7 +154,67 @@ fn rejects_name_that_exists_outside_workspace() {
         .stderr_eq(str![[r#"
 Error: A branch named 'A' exists but is not applied
 
+Hint: Pick another name, or run `but apply A` if you meant that branch
+
 "#]]);
+    // The hint has to name a command that works.
+    env.but("apply A").assert().success();
+}
+
+#[test]
+fn rejects_the_target_branch_without_offering_to_apply_it() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    // `but apply main` refuses the target branch, so the hint can't suggest it.
+    env.but("branch new main")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: A branch named 'main' is the workspace target branch
+
+Hint: Pick another name
+
+"#]]);
+}
+
+#[test]
+fn rejects_the_target_upstream_without_offering_to_apply_it() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.invoke_git("branch -m main trunk");
+    env.but("config target trunk").assert().success();
+
+    // `but apply origin/main` refuses the target's upstream, so the hint can't suggest it.
+    env.but("branch new main")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: A branch named 'main' exists on remote 'origin'
+
+Hint: Pick another name
+
+"#]]);
+    env.but("apply origin/main").assert().failure();
+}
+
+#[test]
+fn rejects_name_that_only_a_remote_has() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.invoke_git("update-ref refs/remotes/origin/taken main");
+
+    env.but("branch new taken")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: A branch named 'taken' exists on remote 'origin'
+
+Hint: Pick another name, or run `but apply origin/taken` if you meant that branch
+
+"#]]);
+    // The hint has to name a command that works.
+    env.but("apply origin/taken").assert().success();
 }
 
 #[test]
@@ -547,6 +609,8 @@ fn handles_path_prefix_collision() {
         .failure()
         .stderr_eq(str![[r#"
 Error: Branch name 'A/new/branch' collides with existing branch 'A'
+
+Hint: Pick another name
 
 "#]]);
 }
@@ -1773,7 +1837,7 @@ Created branch 'wt-lower' above commit nsn
 fn an_unstacked_branch_is_refused_from_an_unmanaged_worktree() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
-    let wt = util::add_worktree_with_commit(&env, "wt-feature", "A");
+    let wt = util::add_unmanaged_worktree(&env, "wt-feature");
 
     env.but("branch new unstacked")
         .current_dir(&wt)

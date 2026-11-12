@@ -58,7 +58,6 @@ pub fn init(
         None
     };
     let subscriber = tracing_subscriber::registry().with(console_layer).with(
-        // subscriber that writes spans to a file
         tracing_subscriber::fmt::layer()
             .event_format(format_for_humans.clone())
             .with_ansi(false)
@@ -165,7 +164,6 @@ fn prune_old_logs(
         return Ok(());
     }
 
-    // sort the files by their creation timestamps.
     files.sort_by_key(|(_, created_at)| *created_at);
 
     // delete files, so that (n-1) files remain, because we will create another log file

@@ -1,5 +1,3 @@
-//! JSON output structures for `but pull` commands.
-
 use serde::Serialize;
 
 /// JSON output for `but pull --check`

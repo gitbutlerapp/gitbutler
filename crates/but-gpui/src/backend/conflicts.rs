@@ -13,7 +13,6 @@ use super::intent::Run;
 use super::ops::rewritten;
 use super::{Checkout, CommitId, Intent, OpKind, Rewritten, checkout, markers};
 
-/// What a conflict keeps.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Keep {
     NewBase,
@@ -21,7 +20,6 @@ pub enum Keep {
     Text(BString),
 }
 
-/// What resolving left.
 pub struct Resolved {
     pub resolved: usize,
     /// Conflicts still to resolve, lines and whole files.
@@ -83,9 +81,12 @@ fn resolve_commit(
             .find(|entry| entry.stage() != gix::index::entry::Stage::Unconflicted)
         {
             anyhow::bail!(
-                "Resolve the conflicts in {} first: applying checks the workspace out again, \
-                 which Git can't do over a conflicted file",
-                entry.path(&index)
+                but_error::Context::new(format!(
+                    "Resolve the conflicts in {} first: applying checks the workspace out again, \
+                     which Git can't do over a conflicted file",
+                    entry.path(&index)
+                ))
+                .with_code(but_error::Code::PreconditionFailed)
             );
         }
     }

@@ -1,6 +1,6 @@
 //! The remotes and the target branch: pushing and pulling branches, updating the workspace
-//! from the target, fetching and landing; and the target's history, with what came in that
-//! the workspace doesn't have yet, the pull request each commit landed, and when the
+//! from the target, fetching and merging; and the target's history, with what came in that
+//! the workspace doesn't have yet, the pull request each commit merged, and when the
 //! project last fetched.
 
 use std::collections::{BTreeSet, HashMap, HashSet};
@@ -32,7 +32,7 @@ pub struct TargetCommit {
     pub email: String,
     /// The agent that wrote it, when `author` is the person who committed it.
     pub agent: Option<Agent>,
-    /// The pull request it landed, without CI checks.
+    /// The pull request it merged, without CI checks.
     pub review: Option<Review>,
     /// The workspace doesn't have it yet.
     pub incoming: bool,
@@ -69,8 +69,92 @@ pub fn target_commits(
     Ok((commits, more))
 }
 
+/// The paths [`target_commits_changing`] looks for.
+#[derive(Debug, Clone)]
+pub enum PathQuery {
+    /// The file or folder at this path, from the top of the repository.
+    Whole(bstr::BString),
+    /// Any path with these letters in a row, in any case.
+    Letters(String),
+}
+
+impl PathQuery {
+    fn names(&self, path: &bstr::BStr) -> bool {
+        match self {
+            Self::Whole(whole) => (path.strip_prefix(whole.as_slice()))
+                .is_some_and(|rest| rest.is_empty() || rest.starts_with(b"/")),
+            Self::Letters(letters) => {
+                (path.to_str_lossy().to_lowercase()).contains(&letters.to_lowercase())
+            }
+        }
+    }
+}
+
+/// Up to `limit` of the commits [`target_commits`] lists that changed a path `query` names,
+/// after `after` or from the tip; and whether there are more. Each is compared with its first
+/// parent, so a merge counts for all it brought in. Renames aren't followed.
+pub fn target_commits_changing(
+    path: &Path,
+    query: &PathQuery,
+    after: Option<CommitId>,
+    limit: u32,
+) -> Result<(Vec<TargetCommit>, bool)> {
+    /// How many commits to read at a time, which measured faster than the API's most of 1000.
+    const READ: u32 = 200;
+    let ctx = open(path)?;
+    let cached = cached_reviews(&ctx);
+    let (mut found, mut cursor) = (Vec::new(), after);
+    loop {
+        let (page, more) = target_page(&ctx, &cached, cursor, READ)?;
+        cursor = page.last().map(|commit| commit.id);
+        let repo = ctx.repo.get()?;
+        let mut diffs = repo.diff_resource_cache_for_tree_diff()?;
+        for target in page {
+            let commit = repo.find_commit(target.id.0)?;
+            let old = match present_first_parent(&commit) {
+                Some(parent) => repo.find_commit(parent)?.tree().ok(),
+                // A shallow clone's oldest commit, whose parent is missing, didn't add all it has.
+                None if commit.parent_ids().next().is_some() => None,
+                None => Some(repo.empty_tree()),
+            };
+            // A tree this clone doesn't have, as a treeless one, says nothing of what changed.
+            let (Some(old), Ok(new)) = (old, commit.tree()) else {
+                continue;
+            };
+            if changes_path(&old, &new, &mut diffs, query)? {
+                if found.len() == limit as usize {
+                    return Ok((found, true));
+                }
+                found.push(target);
+            }
+        }
+        if !more || cursor.is_none() {
+            return Ok((found, false));
+        }
+    }
+}
+
+/// Whether trees `old` and `new` differ at a path `query` names.
+fn changes_path(
+    old: &gix::Tree<'_>,
+    new: &gix::Tree<'_>,
+    diffs: &mut gix::diff::blob::Platform,
+    query: &PathQuery,
+) -> Result<bool> {
+    let mut changed = false;
+    (old.changes()?)
+        .options(|options| {
+            options.track_path().track_rewrites(None);
+        })
+        .for_each_to_obtain_tree_with_cache(new, diffs, |change| {
+            changed = changed || query.names(change.location());
+            Ok(std::ops::ControlFlow::Continue(()))
+        })?;
+    Ok(changed)
+}
+
 /// The newest `limit` of the target's commits the workspace doesn't have yet, each named by
-/// the pull request it landed, as the project's page names them, with the pull requests the
+/// the pull request it merged, as the project's page names them, with the pull requests the
 /// forge cache has, `cached`.
 pub(super) fn incoming(
     ctx: &but_ctx::Context,
@@ -144,7 +228,7 @@ fn target_page(
                         ..Review::default()
                     },
                 };
-                // It landed, whatever the cache saw last.
+                // It merged, whatever the cache saw last.
                 found.state = ReviewState::Merged;
                 found
             });
@@ -200,7 +284,7 @@ fn local_target_page(
 }
 
 /// `commit` as a target's history lists it. Whether it's incoming, and the pull request it
-/// landed, are for the caller to set.
+/// merged, are for the caller to set.
 pub(super) fn target_commit(
     mailmap: &gix::mailmap::Snapshot,
     commit: &gix::Commit<'_>,
@@ -248,37 +332,39 @@ fn offset_at(seconds: i64) -> i64 {
         .map_or(0, |at| at.offset().local_minus_utc().into())
 }
 
-/// The target as the project's page sums it up: what landed on it, and who's been committing
+/// The target as the project's page sums it up: what merged into it, and who's been committing
 /// to it.
 #[derive(Debug, Clone, Default)]
 pub struct Overview {
-    /// How many commits landed on the target's own line, as its history lists them, each of
+    /// How many commits merged into the target's own line, as its history lists them, each of
     /// the last [`ACTIVITY_DAYS`] days here, oldest first.
     pub daily: Vec<u32>,
-    /// Whose commits landed on it in those days, merges left out, the most landings first.
+    /// Whose commits merged into it in those days, merge commits left out, the most merges
+    /// first.
     pub people: Vec<Person>,
     /// The commits of its own line in those days, newest first.
-    pub landings: Vec<Landing>,
+    pub merges: Vec<Merge>,
     /// The tags on its own line in those days, newest first.
     pub releases: Vec<Release>,
     /// The day the first of `daily` counts, as [`day_of`] numbers days.
     pub first_day: i64,
 }
 
-/// A commit of the target's own line: one of its own, or a merge bringing others in.
+/// A commit merged into the target's own line: one of its own, or a merge bringing others
+/// in.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Landing {
+pub struct Merge {
     pub id: CommitId,
     /// What it's called: its pull request's title when it merged one, else its own.
     pub title: String,
-    /// The day it landed, as [`day_of`] numbers days.
+    /// The day it merged, as [`day_of`] numbers days.
     pub day: i64,
-    /// It landed a pull request: a merge, or a commit whose message names the one it merged.
+    /// It merged a pull request: a merge, or a commit whose message names the one it merged.
     pub pull: bool,
     /// How many commits it brought in, merges left out.
     pub commits: u32,
-    /// For a merge, seconds from the first commit it brought being written to it landing. A
-    /// squashed pull request's commit was written as it landed, so it has none.
+    /// For a merge, seconds from the first commit it brought being written to it merging. A
+    /// squashed pull request's commit was written as it merged, so it has none.
     pub took: Option<i64>,
     /// Who wrote the newest commit it brought in, by email as [`Person`]s are keyed: a pull
     /// request's author, most likely.
@@ -295,18 +381,18 @@ pub struct Release {
     pub day: i64,
 }
 
-/// Someone whose commits landed on the target lately, by [`super::byline`].
+/// Someone whose commits merged into the target lately, by [`super::byline`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct Person {
     pub name: String,
     pub email: String,
-    /// How many times theirs landed each day, as [`Overview::daily`] counts them: a merge of
-    /// many of their commits counts once, as hundreds landing in one pull request isn't
+    /// How many times theirs merged each day, as [`Overview::daily`] counts them: a merge of
+    /// many of their commits counts once, as hundreds merging in one pull request isn't
     /// hundreds of changes to the target.
     pub daily: Vec<u32>,
-    /// The commits of the target's own line that landed theirs: one of theirs, or a merge
+    /// The commits of the target's own line that merged theirs: one of theirs, or a merge
     /// bringing theirs in.
-    pub landed: HashSet<CommitId>,
+    pub merged: HashSet<CommitId>,
 }
 
 /// The target summed up as of `now`, in seconds since the epoch, or nothing without one. A
@@ -326,29 +412,47 @@ pub fn overview(path: &Path, now: i64) -> Result<Option<Overview>> {
     let since = day_start(first_day);
     let mut daily = vec![0; ACTIVITY_DAYS];
     let mut people: Vec<Person> = Vec::new();
-    let mut landings = Vec::new();
+    let mut merges = Vec::new();
     // People go by the names and emails `.mailmap` gives them, as one with a work and a
     // personal email is one person.
     let mailmap = repo.open_mailmap();
-    // A walk of first parents only ignores a time cutoff, so it stops at the first commit
-    // from before the window itself rather than reading the whole history.
-    let line: Vec<_> = (repo.rev_walk([tip.id]).first_parent_only().all()?)
+    // A walk of first parents only ignores a time cutoff, so it stops itself rather than
+    // reading the whole history. One commit from before the window doesn't stop it, as a
+    // test's fixed clock can date one wrong with the window going on past it, but a run of
+    // `OLD_RUN` does. One with a commit from the window after it stays in the line, so a later
+    // merge doesn't take what it brought.
+    const OLD_RUN: usize = 64;
+    let mut line = Vec::new();
+    let mut old = 0;
+    for commit in (repo.rev_walk([tip.id]).first_parent_only().all()?)
         .filter_map(|info| info.ok()?.object().ok())
-        .take_while(|commit| commit.time().is_ok_and(|time| time.seconds >= since))
-        .collect();
+    {
+        match commit.time().is_ok_and(|time| time.seconds >= since) {
+            true => old = 0,
+            false if old + 1 == OLD_RUN => break,
+            false => old += 1,
+        }
+        line.push(commit);
+    }
+    line.truncate(line.len() - old);
     let mut brought = brought_in(&repo, tip.id, &line)?;
-    for landed in &line {
-        let day = landed.time().map_or(first_day, |time| day_of(time.seconds));
-        // A clock ahead of this one counts as today.
-        let day = ((day - first_day) as usize).min(ACTIVITY_DAYS - 1);
+    // One dated before the window, or with no date to read, counts on the day the commit
+    // after it merged, as it was on the line by then.
+    let mut later = ACTIVITY_DAYS - 1;
+    for merged in &line {
+        let day = (merged.time().ok())
+            .and_then(|time| usize::try_from(day_of(time.seconds) - first_day).ok())
+            // A clock ahead of this one counts as today.
+            .map_or(later, |day| day.min(ACTIVITY_DAYS - 1));
+        later = day;
         if let Some(count) = daily.get_mut(day) {
             *count += 1;
         }
-        // Theirs land on the day it did: the commit itself, or what a merge brought in.
-        let first = present_first_parent(landed);
-        let brought = match first.is_some() && landed.parent_ids().count() > 1 {
-            true => brought.remove(&landed.id).unwrap_or_default(),
-            false => vec![landed.clone()],
+        // Theirs merge on the day it did: the commit itself, or what a merge brought in.
+        let first = present_first_parent(merged);
+        let brought = match first.is_some() && merged.parent_ids().count() > 1 {
+            true => brought.remove(&merged.id).unwrap_or_default(),
+            false => vec![merged.clone()],
         };
         for commit in brought.iter().filter(|c| c.parent_ids().count() < 2) {
             let Ok(((name, email), _)) = super::commit_byline(&mailmap, commit) else {
@@ -359,12 +463,12 @@ pub fn overview(path: &Path, now: i64) -> Result<Option<Overview>> {
                 Some(at) => at,
                 None => {
                     let daily = vec![0; ACTIVITY_DAYS];
-                    let landed = HashSet::new();
+                    let merged = HashSet::new();
                     people.push(Person {
                         name,
                         email,
                         daily,
-                        landed,
+                        merged,
                     });
                     people.len() - 1
                 }
@@ -372,27 +476,27 @@ pub fn overview(path: &Path, now: i64) -> Result<Option<Overview>> {
             let Some(person) = people.get_mut(at) else {
                 continue;
             };
-            if person.landed.insert(CommitId(landed.id))
+            if person.merged.insert(CommitId(merged.id))
                 && let Some(count) = person.daily.get_mut(day)
             {
                 *count += 1;
             }
         }
-        landings.push(landing(
+        merges.push(merge_of(
             &repo,
             &mailmap,
-            landed,
+            merged,
             first,
             &brought,
             first_day + day as i64,
         ));
     }
-    let releases = releases(&repo, &landings);
+    let releases = releases(&repo, &merges);
     people.sort_by_key(|person| std::cmp::Reverse(person.daily.iter().sum::<u32>()));
     Ok(Some(Overview {
         daily,
         people,
-        landings,
+        merges,
         releases,
         first_day,
     }))
@@ -421,8 +525,8 @@ fn brought_in<'repo>(
         .collect();
     let mut taken: HashSet<gix::ObjectId> = line.iter().map(|c| c.id).collect();
     let mut brought = HashMap::new();
-    for landed in line.iter().rev() {
-        let mut next: Vec<gix::ObjectId> = (landed.parent_ids().skip(1))
+    for merged in line.iter().rev() {
+        let mut next: Vec<gix::ObjectId> = (merged.parent_ids().skip(1))
             .map(|id| id.detach())
             .collect();
         let mut theirs = Vec::new();
@@ -435,7 +539,7 @@ fn brought_in<'repo>(
             next.extend(parents.into_iter().rev());
             theirs.push(commit.clone());
         }
-        brought.insert(landed.id, theirs);
+        brought.insert(merged.id, theirs);
     }
     Ok(brought)
 }
@@ -507,26 +611,28 @@ fn differing(
         .collect()
 }
 
-/// `landed` summed up as it landed on `day`: from its `first` parent, `brought` in.
-fn landing(
+/// `merged` summed up as it merged on `day`: from its `first` parent, `brought` in.
+fn merge_of(
     repo: &gix::Repository,
     mailmap: &gix::mailmap::Snapshot,
-    landed: &gix::Commit<'_>,
+    merged: &gix::Commit<'_>,
     first: Option<gix::ObjectId>,
     brought: &[gix::Commit<'_>],
     day: i64,
-) -> Landing {
-    let message = (landed.message_raw().ok()).map_or(String::new(), |m| m.to_str_lossy().into());
-    let merge = landed.parent_ids().count() > 1;
+) -> Merge {
+    let message = (merged.message_raw().ok()).map_or(String::new(), |m| m.to_str_lossy().into());
+    let merge = merged.parent_ids().count() > 1;
     let review = but_forge::merged_review_from_message(&but_forge::ForgeName::GitHub, &message);
     let own = brought.iter().filter(|c| c.parent_ids().count() < 2);
     let written = (own.clone())
         .filter_map(|c| Some(c.author().ok()?.time().ok()?.seconds))
         .min();
-    let took = (landed.time().ok())
+    // None for a merge a wrong clock dated before what it brought.
+    let took = (merged.time().ok())
         .zip(written)
         .filter(|_| merge)
-        .map(|(t, w)| t.seconds - w);
+        .map(|(t, w)| t.seconds - w)
+        .filter(|took| *took >= 0);
     let by = (own.clone().next())
         .and_then(|c| super::commit_byline(mailmap, c).ok())
         .map(|((_, email), _)| email.to_lowercase());
@@ -534,16 +640,16 @@ fn landing(
     // for a commit whose parent this clone doesn't have, as a shallow one's oldest, which
     // didn't add everything it has.
     let tree = |id: gix::ObjectId| Some(repo.find_commit(id).ok()?.tree_id().ok()?.detach());
-    let areas = match first.is_none() && landed.parent_ids().next().is_some() {
+    let areas = match first.is_none() && merged.parent_ids().next().is_some() {
         true => Vec::new(),
         false => areas(
             repo,
             first.and_then(tree),
-            landed.tree_id().ok().map(|id| id.detach()),
+            merged.tree_id().ok().map(|id| id.detach()),
         ),
     };
-    Landing {
-        id: CommitId(landed.id),
+    Merge {
+        id: CommitId(merged.id),
         title: (review.as_ref())
             .map(|r| r.title)
             .filter(|t| !t.is_empty())
@@ -557,9 +663,9 @@ fn landing(
     }
 }
 
-/// The tags on the commits of `landings`, newest first.
-fn releases(repo: &gix::Repository, landings: &[Landing]) -> Vec<Release> {
-    let at: HashMap<CommitId, (usize, i64)> = (landings.iter().enumerate())
+/// The tags on the commits of `merges`, newest first.
+fn releases(repo: &gix::Repository, merges: &[Merge]) -> Vec<Release> {
+    let at: HashMap<CommitId, (usize, i64)> = (merges.iter().enumerate())
         .map(|(ix, l)| (l.id, (ix, l.day)))
         .collect();
     let Ok(references) = repo.references() else {
@@ -678,7 +784,7 @@ pub(super) fn push(
                     .find(|(_, (before, after))| before != after)
                     .map(|(segment, _)| segment),
             );
-            anyhow::bail!(
+            but_error::bail_precondition!(
                 "Someone pushed to {moved} since the last fetch, and forcing would replace \
                  it. Check what's there before pushing again."
             );
@@ -686,7 +792,7 @@ pub(super) fn push(
         if let Some(unseen) = pushed_with(&info, branch).find(|segment| {
             (segment.commits_on_remote.iter()).any(|c| !shown.contains(&CommitId(c.id)))
         }) {
-            anyhow::bail!(
+            but_error::bail_precondition!(
                 "The remote has commits on {} that weren't shown, and forcing would drop \
                  them. Push again to see them.",
                 name(Some(unseen))
@@ -695,7 +801,9 @@ pub(super) fn push(
     }
     // As in the desktop app, a conflicted commit stays here until it's resolved.
     if pushed_with(&info, branch).any(|segment| segment.commits.iter().any(|c| c.has_conflicts)) {
-        anyhow::bail!("Resolve the conflicted commits first, so they aren't pushed");
+        but_error::bail_precondition!(
+            "Resolve the conflicted commits first, so they aren't pushed"
+        );
     }
     let force = needs_force(&info, branch);
     let outcome = runtime()
@@ -714,10 +822,11 @@ pub(super) fn push(
             let root = err.root_cause().to_string();
             if let Some(output) = root.strip_prefix("pre-push hook failed: ") {
                 let output = super::ops::hook_output(output);
-                return anyhow::anyhow!("The pre-push hook refused the push:\n{output}");
+                return anyhow::anyhow!("The pre-push hook refused the push:\n{output}")
+                    .context(but_error::Code::PreconditionFailed);
             }
             if err.downcast_ref::<but_error::Code>() != Some(&but_error::Code::GitNonFastForward) {
-                return err;
+                return remote_failure(err);
             }
             tracing::warn!(?err, "push rejected");
             anyhow::anyhow!(match force {
@@ -725,6 +834,7 @@ pub(super) fn push(
                 true => "The remote refused the force push, as it does for a protected branch.",
                 false => "The remote has commits this branch doesn't. Fetch, then pull them in.",
             })
+            .context(but_error::Code::PreconditionFailed)
         })?;
     let (short, full) = (short_ref(ref_name), ref_name.to_string());
     let remote = (outcome.push.branch_to_remote.into_iter())
@@ -821,6 +931,25 @@ pub fn push_refusal(err: &anyhow::Error) -> Option<String> {
     Some(said.join("\n"))
 }
 
+/// `err` marked as not a fault here when Git couldn't reach the remote or the remote turned it
+/// down, as when the network is out, the repository moved or a server's hook refused. One that
+/// already says what it is keeps that.
+pub(super) fn remote_failure(err: anyhow::Error) -> anyhow::Error {
+    use but_error::AnyhowContextExt as _;
+    if (err.custom_context()).is_some_and(|said| said.code != but_error::Code::Unknown) {
+        return err;
+    }
+    let text = format!("{err:#}");
+    let remote = (text.lines().map(str::trim))
+        .any(|line| line.starts_with("remote:") || line.starts_with("! [remote rejected]"))
+        || text.contains("Could not read from remote repository")
+        || text.contains("unable to access '");
+    match remote {
+        true => err.context(but_error::Code::PreconditionFailed),
+        false => err,
+    }
+}
+
 /// Bring in the commits only `branch`'s remote has: the local commits rebased on top of
 /// them, leaving out the remote's older versions of commits rewritten here. A dry run goes
 /// first, and when it would leave commits conflicted that aren't now, it stops there with
@@ -908,7 +1037,7 @@ fn integrate_remote(
         perm.read_permission(),
     )?;
     // Rebasing would bring back the remote's versions of commits rewritten here, beside
-    // their new ones, so they're left out, as Lite's "Combine both" does. A version is the
+    // their new ones, so they're left out. A version is the
     // same change ID on both sides, one made without counting as the one the engine gives it
     // from its sha when it first rebases it; or with neither having one, as after plain Git,
     // the same subject by the same author. The remote's new commits were made on those versions, so they go
@@ -966,17 +1095,23 @@ fn integrate_remote(
     Ok((result, incoming))
 }
 
-/// What [`Update`] did.
 #[derive(Debug)]
 pub enum UpdateOutcome {
+    /// Nothing it picks is behind the target, so nothing changed.
+    UpToDate,
     /// It would have left these conflicted that aren't now, so nothing changed.
     WouldConflict(UpdateConflicts),
     Updated {
         /// Branches (full refs) left with conflicted commits they didn't have, each with
         /// how many.
         conflicted: Vec<(Option<super::FullName>, usize)>,
-        /// Branches (full refs) that landed on the target, which the update removed.
-        landed: Vec<super::FullName>,
+        /// Branches (full refs) that merged into the target, which the update removed.
+        merged: Vec<super::FullName>,
+        /// Checkouts whose uncommitted changes got conflict markers.
+        marked: Vec<super::Checkout>,
+        /// The linked worktrees whose own work it found merged, with nothing uncommitted: see
+        /// [`super::worktrees::Heads::merged_with_own_work`].
+        merged_worktrees: Vec<bstr::BString>,
     },
 }
 
@@ -984,8 +1119,9 @@ pub enum UpdateOutcome {
 pub use but_api::workspace::UpdateScope;
 
 /// Rebase what `scope` picks onto the target as it is now. Doesn't fetch first; see
-/// [`Fetch`]. A dry run goes first, and when the rebase would leave anything conflicted that
-/// isn't now, it stops there, unless that's what was `accepted`: a fetch since can bring more.
+/// [`Fetch`]. Nothing behind, it does nothing, as `but pull` doesn't. A dry run goes first,
+/// and when the rebase would leave anything conflicted that isn't now, it stops there, unless
+/// that's what was `accepted`: a fetch since can bring more.
 pub struct Update {
     pub scope: UpdateScope,
     pub accepted: Option<UpdateConflicts>,
@@ -995,8 +1131,67 @@ impl Intent for Update {
     type Done = UpdateOutcome;
 
     fn apply(self, run: &mut Run) -> Result<UpdateOutcome> {
+        let outcome = self.rebase(run)?;
+        if let UpdateOutcome::Updated { .. } = outcome
+            && let Err(err) = open(run.path()).and_then(|mut ctx| {
+                but_api::workspace::workspace_prune_remotes(&mut ctx, Some("update".into()))
+            })
+        {
+            tracing::warn!(
+                ?err,
+                "could not prune remote-tracking branches after updating"
+            );
+        }
+        Ok(outcome)
+    }
+
+    fn kind(&self) -> OpKind {
+        OpKind::Update
+    }
+}
+
+impl Update {
+    fn rebase(self, run: &mut Run) -> Result<UpdateOutcome> {
         run.locked(|ctx, perm| {
+            // The engine updates nothing without HEAD's commit.
+            super::ops::refuse_unborn(ctx)?;
             let info = but_api::legacy::workspace::head_info(ctx)?;
+            let (behind, tip, base) = {
+                let repo = ctx.repo.get()?;
+                let meta = ctx.project_meta()?;
+                // The engine reads the same ref, so without it the update could only fail.
+                let Some(tip) = super::target_source(&repo, &meta)
+                    .and_then(|source| super::ref_tip(&repo, source.as_ref()))
+                else {
+                    but_error::bail_precondition!(
+                        "There's no target branch to update from: the project's page says what to do"
+                    );
+                };
+                let base = meta.resolve_target_commit(&repo)?;
+                let behind =
+                    but_api::workspace::is_behind_target(&repo, &info, self.scope, tip, base)?;
+                (behind, tip, base)
+            };
+            if !behind {
+                return Ok(UpdateOutcome::UpToDate);
+            }
+            // The engine updates nothing while the main checkout is on no branch, and the
+            // workspace's rebase would go on past what Git is partway through there.
+            {
+                let repo = ctx.repo.get()?;
+                if self.scope.workspace() || repo.head()?.is_detached() {
+                    super::ops::refuse_unfinished(&repo, true)?;
+                }
+            }
+            // What the update measures merged branches from: the target's own commits since
+            // where the workspace stood, and that one; and where each worktree was.
+            let (main_line, heads) = {
+                let repo = ctx.repo.get()?;
+                let past = super::commits_past(&repo, tip, base);
+                let mut main_line = super::first_parent_line(&repo, tip, &past);
+                main_line.insert(super::CommitId(base));
+                (main_line, super::worktrees::heads(&repo))
+            };
             let preview = but_api::workspace::workspace_integrate_upstream_scoped_with_perm(
                 ctx,
                 &info,
@@ -1030,17 +1225,16 @@ impl Intent for Update {
                     .collect()
             };
             let remaining = names(&after);
+            let merged: Vec<_> = (names(&info).into_iter())
+                .filter(|name| !remaining.contains(name))
+                .collect();
             Ok(UpdateOutcome::Updated {
                 conflicted: newly_conflicted(&info, &updated.workspace_state.conflicted_commits),
-                landed: (names(&info).into_iter())
-                    .filter(|name| !remaining.contains(name))
-                    .collect(),
+                merged_worktrees: heads.merged_with_own_work(ctx, &merged, &main_line),
+                merged,
+                marked: marked(&updated.workspace_state.conflicted_checkouts),
             })
         })
-    }
-
-    fn kind(&self) -> OpKind {
-        OpKind::Update
     }
 }
 
@@ -1080,7 +1274,8 @@ pub fn fetch(path: &Path) -> Result<bool> {
     if ctx.repo.get()?.remote_names().is_empty() {
         return Ok(false);
     }
-    but_api::workspace::workspace_fetch_from_remotes(&mut ctx, Some("fetch".into()))?;
+    but_api::workspace::workspace_fetch_from_remotes(&mut ctx, Some("fetch".into()))
+        .map_err(remote_failure)?;
     Ok(true)
 }
 
@@ -1103,16 +1298,16 @@ impl Intent for Fetch {
 /// Put `branch`, or with `whole_stack` it and every branch below it, straight onto the target
 /// and push the target, or with no upstream, just move it. Done is what that left for the
 /// other branches.
-pub struct Land {
+pub struct MergeIntoTarget {
     pub branch: super::FullName,
     pub tip: CommitId,
     pub whole_stack: bool,
 }
 
-impl Intent for Land {
-    type Done = Landed;
+impl Intent for MergeIntoTarget {
+    type Done = MergedIntoTarget;
 
-    fn apply(self, run: &mut Run) -> Result<Landed> {
+    fn apply(self, run: &mut Run) -> Result<MergedIntoTarget> {
         // `branch_land` takes GitButler's lock itself, around its fetch and push, so it's
         // watched rather than locked.
         run.watched(|ctx| {
@@ -1120,7 +1315,7 @@ impl Intent for Land {
             // A merge commit when the branch has diverged, as `but land` makes one without its
             // flags. Only at `tip`, the one the user was asked about: a push can't be undone,
             // so not of commits an agent added since.
-            let landed = but_api::land::branch_land(
+            let merged = but_api::land::branch_land(
                 ctx,
                 self.branch.shorten().to_string(),
                 false,
@@ -1128,34 +1323,46 @@ impl Intent for Land {
                 self.whole_stack,
                 Some(self.tip.0),
             )?;
-            Ok(Landed {
-                update_needed: landed.reconcile_skipped,
-                conflicted: newly_conflicted(&info, &landed.workspace.conflicted_commits),
-                marked: landed.workspace.checkout_conflict_occurred,
+            Ok(MergedIntoTarget {
+                update_needed: merged.reconcile_skipped,
+                conflicted: newly_conflicted(&info, &merged.workspace.conflicted_commits),
+                marked: marked(&merged.workspace.conflicted_checkouts),
             })
         })
     }
 }
 
-/// What [`Land`] left for the other branches.
-pub struct Landed {
+/// What [`MergeIntoTarget`] left for the other branches.
+pub struct MergedIntoTarget {
     /// They still need an update to sit on the moved target.
     pub update_needed: bool,
     /// Branches (full refs) the update after it left with conflicted commits they didn't
     /// have, each with how many.
     pub conflicted: Vec<(Option<super::FullName>, usize)>,
-    /// The update gave uncommitted changes conflict markers.
-    pub marked: bool,
+    /// Checkouts whose uncommitted changes the update gave conflict markers.
+    pub marked: Vec<super::Checkout>,
+}
+
+fn marked(checkouts: &[but_rebase::graph_rebase::ConflictedCheckout]) -> Vec<super::Checkout> {
+    (checkouts.iter())
+        .map(|checkout| match checkout {
+            but_rebase::graph_rebase::ConflictedCheckout::Head => super::Checkout::Main,
+            but_rebase::graph_rebase::ConflictedCheckout::Worktree { name, .. } => {
+                super::Checkout::Linked(name.clone())
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use super::{
-        ACTIVITY_DAYS, DAY, Update, UpdateOutcome, UpdateScope, day_of, overview, push_refusal,
-        pushed_with,
+        ACTIVITY_DAYS, DAY, Update, UpdateOutcome, UpdateScope, day_of, day_start, overview,
+        push_refusal, pushed_with, remote_failure,
     };
+    use crate::backend::branches::ApplyBranch;
     use crate::backend::model::build::full;
-    use crate::backend::ops::tests::git;
+    use crate::backend::ops::tests::{git, repo_with, target_origin_main};
 
     /// A commit on `origin/main` as a fetch brings it.
     fn new_on_target(path: &std::path::Path, message: &str) {
@@ -1194,6 +1401,7 @@ mod tests {
     }
 
     fn update(path: &std::path::Path, scope: UpdateScope) -> UpdateOutcome {
+        without_askpass();
         let update = Update {
             scope,
             accepted: None,
@@ -1247,6 +1455,61 @@ mod tests {
                 git(path, &["rev-parse", "agent~"]),
                 git(path, &["rev-parse", "origin/main"]),
                 "agent's work now sits on the target's newest commit"
+            );
+        })
+    }
+
+    #[test]
+    fn integrating_the_last_stack_checks_out_the_target() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            for name in ["first", "second"] {
+                git(path, &["checkout", "-q", "-b", name, "main"]);
+                std::fs::write(path.join(name), "work\n").unwrap();
+                git(path, &["add", name]);
+                git(path, &["commit", "-q", "-m", name]);
+            }
+            git(path, &["checkout", "-q", "main"]);
+            for name in ["first", "second"] {
+                let apply = ApplyBranch {
+                    branch: full(&format!("refs/heads/{name}")),
+                    freeing: None,
+                };
+                crate::backend::apply(path, apply).unwrap();
+            }
+            let integrate = |branch: &str| {
+                let merge = git(
+                    path,
+                    &[
+                        "commit-tree",
+                        "origin/main^{tree}",
+                        "-p",
+                        "origin/main",
+                        "-p",
+                        branch,
+                        "-m",
+                        "merge",
+                    ],
+                );
+                git(
+                    path,
+                    &["update-ref", "refs/remotes/origin/main", merge.trim()],
+                );
+                update(path, UpdateScope::All);
+                git(path, &["symbolic-ref", "HEAD"]).trim().to_owned()
+            };
+
+            assert_eq!(
+                integrate("first"),
+                "refs/heads/gitbutler/workspace",
+                "second still needs the workspace"
+            );
+            assert_eq!(
+                integrate("second"),
+                "refs/heads/main",
+                "with nothing left in it, the workspace goes"
             );
         })
     }
@@ -1325,6 +1588,95 @@ mod tests {
     }
 
     #[test]
+    fn an_update_with_nothing_behind_records_nothing() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = crate::backend::ops::tests::repo_with("one\n");
+            let path = dir.path();
+            crate::backend::ops::tests::target_origin_main(path);
+            crate::backend::apply(path, crate::backend::ops::tests::branch_named("feature"))
+                .unwrap();
+            assert!(!needs_update(path), "nothing new on the target");
+
+            let update = Update {
+                scope: UpdateScope::All,
+                accepted: None,
+            };
+            let (outcome, ran) = crate::backend::apply(path, update).unwrap();
+            assert!(matches!(outcome, UpdateOutcome::UpToDate), "{outcome:?}");
+            assert!(
+                ran.recorded.is_none(),
+                "no undo step for an update that did nothing"
+            );
+        })
+    }
+
+    #[test]
+    fn an_update_on_a_detached_head_is_refused() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = crate::backend::ops::tests::repo_with("one\n");
+            let path = dir.path();
+            crate::backend::ops::tests::target_origin_main(path);
+            new_on_target(path, "new on target");
+            git(path, &["checkout", "-q", "--detach"]);
+
+            let update = Update {
+                scope: UpdateScope::All,
+                accepted: None,
+            };
+            let refused = crate::backend::apply(path, update).unwrap_err();
+            assert!(
+                format!("{refused:#}").contains("No branch is checked out"),
+                "says what to check out, not the engine's own words: {refused:#}"
+            );
+            assert_eq!(
+                (refused.downcast_ref::<but_error::Context>()).map(|said| said.code),
+                Some(but_error::Code::PreconditionFailed),
+                "the user is the one to check out a branch, so it isn't reported as a bug"
+            );
+        })
+    }
+
+    #[test]
+    fn an_update_without_a_commit_or_a_target_to_read_is_refused() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let lost = repo_with("one\n");
+            target_origin_main(lost.path());
+            git(
+                lost.path(),
+                &["update-ref", "-d", "refs/remotes/origin/main"],
+            );
+            let orphan = repo_with("one\n");
+            target_origin_main(orphan.path());
+            new_on_target(orphan.path(), "new on target");
+            git(orphan.path(), &["switch", "-q", "--orphan", "fresh"]);
+            let unborn = tempfile::tempdir().unwrap();
+            git(unborn.path(), &["init", "-q", "-b", "main"]);
+            let untargeted = repo_with("one\n");
+            for (path, says) in [
+                (lost.path(), "no target branch"),
+                (orphan.path(), "no commits yet"),
+                (unborn.path(), "no commits yet"),
+                (untargeted.path(), "no target branch"),
+            ] {
+                let update = Update {
+                    scope: UpdateScope::All,
+                    accepted: None,
+                };
+                let refused = crate::backend::apply(path, update).unwrap_err();
+                assert!(
+                    format!("{refused:#}").contains(says),
+                    "says what's missing, not the engine's own words: {refused:#}"
+                );
+                assert_eq!(
+                    (refused.downcast_ref::<but_error::Context>()).map(|said| said.code),
+                    Some(but_error::Code::PreconditionFailed),
+                    "the menu's Fetch and update reaches it, and it isn't a bug"
+                );
+            }
+        })
+    }
+
+    #[test]
     fn a_local_target_behind_its_upstream_needs_an_update() {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = crate::backend::ops::tests::repo_with("one\n");
@@ -1350,8 +1702,9 @@ mod tests {
         })
     }
 
-    /// Pushes go without the app's askpass broker, which a process can turn off only once.
-    fn without_askpass() {
+    /// Pushes and the prune after an update go without the app's askpass broker, which a
+    /// process can turn off only once.
+    pub(in crate::backend) fn without_askpass() {
         static ASKPASS: std::sync::Once = std::sync::Once::new();
         ASKPASS.call_once(but_askpass::disable);
     }
@@ -1388,6 +1741,27 @@ refs/heads/middle
 refs/heads/wt
 
 "#]]
+            );
+        })
+    }
+
+    #[test]
+    fn a_push_git_cant_deliver_is_the_users_to_sort_out() {
+        without_askpass();
+        crate::backend::lane_tests::linked_workspace(|path| {
+            let nowhere = tempfile::tempdir().unwrap();
+            let url = nowhere.path().join("moved.git");
+            git(
+                path,
+                &["remote", "set-url", "origin", url.to_str().unwrap()],
+            );
+
+            let err = super::push(path, &full("refs/heads/wt"), false, None, false)
+                .expect_err("there's no repository there");
+            assert_eq!(
+                err.downcast_ref::<but_error::Code>(),
+                Some(&but_error::Code::PreconditionFailed),
+                "Git couldn't reach the remote, which isn't a fault here: {err:#}"
             );
         })
     }
@@ -1460,6 +1834,57 @@ refs/heads/wt
     }
 
     #[test]
+    fn a_commit_dated_before_the_window_does_not_end_it() {
+        but_testsupport::isolated_app_data_dir(|| {
+            use std::process::Command;
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path();
+            let git = |args: &[&str], at: i64| {
+                let date = format!("@{at} +0000");
+                let out = Command::new("git")
+                    .current_dir(path)
+                    .args(["-c", "commit.gpgsign=false", "-c", "user.name=Ann"])
+                    .args(["-c", "user.email=ann@example.com"])
+                    .args(args)
+                    .env("GIT_AUTHOR_DATE", &date)
+                    .env("GIT_COMMITTER_DATE", &date)
+                    .output()
+                    .unwrap();
+                assert!(out.status.success(), "git {args:?}: {out:?}");
+            };
+            let now = 2_000_000_000;
+            let commit = |at: i64| git(&["commit", "-q", "--allow-empty", "-m", "c"], at);
+            git(&["init", "-q", "-b", "main"], now);
+            commit(now - 40 * DAY);
+            commit(now - 20 * DAY);
+            git(&["checkout", "-q", "-b", "side"], now - 10 * DAY);
+            commit(now - 10 * DAY);
+            git(&["checkout", "-q", "main"], now - 10 * DAY);
+            // Merged by a test's fixed clock, after the one 20 days ago.
+            git(&["merge", "-q", "--no-ff", "-m", "merge side", "side"], 100);
+            commit(now - 5 * DAY);
+
+            crate::backend::settings::set_target(path, &full("refs/heads/main")).unwrap();
+            let summed = overview(path, now).unwrap().expect("a target");
+            let counted: Vec<(usize, u32)> = (summed.daily.iter().copied().enumerate())
+                .filter(|(_, n)| *n > 0)
+                .collect();
+            assert_eq!(
+                counted,
+                [(ACTIVITY_DAYS - 21, 1), (ACTIVITY_DAYS - 6, 2)],
+                "the walk goes on past the merge dated 1970, which counts on the day the one \
+                 after it merged, and stops before the commit from before the window"
+            );
+            let merge = &summed.merges[1];
+            assert_eq!(
+                (merge.title.as_str(), merge.commits, merge.took),
+                ("merge side", 1, None),
+                "the merge dated 1970 keeps what it brought, and took no time it can say"
+            );
+        })
+    }
+
+    #[test]
     fn sums_up_the_target_by_day_and_author() {
         but_testsupport::isolated_app_data_dir(|| {
             use std::process::Command;
@@ -1477,7 +1902,9 @@ refs/heads/wt
                     .unwrap();
                 assert!(out.status.success(), "git {args:?}: {out:?}");
             };
-            let now = 2_000_000_000;
+            // Three in the morning here, so the merges of the hours before fall on the day
+            // before, wherever the clock is set.
+            let now = day_start(day_of(2_000_000_000)) + 3 * 60 * 60;
             git(&["init", "-q", "-b", "main"], now);
             let commit = |who: &str, at: i64| {
                 let author = format!("{who} <{}@example.com>", who.to_lowercase());
@@ -1554,26 +1981,26 @@ refs/heads/wt
                     ("Cat", "cat@example.com", 1),
                     ("Bob", "bob@example.com", 1),
                 ],
-                "most landings first, the merged branches' authors too and the merges left out; \
-                 Dan's two commits landed in one merge, once"
+                "most merges first, the merged branches' authors too and the merge commits left \
+                 out; Dan's two commits merged in one merge commit, once"
             );
             let repo = gix::open(path).unwrap();
-            let landed_by = |name: &str| {
+            let merged_by = |name: &str| {
                 let person = summed.people.iter().find(|p| p.name == name).unwrap();
-                person.landed.clone()
+                person.merged.clone()
             };
             let main = |back: usize| {
                 let at = repo.rev_parse_single(format!("main~{back}").as_str());
                 [super::CommitId(at.unwrap().detach())].into()
             };
             assert_eq!(
-                landed_by("Cat"),
+                merged_by("Cat"),
                 main(2),
-                "the first merge landed Cat's commit, which the target's own line lists in its \
-                 place, and the later merge, whose branch holds it too, didn't land it again"
+                "the first merge merged Cat's commit, which the target's own line lists in its \
+                 place, and the later merge, whose branch holds it too, didn't merge it again"
             );
-            assert_eq!(landed_by("Dan"), main(1), "the later merge landed Dan's");
-            let landings: Vec<(&str, u32, Vec<&str>)> = (summed.landings.iter())
+            assert_eq!(merged_by("Dan"), main(1), "the later merge merged Dan's");
+            let merges: Vec<(&str, u32, Vec<&str>)> = (summed.merges.iter())
                 .map(|l| {
                     (
                         l.title.as_str(),
@@ -1583,7 +2010,7 @@ refs/heads/wt
                 })
                 .collect();
             assert_eq!(
-                landings,
+                merges,
                 [
                     ("by Ann", 1, vec![]),
                     ("merge later", 2, vec!["crates/but", "docs"]),
@@ -1642,6 +2069,11 @@ refs/heads/wt
             Some("error: GH006: Protected branch update failed for refs/heads/main."),
             "the remote's own words, blank lines dropped"
         );
+        assert_eq!(
+            push_refusal(&remote_failure(protected)).as_deref(),
+            Some("error: GH006: Protected branch update failed for refs/heads/main."),
+            "a refusal that says what it is keeps that past the remote's other failures"
+        );
         let stale = refused(" ! [rejected] main -> main (stale info)");
         assert_eq!(
             push_refusal(&stale).as_deref(),
@@ -1650,5 +2082,96 @@ refs/heads/wt
         );
         let other = anyhow::anyhow!("failed to connect");
         assert_eq!(push_refusal(&other), None, "not protection at all");
+    }
+
+    #[test]
+    fn the_commits_that_changed_a_path_are_found_by_whole_path_or_letters() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path();
+            git(path, &["init", "-q", "-b", "main"]);
+            git(path, &["config", "user.name", "Ann"]);
+            git(path, &["config", "user.email", "ann@example.com"]);
+            git(path, &["config", "commit.gpgsign", "false"]);
+            let commit = |file: &str, message: &str| {
+                let file = path.join(file);
+                std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+                std::fs::write(file, message).unwrap();
+                git(path, &["add", "."]);
+                git(path, &["commit", "-q", "-m", message]);
+            };
+            commit("src/app.rs", "add app");
+            commit("README.md", "add readme");
+            commit("src/app.rs", "change app");
+            commit("docs/README.md", "add docs");
+            git(path, &["checkout", "-q", "-b", "side"]);
+            commit("src/app.rs", "change app on side");
+            git(path, &["checkout", "-q", "main"]);
+            git(
+                path,
+                &["merge", "-q", "--no-ff", "-m", "merge side", "side"],
+            );
+            git(path, &["rm", "-q", "src/app.rs"]);
+            git(path, &["commit", "-q", "-m", "delete app"]);
+            commit("README.md", "change readme");
+            crate::backend::settings::set_target(path, &full("refs/heads/main")).unwrap();
+
+            let titles = |commits: &[super::TargetCommit]| -> Vec<String> {
+                commits.iter().map(|c| c.title.clone()).collect()
+            };
+            let whole = |path: &str| super::PathQuery::Whole(path.into());
+            for (query, expected, why) in [
+                (
+                    whole("src/app.rs"),
+                    &["delete app", "merge side", "change app", "add app"][..],
+                    "a file gone from the tip still has its history, and a merge stands for what \
+                     it brought in along the target's own line",
+                ),
+                (
+                    whole("README.md"),
+                    &["change readme", "add readme"][..],
+                    "a whole path leaves out a file of that name in a folder",
+                ),
+                (
+                    whole("docs"),
+                    &["add docs"][..],
+                    "a folder, by its whole path",
+                ),
+                (
+                    super::PathQuery::Letters("ReadMe".to_owned()),
+                    &["change readme", "add docs", "add readme"][..],
+                    "letters find it anywhere, in any case",
+                ),
+                (
+                    whole("app"),
+                    &[][..],
+                    "a whole path doesn't match part of a name",
+                ),
+            ] {
+                let (commits, more) =
+                    super::target_commits_changing(path, &query, None, 10).unwrap();
+                assert_eq!(titles(&commits), expected, "{query:?}: {why}");
+                assert!(!more, "{query:?}: ten is more than it finds");
+            }
+
+            let app = whole("src/app.rs");
+            let (first, more) = super::target_commits_changing(path, &app, None, 2).unwrap();
+            assert_eq!(titles(&first), ["delete app", "merge side"]);
+            assert!(more, "older commits changed it too");
+            let after = first.last().map(|c| c.id);
+            let (rest, more) = super::target_commits_changing(path, &app, after, 2).unwrap();
+            assert_eq!(
+                titles(&rest),
+                ["change app", "add app"],
+                "the next page goes on below the last one found"
+            );
+            assert!(!more, "those were the last that changed it");
+
+            let invalid = bstr::BStr::new(b"src/\xff.rs");
+            assert!(
+                !whole("src/\u{fffd}.rs").names(invalid),
+                "a name that only reads the same once decoded is another file"
+            );
+        });
     }
 }

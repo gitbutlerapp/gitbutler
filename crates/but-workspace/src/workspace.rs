@@ -1,5 +1,3 @@
-//! New graphy workspace
-
 use std::collections::{HashMap, HashSet};
 
 use anyhow::Result;
@@ -12,20 +10,15 @@ use renderdag::{Ancestor, GraphRowRenderer, LinkLine, NodeLine, PadLine, Rendere
 
 use crate::{ref_info::Commit, ui::CommitState};
 
-/// A graph row's data
 #[expect(clippy::large_enum_variant)]
 pub enum GraphRowData {
-    /// A commit :D
     Commit {
-        /// The commit.
         commit: Commit,
         /// The commit's state (local-only / local-and-remote / integrated), as
         /// computed by the Editor's workspace projection.
         state: CommitState,
     },
-    /// A reference
     Reference {
-        /// The name of the reference
         ref_name: gix::refs::FullName,
         /// More information about the reference, computed by the Editor's
         /// workspace projection. `None` for references the projection didn't
@@ -34,12 +27,9 @@ pub enum GraphRowData {
     },
 }
 
-/// A row in the graph
 pub struct GraphRow {
-    /// Data
     pub data: GraphRowData,
 
-    /// The node columns for this row.
     pub node_line: Vec<NodeLine>,
 
     /// The link columns for this row, if a link row is necessary.
@@ -49,7 +39,6 @@ pub struct GraphRow {
     /// filled in with pad lines.
     pub term_line: Option<Vec<bool>>,
 
-    /// The pad columns for this row.
     pub pad_lines: Vec<PadLine>,
 }
 
@@ -57,22 +46,17 @@ pub struct GraphRow {
 pub struct LinearSegment {
     /// The reference that starts this segment, if any.
     pub reference_idx: Option<usize>,
-    /// The row indices in this segment.
     pub row_idxs: Vec<usize>,
 }
 
 /// A reference and the rows reachable from it, down to the next reference. A
 /// commit reachable from more than one reference is included in each of them.
 pub struct ReferenceSegment {
-    /// The reference row index.
     pub reference_idx: usize,
-    /// The row indices in this segment.
     pub row_idxs: Vec<usize>,
 }
 
-/// A stack
 pub struct Stack {
-    /// The rows
     pub rows: Vec<GraphRow>,
     /// Linear runs split by references.
     pub linear_segments: Vec<LinearSegment>,
@@ -81,13 +65,10 @@ pub struct Stack {
     pub reference_segments: Vec<ReferenceSegment>,
 }
 
-/// The Graph Workspace that has been decorated with a bunch of types
 pub struct DetailedGraphWorkspace {
-    /// The stacks
     pub stacks: Vec<Stack>,
 }
 
-/// A detailed graph workspace
 pub fn detailed_graph_workspace<M: RefMetadata>(
     workspace: &mut but_graph::Workspace,
     meta: &mut M,

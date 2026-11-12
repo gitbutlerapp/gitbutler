@@ -7,7 +7,6 @@ members = [
     ##
     ### ✅Exemplary 🏆
     ##
-    # Exhaustive documentation (via `#![deny(missing_docs)]`)
     # Exhaustive tests
     # No or minimal 'legacy' support
     # No `but-ctx` dependency
@@ -27,10 +26,10 @@ members = [
     ##
     # Shows many or all traits of Exemplary
     # Substantial legacy code or legacy dependencies
-    # Partial or incomplete documentation.
     # Tests for core capabilities.
     # 👉Could be exemplary once older supporting code is removed, and it was actually reviewed.
     "crates/but-rebase", # 📄Alter commit-graphs in various ways
+    "crates/but-evo", # 📄Obsolescence markers that record how commits were rewritten.
     # 👉needs impl based on `but_core::snapshot`; shouldn't use `but-ctx`.
     "crates/but-oplog", # 📄A sketch of a modern `gitbutler-oplog`
     # 👉mostly powered by legacy, but will help to transition to `but-db` backing.
@@ -39,6 +38,7 @@ members = [
     "crates/but-hunk-assignment", # 📄Assign uncommitted changes to stacks/lanes.
     # 👉uses `but-ctx`.
     "crates/but-comments", # 📄Ephemeral comments anchored to lines in diffs.
+    "crates/but-ui-control", # 📄Controlling a running GPUI app over its socket.
     "crates/but-hunk-dependency", # 📄Assuming it works, it feels close to 'Exemplary',
     # 👉Too much legacy code.
     "crates/but-workspace", # 📄Workspace abstractions on top of `but-graph`; workspace manipulation.
@@ -59,6 +59,7 @@ members = [
     # 👉No tests, lacks top-level docs, purpose somewhat unclear.
     "crates/but-llm", # 📄TBD
     # 👉lacks top-level docs and docs.
+    "crates/but-briefs", # 📄A thin client of the Briefs API, to find and read the briefs about what a git client shows.
     "crates/but-github", # 📄A thin wrapper of the GitHub API, for authentication and resource access.
     # 👉lacks top-level docs and docs.
     "crates/but-gitlab", # 📄A thin wrapper of the GitLab API, for authentication and resource access.
@@ -109,6 +110,7 @@ members = [
     # Should be reviewed to mostly use `but-api`, to be renamed to `but-tauri` or something.
     "crates/gitbutler-tauri",
     "crates/but-gpui", # An experimental native client on GPUI.
+    "crates/but-tty",  # The GPUI client's embedded terminals, without a screen.
     # GitButler installation binary
     "crates/but-installer",
     # Documentation binary
@@ -143,11 +145,13 @@ but = { path = "crates/but" }
 but-debugging = { path = "crates/but-debugging" }
 but-testsupport = { path = "crates/but-testsupport" }
 but-rebase = { path = "crates/but-rebase" }
+but-evo = { path = "crates/but-evo" }
 but-core = { path = "crates/but-core" }
 but-ctx = { path = "crates/but-ctx" }
 but-workspace = { path = "crates/but-workspace" }
 but-branches = { path = "crates/but-branches" }
 but-comments = { path = "crates/but-comments" }
+but-ui-control = { path = "crates/but-ui-control" }
 but-hunk-assignment = { path = "crates/but-hunk-assignment" }
 but-hunk-dependency = { path = "crates/but-hunk-dependency" }
 but-db = { path = "crates/but-db" }
@@ -160,6 +164,7 @@ but-tools = { path = "crates/but-tools" }
 but-api = { path = "crates/but-api" }
 but-api-macros = { path = "crates/but-api-macros" }
 but-gerrit = { path = "crates/but-gerrit" }
+but-briefs = { path = "crates/but-briefs" }
 but-github = { path = "crates/but-github" }
 but-gitlab = { path = "crates/but-gitlab" }
 but-bitbucket = { path = "crates/but-bitbucket" }
@@ -182,6 +187,7 @@ but-llm = { path = "crates/but-llm" }
 but-server = { path = "crates/but-server" }
 but-agentlog = { path = "crates/but-agentlog" }
 but-transaction = { path = "crates/but-transaction" }
+but-tty = { path = "crates/but-tty" }
 
 gitbutler-git = { path = "crates/gitbutler-git" }
 gitbutler-watcher = { path = "crates/gitbutler-watcher" }
@@ -258,7 +264,6 @@ serde_json_lenient = "0.2.3"
 reqwest = { version = "0.13.3", default-features = false, features = [
     "rustls",
     "json",
-    "multipart",
     "query",
     "stream",
 ] }
@@ -274,6 +279,8 @@ posthog-rs = { version = "0.27.1", default-features = false, features = ["async-
 base64 = "0.22"
 bitflags = "2.11.1"
 notify = "8.2.0"
+# TODO: use a release containing the no-follow APIs needed on Windows (notify-rs/notify#716).
+file-id = { git = "https://github.com/notify-rs/notify", rev = "978fe719b066a8ce76b9a9d346546b1569eecfb6", version = "0.2.3" }
 snapbox = { version = "0.6.23", features = ["json"] }
 url = "2.5.7"
 petgraph = { version = "0.8.3", default-features = false, features = [
@@ -402,6 +409,11 @@ zune-jpeg = { opt-level = 3 }
 syntect = { opt-level = 3 }
 fancy-regex = { opt-level = 3 }
 regex-automata = { opt-level = 3 }
+# Rebuilding the GPUI client whole after a small change takes 15s, incrementally under 5s.
+but-gpui = { incremental = true }
+# Its build script picks Zig's Debug mode from `debug`, whatever `opt-level` says, and that
+# verifies the whole page for every cell a terminal prints in a hyperlink.
+libghostty-vt-sys = { opt-level = 3, debug = false }
 # This one is special as we can run into debug assertions otherwise.
 # They have a time, but let's chose the time instead of always being hit by it.
 gix-merge = { opt-level = 3, debug-assertions = false }
@@ -416,6 +428,7 @@ strip = true    # Strip symbols from binary
 # CLI's highlighting shares any of them, which only gets faster.
 [profile.release.package]
 but-gpui = { opt-level = 3 }
+libghostty-vt-sys = { opt-level = 3, debug = false }
 gpui = { opt-level = 3 }
 gpui_apple = { opt-level = 3 }
 gpui_macos = { opt-level = 3 }

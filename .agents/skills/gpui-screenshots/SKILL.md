@@ -21,8 +21,27 @@ echo hello > "$repo/notes.txt"
 ```
 
 Build whatever state the change needs (branches, commits, uncommitted edits) with `git` here,
-or later with `sh` steps, which run while the app watches. To try a real repository, use an
-APFS clone as `crates/but-gpui/AGENTS.md` (Sandboxes and fixtures) says.
+or later with `sh` steps, which run while the app watches.
+
+## Fixtures
+
+- To try a real repository, use an APFS clone (`cp -c -R`) with every remote pointed at a
+  missing path, and copy sqlite files with their `-wal` and `-shm`. Delete it afterwards.
+- Run `git update-index --really-refresh` in every repository copied or extracted for a run. A
+  fresh copy leaves its index entries racily clean, so status hashes every file on every read.
+- Adoption archives every linked worktree it finds the first time, so mark the project adopted
+  before adding worktrees, or they vanish from the navigator.
+- To show PRs offline, point `origin` at a GitHub URL, turn auto-fetch off, set
+  `vb_stack_heads.pr_number` and add the review to `forge_reviews`, as camelCase JSON with the
+  `struct_version` from `but-forge`. One malformed row fails the whole workspace load. With no
+  account the refresh fails before any request, which shows the stale state too.
+- To make an operation slow enough to race, turn on signing with a `gpg.program` script that
+  sleeps, then prints a dummy signature. Keep the racing steps in one script run.
+- Try mesh failures with a fake `but-mesh` first on the `PATH`, which the app searches before
+  `~/.local/bin`: one that sleeps tests the timeouts and that the project stays free for
+  operations, and one that exits non-zero or prints garbage tests the fallbacks. A run's app
+  data is its own but the mesh isn't: with the real `but-mesh` signed in, a run reports its
+  repositories to your mesh.
 
 ## One run
 
@@ -62,13 +81,32 @@ Each `step` runs its arguments as script lines, saves a shot, and prints its pat
 on its own after `--timeout` seconds (1800); always `stop` it when done. One session per
 checkout.
 
+## Laying out the user's window
+
+When the user asks to see a layout in the app they have open, don't drive it: lay it out with
+`crates/but-gpui/scripts/control.sh`, which only works on a dev build started with
+`--features dev-script` and takes only layout commands (`src/dev/control.rs`):
+
+```bash
+crates/but-gpui/scripts/control.sh "select Branches" "pick first" "files on"
+```
+
+It prints any command's error, then what's selected, what shows and the tiles. The same
+commands go in a script after `layout`, as `layout files on`, to try them here first.
+
 ## Where the keys go
 
 `KEYS Workspace > Navigator > TextInput` says what typing reaches: here a text field in the
 navigator. Check it before `type` or a single-letter `key`. In a list or the diff, letters run
-shortcuts, so a query typed there makes branches (b), pushes (⇧P), opens menus (m), or opens
-the user's editor on their screen (e) instead. After `add` the navigator has the keys, so click
+shortcuts, so a query typed there makes branches (b), pushes (⇧P), or opens the user's editor
+on their screen (e) instead. After `add` the navigator has the keys, so click
 the field you mean first. In a `run` script, a `keys` line prints the same.
+
+## The command editor
+
+Edit commands (`key cmd-k`, `type edit commands`, `key enter`) opens a second window. A
+`window other` step sends what follows to it, shots too, and `window main` goes back, as closing
+it does. It writes keys to a copy of the keymaps in the run's app data, never to the checkout.
 
 ## Coordinates
 
@@ -78,6 +116,176 @@ take, and a shot is saved at that size: where something shows in it is where to 
 full resolution (2× on a Retina Mac) for a closer look, so a point read off it is the region's
 origin plus half its pixel offset. `size W H` resizes the window.
 
+## Inputs
+
+- Each step settles for 120ms, so a delay shorter than that never shows; stretch the constant
+  to check one. A hover registers only after a second small `move`.
+- The window draws only when the script asks, so anything that needs a second frame shows in
+  the next step's shot, not this one's. A palette choice that goes nowhere, as New terminal,
+  runs once the next frame is drawn, so type what it's for in the next step, not the same one.
+- `click` presses and lets go within one frame. `InteractiveText`, which links in text use,
+  starts listening for the let-go only on the frame after the press, so click those with
+  `press`, then `release`. `dclick` draws a frame between its clicks, so the second click's
+  handler sees what the first one changed.
+- `drop` moves the pointer before letting go, and that move redraws. `release` lets go in place,
+  which catches a drag end that forgets to redraw. `drag` presses and moves with no frame
+  between; `press`, then `move`s a step apart, drags with frames between, as a hand does. Make
+  the first move 1px: a bigger one starts the drag before hover changes.
+- Rows move under the pointer: a drag inserts drop zones, and an optimistic stand-in adds a row.
+  Take a `shot` mid-drag with `hold` and aim from it.
+- `fclick` clicks as the click that brings the window in front, which on macOS does only that.
+- Prompts use GPUI's fallback renderer, which ignores Escape and Enter, so click their buttons.
+  It clips long detail, which each prompt also prints as `PROMPT message | detail`.
+- Enter in the composer's commit title commits, and Tab goes to its body, where Enter adds a
+  line. A pull request's title goes on to its body on Enter, and ⌘↩ saves.
+- The window starts shown, though macOS reports it hidden. `hide` and `show` steps set it, as
+  covering the window and bringing it back would.
+
+## More than one window
+
+A graph opened in a window of its own is a second window to drive. `window graph` sends the
+steps after it there and `window main` back, each printing `WINDOWS n`, how many are open. Its
+coordinates are its own, and it's 1000×720. After a window closes, name one again.
+
+- `hide` and `show` act on the window the steps go to. The app counts as hidden only once no
+  window shows, so to check a reload, hide them all, and zoom out first: a new commit lands above
+  what's in view, where a shot can't tell it arrived.
+- No script's window is ever active, so all count as inactive. `activate` counts the one the
+  steps go to as active, and it then draws after the others, as a window under the pointer does.
+  `fclick` in another window then acts as it would on screen. Run the same steps without
+  `activate` as a control: the two must differ.
+- Code that brings a window in front calls `ui::activate`, never `window.activate_window()`: for
+  real it would order a window the script keeps off screen in front. It prints `ACTIVATED main`.
+- `close` presses the window's close button, asking first as AppKit does. `QUIT` says the app
+  quit before the script ended, so what comes after it never ran. A step after `close` that
+  fails with `window not found` means the app kept running without that window.
+- `controls linux` draws GNOME's window buttons and handles their clicks on any platform, at the
+  top right of each window: the graph window's close is at 976 20. Their layout is otherwise
+  macOS's, as the header still leaves room for the traffic lights.
+- A second display can't be tried: a script's windows open off every screen, and its bounds never
+  reach the code that picks a display.
+
+## Animations
+
+Folds, slides and rows moving to a new order are drawn at a clock a script can stop, so any
+moment of a motion can be drawn and looked at. `film` films the input after its `--`:
+
+```text
+film /tmp/fold 200 8 0 40 340 540 -- click 306 66
+```
+
+That stops the clock, saves the frame before the input as `before.png`, runs the input, and
+saves a frame every 8ms for 200ms of that region (`000.png`, `001.png`, …), then runs the
+clock again. The input is one script line. For a drag, `press` and at least two small `move`s
+go before the `film`, and the `move` that sets the motion off goes after its `--`. GPUI starts
+a drag on one move and sends it moves only from the next, so with fewer, frame 000 shows the
+drag taking hold rather than the motion.
+
+`sheet.png` has all the frames in a grid, a row at a time, each labelled with its time. Each
+frame's line says what changed from the one before, the before frame for frame 000:
+
+```text
+FILM 000 t=0ms changed 5.3% in 1 place: 311x32 at 14,50 (38830px Δ208)
+FILM 019 t=152ms changed 9.0% in 489 places: 319x10 at 10,270 (6420px Δ37), 319x10 at 10,252 (6414px Δ37), …
+FILM 020 t=160ms unchanged
+```
+
+Each place is a cluster of changed pixels within 2px of one another, the largest first: its
+size at its place in window coordinates, how many pixels of the frame it has, and how much
+the most changed of them changed in a channel, out of 255. The app draws a frame the same
+way every time, so a change is never noise. A change at frame 000 is a jump as the motion
+starts, `unchanged` partway a stall, a change after the motion should be done a snap at its
+end, and one place changing back and forth a flicker. The line marks a change at frame 000
+`JUMP`, and a change after the film had held still `SNAP`, and the last line repeats both. A
+`JUMP` also holds what the input changes at once, as a click's selection, and a `SNAP` a load
+that lands late, so they say where to look, not that something's wrong. Read the lines
+before the images, then the sheet, then single frames for a closer look. Film a region: a
+whole window's frames are too small in the sheet to read.
+
+To film after inputs of your own, `clock stop` first, before the input that starts the motion,
+then `film` without `--`; `clock run` runs the clock again from where it stopped. `tick 8`
+moves a stopped clock on by hand, so `move`s and `shot`s can go between ticks.
+
+Motion reads `crate::clock::now()`, never `Instant::now()`, and so must any animation you
+write, or it runs on the real time while the rest stands still. What GPUI animates itself
+(`with_animation`, `with_spring`, as a fold's chevron and spinners do) and timers keep the
+real time, so they jump between frames: a tooltip's delay, and a drag's edge scroll, which
+goes on scrolling near a list's top or bottom while the clock is stopped, so keep a filmed drag
+clear of the edges. Don't stretch a duration in the code to see a motion slowly.
+
+## Checking a motion
+
+Before filming, write down what each frame may change. Usually that's only the thing that
+moves, and as it slides only its edges, as thin strips. Frame 000 may also show what the
+input changes at once by design, as a click's selection. Everything else matches the frame
+before, and the last frame matches the settled state. Then:
+
+- Read every FILM line. Don't grep for chosen frames or the last line: the change you didn't
+  expect is in a frame you left out.
+- Account for every place in every line, the `JUMP` and `SNAP` lines first. A place that
+  isn't on your list is a bug. Don't report it as inherent, or as a trade-off because another
+  mode does it too. Fix it, or ask the user before calling the work done.
+- After each fix, check everything that mustn't change, not only what the user pointed at.
+  A fix that changes a colour, an opacity or a border under the moving thing breaks the rest.
+- Keep the steps for every state in one script and film them all after each change. For a
+  mode, that's each kind of thing it takes (a commit, picked commits, a branch, uncommitted
+  changes, files) leaving where it started, stepping between targets, and coming back. In
+  each still frame, check every mark is still there.
+- When the user sends frames, film the same steps and find those frames before changing code.
+- Say a motion is fixed only after filming the user's own steps. Put whatever changed outside
+  the moving thing first in the reply, not last.
+
+## One control on its own
+
+A change to a shared control in `ui` (a button, switch, checkbox, segmented control) shows
+in the stories' window, each in its states side by side, with no repository to make. Pass
+`--stories` to `run` or `start`, and `GITBUTLER_GPUI_STORY=<name>` to open on one story; its
+toolbar switches light and dark and the interface scale. Add the variant a change makes to
+its story in `crates/but-gpui/src/stories` and shoot that.
+
+## Showing a choice
+
+When the user picks between looks, build each one and give them the shots' paths side by
+side, not a sketch in text. A sketch hides what they react to: how tall it is, how loud, and
+what it covers.
+
+## Measuring performance
+
+- Measure with `run --release`. `perf <label> <input>` times the input until loads settle and
+  prints `stall`: the longest the UI thread was busy meanwhile, frames included. Nothing draws
+  while it's busy, so keep it under 8.3ms for 120Hz. The harness draws a frame right after the
+  input and again once loads land, running `on_next_frame` callbacks first as a display link
+  would. `perf startup` counts from launch, so make it the first step.
+- The plain and dev-script builds write the same `target/release/gitbutler-gpui`, and the plain
+  one ignores the script and hangs. Check with
+  `strings target/release/gitbutler-gpui | grep -c GITBUTLER_GPUI_SCRIPT`, and when done rebuild
+  the plain one with `cargo build --release -p but-gpui -p gitbutler-git --bins`, so the askpass
+  helper is there for pushes.
+- Running the binary yourself with `GITBUTLER_GPUI_SCRIPT`, guard it with a kill of your own:
+  the script waits for loads without a timeout, quit waits for running operations, and macOS
+  has no `timeout`. Kill only the process you started.
+- macOS naps an app whose window isn't visible, and after about 30 seconds every step slows by
+  2-3x. The dev script opts out with `NSProcessInfo` (`src/dev.rs`). Keep that in any harness
+  that drives the app off screen, and distrust a slowdown that starts partway through a run.
+- Profile with `sample <pid> <seconds> -file out.txt`. Look at the main thread, mostly idle
+  between steps, and read CPU from the self samples, past the wait frames (`__psynch_cvwait`,
+  `mach_msg`, `kevent`).
+- Stall numbers swing by 30-50% with machine load. Check `uptime`, run the old and new binaries
+  in turns, and compare means before calling a change a regression.
+- A dev-script build idles at 6-10% CPU, as the stall watcher wakes the UI thread every
+  millisecond. Measure idle CPU, memory and power on the plain build.
+
+## Measuring power
+
+- Judge battery by energy, not CPU time or `top`'s estimate: `proc_pid_rusage` with
+  `RUSAGE_INFO_V6` reads a process's `ri_energy_nj` and its performance-core time without root.
+  Its times are mach ticks, so convert them with `mach_timebase_info`.
+- Measure on the plain build with the screen unlocked, in each state a user's window is in:
+  frontmost, visible behind another app, and hidden. `osascript` with System Events sets them:
+  `set frontmost of` or `set visible of` the process found by its unix id, or activate another
+  app. A locked screen makes every app a background one. With an agent writing to a
+  repository, the app drew about 500 mW frontmost and 6 mW hidden.
+
 ## Notes
 
 - `cargo` must be on the `PATH`. If it isn't, run inside the repository's dev shell:
@@ -85,11 +293,10 @@ origin plus half its pixel offset. `size W H` resizes the window.
   `step` and `stop` don't build).
 - `GITBUTLER_GPUI_APPEARANCE=dark` (or `light`) before the command picks the theme.
 - `run --release` builds with optimizations, for `perf` and `hold` timings; see Measuring
-  performance in `crates/but-gpui/AGENTS.md`.
-- The window is never key, so `on_focus` and `on_blur` listeners never fire and carets don't
-  blink. Check those by hand.
-- Copy writes the real clipboard, and Settings › AI reads the keychain. Add projects with
-  `add`: Add project's folder picker would open on the user's screen.
-- Scripted runs in `crates/but-gpui/AGENTS.md` has the rest: hover needs a second small
-  `move`, links in text need `press` then `release`, prompts need their buttons clicked, and
-  drags have their own commands.
+  performance.
+- The window is never key, even with `activate`, so `on_focus` and `on_blur` listeners never fire, a rename doesn't
+  end on a click elsewhere, and carets don't blink. `on_focus_lost` fires as usual. Check those
+  by hand.
+- Copy writes the real clipboard, and Settings › AI, or searching settings, reads the keychain.
+  Add projects with `add`: Add project's folder picker would open on the user's screen.
+- The log target is `but_gpui`, as in `RUST_LOG=but_gpui=debug`.

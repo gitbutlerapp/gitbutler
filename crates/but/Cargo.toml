@@ -18,13 +18,14 @@ doctest = false
 [features]
 default = ["legacy"]
 ## Experimental commands and features, enabled only for nightly releases in CI.
-nightly = []
+nightly = ["dep:but-ui-control"]
 ## A very specific utility flag to make clear that the 'but' binary is managed by a package manager.
 ## When set, the CLI cannot self-manage itself and commands like `but update install` are disabled.
 packaged-but-distribution = []
 legacy = [
     "but-workspace/legacy",
     "but-api/legacy",
+    "but-transaction/legacy",
     "but-ctx/legacy",
     "dep:but-action",
     "dep:but-hunk-dependency",
@@ -75,8 +76,8 @@ but-transaction.workspace = true
 but-comments.workspace = true
 but-db.workspace = true
 but-error.workspace = true
+but-utils.workspace = true
 
-but-oplog.workspace = true
 
 # What follows is *basically* newly written crates that are built on top of legacy,
 # so need some refactoring/rethinking to become usable.
@@ -113,6 +114,7 @@ chrono.workspace = true
 bstr.workspace = true
 anyhow.workspace = true
 rmcp.workspace = true
+but-ui-control = { workspace = true, optional = true }
 url.workspace = true
 command-group = { version = "5.0.1", features = ["with-tokio"] }
 gix = { workspace = true, features = ["tracing", "tracing-detail"] }
@@ -164,6 +166,7 @@ ansi-to-tui = "8.0.1"
 
 [dev-dependencies]
 but-graph.workspace = true
+but-ui-control.workspace = true
 serde_json = { workspace = true, features = ["preserve_order"] }
 but-testsupport = { workspace = true, features = ["sandbox-but-api"] }
 snapbox = { workspace = true, features = ["term-svg"] }

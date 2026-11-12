@@ -166,7 +166,6 @@ pub fn reviews_by_head(db: &but_db::DbHandle) -> anyhow::Result<HashMap<String, 
     Ok(map)
 }
 
-/// Whether `review` should replace `existing` for the same head.
 fn is_preferred(review: &ForgeReview, existing: Option<&ForgeReview>) -> bool {
     existing.is_none_or(|existing| preference(review) >= preference(existing))
 }

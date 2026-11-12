@@ -9,12 +9,10 @@
 //!  but-ts --output <path>
 //! ```
 //!
-//!
 //! Example:
 //! ```
 //! but-ts --output packages/but-sdk/generated/types.d.ts
 //! ```
-//!
 
 use anyhow::bail;
 // Links `but-api` and its dependencies, whose `register_sdk_type!` calls are collected below.
@@ -43,7 +41,6 @@ struct Args {
 fn main() -> anyhow::Result<()> {
     let args = parse_args()?;
 
-    // Collect schemas from the but-api schema registry
     let schemas = collect_all_schemas(&args.source_crates)?;
 
     eprintln!(
@@ -56,7 +53,6 @@ fn main() -> anyhow::Result<()> {
         }
     );
 
-    // Convert schemas to JSON values for processing
     let json_schemas: Vec<(String, serde_json::Value)> = schemas
         .into_iter()
         .filter_map(|(name, schema)| {
@@ -79,7 +75,6 @@ fn main() -> anyhow::Result<()> {
         sorted.insert(name.as_str(), schema);
     }
 
-    // Generate top-level types
     for (name, schema) in &sorted {
         if let Some(desc) = get_description(schema) {
             write!(ts_output, "{}", format_jsdoc(&desc, 0))?;
@@ -88,7 +83,6 @@ fn main() -> anyhow::Result<()> {
         writeln!(ts_output, "export type {name} = {ts_type};\n")?;
     }
 
-    // Write output
     let output_path = &args.output;
     if let Some(parent) = output_path.parent() {
         std::fs::create_dir_all(parent)?;
@@ -101,19 +95,13 @@ fn main() -> anyhow::Result<()> {
 }
 
 struct CollectedSchemarEntry {
-    /// The name of the schema getting registered
     pub name: Cow<'static, str>,
     /// The qualified type that was registered
     pub type_name: &'static str,
-    /// The location of the register call
     pub registration_location: &'static str,
-    /// The actual schema of the type getting registered
     pub schema: schemars::Schema,
 }
 
-/// Collect all registered type schemas.
-///
-/// Returns a list of `(name, schema)` pairs for all registered types.
 /// When `source_crates` is non-empty, only types whose `type_name` starts
 /// with one of the provided crate-name prefixes are included in the output.
 /// Duplicate-name and missing-dep validation runs only on the filtered set,
@@ -192,7 +180,6 @@ fn collect_all_schemas(
         }
     }
 
-    // Order output types by name
     types.sort_by(|a, b| a.name.cmp(&b.name));
 
     Ok(types
@@ -309,7 +296,6 @@ fn is_nullable(schema: &serde_json::Value) -> bool {
     false
 }
 
-/// Extract the `description` field from a JSON Schema value, if present.
 fn get_description(schema: &serde_json::Value) -> Option<String> {
     schema
         .as_object()
@@ -338,7 +324,6 @@ fn format_jsdoc(description: &str, indent: usize) -> String {
     }
 }
 
-/// Convert a JSON Schema (as serde_json::Value) to a TypeScript type string.
 fn schema_to_ts(schema: &serde_json::Value, indent: usize) -> String {
     // Handle boolean schemas
     match schema {
@@ -352,7 +337,6 @@ fn schema_to_ts(schema: &serde_json::Value, indent: usize) -> String {
         None => return "any".to_string(),
     };
 
-    // Handle $ref
     if let Some(ref_val) = obj.get("$ref")
         && let Some(ref_str) = ref_val.as_str()
     {
@@ -364,7 +348,6 @@ fn schema_to_ts(schema: &serde_json::Value, indent: usize) -> String {
         }
         return "any".to_string();
     }
-    // Handle const
     if let Some(const_val) = obj.get("const") {
         return match const_val {
             serde_json::Value::String(s) => format!("\"{}\"", s.replace('"', "\\\"")),
@@ -400,7 +383,6 @@ fn schema_to_ts(schema: &serde_json::Value, indent: usize) -> String {
         return variants.join(" | ");
     }
 
-    // Handle anyOf
     if let Some(any_of) = obj.get("anyOf")
         && let Some(arr) = any_of.as_array()
     {
@@ -470,7 +452,6 @@ fn schema_to_ts(schema: &serde_json::Value, indent: usize) -> String {
         return type_variants.join(" | ");
     }
 
-    // Handle type field
     let type_val = type_field.and_then(|t| t.as_str());
     match type_val {
         Some("string") => "string".to_string(),
@@ -572,7 +553,6 @@ mod tests {
     use schemars::JsonSchema;
     use serde::Serialize;
 
-    /// Convert a schemars-annotated type to its TypeScript representation.
     fn ts_for<T: JsonSchema>() -> String {
         let schema = schemars::schema_for!(T);
         let json = serde_json::to_value(&schema).unwrap();

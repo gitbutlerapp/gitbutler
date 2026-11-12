@@ -10,7 +10,6 @@ use crate::{
 
 pub const ISO8601_NO_TZ: CustomFormat = CustomFormat::new("%Y-%m-%d %H:%M:%S");
 
-/// Filter for oplog entries by operation kind
 #[derive(Debug, Clone, Copy)]
 pub enum OplogFilter {
     /// Show only on-demand snapshot entries
@@ -18,7 +17,6 @@ pub enum OplogFilter {
 }
 
 impl OplogFilter {
-    /// Convert the filter to a list of OperationKind to include
     fn to_include_kinds(self) -> Vec<OperationKind> {
         match self {
             OplogFilter::Snapshot => vec![OperationKind::OnDemandSnapshot],
@@ -32,10 +30,8 @@ pub(crate) fn show_oplog(
     since: Option<&str>,
     filter: Option<OplogFilter>,
 ) -> anyhow::Result<()> {
-    // Convert filter to include_kind parameter for the API
     let include_kind = filter.map(|f| f.to_include_kinds());
 
-    // Resolve partial SHA to full SHA using rev_parse if provided
     let since_sha = if let Some(sha_prefix) = since {
         let repo = ctx.repo.get()?;
         let resolved = repo
@@ -320,7 +316,6 @@ pub(crate) fn restore_to_oplog(
         writeln!(out, "  Snapshot: {}", t.commit_id.paint(&commit_short))?;
     }
 
-    // Restore to the target snapshot using the but-api crate
     but_api::legacy::oplog::restore_snapshot_with_kind(
         ctx,
         RestoreKind::ExplicitRestoreFromSnapshot,

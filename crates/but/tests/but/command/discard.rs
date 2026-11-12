@@ -1333,7 +1333,7 @@ fn discarding_the_top_of_a_dirty_worktree_is_refused() {
         .stderr_eq(snapbox::str![[r#"
 Error: Worktree wt-feature has uncommitted changes
 
-Hint: Use `but worktree remove --force wt-feature` to remove it anyway
+Hint: Run `but -C [..]/worktrees/wt-feature commit -m "<message>"` to keep them, or `but worktree remove wt-feature --force` to discard them
 
 "#]]);
 }
@@ -1522,7 +1522,7 @@ Discarded uncommitted changes from dir/wt.txt
 fn bare_discard_in_an_unmanaged_worktree_is_refused() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
+    let wt_dir = super::util::add_unmanaged_worktree(&env, "wt-feature");
     env.file("main.txt", "dirty in main\n");
 
     env.but("discard")

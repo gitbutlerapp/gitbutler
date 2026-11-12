@@ -1,5 +1,3 @@
-#![allow(missing_docs)]
-
 use std::collections::BTreeSet;
 
 use rusqlite::OptionalExtension;
@@ -18,12 +16,10 @@ pub(crate) const M: &[M<'static>] = &[M::up(
 CREATE INDEX IF NOT EXISTS `idx_branch_order_parent_ref_name` ON `branch_order`(`parent_ref_name`);",
 )];
 
-/// Read-only accessor for ad-hoc branch ordering metadata.
 pub struct BranchOrderHandle<'conn> {
     conn: &'conn rusqlite::Connection,
 }
 
-/// Mutating accessor for ad-hoc branch ordering metadata.
 pub struct BranchOrderHandleMut<'conn> {
     sp: rusqlite::Savepoint<'conn>,
 }
@@ -35,10 +31,8 @@ pub struct BranchOrderSnapshot {
     pub entries: Vec<BranchOrderEntry>,
 }
 
-/// One persisted branch-order relationship.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct BranchOrderEntry {
-    /// The ordered branch reference.
     pub branch_ref_name: String,
     /// The branch immediately below this one, or `None` for the base.
     pub parent_ref_name: Option<String>,
@@ -73,12 +67,10 @@ impl BranchOrderSnapshot {
 }
 
 impl DbHandle {
-    /// Return a read-only handle for ad-hoc branch ordering metadata.
     pub fn branch_order(&self) -> BranchOrderHandle<'_> {
         BranchOrderHandle { conn: &self.conn }
     }
 
-    /// Return a mutating handle for ad-hoc branch ordering metadata.
     pub fn branch_order_mut(&mut self) -> rusqlite::Result<BranchOrderHandleMut<'_>> {
         Ok(BranchOrderHandleMut {
             sp: self.conn.savepoint()?,
@@ -87,12 +79,10 @@ impl DbHandle {
 }
 
 impl<'conn> Transaction<'conn> {
-    /// Return a read-only handle for ad-hoc branch ordering metadata.
     pub fn branch_order(&self) -> BranchOrderHandle<'_> {
         BranchOrderHandle { conn: self.inner() }
     }
 
-    /// Return a mutating handle for ad-hoc branch ordering metadata.
     pub fn branch_order_mut(&mut self) -> rusqlite::Result<BranchOrderHandleMut<'_>> {
         Ok(BranchOrderHandleMut {
             sp: self.inner_mut().savepoint()?,
@@ -204,7 +194,6 @@ fn is_missing_branch_order_table(err: &rusqlite::Error) -> bool {
 }
 
 impl BranchOrderHandleMut<'_> {
-    /// Convert this mutating handle into a read-only view on the same savepoint.
     pub fn to_ref(&self) -> BranchOrderHandle<'_> {
         BranchOrderHandle { conn: &self.sp }
     }
@@ -276,7 +265,6 @@ impl BranchOrderHandleMut<'_> {
         sp.commit()
     }
 
-    /// Rename `old_ref_name` to `new_ref_name` everywhere it appears in branch-order metadata.
     pub fn rename_reference(self, old_ref_name: &str, new_ref_name: &str) -> rusqlite::Result<()> {
         let sp = self.sp;
         if old_ref_name == new_ref_name {
@@ -306,7 +294,6 @@ impl BranchOrderHandleMut<'_> {
         sp.commit()
     }
 
-    /// Remove branch-order rows for references not present in `existing_ref_names`.
     pub fn remove_missing_references(self, existing_ref_names: &[String]) -> rusqlite::Result<()> {
         let sp = self.sp;
         let existing = existing_ref_names

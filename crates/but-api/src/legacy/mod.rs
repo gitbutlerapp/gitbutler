@@ -1,6 +1,4 @@
-#![allow(missing_docs)]
 //! Legacy data structures and functionality tied to `gitbutler-*` crates.
-//!
 
 pub mod absorb;
 pub mod askpass;
@@ -11,7 +9,6 @@ pub mod git;
 pub mod modes;
 pub mod oplog;
 pub mod projects;
-pub mod remotes;
 pub mod repo;
 pub mod secret;
 pub mod settings;

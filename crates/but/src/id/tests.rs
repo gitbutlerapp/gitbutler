@@ -54,6 +54,7 @@ fn committed_hunk_equality() {
         },
         id: "ignored by equality".into(),
         hunk: hunk("file.txt"),
+        tree_status: but_core::TreeStatusKind::Modification,
     };
 
     assert_eq!(
@@ -4054,7 +4055,6 @@ mod util {
             DebugState { inner: self }
         }
 
-        /// Return a list of all branch CliIds.
         pub fn branch_ids(&self) -> Vec<String> {
             let mut short_ids = Vec::new();
             for stack_with_id in self.lanes.iter() {
@@ -4065,12 +4065,10 @@ mod util {
             short_ids
         }
 
-        /// Return all stack CliIds.
         pub fn stack_short_ids(&self) -> impl Iterator<Item = String> + '_ {
             self.lanes.iter().filter_map(|lane| lane.short_id.clone())
         }
 
-        /// Return a list of all commit CliIds.
         pub fn commit_ids(&self) -> Vec<String> {
             let mut short_ids = Vec::new();
             for stack_with_id in self.lanes.iter() {
@@ -4094,6 +4092,7 @@ mod util {
                 uncommitted_hunks,
                 diff_context_lines: _,
                 paths_in: _,
+                invoked_directory: _,
             } = self;
             let changed_paths_fn = |commit_id: gix::ObjectId,
                                     parent_id: Option<gix::ObjectId>|
@@ -4133,6 +4132,7 @@ mod util {
                 uncommitted_hunks,
                 diff_context_lines: _,
                 paths_in: _,
+                invoked_directory: _,
             } = self.inner;
             let commits_count = self.inner.commit_ids().len();
             writeln!(f, "workspace_and_remote_commits_count: {commits_count}")?;

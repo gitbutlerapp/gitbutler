@@ -90,3 +90,6 @@ debug-graph-??.svg
 # Generated single-file MCP apps, embedded into packaged CLI builds.
 /crates/but/src/command/mcp/review.html
 /crates/but/src/command/mcp/workspace.html
+
+# Zig's package cache, which setup-zig puts in the checkout.
+.zig-cache/

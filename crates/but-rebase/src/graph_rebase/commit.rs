@@ -1,5 +1,3 @@
-//! Provides some slightly higher level tools to help with manipulating commits, in preparation for use in the editor.
-
 use anyhow::{Context, Result, bail};
 use but_core::commit::SignCommit;
 use but_core::{RefMetadata, commit::Headers};

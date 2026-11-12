@@ -1,5 +1,7 @@
 use std::fs;
 
+use snapbox::IntoData as _;
+
 use crate::{
     command::util::add_dirty_worktree,
     utils::{CommandExt, Sandbox},
@@ -19,6 +21,59 @@ fn rejects_unnamed_segment_as_target() {
 Error: Cannot operate on anonymous branch 'g0'
 
 Hint: Name it with `but reword g0` first! Note that the short ID is likely to change when the branch is named.
+
+"#]]);
+}
+
+#[test]
+fn git_revision_target_hints_git_diff() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    // Git revisions and ranges are not CLI IDs, so point at the Git command that diffs them.
+    env.but("diff HEAD~1")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not find target: 'HEAD~1'
+
+Hint: To diff it as a Git revision, run `git diff HEAD~1`. Run `but status` for applicable targets.
+
+"#]]);
+
+    env.but("diff main...HEAD")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not find target: 'main...HEAD'
+
+Hint: To diff it as a Git revision, run `git diff main...HEAD`. Run `but status` for applicable targets.
+
+"#]]);
+
+    // Two revisions are one comparison, so the hint keeps them together.
+    env.but("diff HEAD~1 HEAD")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not find target: 'HEAD~1'
+
+Hint: To diff it as a Git revision, run `git diff HEAD~1 HEAD`. Run `but status` for applicable targets.
+
+"#]]);
+
+    // Anything Git can't resolve either keeps the generic hint.
+    env.but("diff nonexistent")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not find target: 'nonexistent'
+
+Hint: Run `but status` for applicable targets.
 
 "#]]);
 }
@@ -223,6 +278,114 @@ No diff available - file is either empty, binary, or too large
 }
 
 #[test]
+fn committed_hunk() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("file.txt", "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n");
+    env.but("commit -m base").assert().success();
+    env.file("file.txt", "one\n2\n3\n4\n5\n6\n7\n8\n9\nten\n");
+    env.file("new.txt", "new\n");
+    env.but("commit -m change")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Created commit ryk on branch 'a-branch-1'
+
+"#]]);
+
+    // The commit diff prints one committed hunk ID per hunk.
+    env.but("diff ryk")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────────╮
+ r:u:1 M file.txt │
+──────────────────╯
+
+@@ -1,4 +1,4 @@
+───────────────
+1 ┊   │ -1
+  ┊ 1 │ +one
+2 ┊ 2 │  2
+3 ┊ 3 │  3
+4 ┊ 4 │  4
+
+──────────────────╮
+ r:u:9 M file.txt │
+──────────────────╯
+
+@@ -7,4 +7,4 @@
+───────────────
+ 7 ┊  7 │  7
+ 8 ┊  8 │  8
+ 9 ┊  9 │  9
+10 ┊    │ -10
+   ┊ 10 │ +ten
+
+─────────────────╮
+ r:s:b A new.txt │
+─────────────────╯
+
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +new
+
+"#]]);
+
+    // Passing one of those IDs back shows only that hunk, under the same ID.
+    env.but("diff r:u:9")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────────╮
+ r:u:9 M file.txt │
+──────────────────╯
+
+@@ -7,4 +7,4 @@
+───────────────
+ 7 ┊  7 │  7
+ 8 ┊  8 │  8
+ 9 ┊  9 │  9
+10 ┊    │ -10
+   ┊ 10 │ +ten
+
+"#]]);
+    // JSON keeps the file's status.
+    env.but("diff --json r:s:b")
+        .allow_json()
+        .assert()
+        .success()
+        .stdout_eq(
+            snapbox::str![[r#"
+{
+  "changes": [
+    {
+      "id": "r:s:b",
+      "path": "new.txt",
+      "status": "added",
+      "diff": {
+        "type": "patch",
+        "hunks": [
+          {
+            "oldStart": 1,
+            "oldLines": 0,
+            "newStart": 1,
+            "newLines": 1,
+            "diff": "@@ -1,0 +1,1 @@\n+new\n"
+          }
+        ]
+      }
+    }
+  ]
+}
+
+"#]]
+            .raw(),
+        );
+}
+
+#[test]
 fn worktree() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
@@ -256,7 +419,7 @@ fn worktree() {
     {
       "id": "[..]",
       "path": "note.txt",
-      "status": "modified",
+      "status": "added",
       "diff": {
         "type": "patch",
         "hunks": [
@@ -306,7 +469,7 @@ fn bare_diff_in_a_linked_worktree_shows_its_changes() {
 fn bare_diff_in_an_unmanaged_worktree_is_refused() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
+    let wt_dir = super::util::add_unmanaged_worktree(&env, "wt-feature");
     env.file("main.txt", "dirty in main\n");
 
     env.but("diff")
@@ -467,6 +630,409 @@ Created commit xnw on new branch 'a-branch-1'
 @@ -1,0 +1,1 @@
 ───────────────
   ┊ 1 │ +26a8c68efad2a094e8fe6d850426b651d353c568
+
+"#]]);
+}
+
+#[test]
+fn several_targets_show_each_in_turn() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("a.txt", "a\n");
+    env.file("b.txt", "b\n");
+    env.file("c.txt", "c\n");
+
+    // b.txt isn't named, so it doesn't show.
+    env.but("diff a.txt c.txt")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────╮
+ nk:2 A a.txt │
+──────────────╯
+
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +a
+
+──────────────╮
+ kl:9 A c.txt │
+──────────────╯
+
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +c
+
+"#]]);
+    env.but("diff --json a.txt c.txt")
+        .allow_json()
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "changes": [
+    {
+      "id": "nk:2",
+      "path": "a.txt",
+      "status": "added",
+      "diff": {
+        "type": "patch",
+        "hunks": [
+          {
+            "oldStart": 1,
+            "oldLines": 0,
+            "newStart": 1,
+            "newLines": 1,
+            "diff": "@@ -1,0 +1,1 @@/n+a/n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "kl:9",
+      "path": "c.txt",
+      "status": "added",
+      "diff": {
+        "type": "patch",
+        "hunks": [
+          {
+            "oldStart": 1,
+            "oldLines": 0,
+            "newStart": 1,
+            "newLines": 1,
+            "diff": "@@ -1,0 +1,1 @@/n+c/n"
+          }
+        ]
+      }
+    }
+  ]
+}
+
+"#]]);
+}
+
+#[test]
+fn a_commit_or_branch_must_be_the_only_target() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.file("a.txt", "a\n");
+
+    // `git diff A B` compares the two, so showing each in turn would read like a comparison.
+    for targets in ["A B", "A a.txt", "a.txt A"] {
+        env.but(format!("diff {targets}"))
+            .assert()
+            .failure()
+            .stdout_eq(snapbox::str![])
+            .stderr_eq(snapbox::str![[r#"
+Error: A commit or branch must be the only target of `but diff`
+
+Hint: To compare two revisions, run `git diff <a> <b>`. To see each target on its own, run `but diff <target>` once per target.
+
+"#]]);
+    }
+}
+
+#[test]
+fn clean_path_has_no_uncommitted_changes() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.file("src/a.txt", "a\n");
+    env.but("commit -m x src/a.txt").assert().success();
+
+    let root = env.projects_root().display().to_string();
+    for (dir, spelling) in [
+        (".", "src/a.txt".to_owned()),
+        (".", "./src/a.txt".to_owned()),
+        (".", format!("{root}/src/a.txt")),
+        (".", "src/".to_owned()),
+        (".", ".".to_owned()),
+        ("src", "a.txt".to_owned()),
+        ("src", "src/a.txt".to_owned()),
+    ] {
+        env.but(format!("diff {spelling}"))
+            .current_dir(env.projects_root().join(dir))
+            .assert()
+            .success()
+            .stderr_eq(snapbox::str![])
+            .stdout_eq(format!("'{spelling}' has no uncommitted changes\n"));
+    }
+
+    // A path outside of the checkout isn't one that could have changes.
+    let outside = env.projects_root().parent().unwrap().join("outside.txt");
+    std::fs::write(&outside, "outside\n").unwrap();
+    env.but("diff ../outside.txt")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not find target: '../outside.txt'
+
+Hint: Run `but status` for applicable targets.
+
+"#]]);
+
+    // A clean path doesn't get in the way of a dirty one.
+    env.file("b.txt", "b\n");
+    env.but("diff b.txt src/a.txt")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────────╮
+ pn:2 A b.txt │
+──────────────╯
+
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +b
+
+'src/a.txt' has no uncommitted changes
+
+"#]]);
+    env.but("diff --json src/a.txt")
+        .allow_json()
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "changes": []
+}
+
+"#]]);
+}
+
+#[test]
+fn clean_path_in_a_linked_worktree() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
+
+    env.but("diff M")
+        .current_dir(&wt_dir)
+        .assert()
+        .success()
+        .stdout_eq("'M' has no uncommitted changes\n");
+}
+
+#[test]
+fn path_in_an_unmanaged_worktree_is_refused() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    let wt_dir = super::util::add_unmanaged_worktree(&env, "wt-feature");
+
+    // note.txt is dirty, but GitButler doesn't list this checkout's changes to know that.
+    env.but("diff note.txt")
+        .current_dir(&wt_dir)
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Worktree wt-feature is not managed by GitButler
+
+Hint: Run `but worktree list` to see the worktrees GitButler manages
+
+"#]]);
+}
+
+#[test]
+fn stat_lists_changed_files_and_line_counts() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    let lines: String = (1..=20).map(|n| format!("{n}\n")).collect();
+    env.file("long.txt", &lines);
+    env.file("old-name.txt", "keep\n");
+    env.but("commit -m x long.txt old-name.txt")
+        .assert()
+        .success();
+    env.invoke_git("mv old-name.txt new-name.txt");
+    env.but("commit -m rename new-name.txt").assert().success();
+
+    // long.txt has two hunks, which count as one file.
+    env.file(
+        "long.txt",
+        lines
+            .replace("\n2\n", "\ntwo\n")
+            .replace("\n19\n", "\nnineteen\n"),
+    );
+    env.file("a-new-file.txt", "a\nb\n");
+    env.but("diff --stat")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+a-new-file.txt +2 -0
+long.txt       +2 -2
+2 files changed, +4 -2
+
+"#]]);
+    env.but("diff --json --stat")
+        .allow_json()
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "files": [
+    {
+      "path": "a-new-file.txt",
+      "status": "added",
+      "insertions": 2,
+      "deletions": 0
+    },
+    {
+      "path": "long.txt",
+      "status": "modified",
+      "insertions": 2,
+      "deletions": 2
+    }
+  ]
+}
+
+"#]]);
+
+    // A named file, and a clean one that has nothing to count.
+    env.but("diff --stat long.txt new-name.txt")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+long.txt +2 -2
+1 file changed, +2 -2
+'new-name.txt' has no uncommitted changes
+
+"#]]);
+
+    // A branch counts what it adds to its base.
+    env.but("diff --stat A")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+A            +1 -0
+long.txt     +20 -0
+new-name.txt +1 -0
+3 files changed, +22 -0
+
+"#]]);
+
+    // A commit shows where a renamed file came from.
+    let rename_commit = env.invoke_git("rev-parse A");
+    env.but(format!("diff --stat {rename_commit}"))
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+old-name.txt => new-name.txt +0 -0
+1 file changed, +0 -0
+
+"#]]);
+}
+
+#[test]
+fn stat_keeps_one_path_in_two_checkouts_apart() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    add_dirty_worktree(&env, "wt-feature", "A");
+    env.file("note.txt", "dirty\nin main\n");
+
+    env.but("diff --stat @ wt:@")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+note.txt +2 -0
+note.txt +1 -0
+2 files changed, +3 -0
+
+"#]]);
+}
+
+#[test]
+fn git_flags_get_examples_of_what_works() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    // Clap's tips would pass these after `--`, and read `--staged` as a typo of `--stat`.
+    for flag in ["--name-only", "--staged"] {
+        env.but(format!("diff {flag}"))
+            .assert()
+            .failure()
+            .stdout_eq(snapbox::str![])
+            .stderr_eq(snapbox::str![[r#"
+error: unexpected argument '--[..]' found
+
+Usage: but diff [..]
+
+For more information, try '--help'.
+
+Examples:
+  but diff                    # all uncommitted changes, staged or not
+  but diff <file-or-hunk>...  # only the given changes
+  but diff --stat             # only the changed files, with line counts
+  git diff <flag>...          # any other Git diff flag
+
+"#]]);
+    }
+}
+
+#[test]
+fn a_path_with_unresolved_conflicts_is_not_clean() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
+
+    // Leave behind what a conflicting update produces for an uncommitted file.
+    let conflict = r#"mkdir -p src &&
+printf '<<<<<<< ours\nours\n=======\ntheirs\n>>>>>>> theirs\n' > src/c.txt &&
+base=$(echo base | git hash-object -w --stdin) &&
+ours=$(echo ours | git hash-object -w --stdin) &&
+theirs=$(echo theirs | git hash-object -w --stdin) &&
+printf '100644 %s 1\tsrc/c.txt\n100644 %s 2\tsrc/c.txt\n100644 %s 3\tsrc/c.txt\n' "$base" "$ours" "$theirs" | git update-index --index-info"#;
+    env.invoke_bash(conflict);
+    but_testsupport::invoke_bash_at_dir(conflict, &wt_dir);
+
+    for (dir, target) in [
+        (env.projects_root(), "src"),
+        (wt_dir.as_path(), "src/c.txt"),
+        (wt_dir.as_path(), "src"),
+    ] {
+        env.but(format!("diff {target}"))
+            .current_dir(dir)
+            .assert()
+            .failure()
+            .stdout_eq(snapbox::str![])
+            .stderr_eq(format!(
+                "Error: Could not find target: '{target}'\n\nHint: Run `but status` for applicable targets.\n"
+            ));
+    }
+}
+
+#[test]
+fn show_stat_counts_the_lines_of_each_file() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("show --stat tpm")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+Files changed:
+  A A  (+1, -0)
+
+"#]]);
+}
+
+#[test]
+fn show_refuses_a_missing_commit_as_bad_input() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    // An agent needs a next step, which only bad input gives with its hint.
+    env.but("show deadbeef")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Commit 'deadbeef' not found
+
+Hint: Run `but status` for applicable targets.
 
 "#]]);
 }

@@ -5,21 +5,6 @@
 
   <h1 align="center">GitButler</h1>
   
-  <p align="center">
-   <b>Git, <i>but</i> better</b>.
-   <br/>
-   GitButler is a modern Git-based version control interface with both a GUI and CLI built from the ground up for AI-powered workflows.
-    <br />
-    <br />
-    <a href="https://gitbutler.com">Website</a>
-    <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
-    <a href="https://blog.gitbutler.com/">Blog</a>
-    <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
-    <a href="https://docs.gitbutler.com/">Docs</a>
-    <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
-    <a href="https://gitbutler.com/downloads">Downloads</a>
-  </p>
-
   <br/>
 
   <img width="100%" src="https://gitbutler-docs-images-public.s3.us-east-1.amazonaws.com/app-preview-light.png" alt="GitButler desktop app preview" />
@@ -60,8 +45,6 @@ It features stacked branches, parallel branches, unlimited undo, easy commit mut
 
 Works instantly in any existing Git repo as a friendlier and more powerful drop-in Git user interface replacement - for you and your agents.
 
-## Main Features
-
 Why use GitButler instead of vanilla Git? What a great question.
 
 - **Stacked Branches** ([gui](https://docs.gitbutler.com/features/branch-management/stacked-branches), [cli](https://docs.gitbutler.com/cli-guides/cli-tutorial/branching-and-commiting#stacked-branches))
@@ -79,12 +62,6 @@ Why use GitButler instead of vanilla Git? What a great question.
 - **AI Tooling** ([gui](https://docs.gitbutler.com/features/ai-integration/ai-overview), [cli](https://docs.gitbutler.com/cli-guides/cli-tutorial/ai-stuff))
   - Use built-in AI handlers to help create commit messages, branch names, PR descriptions and more.
   - Easily install hooks or skills for all modern agent systems to level up their Git management.
-
-## Tech
-
-The GitButler desktop app is a [Tauri](https://tauri.app/)-based application. Its UI is written in [Svelte](https://svelte.dev/) using [TypeScript](https://www.typescriptlang.org) and its backend is written in [Rust](https://www.rust-lang.org/).
-
-The `but` CLI is the same Rust backend engine with a Rust command line UI.
 
 ## Documentation
 
@@ -106,9 +83,3 @@ document.
 
 If you want to skip right to getting the code to actually compile, take a look
 at the [DEVELOPMENT.md](DEVELOPMENT.md) file.
-
-### Contributors
-
-<a href="https://github.com/gitbutlerapp/gitbutler/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=gitbutlerapp/gitbutler" />
-</a>

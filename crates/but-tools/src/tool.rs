@@ -5,7 +5,6 @@ use std::{
 
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
-use but_workspace::legacy::ui::StackEntryNoOpt;
 use gix::ObjectId;
 use serde_json::json;
 
@@ -120,18 +119,6 @@ pub fn result_to_json<T: serde::Serialize>(
 
 pub trait ToolResult: 'static + Send + Sync {
     fn to_json(&self, action_identifier: &str) -> serde_json::Value;
-}
-
-impl ToolResult for Result<StackEntryNoOpt, anyhow::Error> {
-    fn to_json(&self, action_identifier: &str) -> serde_json::Value {
-        result_to_json(self, action_identifier, "StackEntry")
-    }
-}
-
-impl ToolResult for Result<but_workspace::commit_engine::ui::CreateCommitOutcome, anyhow::Error> {
-    fn to_json(&self, action_identifier: &str) -> serde_json::Value {
-        result_to_json(self, action_identifier, "CreateCommitOutcome")
-    }
 }
 
 impl ToolResult for Result<StackId, anyhow::Error> {

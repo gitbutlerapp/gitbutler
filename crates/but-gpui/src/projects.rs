@@ -330,7 +330,7 @@ pub struct IconPicker {
     _subscription: Subscription,
 }
 
-/// A choice's cell in the picker's grid, seven to a row, as ui-react's picker lays them out.
+/// A choice's cell in the picker's grid, seven to a row, as but-ui-react's picker lays them out.
 const CELL: f32 = 28.;
 
 impl AppView {
@@ -421,10 +421,10 @@ impl AppView {
                 .flex()
                 .items_center()
                 .justify_center()
-                .rounded(dp(4.))
+                .rounded(dp(theme.shape.control))
                 .text_size(dp(18.))
-                .hover(|el| el.bg(theme.hover()))
-                .when(current == stored, |el| el.bg(theme.selected_unfocused()))
+                .hover(|el| el.bg(theme.hover))
+                .when(current == stored, |el| el.bg(theme.selected_unfocused))
                 .tooltip(Tooltip::text(name))
                 .child(mark)
                 .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {

@@ -1,9 +1,7 @@
 use std::io::Write;
 
 mod output_channel;
-use anyhow::Context as _;
 use but_api::json::{ChangeIdString, HexHash};
-use but_core::sync::RepoShared;
 use but_ctx::Context;
 use gix::refs::FullName;
 pub(crate) use output_channel::PromptLine;
@@ -25,7 +23,7 @@ pub use metrics::OneshotMetricsContext;
 
 use crate::{CliError, CliResult, id::CommitId, print_and_exit_non_zero};
 
-pub mod detect_agent;
+pub use but_utils::detect_agent;
 pub mod time;
 
 pub(crate) mod binary_path;
@@ -37,9 +35,6 @@ pub(crate) mod merged_upstream;
 pub(crate) mod rejection;
 pub(crate) mod targeting;
 pub(crate) mod worktrees;
-
-#[cfg(feature = "legacy")]
-pub mod single_branch_mode;
 
 pub mod diff_rendering;
 pub mod string_interning;
@@ -91,7 +86,7 @@ impl ResultErrorExt for CliResult<()> {
                     drop(out);
                     print_and_exit_non_zero(err)
                 }
-                CliError::Initialization(error) | CliError::Internal(error) => {
+                CliError::Initialization(error, _) | CliError::Internal(error, _) => {
                     Err(error).show_root_cause_error_then_exit_without_destructors(out)
                 }
             },
@@ -99,10 +94,7 @@ impl ResultErrorExt for CliResult<()> {
     }
 }
 
-/// Metrics utilities for results
 pub trait ResultMetricsExt<T, E> {
-    /// Emit metrics for the [`Result`].
-    ///
     /// The result must simply be propagated through this method, regardless of if emitting metrics
     /// is successful or not. We do not want a failure to emit metrics to impact the user
     /// experience.
@@ -151,21 +143,47 @@ pub fn in_single_branch_mode(ctx: &Context) -> anyhow::Result<bool> {
 }
 
 #[cfg(feature = "legacy")]
-pub fn in_single_branch_mode_with_perm(ctx: &Context, perm: &RepoShared) -> anyhow::Result<bool> {
-    let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
+pub use but_transaction::single_branch_mode::in_single_branch_mode_with_perm;
 
-    Ok(match &ws.kind {
-        but_graph::workspace::WorkspaceKind::AdHoc => true,
-        but_graph::workspace::WorkspaceKind::Managed { .. }
-        | but_graph::workspace::WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => false,
-    })
+/// The name of the branch an operation makes: `name`, or a made-up one from `repo` it's filled in
+/// with when none was given. It's picked before the operation's transaction, so its snapshot can
+/// name it for undo to delete.
+pub(crate) fn name_new_branch(
+    name: &mut Option<FullName>,
+    repo: &gix::Repository,
+) -> anyhow::Result<FullName> {
+    let named = match name.take() {
+        Some(named) => named,
+        None => but_core::branch::unique_canned_refname(repo)?,
+    };
+    *name = Some(named.clone());
+    Ok(named)
 }
 
-pub fn head_name(repo: &gix::Repository) -> anyhow::Result<FullName> {
-    Ok(repo
-        .head()?
-        .referent_name()
-        .filter(|name| name.category() == Some(gix::refs::Category::LocalBranch))
-        .context("HEAD must refer to a local branch")?
-        .to_owned())
+#[cfg(test)]
+mod tests {
+    use std::ffi::OsStr;
+
+    use super::detect_agent::ENVIRONMENT_VARIABLES;
+
+    #[test]
+    fn test_command_isolation_removes_all_agent_environment_variables() {
+        let mut cmd = std::process::Command::new("but");
+        for var in ENVIRONMENT_VARIABLES {
+            cmd.env(var, "ambient-value");
+        }
+
+        but_testsupport::isolate_env_std_cmd_with_additional_removals(
+            &mut cmd,
+            ENVIRONMENT_VARIABLES,
+        );
+
+        for var in ENVIRONMENT_VARIABLES {
+            let update = cmd.get_envs().find(|(name, _)| *name == OsStr::new(var));
+            assert!(
+                matches!(update, Some((_, None))),
+                "{var} should be explicitly removed",
+            );
+        }
+    }
 }

@@ -1,0 +1,89 @@
+.badge {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	/* A flex box fills a block container; a badge is as wide as its count. */
+	width: fit-content;
+	min-width: 16px;
+	border-radius: var(--but-radius-full);
+	--badge-bg-opacity: 20%;
+
+	/* Selected rows set --selection-inverted; flipping to the opposite color
+	   scheme makes every light-dark() token inside the badge resolve to its
+	   inverted value, matching the row's inverted selection background. */
+	@container style(--selection-inverted: true) {
+		--badge-bg-opacity: 40%;
+		color-scheme: dark;
+
+		@media (prefers-color-scheme: dark) {
+			color-scheme: light;
+			--badge-bg-opacity: 20%;
+		}
+	}
+}
+
+.regular {
+	height: 16px;
+	padding-inline: 5px;
+	gap: 2px;
+}
+
+.large {
+	height: var(--but-size-tag);
+	padding-inline: 7px;
+	gap: 4px;
+}
+
+/* Single-line labels only, so trimming to the cap/baseline box lets the fixed
+   badge height center the glyphs themselves instead of the line box. */
+.label {
+	text-box: trim-both cap alphabetic;
+}
+
+.fillGray {
+	background-color: var(--but-inverse);
+	color: var(--but-inverse-foreground);
+}
+
+/* Gray tints with the text's own colour, lighter than the shared opacity, so
+   it reads as the quietest. Its share tracks the opacity, so an inverted ground
+   lifts it. */
+.lightGray {
+	background-color: light-dark(
+		color-mix(in srgb, currentColor calc(var(--badge-bg-opacity) * 0.5), transparent),
+		color-mix(in srgb, var(--but-inverse) calc(var(--badge-bg-opacity) * 0.8), transparent)
+	);
+	color: var(--but-foreground);
+}
+
+/* The colours take their soft fill and the text that reads on it. On an
+   inverted row the flipped colour scheme picks the other mode's soft. */
+.safe {
+	background-color: var(--but-success-soft);
+	color: var(--but-success-soft-foreground);
+}
+
+.warn {
+	background-color: var(--but-warning-soft);
+	color: var(--but-warning-soft-foreground);
+}
+
+.danger {
+	background-color: var(--but-danger-soft);
+	color: var(--but-danger-soft-foreground);
+}
+
+.purple {
+	background-color: var(--but-done-soft);
+	color: var(--but-done-soft-foreground);
+}
+
+.blue {
+	background-color: var(--but-info-soft);
+	color: var(--but-info-soft-foreground);
+}
+
+.pop {
+	background-color: var(--but-primary-soft);
+	color: var(--but-primary-soft-foreground);
+}

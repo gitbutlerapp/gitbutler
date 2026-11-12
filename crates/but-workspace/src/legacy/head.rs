@@ -1,5 +1,3 @@
-//! Functions relate to the GitButler workspace head
-
 use anyhow::{Context as _, Result, bail};
 use but_core::RepositoryExt;
 use but_ctx::Context;
@@ -17,11 +15,9 @@ pub fn merge_worktree_with_workspace<'a>(
 ) -> Result<(gix::merge::tree::Outcome<'a>, TreatAsUnresolved)> {
     let mut head = gix_repo.head()?;
 
-    // The uncommitted changes
     #[expect(deprecated)]
     let workdir_tree = gix_repo.create_wd_tree(0)?;
 
-    // The tree of where the gitbutler workspace is at
     let workspace_tree = gix_repo
         .find_commit(super::remerged_workspace_commit_v2(ctx, ws)?)?
         .tree_id()?

@@ -196,7 +196,6 @@ fn crash_report(_: u32, _: SystemTime) -> Option<(SystemTime, Props)> {
     None
 }
 
-/// Reading macOS's crash reports.
 #[cfg(any(target_os = "macos", test))]
 mod report {
     use std::collections::HashMap;

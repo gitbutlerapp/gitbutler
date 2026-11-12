@@ -9,6 +9,15 @@ use super::{HEADER_HEIGHT, Icon, fixed, h_flex, icon};
 use crate::theme::Theme;
 
 const LINUX: bool = cfg!(target_os = "linux");
+/// Whether these are GNOME's: on Linux, or where a dev script asks for them.
+pub(super) fn gnome() -> bool {
+    #[cfg(feature = "dev-script")]
+    if crate::dev::linux_controls() {
+        return true;
+    }
+    LINUX
+}
+
 /// GNOME's round buttons: how large they are, and the room between and beside them.
 const ROUND: f32 = 24.;
 const ROUND_GAP: f32 = 12.;
@@ -21,6 +30,10 @@ pub const WINDOW_CONTROLS_WIDTH: f32 = match LINUX {
 };
 
 /// The buttons, top right, above whatever the window shows, a modal too.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "Windows' own close button, which isn't the app's colour"
+)]
 pub fn window_controls(window: &Window, cx: &App) -> impl IntoElement {
     let theme = Theme::get(cx);
     let glyph = theme.text_1;
@@ -32,14 +45,15 @@ pub fn window_controls(window: &Window, cx: &App) -> impl IntoElement {
         a: 1.,
     }
     .into();
-    let maximize = match window.is_maximized() {
+    // A dev script's window is off every screen, which AppKit has no answer for.
+    let maximize = match !crate::app::scripted() && window.is_maximized() {
         true => restore_glyph(glyph),
         false => div().size(fixed(10.)).border_1().border_color(glyph),
     };
     let cross = icon(Icon::Cross).size(fixed(14.)).text_color(glyph);
-    let hover = match LINUX {
+    let hover = match gnome() {
         true => theme.border_2,
-        false => theme.hover(),
+        false => theme.hover,
     };
     h_flex()
         .absolute()
@@ -47,7 +61,7 @@ pub fn window_controls(window: &Window, cx: &App) -> impl IntoElement {
         .right_0()
         // Above the header's bottom border, which stays drawn under a hovered button.
         .h(theme.scaled(HEADER_HEIGHT) - fixed(1.))
-        .when(LINUX, |el| el.px(fixed(ROUND_GAP)).gap(fixed(ROUND_GAP)))
+        .when(gnome(), |el| el.px(fixed(ROUND_GAP)).gap(fixed(ROUND_GAP)))
         .child(caption_button(
             "minimize",
             WindowControlArea::Min,
@@ -62,7 +76,7 @@ pub fn window_controls(window: &Window, cx: &App) -> impl IntoElement {
             hover,
             maximize,
         ))
-        .child(match LINUX {
+        .child(match gnome() {
             true => caption_button("close", WindowControlArea::Close, theme, hover, cross),
             false => caption_button(
                 "close",
@@ -115,16 +129,17 @@ fn caption_button(
         .occlude()
         .window_control_area(area)
         .hover(move |el| el.bg(hover))
-        .map(|el| match LINUX {
+        .map(|el| match gnome() {
             // GNOME's: round, on a faint ground.
             true => el
                 .size(fixed(ROUND))
                 .rounded_full()
-                .bg(theme.hover())
+                .bg(theme.hover)
                 .on_click(move |_, window, cx| match area {
                     WindowControlArea::Min => window.minimize_window(),
                     WindowControlArea::Max => window.zoom_window(),
-                    // Asks first, as closing the window does elsewhere.
+                    // Asks first, as closing the window does elsewhere, where it quits. Not
+                    // `CloseWindow`, which the tile with the keys would take.
                     _ => window.dispatch_action(Box::new(crate::app::Quit), cx),
                 }),
             false => el.w(fixed(WINDOW_CONTROLS_WIDTH / 3.)).h_full(),

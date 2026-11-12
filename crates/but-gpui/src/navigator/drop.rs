@@ -1,142 +1,42 @@
-//! Dropping what's dragged on the navigator's rows: where on a row it lands, the line or
-//! outline that shows it, the zone for a new branch, and scrolling while it's near an edge.
+//! What's dragged over the navigator's rows, which is a move, the pointer stepping it through its
+//! stops as the keys do, the zone for a new branch, and scrolling while it's near an edge. The
+//! rows stay where they are as it goes, so what the pointer aims at holds still: a divider between
+//! them shows where it lands. A linked worktree dragged by its heading moves as the move of it
+//! does (see `order.rs`).
 
 use std::time::Duration;
 
 use gpui::{
-    AnyElement, Bounds, Context, Div, DragMoveEvent, Hsla, Modifiers, MouseButton, MouseDownEvent,
-    MouseMoveEvent, Pixels, PlatformInput, Point, Window, deferred, div, prelude::*,
+    AnyElement, App, Bounds, Context, Div, DragMoveEvent, Hsla, MouseButton, MouseDownEvent,
+    MouseMoveEvent, Pixels, PlatformInput, Point, Window, div, prelude::*,
 };
 
 use super::Navigator;
-use crate::state::{Cut, ProjectId, Selection};
-use crate::theme::Theme;
-use crate::transfer::{Place, Transfer};
-use crate::ui::{Icon, dp, fixed, h_flex, small_icon};
+use super::rows::{CARD_EDGE, Row, card_ends, heads, span_height};
+use crate::backend::{Checkout, CommitId, Destination, FullName, Messages};
+use crate::state::{ProjectId, Selection};
+use crate::theme::{Hue, Theme};
+use crate::transfer::{Changes, Dragged, Move, Moving, Op, Place, Stop, Target};
+use crate::ui::{Icon, dp, h_flex, small_icon};
 
 impl Navigator {
-    /// Make a row take what's dragged or cut where it has a meaning for it, and offer its
-    /// right-click menu. While dragging, the row under the pointer shows where letting go
-    /// lands: a line above or below a commit, or an outline around what it goes into. While
-    /// something is cut, the selected row shows where ⌘V puts it. Rows it can't go on step back.
-    pub(super) fn drop_target(
+    pub(super) fn row_menu(
         &self,
         el: AnyElement,
-        target: Selection,
-        window: &Window,
-        theme: &Theme,
+        menu_target: Selection,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let store = self.store.read(cx);
-        let dragging = cx.has_active_drag();
-        // What a drop or a paste would carry: the drag while there is one, else the cut.
-        let pending = match dragging {
-            true => store.dragging.as_ref(),
-            false => store.cut.as_ref(),
-        };
-        let lands = |place: Place| {
-            pending
-                .is_some_and(|payload| Transfer::resolve(payload, &target, place, store).is_some())
-        };
-        let landing = match dragging {
-            true => (store.drop_at.as_ref())
-                .filter(|(at, _)| *at == target)
-                .map(|(_, place)| *place),
-            false => (pending.filter(|_| store.selection.as_ref() == Some(&target)))
-                .map(|cut| Place::from_keys(window.modifiers(), cut, &target)),
-        }
-        .filter(|place| lands(*place))
-        // A branch goes below another under its last commit, rows further down, so a line
-        // under its heading would point at the wrong place: the heading is outlined, as the
-        // pill says where.
-        .map(|place| match target {
-            Selection::Branch(..) => Place::Into,
-            _ => place,
-        });
-        let steps_back = pending.is_some()
-            && ![Place::Above, Place::Into, Place::Below]
-                .into_iter()
-                .any(lands);
-        let highlight = theme.pop;
-        let (store, move_target, can_drop_target, menu_target) = (
-            self.store.clone(),
-            target.clone(),
-            target.clone(),
-            target.clone(),
-        );
         div()
             .relative()
-            .rounded(dp(4.))
             .child(el)
-            .when(steps_back, |el| el.opacity(0.35))
-            .map(|el| match landing {
-                Some(Place::Into) => el.child(
-                    div()
-                        .absolute()
-                        .inset_0()
-                        .rounded(dp(4.))
-                        .border_1()
-                        .border_color(highlight)
-                        .bg(highlight.opacity(0.14)),
-                ),
-                // Painted last, as the next row's slice of the card would cover what of it
-                // crosses into that row.
-                Some(place) => el.child(deferred(insertion_line(place == Place::Above, highlight))),
-                None => el,
-            })
-            // Every row hears every move of a drag: the one under the pointer says where on
-            // it a drop lands, and the one it leaves lets go of it. What's dragged is the
-            // store's copy, which follows it as agents rewrite it; GPUI's stays as it began.
-            .on_drag_move(
-                cx.listener(move |this, event: &DragMoveEvent<Cut>, window, cx| {
-                    let (at, bounds) = (event.event.position, event.bounds);
-                    let store = this.store.read(cx);
-                    let next = if bounds.contains(&at) {
-                        let y = (at.y - bounds.top()) / bounds.size.height;
-                        (store.dragging.as_ref()).and_then(|payload| {
-                            let place = place_at(payload, &move_target, y, window.modifiers());
-                            Transfer::resolve(payload, &move_target, place, store)
-                                .map(|_| (move_target.clone(), place))
-                        })
-                    } else if store
-                        .drop_at
-                        .as_ref()
-                        .is_some_and(|(t, _)| *t == move_target)
-                    {
-                        None
-                    } else {
-                        return;
-                    };
-                    if store.drop_at != next {
-                        this.store.update(cx, |store, _| store.drop_at = next);
-                    }
-                }),
-            )
-            .can_drop(move |_, _, cx| {
-                let store = store.read(cx);
-                (store.dragging.as_ref()).is_some_and(|payload| {
-                    (store.drop_at.as_ref()).is_some_and(|(at, place)| {
-                        *at == can_drop_target
-                            && Transfer::resolve(payload, at, *place, store).is_some()
-                    })
-                })
-            })
-            .on_drop(cx.listener(move |this, _: &Cut, window, cx| {
-                let store = this.store.read(cx);
-                let (Some(payload), Some((_, place))) =
-                    (store.dragging.clone(), store.drop_at.clone())
-                else {
-                    return;
-                };
-                let target = target.clone();
-                this.app.update_later(window, cx, move |app, window, cx| {
-                    app.transfer(&payload, &target, place, window, cx)
-                });
-            }))
             .on_mouse_down(
                 MouseButton::Right,
                 cx.listener(move |this, event: &MouseDownEvent, window, cx| {
-                    if this.menu_items(&menu_target, cx).is_empty() {
+                    // No menu while something is being moved, which is all a click can do then.
+                    if this.store.read(cx).moving.is_some() {
+                        return this.nudge_move(cx);
+                    }
+                    if this.row_menu_items(&menu_target, cx).is_empty() {
                         return;
                     }
                     let picked = matches!(&menu_target,
@@ -149,44 +49,207 @@ impl Navigator {
                     }
                     // After selecting, which reads a commit, so its menu offers to unread it.
                     let target = menu_target.clone();
-                    this.open_menu(event.position, move |this, cx| this.menu_items(&target, cx), cx);
+                    this.open_menu(
+                        event.position,
+                        move |this, cx| this.row_menu_items(&target, cx),
+                        cx,
+                    );
                 }),
             )
             .into_any_element()
     }
 
-    /// A pointer moving over a drop zone drops there, so a row still lit lets go, even one a
-    /// reload took away, which no row would clear.
-    fn over_zone(&mut self, event: &DragMoveEvent<Cut>, _: &mut Window, cx: &mut Context<Self>) {
-        if event.bounds.contains(&event.event.position) && self.store.read(cx).drop_at.is_some() {
-            self.store.update(cx, |store, _| store.drop_at = None);
-            cx.notify();
+    /// Have what's dragged be at the stop under the pointer, as the keys would step it there.
+    /// Off the rows, it's no move: what it's over takes it as anything dragged, and the rows are
+    /// as they were. A move the keys started goes on, as does that of a linked worktree dragged
+    /// by its heading.
+    pub(super) fn follow_dragged(
+        &mut self,
+        event: &DragMoveEvent<Dragged>,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let store = self.store.read(cx);
+        if (store.moving.as_ref()).is_some_and(|moving| !moving.dragged(store)) {
+            return;
+        }
+        // A linked worktree dragged by its heading follows the pointer on its own.
+        let Some(Dragged { project, what }) = (store.dragging.clone())
+            .filter(|dragged| !matches!(dragged.what, Moving::Worktree { .. }))
+        else {
+            return;
+        };
+        let at = event.event.position;
+        let depth = (event.bounds.contains(&at))
+            .then(|| self.depth_at(at, Theme::get(cx)))
+            .flatten();
+        self.hold_dragged(project, what, depth, cx);
+    }
+
+    /// Have what's dragged be `depth` down the rows, or with `None` end its move.
+    fn hold_dragged(
+        &mut self,
+        project: ProjectId,
+        what: Moving,
+        depth: Option<f32>,
+        cx: &mut Context<Self>,
+    ) {
+        let next = depth.and_then(|depth| self.dragged_to(project, what, depth, cx));
+        let store = self.store.read(cx);
+        let unchanged = match (&store.moving, &next) {
+            (Some(was), Some(next)) => was.at == next.at && was.op == next.op,
+            (was, next) => was.is_none() && next.is_none(),
+        };
+        if !unchanged {
+            let held = next.is_some();
+            (self.store).update(cx, |store, cx| {
+                store.set_moving(next, cx);
+                store.move_dragged = held;
+            });
         }
     }
 
-    /// Where a commit of `project` being dragged lands in a new branch of its own, or a
-    /// stacked branch in a stack of its own: a dashed box, lit while a drag is over it.
-    /// Padded, not margined: a margin collapses through the card's ground.
+    /// `what` of `project` where [`drag_zone`] says the pointer `depth` down the rows has it.
+    fn dragged_to(&self, project: ProjectId, what: Moving, depth: f32, cx: &App) -> Option<Move> {
+        let takes = |at: &Stop, op: Op| {
+            (self.stops_for(&project, &what, op, cx)).is_some_and(|(stops, _)| stops.contains(at))
+        };
+        let (at, op) = match drag_zone(&self.rows, &project, &what, depth, self.row, takes) {
+            Some(landing) => landing,
+            None => self.dragged_from(&project, &what, cx)?,
+        };
+        Some(Move {
+            project,
+            what,
+            at,
+            op,
+        })
+    }
+
+    /// Where what's dragged is, which lands nothing.
+    fn dragged_from(&self, project: &ProjectId, what: &Moving, cx: &App) -> Option<(Stop, Op)> {
+        match what {
+            // Dragged from a page, their row may not be listed, which is nothing to them.
+            Moving::Files(_) => {
+                let selected = self.store.read(cx).selection.as_ref();
+                let home = what.home(project, selected)?;
+                Some((Stop::Into(home), Op::Squash(Messages::default())))
+            }
+            Moving::Commits(_)
+            | Moving::Branch(_)
+            | Moving::Project(_)
+            | Moving::Worktree { .. }
+            | Moving::Terminal { .. }
+            | Moving::Copies(_) => {
+                let (stops, start) = self.stops_for(project, what, Op::Move, cx)?;
+                Some((stops.into_iter().nth(start)?, Op::Move))
+            }
+        }
+    }
+
+    /// Over the rows, the line between them where what's dragged would land. Drawn over them, not
+    /// among them, so no row moves for it. What lands on a row, as files starting a commit on a
+    /// branch do, has the row outlined instead.
+    pub(super) fn drag_divider(&self, theme: &Theme, cx: &App) -> Option<AnyElement> {
+        if self.squash_outline.is_some() {
+            return None;
+        }
+        let store = self.store.read(cx);
+        let moving = (store.moving.as_ref())
+            .filter(|moving| moving.dragged(store) && moving.lands(store))?;
+        let (ix, place) = divider_at(&self.rows, &moving.project, &moving.at)?;
+        let above = place == Place::Above;
+        let inset = self.insets.get(ix).copied().unwrap_or_default();
+        // In the card under a tab, from the top of its rows, all of which are drawn.
+        let (edge, (left, right)) = match self.card_top.get() {
+            Some(_) => {
+                let rows = 0..ix + usize::from(!above);
+                (
+                    theme.scaled(span_height(&self.rows, rows, self.row)),
+                    (0., 0.),
+                )
+            }
+            None => {
+                let row = self.list.bounds_for_item(ix)?;
+                // A card's first and last rows hold its edge, which the line stays inside.
+                let (first, last) = card_ends(&self.rows, ix);
+                let edge = match above {
+                    true if first => row.top() + theme.scaled(CARD_EDGE),
+                    true => row.top(),
+                    false if last => row.bottom() - theme.scaled(CARD_EDGE),
+                    false => row.bottom(),
+                };
+                (
+                    edge - self.list.viewport_bounds().top(),
+                    self.card_margins(),
+                )
+            }
+        };
+        let line = divider(moving.op.colour(theme))
+            .left(dp(left + inset + 10.))
+            .right(dp(right + 10.))
+            .top(edge - theme.scaled(1.));
+        Some(
+            div()
+                .absolute()
+                .inset_0()
+                .overflow_hidden()
+                .child(line)
+                .into_any_element(),
+        )
+    }
+
+    /// Let go of what's dragged where its move is, as Return lands it, or of a linked worktree
+    /// where it's shown. Changes on a branch start a commit there, as the composer takes them.
+    pub(super) fn drop_dragged(
+        &mut self,
+        dropped: &Dragged,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.drop_worktree(dropped, window, cx);
+        let store = self.store.read(cx);
+        let Some(moving) = (store.moving.clone()).filter(|moving| moving.dragged(store)) else {
+            return;
+        };
+        let Move {
+            project, at, op, ..
+        } = &moving;
+        if let (Op::Commit, Stop::In(Destination::Branch(branch)), Some(dragged)) =
+            (*op, at, store.dragging.clone())
+        {
+            let target = Selection::Branch(project.clone(), Some(branch.clone()));
+            (self.store).update(cx, |store, cx| store.set_moving(None, cx));
+            return self.app.update_later(window, cx, move |app, window, cx| {
+                app.transfer(&dragged.what, &target, Place::Into, window, cx)
+            });
+        }
+        self.land_move(window, cx);
+    }
+
+    /// Where a commit being dragged lands in a new branch of its own, or a stacked branch in a
+    /// stack of its own: a dashed box, lit while a drag is over it. Padded, not margined: a
+    /// margin collapses through the card's ground.
     pub(super) fn new_branch_zone(
         &self,
         ix: usize,
-        project: &ProjectId,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let project = project.clone();
         let highlight = theme.pop;
-        let label = match self.store.read(cx).dragging {
-            Some(Cut::Branch(..)) => "Unstack",
-            _ => "New branch",
+        let wash = theme.wash(Hue::Pop);
+        let dragging = self.store.read(cx).dragging.as_ref();
+        let label = match dragging.map(|dragged| &dragged.what) {
+            Some(Moving::Branch(_)) => "Unstack",
+            _ => "New independent branch",
         };
         let zone = h_flex()
             .id(("new-branch-drop", ix))
             .h(dp(30.))
-            .mx(dp(6.))
+            .mx(dp(3.))
             .justify_center()
             .gap(dp(6.))
-            .rounded(dp(4.))
+            .rounded(dp(theme.shape.control))
             .border_1()
             .border_dashed()
             .border_color(theme.border_2)
@@ -194,30 +257,9 @@ impl Navigator {
             .text_color(theme.text_2)
             .child(small_icon(Icon::Branch).text_color(theme.text_2))
             .child(label)
-            .drag_over::<Cut>(move |style, _, _, _| {
-                style
-                    .bg(highlight.opacity(0.14))
-                    .border_color(highlight)
-                    .text_color(highlight)
-            })
-            .on_drag_move(cx.listener(Self::over_zone))
-            .on_drop(cx.listener(move |this, _: &Cut, _, cx| {
-                // A row still lit says where the pill told the drop goes, as when the
-                // zone slid under a pointer that didn't move.
-                let store = this.store.read(cx);
-                if store.drop_at.is_some() {
-                    return;
-                }
-                match store.dragging.clone() {
-                    Some(Cut::Commit(from, ids)) if from == project => this
-                        .store
-                        .update(cx, |store, cx| store.move_to_new_branch(&from, ids, cx)),
-                    Some(Cut::Branch(from, branch)) if from == project => this
-                        .store
-                        .update(cx, |store, cx| store.unstack(&from, branch, cx)),
-                    _ => {}
-                }
-            }));
+            .drag_over::<Dragged>(move |style, _, _, _| {
+                style.bg(wash).border_color(highlight).text_color(highlight)
+            });
         div().py(dp(2.)).child(zone).into_any_element()
     }
 
@@ -288,45 +330,851 @@ impl Navigator {
     }
 }
 
-/// Where on `target` a drop of `payload` at `y`, from 0 at its top to 1 at its bottom,
-/// lands. A commit dragged onto another goes above it in the top quarter, below it in the
-/// bottom one, and into it between; a copy of one, which can't go into another, splits it in
-/// halves. Anything else goes into its target, or with ⇧ a branch below another.
-fn place_at(payload: &Cut, target: &Selection, y: f32, held: Modifiers) -> Place {
-    match (payload, target) {
-        (Cut::Commit(..), Selection::Commit(..)) if y < 0.25 => Place::Above,
-        (Cut::Commit(..), Selection::Commit(..)) if y > 0.75 => Place::Below,
-        (Cut::CherryPick(..), Selection::Commit(..)) if y < 0.5 => Place::Above,
-        (Cut::CherryPick(..), Selection::Commit(..)) => Place::Below,
-        // A branch's heading: its lower half puts the dragged branch below it, its upper half
-        // stacks it on top.
-        (Cut::Branch(..), Selection::Branch(..)) if y > 0.5 => Place::Below,
-        _ if held.shift && !matches!(target, Selection::Commit(..)) => Place::Below,
-        _ => Place::Into,
+/// Where the pointer `depth` down `rows` lands `what` of `project`, as what, where `takes` says
+/// what lands where. Nowhere, what's dragged goes back where it is, over its own rows too.
+fn drag_zone(
+    rows: &[Row],
+    project: &ProjectId,
+    what: &Moving,
+    depth: f32,
+    row: f32,
+    takes: impl Fn(&Stop, Op) -> bool,
+) -> Option<(Stop, Op)> {
+    if over_own_row(rows, project, what, depth, row) {
+        return None;
+    }
+    let at = stop_at(rows, project, what, depth, row)?;
+    let op = op_at(what, &at);
+    takes(&at, op).then_some((at, op))
+}
+
+/// The stop `what` of `project` aims at `depth` down `rows`. Commits go between rows from the top
+/// and bottom quarter of a commit, into it between, and to the top of a branch from its heading.
+/// They make no new branch but the zone's, whose stops would share a gap with others. A branch
+/// goes where the pointer is, above another from the top half of it and its commits and below it
+/// from the bottom half. Files go into a commit or a worktree's changes, whichever row they're
+/// over, and a worktree's changes onto a branch start a commit there; they make no new branch.
+/// An open stack's caption is aimed at as the top of the branch listed right under it.
+fn stop_at(rows: &[Row], project: &ProjectId, what: &Moving, depth: f32, row: f32) -> Option<Stop> {
+    let (ix, y) = aimed_at(rows, depth, row)?;
+    match what {
+        Moving::Commits(_) => commit_stop(rows, ix, y, project),
+        Moving::Branch(_) => branch_stop(rows, ix, y, project, row),
+        Moving::Files(Changes { from, .. }) => file_stop(rows, ix, project, *from),
+        Moving::Project(_)
+        | Moving::Worktree { .. }
+        | Moving::Terminal { .. }
+        | Moving::Copies(_) => None,
     }
 }
 
-/// The line a drop lands on, along the row's top edge or its bottom one, so the rows either
-/// side of a gap draw it in the same place.
-pub(super) fn insertion_line(above: bool, color: Hsla) -> Div {
-    let line = div()
-        .absolute()
-        .left(dp(10.))
-        .right(dp(6.))
-        .h(dp(2.))
-        .rounded_full()
-        .bg(color)
-        .child(
-            div()
-                .absolute()
-                .left(dp(-4.))
-                .top(dp(-2.))
-                .size(dp(6.))
-                .rounded_full()
-                .bg(color),
-        );
+/// What landing `what` at `at` does: into a row squashes it, and files anywhere else start a
+/// commit.
+fn op_at(what: &Moving, at: &Stop) -> Op {
+    match (what, at) {
+        (_, Stop::Into(_)) => Op::Squash(Messages::default()),
+        (Moving::Files(_), _) => Op::Commit,
+        (_, _) => Op::Move,
+    }
+}
+
+/// The checkout whose uncommitted changes row `ix` of `rows` takes for `project`: its changes',
+/// or as the heading it is or stands in for, as [`heads`] says.
+fn changes_at(rows: &[Row], ix: usize, project: &ProjectId) -> Option<Checkout> {
+    let row = rows.get(ix)?;
+    match row {
+        Row::Item(Selection::Uncommitted(p, checkout)) if p == project => Some(checkout.clone()),
+        Row::Item(item) if item.project() == project => heads(row, rows.get(ix + 1)),
+        _ => None,
+    }
+}
+
+fn file_stop(rows: &[Row], ix: usize, project: &ProjectId, from: Option<CommitId>) -> Option<Stop> {
+    if let Some(checkout) = changes_at(rows, ix, project) {
+        return Some(Stop::Into(Target::Uncommitted(checkout)));
+    }
+    match rows.get(ix)? {
+        Row::Item(Selection::Commit(p, id)) if p == project => {
+            Some(Stop::Into(Target::Commit(*id)))
+        }
+        Row::Item(Selection::Branch(p, Some(name))) if p == project && from.is_none() => {
+            Some(Stop::In(Destination::Branch(name.clone())))
+        }
+        _ => None,
+    }
+}
+
+/// The row `depth` down `rows`, and how far down that row, from 0 at its top to 1 at its bottom.
+fn row_at(rows: &[Row], depth: f32, row: f32) -> Option<(usize, f32)> {
+    let mut top = 0.;
+    for (ix, item) in rows.iter().enumerate() {
+        let height = item.height(row);
+        if depth < top + height {
+            return Some((ix, (depth - top) / height));
+        }
+        top += height;
+    }
+    None
+}
+
+/// The row the pointer `depth` down `rows` aims at, and how far down it, as [`row_at`] says,
+/// but an open stack's caption stands for the top of the branch listed right under it: its top
+/// one, or under the filter the first that matches, where the divider then shows it lands.
+fn aimed_at(rows: &[Row], depth: f32, row: f32) -> Option<(usize, f32)> {
+    let (ix, y) = row_at(rows, depth, row)?;
+    match (rows.get(ix), rows.get(ix + 1)) {
+        (Some(Row::Item(Selection::Stack(..))), Some(Row::Item(Selection::Branch(..)))) => {
+            Some((ix + 1, 0.))
+        }
+        _ => Some((ix, y)),
+    }
+}
+
+/// Whether `depth` down `rows` is over what's moving, where it started.
+fn over_own_row(rows: &[Row], project: &ProjectId, what: &Moving, depth: f32, row: f32) -> bool {
+    let aimed = aimed_at(rows, depth, row).and_then(|(ix, _)| rows.get(ix));
+    matches!(aimed, Some(Row::Item(item)) if what.holds(project, item))
+}
+
+fn commit_stop(rows: &[Row], ix: usize, y: f32, project: &ProjectId) -> Option<Stop> {
+    if let Some(checkout) = changes_at(rows, ix, project) {
+        return Some(Stop::Into(Target::Uncommitted(checkout)));
+    }
+    match rows.get(ix)? {
+        Row::NewBranch(p) if p == project => Some(Stop::NewStack { first: false }),
+        Row::Item(Selection::Branch(p, Some(name))) if p == project => {
+            Some(Stop::In(Destination::Branch(name.clone())))
+        }
+        Row::Item(Selection::Commit(p, _)) if p == project && y < 0.25 => {
+            gap_above(rows, ix, project)
+        }
+        Row::Item(Selection::Commit(p, id)) if p == project && y > 0.75 => {
+            Some(Stop::In(Destination::BelowCommit(*id)))
+        }
+        Row::Item(Selection::Commit(p, id)) if p == project => {
+            Some(Stop::Into(Target::Commit(*id)))
+        }
+        _ => None,
+    }
+}
+
+/// The stop between row `ix`, a commit, and what's listed above it in its branch, past any
+/// commit on its way there.
+fn gap_above(rows: &[Row], ix: usize, project: &ProjectId) -> Option<Stop> {
+    let above = rows.get(..ix)?.iter().rev().find_map(|row| match row {
+        Row::Item(Selection::Pending(..)) => None,
+        Row::Item(item) => Some(item),
+        _ => None,
+    })?;
     match above {
-        true => line.top(fixed(-1.)),
-        false => line.bottom(fixed(-1.)),
+        Selection::Commit(p, id) if p == project => Some(Stop::In(Destination::BelowCommit(*id))),
+        Selection::Branch(p, Some(name)) if p == project => {
+            Some(Stop::In(Destination::Branch(name.clone())))
+        }
+        _ => None,
+    }
+}
+
+fn branch_stop(rows: &[Row], ix: usize, y: f32, project: &ProjectId, row: f32) -> Option<Stop> {
+    let on = rows.get(ix)?;
+    match on {
+        Row::NewBranch(p) if p == project => return Some(Stop::NewStack { first: false }),
+        Row::Item(Selection::Branch(p, Some(_)) | Selection::Commit(p, _)) if p == project => {}
+        _ => return None,
+    }
+    let (heading, name) = branch_above(rows, ix + 1, project)?;
+    let end = branch_end(rows, heading);
+    let down = span_height(rows, heading..ix, row) + y * on.height(row);
+    if down < span_height(rows, heading..end, row) / 2. {
+        return Some(new_branch(name, false));
+    }
+    // The stop below it is above the branch under it in its stack, or its stack's end.
+    Some(match rows.get(end) {
+        Some(Row::Item(Selection::Branch(p, Some(next)))) if p == project => {
+            new_branch(next, false)
+        }
+        _ => new_branch(name, true),
+    })
+}
+
+/// The last named branch of `project` listed before row `end`, by its row.
+fn branch_above<'a>(
+    rows: &'a [Row],
+    end: usize,
+    project: &ProjectId,
+) -> Option<(usize, &'a FullName)> {
+    (rows.get(..end)?.iter().enumerate().rev()).find_map(|(at, row)| match row {
+        Row::Item(Selection::Branch(p, Some(name))) if p == project => Some((at, name)),
+        _ => None,
+    })
+}
+
+/// Whether `row` comes after a branch's commits rather than among them.
+fn ends_branch(row: Option<&Row>) -> bool {
+    matches!(
+        row,
+        Some(
+            Row::Item(Selection::Branch(..) | Selection::Stack(..))
+                | Row::Between(_)
+                | Row::Gap
+                | Row::WorktreeDivider
+                | Row::NewBranch(_)
+        )
+    )
+}
+
+/// The row after those of the branch headed by row `heading`.
+fn branch_end(rows: &[Row], heading: usize) -> usize {
+    (heading + 1..rows.len())
+        .find(|at| ends_branch(rows.get(*at)))
+        .unwrap_or(rows.len())
+}
+
+fn new_branch(beside: &FullName, below: bool) -> Stop {
+    Stop::NewBranch {
+        beside: beside.clone(),
+        below,
+    }
+}
+
+/// The row of `project` whose edge shows the stop `at`, and which edge. A stop that goes into a
+/// row has no gap to show, nor one that's a zone of its own, which lights up by itself.
+fn divider_at(rows: &[Row], project: &ProjectId, at: &Stop) -> Option<(usize, Place)> {
+    let commit = |id: &CommitId| {
+        (rows.iter()).position(|row| {
+            matches!(row, Row::Item(Selection::Commit(p, commit)) if p == project && commit == id)
+        })
+    };
+    let heading = |name: &FullName| {
+        (rows.iter()).position(|row| {
+            matches!(row, Row::Item(Selection::Branch(p, Some(branch)))
+                if p == project && branch == name)
+        })
+    };
+    match at {
+        Stop::In(Destination::AboveCommit(id)) => Some((commit(id)?, Place::Above)),
+        Stop::In(Destination::BelowCommit(id)) => Some((commit(id)?, Place::Below)),
+        // Above its first commit, past what's listed before its commits.
+        Stop::In(Destination::Branch(name)) => {
+            let heading = heading(name)?;
+            let first = (heading + 1..branch_end(rows, heading)).find(|ix| {
+                matches!(rows.get(*ix), Some(Row::Item(Selection::Commit(p, _))) if p == project)
+            });
+            Some(first.map_or((heading, Place::Below), |ix| (ix, Place::Above)))
+        }
+        Stop::NewBranch {
+            beside,
+            below: false,
+        } => Some((heading(beside)?, Place::Above)),
+        Stop::NewBranch {
+            beside,
+            below: true,
+        } => Some((branch_end(rows, heading(beside)?) - 1, Place::Below)),
+        Stop::Into(_)
+        | Stop::NewStack { .. }
+        | Stop::Card(_)
+        | Stop::Worktree(_)
+        | Stop::Terminal { .. } => None,
+    }
+}
+
+/// The line between two rows, for its caller to place.
+fn divider(color: Hsla) -> Div {
+    div().absolute().h(dp(2.)).rounded_full().bg(color).child(
+        div()
+            .absolute()
+            .left(dp(-4.))
+            .top(dp(-2.))
+            .size(dp(6.))
+            .rounded_full()
+            .bg(color),
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use super::{Row, divider_at, drag_zone, over_own_row, stop_at};
+    use crate::backend::model::build::{full, id};
+    use crate::backend::{Checkout, CommitId, Destination};
+    use crate::state::{ProjectId, Selection};
+    use crate::transfer::{Changes, Moving, Place, Stop, Target};
+    use crate::ui::ROW_HEIGHT;
+
+    fn project() -> ProjectId {
+        ProjectId::from("p")
+    }
+
+    fn branch(name: &str) -> Row {
+        let name = full(&format!("refs/heads/{name}"));
+        Row::Item(Selection::Branch(project(), Some(name)))
+    }
+
+    fn commit(n: u8) -> Row {
+        Row::Item(Selection::Commit(project(), id(n)))
+    }
+
+    fn commits(ids: &[CommitId]) -> Moving {
+        Moving::Commits(Arc::from(ids))
+    }
+
+    fn top_of(name: &str) -> Stop {
+        Stop::In(Destination::Branch(full(&format!("refs/heads/{name}"))))
+    }
+
+    fn below(n: u8) -> Stop {
+        Stop::In(Destination::BelowCommit(id(n)))
+    }
+
+    /// How far down row `row` of a list of plain rows, `y` of the way through it.
+    fn depth(row: f32, y: f32) -> f32 {
+        (row + y) * ROW_HEIGHT
+    }
+
+    #[test]
+    fn a_commits_middle_takes_a_squash_and_its_edges_a_move() {
+        let rows = Vec::from([branch("ui"), commit(3), commit(2), commit(1)]);
+        let dragged = commits(&[id(1)]);
+        assert_eq!(
+            stop_at(&rows, &project(), &dragged, depth(2., 0.5), ROW_HEIGHT),
+            Some(Stop::Into(Target::Commit(id(2)))),
+            "its middle goes into it"
+        );
+        assert_eq!(
+            stop_at(&rows, &project(), &dragged, depth(2., 0.1), ROW_HEIGHT),
+            Some(below(3)),
+            "its top quarter goes between it and the commit above"
+        );
+        assert_eq!(
+            stop_at(&rows, &project(), &dragged, depth(2., 0.9), ROW_HEIGHT),
+            Some(below(2)),
+            "its bottom quarter goes below it"
+        );
+    }
+
+    #[test]
+    fn the_pointer_over_no_stop_sends_what_is_dragged_back() {
+        let rows = Vec::from([branch("ui"), commit(3), Row::WorktreeDivider, branch("api")]);
+        let line = 2. * ROW_HEIGHT + 6.;
+        assert_eq!(
+            drag_zone(
+                &rows,
+                &project(),
+                &commits(&[id(9)]),
+                line,
+                ROW_HEIGHT,
+                |_, _| { true }
+            ),
+            None,
+            "with nothing to land on, no divider stays behind away from the pointer"
+        );
+    }
+
+    #[test]
+    fn the_pointer_over_its_own_row_sends_what_is_dragged_back() {
+        let rows = Vec::from([branch("ui"), commit(3), commit(2)]);
+        assert_eq!(
+            drag_zone(
+                &rows,
+                &project(),
+                &commits(&[id(3)]),
+                depth(1., 0.5),
+                ROW_HEIGHT,
+                |_, _| false
+            ),
+            None,
+            "where it started, nothing lands"
+        );
+    }
+
+    #[test]
+    fn files_over_the_commit_they_came_from_go_back() {
+        let rows = Vec::from([branch("ui"), commit(3)]);
+        assert_eq!(
+            drag_zone(
+                &rows,
+                &project(),
+                &files(Some(id(3))),
+                depth(1., 0.5),
+                ROW_HEIGHT,
+                |_, _| true
+            ),
+            None,
+            "where they start is listed as a stop, but going there lands nothing"
+        );
+    }
+
+    #[test]
+    fn the_gap_right_under_its_own_row_sends_what_is_dragged_back() {
+        let rows = Vec::from([branch("ui"), commit(3), commit(2)]);
+        assert_eq!(
+            drag_zone(
+                &rows,
+                &project(),
+                &commits(&[id(3)]),
+                depth(2., 0.2),
+                ROW_HEIGHT,
+                |_, _| false
+            ),
+            None,
+            "that's where it is, not somewhere to land"
+        );
+    }
+
+    #[test]
+    fn a_stop_that_takes_nothing_is_no_zone_of_its_own() {
+        let rows = Vec::from([branch("ui")]);
+        assert_eq!(
+            drag_zone(
+                &rows,
+                &project(),
+                &commits(&[id(9)]),
+                depth(0., 0.5),
+                ROW_HEIGHT,
+                |_, _| false
+            ),
+            None,
+            "as the default branch's heading takes no commit"
+        );
+    }
+
+    #[test]
+    fn a_commits_own_row_is_over_its_own_row() {
+        let rows = Vec::from([branch("ui"), commit(3), commit(2)]);
+        assert!(
+            over_own_row(
+                &rows,
+                &project(),
+                &commits(&[id(3)]),
+                depth(1., 0.5),
+                ROW_HEIGHT
+            ),
+            "where it started, it goes back"
+        );
+        assert!(
+            !over_own_row(
+                &rows,
+                &project(),
+                &commits(&[id(3)]),
+                depth(2., 0.5),
+                ROW_HEIGHT
+            ),
+            "the next commit is another's"
+        );
+    }
+
+    #[test]
+    fn the_gap_under_a_heading_is_the_top_of_its_branch() {
+        let rows = Vec::from([branch("ui"), commit(3)]);
+        assert_eq!(
+            stop_at(
+                &rows,
+                &project(),
+                &commits(&[id(9)]),
+                depth(1., 0.1),
+                ROW_HEIGHT
+            ),
+            Some(top_of("ui")),
+            "above a branch's first commit is its top"
+        );
+    }
+
+    #[test]
+    fn a_heading_takes_a_commit_at_the_top_of_its_branch() {
+        let rows = Vec::from([branch("ui"), commit(3)]);
+        assert_eq!(
+            stop_at(
+                &rows,
+                &project(),
+                &commits(&[id(9)]),
+                depth(0., 0.5),
+                ROW_HEIGHT
+            ),
+            Some(top_of("ui")),
+            "never a new branch, whose stop would share the gap"
+        );
+    }
+
+    #[test]
+    fn the_zone_takes_a_commit_in_a_new_stack() {
+        let rows = Vec::from([branch("ui"), Row::NewBranch(project())]);
+        assert_eq!(
+            stop_at(
+                &rows,
+                &project(),
+                &commits(&[id(9)]),
+                depth(1., 0.5),
+                ROW_HEIGHT
+            ),
+            Some(Stop::NewStack { first: false }),
+            "the one new branch a drag makes"
+        );
+    }
+
+    #[test]
+    fn a_worktrees_heading_takes_a_commit_into_its_changes() {
+        let rows = Vec::from([Row::Item(Selection::Checkout(project(), Checkout::Main))]);
+        assert_eq!(
+            stop_at(
+                &rows,
+                &project(),
+                &commits(&[id(9)]),
+                depth(0., 0.5),
+                ROW_HEIGHT
+            ),
+            Some(Stop::Into(Target::Uncommitted(Checkout::Main))),
+            "it uncommits there, with changes listed under it or not"
+        );
+    }
+
+    #[test]
+    fn a_project_row_takes_a_commit_into_its_changes_only_without_a_main_heading() {
+        let project_row = || Row::Item(Selection::Project(project()));
+        let alone = Vec::from([project_row(), branch("ui")]);
+        assert_eq!(
+            stop_at(
+                &alone,
+                &project(),
+                &commits(&[id(9)]),
+                depth(0., 0.2),
+                ROW_HEIGHT
+            ),
+            Some(Stop::Into(Target::Uncommitted(Checkout::Main))),
+            "it stands in for the main checkout's heading, which its card leaves out"
+        );
+        let main = Row::Item(Selection::Checkout(project(), Checkout::Main));
+        let headed = Vec::from([project_row(), main]);
+        assert_eq!(
+            stop_at(
+                &headed,
+                &project(),
+                &commits(&[id(9)]),
+                depth(0., 0.2),
+                ROW_HEIGHT
+            ),
+            None,
+            "beside other checkouts the main one's own heading takes it"
+        );
+    }
+
+    #[test]
+    fn a_divider_below_a_commit_is_along_its_bottom() {
+        let rows = Vec::from([branch("ui"), commit(3), commit(2)]);
+        assert_eq!(
+            divider_at(&rows, &project(), &below(3)),
+            Some((1, Place::Below)),
+            "the row it goes under keeps its place"
+        );
+    }
+
+    #[test]
+    fn a_divider_at_the_top_of_a_branch_is_above_its_first_commit() {
+        let upstream = Row::Item(Selection::Upstream(
+            project(),
+            full("refs/remotes/origin/ui"),
+            id(8),
+        ));
+        let rows = Vec::from([branch("ui"), upstream, commit(3)]);
+        assert_eq!(
+            divider_at(&rows, &project(), &top_of("ui")),
+            Some((2, Place::Above)),
+            "what's listed before its commits stays above where it lands"
+        );
+    }
+
+    #[test]
+    fn a_divider_at_the_top_of_a_folded_branch_is_under_its_heading() {
+        let rows = Vec::from([branch("ui"), Row::Between(project()), branch("api")]);
+        assert_eq!(
+            divider_at(&rows, &project(), &top_of("ui")),
+            Some((0, Place::Below)),
+            "with no commit listed, the heading is all there is to go by"
+        );
+    }
+
+    #[test]
+    fn a_divider_above_a_branch_is_along_the_top_of_its_heading() {
+        let rows = Vec::from([branch("ui"), commit(3), branch("api"), commit(1)]);
+        let at = Stop::NewBranch {
+            beside: full("refs/heads/api"),
+            below: false,
+        };
+        assert_eq!(
+            divider_at(&rows, &project(), &at),
+            Some((2, Place::Above)),
+            "between the two branches"
+        );
+    }
+
+    #[test]
+    fn a_divider_below_a_branch_is_under_its_last_row() {
+        let more = Row::More(project(), Some(full("refs/heads/ui")), 4);
+        let rows = Vec::from([
+            branch("ui"),
+            commit(3),
+            more,
+            Row::Between(project()),
+            branch("api"),
+        ]);
+        let at = Stop::NewBranch {
+            beside: full("refs/heads/ui"),
+            below: true,
+        };
+        assert_eq!(
+            divider_at(&rows, &project(), &at),
+            Some((2, Place::Below)),
+            "under the row that says more follows too, which is no commit"
+        );
+    }
+
+    #[test]
+    fn a_stop_with_no_gap_shows_no_divider() {
+        let rows = Vec::from([branch("ui"), commit(3), Row::NewBranch(project())]);
+        assert_eq!(
+            divider_at(&rows, &project(), &Stop::Into(Target::Commit(id(3)))),
+            None,
+            "what goes into a row is outlined"
+        );
+        assert_eq!(
+            divider_at(&rows, &project(), &Stop::NewStack { first: false }),
+            None,
+            "the zone lights up by itself"
+        );
+    }
+
+    #[test]
+    fn a_divider_is_in_the_project_of_the_move() {
+        let other = Row::Item(Selection::Branch(
+            ProjectId::from("q"),
+            Some(full("refs/heads/ui")),
+        ));
+        let rows = Vec::from([other, branch("ui"), commit(3)]);
+        assert_eq!(
+            divider_at(&rows, &project(), &top_of("ui")),
+            Some((2, Place::Above)),
+            "the same branch name in another project is another row"
+        );
+    }
+
+    fn files(from: Option<CommitId>) -> Moving {
+        Moving::Files(Changes {
+            from,
+            worktree: Checkout::Main,
+            files: Arc::from([]),
+        })
+    }
+
+    #[test]
+    fn all_of_a_commit_takes_files_into_it() {
+        let rows = Vec::from([branch("ui"), commit(3)]);
+        assert_eq!(
+            stop_at(&rows, &project(), &files(None), depth(1., 0.1), ROW_HEIGHT),
+            Some(Stop::Into(Target::Commit(id(3)))),
+            "files only go into a commit, never between two"
+        );
+    }
+
+    #[test]
+    fn a_branch_takes_uncommitted_files_at_its_top() {
+        let rows = Vec::from([branch("ui")]);
+        assert_eq!(
+            stop_at(&rows, &project(), &files(None), depth(0., 0.5), ROW_HEIGHT),
+            Some(top_of("ui")),
+            "a commit of them starts there"
+        );
+    }
+
+    #[test]
+    fn a_branch_takes_no_files_of_a_commit() {
+        let rows = Vec::from([branch("ui")]);
+        assert_eq!(
+            stop_at(
+                &rows,
+                &project(),
+                &files(Some(id(1))),
+                depth(0., 0.5),
+                ROW_HEIGHT
+            ),
+            None,
+            "they go into a commit, not onto a branch"
+        );
+    }
+
+    #[test]
+    fn the_zone_takes_no_files() {
+        let rows = Vec::from([Row::NewBranch(project())]);
+        assert_eq!(
+            stop_at(&rows, &project(), &files(None), depth(0., 0.5), ROW_HEIGHT),
+            None,
+            "they make no new branch"
+        );
+    }
+
+    #[test]
+    fn a_worktrees_heading_takes_a_commits_files_into_its_changes() {
+        let rows = Vec::from([Row::Item(Selection::Checkout(project(), Checkout::Main))]);
+        assert_eq!(
+            stop_at(
+                &rows,
+                &project(),
+                &files(Some(id(1))),
+                depth(0., 0.5),
+                ROW_HEIGHT
+            ),
+            Some(Stop::Into(Target::Uncommitted(Checkout::Main))),
+            "as a commit does"
+        );
+    }
+
+    #[test]
+    fn another_projects_rows_are_no_stop() {
+        let other = Row::Item(Selection::Commit(ProjectId::from("q"), id(2)));
+        assert_eq!(
+            stop_at(
+                &[other],
+                &project(),
+                &commits(&[id(9)]),
+                depth(0., 0.5),
+                ROW_HEIGHT
+            ),
+            None,
+            "a move stays in its project"
+        );
+    }
+
+    #[test]
+    fn a_branch_goes_above_one_from_the_top_of_its_heading() {
+        let dragged = Moving::Branch(full("refs/heads/x"));
+        let rows = Vec::from([branch("ui"), commit(3)]);
+        assert_eq!(
+            stop_at(&rows, &project(), &dragged, depth(0., 0.2), ROW_HEIGHT),
+            Some(Stop::NewBranch {
+                beside: full("refs/heads/ui"),
+                below: false
+            }),
+            "stacked on top of it"
+        );
+    }
+
+    #[test]
+    fn a_branch_goes_above_an_open_one_from_all_of_its_heading() {
+        let dragged = Moving::Branch(full("refs/heads/x"));
+        let rows = Vec::from([branch("ui"), commit(3), commit(2), commit(1)]);
+        assert_eq!(
+            stop_at(&rows, &project(), &dragged, depth(0., 0.9), ROW_HEIGHT),
+            Some(Stop::NewBranch {
+                beside: full("refs/heads/ui"),
+                below: false
+            }),
+            "below it is rows away from the pointer, under its commits"
+        );
+    }
+
+    #[test]
+    fn a_branch_goes_below_a_folded_one_from_the_bottom_of_its_heading() {
+        let dragged = Moving::Branch(full("refs/heads/x"));
+        let rows = Vec::from([branch("ui")]);
+        assert_eq!(
+            stop_at(&rows, &project(), &dragged, depth(0., 0.9), ROW_HEIGHT),
+            Some(Stop::NewBranch {
+                beside: full("refs/heads/ui"),
+                below: true
+            }),
+            "with nothing under it, that's right where the pointer is"
+        );
+    }
+
+    #[test]
+    fn the_end_of_a_stack_splits_a_branch_either_side_of_it() {
+        let dragged = Moving::Branch(full("refs/heads/x"));
+        let rows = Vec::from([branch("ui"), Row::Between(project()), branch("api")]);
+        assert_eq!(
+            stop_at(&rows, &project(), &dragged, depth(0., 0.75), ROW_HEIGHT),
+            Some(Stop::NewBranch {
+                beside: full("refs/heads/ui"),
+                below: true
+            }),
+            "low on the last branch it joins the stack that ends there"
+        );
+        assert_eq!(
+            stop_at(&rows, &project(), &dragged, depth(1., 0.25), ROW_HEIGHT),
+            Some(Stop::NewBranch {
+                beside: full("refs/heads/api"),
+                below: false
+            }),
+            "high on the next one, the stack that starts there"
+        );
+    }
+
+    #[test]
+    fn a_branch_goes_above_the_next_one_in_its_stack_from_lower_down() {
+        let dragged = Moving::Branch(full("refs/heads/x"));
+        let rows = Vec::from([branch("ui"), commit(3), branch("api"), commit(1)]);
+        assert_eq!(
+            stop_at(&rows, &project(), &dragged, depth(1., 0.5), ROW_HEIGHT),
+            Some(Stop::NewBranch {
+                beside: full("refs/heads/api"),
+                below: false
+            }),
+            "the stop between them, as the keys list it"
+        );
+    }
+
+    #[test]
+    fn a_stacks_caption_aims_at_the_top_of_its_top_branch() {
+        let caption = Row::Item(Selection::Stack(project(), Some(full("refs/heads/api"))));
+        let rows = Vec::from([caption, branch("ui"), commit(3), branch("api"), commit(1)]);
+        let on_caption = depth(0., 0.5);
+        assert_eq!(
+            stop_at(
+                &rows,
+                &project(),
+                &commits(&[id(9)]),
+                on_caption,
+                ROW_HEIGHT
+            ),
+            Some(top_of("ui")),
+            "commits dropped on it go to the top of the stack"
+        );
+        assert_eq!(
+            stop_at(
+                &rows,
+                &project(),
+                &Moving::Branch(full("refs/heads/x")),
+                on_caption,
+                ROW_HEIGHT
+            ),
+            Some(Stop::NewBranch {
+                beside: full("refs/heads/ui"),
+                below: false
+            }),
+            "a branch dropped on it goes on top of the stack"
+        );
+        let top = Moving::Branch(full("refs/heads/ui"));
+        assert_eq!(
+            drag_zone(&rows, &project(), &top, on_caption, ROW_HEIGHT, |_, _| true),
+            None,
+            "the top branch itself, dragged over its caption, goes back where it is"
+        );
+    }
+
+    #[test]
+    fn a_branch_goes_below_the_last_one_of_its_stack() {
+        let dragged = Moving::Branch(full("refs/heads/x"));
+        let rows = Vec::from([
+            branch("ui"),
+            commit(3),
+            Row::Between(project()),
+            branch("api"),
+        ]);
+        assert_eq!(
+            stop_at(&rows, &project(), &dragged, depth(1., 0.5), ROW_HEIGHT),
+            Some(Stop::NewBranch {
+                beside: full("refs/heads/ui"),
+                below: true
+            }),
+            "the mark says the stack ends there"
+        );
     }
 }

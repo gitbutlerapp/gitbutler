@@ -109,7 +109,6 @@ pub trait DiffLineWriter {
         })
     }
 
-    #[cfg_attr(feature = "legacy", expect(dead_code))]
     fn write_non_selectable_text(&mut self, line: Line<'static>) -> anyhow::Result<()> {
         self.write(DetailsLine::Text {
             id: None,
@@ -851,6 +850,50 @@ pub fn render_committed_file(
     Ok(())
 }
 
+pub fn render_committed_hunk(
+    hunk: CommittedHunk,
+    theme: &'static Theme,
+    id_gen: &mut IdGen<'_>,
+    out: &mut dyn DiffLineWriter,
+) -> anyhow::Result<()> {
+    let mut id_gen = id_gen.scoped("committed_hunk");
+    let id = id_gen.new_id(&hunk.id);
+    render_committed_hunk_section(id, hunk, theme, out)
+}
+
+/// Render the header and diff of `committed_hunk`, the same way a commit diff shows each hunk.
+fn render_committed_hunk_section(
+    id: SectionId,
+    committed_hunk: CommittedHunk,
+    theme: &'static Theme,
+    out: &mut dyn DiffLineWriter,
+) -> anyhow::Result<()> {
+    let cli_id = Arc::new(CliId::CommittedHunk(committed_hunk));
+    let CliId::CommittedHunk(committed_hunk) = cli_id.as_ref() else {
+        unreachable!("Constructed as CommittedHunk above")
+    };
+
+    render_hunk_path_header(
+        id,
+        Some(Arc::clone(&cli_id)),
+        committed_hunk.hunk.path.as_ref(),
+        Some(StatusLine::ShortIdAndTreeStatus(
+            &committed_hunk.id,
+            committed_hunk.tree_status,
+        )),
+        out,
+        theme,
+    )?;
+
+    render_hunk(
+        id,
+        Some(Arc::clone(&cli_id)),
+        &committed_hunk.hunk,
+        theme,
+        out,
+    )
+}
+
 fn tree_changes_with_patches(
     ctx: &Context,
     tree_changes: Vec<TreeChange>,
@@ -1009,34 +1052,13 @@ fn render_tree_changes_with_id(
                         change_id: commit_id.change_id.clone(),
                         path: tree_change.inner.path.clone(),
                     };
-                    let cli_id = Arc::new(CliId::CommittedHunk(CommittedHunk {
+                    let committed_hunk = CommittedHunk {
                         committed_file,
                         id: hunk.id,
                         hunk: hunk.hunk,
-                    }));
-                    let CliId::CommittedHunk(committed_hunk) = cli_id.as_ref() else {
-                        unreachable!("Constructed as CommittedHunk above")
+                        tree_status: hunk.tree_status,
                     };
-
-                    render_hunk_path_header(
-                        hunk_id,
-                        Some(Arc::clone(&cli_id)),
-                        tree_change.inner.path.as_ref(),
-                        Some(StatusLine::ShortIdAndTreeStatus(
-                            &committed_hunk.id,
-                            tree_change.inner.status.kind(),
-                        )),
-                        out,
-                        theme,
-                    )?;
-
-                    render_hunk(
-                        hunk_id,
-                        Some(Arc::clone(&cli_id)),
-                        &committed_hunk.hunk,
-                        theme,
-                        out,
-                    )?;
+                    render_committed_hunk_section(hunk_id, committed_hunk, theme, out)?;
 
                     if tree_change_pos.needs_padding_below() || hunk_pos.needs_padding_below() {
                         out.write_section_separator()?;
@@ -1455,7 +1477,7 @@ impl PositionExt for Position {
     }
 }
 
-fn render_line_stats(line_stats: LineStats) -> Line<'static> {
+pub fn render_line_stats(line_stats: LineStats) -> Line<'static> {
     let LineStats {
         lines_added,
         lines_removed,
@@ -1475,6 +1497,22 @@ fn render_line_stats(line_stats: LineStats) -> Line<'static> {
             ))
         },
         Span::raw(", "),
+        Span::raw(format!("+{}", format_with_dot_thousands(lines_added))).green(),
+        Span::raw(" "),
+        Span::raw(format!("-{}", format_with_dot_thousands(lines_removed))).red(),
+    ])
+}
+
+/// One file's line counts, in the style of [`render_line_stats()`], with `name` padded to
+/// `name_width` so that a list of files lines up.
+pub fn render_file_line_stats(
+    name: &str,
+    name_width: usize,
+    lines_added: u64,
+    lines_removed: u64,
+) -> Line<'static> {
+    Line::from_iter([
+        Span::raw(format!("{name:<name_width$} ")),
         Span::raw(format!("+{}", format_with_dot_thousands(lines_added))).green(),
         Span::raw(" "),
         Span::raw(format!("-{}", format_with_dot_thousands(lines_removed))).red(),

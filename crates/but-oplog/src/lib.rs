@@ -51,7 +51,7 @@
 //! with the restore point.
 //!
 //! Non-legacy commands can use the [`UnmaterializedOplogSnapshot`] utility to insert the snapshot into the log on successful effects.
-#![forbid(unsafe_code, missing_docs)]
+#![forbid(unsafe_code)]
 
 /// This is just a sketch for an in-memory snapshot that isn't observable through the on-disk repository.
 /// It will be committed only if the main effect of a function was successfully applied.
@@ -82,7 +82,6 @@ mod oplog_snapshot {
 
     use crate::UnmaterializedOplogSnapshot;
 
-    /// Lifecycle
     impl UnmaterializedOplogSnapshot {
         /// Create a new instance from `details`, which is a snapshot that isn't committed to the oplog yet.
         /// When `dry_run` is enabled, return `None` instead of preparing
@@ -127,12 +126,15 @@ mod oplog_snapshot {
     impl UnmaterializedOplogSnapshot {
         /// Prepare a required checkpoint before a mutation that needs snapshot-based rollback.
         /// Unlike best-effort timeline recording, failure must prevent the mutation from starting.
+        /// `ref_names` are recorded too, even those that don't exist yet, so restoring the
+        /// checkpoint deletes a reference the mutation created.
         pub fn prepare_checkpoint(
             ctx: &Context,
             details: gitbutler_oplog::entry::SnapshotDetails,
+            ref_names: &[&gix::refs::FullNameRef],
             perm: &RepoShared,
         ) -> anyhow::Result<UnmaterializedOplogSnapshot> {
-            UnmaterializedOplogSnapshot::prepare(ctx, details, &[], perm)
+            UnmaterializedOplogSnapshot::prepare(ctx, details, ref_names, perm)
         }
 
         fn prepare(

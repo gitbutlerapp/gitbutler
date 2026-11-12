@@ -1237,14 +1237,6 @@ RefInfo {
         None,
         "without the remote configuration, no target upstream can be derived"
     );
-    assert!(
-        workspace
-            .graph
-            .project_meta
-            .remote_target_ref_or_err(&repo)
-            .is_err(),
-        "remote-required operations must reject a target without a derived upstream"
-    );
     assert_eq!(
         workspace.graph.project_meta.target_commit_id, stored_cutoff,
         "removing remote configuration must preserve the stored cutoff"

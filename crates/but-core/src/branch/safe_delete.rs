@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use crate::branch::SafeDelete;
 
-/// The outcome of [`SafeDelete::delete_reference()`]
 #[derive(Debug, Clone)]
 pub struct Outcome<'parent> {
     /// The paths to the worktrees that have the to-be-deleted reference checked out,
@@ -11,15 +10,12 @@ pub struct Outcome<'parent> {
 }
 
 impl Outcome<'_> {
-    /// Return `true` if the reference was deleted.
     pub fn was_deleted(&self) -> bool {
         self.checked_out_in_worktree_dirs.is_none()
     }
 }
 
-/// Lifecycle
 impl SafeDelete {
-    /// Create a new instance, fetching the required information from `repo`.
     pub fn new(repo: &gix::Repository) -> anyhow::Result<Self> {
         Ok(SafeDelete {
             worktrees_by_ref: gix_copies::worktree_branches(repo)?,

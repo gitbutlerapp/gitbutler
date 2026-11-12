@@ -1,6 +1,4 @@
-//! Time formatting utilities for the but CLI.
-
-/// Format a Unix timestamp (in seconds) as a relative time string (e.g., "2 days ago", "5m ago") from `now`.
+/// Format a Unix timestamp (in seconds) as a relative time string (e.g., "2d ago", "5m ago") from `now`.
 ///
 /// This uses a compact format suitable for commit timestamps and status displays.
 pub fn format_relative_time(now: std::time::SystemTime, timestamp_seconds: i64) -> String {

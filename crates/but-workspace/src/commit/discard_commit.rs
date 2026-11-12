@@ -1,11 +1,6 @@
-//! Discard commits from the graph.
-
 use anyhow::bail;
 use but_core::RefMetadata;
-use but_rebase::graph_rebase::{
-    Editor, SuccessfulRebase,
-    mutate::{SegmentDelimiter, SelectorSet},
-};
+use but_rebase::graph_rebase::{Editor, SuccessfulRebase};
 
 /// Discard one or more commits in a single rebase operation.
 ///
@@ -24,14 +19,7 @@ pub fn discard_commits<'ws, 'meta, M: RefMetadata>(
         }
         count += 1;
         let (selector, _commit) = editor.find_selectable_commit(commit_id)?;
-
-        let delimiter = SegmentDelimiter {
-            child: selector,
-            parent: selector,
-        };
-
-        editor.disconnect_segment_from(delimiter, SelectorSet::All, SelectorSet::All, false)?;
-        editor.replace_with_none(selector)?;
+        editor.prune(selector)?;
     }
 
     if count == 0 {

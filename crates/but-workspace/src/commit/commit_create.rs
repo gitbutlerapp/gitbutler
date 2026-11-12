@@ -1,5 +1,3 @@
-//! An action to create a new commit relative to a commit or reference.
-
 use anyhow::Result;
 use but_core::{DiffSpec, RefMetadata};
 use but_rebase::graph_rebase::{
@@ -8,9 +6,8 @@ use but_rebase::graph_rebase::{
 
 use crate::commit_engine::{Destination, create_commit};
 
-use super::{ChangeSource, cancel_consumed_changes};
+use super::{ChangeSource, cancel_consumed_changes, consumed_changes};
 
-/// The result of creating and inserting a new commit in the graph rebase editor.
 #[derive(Debug)]
 pub struct CommitCreateOutcome<'ws, 'meta, M: RefMetadata> {
     /// A successful rebase result for continuing operations. This will be
@@ -40,8 +37,6 @@ pub struct CommitCreateOutcome<'ws, 'meta, M: RefMetadata> {
 ///
 /// `relative_to` and `side` determine the position to insert the commit.
 /// See [`InsertSide`] to learn more about insertion semantics.
-///
-/// `message` will be the message used for the newly created commit.
 ///
 /// `context_lines` define how many diff context lines are being used for
 /// this particular function call. The provided `context_lines` MUST align
@@ -86,8 +81,7 @@ pub fn commit_create<'ws, 'meta, M: RefMetadata>(
     cancel_consumed_changes(
         &mut editor,
         &source,
-        all_changes,
-        &create_out.rejected_specs,
+        consumed_changes(all_changes, &create_out.rejected_specs),
         context_lines,
     )?;
 

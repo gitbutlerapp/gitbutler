@@ -1,5 +1,3 @@
-//! A library of TUI components to perform a certain operations.
-//!
 //! These may be interactive or static, with interactive ones containing *verbs*, and static ones being *nouns*.
 
 pub mod table;
@@ -64,7 +62,6 @@ struct CrosstermTerminalConfig {
 
 impl CrosstermTerminalGuard {
     /// Enter raw mode and the alternate screen, optionally enabling mouse capture.
-    /// Returns a guard that will restore the terminal on drop.
     pub fn alt_screen(enable_mouse: bool) -> anyhow::Result<Self> {
         Self::new(CrosstermTerminalConfig {
             terminal_options: TerminalOptions {
@@ -77,7 +74,6 @@ impl CrosstermTerminalGuard {
     }
 
     /// Enter raw mode and render inline at the current cursor position.
-    /// Returns a guard that will restore the terminal on drop.
     pub fn inline(height: u16) -> anyhow::Result<Self> {
         Self::new(CrosstermTerminalConfig {
             terminal_options: TerminalOptions {
@@ -178,12 +174,10 @@ fn leave_terminal_mode<W: io::Write>(
 /// input/output APIs can stop the target process due to job-control semantics.
 #[must_use]
 pub(crate) struct HeadlessTerminalGuard {
-    /// The in-memory terminal used by ratatui during headless rendering.
     terminal: Terminal<TestBackend>,
 }
 
 impl HeadlessTerminalGuard {
-    /// Create a headless terminal guard with a fixed terminal size.
     pub fn new(width: u16, height: u16) -> anyhow::Result<Self> {
         let backend = TestBackend::new(width, height);
         let terminal = Terminal::new(backend)?;
@@ -231,7 +225,6 @@ pub(crate) trait TerminalGuard {
     /// Returns a RAII guard that restores terminal state when dropped.
     fn suspend(&mut self) -> anyhow::Result<Self::SuspendGuard<'_>>;
 
-    /// Get a mutable reference to the guard's terminal.
     fn terminal_mut(&mut self) -> &mut Terminal<Self::Backend>;
 }
 

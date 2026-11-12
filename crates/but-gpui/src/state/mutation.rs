@@ -14,7 +14,7 @@ use crate::backend::history::Undone;
 use crate::backend::upstream::{UpdateConflicts, UpdateOutcome, UpdateScope};
 use crate::backend::{
     self, Branch, Checkout, Commit, CommitId, Destination, FileChange, FullName, HunkKey, OpKind,
-    Review, ReviewState, Selected, SnapshotId, Workspace, short_ref,
+    Review, ReviewState, SnapshotId, Workspace, short_ref,
 };
 
 /// How long a mutation runs before the status bar says how long it's taking.
@@ -50,6 +50,9 @@ pub struct Overlay {
     pub commit_hunks: HashMap<String, HashMap<String, Vec<HunkKey>>>,
     /// Where a new commit goes, and its title.
     pub new_commit: Option<(NewAt, SharedString)>,
+    /// It selects the commit it makes once that's there, so its stand-in is selected from the
+    /// start, as [`Selection::Pending`].
+    pub selects_made: bool,
     /// The commit (by key) it gives a new message, and the message.
     pub reworded: Option<(String, String)>,
     /// The branch (full ref) it renames, and its new name.
@@ -60,16 +63,36 @@ pub struct Overlay {
     pub merges: Option<u64>,
     /// The pull request, by number, whose auto-merge it turns on or off, and which.
     pub auto_merges: Option<(u64, bool)>,
+    /// The pull request, by number, it makes a draft, or ready for review with `false`.
+    pub sets_draft: Option<(u64, bool)>,
+    /// The pull request, by number, whose title and description it edits.
+    pub edits_review: Option<u64>,
     /// It opens a pull request for the branch it pushes.
     pub publishes: bool,
+    /// The move with the keys it lands, still shown as it was while being moved, its copy where
+    /// it lands, until the reload after it shows it there.
+    pub lands: Option<crate::transfer::Move>,
+    /// Whether what `lands` lands was dragged, so it shows no copy, staying as it is till the
+    /// reload slides it there.
+    pub dropped: bool,
+}
+
+/// A commit a running operation shows where it'll be, until the reload after it shows it there.
+pub enum NewCommit {
+    /// One it makes and selects once it's there, whose row is the stand-in selected till then.
+    Made(Selection),
+    /// Any other, by the title it shows by, with whether it's been on its way long enough to
+    /// show it, and the key of the commit it stands in for, when it moves one.
+    Shown(SharedString, bool, Option<String>),
 }
 
 /// What an operation is called: `text` is what the user reads, which may name a branch or a
 /// commit, and `name` the same without them, which the metrics know it by. A label that names
-/// nothing is both.
+/// nothing is both. One the app starts by itself, rather than the user, is `automatic`.
 pub struct Label {
     name: &'static str,
     text: SharedString,
+    automatic: bool,
 }
 
 impl Label {
@@ -77,6 +100,16 @@ impl Label {
         Self {
             name,
             text: text.into(),
+            automatic: false,
+        }
+    }
+
+    /// An operation the app starts by itself, as a setting asks, which goes uncounted in the
+    /// metrics and lets macOS slow it while the app is in the background.
+    fn automatic(text: &'static str) -> Self {
+        Self {
+            automatic: true,
+            ..Self::from(text)
         }
     }
 }
@@ -103,6 +136,7 @@ pub enum Rereads {
 }
 
 /// Where a commit an operation makes shows until it's loaded.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum NewAt {
     /// On top of this branch.
     Top(FullName),
@@ -115,6 +149,22 @@ pub enum NewAt {
 pub(super) type Checkouts = HashSet<Checkout>;
 
 impl Overlay {
+    /// `review`'s state once this is done, if it changes it. One that's closed or merged is
+    /// no draft to change.
+    fn review_state(&self, review: &Review) -> Option<ReviewState> {
+        if self.merges == Some(review.number) {
+            return Some(ReviewState::Merged);
+        }
+        let (_, draft) = self
+            .sets_draft
+            .filter(|(number, _)| *number == review.number)?;
+        match (review.state, draft) {
+            (ReviewState::Open | ReviewState::Draft, true) => Some(ReviewState::Draft),
+            (ReviewState::Open | ReviewState::Draft, false) => Some(ReviewState::Open),
+            (ReviewState::Closed | ReviewState::Merged, _) => None,
+        }
+    }
+
     /// The checkouts it makes commits in: the one whose files it takes, the one its new commit
     /// goes in, those of the commits it changes, and the linked worktrees resting on them,
     /// which their rewrite moves. An agent's commits in another, made meanwhile, aren't its
@@ -122,7 +172,6 @@ impl Overlay {
     pub(super) fn checkouts(&self, ws: &Workspace) -> Checkouts {
         let moved_by =
             |commit: Option<&Commit>| commit.map_or_else(HashSet::new, |c| ws.moved_by(c.id));
-        let keyed = |key: &str| ws.commits().find(|commit| commit.key == key);
         let landing = (self.new_commit.iter()).map(|(at, _)| match at {
             NewAt::Top(ref_name) => {
                 let Some((lane, at)) = ws.lane_of(Some(ref_name)) else {
@@ -133,13 +182,13 @@ impl Overlay {
                 moved.insert(lane.checkout.clone());
                 moved
             }
-            NewAt::Above(key) | NewAt::Below(key) => moved_by(keyed(key)),
+            NewAt::Above(key) | NewAt::Below(key) => moved_by(ws.find_commit_by_key(key)),
         });
         let changed = (self.commits.iter())
             .chain(self.commit_files.keys())
             .chain(self.commit_hunks.keys())
             .chain(self.reworded.iter().map(|(key, _)| key))
-            .map(|key| moved_by(keyed(key)));
+            .map(|key| moved_by(ws.find_commit_by_key(key)));
         (landing.chain(changed))
             .flatten()
             .chain([self.files_in.clone()])
@@ -171,7 +220,7 @@ impl Overlay {
                 .and_then(|branch| branch.ref_name.as_ref()),
         };
         let worktree = match selection {
-            Selection::Worktree(_, name) => Some(name),
+            Selection::Uncommitted(_, Checkout::Linked(name)) => Some(name),
             _ => store.worktree_for(selection).map(|wt| &wt.name),
         };
         let deleted = match selection {
@@ -183,6 +232,27 @@ impl Overlay {
         deleted
             || branch.is_some_and(|ref_name| self.branches.contains(ref_name))
             || worktree.is_some_and(|name| self.worktrees.contains(name))
+    }
+
+    /// The branch that takes the place of the one `selection` is on, or the bottom one of the
+    /// stack it is, once this has taken branches of its checkout away: see
+    /// [`backend::in_place_of`].
+    fn in_place_of<'a>(&self, selection: &Selection, store: &'a Store) -> Option<&'a Branch> {
+        let project = selection.project();
+        let workspace = store.workspace(project)?;
+        let ref_name = match selection {
+            Selection::Stack(_, bottom) => bottom.as_ref(),
+            _ => store.branch_for(selection)?.ref_name.as_ref(),
+        };
+        let (lane, _) = workspace.lane_of(ref_name)?;
+        let before: Vec<&Branch> = workspace.branches_in(&lane.checkout).collect();
+        let after: Vec<&Branch> = (before.iter().copied())
+            .filter(|b| {
+                let branch = Selection::Branch(project.clone(), b.ref_name.clone());
+                !self.takes_away(&branch, store)
+            })
+            .collect();
+        backend::in_place_of(&before, ref_name, &after)
     }
 
     /// Hides the files taken whole, and of the others the hunks taken.
@@ -230,7 +300,20 @@ pub(super) struct Running {
     pub(super) phase: Phase,
     /// Reloads asked for while it ran, which the reload after it reads too.
     pub(super) deferred: Reload,
+    /// What it does once it worked, as selecting the commit it rewrote, waiting for the
+    /// reload after it: see [`Store::run_done`].
+    done: Option<DoneHandler>,
 }
+
+impl Running {
+    /// Whether it's been running long enough for the commit it makes to show it's still on its
+    /// way.
+    fn slow(&self) -> bool {
+        self.started.elapsed() >= PENDING_AFTER
+    }
+}
+
+type DoneHandler = Box<dyn FnOnce(&mut Store, &mut Context<Store>)>;
 
 /// How far a running operation has got: the reload after it, not its own end, ends it.
 #[derive(Clone, Copy, PartialEq)]
@@ -263,7 +346,96 @@ fn files_named(files: &[String]) -> String {
 
 const WAIT_TO_UNDO: &str = "Wait for the running operation to finish, then undo it";
 
+type OnCommitted = std::rc::Rc<dyn Fn(&mut Store, backend::Committed, &mut Context<Store>)>;
+
+/// A commit not made as some of its changes couldn't go where it was asked to, for the user to
+/// say where they go instead: `commit` as it was asked for, why it wasn't made, and what runs
+/// once it's made after all.
+pub struct BlockedCommit {
+    pub project: ProjectId,
+    pub commit: backend::CommitChanges,
+    pub blocked: backend::Blocked,
+    committed: OnCommitted,
+}
+
 impl Store {
+    /// Apply `commit` to `project`, as [`Self::apply`] does, then `committed` with what it
+    /// made. One some of whose changes can't go where it was asked to is not made at all, and
+    /// the window asks the user where they go instead ([`StoreEvent::CommitBlocked`]), so
+    /// nothing is left out of a commit without their say.
+    pub fn commit(
+        &mut self,
+        project: &ProjectId,
+        label: impl Into<Label>,
+        overlay: Overlay,
+        commit: backend::CommitChanges,
+        committed: impl Fn(&mut Store, backend::Committed, &mut Context<Store>) + 'static,
+        cx: &mut Context<Self>,
+    ) {
+        let committed = std::rc::Rc::new(committed);
+        self.commit_with(project, label.into(), overlay, commit, committed, cx)
+    }
+
+    fn commit_with(
+        &mut self,
+        project: &ProjectId,
+        label: Label,
+        overlay: Overlay,
+        commit: backend::CommitChanges,
+        committed: OnCommitted,
+        cx: &mut Context<Self>,
+    ) {
+        let asked = (project.clone(), commit.clone());
+        let done = move |store: &mut Store, outcome, cx: &mut Context<Store>| match outcome {
+            backend::CommitOutcome::Committed(made) => committed(store, made, cx),
+            backend::CommitOutcome::Blocked(blocked) => {
+                let (project, commit) = asked;
+                store.blocked_commit = Some(BlockedCommit {
+                    project,
+                    commit,
+                    blocked,
+                    committed,
+                });
+                cx.emit(StoreEvent::CommitBlocked);
+            }
+        };
+        self.apply(project, label, overlay, commit, done, cx)
+    }
+
+    /// The commit last blocked, for the window to ask about, once.
+    pub fn take_blocked_commit(&mut self) -> Option<BlockedCommit> {
+        self.blocked_commit.take()
+    }
+
+    /// Commit what `blocked` asked for to `to` instead, as the user said, leaving out the
+    /// changes it can't take with `leave_out`, or stacking first as `restack` says.
+    pub fn commit_instead(
+        &mut self,
+        blocked: BlockedCommit,
+        to: backend::CommitTo,
+        leave_out: bool,
+        restack: Option<backend::Stacking>,
+        cx: &mut Context<Self>,
+    ) {
+        let BlockedCommit {
+            project,
+            commit,
+            committed,
+            ..
+        } = blocked;
+        let overlay = Overlay {
+            files_in: commit.checkout.clone(),
+            ..Overlay::files(commit.changes.iter())
+        };
+        let commit = backend::CommitChanges {
+            to,
+            leave_out,
+            restack,
+            ..commit
+        };
+        self.commit_with(&project, "Commit".into(), overlay, commit, committed, cx)
+    }
+
     /// Confirm an operation, or warn about the changes it had to leave out.
     pub fn report_left_out(&mut self, done: &str, left_out: &[String], cx: &mut Context<Self>) {
         if left_out.is_empty() {
@@ -306,6 +478,31 @@ impl Store {
     /// Every operation running, but for one waiting only for its reload.
     fn working(&self) -> impl Iterator<Item = &Running> {
         self.running.iter().filter(|r| r.phase == Phase::Working)
+    }
+
+    /// Count a write the app made outside an operation, which `started` and ran for `span`, as
+    /// its own, as a file edited in the diff saving itself: undo then doesn't take it for
+    /// someone else's, nor the checkout for active. One that `recorded` a snapshot is what ⌘Z
+    /// takes back next.
+    pub fn count_own_write(
+        &mut self,
+        project: &ProjectId,
+        span: (i64, i64),
+        recorded: Option<SnapshotId>,
+        started: Instant,
+    ) {
+        self.ran.entry(project.clone()).or_default().push(span);
+        // As an operation's, in seconds: a second early, and the watcher's events after.
+        let now = crate::ui::now();
+        let from = now - started.elapsed().as_secs() as i64 - 1;
+        let spans = self.own_writes.entry(project.clone()).or_default();
+        spans.retain(|span| crate::ui::just_now(*span.end()));
+        spans.push(from..=now + 2);
+        if let Some(snapshot) = recorded {
+            self.last_snapshot = Some((project.clone(), snapshot));
+            self.push_undo_step(project.clone(), snapshot, started);
+            self.redo_steps.clear();
+        }
     }
 
     /// Make the operation that recorded `snapshot` in `project` one ⌘Z takes back, among the
@@ -593,8 +790,14 @@ impl Store {
         );
     }
 
-    /// Fetch `project`'s remotes.
-    pub fn fetch(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+    /// Fetch `project`'s remotes, then, as `but pull` does, rebase what `update` picks onto
+    /// the target, if it picks anything.
+    pub fn fetch(
+        &mut self,
+        project: &ProjectId,
+        update: Option<UpdateScope>,
+        cx: &mut Context<Self>,
+    ) {
         let fetched = project.clone();
         self.apply(
             project,
@@ -604,6 +807,10 @@ impl Store {
             move |store, fetched_or_not, cx| match fetched_or_not {
                 Ok(any_remote) => {
                     store.fetched_now(&fetched, any_remote);
+                    // The update's card says what came of both.
+                    if let Some(scope) = update {
+                        return store.update_from_target(&fetched, scope, None, cx);
+                    }
                     let what = match any_remote {
                         true => "Fetched",
                         false => "No remote to fetch from",
@@ -621,8 +828,8 @@ impl Store {
     }
 
     /// Rebase what `scope` picks of the project onto its target's latest commits. It stops
-    /// short of leaving anything conflicted that isn't now, with a card that offers to update
-    /// anyway, unless that's what was `accepted` there.
+    /// short of leaving anything conflicted that isn't now, and the window asks whether to
+    /// update anyway ([`StoreEvent::UpdateConflicts`]), unless that's what was `accepted` there.
     pub fn update_from_target(
         &mut self,
         project: &ProjectId,
@@ -640,22 +847,25 @@ impl Store {
                 let target = (store.workspace(&updated).and_then(|ws| ws.target.as_ref()))
                     .map_or_else(|| "the target".to_owned(), |target| target.name.clone());
                 match outcome {
+                    UpdateOutcome::UpToDate => store.snack(up_to_date(scope, &target), cx),
+                    // Asked in a dialog rather than a card in a corner, which left the Update
+                    // pressed looking as if it had done nothing, so it was pressed again.
                     UpdateOutcome::WouldConflict(found) => {
-                        let again = updated.clone();
-                        let title = store.card_title(&updated, "Updating leaves conflicts".into());
                         let workspace = store.workspace(&updated);
                         let detail = update_conflicts_detail(&target, &found, workspace, scope);
-                        store.error_with_retry(
-                            title,
+                        cx.emit(StoreEvent::UpdateConflicts {
+                            project: updated.clone(),
+                            scope,
+                            found,
                             detail,
-                            "Update anyway",
-                            move |store, cx| {
-                                store.update_from_target(&again, scope, Some(found.clone()), cx)
-                            },
-                            cx,
-                        )
+                        })
                     }
-                    UpdateOutcome::Updated { conflicted, landed } => {
+                    UpdateOutcome::Updated {
+                        conflicted,
+                        merged,
+                        marked,
+                        merged_worktrees,
+                    } => {
                         // Its "Resolve the oldest…" bar is the next step, which a linked
                         // worktree's branch doesn't have, as its conflicts resolve in it.
                         let resolvable = (conflicted.iter())
@@ -665,7 +875,31 @@ impl Store {
                         if let Some(branch) = resolvable {
                             store.select(Some(branch), cx);
                         }
-                        store.snack_undoable(updated_message(&target, &conflicted, &landed), cx)
+                        // Tidied once the update has ended.
+                        let action = store.prefs.merged_worktrees;
+                        let tidied = match action {
+                            backend::MergedWorktrees::Keep => Vec::new(),
+                            backend::MergedWorktrees::Archive
+                            | backend::MergedWorktrees::Delete => merged_worktrees,
+                        };
+                        let said = updated_message(
+                            &target,
+                            &conflicted,
+                            &merged,
+                            &marked,
+                            (action, &tidied),
+                        );
+                        store.snack_undoable(said, cx);
+                        if !tidied.is_empty() {
+                            let store = cx.entity().downgrade();
+                            cx.defer(move |cx| {
+                                store
+                                    .update(cx, |store, cx| {
+                                        store.tidy_merged_worktrees(&updated, action, tidied, cx)
+                                    })
+                                    .ok();
+                            });
+                        }
                     }
                 }
             },
@@ -739,11 +973,7 @@ impl Store {
         let name = short_ref(&ref_name).into_owned();
         // The branches below it with commits to send go along, down the lanes it rests on,
         // which the snackbar says.
-        let below = self.workspace(project).map_or(0, |ws| {
-            (ws.pushed_with(&ref_name).skip(1))
-                .filter(|b| b.ref_name.is_some() && b.can_push())
-                .count()
-        });
+        let below = (self.workspace(project)).map_or(0, |ws| ws.parents_to_push(&ref_name).count());
         let all = match below {
             0 => name.clone(),
             1 => format!("{name} and the branch below it"),
@@ -804,7 +1034,9 @@ impl Store {
     }
 
     /// Open `ref_name`'s pull request, pushing it and the branches below it first where they
-    /// have anything to push. A failure's card tries again with the same title and description.
+    /// have anything to push, and with `auto_merge` turn its auto-merge on. A failure's card
+    /// tries again with the same title and description.
+    #[expect(clippy::too_many_arguments)]
     pub fn publish(
         &mut self,
         project: &ProjectId,
@@ -812,6 +1044,7 @@ impl Store {
         title: String,
         body: String,
         draft: bool,
+        auto_merge: bool,
         cx: &mut Context<Self>,
     ) {
         let again = {
@@ -819,7 +1052,15 @@ impl Store {
             let (title, body) = (title.clone(), body.clone());
             move |store: &mut Store, cx: &mut Context<Store>| {
                 let (title, body) = (title.clone(), body.clone());
-                store.publish(&project, ref_name.clone(), title, body, draft, cx)
+                store.publish(
+                    &project,
+                    ref_name.clone(),
+                    title,
+                    body,
+                    draft,
+                    auto_merge,
+                    cx,
+                )
             }
         };
         // An operation is turned down with only a snackbar while a commit is being
@@ -846,6 +1087,8 @@ impl Store {
                 title,
                 body,
                 draft,
+                auto_merge,
+                merge_method: self.picked_merge_method(project),
                 run_hooks,
             },
             move |store, made, cx| {
@@ -854,11 +1097,20 @@ impl Store {
                 match made {
                     Ok(made) => {
                         store.pushed(&published);
-                        let said = format!("Created pull request #{}", made.number);
+                        let said = match auto_merge && made.auto_merge_failed.is_none() {
+                            true => {
+                                format!("Created pull request #{} with auto-merge on", made.number)
+                            }
+                            false => format!("Created pull request #{}", made.number),
+                        };
                         store.snack(store.card_title(&published, said), cx);
                         if let Some(message) = made.sync_failed {
                             let said = "The stack's other pull requests weren't updated";
                             store.error(said, message, cx);
+                        }
+                        if let Some(err) = made.auto_merge_failed {
+                            let said = format!("Auto-merge isn't on for #{}", made.number);
+                            store.failed(store.card_title(&published, said), &err, cx);
                         }
                     }
                     Err(err) => {
@@ -893,18 +1145,79 @@ impl Store {
         let (label, done) = if archived {
             ("Archive worktree", format!("Archived {name}"))
         } else {
-            ("Show worktree", format!("{name} is back"))
+            ("Unarchive worktree", format!("Unarchived {name}"))
         };
         let overlay = Overlay {
             worktrees: archived.then(|| name.clone()).into_iter().collect(),
             ..Overlay::default()
         };
+        // One shown again is selected, as one created is.
+        let shown = (!archived)
+            .then(|| Selection::Checkout(project.clone(), Checkout::Linked(name.clone())));
         self.apply(
             project,
             label,
             overlay,
             backend::worktrees::SetArchived { name, archived },
-            move |store, (), cx| store.snack(done, cx),
+            move |store, (), cx| {
+                store.snack(done, cx);
+                if let Some(shown) = shown {
+                    store.select(Some(shown), cx);
+                }
+            },
+            cx,
+        );
+    }
+
+    /// Make the linked worktree `create` says, and select it.
+    pub fn create_worktree(
+        &mut self,
+        project: &ProjectId,
+        create: backend::worktrees::CreateWorktree,
+        cx: &mut Context<Self>,
+    ) {
+        let selected = project.clone();
+        self.apply(
+            project,
+            "Create worktree",
+            Overlay::default(),
+            create,
+            move |store, name, cx| {
+                store.snack(format!("Created worktree {name}"), cx);
+                store.select(
+                    Some(Selection::Checkout(selected, Checkout::Linked(name))),
+                    cx,
+                )
+            },
+            cx,
+        );
+    }
+
+    /// Show again the archived worktree [`backend::worktrees::RecycleWorktree`] finds, else
+    /// make a new one, and select it.
+    pub fn recycle_worktree(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+        let selected = project.clone();
+        self.apply(
+            project,
+            "Recycle worktree",
+            Overlay::default(),
+            backend::worktrees::RecycleWorktree,
+            move |store, recycled, cx| {
+                let (done, name) = match recycled {
+                    backend::worktrees::RecycledWorktree::Unarchived(worktree) => (
+                        format!("Recycled worktree {}", worktree.name),
+                        worktree.name,
+                    ),
+                    backend::worktrees::RecycledWorktree::Created(worktree) => {
+                        (format!("Created worktree {}", worktree.name), worktree.name)
+                    }
+                };
+                store.snack(done, cx);
+                store.select(
+                    Some(Selection::Checkout(selected, Checkout::Linked(name))),
+                    cx,
+                )
+            },
             cx,
         );
     }
@@ -928,41 +1241,149 @@ impl Store {
             project,
             "Delete worktree",
             overlay,
-            backend::worktrees::DeleteWorktree { name, lost },
+            backend::worktrees::DeleteWorktree {
+                name,
+                lost,
+                keep_if_changed: false,
+            },
             move |store, (), cx| store.snack(done, cx),
             cx,
         );
     }
 
-    /// Move commits `ids` into a new branch of their own, and select that branch.
+    /// Archive or delete project `id`'s linked worktrees `names`, whose work an update just
+    /// found merged, as `action` says, which the update's snackbar says it does. Only a failure
+    /// says more. Their terminals close with them. Deletes run beside the project's other
+    /// operations, each keeping a worktree written to meanwhile, and the archive waits for the
+    /// update to end.
+    fn tidy_merged_worktrees(
+        &mut self,
+        id: &ProjectId,
+        action: backend::MergedWorktrees,
+        names: Vec<bstr::BString>,
+        cx: &mut Context<Self>,
+    ) {
+        let overlay = |names: &[bstr::BString]| Overlay {
+            worktrees: names.iter().cloned().collect(),
+            ..Overlay::default()
+        };
+        match action {
+            backend::MergedWorktrees::Keep => {}
+            backend::MergedWorktrees::Archive => self.apply(
+                id,
+                Label::automatic("Archive merged worktrees"),
+                overlay(&names),
+                backend::worktrees::ArchiveWorktrees(names),
+                |_, (), _| {},
+                cx,
+            ),
+            backend::MergedWorktrees::Delete => {
+                for name in names {
+                    self.apply(
+                        id,
+                        Label::automatic("Delete merged worktree"),
+                        overlay(std::slice::from_ref(&name)),
+                        backend::worktrees::DeleteWorktree {
+                            name,
+                            lost: Vec::new(),
+                            keep_if_changed: true,
+                        },
+                        |_, (), _| {},
+                        cx,
+                    );
+                }
+            }
+        }
+    }
+
+    /// Move commits `ids` into a new branch of their own, in a stack of its own, before the
+    /// others with `first`, or `beside` a branch in its stack, as [`backend::MoveToNewBranch`]
+    /// says, showing them as `overlay` does until the reload shows where they went. The selected
+    /// one stays selected there, as a move to a branch already there keeps it.
     pub fn move_to_new_branch(
         &mut self,
         project: &ProjectId,
         ids: Arc<[CommitId]>,
+        beside: Option<(FullName, bool)>,
+        first: bool,
+        overlay: Overlay,
         cx: &mut Context<Self>,
     ) {
-        let shown = project.clone();
-        let keys = ids.iter().filter_map(|id| self.key_of(project, *id));
         self.apply(
             project,
             "Move to a new branch",
-            Overlay::commits(keys.collect::<Vec<_>>()),
-            backend::MoveToNewBranch { commits: ids },
-            move |store, (_, branch), cx| {
-                store.select(Some(Selection::Branch(shown, Some(branch))), cx);
+            overlay,
+            backend::MoveToNewBranch {
+                commits: ids,
+                beside,
+                first,
+                copy: false,
+            },
+            move |store, (rewritten, _), cx| {
+                store.follow(&rewritten, cx);
                 store.snack_undoable("Moved to a new branch", cx)
             },
             cx,
         );
     }
 
-    /// Take `branch` out of the stack it shares into a stack of its own.
-    pub fn unstack(&mut self, project: &ProjectId, branch: FullName, cx: &mut Context<Self>) {
+    /// Put copies of commits `ids` of `project` in a new branch, as [`Self::move_to_new_branch`]
+    /// puts them, landing the cherry-pick with the keys `lands`, and select the newest copy.
+    pub fn cherry_pick_to_new_branch(
+        &mut self,
+        project: &ProjectId,
+        ids: Arc<[CommitId]>,
+        beside: Option<(FullName, bool)>,
+        first: bool,
+        lands: crate::transfer::Move,
+        cx: &mut Context<Self>,
+    ) {
+        let selected = project.clone();
+        self.apply(
+            project,
+            "Cherry-pick to a new branch",
+            Overlay {
+                lands: Some(lands),
+                ..Overlay::default()
+            },
+            backend::MoveToNewBranch {
+                commits: ids,
+                beside,
+                first,
+                copy: true,
+            },
+            move |store, (rewritten, name), cx| {
+                let newest = (store.workspace(&selected))
+                    .and_then(|ws| ws.find_branch(Some(&name))?.commits.first())
+                    .map(|commit| Selection::Commit(selected.clone(), commit.id));
+                match newest {
+                    Some(newest) => store.select(Some(newest), cx),
+                    None => store.follow(&rewritten, cx),
+                }
+                store.snack_undoable("Cherry-picked to a new branch", cx)
+            },
+            cx,
+        );
+    }
+
+    /// Take `branch` out of the stack it shares into a stack of its own, after the others, or
+    /// with `first` before them, landing the move with the keys `lands` if it's that.
+    pub fn unstack(
+        &mut self,
+        project: &ProjectId,
+        branch: FullName,
+        first: bool,
+        lands: Option<crate::transfer::Move>,
+        cx: &mut Context<Self>,
+    ) {
         self.apply(
             project,
             "Unstack",
-            Overlay::default(),
-            backend::TearOffBranch { branch },
+            Overlay {
+                lands,
+                ..Overlay::default()
+            },
+            backend::TearOffBranch { branch, first },
             |store, conflicted, cx| {
                 store.snack_undoable(branch_moved("Moved to its own stack", &conflicted), cx)
             },
@@ -970,35 +1391,31 @@ impl Store {
         );
     }
 
-    /// Amend commit `into` with uncommitted `files` of `worktree`, then call `then` once that
-    /// worked.
+    /// Amend as `amend` says, then call `then` with the commit it became once that worked.
     pub fn amend(
         &mut self,
         project: &ProjectId,
-        into: CommitId,
-        files: Arc<[Selected]>,
-        worktree: Checkout,
-        then: impl FnOnce(&mut Store, &mut Context<Store>) + 'static,
+        amend: backend::Amend,
+        then: impl FnOnce(&mut Store, CommitId, &mut Context<Store>) + 'static,
         cx: &mut Context<Self>,
     ) {
-        let undoable = self.undoable(project, [worktree.clone()]);
+        let into = amend.into;
+        let undoable = self.undoable(project, [amend.checkout.clone()]);
+        let reworded = (amend.message.clone())
+            .and_then(|message| Some((self.key_of(project, into)?, message)));
         let overlay = Overlay {
-            files_in: worktree.clone(),
-            ..Overlay::files(files.iter())
+            files_in: amend.checkout.clone(),
+            reworded,
+            ..Overlay::files(amend.changes.iter())
         };
         // Which commit, as it's often not on screen.
         let said = (self.find_commit(project, into)).map_or("Amended".into(), |(_, commit)| {
             format!("Amended \"{}\"", crate::ui::commit_title(&commit.title))
         });
-        let amend = backend::Amend {
-            into,
-            changes: files,
-            checkout: worktree,
-            run_hooks: self.runs_hooks(project),
-        };
+        let named = self.short_reference(project, into);
         self.apply(
             project,
-            Label::new("Amend", format!("Amend {}", into.short())),
+            Label::new("Amend", format!("Amend {named}")),
             overlay,
             amend,
             move |store, amended, cx| {
@@ -1010,38 +1427,50 @@ impl Store {
                 if let Some(output) = amended.hook_failed {
                     store.error("Amended, but the post-commit hook failed", output, cx);
                 }
-                then(store, cx)
+                let made = amended.rewritten.get(&into).copied().unwrap_or(into);
+                then(store, made, cx)
             },
             cx,
         );
     }
 
-    /// Squash commits `ids`, listed newest first, into commit `into`, its message first and
-    /// theirs after it in the order they were written.
-    pub fn squash(
-        &mut self,
-        project: &ProjectId,
-        ids: Arc<[CommitId]>,
-        into: CommitId,
-        cx: &mut Context<Self>,
-    ) {
-        let overlay = Overlay::commits(ids.iter().filter_map(|id| self.key_of(project, *id)));
-        let label = Label::new("Squash", format!("Squash {} commits", ids.len() + 1));
-        let squash = backend::Squash { commits: ids, into };
+    /// Squash as `squash` says, its commits listed newest first, the branch it empties going
+    /// at once, then select what they went into.
+    pub fn squash(&mut self, project: &ProjectId, squash: backend::Squash, cx: &mut Context<Self>) {
+        let keys = (squash.commits.iter()).filter_map(|id| self.key_of(project, *id));
+        let overlay = Overlay {
+            deleted_branches: squash.emptied.iter().cloned().collect(),
+            ..Overlay::commits(keys.collect::<Vec<_>>())
+        };
+        let label = Label::new(
+            "Squash",
+            format!("Squash {} commits", squash.commits.len() + 1),
+        );
+        let into = squash.into;
+        let squashed = project.clone();
         self.apply(
             project,
             label,
             overlay,
             squash,
-            |store, rewritten, cx| {
-                store.follow(&rewritten, cx);
+            // On the result, from a branch squashed whole too.
+            move |store, rewritten, cx| {
+                store.follow_on(&squashed, &rewritten, into, cx);
                 store.snack_undoable("Squashed into one commit", cx)
             },
             cx,
         );
     }
 
-    pub fn uncommit(&mut self, project: &ProjectId, ids: Arc<[CommitId]>, cx: &mut Context<Self>) {
+    /// Uncommit commits `ids`, and with `emptied`, the branch they're all of, which goes with
+    /// them.
+    pub fn uncommit(
+        &mut self,
+        project: &ProjectId,
+        ids: Arc<[CommitId]>,
+        emptied: Option<FullName>,
+        cx: &mut Context<Self>,
+    ) {
         // A conflicted commit's files are one side's, so uncommitting it would bring back
         // nothing and lose the change it carries.
         let conflicted = (ids.iter())
@@ -1072,11 +1501,18 @@ impl Store {
             .and_then(|id| self.checkout_of(&Selection::Commit(project.clone(), *id)))
             .unwrap_or_default();
         let project = project.clone();
+        let overlay = Overlay {
+            deleted_branches: emptied.iter().cloned().collect(),
+            ..Overlay::commits(keys.clone())
+        };
         self.apply(
             &project.clone(),
             label,
-            Overlay::commits(keys.clone()),
-            backend::Uncommit { commits: ids },
+            overlay,
+            backend::Uncommit {
+                commits: ids,
+                emptied,
+            },
             move |store, (), cx| {
                 // The selected commit's changes are uncommitted now; show them there.
                 if let Some(Selection::Commit(selected, id)) = &store.selection
@@ -1085,7 +1521,7 @@ impl Store {
                         .key_of(selected, *id)
                         .is_some_and(|key| keys.contains(&key))
                 {
-                    store.select(Some(Selection::uncommitted_in(project, home)), cx);
+                    store.select(Some(Selection::Uncommitted(project, home)), cx);
                 }
                 store.snack_undoable("Uncommitted", cx)
             },
@@ -1096,7 +1532,9 @@ impl Store {
     /// Apply `intent` to `project`, then reload it, busy until the reload lands. Until then,
     /// `overlay` hides what it takes away, and another operation on `project` is refused, so
     /// each one acts on what the one before it did, but for those that run beside it
-    /// ([`OpKind::beside`]), each refusing only one of its own kind. `done` gets its result.
+    /// ([`OpKind::beside`]), each refusing only one of its own kind. `done` gets its result
+    /// once the reload lands, before what it loaded shows; for those beside it, and for undo
+    /// and redo, once it's finished.
     pub fn apply<I: backend::Intent>(
         &mut self,
         project: &ProjectId,
@@ -1112,19 +1550,31 @@ impl Store {
         }
         let beside = kind.beside();
         let remote_only = kind.remote_only();
-        let Label { name, text: label } = label.into();
+        let Label {
+            name,
+            text: label,
+            automatic,
+        } = label.into();
+        let via = backend::metrics::via();
         let editing = (self.workspace(project)).is_some_and(|ws| ws.editing.is_some());
         let Some(path) = self.path(project) else {
             return;
         };
         // What's selected leaving with its branch or worktree, the selection goes now where
-        // the reload after it would put it.
+        // the reload after it would put it: to the branch taking its place, as the TUI goes
+        // on after a delete, or with none, to the project's page.
         let selection = self.selection.as_ref();
         let moved = selection
             .filter(|s| s.project() == project && overlay.takes_away(s, self))
-            .cloned();
-        if moved.is_some() {
-            self.select(Some(Selection::Uncommitted(project.clone())), cx);
+            .map(|s| {
+                let instead = match overlay.in_place_of(s, self) {
+                    Some(branch) => Selection::Branch(project.clone(), branch.ref_name.clone()),
+                    None => Selection::Project(project.clone()),
+                };
+                (s.clone(), instead)
+            });
+        if let Some((_, instead)) = &moved {
+            self.select(Some(instead.clone()), cx);
         }
         // Drawn again when the commit it makes, if any, is due to dim.
         if overlay.new_commit.is_some() {
@@ -1167,6 +1617,9 @@ impl Store {
         };
         let (now, id) = (Instant::now(), self.ops_started);
         self.ops_started += 1;
+        let pending = (overlay.new_commit.as_ref())
+            .filter(|_| overlay.selects_made)
+            .map(|(at, _)| Selection::Pending(project.clone(), id, at.clone()));
         self.running.push(Running {
             project: project.clone(),
             id,
@@ -1176,6 +1629,13 @@ impl Store {
             started: now,
             phase: Phase::Working,
             deferred: Reload::default(),
+            done: None,
+        });
+        // Selected from the key press on, rather than once the reload shows what it made.
+        let unselected = pending.clone().map(|pending| {
+            let unselected = self.selection.clone();
+            self.select(Some(pending), cx);
+            unselected
         });
         cx.emit(StoreEvent::Pending(project.clone()));
         cx.notify();
@@ -1186,7 +1646,7 @@ impl Store {
         cx.spawn(async move |this, cx| {
             // Asked for by the user, so it runs at full speed even if they switch away
             // meanwhile, rather than as macOS runs a hidden app's work.
-            let _awake = cx.background_executor().prevent_app_nap(&reason);
+            let _awake = (!automatic).then(|| cx.background_executor().prevent_app_nap(&reason));
             let result = backend::run(move || backend::apply(&path, intent)).await;
             this.update(cx, |store, cx| {
                 // What was asked for while it ran too.
@@ -1194,14 +1654,16 @@ impl Store {
                     running.phase = Phase::Finished;
                     reload.merge(std::mem::take(&mut running.deferred));
                 }
-                backend::metrics::operation(
-                    name,
-                    now.elapsed(),
-                    result.as_ref().err(),
-                    store.workspace(&project),
-                );
+                if !automatic {
+                    backend::metrics::operation(
+                        name,
+                        via,
+                        now.elapsed(),
+                        result.as_ref().err(),
+                        store.workspace(&project),
+                    );
+                }
                 let source = (project.clone(), label.clone());
-                let first_card = store.next_toast;
                 match result {
                     Ok((value, ran)) => {
                         // A push or fetch writes only what the remote has, which undo leaves,
@@ -1238,19 +1700,49 @@ impl Store {
                             store.push_undo_step(project, snapshot, now);
                             store.redo_steps.clear();
                         }
-                        // Gone on to another project meanwhile, the user stays there, picks and
-                        // all: what this finished selects, as the commit it made, doesn't take
-                        // them back, and what it says names its project.
-                        store.staying = (store.selection.as_ref())
-                            .is_some_and(|selection| *selection.project() != project);
-                        done(store, value, cx);
-                        store.staying = false;
+                        let (finished, own) = (project.clone(), source.clone());
+                        let snapshot = store.last_snapshot.clone();
+                        let done: DoneHandler = Box::new(move |store, cx| {
+                            // Gone on to another project meanwhile, or off the stand-in of the
+                            // commit it made, the user stays there, picks and all: what this
+                            // finished selects, as the commit it made, doesn't take them back,
+                            // and what it says names its project.
+                            store.staying = (store.selection.as_ref()).is_some_and(|selection| {
+                                *selection.project() != finished
+                                    || pending.as_ref().is_some_and(|pending| selection != pending)
+                            });
+                            // Its Undo is its own, though another finished since, as a fetch
+                            // beside it or one in another project, which stays the last after.
+                            let latest =
+                                std::mem::replace(&mut store.last_snapshot, snapshot.clone());
+                            let first_card = store.next_toast;
+                            done(store, value, cx);
+                            store.own_cards(first_card, &own);
+                            store.staying = false;
+                            if latest != snapshot {
+                                store.last_snapshot = latest;
+                            }
+                        });
+                        // One beside the others selects nothing new, and its reload can wait
+                        // for theirs, which shouldn't hold up what it says, as Pushed. Nor do
+                        // undo and redo, whose steps ⌘Z and ⌘⇧Z go by next, at once.
+                        let running = store.running.iter_mut().find(|r| r.id == id);
+                        match running.filter(|_| !beside && !undo) {
+                            Some(running) => running.done = Some(done),
+                            None => done(store, cx),
+                        }
                     }
                     Err(err) => {
+                        let first_card = store.next_toast;
+                        // It made nothing, so the selection goes back from its stand-in.
+                        if let Some(unselected) = unselected
+                            && store.selection == pending
+                        {
+                            store.select(unselected, cx);
+                        }
                         // What it would have taken away stays, so the selection goes back.
-                        let uncommitted = Selection::Uncommitted(project.clone());
-                        if let Some(moved) = moved
-                            && store.selection.as_ref() == Some(&uncommitted)
+                        if let Some((moved, instead)) = moved
+                            && store.selection.as_ref() == Some(&instead)
                         {
                             store.select(Some(moved), cx);
                         }
@@ -1273,16 +1765,7 @@ impl Store {
                         } else {
                             store.error(title, detail, cx)
                         }
-                    }
-                }
-                // The cards it wrote are its own, for the next run of it that works to take back.
-                for toast in (store.toasts.iter_mut()).filter(|toast| toast.id >= first_card) {
-                    if let Notice::Error {
-                        source: card @ None,
-                        ..
-                    } = &mut toast.notice
-                    {
-                        *card = Some(source.clone());
+                        store.own_cards(first_card, &source);
                     }
                 }
                 store.load(&project, reload, cx);
@@ -1315,7 +1798,13 @@ impl Store {
         // engine can make a commit it then fails to report.
         let unreadable = (self.project(project)).is_some_and(|p| p.error.is_some())
             && !(kind.remote_only()
-                || matches!(kind, OpKind::Undo(_) | OpKind::Redo(_) | OpKind::Restore));
+                || matches!(
+                    kind,
+                    OpKind::Undo(_)
+                        | OpKind::Redo(_)
+                        | OpKind::Restore
+                        | OpKind::UncommitAboveWorkspace
+                ));
         unreadable
             .then(|| format!("Can't read the project{in_project} now; fix what it says first"))
     }
@@ -1355,7 +1844,6 @@ impl Store {
         self.running.iter().filter(move |r| r.project == *project)
     }
 
-    /// Whether `project` has an operation running.
     pub(super) fn busy_in(&self, project: &ProjectId) -> bool {
         self.running_in(project).next().is_some()
     }
@@ -1388,6 +1876,39 @@ impl Store {
     /// Whether one of `project`'s operations has finished and waits for a load to start.
     pub(super) fn awaits_reload(&self, project: &ProjectId) -> bool {
         self.running_in(project).any(|r| r.phase == Phase::Finished)
+    }
+
+    /// Run what `project`'s operations whose reload just landed do once they worked. What one
+    /// selects, as the commit it rewrote or the branch it renamed, is only in what that loaded:
+    /// selected a frame sooner, no row would be it, and the row it was on would blink. They
+    /// run before what it loaded shows, so they read the workspace as it was before them, and
+    /// the load follows the selection on from what they left. A project removed while it
+    /// reloaded keeps them from running, to select and offer Undo in a project not listed.
+    pub(super) fn run_done(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+        if self.project(project).is_none() {
+            return;
+        }
+        let done: Vec<_> = (self.running.iter_mut())
+            .filter(|r| r.project == *project && r.phase == Phase::Reloading)
+            .filter_map(|r| r.done.take())
+            .collect();
+        for done in done {
+            done(self, cx);
+        }
+    }
+
+    /// Mark the error cards written since `first` as `source`'s, the operation and its
+    /// project, for the next run of it that works to take back.
+    fn own_cards(&mut self, first: usize, source: &(ProjectId, SharedString)) {
+        for toast in (self.toasts.iter_mut()).filter(|toast| toast.id >= first) {
+            if let Notice::Error {
+                source: card @ None,
+                ..
+            } = &mut toast.notice
+            {
+                *card = Some(source.clone());
+            }
+        }
     }
 
     /// End `project`'s operations whose reload has loaded what they did, or can't load at all.
@@ -1452,6 +1973,16 @@ impl Store {
 
     fn overlays<'a>(&'a self, project: &'a ProjectId) -> impl Iterator<Item = &'a Overlay> {
         self.running_in(project).map(|r| &r.overlay)
+    }
+
+    /// The move with the keys an operation running now lands, in any project.
+    pub fn landing(&self) -> Option<&crate::transfer::Move> {
+        self.running.iter().find_map(|r| r.overlay.lands.as_ref())
+    }
+
+    /// Whether the move an operation running now lands was dragged.
+    pub fn landing_dropped(&self) -> bool {
+        (self.running.iter()).any(|r| r.overlay.dropped && r.overlay.lands.is_some())
     }
 
     pub fn hides_commit(&self, project: &ProjectId, key: &str) -> bool {
@@ -1523,12 +2054,12 @@ impl Store {
         Cow::Owned(kept)
     }
 
-    /// `review`'s state, merged already while its merge is pending.
+    /// `review`'s state as pending mutations leave it: merged already while its merge is
+    /// pending, and a draft or not already while that's changing.
     pub fn review_state(&self, project: &ProjectId, review: &Review) -> ReviewState {
-        match (self.overlays(project)).any(|o| o.merges == Some(review.number)) {
-            true => ReviewState::Merged,
-            false => review.state,
-        }
+        (self.overlays(project))
+            .find_map(|o| o.review_state(review))
+            .unwrap_or(review.state)
     }
 
     /// Whether `review` merges by itself once it can, as pending mutations leave it.
@@ -1570,17 +2101,36 @@ impl Store {
             .any(|o| (o.commit_files.get(commit)).is_some_and(|files| files.contains(path)))
     }
 
-    /// The title of the commit a pending operation will make where `at` says, with whether
-    /// it's been on its way long enough to show it's still pending.
+    /// The commit a pending operation puts where `at` says, until the reload after it shows
+    /// it there.
     pub fn new_commit(
         &self,
         project: &ProjectId,
         at: impl Fn(&NewAt) -> bool,
-    ) -> Option<(SharedString, bool)> {
+    ) -> Option<NewCommit> {
         self.running_in(project).find_map(|r| {
             let (place, title) = r.overlay.new_commit.as_ref()?;
-            at(place).then(|| (title.clone(), r.started.elapsed() >= PENDING_AFTER))
+            if !at(place) {
+                return None;
+            }
+            if r.overlay.selects_made {
+                let pending = Selection::Pending(project.clone(), r.id, place.clone());
+                return Some(NewCommit::Made(pending));
+            }
+            let moved = match r.overlay.commits.iter().collect::<Vec<_>>()[..] {
+                [key] => Some(key.clone()),
+                _ => None,
+            };
+            Some(NewCommit::Shown(title.clone(), r.slow(), moved))
         })
+    }
+
+    /// The title of the commit `project`'s operation `op` is making, with whether it's been on
+    /// its way long enough to show it's still pending, while it's running.
+    pub fn pending_commit(&self, project: &ProjectId, op: usize) -> Option<(SharedString, bool)> {
+        let running = self.running_in(project).find(|r| r.id == op)?;
+        let (_, title) = running.overlay.new_commit.as_ref()?;
+        Some((title.clone(), running.slow()))
     }
 
     /// Where a commit going to `to` shows until it's there.
@@ -1639,15 +2189,61 @@ impl Store {
             .unwrap_or_else(|| self.name_of(project, branch))
     }
 
-    /// Whether a pending operation pushes `ref_name`, on its own or to open its pull request.
+    /// Whether a pending operation sends `ref_name`: pushing it, on its own or to open its pull
+    /// request, or a branch above that takes it along.
     pub fn pushing(&self, project: &ProjectId, ref_name: &FullName) -> bool {
-        (self.running_in(project)).any(|r| matches!(&r.kind, OpKind::Push(to) if to == ref_name))
+        let sends = |to: &FullName| {
+            to == ref_name
+                || (self.workspace(project)).is_some_and(|ws| {
+                    (ws.parents_to_push(to)).any(|b| b.ref_name.as_ref() == Some(ref_name))
+                })
+        };
+        (self.running_in(project)).any(|r| matches!(&r.kind, OpKind::Push(to) if sends(to)))
     }
 
     /// Whether a pending operation opens `ref_name`'s pull request.
     pub fn publishing(&self, project: &ProjectId, ref_name: &FullName) -> bool {
         (self.running_in(project))
             .any(|r| r.overlay.publishes && matches!(&r.kind, OpKind::Push(to) if to == ref_name))
+    }
+
+    /// Whether a pending operation edits the title and description of pull request `number`.
+    pub fn editing_review(&self, project: &ProjectId, number: u64) -> bool {
+        self.overlays(project)
+            .any(|o| o.edits_review == Some(number))
+    }
+
+    /// Give `project`'s commit `id` `message`, its title and body, shown as its message until
+    /// the reload after. Once saved, the selection follows it and `done` runs.
+    pub fn reword(
+        &mut self,
+        project: &ProjectId,
+        id: CommitId,
+        message: String,
+        done: impl FnOnce(&mut Store, &mut Context<Store>) + 'static,
+        cx: &mut Context<Store>,
+    ) {
+        let reworded = self.key_of(project, id).map(|key| (key, message.clone()));
+        let overlay = Overlay {
+            reworded,
+            ..Overlay::default()
+        };
+        let reword = backend::Reword {
+            commit: id,
+            message,
+        };
+        self.apply(
+            project,
+            "Edit message",
+            overlay,
+            reword,
+            move |store, rewritten, cx| {
+                store.follow(&rewritten, cx);
+                store.snack_undoable("Message updated", cx);
+                done(store, cx)
+            },
+            cx,
+        )
     }
 
     /// Keep the selection on commits an operation rewrote.
@@ -1657,6 +2253,23 @@ impl Store {
         {
             let (project, from, to) = (project.clone(), *id, *new);
             self.select_followed(project, from, to, cx);
+        }
+    }
+
+    /// Follow what `rewritten` rewrote, then end on `project`'s commit `on`, as rewritten: the
+    /// commit an operation changed, which the TUI goes on to.
+    pub fn follow_on(
+        &mut self,
+        project: &ProjectId,
+        rewritten: &backend::Rewritten,
+        on: CommitId,
+        cx: &mut Context<Self>,
+    ) {
+        self.follow(rewritten, cx);
+        let on = Selection::Commit(project.clone(), rewritten.get(&on).copied().unwrap_or(on));
+        // Selecting it again would forget it was followed.
+        if self.selection.as_ref() != Some(&on) {
+            self.select(Some(on), cx);
         }
     }
 
@@ -1698,10 +2311,6 @@ fn update_conflicts_detail(
     workspace: Option<&Workspace>,
     scope: UpdateScope,
 ) -> String {
-    let linked = |ref_name: Option<&FullName>| {
-        (workspace.and_then(|ws| ws.lane_of(ref_name)))
-            .is_some_and(|(lane, _)| lane.checkout.is_linked())
-    };
     let mut detail = Vec::new();
     if !found.branches.is_empty() {
         detail.push(format!(
@@ -1716,15 +2325,6 @@ fn update_conflicts_detail(
             found.files.join(", ")
         ));
     }
-    let resolve = if found
-        .branches
-        .iter()
-        .any(|(branch, _)| linked(branch.as_ref()))
-    {
-        "You can resolve them afterwards, a linked worktree's in that worktree"
-    } else {
-        "You can resolve them afterwards"
-    };
     // A linked worktree resting on a stack moves with it, and one on the target's history
     // onto its new commits.
     let moves_worktrees = workspace.is_some_and(|ws| {
@@ -1734,31 +2334,57 @@ fn update_conflicts_detail(
             (scope.worktrees() && on_target) || (scope.workspace() && on_stack())
         })
     });
-    detail.push(if moves_worktrees {
-        format!("{resolve}. The update moves linked worktrees too, so it can't be undone.")
+    let resolve = if moves_worktrees {
+        "You can resolve them afterwards. The update moves linked worktrees too, so it can't be \
+         undone."
     } else {
-        format!("{resolve}, or undo the update.")
-    });
+        "You can resolve them afterwards, or undo the update."
+    };
+    detail.push(resolve.to_owned());
     detail.join(" ")
 }
 
+/// That nothing `scope` picks is behind `target`.
+pub fn up_to_date(scope: UpdateScope, target: &str) -> String {
+    let what = match scope {
+        UpdateScope::All => "Already",
+        UpdateScope::Workspace => "The workspace is already",
+        UpdateScope::Worktrees => "The worktrees are already",
+    };
+    format!("{what} up to date with {target}")
+}
+
 /// What an update from `target` did: the branches (full refs) it left `conflicted`, and
-/// the ones that `landed` and went. Several landed branches are counted, not named, to
+/// the ones that `merged` and went. Several merged branches are counted, not named, to
 /// keep the snackbar to one line.
 fn updated_message(
     target: &str,
     conflicted: &[(Option<FullName>, usize)],
-    landed: &[FullName],
+    merged: &[FullName],
+    marked: &[Checkout],
+    (action, tidied): (backend::MergedWorktrees, &[bstr::BString]),
 ) -> String {
     let mut said = vec![format!("Updated from {target}")];
     said.extend(conflicted_parts(conflicted));
-    match landed {
+    said.extend(marked_parts(marked));
+    match merged {
         [] => {}
-        [only] => said.push(format!("{} landed and was removed", short_ref(only))),
+        [only] => said.push(format!("{} was merged and removed", short_ref(only))),
         several => said.push(format!(
-            "{} branches landed and were removed",
+            "{} branches were merged and removed",
             several.len()
         )),
+    }
+    // Started as this shows, so said as under way; one that fails gets a card of its own.
+    let doing = match action {
+        backend::MergedWorktrees::Keep => None,
+        backend::MergedWorktrees::Archive => Some("archiving"),
+        backend::MergedWorktrees::Delete => Some("deleting"),
+    };
+    match (doing, tidied) {
+        (None, _) | (_, []) => {}
+        (Some(doing), [only]) => said.push(format!("{doing} worktree {only}")),
+        (Some(doing), several) => said.push(format!("{doing} {} merged worktrees", several.len())),
     }
     // A snackbar is one fragment, so its parts are listed rather than sentences.
     said.join(", ")
@@ -1784,6 +2410,14 @@ pub fn conflicted_parts(conflicted: &[(Option<FullName>, usize)]) -> impl Iterat
     })
 }
 
+/// "uncommitted changes in wt got conflict markers" for each of `marked`.
+pub fn marked_parts(marked: &[Checkout]) -> impl Iterator<Item = String> {
+    marked.iter().map(|checkout| match checkout {
+        Checkout::Main => "uncommitted changes got conflict markers".to_owned(),
+        Checkout::Linked(name) => format!("uncommitted changes in {name} got conflict markers"),
+    })
+}
+
 /// Branches (full refs, `None` for an unnamed one) with how many of their commits:
 /// "feature/a (2 commits), feature/b (1 commit)".
 fn commit_counts(branches: &[(Option<FullName>, usize)]) -> String {
@@ -1805,6 +2439,73 @@ fn branch_name(ref_name: Option<&FullName>) -> Cow<'_, str> {
 mod tests {
     use super::*;
     use crate::backend::model::build::{branch, full, workspace, worktree};
+
+    fn review(state: ReviewState) -> Review {
+        Review {
+            number: 7,
+            state,
+            ..Review::default()
+        }
+    }
+
+    fn setting_draft(number: u64, draft: bool) -> Overlay {
+        Overlay {
+            sets_draft: Some((number, draft)),
+            ..Overlay::default()
+        }
+    }
+
+    #[test]
+    fn converting_an_open_review_shows_it_a_draft_at_once() {
+        assert_eq!(
+            setting_draft(7, true).review_state(&review(ReviewState::Open)),
+            Some(ReviewState::Draft)
+        );
+    }
+
+    #[test]
+    fn marking_a_draft_ready_shows_it_open_at_once() {
+        assert_eq!(
+            setting_draft(7, false).review_state(&review(ReviewState::Draft)),
+            Some(ReviewState::Open)
+        );
+    }
+
+    #[test]
+    fn setting_draft_leaves_another_review_alone() {
+        assert_eq!(
+            setting_draft(8, true).review_state(&review(ReviewState::Open)),
+            None
+        );
+    }
+
+    #[test]
+    fn setting_draft_leaves_a_merged_review_merged() {
+        assert_eq!(
+            setting_draft(7, true).review_state(&review(ReviewState::Merged)),
+            None
+        );
+    }
+
+    #[test]
+    fn setting_draft_leaves_a_closed_review_closed() {
+        assert_eq!(
+            setting_draft(7, false).review_state(&review(ReviewState::Closed)),
+            None
+        );
+    }
+
+    #[test]
+    fn a_pending_merge_shows_the_review_merged() {
+        let merging = Overlay {
+            merges: Some(7),
+            ..Overlay::default()
+        };
+        assert_eq!(
+            merging.review_state(&review(ReviewState::Open)),
+            Some(ReviewState::Merged)
+        );
+    }
 
     #[test]
     fn an_operation_counts_the_worktrees_its_rewrite_moves_as_its_own() {
@@ -1861,19 +2562,23 @@ mod tests {
     }
 
     #[test]
-    fn an_update_says_what_conflicted_and_what_landed() {
+    fn an_update_says_what_conflicted_and_what_merged() {
+        const KEEP: (backend::MergedWorktrees, &[bstr::BString]) =
+            (backend::MergedWorktrees::Keep, &[]);
         assert_eq!(
             updated_message(
                 "origin/main",
                 &[(Some(full("refs/heads/feature-a")), 2)],
-                &[full("refs/heads/feature-b")]
+                &[full("refs/heads/feature-b")],
+                &[],
+                KEEP,
             ),
             "Updated from origin/main, feature-a has 2 conflicted commits, \
-             feature-b landed and was removed",
+             feature-b was merged and removed",
             "each branch by its short name"
         );
         assert_eq!(
-            updated_message("origin/main", &[], &[]),
+            updated_message("origin/main", &[], &[], &[], KEEP),
             "Updated from origin/main",
             "nothing else happened"
         );
@@ -1885,10 +2590,42 @@ mod tests {
                     full("refs/heads/a"),
                     full("refs/heads/b"),
                     full("refs/heads/c")
-                ]
+                ],
+                &[],
+                KEEP,
             ),
-            "Updated from origin/main, 3 branches landed and were removed",
+            "Updated from origin/main, 3 branches were merged and removed",
             "several are counted so the snackbar stays one line"
+        );
+        assert_eq!(
+            updated_message(
+                "origin/main",
+                &[],
+                &[],
+                &[Checkout::Main, Checkout::Linked("harry".into())],
+                KEEP,
+            ),
+            "Updated from origin/main, uncommitted changes got conflict markers, \
+             uncommitted changes in harry got conflict markers",
+            "a linked worktree's markers say which worktree has them"
+        );
+        let merged = [full("refs/heads/done")];
+        let tidied = |action, names: &[bstr::BString]| {
+            updated_message("origin/main", &[], &merged, &[], (action, names))
+        };
+        assert_eq!(
+            tidied(backend::MergedWorktrees::Archive, &["wt-done".into()]),
+            "Updated from origin/main, done was merged and removed, archiving worktree wt-done",
+            "the worktree the merged branch was checked out in, by its name"
+        );
+        assert_eq!(
+            tidied(
+                backend::MergedWorktrees::Delete,
+                &["wt-a".into(), "wt-b".into()]
+            ),
+            "Updated from origin/main, done was merged and removed, deleting 2 merged \
+             worktrees",
+            "several are counted, as merged branches are"
         );
     }
 
@@ -1919,9 +2656,9 @@ mod tests {
                 UpdateScope::All
             ),
             "Rebasing onto main leaves conflicted commits in middle (1 commit), wt (1 commit). \
-             You can resolve them afterwards, a linked worktree's in that worktree. The update \
-             moves linked worktrees too, so it can't be undone.",
-            "wt moves with middle, and its conflicts resolve in it"
+             You can resolve them afterwards. The update moves linked worktrees too, so it \
+             can't be undone.",
+            "wt moves with middle, so the update can't be undone"
         );
         let on_a_worktree = workspace(
             vec![vec![branch("middle", &[2])]],

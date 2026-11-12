@@ -1,5 +1,3 @@
-#![allow(missing_docs)]
-
 use serde::{Deserialize, Serialize};
 
 use crate::{DbHandle, M, SchemaVersion, Transaction};
@@ -113,7 +111,6 @@ pub struct ForgeReviewsHandleMut<'conn> {
 }
 
 impl ForgeReviewsHandle<'_> {
-    /// Lists all forge reviews in the database.
     pub fn list_all(&self) -> rusqlite::Result<Vec<ForgeReview>> {
         let mut stmt = self.conn.prepare(
             "SELECT html_url, number, title, body, author, labels, draft, source_branch, \
@@ -156,12 +153,10 @@ impl ForgeReviewsHandle<'_> {
 }
 
 impl ForgeReviewsHandleMut<'_> {
-    /// Enable read-only access functions.
     pub fn to_ref(&self) -> ForgeReviewsHandle<'_> {
         ForgeReviewsHandle { conn: &self.sp }
     }
 
-    /// Sets the forge_reviews table to the provided values.
     /// Any existing entries that are not in the provided values are deleted.
     pub fn set_all(self, reviews: Vec<ForgeReview>) -> rusqlite::Result<()> {
         self.sp.execute("DELETE FROM forge_reviews", [])?;
@@ -348,7 +343,6 @@ impl ForgeReviewsHandleMut<'_> {
         Ok(())
     }
 
-    /// Deletes reviews with a merge timestamp at or before `cutoff`.
     pub fn delete_merged_before(self, cutoff: chrono::NaiveDateTime) -> rusqlite::Result<()> {
         self.prune_merged_before(cutoff)?;
         self.sp.commit()?;

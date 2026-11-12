@@ -194,6 +194,47 @@ You are now on branch: A
     );
 }
 
+/// A commit on top of `gitbutler/workspace` stops most commands, so the refusal
+/// has to say why and what `teardown` will do. Following it has to do what it says.
+#[test]
+fn commit_on_workspace_refusal_says_what_teardown_does() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("teardown-two-dangling-commits");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("status")
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: The tip of gitbutler/workspace is not a workspace commit, most likely because `git commit` added a commit on top of it.
+
+Hint: Run `but teardown`. It undoes commits on top of the workspace commit and keeps their changes as uncommitted. It then leaves workspace mode on one applied branch; the others stay unapplied until you run `but apply <branch>`.
+
+"#]]);
+
+    env.but("teardown").assert().success();
+    assert_eq!(env.invoke_git("rev-parse --abbrev-ref HEAD"), "A");
+    assert_eq!(
+        env.invoke_git("status --porcelain"),
+        "A  FileForA\nA  FileForB"
+    );
+
+    env.but("apply B").assert().success();
+    assert_eq!(
+        env.invoke_git("rev-parse --abbrev-ref HEAD"),
+        "gitbutler/workspace"
+    );
+    assert!(
+        env.projects_root().join("B").exists(),
+        "the other branch is back in the working directory"
+    );
+    assert!(
+        env.projects_root().join("FileForA").exists(),
+        "the undone commits' changes survive applying the other branch"
+    );
+}
+
 /// Test: JSON output format
 #[test]
 fn json_output_single_branch() {

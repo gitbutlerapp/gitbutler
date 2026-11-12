@@ -1,0 +1,113 @@
+/* A type selector rides above the toolbox it qualifies as its own card, so the choice reads as
+   something asked before the operation rather than a step within it. */
+.stack {
+	display: flex;
+	row-gap: 4px;
+	flex-direction: column;
+	align-items: stretch;
+}
+
+/* Chrome comes from the shared popup container; only what makes this one a toolbox lives here. */
+.toolbox {
+	flex: none;
+	transition:
+		transform var(--but-transition-popup) var(--but-easing-popup),
+		opacity var(--but-transition-popup) var(--but-easing-popup);
+
+	/* A modal and a dropdown animate against the states Base UI stamps on them as it opens and
+	   closes one. Nothing manages this bar's lifecycle — it is rendered while a selection exists
+	   and unmounted when it stops — so its entrance is the browser's own first-style transition
+	   instead. It rises, because it stands at the bottom of the window. */
+	@starting-style {
+		transform: translateY(0.5rem);
+		opacity: 0;
+	}
+}
+
+.meta {
+	display: flex;
+	column-gap: 6px;
+	align-items: center;
+
+	/* A bar, as a popup's search row is, which also keeps a meta without an icon from collapsing
+	   around its cap-tall runs; its sides move with the density as a control's do. */
+	min-block-size: var(--but-size-bar);
+	padding: 0 calc(10px + var(--but-density-padding));
+	overflow: hidden;
+	border-bottom: 1px solid var(--but-border);
+	background-color: var(--but-muted);
+	color: var(--but-muted-foreground);
+	white-space: nowrap;
+
+	/* Centre the strip on the cap band rather than on the line box, so the row reads evenly
+	   however the font distributes its ascent and descent around the caps. Bare text would land
+	   in an anonymous flex item nothing can target, so every run comes wrapped. */
+	& > * {
+		text-box-trim: trim-both;
+		text-box-edge: cap alphabetic;
+	}
+
+	/* The sentence a transfer states — "Move <source> below <target>" — leans on
+	   the surrounding mute to pick its own words out. */
+	& strong {
+		flex-shrink: 0;
+		color: var(--but-foreground);
+		font-weight: inherit;
+	}
+}
+
+.metaIcon {
+	flex-shrink: 0;
+	color: var(--but-subtle-foreground);
+}
+
+/* Each stretch of the sentence takes the width it needs and gives it back before the words around
+   it do, so a short subject leaves no gap. The cap keeps a long branch name or commit subject from
+   widening the card to hold it: past a readable run the sentence ellipsises instead. */
+.metaText {
+	flex: 0 1 auto;
+	min-width: 0;
+	max-width: 16ch;
+	/* This run clips to its box for the ellipsis, and the trimmed box ends at the baseline — so
+	   descenders get room inside the clip, taken straight back off the box that gets centred. */
+	margin-block-end: -0.25em;
+	padding-block-end: 0.25em;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* Pinned to the end of the strip: the chord that closes the toolbox, stated where the button used
+   to say it. */
+.metaHint {
+	flex-shrink: 0;
+	margin-inline-start: auto;
+	padding-inline-start: 8px;
+	color: var(--but-subtle-foreground);
+}
+
+.section {
+	display: flex;
+	column-gap: var(--but-gap-buttons-compact);
+	align-items: center;
+	padding: 10px;
+
+	& + & {
+		border-top: 1px solid var(--but-border-subtle);
+	}
+
+	&:where(.confirm) {
+		justify-content: end;
+	}
+
+	&:where(.stretch) > * {
+		flex: 1;
+		min-width: 0;
+	}
+}
+
+.separator {
+	align-self: stretch;
+	width: 1px;
+	margin-inline: 6px;
+	background-color: var(--but-border-subtle);
+}

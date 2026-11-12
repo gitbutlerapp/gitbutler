@@ -9,7 +9,6 @@ pub trait EventPolling {
     fn poll_into(self, timeout: Duration, events: &mut Vec<Event>) -> Result<(), Self::Error>;
 }
 
-/// An [`EventPolling`] implementation that polls events for real using crossterm.
 #[derive(Default)]
 pub struct CrosstermEventPolling {
     filter: TerminalInputFilter,

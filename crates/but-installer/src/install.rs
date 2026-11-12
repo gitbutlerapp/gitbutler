@@ -11,12 +11,10 @@ use anyhow::{Context, Result, anyhow, bail};
 
 use crate::ui;
 
-/// Returns the path to the `but` CLI binary for the given home directory.
 pub(crate) fn but_binary_path(home_dir: &Path) -> PathBuf {
     home_dir.join(".local/bin/but")
 }
 
-/// Validate that but can be executed
 pub(crate) fn validate_installed_binary(path: &Path) -> bool {
     Command::new(path)
         .arg("--version")
@@ -27,7 +25,6 @@ pub(crate) fn validate_installed_binary(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
-/// Verify the signature for a CLI installable
 pub(crate) fn verify_signature(
     installable: &Path,
     signature_b64: &str,
@@ -43,11 +40,9 @@ pub(crate) fn verify_signature(
     // GitButler's minisign public key
     let pubkey_str = "RWTrOEI+im1XYA9RBwyxnzFN/evFzJhU1lbQ70LVayWH3WRo7xQnRLD2";
 
-    // Parse the public key
     let public_key = minisign_verify::PublicKey::from_base64(pubkey_str)
         .context("Failed to parse public key")?;
 
-    // Decode signature from base64 and write to file
     // The signature format from the API is base64-encoded minisign signature file content
     use base64::{Engine, engine::general_purpose::STANDARD};
     let signature_bytes = STANDARD
@@ -62,7 +57,6 @@ pub(crate) fn verify_signature(
     let signature_str =
         fs::read_to_string(&signature_file).context("Failed to read signature file as string")?;
 
-    // Parse the signature
     let signature =
         minisign_verify::Signature::decode(&signature_str).context("Failed to parse signature")?;
 
@@ -83,7 +77,6 @@ pub(crate) fn verify_signature(
         verifier.update(&buffer[..bytes_read]);
     }
 
-    // Finalize verification
     verifier.finalize().map_err(|e| {
         anyhow!("Signature verification failed - the download may have been tampered with: {e}")
     })?;
@@ -103,7 +96,6 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let test_file = temp_dir.path().join("test.tar.gz");
 
-        // Create a dummy file
         let mut file = File::create(&test_file).unwrap();
         file.write_all(&[0x1f, 0x8b, 0x08, 0x00]).unwrap();
 

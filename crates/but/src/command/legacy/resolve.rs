@@ -20,7 +20,10 @@ use crate::{
     bad_input,
     id::{CliId, CommitId, CommitIdRef},
     theme::{self, Paint},
-    utils::{Confirm, ConfirmDefault, OutputChannel, shorten_object_id},
+    utils::{
+        Confirm, ConfirmDefault, OutputChannel, change_source::conflicted_worktree_paths,
+        shorten_object_id,
+    },
 };
 
 pub(crate) fn handle(
@@ -32,15 +35,28 @@ pub(crate) fn handle(
 ) -> CliResult<()> {
     // Conflicted uncommitted files are marked resolved; anything else is a commit.
     let conflicted_paths = if targets.is_empty() {
-        Vec::new()
+        BTreeSet::new()
     } else {
-        conflicted_worktree_paths(ctx)?
+        conflicted_worktree_paths(&*ctx.repo.get()?)?
     };
+    // Spell conflicted paths as the index does, so `./c.txt` matches `c.txt`. An exact
+    // match wins, so a conflicted ` c.txt` isn't taken for `c.txt`.
+    let targets: Vec<String> = targets
+        .into_iter()
+        .map(|target| {
+            let path = but_api::resolve::normalize_path(&target);
+            if !conflicted_paths.contains(&target) && conflicted_paths.contains(&path) {
+                path
+            } else {
+                target
+            }
+        })
+        .collect();
     let commit_id = match targets.as_slice() {
         [] => None,
         [target] if !conflicted_paths.contains(target) => Some(target.clone()),
         _ => {
-            if let Some(other) = targets.iter().find(|t| !conflicted_paths.contains(t)) {
+            if let Some(other) = targets.iter().find(|t| !conflicted_paths.contains(*t)) {
                 return Err(anyhow::anyhow!(
                     "'{other}' is not a conflicted uncommitted file; `but resolve` takes either one commit or only conflicted files (see `but status`)."
                 ).into());
@@ -50,7 +66,7 @@ pub(crate) fn handle(
                     "Conflicted uncommitted files can only be marked as resolved: `but resolve <path>...`"
                 ).into());
             }
-            return Ok(mark_worktree_conflicts_resolved(ctx, out, targets)?);
+            return mark_worktree_conflicts_resolved(ctx, out, targets);
         }
     };
     if ai {
@@ -59,10 +75,10 @@ pub(crate) fn handle(
                 "--ai cannot be combined with a resolve subcommand. For one conflict, use `but resolve apply <path>[:<N>] --ai` instead."
             ).into());
         }
-        return Ok(resolve_with_ai(ctx, out, commit_id.as_deref())?);
+        return resolve_with_ai(ctx, out, commit_id.as_deref());
     }
     match cmd {
-        Some(Subcommands::Conflicts { commit }) => Ok(list_conflicts(ctx, out, commit.as_deref())?),
+        Some(Subcommands::Conflicts { commit }) => list_conflicts(ctx, out, commit.as_deref()),
         Some(Subcommands::Apply {
             target,
             commit,
@@ -79,47 +95,31 @@ pub(crate) fn handle(
             };
             // Lock stdin at the CLI boundary; the handler reads it only for a
             // piped mixed-content resolution.
-            Ok(apply_resolutions(
+            apply_resolutions(
                 ctx,
                 out,
                 commit.as_deref(),
                 &target,
                 flags,
                 std::io::stdin().lock(),
-            )?)
+            )
         }
-        Some(Subcommands::Status) => Ok(show_status(ctx, out)?),
-        Some(Subcommands::Finish) => Ok(finish_resolution(ctx, out)?),
-        Some(Subcommands::Cancel { force }) => Ok(cancel_resolution(ctx, out, force)?),
+        Some(Subcommands::Status) => show_status(ctx, out),
+        Some(Subcommands::Finish) => finish_resolution(ctx, out),
+        Some(Subcommands::Cancel { force }) => cancel_resolution(ctx, out, force),
         None => {
-            // Default action: enter resolution mode for the specified commit
             if let Some(commit_id_str) = commit_id {
                 enter_resolution(ctx, out, &commit_id_str)
             } else {
-                // Check if we're already in edit mode
                 let mode = operating_mode(ctx)?.operating_mode;
                 if matches!(mode, OperatingMode::Edit(_)) {
-                    // If in edit mode, show status instead of help
-                    Ok(show_status(ctx, out)?)
+                    show_status(ctx, out)
                 } else {
-                    // Not in edit mode and no commit specified - check for conflicted commits
                     Ok(check_and_prompt_for_conflicts(ctx, out)?)
                 }
             }
         }
     }
-}
-
-/// The worktree-relative paths of uncommitted files with an unresolved index conflict.
-fn conflicted_worktree_paths(ctx: &Context) -> Result<Vec<String>> {
-    let repo = ctx.repo.get()?;
-    let index = repo.index_or_empty()?;
-    Ok(index
-        .entries()
-        .iter()
-        .filter(|entry| entry.stage() != gix::index::entry::Stage::Unconflicted)
-        .map(|entry| entry.path(&index).to_string())
-        .collect())
 }
 
 /// The paths of submodules (gitlinks) whose index entries are still conflicted, and of
@@ -148,9 +148,36 @@ fn mark_worktree_conflicts_resolved(
     ctx: &mut Context,
     out: &mut OutputChannel,
     paths: Vec<String>,
-) -> Result<()> {
+) -> CliResult<()> {
     if matches!(operating_mode(ctx)?.operating_mode, OperatingMode::Edit(_)) {
-        bail!("In resolution mode, edit the files and run `but resolve finish` instead.");
+        return Err(bad_input(
+            "In resolution mode, edit the files and run `but resolve finish` instead.",
+        )
+        .into());
+    }
+    // Marking a file resolved stages it as it is, so markers left in it would be staged too.
+    let with_markers: Vec<&str> = {
+        let repo = ctx.repo.get()?;
+        let workdir = repo.workdir().context("No workdir")?;
+        paths
+            .iter()
+            .map(String::as_str)
+            .filter(|path| {
+                std::fs::read_to_string(workdir.join(path))
+                    .is_ok_and(|content| has_conflict_markers(&content))
+            })
+            .collect()
+    };
+    if !with_markers.is_empty() {
+        let with_markers = with_markers.join(" ");
+        return Err(bad_input(format!(
+            "Conflict markers are still in {with_markers}, so nothing was marked resolved"
+        ))
+        .hint(format!(
+            "Edit {with_markers} to the wanted content, then run `but resolve {}` again",
+            paths.join(" ")
+        ))
+        .into());
     }
     but_api::workspace::resolve_worktree_conflicts(
         ctx,
@@ -175,10 +202,8 @@ fn mark_worktree_conflicts_resolved(
 /// Resolve a user-provided commit identifier (CLI ID or partial SHA) to an
 /// object id, along with its display ref rendered from the same map.
 fn parse_commit_id(ctx: &mut Context, commit_id_str: &str) -> Result<(gix::ObjectId, String)> {
-    // Create an IdMap to resolve commit IDs (supports both CLI IDs and partial SHAs)
     let id_map = IdMap::legacy_new_from_context(ctx)?;
 
-    // Resolve the commit ID using the IdMap
     let matches = id_map.parse_using_context(commit_id_str, ctx)?;
 
     if matches.is_empty() {
@@ -193,7 +218,6 @@ fn parse_commit_id(ctx: &mut Context, commit_id_str: &str) -> Result<(gix::Objec
         );
     }
 
-    // Extract the commit OID from the matched CliId
     match &matches[0] {
         CliId::Commit {
             commit: CommitId { commit_id, .. },
@@ -226,7 +250,6 @@ fn enter_resolution(
 
     let (commit_gix_oid, commit_ref) = parse_commit_id(ctx, commit_id_str)?;
 
-    // Get the commit and check if it's conflicted
     let repo = ctx.repo.get()?;
     let commit = repo
         .find_commit(commit_gix_oid)
@@ -238,15 +261,12 @@ fn enter_resolution(
         ).into());
     }
 
-    // Find which stack this commit belongs to
     let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
     let mut found_stack_id = None;
     'outer: for stack in &stacks {
-        // Check if this commit is in any of the stack's heads
         // TODO(ctx): use `ws` for that.
         // TODO(perf): This is likely to walk the whole graph.
         for head in &stack.branches {
-            // Walk the commit history to see if our commit is in this stack
             let traversal = head
                 .tip
                 .attach(&repo)
@@ -264,16 +284,21 @@ fn enter_resolution(
         }
     }
 
-    let stack_id = found_stack_id
-        .ok_or_else(|| anyhow::anyhow!("Could not find stack containing commit {commit_ref}"))?;
+    let Some(stack_id) = found_stack_id else {
+        return Err(bad_input(format!(
+            "Commit {commit_ref} can't be checked out for resolution because it is not on a branch applied to the workspace."
+        ))
+        .hint(format!(
+            "Run `but resolve conflicts {commit_id_str}`, then `but resolve apply <path>:<N> --commit {commit_id_str}`. Deletions, renames and binary files can't be resolved this way"
+        ))
+        .into());
+    };
 
     drop(commit);
     drop(repo);
 
-    // Enter edit mode
     enter_edit_mode(ctx, commit_gix_oid, stack_id).context("Failed to enter edit mode")?;
 
-    // Show checkout message
     if let Some(out) = out.for_human() {
         writeln!(
             out,
@@ -283,16 +308,15 @@ fn enter_resolution(
         )?;
     }
 
-    // Now show the same status as `but resolve status` would show
-    Ok(show_status(ctx, out)?)
+    show_status(ctx, out)
 }
 
-fn show_status(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
+fn show_status(ctx: &mut Context, out: &mut OutputChannel) -> CliResult<()> {
     show_status_impl(ctx, out, true)
 }
 
-/// Public function to show resolve status without prompting (for use by `but status`)
-pub(crate) fn show_resolve_status(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
+/// Show resolve status without prompting, for use by `but status`.
+pub(crate) fn show_resolve_status(ctx: &mut Context, out: &mut OutputChannel) -> CliResult<()> {
     show_status_impl(ctx, out, false)
 }
 
@@ -300,12 +324,10 @@ fn show_status_impl(
     ctx: &mut Context,
     out: &mut OutputChannel,
     prompt_to_finalize: bool,
-) -> Result<()> {
+) -> CliResult<()> {
     let t = theme::get();
-    // Check if we're in edit mode
     let mode = operating_mode(ctx)?.operating_mode;
     if !matches!(mode, OperatingMode::Edit(_)) {
-        // Not in edit mode, show the workflow help instead
         return show_workflow_help(out);
     }
 
@@ -324,7 +346,6 @@ fn show_status_impl(
 
     let all_resolved = show_conflicted_files(ctx, out)?;
 
-    // If all conflicts are resolved and we're in human mode, offer to finalize
     if all_resolved && prompt_to_finalize {
         if let Some(human_out) = out.for_human() {
             writeln!(human_out)?;
@@ -371,7 +392,6 @@ fn show_conflicted_files(ctx: &mut Context, out: &mut OutputChannel) -> Result<b
         .collect();
     let (mut unresolved_gitlinks, resolved_gitlinks) = gitlink_conflict_state(ctx)?;
 
-    // Check which files still have conflict markers
     let repo = ctx.repo.get()?;
     let repo_path = repo.workdir().context("No workdir")?;
     let mut still_conflicted = Vec::new();
@@ -474,7 +494,6 @@ fn show_conflicted_files(ctx: &mut Context, out: &mut OutputChannel) -> Result<b
     Ok(all_resolved)
 }
 
-/// Check if a file contains git conflict markers
 /// Matches the logic from the GUI's looksConflicted() function
 fn has_conflict_markers(content: &str) -> bool {
     content.lines().any(|line| line.starts_with("<<<<<<<"))
@@ -533,12 +552,10 @@ fn write_conflict_regions<W: std::fmt::Write + ?Sized>(
     Ok(())
 }
 
-fn finish_resolution(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
+fn finish_resolution(ctx: &mut Context, out: &mut OutputChannel) -> CliResult<()> {
     let t = theme::get();
-    // Check if we're in edit mode
     let mode = operating_mode(ctx)?.operating_mode;
     if !matches!(mode, OperatingMode::Edit(_)) {
-        // Not in edit mode, show the workflow help instead
         return show_workflow_help(out);
     }
 
@@ -554,10 +571,10 @@ fn finish_resolution(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
             .iter()
             .map(|p| format!("{p:?}"))
             .collect();
-        bail!(
+        return Err(anyhow::anyhow!(
             "Unresolved submodule conflicts: {}\nPut the wanted submodule commit or file at each path and run `git add -- <path>`, remove it with `git rm -- <path>`, or discard the resolution with `but resolve cancel --force`.",
             paths.join(", ")
-        );
+        ).into());
     }
 
     // Note files that still contain conflict markers, so the finish output can
@@ -566,7 +583,6 @@ fn finish_resolution(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
     // than refusing to finalize.
     let files_with_markers = files_with_conflict_markers(ctx, guard.read_permission())?;
 
-    // Save and return to workspace, capturing the rebase output
     gitbutler_edit_mode::commands::save_and_return_to_workspace(ctx, guard.write_permission())
         .context("Failed to save resolution and return to workspace")?;
     drop(guard);
@@ -656,12 +672,10 @@ fn uncommitted_worktree_paths(ctx: &mut Context) -> Result<Vec<String>> {
     Ok(paths)
 }
 
-fn cancel_resolution(ctx: &mut Context, out: &mut OutputChannel, force: bool) -> Result<()> {
+fn cancel_resolution(ctx: &mut Context, out: &mut OutputChannel, force: bool) -> CliResult<()> {
     let t = theme::get();
-    // Check if we're in edit mode
     let mode = operating_mode(ctx)?.operating_mode;
     if !matches!(mode, OperatingMode::Edit(_)) {
-        // Not in edit mode, show the workflow help instead
         return show_workflow_help(out);
     }
 
@@ -669,12 +683,11 @@ fn cancel_resolution(ctx: &mut Context, out: &mut OutputChannel, force: bool) ->
         let guard = ctx.shared_worktree_access();
         !changes_from_initial(ctx, guard.read_permission())?.is_empty()
     } {
-        bail!(
+        return Err(anyhow::anyhow!(
             "There are changes that differ from the original commit you were editing. Canceling will drop those changes.\n\nIf you want to go through with this, please re-run with `--force`.\n\nIf you want to keep the changes you have made, consider finishing the resolution and then moving the changes with `but squash`."
-        )
+        ).into());
     }
 
-    // Abort and return to workspace
     abort_edit_and_return_to_workspace(ctx, force)
         .context("Failed to cancel resolution and return to workspace")?;
 
@@ -705,12 +718,13 @@ struct ConflictTarget {
 
 /// Resolve `target` — a commit id, a CLI id, or a branch name (meaning that
 /// branch's oldest conflicted commit) — or default to the oldest conflicted
-/// commit of the first conflicted branch. `Ok(None)` means nothing is
-/// conflicted.
+/// commit of the first conflicted branch. `Ok(Err(message))` means nothing is
+/// conflicted in that scope (the named branch, or the whole workspace), and
+/// `message` says so.
 fn target_conflicted_commit(
     ctx: &mut Context,
     target: Option<&str>,
-) -> Result<Option<ConflictTarget>> {
+) -> Result<Result<ConflictTarget, String>> {
     let conflicts_by_branch = find_conflicted_commits(ctx)?;
     let commit_oid = match target {
         // An exact conflicted-branch name scopes to that branch.
@@ -721,17 +735,12 @@ fn target_conflicted_commit(
             CommitOrBranch::Commit(commit_oid) => commit_oid,
             CommitOrBranch::Branch(name) => match conflicts_by_branch.get(&name) {
                 Some(commits) => commits[0].commit_oid,
-                None if is_worktree_branch(&but_api::legacy::workspace::head_info(ctx)?, &name) => {
-                    bail!(
-                        "Branch \"{name}\" is checked out in a worktree, where conflicts can't be looked up by branch name yet. {WORKTREE_CONFLICT_ROUTE}."
-                    )
-                }
-                None => bail!("Branch \"{name}\" has no conflicted commits."),
+                None => return Ok(Err(format!("Branch \"{name}\" has no conflicted commits."))),
             },
         },
-        None => match conflicts_by_branch.values().flatten().next() {
+        None => match unique_conflict_queue(&conflicts_by_branch).first() {
             Some(commit) => commit.commit_oid,
-            None => return Ok(None),
+            None => return Ok(Err("No conflicted commits found.".to_owned())),
         },
     };
 
@@ -746,7 +755,7 @@ fn target_conflicted_commit(
         .map(|commit| commit.commit_oid)
         .collect::<HashSet<_>>()
         .len();
-    Ok(Some(ConflictTarget {
+    Ok(Ok(ConflictTarget {
         commit_oid,
         branch,
         other_conflicted,
@@ -758,7 +767,6 @@ enum CommitOrBranch {
     Branch(String),
 }
 
-/// Resolve a user-provided identifier to a commit or a branch.
 fn parse_commit_or_branch(ctx: &mut Context, target: &str) -> Result<CommitOrBranch> {
     let id_map = IdMap::legacy_new_from_context(ctx)?;
     let matches = id_map.parse_using_context(target, ctx)?;
@@ -776,20 +784,23 @@ fn parse_commit_or_branch(ctx: &mut Context, target: &str) -> Result<CommitOrBra
 }
 
 /// List the conflicts of a conflicted commit without entering resolution mode.
-fn list_conflicts(ctx: &mut Context, out: &mut OutputChannel, commit: Option<&str>) -> Result<()> {
+fn list_conflicts(
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    commit: Option<&str>,
+) -> CliResult<()> {
     let t = theme::get();
-    let Some(target) = target_conflicted_commit(ctx, commit)? else {
-        if let Some(human_out) = out.for_human() {
-            writeln!(
-                human_out,
-                "{}",
-                t.success.paint("No conflicted commits found.")
-            )?;
+    let target = match target_conflicted_commit(ctx, commit)? {
+        Ok(target) => target,
+        Err(nothing_conflicted) => {
+            if let Some(human_out) = out.for_human() {
+                writeln!(human_out, "{}", t.success.paint(nothing_conflicted))?;
+            }
+            if let Some(json_out) = out.for_json() {
+                json_out.write_value(serde_json::json!({ "commit_id": null, "files": [] }))?;
+            }
+            return Ok(());
         }
-        if let Some(json_out) = out.for_json() {
-            json_out.write_value(serde_json::json!({ "commit_id": null, "files": [] }))?;
-        }
-        return Ok(());
     };
 
     let conflicts = but_api::resolve::commit_conflicts(ctx, target.commit_oid)?;
@@ -881,11 +892,15 @@ fn list_conflicts(ctx: &mut Context, out: &mut OutputChannel, commit: Option<&st
         }
         // With several conflicted commits, a bare `apply` targets the default
         // commit, not necessarily the one listed here — pin it in the hint.
-        let commit_flag = (target.other_conflicted > 0)
-            .then_some(target.branch.as_deref())
-            .flatten()
-            .map(|branch| format!(" --commit {branch}"))
-            .unwrap_or_default();
+        // It can't find a commit that is on no branch at all.
+        // Name the commit as the caller did; without a target, the default is its
+        // branch's oldest conflicted commit, which is what the branch name selects.
+        let commit_flag = match commit.or(target.branch.as_deref()) {
+            Some(commit_ref) if target.other_conflicted > 0 || target.branch.is_none() => {
+                format!(" --commit {commit_ref}")
+            }
+            _ => String::new(),
+        };
         writeln!(
             human_out,
             "{}",
@@ -907,8 +922,6 @@ fn list_conflicts(ctx: &mut Context, out: &mut OutputChannel, commit: Option<&st
     Ok(())
 }
 
-/// Apply resolutions to one conflict (`<path>:<N>`) or to every conflict of a
-/// file, without entering resolution mode.
 /// How `but resolve apply` was asked to resolve, straight from the CLI flags.
 struct ResolutionFlags {
     ours: bool,
@@ -924,8 +937,8 @@ fn apply_resolutions(
     target: &str,
     flags: ResolutionFlags,
     mut read: impl std::io::Read,
-) -> Result<()> {
-    use but_api::resolve::{HunkResolution, ResolutionSpec};
+) -> CliResult<()> {
+    use but_api::resolve::{HunkResolution, ResolutionSpec, normalize_path};
 
     let ResolutionFlags {
         ours,
@@ -937,12 +950,31 @@ fn apply_resolutions(
     let t = theme::get();
     let mode = operating_mode(ctx)?.operating_mode;
     if matches!(mode, OperatingMode::Edit(_)) {
-        bail!(
-            "You are in conflict resolution mode. Finish with `but resolve finish` or cancel with `but resolve cancel` first."
-        );
+        return Err(bad_input(
+            "You are in conflict resolution mode. Finish with `but resolve finish` or cancel with `but resolve cancel` first.",
+        )
+        .into());
     }
-    let Some(conflict_target) = target_conflicted_commit(ctx, commit)? else {
-        bail!("No conflicted commits found.");
+    // Rewriting a commit checks out its new tree, which Git refuses while the index holds
+    // conflicts, and `apply` can't resolve those because no commit holds them.
+    let uncommitted = conflicted_worktree_paths(&*ctx.repo.get()?)?;
+    if !uncommitted.is_empty() {
+        let paths = uncommitted.into_iter().collect::<Vec<_>>().join(" ");
+        return Err(bad_input(format!(
+            "`but resolve apply` can't rewrite commits while uncommitted files are conflicted: {paths}"
+        ))
+        .hint(format!(
+            "Edit them to the wanted content, then run `but resolve {paths}`"
+        ))
+        .into());
+    }
+    let conflict_target = match target_conflicted_commit(ctx, commit)? {
+        Ok(target) => target,
+        Err(nothing_conflicted) => {
+            return Err(bad_input(nothing_conflicted)
+                .hint("Run `but status` to see which commits are conflicted")
+                .into());
+        }
     };
     let commit_oid = conflict_target.commit_oid;
 
@@ -964,20 +996,23 @@ fn apply_resolutions(
         HunkResolution::Ai
     } else {
         let content = match &file {
-            Some(file) => std::fs::read_to_string(file)
-                .with_context(|| format!("Failed to read {}", file.display()))?,
-            None => {
-                if out.can_prompt() {
-                    bail!(
-                        "Provide the replacement content via --file or stdin, or take a side with --ours/--theirs/--ai."
-                    );
-                }
+            // `-` reads stdin, as with `but commit -F -`.
+            Some(file) if file.as_os_str() != "-" => std::fs::read_to_string(file)
+                .map_err(|err| bad_input(format!("Failed to read {}: {err}", file.display())))?,
+            None if out.can_prompt() => {
+                return Err(bad_input(
+                    "Provide the replacement content via --file or stdin, or take a side with --ours/--theirs/--ai.",
+                )
+                .into());
+            }
+            _ => {
                 let mut content = String::new();
                 std::io::Read::read_to_string(&mut read, &mut content)?;
                 if content.is_empty() {
-                    bail!(
-                        "stdin was empty. To intentionally delete the conflicted region, pass --file with an empty file."
-                    );
+                    return Err(bad_input(
+                        "stdin was empty. To intentionally delete the conflicted region, pass --file with an empty file.",
+                    )
+                    .into());
                 }
                 content
             }
@@ -985,43 +1020,81 @@ fn apply_resolutions(
         HunkResolution::Content(content)
     };
 
-    // Expand a bare path into explicit per-hunk specs; an explicit `:<N>`
-    // target needs no lookup, the API validates it.
+    let conflicts = but_api::resolve::commit_conflicts(ctx, commit_oid)?;
+    if conflicts.files.is_empty() && conflicts.manual.is_empty() {
+        return Err(bad_input(format!("Commit {commit_oid} is not conflicted.")).into());
+    }
+    // Match with the same normalization the API applies, so spellings
+    // it would accept (`./`, backslashes, duplicate slashes) resolve.
+    let lookup = normalize_path(path);
+    if let Some(manual) = conflicts
+        .manual
+        .iter()
+        .find(|file| normalize_path(&file.path) == lookup)
+    {
+        return Err(bad_input(format!(
+            "\"{path}\" cannot be resolved this way: {} Resolve this commit in edit mode instead.",
+            manual.reason
+        ))
+        .into());
+    }
+    let short_id = shorten_object_id(&*ctx.repo.get()?, commit_oid);
+    // Name the commit as the caller did; without `--commit`, the target is its branch's
+    // oldest conflicted commit, which is what the branch name selects.
+    let commit_ref = commit
+        .or(conflict_target.branch.as_deref())
+        .unwrap_or(&short_id);
+    let Some(file) = conflicts
+        .files
+        .iter()
+        .find(|conflicted| normalize_path(&conflicted.path) == lookup)
+    else {
+        let on_branch = conflict_target
+            .branch
+            .as_deref()
+            .map(|branch| format!(" on branch {branch}"))
+            .unwrap_or_default();
+        let conflicted = conflicts
+            .files
+            .iter()
+            .map(|file| file.path.as_str())
+            .chain(conflicts.manual.iter().map(|file| file.path.as_str()))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let mut hint = format!("Run `but resolve conflicts {commit_ref}` to see what is left");
+        if conflict_target.other_conflicted > 0 {
+            hint.push_str(", or pass `--commit <branch>` to target another conflicted commit");
+        }
+        return Err(bad_input(format!(
+            "\"{path}\" is not conflicted in commit {short_id}{on_branch}, which still has conflicts in: {conflicted}"
+        ))
+        .hint(hint)
+        .into());
+    };
+
+    // Expand a bare path into explicit per-hunk specs.
+    let total_hunks = file.hunks.len();
     let hunks: Vec<usize> = match (hunk, &resolution) {
-        (Some(hunk), _) => vec![hunk],
-        (None, _) => {
-            let conflicts = but_api::resolve::commit_conflicts(ctx, commit_oid)?;
-            if conflicts.files.is_empty() && conflicts.manual.is_empty() {
-                bail!("Commit {commit_oid} is not conflicted.");
-            }
-            // Match with the same normalization the API applies, so spellings
-            // it would accept (`./`, backslashes, duplicate slashes) resolve.
-            let lookup = but_api::resolve::normalize_path(path);
-            if let Some(manual) = conflicts
-                .manual
-                .iter()
-                .find(|file| but_api::resolve::normalize_path(&file.path) == lookup)
-            {
-                bail!(
-                    "\"{path}\" cannot be resolved this way: {} Resolve this commit in edit mode instead.",
-                    manual.reason
-                );
-            }
-            let total_hunks = conflicts
-                .files
-                .iter()
-                .find(|conflicted| but_api::resolve::normalize_path(&conflicted.path) == lookup)
-                .map(|conflicted| conflicted.hunks.len())
-                .with_context(|| format!("\"{path}\" is not a conflicted file of this commit"))?;
-            match &resolution {
-                HunkResolution::Ours | HunkResolution::Theirs | HunkResolution::Ai => {
-                    (1..=total_hunks).collect()
-                }
-                HunkResolution::Content(_) if total_hunks == 1 => vec![1],
-                HunkResolution::Content(_) => bail!(
-                    "\"{path}\" has {total_hunks} conflicts; content applies to one at a time, use \"{path}:<N>\"."
-                ),
-            }
+        (Some(hunk), _) if (1..=total_hunks).contains(&hunk) => vec![hunk],
+        (Some(hunk), _) => {
+            return Err(bad_input(format!(
+                "\"{path}\" has {total_hunks} conflict{}, but conflict {hunk} was addressed",
+                if total_hunks == 1 { "" } else { "s" }
+            ))
+            .hint(format!(
+                "Conflicts are renumbered after each apply; run `but resolve conflicts {commit_ref}` to see the current numbers"
+            ))
+            .into());
+        }
+        (None, HunkResolution::Ours | HunkResolution::Theirs | HunkResolution::Ai) => {
+            (1..=total_hunks).collect()
+        }
+        (None, HunkResolution::Content(_)) if total_hunks == 1 => vec![1],
+        (None, HunkResolution::Content(_)) => {
+            return Err(bad_input(format!(
+                "\"{path}\" has {total_hunks} conflicts; content applies to one at a time, use \"{path}:<N>\"."
+            ))
+            .into());
         }
     };
     let specs = hunks
@@ -1132,13 +1205,13 @@ fn resolve_with_ai(
     ctx: &mut Context,
     out: &mut OutputChannel,
     commit_id_str: Option<&str>,
-) -> Result<()> {
+) -> CliResult<()> {
     let t = theme::get();
     let mode = operating_mode(ctx)?.operating_mode;
     if matches!(mode, OperatingMode::Edit(_)) {
-        bail!(
+        return Err(anyhow::anyhow!(
             "You are in conflict resolution mode. Finish with `but resolve finish` or cancel with `but resolve cancel` before using --ai."
-        );
+        ).into());
     }
 
     let mut results = Vec::new();
@@ -1227,10 +1300,9 @@ fn resolve_with_ai(
 /// The first conflicted commit in the oldest-first ordering of
 /// [`find_conflicted_commits()`], if any.
 fn oldest_conflicted_commit(ctx: &mut Context) -> Result<Option<gix::ObjectId>> {
-    Ok(find_conflicted_commits(ctx)?
-        .into_values()
-        .flatten()
-        .next()
+    let conflicts_by_branch = find_conflicted_commits(ctx)?;
+    Ok(unique_conflict_queue(&conflicts_by_branch)
+        .first()
         .map(|commit| commit.commit_oid))
 }
 
@@ -1297,8 +1369,6 @@ fn resolve_one_with_ai(
     Ok(result)
 }
 
-/// Strip control characters (including ANSI escape sequences) from
-/// model-authored text before printing it to the terminal.
 /// Strip control characters (keeping newlines and tabs) from text that will
 /// be written to the terminal but originates outside this program - model
 /// output or repository file content.
@@ -1308,7 +1378,6 @@ fn sanitize_terminal_text(text: &str) -> String {
         .collect()
 }
 
-/// Structure to hold information about a conflicted commit
 #[derive(Clone, Debug)]
 pub(crate) struct ConflictedCommit {
     pub(crate) commit_oid: gix::ObjectId,
@@ -1316,6 +1385,9 @@ pub(crate) struct ConflictedCommit {
     pub(crate) change_id: but_core::ChangeId,
     pub(crate) commit_short_id: String,
     pub(crate) commit_message: String,
+    /// The position of the linked worktree lane it is on, where resolution mode can't check it
+    /// out. A lane comes after those it rests on. `None` on a stack.
+    pub(crate) worktree_lane: Option<usize>,
 }
 
 /// Report every conflicted commit left after the rebase, highlighting any that
@@ -1326,7 +1398,6 @@ fn report_conflicts_after_rebase(
     conflicts_before: BTreeMap<String, Vec<ConflictedCommit>>,
 ) -> Result<()> {
     let t = theme::get();
-    // Get the current list of conflicted commits after the rebase
     let conflicts_after = find_conflicted_commits(ctx)?;
 
     let mut change_ids_before = HashMap::new();
@@ -1405,11 +1476,16 @@ fn report_conflicts_after_rebase(
                 .first()
                 .copied()
                 .expect("non-empty conflicts map contains a commit");
+            let command = if next_commit.worktree_lane.is_some() {
+                "but resolve conflicts"
+            } else {
+                "but resolve"
+            };
             writeln!(
                 human_out,
                 "Resolve the next commit with {}.",
                 t.command_suggestion
-                    .paint(format!("but resolve {}", next_commit.commit_short_id))
+                    .paint(format!("{command} {}", next_commit.commit_short_id))
             )?;
         }
     }
@@ -1471,51 +1547,40 @@ fn report_conflicts_after_rebase(
 /// A descendant branch's walk contains its conflicted ancestors, so preserving
 /// each list's order keeps dependencies bottom-up. The branch-map order only
 /// breaks ties between independent histories, where either order is valid.
+/// A worktree's list holds only what its lane owns, and the lane may rest on a
+/// stack or an earlier lane, so stacks come first, then lanes in their order.
 fn unique_conflict_queue(
     conflicts_by_branch: &BTreeMap<String, Vec<ConflictedCommit>>,
 ) -> Vec<&ConflictedCommit> {
     let mut seen = HashSet::new();
-    conflicts_by_branch
+    let mut queue: Vec<_> = conflicts_by_branch
         .values()
         .flatten()
         .filter(|commit| seen.insert(commit.commit_oid))
-        .collect()
+        .collect();
+    queue.sort_by_key(|commit| commit.worktree_lane);
+    queue
 }
 
-/// How to reach a conflicted commit on a linked worktree's branch, which
-/// [`find_conflicted_commits`] doesn't walk: by the commit's ID.
-pub(crate) const WORKTREE_CONFLICT_ROUTE: &str = "Take its conflicted commit's ID from `but status`, then run `but resolve conflicts <commit-id>` and `but resolve apply <path>:<N> --commit <commit-id>`";
-
-/// Whether the short branch name `branch` belongs to a linked worktree's lane.
-pub(crate) fn is_worktree_branch(head_info: &but_workspace::RefInfo, branch: &str) -> bool {
-    head_info.worktrees.iter().any(|worktree| {
-        worktree.segments.iter().any(|segment| {
-            segment
-                .ref_name()
-                .is_some_and(|name| name.shorten() == branch)
-        })
-    })
-}
-
-/// Find all conflicted commits across all stacks, grouped by branch
+/// Find all conflicted commits across all stacks and linked worktrees, grouped by branch
 pub(crate) fn find_conflicted_commits(
     ctx: &mut Context,
 ) -> Result<BTreeMap<String, Vec<ConflictedCommit>>> {
     use gix::{prelude::ObjectIdExt as _, revision::walk::Sorting};
 
     let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
+    // `applied_stacks` leaves linked worktrees out in edit mode.
+    let worktrees = but_api::legacy::workspace::head_info(ctx)?.worktrees;
     // Built lazily on the first conflicted commit — building it is not free.
     // Best-effort: in edit mode the map may not build; fall back to shas then.
     let mut id_map: Option<Option<IdMap>> = None;
     let repo = ctx.repo.get()?;
     let mut conflicts_by_branch: BTreeMap<String, Vec<ConflictedCommit>> = BTreeMap::new();
 
+    // Each branch with its commits, oldest first, and the worktree lane they are on.
+    let mut branches: Vec<(String, Vec<gix::ObjectId>, Option<usize>)> = Vec::new();
     for stack in &stacks {
-        // Check commits in each head of the stack
         for head in &stack.branches {
-            let branch_name = head.name.clone();
-
-            // Walk the commit history to find conflicted commits
             // We use BreadthFirst (topological) and then reverse the results
             let traversal = head
                 .tip
@@ -1524,48 +1589,64 @@ pub(crate) fn find_conflicted_commits(
                 .sorting(Sorting::BreadthFirst)
                 .all()?;
 
-            // Collect commits first, then reverse for REVERSE sorting behavior
-            let commit_ids: Vec<gix::ObjectId> = traversal
+            let mut commit_ids: Vec<gix::ObjectId> = traversal
                 .filter_map(Result::ok)
                 .map(|info| info.id)
                 .collect();
+            commit_ids.reverse();
+            branches.push((head.name.clone(), commit_ids, None));
+        }
+    }
+    // A worktree's lane already lists the commits it owns, so no history walk per worktree.
+    // What it rests on is another lane's, and is found there.
+    for (lane, worktree) in worktrees.iter().enumerate() {
+        let mut commit_ids = Vec::new();
+        let segments: Vec<_> = worktree.lane().identified_segments().collect();
+        for (identity, segment) in segments.into_iter().rev() {
+            commit_ids.extend(segment.commits.iter().rev().map(|commit| commit.id));
+            if let Some(identity) = identity {
+                branches.push((identity.to_string(), commit_ids.clone(), Some(lane)));
+            }
+        }
+    }
 
-            for oid in commit_ids.into_iter().rev() {
-                let commit = repo.find_commit(oid)?;
+    for (branch_name, commit_ids, worktree_lane) in branches {
+        for oid in commit_ids {
+            let commit = repo.find_commit(oid)?;
 
-                if commit.is_conflicted() {
-                    // Commit messages can come from untrusted upstreams and
-                    // end up on the terminal (pull summary, resolve listing).
-                    let message = sanitize_terminal_text(
-                        &commit
-                            .message_bstr()
-                            .to_string()
-                            .lines()
-                            .next()
-                            .context("Commit has no message")?
-                            .chars()
-                            .take(50)
-                            .collect::<String>(),
-                    );
+            if commit.is_conflicted() {
+                // Commit messages can come from untrusted upstreams and
+                // end up on the terminal (pull summary, resolve listing).
+                let message = sanitize_terminal_text(
+                    &commit
+                        .message_bstr()
+                        .to_string()
+                        .lines()
+                        .next()
+                        .context("Commit has no message")?
+                        .chars()
+                        .take(50)
+                        .collect::<String>(),
+                );
 
-                    let change_id = crate::utils::get_change_id_for_commit(&repo, oid)?;
-                    let conflicted = ConflictedCommit {
-                        commit_oid: oid,
-                        change_id,
-                        commit_short_id: id_map
-                            .get_or_insert_with(|| IdMap::legacy_new_from_context(ctx).ok())
-                            .as_ref()
-                            .and_then(|id_map| id_map.change_id_ref(oid))
-                            .map(|change_id| change_id.padded_short_id())
-                            .unwrap_or_else(|| shorten_object_id(&repo, oid)),
-                        commit_message: message,
-                    };
+                let change_id = crate::utils::get_change_id_for_commit(&repo, oid)?;
+                let conflicted = ConflictedCommit {
+                    commit_oid: oid,
+                    change_id,
+                    commit_short_id: id_map
+                        .get_or_insert_with(|| IdMap::legacy_new_from_context(ctx).ok())
+                        .as_ref()
+                        .and_then(|id_map| id_map.change_id_ref(oid))
+                        .map(|change_id| change_id.padded_short_id())
+                        .unwrap_or_else(|| shorten_object_id(&repo, oid)),
+                    commit_message: message,
+                    worktree_lane,
+                };
 
-                    conflicts_by_branch
-                        .entry(branch_name.clone())
-                        .or_default()
-                        .push(conflicted);
-                }
+                conflicts_by_branch
+                    .entry(branch_name.clone())
+                    .or_default()
+                    .push(conflicted);
             }
         }
     }
@@ -1573,15 +1654,12 @@ pub(crate) fn find_conflicted_commits(
     Ok(conflicts_by_branch)
 }
 
-/// Check for conflicted commits and prompt user to resolve them
 fn check_and_prompt_for_conflicts(ctx: &mut Context, out: &mut OutputChannel) -> CliResult<()> {
     let t = theme::get();
-    // Find all conflicted commits
     let conflicts_by_branch = find_conflicted_commits(ctx)?;
 
     if conflicts_by_branch.is_empty() {
-        // No conflicts found, show the normal help text
-        return Ok(show_workflow_help(out)?);
+        return show_workflow_help(out);
     }
 
     if let Some(json_out) = out.for_json() {
@@ -1640,9 +1718,11 @@ fn check_and_prompt_for_conflicts(ctx: &mut Context, out: &mut OutputChannel) ->
         }
     }
 
+    // Resolution mode can't check out a worktree's commit.
     let commit_options = conflicts_by_branch
         .values()
         .flatten()
+        .filter(|commit| commit.worktree_lane.is_none())
         .map(|commit| {
             (
                 format!("{} {}", commit.commit_short_id, commit.commit_message),
@@ -1652,25 +1732,25 @@ fn check_and_prompt_for_conflicts(ctx: &mut Context, out: &mut OutputChannel) ->
         .collect::<Vec<_>>();
 
     // Interactive prompting only for human output mode with terminal
-    let commit_id_to_resolve = if let Some(mut inout) = out.prepare_for_terminal_input() {
-        let Some(commit_options) = nonempty::NonEmpty::from_vec(commit_options) else {
-            return Ok(());
-        };
-        writeln!(
-            inout,
-            "{}",
-            t.important
-                .paint("Would you like to start resolving these conflicts?")
-        )?;
-        inout
-            .prompt_select("Select commit to resolve", &commit_options)?
-            .cloned()
-    } else {
-        None
+    let commit_id_to_resolve = match (
+        out.prepare_for_terminal_input(),
+        nonempty::NonEmpty::from_vec(commit_options),
+    ) {
+        (Some(mut inout), Some(commit_options)) => {
+            writeln!(
+                inout,
+                "{}",
+                t.important
+                    .paint("Would you like to start resolving these conflicts?")
+            )?;
+            inout
+                .prompt_select("Select commit to resolve", &commit_options)?
+                .cloned()
+        }
+        _ => None,
     };
 
     if let Some(commit_id_to_resolve) = commit_id_to_resolve {
-        // Enter resolution mode for the selected commit
         let mut progress = out.progress_channel();
         writeln!(progress)?;
         return enter_resolution(ctx, out, &commit_id_to_resolve);
@@ -1680,15 +1760,16 @@ fn check_and_prompt_for_conflicts(ctx: &mut Context, out: &mut OutputChannel) ->
         writeln!(
             human_out,
             "{}",
-            t.hint
-                .paint("Run `but resolve <commit-id>` to start resolving a commit.")
+            t.hint.paint(
+                "Run `but resolve conflicts <branch>` to see a branch's conflicts and how to resolve them."
+            )
         )?;
     }
 
     Ok(())
 }
 
-fn show_workflow_help(out: &mut OutputChannel) -> Result<()> {
+fn show_workflow_help(out: &mut OutputChannel) -> CliResult<()> {
     let t = theme::get();
     if let Some(out) = out.for_human() {
         writeln!(out, "{}", t.important.paint("Conflict Resolution Workflow"))?;
@@ -1899,6 +1980,7 @@ mod tests {
             change_id: change_id.clone(),
             commit_short_id: "same".into(),
             commit_message: "first".into(),
+            worktree_lane: None,
         };
         let second = ConflictedCommit {
             commit_oid: gix::ObjectId::from_hex(b"2222222222222222222222222222222222222222")
@@ -1906,6 +1988,7 @@ mod tests {
             change_id,
             commit_short_id: "same#2".into(),
             commit_message: "second".into(),
+            worktree_lane: None,
         };
         let conflicts = BTreeMap::from([
             ("A".into(), vec![first.clone(), second.clone()]),

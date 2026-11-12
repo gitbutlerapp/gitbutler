@@ -7,6 +7,8 @@ export function mockCreateBackend() {
 	DummyBackend.prototype.listen = vi.fn();
 	DummyBackend.prototype.platformName = "macos";
 	DummyBackend.prototype.checkUpdate = vi.fn();
+	DummyBackend.prototype.manualInstall = vi.fn();
+	DummyBackend.prototype.openExternalUrl = vi.fn();
 
 	return new DummyBackend();
 }

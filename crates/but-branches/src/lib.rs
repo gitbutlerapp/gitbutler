@@ -4,7 +4,6 @@
 //! that includes every relevant branch tip. All commit counts are answered from graph
 //! memory; no tree or blob diffs are computed here. Expensive per-branch data belongs
 //! to the selected-branch APIs, like `but_workspace::ui::diff::changes_in_branch()`.
-#![deny(missing_docs)]
 
 mod walk;
 
@@ -19,7 +18,6 @@ use gix::{
 };
 use walk::OwnedHistory;
 
-/// Options for [`list()`].
 #[derive(Debug, Default, Clone)]
 pub struct Options {
     /// The project metadata carrying the target ref and last-seen target commit.
@@ -31,7 +29,6 @@ pub struct Options {
     pub hard_limit: Option<usize>,
 }
 
-/// All branches of the repository, grouped into stacks for display.
 #[derive(Debug, Clone)]
 pub struct BranchListing {
     /// The stacks of branches, most recently updated first, tie-broken by the tip
@@ -47,10 +44,8 @@ pub struct BranchListing {
     pub incomplete: bool,
 }
 
-/// How a stack of branches relates to the GitButler workspace.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ListedStackStatus {
-    /// The branches are applied to the workspace as a stack.
     Applied,
     /// The branches form a stack known to workspace metadata, but it is not applied.
     Unapplied,
@@ -66,7 +61,6 @@ pub enum ListedStackStatus {
 /// [`ref_name`](ListedBranch::ref_name) uniquely identifies the stack.
 #[derive(Debug, Clone)]
 pub struct ListedStack {
-    /// How the stack relates to the workspace.
     pub status: ListedStackStatus,
     /// The branches of the stack, from the tip (newest) to the base (oldest).
     ///
@@ -87,8 +81,6 @@ pub struct ListedBranch {
     pub display_name: BString,
     /// The commit at the tip of the primary ref.
     pub tip: gix::ObjectId,
-    /// Whether a local branch of this name exists.
-    ///
     /// Every listed branch is backed by at least one ref: when this is `false`,
     /// [`remote_refs`](Self::remote_refs) is never empty.
     pub has_local: bool,
@@ -124,9 +116,6 @@ pub struct ListedBranch {
     pub updated_at_ms: Option<i64>,
 }
 
-/// List all local and remote branches of `repo`, grouped into stacks where known,
-/// using `meta` for workspace metadata and `options` for target and traversal control.
-///
 /// Branches that are applied to the workspace are returned as [`ListedStackStatus::Applied`]
 /// stacks rather than being dropped, so callers can decide how to present them.
 /// A local branch and remote-tracking branches of the same name become one
@@ -181,7 +170,6 @@ pub fn list(
             .then(|| (r.tip, r.ref_name.clone()))
     });
 
-    // The hard limit bounds the traversal for very large repositories.
     let (ws, incomplete) = walk::build_workspace(
         head_id,
         head_ref,
@@ -275,7 +263,6 @@ struct ListingContext<'a> {
     /// per commit, so of two branches on the same tip, as a remote branch pushed under two
     /// names, only one has a segment.
     segment_by_tip: BTreeMap<gix::ObjectId, SegmentIndex>,
-    /// All segments reachable from the configured local target.
     local_target_reachable: BTreeSet<SegmentIndex>,
     /// The configured local target's tip, used only for ahead counts.
     local_target_tip: Option<gix::ObjectId>,
@@ -591,7 +578,6 @@ impl<'a> ListingContext<'a> {
         })
     }
 
-    /// The author and committer time of the tip commit, if it could be read.
     fn tip_info(&self, tip: gix::ObjectId) -> (Option<gix::actor::Signature>, Option<i64>) {
         match self.tip_infos.get(&tip) {
             Some((author, time_ms)) => (Some(author.clone()), Some(*time_ms)),

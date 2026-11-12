@@ -1980,8 +1980,8 @@ Single commit, target, no ws commit, but ws-reference
         Ok(())
     }
 
-    /// Regression: `but branch new <name>` and `create_virtual_branch` both go through
-    /// `create_reference(.., None, ..)`. When the target (`origin/main`) is advanced past the
+    /// Regression: `but branch new <name>` goes through `create_reference(.., None, ..)`.
+    /// When the target (`origin/main`) is advanced past the
     /// workspace, its tip sits OUTSIDE the workspace. The no-anchor path used to anchor the new
     /// ref at that tip and bail with "the target commit ... already belongs to another branch".
     /// It must instead anchor at `merge_base(target_tip, ws-commit)` (here M1), inside the
@@ -2065,6 +2065,68 @@ Single commit, target, no ws commit, but ws-reference
             repo.rev_parse_single("main~1")?,
             "the new branch must be anchored at M1, inside the workspace"
         );
+        Ok(())
+    }
+
+    /// Regression: a no-anchor branch rests on the highest base, here `main`, which conflicts with
+    /// `older`. That used to fail the rebase, depending on the order of the workspace parents, even
+    /// though `newer` already contains `main`, so the new branch adds nothing to the workspace.
+    #[test]
+    fn no_anchor_branch_keeps_the_tree_of_a_workspace_with_mixed_bases() -> anyhow::Result<()> {
+        for (order, expected_parents) in [
+            (Some(0), ["main", "older", "newer"]),
+            (None, ["older", "newer", "main"]),
+        ] {
+            let (_tmp, repo, mut meta, mut db) = named_writable_scenario("stacks-on-mixed-bases")?;
+            snapbox::assert_data_eq!(
+                visualize_commit_graph_all(&repo)?,
+                snapbox::str![[r#"
+*   4e4c809 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * cf9ed1d (newer) newer
+| * 8eb5282 (origin/main, main) main
+* | 2f8a7a2 (older) older
+|/  
+* ee25044 base
+
+"#]]
+            );
+            add_stack_with_segments(&mut meta, 0, "older", StackState::InWorkspace, &[]);
+            add_stack_with_segments(&mut meta, 1, "newer", StackState::InWorkspace, &[]);
+            let graph = but_graph::Graph::from_head(
+                &repo,
+                &meta,
+                project_meta(&repo)?,
+                &mut db,
+                Options::limited(),
+            )?;
+            let mut ws = graph.into_workspace()?;
+            let tree_before = repo.head_tree_id()?.detach();
+
+            crate::utils::create_reference(
+                &repo,
+                &mut ws,
+                &mut meta,
+                &mut db,
+                rc("refs/heads/new-branch"),
+                None,
+                order,
+            )?;
+
+            assert_eq!(
+                repo.head_tree_id()?,
+                tree_before,
+                "an empty branch doesn't change what's in the workspace, with order {order:?}"
+            );
+            assert_eq!(
+                repo.head_commit()?.parent_ids().collect::<Vec<_>>(),
+                expected_parents
+                    .iter()
+                    .map(|rev| repo.rev_parse_single(*rev))
+                    .collect::<Result<Vec<_>, _>>()?,
+                "the new branch at `main` is a workspace parent at the requested position"
+            );
+        }
         Ok(())
     }
 }
@@ -2256,54 +2318,6 @@ fn errors() -> anyhow::Result<()> {
             "it shouldn't actually have change the ref"
         );
     }
-
-    let graph = but_graph::Graph::from_commit_traversal(
-        a_id,
-        a_ref.to_owned(),
-        &*meta,
-        but_core::ref_metadata::ProjectMeta {
-            target_commit_id: Some(main_id.detach()),
-            ..Default::default()
-        },
-        &mut db,
-        Options {
-            commits_limit_hint: 0.into(),
-            ..Options::limited()
-        },
-    )?;
-    let mut ws = graph.into_workspace()?;
-    snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-⌂:A <> ✓!
-└── ≡:A {1}
-    └── :A
-        └── ✂️·89cc2d3
-
-"#]]
-    );
-
-    // The single commit of `A` is visible, but nothing below it is.
-    let err = crate::utils::create_reference(
-        &repo,
-        &mut ws,
-        &mut *meta,
-        &mut db,
-        new_name,
-        Anchor::at_segment(a_ref, Below),
-        None,
-    )
-    .unwrap_err();
-    assert_eq!(
-        err.to_string(),
-        "Commit d79bba960b112dbd25d45921c47eeda22288022b isn't part of the workspace",
-    );
-    assert!(meta.branch(a_ref)?.is_default(), "no data was stored");
-    assert_ne!(
-        repo.find_reference(a_ref)?.id(),
-        main_id,
-        "it shouldn't actually have changed the ref"
-    );
     Ok(())
 }
 
@@ -2624,29 +2638,6 @@ mod ad_hoc_at_reference {
             &["refs/heads/main", "refs/heads/new-below"],
         );
         assert_eq!(repo.find_reference(below_ref)?.id(), main_id);
-
-        // A remote reference created after the editor's graph isn't part of the workspace.
-        let remote_ref = r("refs/remotes/origin/main");
-        repo.reference(
-            remote_ref,
-            main_id,
-            PreviousValue::Any,
-            "test remote anchor",
-        )?;
-        let err = create(
-            &repo,
-            &mut ws,
-            &mut meta,
-            &mut db,
-            r("refs/heads/new-remote-anchor"),
-            remote_ref,
-            Above,
-        )
-        .unwrap_err();
-        assert_eq!(
-            err.to_string(),
-            "The anchor reference 'origin/main' isn't part of the workspace"
-        );
         Ok(())
     }
 

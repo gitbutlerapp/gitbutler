@@ -8,7 +8,6 @@ use crate::{IdMap, id::WorktreeHunk};
 pub struct CliHunkAssignment {
     #[expect(dead_code)]
     pub inner: WorktreeHunk,
-    /// The CLI ID representation of this assignment
     pub cli_id: String,
 }
 

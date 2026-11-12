@@ -18,7 +18,6 @@
 //! #### Non-Legacy builds
 //!
 //! Tests aren't available in this mode yet, but one can compile it with `cargo check -p but --no-default-features`.
-//!
 #![deny(unsafe_code)]
 #![cfg_attr(not(feature = "legacy"), expect(unused))]
 
@@ -60,13 +59,13 @@ pub use utils::change_source::ChangeSourceId;
 pub use utils::binary_path::is_executed_as_but;
 
 mod alias;
-/// A place for all command implementations.
 pub(crate) mod command;
 #[cfg(feature = "legacy")]
 pub use command::legacy::status::{FilesStatusFlag, StatusFlags, json as status, workspace_status};
 mod retired_syntax;
 pub mod theme;
 mod tui;
+mod unknown_commands;
 
 const CLI_DATE: CustomFormat = gix::date::time::format::ISO8601;
 
@@ -87,7 +86,7 @@ fn parse_args_and_output_format(args: Vec<OsString>, agent_detected: bool) -> (A
     let command = Args::command();
     let matches = match command.try_get_matches_from(&args) {
         Ok(matches) => matches,
-        Err(err) => {
+        Err(mut err) => {
             // Fall back to translating retired syntax (the pre-revamp
             // `but commit <branch> -c --changes <id>,<id>` form) before giving
             // up. Help and version requests also arrive as `Err`; translation
@@ -104,13 +103,23 @@ fn parse_args_and_output_format(args: Vec<OsString>, agent_detected: bool) -> (A
                     if !err.use_stderr() {
                         err.exit()
                     }
-                    // The other revamped commands are never translated, but a
-                    // rejected line that looks like their retired syntax gets
-                    // a teaching hint before the error.
+                    // Other retired forms are never translated, but a rejected
+                    // line that looks like one gets a teaching hint before the
+                    // error.
                     let retired_hint = retired_syntax::parse_failure_hint(&args, agent_detected);
-                    if let Some((command, hint)) = &retired_hint {
+                    if let Some(hint) = &retired_hint {
                         print_err_infallible(hint);
-                        utils::metrics::emit_retired_syntax_hint(*command);
+                    }
+                    if let Some(note) = unknown_commands::parse_failure_note(&args, agent_detected)
+                    {
+                        print_err_infallible(note);
+                    }
+                    utils::metrics::emit_parse_error(&args, &err, retired_hint.is_some());
+                    // The examples say what to run instead of a Git flag. Clap's tips don't: they
+                    // read `--staged` as a typo of `--stat`, or pass `--name-only` after `--`.
+                    if args::find_subcommand(&args).is_some_and(|(_, name)| name == "diff") {
+                        err.remove(clap::error::ContextKind::SuggestedArg);
+                        err.remove(clap::error::ContextKind::Suggested);
                     }
                     let _ = err.print();
                     // For the commands with the trickiest grammar, follow the
@@ -121,7 +130,7 @@ fn parse_args_and_output_format(args: Vec<OsString>, agent_detected: bool) -> (A
                     // never rejected anything.
                     let concrete_rewrite = retired_hint
                         .as_ref()
-                        .is_some_and(|(_, hint)| retired_syntax::hint_is_concrete(hint));
+                        .is_some_and(|hint| retired_syntax::hint_is_concrete(hint));
                     if !concrete_rewrite
                         && let Some(examples) = args::find_subcommand(&args)
                             .and_then(|(_, name)| name.to_str())
@@ -143,7 +152,7 @@ fn parse_args_and_output_format(args: Vec<OsString>, agent_detected: bool) -> (A
                 // original error.
                 None => {
                     print_err_infallible(retired_syntax::hint(agent_detected));
-                    utils::metrics::emit_retired_syntax_hint(args::metrics::CommandName::Commit);
+                    utils::metrics::emit_parse_error(&args, &err, true);
                     err.exit()
                 }
             }
@@ -209,7 +218,6 @@ pub(crate) fn app_settings() -> Result<&'static AppSettings> {
 pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     let mut args: Vec<_> = args.collect();
 
-    // Check if version is requested
     if args.iter().any(|arg| arg == "--version" || arg == "-V") {
         let version = option_env!("VERSION").unwrap_or("dev");
         println!("but {version}");
@@ -375,16 +383,17 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     }
 
     match result {
-        Err(CliError::Internal(err) | CliError::Initialization(err)) => Err(err),
+        Err(CliError::Internal(err, _) | CliError::Initialization(err, _)) => Err(err),
         Err(CliError::CommandRejection) => std::process::exit(1),
         Err(CliError::BadInput(bad_input)) => print_and_exit_non_zero(bad_input),
         Err(CliError::ExternalCommandFailed(code)) => std::process::exit(code),
         Err(CliError::ExternalCommandNotFound(command_name)) => {
-            // Commands removed by the revamp (`rub`) land here as unknown
-            // external subcommands; teach their replacements before the error.
-            if let Some(hint) = retired_syntax::removed_command_hint(&command_name, agent_detected)
-            {
-                print_err_infallible(hint);
+            // Commands removed by the revamp (`rub`) and common words that aren't commands land
+            // here as unknown external subcommands; say what to run before the error.
+            let note = retired_syntax::removed_command_hint(&command_name, agent_detected)
+                .or_else(|| unknown_commands::external_command_note(&command_name, agent_detected));
+            if let Some(note) = &note {
+                print_err_infallible(note);
             }
             // We reparse without external subcommands allowed, which _should_ result in a proper
             // clap error, including suggestions for "near matches". This gives richer error
@@ -392,11 +401,19 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             let cmd = Args::command();
             let argv = [OsString::from(cmd.get_name()), command_name.clone()];
 
-            // This should fail to parse, print a nicely formatted Clap error and exit on its own.
-            let _ = cmd
+            // This should fail to parse, which gives us the nicely formatted Clap error.
+            if let Err(mut err) = cmd
                 .external_subcommand_value_parser(None)
                 .allow_external_subcommands(false)
-                .get_matches_from(argv);
+                .try_get_matches_from(argv)
+            {
+                // Clap's tip is only the nearest spelling, and the note named the real command.
+                if note.is_some() {
+                    err.remove(clap::error::ContextKind::SuggestedSubcommand);
+                    err.remove(clap::error::ContextKind::Suggested);
+                }
+                err.exit();
+            }
 
             // If for some reason we succeeded to parse now, we'll print the original error.
             // This shouldn't happen in practice but logically it could.
@@ -418,8 +435,6 @@ fn expand_watwat(args: &mut [OsString]) -> bool {
     true
 }
 
-/// Expand aliases in the argument list.
-///
 /// The parser treats aliases in the same way as external subcommands, so they end up inside of
 /// [`Subcommands::External`]. Anytime we find an external subcommand, we attempt to expand the
 /// first word in the command string as an alias.
@@ -557,10 +572,15 @@ async fn match_subcommand(
     let is_expand = matches!(&cmd, Subcommands::_Expand { .. });
     #[cfg(not(feature = "nightly"))]
     let is_expand = false;
+    #[cfg(feature = "nightly")]
+    let is_app_client = matches!(&cmd, Subcommands::_Ui(_));
+    #[cfg(not(feature = "nightly"))]
+    let is_app_client = false;
     // A non-interactive invocation of a regular command: the situation where an
     // agent-facing maintenance notice is worth printing.
     let notice_worthy_command = !out.can_prompt()
         && !is_expand
+        && !is_app_client
         && !matches!(
             &cmd,
             Subcommands::Skill(_)
@@ -649,6 +669,7 @@ async fn dispatch_subcommand(
             let props = utils::metrics::prepare_transport_props(&props)?;
             let mut event = utils::metrics::Event::new(command_name.into());
             props.update_event(&mut event);
+            utils::metrics::add_checkout_context(&mut event, &args.current_dir);
             if matches!(
                 command_name,
                 args::metrics::CommandName::Commit | args::metrics::CommandName::CommitEmpty
@@ -663,19 +684,16 @@ async fn dispatch_subcommand(
                 .as_ref()
                 .map(|path| args.current_dir.join(path))
                 .unwrap_or_else(|| args.current_dir.clone());
-            return command::gui::open(&path, new_window)
-                .map(|()| DispatchOutcome::Return)
-                .map_err(CliError::from);
+            command::gui::open(&path, new_window)?;
+            return Ok(DispatchOutcome::Return);
         }
         Subcommands::Completions { shell } => {
-            return command::completions::generate_completions(shell)
-                .map(|()| DispatchOutcome::Return)
-                .map_err(CliError::from);
+            command::completions::generate_completions(shell)?;
+            return Ok(DispatchOutcome::Return);
         }
         Subcommands::Update(update_args::Platform { cmd }) => {
-            return command::update::handle(cmd, out, &app_settings)
-                .map(|()| DispatchOutcome::Return)
-                .map_err(CliError::from);
+            command::update::handle(cmd, out, &app_settings)?;
+            return Ok(DispatchOutcome::Return);
         }
         Subcommands::Help { topic } => {
             command::help::print(out, topic)?;
@@ -696,20 +714,17 @@ async fn dispatch_subcommand(
             return Ok(DispatchOutcome::Return);
         }
         Subcommands::Onboarding => {
-            return command::onboarding::handle(out)
-                .map(|()| DispatchOutcome::Return)
-                .map_err(CliError::from);
+            command::onboarding::handle(out)?;
+            return Ok(DispatchOutcome::Return);
         }
         Subcommands::Config(args::config::Platform { cmd }) => {
             // Handle subcommands that don't require a repo context
             return (match &cmd {
                 Some(args::config::Subcommands::Metrics { status }) => {
-                    command::config::metrics_config(out, *status)
-                        .await
-                        .map_err(CliError::from)
+                    Ok(command::config::metrics_config(out, *status).await?)
                 }
                 Some(args::config::Subcommands::Feature { flag, status }) => {
-                    command::config::feature_config(out, *flag, *status).map_err(CliError::from)
+                    Ok(command::config::feature_config(out, *flag, *status)?)
                 }
                 Some(args::config::Subcommands::User { cmd }) => {
                     let ctx = match cmd {
@@ -719,9 +734,7 @@ async fn dispatch_subcommand(
                         ) => None,
                         _ => discover_optional_context(&args.current_dir)?,
                     };
-                    command::config::user_config(ctx.as_ref(), out, cmd.clone())
-                        .await
-                        .map_err(CliError::from)
+                    Ok(command::config::user_config(ctx.as_ref(), out, cmd.clone()).await?)
                 }
                 #[cfg(feature = "legacy")]
                 Some(args::config::Subcommands::Forge {
@@ -740,16 +753,18 @@ async fn dispatch_subcommand(
                     command::config::exec(&mut ctx, out, cmd).await
                 }
                 Some(args::config::Subcommands::Forge { cmd: forge_cmd }) => {
-                    command::config::forge_config(out, forge_cmd.clone())
-                        .await
-                        .map_err(CliError::from)
+                    command::config::forge_config(out, forge_cmd.clone()).await
                 }
                 Some(args::config::Subcommands::Ai {
                     cmd: ai_cmd,
                     local,
                     global,
-                }) if !local => command::config::ai_config(out, ai_cmd.clone(), *local, *global)
-                    .map_err(CliError::from),
+                }) if !local => Ok(command::config::ai_config(
+                    out,
+                    ai_cmd.clone(),
+                    *local,
+                    *global,
+                )?),
                 _ => {
                     // Other subcommands need a repo context
                     cfg_if! {
@@ -777,7 +792,7 @@ async fn dispatch_subcommand(
                 ) => None,
                 _ => discover_optional_context(&args.current_dir)?,
             };
-            return (match cmd {
+            (match cmd {
                 Some(alias_args::Subcommands::List) | None => {
                     command::alias::list(ctx.as_ref(), out)
                 }
@@ -789,29 +804,29 @@ async fn dispatch_subcommand(
                 Some(alias_args::Subcommands::Remove { name, global }) => {
                     command::alias::remove(ctx.as_ref(), out, &name, global.into())
                 }
-            })
-            .map(|()| DispatchOutcome::Return)
-            .map_err(CliError::from);
+            })?;
+            return Ok(DispatchOutcome::Return);
         }
         Subcommands::Skill(platform) => {
             // The handler discovers a repository only for the modes that need
             // one, so reads and global installs work inside an unreadable repo.
-            return command::skill::handle(&args.current_dir, out, platform)
-                .map(|()| DispatchOutcome::Return)
-                .map_err(CliError::from);
+            command::skill::handle(&args.current_dir, out, platform)?;
+            return Ok(DispatchOutcome::Return);
         }
         Subcommands::Agent(agent::Platform { cmd }) => {
-            return command::agent::handle(&args.current_dir, out, cmd)
-                .map(DispatchOutcome::ReturnWithOutcome)
-                .map_err(CliError::from);
+            let outcome = command::agent::handle(&args.current_dir, out, cmd)?;
+            return Ok(outcome.map_or(DispatchOutcome::Return, DispatchOutcome::ReturnWithOutcome));
         }
         Subcommands::Mcp(args::mcp::Platform { cmd }) => {
-            return (match cmd {
-                args::mcp::Subcommands::Serve => {
-                    command::mcp::serve().await.map_err(CliError::from)
-                }
-            })
-            .map(|()| DispatchOutcome::Return);
+            match cmd {
+                args::mcp::Subcommands::Serve => command::mcp::serve().await?,
+            }
+            return Ok(DispatchOutcome::Return);
+        }
+        #[cfg(feature = "nightly")]
+        Subcommands::_Ui(platform) => {
+            command::ui::handle(out, platform)?;
+            return Ok(DispatchOutcome::Return);
         }
         #[cfg(feature = "legacy")]
         Subcommands::Init(init_args) => {
@@ -822,7 +837,7 @@ async fn dispatch_subcommand(
         Subcommands::Edit { file } => {
             let path = args.current_dir.join(&file);
             return Ok(DispatchOutcome::ExitWithoutDestructors(
-                tui::editor::edit_file(&path).map_err(Into::into),
+                tui::editor::edit_file(&path).map_err(|err| err.into()),
             ));
         }
         #[cfg(feature = "nightly")]
@@ -835,9 +850,7 @@ async fn dispatch_subcommand(
             out,
         ),
         #[cfg(feature = "nightly")]
-        Subcommands::_Expand { .. } => {
-            but_ctx::Context::discover(&args.current_dir).map_err(CliError::from)
-        }
+        Subcommands::_Expand { .. } => Ok(but_ctx::Context::discover(&args.current_dir)?),
         Subcommands::Branch(branch::Platform { ref cmd }) => setup::init_ctx(
             &args,
             match cmd {
@@ -903,7 +916,6 @@ async fn dispatch_subcommand(
         | Subcommands::Amend(..)
         | Subcommands::Pick(..)
         | Subcommands::Unapply(..)
-        | Subcommands::Open(..)
         | Subcommands::Apply(..) => setup::init_ctx(
             &args,
             InitCtxOptions {
@@ -937,7 +949,9 @@ async fn dispatch_subcommand(
     };
     let mut ctx = match ctx {
         Ok(ctx) => ctx,
-        Err(CliError::Internal(err)) => return Err(CliError::Initialization(err)),
+        Err(CliError::Internal(err, location)) => {
+            return Err(CliError::Initialization(err, location));
+        }
         Err(err) => return Err(err),
     };
 
@@ -972,20 +986,26 @@ async fn dispatch_subcommand(
             unreachable!("handled above")
         }
         #[cfg(feature = "nightly")]
+        Subcommands::_Ui(..) => unreachable!("handled above"),
+        #[cfg(feature = "nightly")]
         Subcommands::_Open {
             sources,
             program_id,
+            gui,
+            dry_run,
         } => {
             use crate::utils::IntermediateChannel;
 
-            let out = IntermediateChannel::new(out);
-            command::open::open(
-                &ctx,
-                out,
-                sources,
-                program_id,
-                &InvokedFrom::discover(&args.current_dir)?,
-            )?;
+            let invoked_from = InvokedFrom::discover(&args.current_dir)?;
+            if gui {
+                let link = command::open::gui::open(&ctx, sources, dry_run, &invoked_from)?;
+                if let Some(link) = link {
+                    out.print_cli_output(link)?;
+                }
+            } else {
+                let out = IntermediateChannel::new(out);
+                command::open::open(&ctx, out, sources, program_id, &invoked_from)?;
+            }
             None
         }
         #[cfg(feature = "nightly")]
@@ -1005,20 +1025,44 @@ async fn dispatch_subcommand(
                     out.print_cli_output(outcome)?;
                 }
                 worktree::Subcommands::Archive { worktree } => {
-                    let outcome = command::worktree::archive::set_archived(&ctx, &worktree, true)?;
+                    let outcome = command::worktree::archive::set_archived(
+                        &ctx,
+                        &args.current_dir,
+                        &worktree,
+                        true,
+                    )?;
                     out.print_cli_output(outcome)?;
                 }
                 worktree::Subcommands::Unarchive { worktree } => {
-                    let outcome = command::worktree::archive::set_archived(&ctx, &worktree, false)?;
+                    let outcome = command::worktree::archive::set_archived(
+                        &ctx,
+                        &args.current_dir,
+                        &worktree,
+                        false,
+                    )?;
                     out.print_cli_output(outcome)?;
                 }
                 worktree::Subcommands::Remove { force, worktree } => {
-                    let outcome = command::worktree::remove::remove(&mut ctx, &worktree, force)?;
+                    let outcome = command::worktree::remove::remove(
+                        &mut ctx,
+                        &args.current_dir,
+                        &worktree,
+                        force,
+                    )?;
                     out.print_cli_output(outcome)?;
                 }
-                worktree::Subcommands::New { name, above } => {
+                worktree::Subcommands::New {
+                    name,
+                    branch,
+                    above,
+                } => {
+                    let name = name.or(branch);
                     let outcome =
                         command::worktree::new::new(&mut ctx, name.as_ref(), above.as_ref())?;
+                    out.print_cli_output(outcome)?;
+                }
+                worktree::Subcommands::Recycle => {
+                    let outcome = command::worktree::recycle::recycle(&mut ctx)?;
                     out.print_cli_output(outcome)?;
                 }
             }
@@ -1275,10 +1319,13 @@ async fn dispatch_subcommand(
             None
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Show { commit, verbose } => {
+        Subcommands::Show {
+            commit,
+            verbose,
+            stat,
+        } => {
             return Ok(DispatchOutcome::ExitWithoutDestructors(
-                command::legacy::show::show_commit(&mut ctx, out, &commit, verbose)
-                    .map_err(Into::into),
+                command::legacy::show::show_commit(&mut ctx, out, &commit, verbose, stat),
             ));
         }
         #[cfg(feature = "legacy")]
@@ -1382,11 +1429,16 @@ async fn dispatch_subcommand(
         Subcommands::Reword {
             target,
             message,
+            file,
             format,
             diff,
             no_diff,
             allow_merged,
         } => {
+            let message = match file {
+                Some(file) => Some(file.read_non_empty(&args.current_dir)?),
+                None => message,
+            };
             let status_after = args.status_after;
             out.begin_status_after(status_after);
             status_after_data = Some(status_after);
@@ -1404,32 +1456,29 @@ async fn dispatch_subcommand(
             None
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Oplog(args::oplog::Platform { cmd }) => {
-            match cmd {
-                Some(args::oplog::Subcommands::List { since, snapshot }) => {
-                    let filter = if snapshot {
-                        Some(command::legacy::oplog::OplogFilter::Snapshot)
-                    } else {
-                        None
-                    };
-                    command::legacy::oplog::show_oplog(&mut ctx, out, since.as_deref(), filter)?;
+        Subcommands::Oplog(args::oplog::Platform { cmd }) => match cmd {
+            Some(args::oplog::Subcommands::List { since, snapshot }) => {
+                let filter = if snapshot {
+                    Some(command::legacy::oplog::OplogFilter::Snapshot)
+                } else {
                     None
-                }
-                Some(args::oplog::Subcommands::Snapshot { message }) => {
-                    command::legacy::oplog::create_snapshot(&mut ctx, out, message.as_deref())?;
-                    None
-                }
-                Some(args::oplog::Subcommands::Restore { oplog_sha }) => {
-                    command::legacy::oplog::restore_to_oplog(&mut ctx, out, &oplog_sha)?;
-                    None
-                }
-                None => {
-                    // Default to list when no subcommand is provided
-                    command::legacy::oplog::show_oplog(&mut ctx, out, None, None)?;
-                    None
-                }
+                };
+                command::legacy::oplog::show_oplog(&mut ctx, out, since.as_deref(), filter)?;
+                None
             }
-        }
+            Some(args::oplog::Subcommands::Snapshot { message }) => {
+                command::legacy::oplog::create_snapshot(&mut ctx, out, message.as_deref())?;
+                None
+            }
+            Some(args::oplog::Subcommands::Restore { oplog_sha }) => {
+                command::legacy::oplog::restore_to_oplog(&mut ctx, out, &oplog_sha)?;
+                None
+            }
+            None => {
+                command::legacy::oplog::show_oplog(&mut ctx, out, None, None)?;
+                None
+            }
+        },
         #[cfg(feature = "legacy")]
         Subcommands::Undo(undo_args) => {
             use crate::utils::IntermediateChannel;
@@ -1442,6 +1491,7 @@ async fn dispatch_subcommand(
                 &mut ctx,
                 IntermediateChannel::new(out),
                 undo_args,
+                &InvokedFrom::discover(&args.current_dir)?,
             )?;
             out.print_cli_output(outcome)?;
             None
@@ -1458,6 +1508,7 @@ async fn dispatch_subcommand(
                 &mut ctx,
                 IntermediateChannel::new(out),
                 redo_args,
+                &InvokedFrom::discover(&args.current_dir)?,
             )?;
             out.print_cli_output(outcome)?;
             None
@@ -1531,7 +1582,6 @@ async fn dispatch_subcommand(
                     draft,
                 }) => {
                     let draft = top_level_draft || draft;
-                    // Read message content from file or inline
                     let message_content = match &file {
                         Some(file) => Some(file.read(&args.current_dir)?),
                         None => message.clone(),
@@ -1539,11 +1589,17 @@ async fn dispatch_subcommand(
                     // Parse early to fail fast on invalid content
                     let review_message = match message_content {
                         Some(content) => Some(
-                            command::legacy::forge::review::parse_review_message(&content)?,
+                            command::legacy::forge::review::parse_review_message(
+                                content.trim_start(),
+                            )
+                            .ok_or_else(|| {
+                                bad_input("Aborting due to empty PR title").hint(
+                                    "Put the title on the first line of the message, or use `-t` for the default title and description",
+                                )
+                            })?,
                         ),
                         None => None,
                     };
-                    // Check for non-interactive environment
                     if !out.can_prompt() {
                         if branch.is_none() {
                             return Err(bad_input(
@@ -1570,7 +1626,7 @@ async fn dispatch_subcommand(
                         out,
                     )
                     .await
-                    .context("Failed to create forge review for branch.")?;
+                    .map_err(|err| err.context("Failed to create forge review for branch."))?;
                     None
                 }
                 Some(forge::pr::Subcommands::Template { template_path }) => {
@@ -1585,19 +1641,19 @@ async fn dispatch_subcommand(
                 Some(forge::pr::Subcommands::AutoMerge { selector, off }) => {
                     command::legacy::forge::review::enable_auto_merge(&mut ctx, selector, off, out)
                         .await
-                        .context("Failed to set the auto-merge state.")?;
+                        .map_err(|err| err.context("Failed to set the auto-merge state."))?;
                     None
                 }
                 Some(forge::pr::Subcommands::SetDraft { selector }) => {
                     command::legacy::forge::review::set_draftiness(&mut ctx, selector, true, out)
                         .await
-                        .context("Failed to set reviews as draft.")?;
+                        .map_err(|err| err.context("Failed to set reviews as draft."))?;
                     None
                 }
                 Some(forge::pr::Subcommands::SetReady { selector }) => {
                     command::legacy::forge::review::set_draftiness(&mut ctx, selector, false, out)
                         .await
-                        .context("Failed to set reviews as ready-for-review.")?;
+                        .map_err(|err| err.context("Failed to set reviews as ready-for-review."))?;
                     None
                 }
                 Some(forge::pr::Subcommands::Open { selector }) => {
@@ -1607,7 +1663,6 @@ async fn dispatch_subcommand(
                     None
                 }
                 None => {
-                    // Default to `pr new` when no subcommand is provided
                     command::legacy::forge::review::create_review(
                         &mut ctx,
                         &args.current_dir,
@@ -1621,7 +1676,7 @@ async fn dispatch_subcommand(
                         out,
                     )
                     .await
-                    .context("Failed to create forge review for branch.")?;
+                    .map_err(|err| err.context("Failed to create forge review for branch."))?;
                     None
                 }
             }
@@ -1714,8 +1769,7 @@ async fn dispatch_subcommand(
                 ff_only,
                 whole_stack,
             )
-            .context("Failed to merge branch.")
-            .map_err(Into::into);
+            .map_err(|err| err.context("Failed to merge branch."));
             if let Ok(conflicted_commits) = result {
                 command::legacy::conflict_notice::report_newly_conflicted(
                     &ctx,
@@ -1763,15 +1817,6 @@ async fn dispatch_subcommand(
             None
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Open(open_args) => {
-            use crate::utils::IntermediateChannel;
-
-            let outcome =
-                command::legacy::open::open(&mut ctx, IntermediateChannel::new(out), open_args)?;
-            out.print_cli_output(outcome)?;
-            None
-        }
-        #[cfg(feature = "legacy")]
         Subcommands::Apply(apply_args) => {
             use crate::utils::IntermediateChannel;
 
@@ -1788,8 +1833,11 @@ async fn dispatch_subcommand(
 
     #[cfg(feature = "legacy")]
     if let Some(ws) = ws {
-        if ws.checkout_conflict_occurred {
-            command::legacy::conflict_notice::report_checkout_conflict(out);
+        if !ws.conflicted_checkouts.is_empty() {
+            command::legacy::conflict_notice::report_checkout_conflicts(
+                out,
+                &ws.conflicted_checkouts,
+            );
         }
         if let Some(conflicts_before) = newly_conflicted_data {
             command::legacy::conflict_notice::report_newly_conflicted(
@@ -1867,7 +1915,7 @@ fn discover_optional_context(path: &std::path::Path) -> CliResult<Option<but_ctx
     match but_ctx::Context::discover(path) {
         Ok(ctx) => Ok(Some(ctx)),
         Err(err) if is_not_in_git_repository_error(&err) => Ok(None),
-        Err(err) => Err(CliError::Internal(err)),
+        Err(err) => Err(CliError::Internal(err, std::panic::Location::caller())),
     }
 }
 

@@ -9,6 +9,7 @@ mod file_write_lock;
 mod forge_review;
 mod gerrit_metadata;
 mod hunk_assignments;
+mod obs_markers;
 mod virtual_branches;
 mod worktree_meta;
 

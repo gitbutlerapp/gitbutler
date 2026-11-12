@@ -106,6 +106,16 @@ fn removing_a_branch_outside_the_workspace_can_be_undone_and_redone() -> anyhow:
     let remove_snapshot = ctx
         .oplog_head()?
         .expect("the removal records an undo point");
+    // Let Git drop what only the deleted branch reached, as `git gc` does once its grace
+    // period is over.
+    git_at_dir(tmp.path())
+        .args(["reflog", "expire", "--expire=now", "HEAD"])
+        .run();
+    git_at_dir(tmp.path()).args(["prune", "--expire=now"]).run();
+    assert!(
+        !ctx.repo.get()?.has_object(outside_tip),
+        "nothing keeps the commit object itself"
+    );
 
     let mut guard = ctx.exclusive_worktree_access();
     let redo_snapshot = ctx.restore_snapshot(
@@ -116,8 +126,16 @@ fn removing_a_branch_outside_the_workspace_can_be_undone_and_redone() -> anyhow:
     assert_eq!(
         outside_target(&ctx)?,
         Some(outside_tip),
-        "undo brings the branch back with its commit"
+        "undo brings the branch back"
     );
+    {
+        let repo = ctx.repo.get()?;
+        let outside_tree = repo.find_commit(outside_tip)?.tree()?;
+        assert!(
+            outside_tree.lookup_entry_by_path("outside.txt")?.is_some(),
+            "undo brings back the commit and its files, even after Git pruned them"
+        );
+    }
 
     ctx.restore_snapshot(
         redo_snapshot,

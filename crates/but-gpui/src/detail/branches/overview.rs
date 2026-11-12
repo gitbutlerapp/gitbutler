@@ -1,6 +1,6 @@
 //! The Branches page's overview, beside the list until a branch is opened: the work under way
 //! in the branches the filters keep, over the last activity they pick or the last 30 days,
-//! counting only the commits of the person picked, if one is. What landed is on the project's
+//! counting only the commits of the person picked, if one is. What merged is on the project's
 //! page.
 
 use std::collections::HashSet;
@@ -44,7 +44,6 @@ struct Lane<'a> {
 
 struct Summary<'a> {
     commits: usize,
-    /// How many people wrote them.
     people: usize,
     /// How many of the lanes' branches had their first commit on the days summed up.
     started: usize,
@@ -318,9 +317,11 @@ fn lane_row(
         let day = first_day + day_ix as i64;
         let dim = day < since;
         let shade = (n as f32 / most as f32).sqrt();
-        let color = match n {
-            0 => theme.border_3.opacity(0.6),
-            _ => theme.pop.opacity(0.3 + 0.7 * shade),
+        // A day without commits is a faint rule; the busier a day, the more of pop, and all
+        // of it fainter before what's picked.
+        let (color, strength) = match n {
+            0 => (theme.border_3, 0.6),
+            _ => (theme.pop, 0.3 + 0.7 * shade),
         };
         div()
             .id(("lane-day", day_ix))
@@ -330,8 +331,9 @@ fn lane_row(
             .left(relative(day_ix as f32 / days))
             .right(relative((days - 1. - day_ix as f32) / days))
             .mx(dp(1.))
-            .rounded(dp(2.))
-            .bg(if dim { color.opacity(0.3) } else { color })
+            .rounded(dp(theme.shape.xs))
+            .bg(color)
+            .opacity(if dim { strength * 0.3 } else { strength })
             .tooltip(move |window, cx| {
                 let day = crate::ui::local_weekday(noon(day));
                 Tooltip::text(format!("{day}: {}", plural(n as usize, "commit")))(window, cx)

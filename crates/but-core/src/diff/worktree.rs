@@ -1,10 +1,9 @@
-use std::{collections::BTreeMap, io::Read, path::PathBuf};
+use std::{collections::BTreeMap, path::PathBuf};
 
 use anyhow::{Context as _, bail};
 use bstr::{BStr, BString, ByteSlice, ByteVec};
 use gix::{
     dir::{entry, walk::EmissionMode},
-    filter::plumbing::pipeline::convert::ToGitOutcome,
     object::tree::EntryKind,
     status,
     status::{
@@ -21,7 +20,6 @@ use crate::{
     TreeStatus, UnifiedPatch, WorktreeChanges,
 };
 
-/// Identify where a [`TreeChange`] is from.
 enum Origin {
     /// The change was detected when doing a diff between a tree (`HEAD^{tree}`) and an index (`.git/index`).
     TreeIndex,
@@ -953,41 +951,11 @@ fn id_or_hash_from_worktree(
     }
 
     let path = path_check.verified_path_allow_nonexisting(rela_path)?;
-    let md = path.symlink_metadata()?;
-    let repo = filter.repo;
-    let id = if md.is_file() {
-        let to_git = filter.convert_to_git(
-            std::fs::File::open(path)?,
-            // TODO(gix): definitely use `ToCompoents` here to avoid these conversions.
-            //            Whatever you do, it's never right, so must be abstract.
-            &gix::path::from_bstr(rela_path)?,
-            index,
-        )?;
-        match to_git {
-            ToGitOutcome::Unchanged(mut stream) => gix::objs::compute_stream_hash(
-                repo.object_hash(),
-                gix::object::Kind::Blob,
-                &mut stream,
-                md.len(),
-                &mut gix::progress::Discard,
-                &gix::interrupt::IS_INTERRUPTED,
-            )?,
-            ToGitOutcome::Process(mut stream) => {
-                let mut buf = repo.empty_reusable_buffer();
-                stream.read_to_end(&mut buf)?;
-                gix::objs::compute_hash(repo.object_hash(), gix::object::Kind::Blob, &buf)?
-            }
-            ToGitOutcome::Buffer(buf) => {
-                gix::objs::compute_hash(repo.object_hash(), gix::object::Kind::Blob, buf)?
-            }
-        }
-    } else if md.is_symlink() {
-        let bytes = gix::path::os_string_into_bstring(std::fs::read_link(path)?.into())?;
-        gix::objs::compute_hash(repo.object_hash(), gix::object::Kind::Blob, &bytes)?
-    } else {
+    let md = gix::index::fs::Metadata::from_path_no_follow(&path)?;
+    if !(md.is_file() || md.is_symlink()) {
         bail!("Cannot hash directory entries that aren't files or symlinks");
-    };
-    Ok(id)
+    }
+    crate::worktree::hash_worktree_file_in_git_form(&md, rela_path, &path, filter, index)
 }
 
 fn into_tree_entry_kind(mode: gix::index::entry::Mode) -> anyhow::Result<EntryKind> {
@@ -1015,20 +983,17 @@ fn disk_kind_to_entry_kind(
                 unreachable!("BUG: we use 'matching' so there are no directories")
             }
             entry::Kind::Untrackable => return Ok(None),
-            entry::Kind::File => {
-                let md = path.symlink_metadata()?;
-                if gix::fs::is_executable(&md) {
-                    EntryKind::BlobExecutable
-                } else {
-                    EntryKind::Blob
-                }
-            }
+            // Another process can delete it after the walk listed it, which Git doesn't notice
+            // either, as it lists untracked files from the walk alone.
+            entry::Kind::File => match path.symlink_metadata() {
+                Ok(md) if gix::fs::is_executable(&md) => EntryKind::BlobExecutable,
+                _ => EntryKind::Blob,
+            },
             entry::Kind::Symlink => EntryKind::Link,
         },
     ))
 }
 
-/// Unified diffs
 impl TreeChange {
     /// Like [`Self::unified_patch()`], but also provides the file header for diffs like this:
     ///
@@ -1095,8 +1060,6 @@ impl TreeChange {
 
     /// Obtain a unified diff by comparing the previous and current state of this change, using `repo` to retrieve objects or
     /// for obtaining a working tree to read files from disk.
-    /// Note that the mount of lines of context around each hunk are currently hardcoded to `3` as it *might* be relevant for creating
-    /// commits later.
     /// Return `None` if this change cannot produce a diff, typically because a submodule is involved.
     /// Note that this format only contains hunk-headers and the patches themselves, not the file header.
     ///
@@ -1193,5 +1156,23 @@ impl std::fmt::Debug for WorktreeChanges {
             .field("changes", &self.changes)
             .field("ignored_changes", &self.ignored_changes)
             .finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use gix::{dir::entry::Kind, object::tree::EntryKind};
+
+    #[test]
+    fn an_untracked_file_gone_before_its_metadata_is_read_is_still_a_file() {
+        // As when another process deletes it between the walk listing it and this reading it.
+        let gone = std::env::temp_dir()
+            .join("but-core-never-created")
+            .join("file");
+        assert_eq!(
+            super::disk_kind_to_entry_kind(Some(Kind::File), None, gone).unwrap(),
+            Some(EntryKind::Blob),
+            "listed from the walk alone, as Git lists untracked files, instead of failing status"
+        );
     }
 }

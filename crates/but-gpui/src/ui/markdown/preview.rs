@@ -156,7 +156,7 @@ impl Render for Preview {
                     .child(
                         img(ImageSource::Render(picture.image))
                             .size_full()
-                            .rounded(dp(6.)),
+                            .rounded(dp(theme.shape.card)),
                     )
                     .child(
                         div()
@@ -164,7 +164,7 @@ impl Render for Preview {
                             .top_0()
                             .left_0()
                             .size_full()
-                            .rounded(dp(6.))
+                            .rounded(dp(theme.shape.card))
                             .border_1()
                             .border_color(theme.border_3),
                     )

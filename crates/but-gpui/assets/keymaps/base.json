@@ -6,7 +6,7 @@
   {
     "bindings": {
       "secondary-q": "app::Quit",
-      // As a browser zooms, and Lite and the desktop app with it.
+      // As a browser zooms, and the desktop app with it.
       "secondary-=": "app::ZoomIn",
       "secondary-+": "app::ZoomIn",
       "secondary--": "app::ZoomOut",
@@ -15,11 +15,14 @@
     }
   },
   // A prompt's or a modal's fields and buttons, from its text fields too, as in a macOS sheet.
+  // Return takes its default choice, unless Tab gave a button the keys, which it presses; a
+  // field takes Return itself.
   {
     "context": "Dialog",
     "bindings": {
       "tab": "app::FocusNextPane",
-      "shift-tab": "app::FocusPreviousPane"
+      "shift-tab": "app::FocusPreviousPane",
+      "enter": "navigator::Confirm"
     }
   },
   // Elsewhere the window's buttons do these.

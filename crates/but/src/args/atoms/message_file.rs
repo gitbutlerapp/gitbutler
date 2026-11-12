@@ -39,4 +39,19 @@ impl MessageFileArg {
             .into()
         })
     }
+
+    /// Like [`Self::read()`], but refuses content that is only whitespace, for callers where an
+    /// empty message would erase an existing one rather than start a new commit without one.
+    pub fn read_non_empty(&self, current_dir: &Path) -> CliResult<String> {
+        let content = self.read(current_dir)?;
+        if content.trim().is_empty() {
+            let Self(path) = self;
+            return Err(
+                bad_input(format!("Message from '{}' is empty", path.display()))
+                    .arg_name("--file")
+                    .into(),
+            );
+        }
+        Ok(content)
+    }
 }

@@ -6,14 +6,20 @@ pub mod ai;
 mod annotate;
 pub mod askpass;
 pub mod branches;
+pub mod briefs;
 pub mod cli;
 pub mod conflicts;
+#[cfg(unix)]
+pub mod control;
 mod diff;
 pub mod edit;
+pub mod edit_lines;
+pub mod graph;
 mod highlight;
 pub mod history;
 pub mod images;
 mod intent;
+pub mod links;
 pub mod logs;
 mod markers;
 pub mod mesh;
@@ -23,6 +29,8 @@ mod ops;
 pub mod rebuild;
 pub mod reviews;
 pub mod saved;
+#[cfg(target_os = "macos")]
+pub mod screenshot;
 pub mod settings;
 pub mod upstream;
 pub mod watch;
@@ -207,7 +215,7 @@ pub fn add_project(path: &Path) -> Result<(String, bool)> {
     };
     // The folder just picked, by name: a card has room for a few lines.
     let name = path.file_name().map_or(path.as_os_str(), |name| name);
-    anyhow::bail!("{} can't be added: {why}.", name.display())
+    but_error::bail_precondition!("{} can't be added: {why}.", name.display())
 }
 
 /// The names of the folders right inside `path` that are Git repositories, sorted.
@@ -220,7 +228,6 @@ fn repositories_in(path: &Path) -> Vec<String> {
     names
 }
 
-/// Make the folder `path` a Git repository, as `git init` does.
 pub fn init_repository(path: &Path) -> Result<()> {
     gix::init(path)
         .with_context(|| format!("Couldn't make {} a Git repository", path.display()))?;
@@ -240,6 +247,7 @@ pub fn clone(url: &str, into: &Path) -> Result<()> {
             url.to_owned(),
             into.to_owned(),
         ))
+        .map_err(upstream::remote_failure)
 }
 
 /// Get a project ready to show: the first time, GitButler sets up its workspace
@@ -327,6 +335,7 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         (head.as_ref()).is_some_and(|name| name.as_bstr() == but_core::WORKSPACE_REF_NAME);
     let tree = head_tree(&repo);
     let git_operation = git_operation(&repo);
+    let oplog_at_start = history::oplog_head(&ctx);
     // The uncommitted files and the refs are read beside the workspace's graph, which takes
     // longest, rather than before it: on a large repository, cold from disk, they take
     // hundreds of milliseconds.
@@ -352,6 +361,9 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         Ok((side?, view))
     })?;
     let (uncommitted, refs) = side;
+    let cached = reviews::cached_reviews(&ctx);
+    let reviews = reviews_fingerprint(&cached);
+    let checks = reviews::checks_fingerprint(&ctx);
     let info = match view {
         Ok(info) => info,
         Err(editing) => {
@@ -360,13 +372,14 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
                 tree,
                 git_operation,
                 refs,
+                reviews,
+                checks,
                 editing: Some(editing),
                 ..Default::default()
             });
         }
     };
 
-    let cached = reviews::cached_reviews(&ctx);
     let mut lanes: Vec<Lane> = info
         .stacks
         .iter()
@@ -417,14 +430,18 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         remoteless,
         editing: None,
         // The branches the worktrees shown have checked out, which the Branches page leaves off.
-        refs: (worktrees.iter()).fold(refs ^ reviews_fingerprint(&cached), |sum, w| {
+        refs: (worktrees.iter()).fold(refs ^ reviews, |sum, w| {
             use std::hash::{Hash as _, Hasher as _};
             let mut hasher = std::collections::hash_map::DefaultHasher::new();
             w.branch.hash(&mut hasher);
             sum ^ hasher.finish()
         }),
+        reviews,
+        checks,
         worktrees,
         archived_worktrees,
+        oplog: history::newest_entries(&ctx),
+        oplog_at_start,
     })
 }
 
@@ -439,7 +456,7 @@ fn target(
 ) -> Result<(Option<Target>, Option<String>)> {
     // What's new is what the target branch's upstream has that what's checked out doesn't:
     // what a pull brings in. Without an upstream, it's what the local target branch itself
-    // gained, as from a land or a `git merge` into it.
+    // gained, as from merging a branch or a `git merge` into it.
     let repo = ctx.repo.get()?;
     let Some((meta, source)) = meta.and_then(|meta| Some((meta, target_source(&repo, meta)?)))
     else {
@@ -479,7 +496,7 @@ fn target(
         branch,
         local,
         untracked,
-        behind: first_parent_run(&repo, tip, &new),
+        behind: first_parent_line(&repo, tip, &new).len(),
         commits_behind,
         workspace_behind: behind(but_api::workspace::UpdateScope::Workspace)?,
         worktrees_behind: behind(but_api::workspace::UpdateScope::Worktrees)?,
@@ -517,15 +534,27 @@ fn worktree_branches(
         .collect()
 }
 
-/// A hash of the pull requests the forge cache knows, so a refresh that learns of one, or
-/// of a new title or state, has the Branches page list them again.
+/// A hash of the pull requests the forge cache knows, so a refresh that learns of one, or of
+/// a change to one, as its description edited, has the project read them again and the
+/// Branches page list them again.
 fn reviews_fingerprint(cached: &HashMap<u64, but_forge::ForgeReview>) -> u64 {
     use std::hash::{Hash as _, Hasher as _};
     // Order-free, as the map's order isn't fixed.
     cached.values().fold(0, |sum, review| {
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         let settled = (&review.merged_at, &review.closed_at);
-        (review.number, &review.title, review.draft, settled).hash(&mut hasher);
+        // When it changed rather than its description, which can be long.
+        let changed = &review.modified_at;
+        let auto_merge = review.auto_merge_enabled;
+        (
+            review.number,
+            &review.title,
+            review.draft,
+            auto_merge,
+            settled,
+            changed,
+        )
+            .hash(&mut hasher);
         sum ^ hasher.finish()
     })
 }
@@ -653,7 +682,6 @@ fn remote_has_branches(repo: &gix::Repository, name: &gix::refs::FullNameRef) ->
     .any(|branch| !branch.name().as_bstr().ends_with(b"/HEAD"))
 }
 
-/// The commit `name` points at, if it's there.
 pub(crate) fn ref_tip(
     repo: &gix::Repository,
     name: &gix::refs::FullNameRef,
@@ -689,22 +717,31 @@ fn new_commits(
             None => return HashSet::new(),
         },
     };
+    commits_past(repo, tip, hidden)
+}
+
+/// What `tip` has that `hidden` doesn't.
+fn commits_past(
+    repo: &gix::Repository,
+    tip: gix::ObjectId,
+    hidden: gix::ObjectId,
+) -> HashSet<gix::ObjectId> {
     (repo.rev_walk([tip]).with_hidden([hidden]).all())
         .map(|walk| walk.filter_map(Result::ok).map(|info| info.id).collect())
         .unwrap_or_default()
 }
 
-/// How many of `new` are on `tip`'s own line of history, each merge once, as `but status`
-/// counts them.
-fn first_parent_run(
+/// Those of `new` on `tip`'s own line of history, each merge once, as `but status` counts
+/// them.
+fn first_parent_line(
     repo: &gix::Repository,
     tip: gix::ObjectId,
     new: &HashSet<gix::ObjectId>,
-) -> usize {
-    let mut run = 0;
+) -> HashSet<CommitId> {
+    let mut run = HashSet::new();
     let mut at = Some(tip);
     while let Some(id) = at.filter(|id| new.contains(id)) {
-        run += 1;
+        run.insert(CommitId(id));
         at = (repo.find_commit(id).ok())
             .and_then(|commit| commit.parent_ids().next())
             .map(|id| id.detach());
@@ -842,6 +879,21 @@ fn printable(text: &str) -> String {
     out
 }
 
+/// What commit `id` is shown by, where no [`Commit`] is at hand for its
+/// [`short_reference`](Commit::short_reference): the start of the change ID it carries, or its
+/// short sha.
+fn short_reference(repo: &gix::Repository, id: CommitId) -> String {
+    use gix::prelude::ObjectIdExt as _;
+
+    let carried = but_core::Commit::from_id(id.0.attach(repo))
+        .ok()
+        .and_then(|commit| commit.headers()?.change_id);
+    carried.map_or_else(
+        || id.short(),
+        |change_id| model::short_change_id(&change_id.to_string()),
+    )
+}
+
 /// A commit message or comment's subject, as [`subject_and_body`] has it.
 fn title(message: &[u8]) -> String {
     subject_and_body(&message.to_str_lossy()).0
@@ -894,10 +946,6 @@ impl FileChange {
 /// aren't counted: reading them all would hold up every reload.
 const COUNT_LINES_UP_TO: usize = 300;
 
-/// Uncommitted files, each with when it was last written and, while there are few enough,
-/// the lines it adds and removes, and the files the index has conflicted, as a merge leaves
-/// them. A file `previous` has with the same change, written at the same time, keeps the lines
-/// counted then: while an agent writes, most files stay as they were between reads.
 /// What status says changed in `repo`'s checkout, but for the repository's linked worktrees
 /// inside it, as agents' under `.claude/worktrees`, which look to status like repositories
 /// added: they're checkouts of their own, which committing would record and discarding would
@@ -923,6 +971,10 @@ fn own_changes(repo: &gix::Repository) -> Result<but_core::WorktreeChanges> {
     Ok(changes)
 }
 
+/// Uncommitted files, each with when it was last written and, while there are few enough,
+/// the lines it adds and removes, and the files the index has conflicted, as a merge leaves
+/// them. A file `previous` has with the same change, written at the same time, keeps the lines
+/// counted then: while an agent writes, most files stay as they were between reads.
 fn worktree_files(repo: &gix::Repository, previous: &[FileChange]) -> Result<Vec<FileChange>> {
     let changes = own_changes(repo)?;
     // Status leaves out files with unresolved index conflicts; they're changes too.
@@ -1052,15 +1104,23 @@ pub async fn folder_gone(path: std::path::PathBuf) -> bool {
     run(move || Ok(!path.exists())).await.unwrap_or(false)
 }
 
+pub use but_workspace::ref_info::CommitsAboveWorkspaceCommit;
+
 /// What a project that failed to load needs said beyond its error.
 #[derive(Default)]
 pub struct LoadFailure {
     /// Its folder is gone, which is said instead of the error.
     pub folder_gone: bool,
+    /// Its folder is there but holds no repository any more, as while it's being deleted, which
+    /// is said instead too.
+    pub repo_gone: bool,
     /// Its index is sparse, which the engine can't read yet, and which is said instead.
     pub sparse_index: bool,
     /// What to pick a target from, when the one an older GitButler stored names no single branch.
     pub target_choice: Option<TargetChoice>,
+    /// Commits made on top of the workspace commit outside GitButler, as by `git commit`, which
+    /// keep it from being read, and which is said instead.
+    pub commits_above: Option<CommitsAboveWorkspaceCommit>,
 }
 
 /// What's behind `err`, if loading the project at `path` failed. Off the UI thread, as finding
@@ -1070,13 +1130,18 @@ pub async fn load_failure(path: std::path::PathBuf, err: Option<&anyhow::Error>)
         return LoadFailure::default();
     };
     let unresolved = unresolved_target(err).cloned();
+    let commits_above = err.downcast_ref().copied();
     run(move || {
+        let folder_gone = !path.exists();
+        let repo = gix::open(&path);
         Ok(LoadFailure {
-            folder_gone: !path.exists(),
-            sparse_index: (gix::open(&path).ok())
+            folder_gone,
+            repo_gone: !folder_gone && repo.as_ref().is_err_and(|err| err.is_not_found()),
+            sparse_index: (repo.ok())
                 .and_then(|repo| repo.index_or_empty().ok())
                 .is_some_and(|index| index.is_sparse()),
             target_choice: unresolved.and_then(|target| target_choice(&path, &target)),
+            commits_above,
         })
     })
     .await
@@ -1143,7 +1208,6 @@ fn target_choice(path: &Path, target: &gix::refs::FullName) -> Option<TargetChoi
     })
 }
 
-/// Whether `err` is Git having no author to record a commit with.
 pub fn is_author_missing(err: &anyhow::Error) -> bool {
     err.downcast_ref::<but_error::Code>() == Some(&but_error::Code::AuthorMissing)
 }
@@ -1288,7 +1352,7 @@ mod behind_tests {
         let new = |meta: &ProjectMeta| {
             let repo = gix::open(path).unwrap();
             let new = super::new_commits(&repo, meta, tip);
-            (super::first_parent_run(&repo, tip, &new), new.len())
+            (super::first_parent_line(&repo, tip, &new).len(), new.len())
         };
 
         git(path, &["checkout", "-q", "feature"]);
@@ -1343,6 +1407,7 @@ mod failure_tests {
                 UnresolvedLegacyTargetRefError {
                     target_ref: "refs/remotes/origin/main".try_into().unwrap(),
                     reason,
+                    track_command: None,
                     target_commit_id: None,
                     push_remote: None,
                 },

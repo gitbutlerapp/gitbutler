@@ -1,0 +1,56 @@
+{
+	"name": "@gitbutler/but-ui-react",
+	"description": "GitButler's React component library: the components, icons and base styles but.dev builds with. The GPUI app compiles in its icons and illustrations.",
+	"private": true,
+	"version": "0.0.0-dev",
+	"type": "module",
+	"license": "FSL-1.1-MIT",
+	"exports": {
+		"./*": "./src/*"
+	},
+	"scripts": {
+		"check": "tsgo -p tsconfig.json --noEmit && pnpm lint:css && pnpm check:stories && pnpm check:tokens && pnpm check:notes && pnpm check:figma",
+		"check:stories": "node scripts/check-stories.mjs",
+		"check:tokens": "node scripts/check-tokens.mjs",
+		"check:notes": "node scripts/check-notes.mjs",
+		"check:figma": "node scripts/figma-descriptions.mjs --check",
+		"lint:css": "stylelint \"src/**/*.css\"",
+		"optimize-icons": "node scripts/optimize-icons.mjs",
+		"test": "vitest run && pnpm test:stories",
+		"test:stories": "vitest run --config vitest.stories.config.ts",
+		"playwright:install:unit": "playwright install chromium",
+		"demos": "vite",
+		"build:demos": "vite build"
+	},
+	"dependencies": {
+		"@base-ui/react": "^1.6.0",
+		"@tanstack/react-hotkeys": "^0.10.0",
+		"@tanstack/react-virtual": "^3.14.10",
+		"effect": "^3.20.0",
+		"markdown-to-jsx": "^7.7.17",
+		"react-resizable-panels": "^4.11.2"
+	},
+	"peerDependencies": {
+		"@gitbutler/but-ui": "^11.3.0",
+		"react": "^19.2.4",
+		"react-dom": "^19.2.4"
+	},
+	"devDependencies": {
+		"@gitbutler/but-ui": "workspace:*",
+		"@playwright/test": "catalog:",
+		"@testing-library/dom": "^10.4.1",
+		"@testing-library/user-event": "^14.6.1",
+		"@types/react": "^19.2.14",
+		"@types/react-dom": "^19.2.3",
+		"@typescript/native-preview": "7.0.0-dev.20260707.2",
+		"@vitejs/plugin-react": "^5.2.0",
+		"@vitest/browser": "catalog:",
+		"eslint-plugin-react-you-might-not-need-an-effect": "^1.0.0",
+		"jsdom": "28.1.0",
+		"react": "^19.2.4",
+		"react-dom": "^19.2.4",
+		"stylelint": "^17.15.0",
+		"vite": "catalog:",
+		"vitest": "catalog:"
+	}
+}

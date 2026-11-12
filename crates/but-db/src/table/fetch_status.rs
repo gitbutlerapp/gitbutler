@@ -1,5 +1,3 @@
-#![allow(missing_docs)]
-
 use rusqlite::OptionalExtension;
 
 use crate::{DbHandle, M, SchemaVersion, Transaction};

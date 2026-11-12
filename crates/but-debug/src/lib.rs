@@ -14,7 +14,6 @@ mod trace;
 
 use args::{Args, Subcommands};
 
-/// Parse CLI arguments and dispatch the requested subcommand.
 pub fn handle_args(
     args: impl Iterator<Item = OsString>,
     out: &mut dyn io::Write,

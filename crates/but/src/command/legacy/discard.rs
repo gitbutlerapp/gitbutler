@@ -1,5 +1,3 @@
-//! Implementation of the `but discard` command.
-
 use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::{Context as _, bail};
@@ -24,7 +22,7 @@ use crate::{
         discard::Platform,
     },
     bad_input,
-    command::worktree::remove::{RemoveOperation, RemoveOutcome},
+    command::worktree::remove::{RemoveOperation, RemoveOutcome, run_with_hint},
     id::{CommitId, CommittedFileId, CommittedHunk, IdAndHunk, UncommittedHunkOrFile},
     theme::{self, Theme},
     utils::{
@@ -311,7 +309,14 @@ pub fn discard(
     let operation = {
         let repo = ctx.repo.get()?;
         if let Some(name) = resolve_worktree(&repo, &id_map, &args.changes)? {
-            let removed = remove_clean_worktree(ctx, guard.write_permission(), &repo, name)?;
+            let removed = run_with_hint(
+                ctx,
+                guard.write_permission(),
+                RemoveOperation {
+                    worktree: name,
+                    force: false,
+                },
+            )?;
             return Ok((DiscardOutcome::Worktree(removed), None));
         }
         resolve(&repo, &id_map, args, invoked_from)?
@@ -346,35 +351,6 @@ fn resolve_worktree(
         }
     }
     Ok(None)
-}
-
-fn remove_clean_worktree(
-    ctx: &Context,
-    perm: &mut RepoExclusive,
-    repo: &gix::Repository,
-    name: BString,
-) -> CliResult<RemoveOutcome> {
-    let operation = RemoveOperation {
-        worktree: name.clone(),
-        force: false,
-    };
-    let err = match crate::command::worktree::remove::run(ctx, perm, operation) {
-        Ok(removed) => return Ok(removed),
-        Err(err) => err,
-    };
-    let dirty = but_workspace::worktrees::open_worktree_repo(repo, name.as_ref())
-        .and_then(|worktree_repo| but_core::diff::worktree_changes(&worktree_repo))
-        .is_ok_and(|changes| !changes.changes.is_empty());
-    if !dirty {
-        return Err(err.into());
-    }
-    Err(
-        bad_input(format!("Worktree {name} has uncommitted changes"))
-            .hint(format!(
-                "Use `but worktree remove --force {name}` to remove it anyway"
-            ))
-            .into(),
-    )
 }
 
 fn resolve(
@@ -507,6 +483,11 @@ pub fn run(
     let source_repo = ChangeSourceRepo::open(ctx, &source)?;
     let executable = match operation {
         DiscardOperation::Branches(branches) => {
+            // The rebase keeps a reference any worktree has checked out, even if that is gone.
+            for branch in &branches {
+                but_workspace::worktrees::prune_gone(&*ctx.repo.get()?, branch.as_ref())?;
+            }
+            ctx.invalidate_workspace_cache()?;
             let commits = {
                 let (repo, workspace, _db) =
                     ctx.workspace_and_db_with_perm(perm.read_permission())?;
@@ -688,42 +669,8 @@ pub fn run(
     {
         *replaced_commits = std::mem::take(&mut ws.replaced_commits);
     }
-    if matches!(outcome, DiscardOutcome::Branches(_)) {
-        dissolve_unnecessary_workspace(ctx, meta, perm, &mut ws)?;
-    }
 
     Ok((outcome, ws))
-}
-
-/// Like unapply, leave a workspace that removing branches left without purpose, showing the
-/// result in `state` while keeping the commits the operation replaced.
-fn dissolve_unnecessary_workspace(
-    ctx: &mut Context,
-    meta: &mut impl RefMetadata,
-    perm: &mut RepoExclusive,
-    state: &mut WorkspaceState,
-) -> anyhow::Result<()> {
-    let dissolved = {
-        let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
-        but_workspace::branch::dissolve_unnecessary_workspace(&ws, &repo, meta, Default::default())?
-    };
-    let Some((new_ws, _)) = dissolved else {
-        return Ok(());
-    };
-    ctx.update_workspace_cache(new_ws);
-    let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
-    *state = WorkspaceState {
-        checkout_conflict_occurred: state.checkout_conflict_occurred,
-        ..WorkspaceState::from_workspace_with_db(
-            &ws,
-            meta,
-            &repo,
-            std::mem::take(&mut state.replaced_commits),
-            std::mem::take(&mut state.conflicted_commits),
-            &mut db,
-        )?
-    };
-    Ok(())
 }
 
 #[derive(Debug)]

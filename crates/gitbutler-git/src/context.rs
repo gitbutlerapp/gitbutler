@@ -7,7 +7,6 @@ use but_ctx::Context;
 use but_error::Code;
 use serde::Serialize;
 
-/// Summary information about branches pushed to a remote.
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PushResult {
@@ -35,8 +34,6 @@ pub trait GitContextExt {
     /// Fetch from the given remote using its configured fetch refspecs.
     fn fetch(&self, remote_name: &str, askpass: Option<String>) -> Result<()>;
 
-    /// Push the given commit to the provided remote branch.
-    ///
     /// Returns the stderr output of the Git executable if used.
     fn push<B>(
         &self,
@@ -147,6 +144,40 @@ pub fn fetch_with_askpass(
     remote_name: &str,
     action: Option<String>,
 ) -> Result<()> {
+    with_askpass(repo_path, remote_name, action, RemoteCall::Fetch)
+}
+
+/// Prune the remote-tracking refs of `remote_name` whose branches are gone from it, as
+/// [`fetch_with_askpass()`] fetches.
+pub fn prune_with_askpass(
+    repo_path: impl AsRef<Path>,
+    remote_name: &str,
+    action: Option<String>,
+) -> Result<()> {
+    with_askpass(repo_path, remote_name, action, RemoteCall::Prune)
+}
+
+#[derive(Clone, Copy)]
+enum RemoteCall {
+    Fetch,
+    Prune,
+}
+
+impl RemoteCall {
+    fn git_command(self) -> &'static str {
+        match self {
+            RemoteCall::Fetch => "git fetch",
+            RemoteCall::Prune => "git remote prune",
+        }
+    }
+}
+
+fn with_askpass(
+    repo_path: impl AsRef<Path>,
+    remote_name: &str,
+    action: Option<String>,
+    call: RemoteCall,
+) -> Result<()> {
     let on_prompt = if askpass::get_broker().is_some() {
         Some(move |prompt: String| handle_git_prompt_fetch(prompt, action.clone()))
     } else {
@@ -155,17 +186,19 @@ pub fn fetch_with_askpass(
 
     let repo_path = repo_path.as_ref().to_owned();
     let remote = remote_name.to_owned();
+    let command = call.git_command();
     let result = std::thread::spawn(move || -> Result<_> {
         let runtime = tokio::runtime::Runtime::new().context(
-            but_error::Context::new("failed to initialize async runtime for git fetch")
+            but_error::Context::new(format!("failed to initialize async runtime for {command}"))
                 .with_code(Code::Unknown),
         )?;
-        Ok(runtime.block_on(crate::fetch(
-            repo_path,
-            crate::tokio::TokioExecutor,
-            &remote,
-            on_prompt,
-        )))
+        let executor = crate::tokio::TokioExecutor;
+        Ok(runtime.block_on(async {
+            match call {
+                RemoteCall::Fetch => crate::fetch(repo_path, executor, &remote, on_prompt).await,
+                RemoteCall::Prune => crate::prune(repo_path, executor, &remote, on_prompt).await,
+            }
+        }))
     })
     .join()
     .map_err(|panic| {
@@ -177,8 +210,9 @@ pub fn fetch_with_askpass(
             "unknown panic payload".to_owned()
         };
 
-        anyhow!("git fetch worker thread panicked: {reason}").context(
-            but_error::Context::new("git fetch failed unexpectedly").with_code(Code::Unknown),
+        anyhow!("{command} worker thread panicked: {reason}").context(
+            but_error::Context::new(format!("{command} failed unexpectedly"))
+                .with_code(Code::Unknown),
         )
     })??;
     result.map_err(map_needs_authorization)
@@ -201,6 +235,31 @@ fn map_needs_authorization(err: GitError) -> anyhow::Error {
     anyhow::Error::from(err).context(context)
 }
 
+/// What Git said if `err` is a fetch or push that Git gave up on with exit code 128, the code of
+/// its `die()`. That nearly always means it couldn't talk to the remote: the URL is wrong, the
+/// host can't be reached, the credentials are refused or the connection dropped. Git also dies
+/// when it can't write the objects it received. That is rare and isn't told apart here, as a
+/// dropped connection ends with the same words.
+///
+/// Every other failure returns `None`, like refs that can't be written locally or a push that
+/// the remote refused.
+pub fn remote_failure_reason(err: &anyhow::Error) -> Option<&str> {
+    use crate::repository::RepositoryError::Failed;
+    match err.downcast_ref::<GitError>()? {
+        crate::Error::Backend(Failed {
+            status: 128,
+            stderr,
+            ..
+        })
+        | crate::Error::AuthorizationFailed(Failed {
+            status: 128,
+            stderr,
+            ..
+        }) => Some(stderr),
+        _ => None,
+    }
+}
+
 /// Pick the message the app shows for a `NeedsAuthorization` failure based on the raw askpass
 /// prompt. Without this, the user sees the prompt Git wanted answered
 /// (e.g. `Username for 'https://github.com': `) with no hint at the actual problem: nothing could
@@ -218,8 +277,6 @@ fn needs_authorization_message(prompt: &str) -> &'static str {
     }
 }
 
-/// Push the given commit to the provided remote branch.
-///
 /// Returns the stderr output of the Git executable if used.
 #[allow(clippy::too_many_arguments)]
 pub fn push_with_askpass<B>(

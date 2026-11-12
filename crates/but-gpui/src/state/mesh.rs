@@ -27,7 +27,23 @@ pub type MeshBranch = (ProjectId, Arc<str>, String);
 
 /// What's selected of a checkout on another machine: it, one of its branches, or a commit,
 /// by the branch it's listed under.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    strum::EnumDiscriminants,
+)]
+#[strum_discriminants(
+    name(MeshPickKind),
+    derive(strum::EnumIter, strum::IntoStaticStr, strum::EnumString),
+    // As a `but://open` link names the pick (`pick=`), so renaming one renames its links: see
+    // `crate::links`.
+    strum(serialize_all = "kebab-case")
+)]
 pub enum MeshPick {
     Checkout,
     Branch(String),
@@ -356,13 +372,16 @@ impl Store {
         .detach();
     }
 
-    /// Whether what was last read of `project` may stand in: nothing's been read of it this
-    /// run, and this machine is in the mesh, or not known yet not to be.
+    pub(super) fn mesh_connected_or_unread(&self) -> bool {
+        match self.mesh.state {
+            MeshState::Unknown | MeshState::Connected(_) => true,
+            MeshState::SignedOut | MeshState::Unavailable(_) => false,
+        }
+    }
+
+    /// Whether what was last read of `project` may stand in until this run reads it.
     fn mesh_may_show(&self, project: &ProjectId) -> bool {
-        matches!(
-            self.mesh.state,
-            MeshState::Unknown | MeshState::Connected(_)
-        ) && !self.mesh.checkouts.contains_key(project)
+        self.mesh_connected_or_unread() && !self.mesh.checkouts.contains_key(project)
     }
 
     /// `project`'s checkouts on other machines, as the mesh last said.
@@ -370,7 +389,6 @@ impl Store {
         self.mesh.checkouts.get(project).map_or(&[], |c| &c[..])
     }
 
-    /// `project`'s checkout `id` on another machine.
     pub fn mesh_checkout(&self, project: &ProjectId, id: &str) -> Option<&Checkout> {
         self.mesh_checkouts(project).iter().find(|c| c.id == id)
     }

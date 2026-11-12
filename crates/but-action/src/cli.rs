@@ -60,7 +60,6 @@ pub fn do_install_cli_v2(
     }
 }
 
-/// Installs the CLI link with escalated privileges.
 #[cfg(any(target_os = "macos", all(test, unix)))]
 fn install_cli_link_escalated(
     cli_path: &std::path::Path,
@@ -157,7 +156,6 @@ fn install_cli_link(
     Ok(())
 }
 
-/// Map the error to escalate privileges if permission was denied.
 #[cfg(any(target_os = "macos", all(test, unix)))]
 fn escalate_privilege_error_if_permission_denied(err: anyhow::Error) -> InstallError {
     match err.downcast_ref::<std::io::Error>() {

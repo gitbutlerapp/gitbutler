@@ -1,6 +1,6 @@
 use but_api::open::program::USER_DEFINED_PROGRAMS_FILENAME;
 
-use crate::utils::Sandbox;
+use crate::{command::util::add_dirty_worktree, utils::Sandbox};
 
 fn setup_multi_hunk_uncommitted_changes(path: &str) -> Sandbox {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
@@ -885,6 +885,419 @@ Hint: Specify a program with `--program-id`
         .success()
         .stdout_eq(snapbox::str![[r#"
 filepath='/[..]/file.txt' filepath='/[..]/file.md' filepath='/[..]/Dockerfile'
+
+"#]]);
+}
+
+#[test]
+fn open_in_the_gui_names_the_place_an_id_names() {
+    let env = setup_multi_hunk_uncommitted_changes("file.txt");
+    env.but("status -fv")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   uv M file.txt
+┊
+┊╭┄ br [a-branch-1]
+┊● zon author 2000-01-01 00:00:00 +0000 (sha d7681b4)
+┊│     Add file
+┊│     zon:u A file.txt
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+    env.but("diff")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+─────────────────╮
+ uv:7 M file.txt │
+─────────────────╯
+
+@@ -1,3 +1,4 @@
+───────────────
+  ┊ 1 │ +new first
+1 ┊ 2 │  this
+2 ┊ 3 │  is
+3 ┊ 4 │  some
+
+─────────────────╮
+ uv:4 M file.txt │
+─────────────────╯
+
+@@ -7,3 +8,4 @@
+───────────────
+ 7 ┊  8 │  with
+ 8 ┊  9 │  added
+ 9 ┊ 10 │  lines
+   ┊ 11 │ +new last
+
+"#]]);
+    env.but("diff zon")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+───────────────────╮
+ zo:u:f A file.txt │
+───────────────────╯
+
+@@ -1,0 +1,9 @@
+───────────────
+  ┊  1 │ +this
+  ┊  2 │ +is
+  ┊  3 │ +some
+  ┊  4 │ +content
+  ┊  5 │ +to
+  ┊  6 │ +diff
+  ┊  7 │ +with
+  ┊  8 │ +added
+  ┊  9 │ +lines
+
+"#]]);
+
+    // A branch's ID and its name name the same branch.
+    for branch in ["br", "a-branch-1"] {
+        env.but(format!("_open {branch} --gui --dry-run"))
+            .assert()
+            .success()
+            .stdout_eq(snapbox::str![[r#"
+[..]://open?path=[..]&t=[..]&new_window=0&to=branch&branch=refs%2Fheads%2Fa-branch-1
+
+"#]]);
+    }
+    // A commit, its file and its hunk, by the commit's full hash and its change ID. A hunk opens
+    // at its first added line, as `_open` opens an editor at it.
+    env.but("_open zon --gui --dry-run")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+[..]://open?path=[..]&t=[..]&new_window=0&to=commit&commit=d7681b4[..]&change=zon[..]
+
+"#]]);
+    env.but("_open zon:u --gui --dry-run")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+[..]://open?path=[..]&t=[..]&new_window=0&to=commit&commit=d7681b4[..]&change=zon[..]&file=file.txt
+
+"#]]);
+    env.but("_open zo:u:f --gui --dry-run")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+[..]://open?path=[..]&t=[..]&new_window=0&to=commit&commit=d7681b4[..]&change=zon[..]&file=file.txt&line=1
+
+"#]]);
+    // Uncommitted changes, a file in them and each of its hunks.
+    env.but("_open @ --gui --dry-run")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+[..]://open?path=[..]&t=[..]&new_window=0&to=uncommitted
+
+"#]]);
+    env.but("_open uv --gui --dry-run")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+[..]://open?path=[..]&t=[..]&new_window=0&to=uncommitted&file=file.txt
+
+"#]]);
+    env.but("_open uv:7 --gui --dry-run")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+[..]://open?path=[..]&t=[..]&new_window=0&to=uncommitted&file=file.txt&line=1
+
+"#]]);
+    env.but("_open uv:4 --gui --dry-run")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+[..]://open?path=[..]&t=[..]&new_window=0&to=uncommitted&file=file.txt&line=11
+
+"#]]);
+    // Tools read the link from JSON.
+    env.but("--json _open zon --gui --dry-run")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "link": "[..]://open?path=[..]&t=[..]&new_window=0&to=commit&commit=d7681b4[..]&change=zon[..]"
+}
+
+"#]]);
+}
+
+#[test]
+fn open_in_the_gui_names_a_linked_worktree_by_its_name() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    add_dirty_worktree(&env, "wt-feature", "A");
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ wt:@ [uncommitted] {wt-feature}
+┊┊┊   nl A note.txt
+┊┊├┄ wt [wt-feature] (no commits)
+┊├╯
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+┊│     lrm:p A B
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    // Its file and its whole uncommitted area, read from the main worktree.
+    env.but("_open wt-feature:note.txt --gui --dry-run")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+[..]://open?path=[..]&t=[..]&new_window=0&to=uncommitted&worktree=wt-feature&file=note.txt
+
+"#]]);
+    env.but("_open wt:@ --gui --dry-run")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+[..]://open?path=[..]&t=[..]&new_window=0&to=uncommitted&worktree=wt-feature
+
+"#]]);
+}
+
+#[test]
+fn open_in_the_gui_names_a_remote_only_commit_by_its_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("file", "some content");
+    env.but("commit -m first").assert().success();
+    env.file("file", "some other content");
+    env.but("commit -m second").assert().success();
+    env.invoke_git("update-ref refs/remotes/origin/a-branch-1 refs/heads/a-branch-1");
+    env.invoke_git("config branch.a-branch-1.remote origin");
+    env.invoke_git("config branch.a-branch-1.merge refs/heads/a-branch-1");
+    // The second commit stays on the remote only.
+    env.but("undo").assert().success();
+    env.but("discard @").assert().success();
+
+    let remote_only = env.invoke_git("rev-parse --short=7 refs/remotes/origin/a-branch-1");
+    env.but(format!("_open {remote_only} --gui --dry-run"))
+        .assert()
+        .success()
+        .stdout_eq(format!(
+            "[..]://open?path=[..]&t=[..]&new_window=0&to=upstream&branch=refs%2Fheads%2Fa-branch-1&commit={remote_only}[..]\n"
+        ));
+}
+
+#[test]
+fn open_in_the_gui_takes_a_links_own_parameters() {
+    let env = setup_multi_hunk_uncommitted_changes("file.txt");
+    // A place with no CLI ID, as a project's graph, is named as its link names it.
+    env.but("_open to=project tab=graph --gui --dry-run")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+[..]://open?path=[..]&t=[..]&new_window=0&to=project&tab=graph
+
+"#]]);
+    env.but("_open to=branch branch=refs/heads/a-branch-1 file=file.txt line=4 --gui --dry-run")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+[..]://open?path=[..]&t=[..]&new_window=0&to=branch&branch=refs%2Fheads%2Fa-branch-1&file=file.txt&line=4
+
+"#]]);
+    // The GUI reads the place, so one it doesn't know still makes a link, which it says it
+    // couldn't read.
+    env.but("_open to=timeline --gui --dry-run")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+[..]://open?path=[..]&t=[..]&new_window=0&to=timeline
+
+"#]]);
+    // One of the link's own parameters would stand in for the link's, and an ID beside
+    // parameters is refused.
+    env.but("_open path=/elsewhere --gui --dry-run")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: `path` is the link's own parameter, not a place's
+
+"#]]);
+    // The help ends with every place a link opens, from the app's `LINKS.md`, whose wording is
+    // the app's to change.
+    env.but("_open --help")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+With --gui, a place with no CLI ID is given as its link's parameters, each its own argument, as but
+_open to=project tab=graph --gui.
+
+...
+"#]]);
+}
+
+#[test]
+fn parse_error_shows_both_ways_to_open() {
+    let env = Sandbox::empty();
+    // A rejected `_open` ends with examples of the editor and the GUI.
+    env.but("_open --nope")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+error: unexpected argument '--nope' found
+
+  tip: to pass '--nope' as a value, use '-- --nope'
+
+Usage: but _open [OPTIONS] [SOURCES]...
+
+For more information, try '--help'.
+
+Examples:
+  but _open <file-or-hunk>...            # open in an editor
+  but _open <id> --gui                   # open in the GitButler GUI
+  but _open <id> --gui --dry-run         # print the link instead
+  but _open to=project tab=graph --gui   # a place with no CLI ID, by its link's parameters
+
+"#]]);
+}
+
+#[test]
+fn open_in_the_gui_names_a_linked_worktrees_remote_only_commit_by_its_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    // With no commit of its own, a branch's remote commits aren't listed.
+    let wt = add_dirty_worktree(&env, "wt-feature", "A");
+    env.invoke_git(&format!(
+        "-C {} commit --allow-empty -m local-one",
+        wt.display()
+    ));
+    let remote_only =
+        env.invoke_git("commit-tree wt-feature^{tree} -p wt-feature -m only-on-the-remote");
+    env.invoke_git(&format!(
+        "update-ref refs/remotes/origin/wt-feature {remote_only}"
+    ));
+    env.invoke_git("config branch.wt-feature.remote origin");
+    env.invoke_git("config branch.wt-feature.merge refs/heads/wt-feature");
+
+    env.but(format!("_open {} --gui --dry-run", &remote_only[..7]))
+        .assert()
+        .success()
+        .stdout_eq(format!(
+            "[..]://open?path=[..]&t=[..]&new_window=0&to=upstream&branch=refs%2Fheads%2Fwt-feature&commit={remote_only}\n"
+        ));
+}
+
+#[test]
+fn open_in_the_gui_names_a_stack_by_its_bottom_branch() {
+    let env = setup_multi_hunk_uncommitted_changes("file.txt");
+    // Alone in its stack, a branch has no stack page, so it opens as that branch.
+    env.but("_open g0 --gui --dry-run")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+[..]://open?path=[..]&t=[..]&new_window=0&to=branch&branch=refs%2Fheads%2Fa-branch-1
+
+"#]]);
+    env.but("branch new top-seg --above a-branch-1")
+        .assert()
+        .success();
+    env.file("top.txt", "top");
+    env.but("commit -b top-seg -m 'top commit' top.txt")
+        .assert()
+        .success();
+    env.but("_open g0 --gui --dry-run")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+[..]://open?path=[..]&t=[..]&new_window=0&to=stack&branch=refs%2Fheads%2Fa-branch-1
+
+"#]]);
+}
+
+#[test]
+fn open_in_the_gui_takes_a_links_own_parameters_with_an_id() {
+    let env = setup_multi_hunk_uncommitted_changes("file.txt");
+    env.but("_open br tab=review --gui --dry-run")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+[..]://open?path=[..]&t=[..]&new_window=0&to=branch&branch=refs%2Fheads%2Fa-branch-1&tab=review
+
+"#]]);
+    // They come after what the ID names, wherever they're written.
+    env.but("_open tab=review br --gui --dry-run")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+[..]://open?path=[..]&t=[..]&new_window=0&to=branch&branch=refs%2Fheads%2Fa-branch-1&tab=review
+
+"#]]);
+    env.but("_open br to=project --gui --dry-run")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: The ID already says `to=`
+
+"#]]);
+}
+
+#[test]
+fn open_in_the_gui_takes_one_place() {
+    let env = setup_multi_hunk_uncommitted_changes("file.txt");
+    env.file("src/a.txt", "a");
+    env.but("_open zon uv --gui --dry-run")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: The GUI opens one place at a time
+
+"#]]);
+    // A path prefix names several files, which the GUI has no one place for.
+    env.but("_open src/ --gui --dry-run")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Expected a branch, stack, commit, file or hunk, got a path prefix
+
+"#]]);
+    env.but("_open uv --dry-run")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+error: the following required arguments were not provided:
+  --gui
+
+Usage: but _open --gui --dry-run <SOURCES>...
+
+For more information, try '--help'.
+
+Examples:
+  but _open <file-or-hunk>...            # open in an editor
+  but _open <id> --gui                   # open in the GitButler GUI
+  but _open <id> --gui --dry-run         # print the link instead
+  but _open to=project tab=graph --gui   # a place with no CLI ID, by its link's parameters
 
 "#]]);
 }

@@ -8,7 +8,6 @@ use crate::{
     utils::change_source::{ChangeSourceId, SourceChanges},
 };
 
-/// Information about uncommitted files.
 pub(crate) struct UncommittedInfo {
     /// Uncommitted changes and associated hunks partitioned by the checkout they come from and
     /// their path.
@@ -25,7 +24,6 @@ pub(crate) struct UncommittedInfo {
 }
 
 impl UncommittedInfo {
-    /// Creates an [`UncommittedInfo`] from any amount of [`SourceChanges`].
     pub(crate) fn from_sources(sources: impl IntoIterator<Item = SourceChanges>) -> Self {
         let mut uncommitted_short_filenames = HashSet::new();
         let mut partitioned_changes_and_hunks: Vec<(

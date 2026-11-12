@@ -1,1 +1,2 @@
 *.sh eol=lf
+crates/but-gpui/assets/keymaps/*.json eol=lf

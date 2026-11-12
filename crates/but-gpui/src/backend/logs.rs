@@ -2,6 +2,7 @@
 //! `GitButler.<date>.log` files, so switching between the two leaves one log to read.
 
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use anyhow::{Context as _, Result};
 use parking_lot::Mutex;
@@ -13,6 +14,9 @@ use tracing_subscriber::fmt::writer::Tee;
 /// Keeps the thread that writes the log running. Dropping it writes out what's queued.
 static WRITER: Mutex<Option<WorkerGuard>> = Mutex::new(None);
 
+/// Quitting leaves the log writing, as [`keep_past_quit`] asks.
+static KEPT_PAST_QUIT: AtomicBool = AtomicBool::new(false);
+
 /// The folder the log files go in, for the build's channel.
 pub fn dir() -> Result<PathBuf> {
     but_path::app_log_dir()
@@ -22,7 +26,7 @@ pub fn dir() -> Result<PathBuf> {
 /// waits on either. `RUST_LOG` picks what's logged, as `but_gpui=debug`. Without it
 /// `LOG_LEVEL`, the desktop app's variable, does: GitButler's own crates at that level, `info`
 /// by default, and other crates' warnings and errors, as GPUI's own about the GPU or the
-/// display. Spans opening and closing aren't logged. Those lines made up two thirds of Lite's
+/// display. Spans opening and closing aren't logged. Those lines made up two thirds of the
 /// log.
 pub fn init() {
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
@@ -64,6 +68,19 @@ pub fn init() {
 /// Write out what's queued and stop writing the log, for when the app is about to end.
 pub fn flush() {
     drop(WRITER.lock().take());
+}
+
+/// Leave the log writing past the quit handlers, for a restart: what it logs handing over comes
+/// after them. It calls [`flush`] itself once it's done.
+pub fn keep_past_quit() {
+    KEPT_PAST_QUIT.store(true, Ordering::Relaxed);
+}
+
+/// [`flush`], for the quit handlers, unless [`keep_past_quit`] asked them not to.
+pub fn flush_at_quit() {
+    if !KEPT_PAST_QUIT.load(Ordering::Relaxed) {
+        flush();
+    }
 }
 
 fn files() -> Result<RollingFileAppender> {

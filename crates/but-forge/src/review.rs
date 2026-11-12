@@ -14,8 +14,6 @@ use crate::{forge::ForgeName, resolve_account};
 pub const STACKING_FOOTER_BOUNDARY_TOP: &str = "<!-- GitButler Footer Boundary Top -->";
 pub const STACKING_FOOTER_BOUNDARY_BOTTOM: &str = "<!-- GitButler Footer Boundary Bottom -->";
 
-/// Get a list of available review template paths for a project
-///
 /// The paths are relative to the root path
 pub fn available_review_templates(root_path: &path::Path, forge_name: &ForgeName) -> Vec<String> {
     let ReviewTemplateFunctions {
@@ -64,16 +62,9 @@ pub enum SupportedTemplateDirectory {
 }
 
 pub struct ReviewTemplateFunctions {
-    /// Check if a file is a review template
     pub is_review_template: fn(&str) -> bool,
-    /// Get the forge directory path
     pub get_root: fn(&path::Path) -> path::PathBuf,
-    /// Check if a relative path is a valid review template path
-    ///
-    /// First argument is the relative path to the file
-    /// Second argument is the root path of the project
     pub is_valid_review_template_path: fn(&path::Path) -> bool,
-    /// The supported template directories
     pub supported_template_directories: &'static [SupportedTemplateDirectory],
 }
 
@@ -355,12 +346,10 @@ impl ForgeReview {
         self.merged_at.is_none() && self.closed_at.is_none()
     }
 
-    /// Whether the review has been merged
     pub fn is_merged(&self) -> bool {
         self.merged_at.is_some()
     }
 
-    /// Whether the review points to the given commit ID and has been merged
     pub fn is_merged_at_commit(&self, commit_id: &str) -> bool {
         self.is_merged() && self.sha == commit_id
     }
@@ -838,7 +827,6 @@ fn list_forge_reviews(
                 .as_ref()
                 .and_then(|user| user.github().cloned());
 
-            // Clone owned data for thread
             let owner = owner.clone();
             let repo = repo.clone();
             let storage = storage.clone();
@@ -866,7 +854,6 @@ fn list_forge_reviews(
                 .as_ref()
                 .and_then(|user| user.gitlab().cloned());
 
-            // Clone owned data for thread
             let project_id = GitLabProjectId::new(owner, repo);
             let storage = storage.clone();
 
@@ -891,7 +878,6 @@ fn list_forge_reviews(
                 .as_ref()
                 .and_then(|user| user.bitbucket().cloned());
 
-            // Clone owned data for thread
             let workspace = owner.clone();
             let repo_slug = repo.clone();
             let storage = storage.clone();
@@ -1341,6 +1327,37 @@ pub struct ForgeReviewReaction {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(ForgeReviewReaction);
 
+/// List the reactions on a review's description, oldest first. Each call
+/// hits the forge fresh (no DB cache).
+pub async fn list_review_reactions(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    review_number: usize,
+    storage: &but_forge_storage::Controller,
+) -> Result<Vec<ForgeReviewReaction>> {
+    let crate::forge::ForgeRepoInfo {
+        forge, owner, repo, ..
+    } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_forge_user =
+                resolve_account(preferred_forge_user, forge_repo_info, storage)?;
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            let reactions = but_github::pr::list_reactions(
+                preferred_account,
+                owner,
+                repo,
+                review_number,
+                storage,
+            )
+            .await?;
+            Ok(github_reactions(reactions))
+        }
+        // Read as empty rather than erroring; see list_review_comments.
+        _ => Ok(Vec::new()),
+    }
+}
+
 fn github_reactions(reactions: Vec<but_github::Reaction>) -> Vec<ForgeReviewReaction> {
     reactions.into_iter().map(github_reaction).collect()
 }
@@ -1454,8 +1471,6 @@ pub async fn get_review_merge_status(
     }
 }
 
-/// Get a specific review (e.g. pull request) for a given forge repository
-///
 /// The resulting review will be cached.
 pub fn get_forge_review(
     preferred_forge_user: &Option<crate::ForgeUser>,
@@ -1487,7 +1502,6 @@ pub fn get_forge_review(
         anyhow::anyhow!("Failed to fetch review {review_number}: thread panicked: {e:?}")
     })??;
 
-    // Cache the review and ignore any issues, if any.
     crate::db::upsert_review(db, &review).ok();
     Ok(review)
 }
@@ -1528,7 +1542,6 @@ pub struct ReviewUpdatePayload {
 }
 
 impl ReviewUpdatePayload {
-    /// Create a new instance of the parameters of the review to update.
     pub fn new(
         title: Option<String>,
         body: Option<String>,
@@ -1544,7 +1557,6 @@ impl ReviewUpdatePayload {
     }
 }
 
-/// Update arbitrary fields of a single review.
 pub async fn update_review(
     preferred_forge_user: &Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
@@ -1672,7 +1684,6 @@ impl ReviewState {
     }
 }
 
-/// Merge a review to it's target branch
 pub async fn merge_review(
     preferred_forge_user: &Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
@@ -1740,12 +1751,15 @@ pub async fn merge_review(
     }
 }
 
-/// Set a review to automatically merge when all prerequisites are met.
+/// Set a review to automatically merge when all prerequisites are met. GitHub merges it by
+/// `merge_method`, or with `None` the way its merge box offers the user first. GitLab merges
+/// as the project is set up to.
 pub async fn set_review_auto_merge_state(
     preferred_forge_user: &Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
     review_number: usize,
     enable: bool,
+    merge_method: Option<ReviewMergeMethod>,
     storage: &but_forge_storage::Controller,
 ) -> Result<()> {
     let crate::forge::ForgeRepoInfo {
@@ -1768,7 +1782,12 @@ pub async fn set_review_auto_merge_state(
                 owner,
                 repo,
                 pr_number,
-                state: enable.into(),
+                state: match enable {
+                    true => {
+                        but_github::AutoMergeState::Enabled(merge_method.as_ref().map(Into::into))
+                    }
+                    false => but_github::AutoMergeState::Disabled,
+                },
             };
             but_github::pr::set_auto_merge(preferred_account, params, storage).await
         }
@@ -1792,7 +1811,6 @@ pub async fn set_review_auto_merge_state(
     }
 }
 
-/// Set the draftiness of a review: Should it be a draft or is it ready to review?
 pub async fn set_review_draftiness(
     preferred_forge_user: &Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
@@ -1884,9 +1902,6 @@ fn github_head_owner_and_repo<'a>(
     }
 }
 
-/// Create a new review (e.g. pull request) for a given forge repository
-///
-/// Some info on the push repo:
 /// If there's a push repository specified and it's different from the main repository,
 /// we assume we're opening a review from a fork. Both repositories must use the same
 /// forge provider and server.
@@ -2608,7 +2623,6 @@ pub async fn sync_reviews(
     }
 }
 
-/// A target branch update for a single review (PR/MR).
 #[derive(Debug, Clone)]
 pub struct ForgeReviewTargetUpdate {
     pub number: i64,
@@ -2644,13 +2658,8 @@ pub fn compute_review_target_updates(
 /// footer is removed.
 ///
 /// # Arguments
-/// * `body` - The existing PR body text (may be None or empty)
-/// * `pr_number` - The PR number for which to update the body
 /// * `all_pr_numbers` - All PR numbers in the stack (ordered from base to top)
 /// * `symbol` - The symbol to use before the PR number (e.g., "#" or "!")
-///
-/// # Returns
-/// The updated body with the footer replaced, inserted, or removed
 #[cfg(test)]
 fn update_body(body: Option<&str>, pr_number: i64, all_pr_numbers: &[i64], symbol: &str) -> String {
     update_body_with_mode(
@@ -2776,12 +2785,8 @@ fn compose_body(head: &str, footer: &str, tail: &str) -> String {
 /// Generates a footer for use in pull request descriptions when part of a stack.
 ///
 /// # Arguments
-/// * `for_pr_number` - The PR number for which to generate the footer
 /// * `all_pr_numbers` - All PR numbers in the stack (ordered from base to top)
 /// * `symbol` - The symbol to use before the PR number (e.g., "#" or "!")
-///
-/// # Returns
-/// A formatted markdown footer string with stack information
 #[cfg(test)]
 fn generate_footer(for_pr_number: i64, all_pr_numbers: &[i64], symbol: &str) -> String {
     generate_footer_with_mode(
@@ -3378,7 +3383,6 @@ mod tests {
 
         let lines: Vec<&str> = footer.lines().collect();
 
-        // Find the indices of each PR in the footer
         let pr_100_idx = lines.iter().position(|l| l.contains("#100")).unwrap();
         let pr_101_idx = lines.iter().position(|l| l.contains("#101")).unwrap();
         let pr_102_idx = lines.iter().position(|l| l.contains("#102")).unwrap();
@@ -3443,7 +3447,6 @@ mod tests {
 
         assert!(footer.contains("part 5 of 10 in a stack"));
 
-        // Verify all PRs are listed
         for pr in &all_prs {
             assert!(footer.contains(&format!("#{pr}")));
         }
@@ -3491,11 +3494,8 @@ mod tests {
 
         let result = update_body(Some(&body), 123, &[123, 124], "#");
 
-        // Should contain the original description
         assert!(result.contains("My description"));
-        // Should contain the trailing content
         assert!(result.contains("Some trailing content"));
-        // Should have the new footer with both PRs
         assert!(result.contains("#123"));
         assert!(result.contains("#124"));
         // Should only have one footer (not duplicated)
@@ -3533,9 +3533,7 @@ mod tests {
         let body = "This is my PR description.";
         let result = update_body(Some(body), 123, &[123], "#");
 
-        // Should contain the description
         assert_eq!(result, "This is my PR description.");
-        // Should NOT contain any footer
         assert!(!result.contains(STACKING_FOOTER_BOUNDARY_TOP));
         assert!(!result.contains(STACKING_FOOTER_BOUNDARY_BOTTOM));
         assert!(!result.contains("#123"));
@@ -3559,7 +3557,6 @@ mod tests {
     fn test_update_body_single_pr_empty_body() {
         let result = update_body(None, 123, &[123], "#");
 
-        // Should return empty string (or just whitespace)
         assert!(result.is_empty() || result.trim().is_empty());
         assert!(!result.contains(STACKING_FOOTER_BOUNDARY_TOP));
     }

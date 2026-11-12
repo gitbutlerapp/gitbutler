@@ -1,4 +1,4 @@
-//! A conflict inside its file's card, as Lite and but.dev draw one: what to keep above it, the
+//! A conflict inside its file's card, as but.dev draws one: what to keep above it, the
 //! new base's lines and the commit's below that, and once something is picked, what's kept.
 
 use std::rc::Rc;
@@ -15,9 +15,8 @@ use super::{
     v_flex,
 };
 use crate::backend::{Conflict, DiffLine, LineKind};
-use crate::theme::Theme;
+use crate::theme::{Highlight, Theme};
 
-/// One of a conflict's rows.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Part {
     /// What to keep, above the conflict.
@@ -57,7 +56,6 @@ pub enum Pick {
     Both,
 }
 
-/// What's kept of a conflict, as its rows draw it.
 pub enum Kept<'a> {
     Pick(Pick),
     /// Written by hand, or suggested; `writing` while the suggestion still streams in.
@@ -71,7 +69,6 @@ pub enum Kept<'a> {
 
 pub type OnPick = Rc<dyn Fn(Pick, &mut Window, &mut App)>;
 
-/// What the rows of a conflict act with.
 pub struct Actions {
     pub pick: OnPick,
     pub edit: OnToggle,
@@ -92,7 +89,6 @@ pub struct Name<'a> {
     pub phrase: &'a str,
 }
 
-/// What a conflict's rows draw from.
 pub struct Row<'a> {
     pub conflict: &'a Conflict,
     /// Its place among the conflicts shown, from 1, and how many there are.
@@ -101,7 +97,6 @@ pub struct Row<'a> {
     /// What the two sides are called, alone and in a sentence: what the commit or the
     /// changes now sit on, like the target, and the commit or the changes themselves.
     pub sides: [Name<'a>; 2],
-    /// What marks each side's name.
     pub icons: [Icon; 2],
     pub kept: Option<Kept<'a>>,
     /// The keyboard's picks go to it.
@@ -151,7 +146,6 @@ pub fn rows(rows: &mut Vec<DiffRow>, file: usize, conflict: &Conflict, view: Vie
     }
 }
 
-/// The row `part` of a conflict.
 pub fn row(part: Part, row: Row, theme: &Theme) -> AnyElement {
     let id = |name: &'static str, ix: usize| -> ElementId {
         (name, row.conflict.at as usize * 4096 + ix).into()
@@ -254,9 +248,9 @@ fn side_look(side: Side, plain: bool, theme: &Theme) -> Look {
     match side {
         Side::NewBase => look(LineKind::Added, plain, theme),
         Side::Commit => Look {
-            bg: (!plain).then_some(theme.blue.opacity(0.1)),
+            bg: (!plain).then_some(theme.blue_soft),
             number: theme.blue,
-            emph: theme.blue.opacity(0.2),
+            emph: theme.highlight(Highlight::Incoming),
             bar: Some(theme.blue.into()),
         },
         Side::Ancestor => look(LineKind::Context, plain, theme),
@@ -266,8 +260,8 @@ fn side_look(side: Side, plain: bool, theme: &Theme) -> Look {
 /// A slice of the card, its content lined up with the code, past the line numbers.
 fn strip(layout: &Layout, last: bool, theme: &Theme) -> gpui::Div {
     let numbers = digit_width(theme) * (layout.digits.max(3) + 3) as f32;
-    card(h_flex(), theme)
-        .when(last, |el| el.border_b_1().rounded_b(dp(6.)))
+    card(h_flex(), layout.flat, theme)
+        .when(last, |el| el.border_b_1().rounded_b(dp(theme.shape.card)))
         .pl(dp(numbers.round() + 8.))
         .pr(dp(8.))
         .gap(dp(6.))
@@ -295,16 +289,21 @@ fn bar(row: &Row, theme: &Theme) -> AnyElement {
         row.kept,
         Some(Kept::Pick(_) | Kept::Text { writing: false, .. })
     );
-    let (mark, color, ground) = match handled {
-        true => (Icon::Tick, theme.safe, theme.text_1.opacity(0.04)),
-        false => (Icon::Warning, theme.warn, theme.warn.opacity(0.06)),
+    let (mark, color, ground, current) = match handled {
+        true => (Icon::Tick, theme.safe, theme.hover, theme.secondary),
+        false => (
+            Icon::Warning,
+            theme.warn,
+            theme.warn_soft,
+            theme.warn_soft_hover,
+        ),
     };
-    card(h_flex(), theme)
+    card(h_flex(), row.layout.flat, theme)
         .h(dp(36.))
         .px(dp(8.))
         .gap(dp(6.))
         .bg(ground)
-        .when(row.current, |el| el.bg(ground.opacity(ground.a * 2.)))
+        .when(row.current, |el| el.bg(current))
         .text_size(dp(12.))
         .child(small_icon(mark).text_color(color))
         .child(
@@ -426,7 +425,7 @@ fn side_line(
     last: bool,
     theme: &Theme,
 ) -> AnyElement {
-    line_card(id.clone(), last, layout.wrap, theme)
+    line_card(id.clone(), last, layout, theme)
         .when_some(look.bg, |el, bg| el.bg(bg))
         .child(number_cell(
             line.new,
@@ -434,6 +433,7 @@ fn side_line(
             &look,
             None,
             None,
+            last,
             theme,
         ))
         .child(text_cell(
@@ -529,8 +529,10 @@ fn plain(text: &str) -> DiffLine {
 /// The lines being written, with what keeps them and what drops the edit.
 fn editor(input: Entity<TextInput>, row: &Row, theme: &Theme) -> AnyElement {
     let (done, cancel) = (row.actions.done.clone(), row.actions.cancel.clone());
-    card(v_flex(), theme)
-        .when(row.last, |el| el.border_b_1().rounded_b(dp(6.)))
+    card(v_flex(), row.layout.flat, theme)
+        .when(row.last, |el| {
+            el.border_b_1().rounded_b(dp(theme.shape.card))
+        })
         // Clicks in it stay off the diff, which would take the keys back to its shortcuts.
         .occlude()
         .p(dp(8.))
@@ -538,8 +540,9 @@ fn editor(input: Entity<TextInput>, row: &Row, theme: &Theme) -> AnyElement {
         .child(
             field(&input, row.focused, theme)
                 .p(dp(6.))
-                .rounded(dp(6.))
-                .font_family(theme.mono_font.clone())
+                .rounded(dp(theme.shape.card))
+                .font_family(theme.diff_font.clone())
+                .font_features(theme.diff_features.clone())
                 .text_size(dp(theme.code_text))
                 .line_height(dp(theme.code_line)),
         )
@@ -617,6 +620,7 @@ mod tests {
                 hunks: vec![Hunk {
                     key: HunkKey(header),
                     header: String::new(),
+                    patch: "".into(),
                     lines: vec![line(30)],
                     scope: Vec::new(),
                     lead: Vec::new(),
@@ -631,7 +635,7 @@ mod tests {
             annotated: true,
             scope_lines: None,
             drawing: None,
-            commit: None,
+            made_by: Vec::new(),
         }
     }
 

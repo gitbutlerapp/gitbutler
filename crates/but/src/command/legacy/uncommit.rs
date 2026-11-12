@@ -38,7 +38,7 @@ pub fn uncommit(
     drop(repo);
     drop(ws);
 
-    Ok(squash::run(ctx, &mut meta, guard.write_permission(), op)?)
+    squash::run(ctx, &mut meta, guard.write_permission(), op)
 }
 
 fn resolve(

@@ -13,7 +13,6 @@ pub use worktree::{worktree_changes, worktree_changes_no_renames};
 mod commit_details;
 pub use commit_details::{CommitDetails, LineStats};
 
-/// conversion functions for use in the UI
 pub mod ui;
 
 impl TreeStatus {

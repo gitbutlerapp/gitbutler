@@ -1,4 +1,4 @@
-use std::fmt::Write;
+use std::{fmt::Write, path::Path};
 
 use crate::theme::{self, Paint};
 use but_core::{WORKSPACE_REF_NAME, sync::LockScope};
@@ -7,8 +7,9 @@ use command_group::AsyncCommandGroup;
 
 use crate::{
     args::Args,
-    error::{CliResult, bad_input},
-    utils::{OutputChannel, binary_path::current_exe_for_but_exec},
+    command::worktree::archive::{self, ArchivalOperation},
+    error::{BadInput, CliResult, bad_input},
+    utils::{OutputChannel, binary_path::current_exe_for_but_exec, change_source::InvokedFrom},
 };
 
 #[derive(Default)]
@@ -39,43 +40,48 @@ pub(crate) enum TargetRequirement {
     OptionalIfUnborn,
 }
 
-/// Options for initializing the context via [`init_ctx`].
 #[derive(Default)]
 pub(crate) struct InitCtxOptions {
-    /// Controls whether to perform automatic background synchronization.
-    /// Defaults to `BackgroundSync::Disabled`.
     pub background_sync: BackgroundSync,
-    /// Controls whether to check for workspace commit integrity.
-    /// Defaults to `WorkspaceCheck::Enabled`.
     pub workspace_check: WorkspaceCheck,
     /// Controls whether single-branch initialization must lazily infer a target.
-    /// Defaults to `TargetRequirement::Required`.
     pub target_requirement: TargetRequirement,
+}
+
+/// Explain why no repository could be opened at `dir`, suggesting `but init` only where it can work.
+fn discovery_failure(dir: &Path, err: &anyhow::Error) -> BadInput {
+    let no_repo = crate::is_not_in_git_repository_error(err);
+    let dot_git = dir.strip_prefix(".").unwrap_or(dir).join(".git");
+    // Discovery looks past a broken `.git`, but `but init` refuses to replace one.
+    if no_repo
+        && dot_git
+            .symlink_metadata()
+            .is_err_and(|err| err.kind() == std::io::ErrorKind::NotFound)
+    {
+        return bad_input(format!("No git repository found at {}", dot_git.display()))
+            .hint("Run `but init` to initialize a Git repository.")
+            .code("NoGitRepository");
+    }
+    let reason = match gix::discover::is_git(&dot_git) {
+        Err(broken) if no_repo => format!("{broken:#}"),
+        _ => format!("{err:#}"),
+    };
+    // Other discovery failures stay uncoded, so filtering out the code can't hide them.
+    bad_input(format!(
+        "Could not open a Git repository in {}: {reason}",
+        std::path::absolute(dir).map_or("the current directory".into(), |dir| dir
+            .display()
+            .to_string())
+    ))
+    .hint("Change to a directory with a working Git repository.")
 }
 
 /// Gets or initializes a non-bare repository context.
 ///
 /// This function discovers the git repository from the current directory, finds or initializes
-/// the GitButler project for that repository, and optionally triggers a background sync if
-/// the configured interval has elapsed.
-///
-/// # Arguments
-///
-/// * `args` - Command-line arguments containing the current directory
-/// * `options` - Configuration options for context initialization:
-///   - `background_sync` - Controls automatic background synchronization:
-///     - `BackgroundSync::Enabled` - Enable background sync (fetch, PR data, CI status)
-///     - `BackgroundSync::Disabled` - Disable background sync completely
-///   - `workspace_check` - Controls workspace commit integrity checking:
-///     - `WorkspaceCheck::Enabled` - Check for non-workspace commits on gitbutler/workspace
-///     - `WorkspaceCheck::Disabled` - Skip workspace commit checking
-///   - `target_requirement` - Controls target initialization in single-branch mode:
-///     - `TargetRequirement::Required` - Infer and persist a missing target
-///     - `TargetRequirement::Optional` - Return a context without requiring a target
-///
-/// # Returns
-///
-/// Returns a `Context` containing the repository and project information.
+/// the GitButler project for that repository, unarchives the linked worktree the current
+/// directory is in, and optionally triggers a background sync if the configured interval has
+/// elapsed.
 ///
 /// # Errors
 ///
@@ -108,27 +114,11 @@ pub fn init_ctx(
     out: &mut OutputChannel,
 ) -> CliResult<Context> {
     let app_settings = crate::app_settings()?;
-    // lets try to get the repo from the current directory
-    let repo = match but_ctx::discover_main_repo(&args.current_dir) {
-        Ok(repo) => repo,
-        Err(_) => {
-            return Err(bad_input(format!(
-                "No git repository found at {}",
-                args.current_dir
-                    .strip_prefix(".")
-                    .unwrap_or(&args.current_dir)
-                    .join(".git")
-                    .display()
-            ))
-            .hint("Run `but init` to initialize a Git repository.")
-            .into());
-        }
-    };
+    let repo = but_ctx::discover_main_repo(&args.current_dir)
+        .map_err(|err| discovery_failure(&args.current_dir, &err))?;
 
-    // Check if we're on gitbutler/workspace with non-workspace commits on top
-    // before creating the context
     if matches!(options.workspace_check, WorkspaceCheck::Enabled) {
-        check_workspace_commits_before_init(&repo, out)?;
+        check_workspace_commits_before_init(&repo)?;
     }
 
     let (ctx, fetch_interval_minutes, last_fetch) = {
@@ -185,6 +175,8 @@ pub fn init_ctx(
         }
     };
 
+    unarchive_invoked_worktree(&ctx, &args.current_dir)?;
+
     // If this is the first time running GitButler, show a metrics info message and update onboarding status
     if !ctx.settings.onboarding_complete && out.format().allows_human_ui() {
         crate::command::onboarding::handle(out)?;
@@ -195,7 +187,6 @@ pub fn init_ctx(
             return Ok(ctx);
         }
         BackgroundSync::Enabled { silent } => {
-            // Check if background tasks are disabled via environment variable
             if std::env::var("NO_BG_TASKS").is_ok() {
                 return Ok(ctx);
             }
@@ -206,11 +197,9 @@ pub fn init_ctx(
                 return Ok(ctx);
             }
 
-            // Determine what needs to be synced based on intervals and lock availability
             let sync_operations =
                 determine_sync_operations(&ctx, fetch_interval_minutes, last_fetch);
 
-            // Spawn background sync if there's anything to do
             if sync_operations.has_work() {
                 let silent = silent || !out.format().allows_human_ui();
                 spawn_background_sync(args, out, last_fetch, sync_operations, silent);
@@ -219,6 +208,30 @@ pub fn init_ctx(
     }
 
     Ok(ctx)
+}
+
+/// Unarchive the linked worktree `directory` is in, as running `but` there means it is in use.
+///
+/// An archived worktree is left out of the workspace, so every command run in it would refuse
+/// its changes or show none. Worktrees already on disk when GitButler first reads a repository
+/// start out archived, which includes the one an agent harness made before its first `but` call.
+fn unarchive_invoked_worktree(ctx: &Context, directory: &Path) -> anyhow::Result<()> {
+    let Some(name) = InvokedFrom::discover(directory)?.linked_worktree else {
+        return Ok(());
+    };
+    let archived = ctx
+        .worktrees_with_state()?
+        .into_iter()
+        .any(|worktree| worktree.archived && worktree.name == name);
+    if archived {
+        let guard = ctx.shared_worktree_access();
+        let op = ArchivalOperation {
+            worktree: name,
+            archived: false,
+        };
+        let _outcome = archive::run(ctx, guard.read_permission(), op)?;
+    }
+    Ok(())
 }
 
 fn infer_target(ctx: &mut Context) -> CliResult<()> {
@@ -232,11 +245,11 @@ fn infer_target(ctx: &mut Context) -> CliResult<()> {
                     .hint("Run `but commit` to create an initial commit")
                     .into());
             } else {
-                return Err(anyhow::anyhow!(
-                    "No target branch is configured and none could be inferred. \
-                                Run `but config target <remote>/<branch>` to configure one."
-                )
-                .into());
+                return Err(
+                    bad_input("No target branch is configured and none could be inferred")
+                        .hint("Run `but config target <remote>/<branch>` to configure one")
+                        .into(),
+                );
             }
         };
 
@@ -250,7 +263,6 @@ fn infer_target(ctx: &mut Context) -> CliResult<()> {
     Ok(())
 }
 
-/// Tracks which background sync operations should be performed.
 #[derive(Debug)]
 struct SyncOperations {
     fetch: bool,
@@ -265,13 +277,11 @@ impl SyncOperations {
     }
 }
 
-/// Determines which sync operations should be performed based on intervals and lock availability.
 fn determine_sync_operations(
     ctx: &Context,
     fetch_interval_minutes: isize,
     last_fetch: Option<std::time::SystemTime>,
 ) -> SyncOperations {
-    // Check if fetch/pr/ci should run based on fetch interval
     let should_sync_remote_data = if fetch_interval_minutes > 0 {
         if let Some(last_fetch) = last_fetch {
             match std::time::SystemTime::now().duration_since(last_fetch) {
@@ -296,19 +306,15 @@ fn determine_sync_operations(
         None
     };
 
-    // Determine if updates should be checked based on configured interval
     let update_check_interval_sec = ctx.settings.app_updates_check_interval_sec;
     let should_check_updates = if update_check_interval_sec == 0 {
-        // Update checks disabled
         None
     } else {
-        // Try to access cache to determine last check time
         let cache = Context::app_cache();
         let should_check = but_update::last_checked(&cache)
             .ok()
             .flatten()
             .map(|last_check| {
-                // Cache exists, check if interval has elapsed
                 let now = chrono::Utc::now();
                 let elapsed = now.signed_duration_since(last_check);
                 elapsed.num_seconds() >= update_check_interval_sec as i64
@@ -324,7 +330,6 @@ fn determine_sync_operations(
         false
     };
 
-    // Check if we successfully acquired the locks
     let can_sync_remote_data = remote_data_lock.is_some();
 
     // Locks are dropped here, allowing the spawned child process to acquire them
@@ -336,7 +341,6 @@ fn determine_sync_operations(
     }
 }
 
-/// Spawns a background process to perform the specified sync operations.
 fn spawn_background_sync(
     args: &Args,
     out: &mut OutputChannel,
@@ -378,7 +382,6 @@ fn spawn_background_sync(
         .kill_on_drop(false);
 
     if cmd.spawn().is_ok() && !silent {
-        // Show user feedback about what's happening
         // Only show "last fetch" message if we're actually fetching
         let msg = if operations.fetch {
             last_fetch
@@ -416,23 +419,18 @@ fn spawn_background_sync(
 }
 
 /// Check if we're on gitbutler/workspace with non-workspace commits on top.
-/// If so, inform the user and suggest running teardown to preserve their work.
-fn check_workspace_commits_before_init(
-    repo: &gix::Repository,
-    out: &mut OutputChannel,
-) -> anyhow::Result<()> {
+/// If so, refuse and point at `but teardown`, which keeps that work.
+fn check_workspace_commits_before_init(repo: &gix::Repository) -> CliResult<()> {
     let head = repo.head()?;
     let head_name = head
         .referent_name()
         .map(|n| n.shorten().to_string())
         .unwrap_or_default();
 
-    // Only check if we're on gitbutler/workspace
     if head_name != "gitbutler/workspace" {
         return Ok(());
     }
 
-    // Check the HEAD commit message
     let mut workspace_ref = repo.find_reference(WORKSPACE_REF_NAME)?;
     let workspace_commit = workspace_ref.peel_to_commit()?;
     let message = workspace_commit.message_raw()?;
@@ -441,28 +439,16 @@ fn check_workspace_commits_before_init(
 
     // If the first line is NOT a workspace commit, someone has committed on top
     if !first_line.starts_with("GitButler Workspace Commit") {
-        if let Some(writer) = out.for_human_ui() {
-            writeln!(writer)?;
-            writeln!(
-                writer,
-                "{}",
-                theme::get()
-                    .attention
-                    .paint("⚠ Detected commits on top of gitbutler/workspace")
-            )?;
-            writeln!(writer)?;
-            writeln!(
-                writer,
-                "{}",
-                theme::get().hint.paint("GitButler detected that you have committed directly on the\ngitbutler/workspace branch. To preserve your work and\nfix up things, please run `but teardown`.")
-            )?;
-            writeln!(writer)?;
-        }
-
-        // After teardown, we should not continue with the original command
-        anyhow::bail!(
-            "GitButler mode exit required: please run `but teardown` to preserve your work."
-        );
+        return Err(bad_input(
+            "The tip of gitbutler/workspace is not a workspace commit, \
+            most likely because `git commit` added a commit on top of it.",
+        )
+        .hint(
+            "Run `but teardown`. It undoes commits on top of the workspace commit and keeps \
+            their changes as uncommitted. It then leaves workspace mode on one applied branch; \
+            the others stay unapplied until you run `but apply <branch>`.",
+        )
+        .into());
     }
 
     Ok(())

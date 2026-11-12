@@ -1,9 +1,8 @@
-use crate::WorkspaceState;
 use bstr::{BString, ByteSlice};
 use but_api_macros::but_api;
 use but_core::{DryRun, sync::RepoExclusive};
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::{Editor, LookupStep as _};
+use but_transaction::{Commit, with_transaction_with_perm_only};
 use tracing::instrument;
 
 use super::types::CommitRewordResult;
@@ -46,13 +45,10 @@ pub fn commit_reword_only_with_perm(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitRewordResult> {
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-
-    let (rebase, edited_commit_selector) =
-        but_workspace::commit::reword(editor, commit_id, message.as_bstr())?;
-    let new_commit = rebase.lookup_pick(edited_commit_selector)?;
-    let workspace = WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?;
+    let (_, (new_commit, workspace)) =
+        with_transaction_with_perm_only(ctx, &mut meta, perm, dry_run, |mut tx| {
+            Ok(Commit(tx.reword_commit(commit_id, message.as_bstr())?.id))
+        })?;
 
     Ok(CommitRewordResult {
         new_commit,

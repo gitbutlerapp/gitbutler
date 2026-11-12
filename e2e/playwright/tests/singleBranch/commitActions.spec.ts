@@ -739,7 +739,7 @@ test("rebuilds an enclosed ad-hoc workspace around the current and applied branc
 	await assertBranch("B", localClone);
 	await assertSymbolicHead("B", localClone);
 	await expect(getByTestId(page, "chrome-header-current-branch")).toContainText("B");
-	await expect(getByTestId(page, "chrome-header-current-branch")).toContainText("read-only");
+	await expect(getByTestId(page, "chrome-header-current-branch")).not.toContainText("read-only");
 	await expect(getByTestId(page, "chrome-header-switch-back-to-workspace-button")).toBeVisible();
 
 	await applyBranchFromBranchesView(page, "C");

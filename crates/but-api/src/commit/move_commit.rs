@@ -2,9 +2,8 @@ use but_api_macros::but_api;
 use but_core::{DryRun, sync::RepoExclusive};
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
+use but_transaction::with_transaction_with_perm_only;
 use tracing::instrument;
-
-use crate::WorkspaceState;
 
 use super::types::CommitMoveResult;
 
@@ -51,14 +50,12 @@ pub fn commit_move_only_with_perm(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitMoveResult> {
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-    let rebase =
-        but_workspace::commit::move_commits(editor, subject_commit_ids, relative_to, side)?;
+    let (_, workspace) =
+        with_transaction_with_perm_only(ctx, &mut meta, perm, dry_run, |mut tx| {
+            tx.move_commits(subject_commit_ids, relative_to, side)
+        })?;
 
-    Ok(CommitMoveResult {
-        workspace: WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?,
-    })
+    Ok(CommitMoveResult { workspace })
 }
 
 /// Moves `subject_commit_ids` to `side` of `relative_to` and records an oplog

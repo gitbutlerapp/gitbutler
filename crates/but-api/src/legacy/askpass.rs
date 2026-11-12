@@ -1,4 +1,3 @@
-//! In place of commands.rs
 use anyhow::anyhow;
 use but_askpass::{self as askpass, AskpassRequestId};
 use serde::Deserialize;

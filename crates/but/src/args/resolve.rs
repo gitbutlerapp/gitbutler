@@ -38,7 +38,8 @@ pub enum Subcommands {
         /// Let the configured AI model merge the targeted conflicts.
         #[clap(long, conflicts_with = "file")]
         ai: bool,
-        /// Read the replacement content from this file (otherwise from stdin).
+        /// Read the replacement content from `FILE`, or from stdin when `FILE` is `-`.
+        /// Without it, the content is read from stdin.
         #[clap(long, short = 'F')]
         file: Option<std::path::PathBuf>,
     },

@@ -75,7 +75,6 @@ pub fn list(
         applied_stacks.retain(|stack| !stack.branches.is_empty());
     }
 
-    // Apply name filter to applied stacks if provided
     if let Some(ref filter_str) = filter {
         let filter_lower = filter_str.to_lowercase();
         applied_stacks.retain(|stack| {
@@ -84,7 +83,6 @@ pub fn list(
                 .iter()
                 .any(|branch| branch.name.to_lowercase().contains(&filter_lower))
         });
-        // Also filter the heads within each stack
         for stack in &mut applied_stacks {
             stack
                 .branches
@@ -94,14 +92,12 @@ pub fn list(
 
     let mut branches = but_api::legacy::virtual_branches::list_branches(ctx, listing_filter)?;
 
-    // Apply local/remote filtering
     if local {
         branches.retain(|branch| branch.has_local);
     } else if remote {
         branches.retain(|branch| !branch.has_local);
     }
 
-    // Apply name filter if provided
     if let Some(ref filter_str) = filter {
         let filter_lower = filter_str.to_lowercase();
         branches.retain(|branch| {
@@ -113,7 +109,6 @@ pub fn list(
         });
     }
 
-    // Filter out dependabot branches unless --all is specified
     if !all {
         branches.retain(|branch| {
             !branch
@@ -173,7 +168,6 @@ pub fn list(
     let has_more_branches = branches_to_show.len() > max_branches;
     let branches_to_show: Vec<_> = branches_to_show.into_iter().take(max_branches).collect();
 
-    // Calculate commits ahead if requested
     let commits_ahead_map: Option<HashMap<String, usize>> = if ahead {
         Some(calculate_commits_ahead(
             ctx,
@@ -184,7 +178,6 @@ pub fn list(
         None
     };
 
-    // Check merge status if requested
     let merge_status_map: Option<HashMap<String, bool>> = if check_merge {
         Some(check_branches_merge_cleanly(
             ctx,
@@ -209,7 +202,6 @@ pub fn list(
             out,
         )?;
     } else if let Some(out) = out.for_human() {
-        // Print applied branches section with header
         if !applied_stacks.is_empty() {
             writeln!(out, "Applied branches")?;
             print_applied_branches_table(
@@ -223,7 +215,6 @@ pub fn list(
             )?;
         }
 
-        // Print unapplied branches section with header
         if !branches_to_show.is_empty() {
             if !applied_stacks.is_empty() {
                 writeln!(out)?;
@@ -263,7 +254,6 @@ fn output_json(
 ) -> Result<(), anyhow::Error> {
     use crate::command::legacy::branch::json::*;
 
-    // Open repo to get commit information
     let repo = &*ctx.repo.get()?;
 
     let applied_stacks_output: Vec<StackOutput> = applied_stacks
@@ -279,7 +269,6 @@ fn output_json(
                     let merges_cleanly =
                         merge_status_map.and_then(|map| map.get(&branch.name).copied());
 
-                    // Get commit information
                     let (last_commit_at, author_name, author_email) =
                         applied_head_commit_info(repo, branch.tip);
                     let last_author = AuthorOutput {
@@ -338,7 +327,6 @@ fn output_json(
     Ok(())
 }
 
-/// Read display metadata for an applied stack head commit.
 fn applied_head_commit_info(
     repo: &gix::Repository,
     commit_id: gix::ObjectId,
@@ -392,19 +380,16 @@ fn check_branches_merge_cleanly(
 
     let mut result = HashMap::new();
 
-    // Check applied stacks
     for stack_entry in applied_stacks {
         for branch in &stack_entry.branches {
             let branch_name = branch.name.clone();
             match repo.find_commit(branch.tip) {
                 Ok(branch_commit) => {
-                    // Find merge base
                     match repo.merge_base_with_graph(target_commit_id, branch.tip, &mut graph) {
                         Ok(Some(merge_base)) => {
                             let merge_base_tree_id =
                                 repo.find_commit(merge_base)?.tree_id()?.detach();
 
-                            // Check if branch merges cleanly into target
                             let merges_cleanly = repo
                                 .merges_cleanly(
                                     merge_base_tree_id,
@@ -428,17 +413,14 @@ fn check_branches_merge_cleanly(
         }
     }
 
-    // Check unapplied branches
     for branch in branches {
         let branch_name = branch.name.to_string();
         match repo.find_commit(branch.head) {
             Ok(branch_commit) => {
-                // Find merge base
                 match repo.merge_base_with_graph(target_commit_id, branch.head, &mut graph) {
                     Ok(Some(merge_base)) => {
                         let merge_base_tree_id = repo.find_commit(merge_base)?.tree_id()?.detach();
 
-                        // Check if branch merges cleanly into target
                         let merges_cleanly = repo
                             .merges_cleanly(
                                 merge_base_tree_id,
@@ -480,13 +462,11 @@ fn calculate_commits_ahead(
     for branch in branches {
         let branch_oid = branch.head;
 
-        // Count commits ahead using merge base
         let merge_base = match repo.merge_base_with_graph(branch_oid, target_oid, &mut graph) {
             Ok(Some(base)) => base,
             Ok(None) | Err(_) => continue, // Skip if no merge base found
         };
 
-        // Walk from branch head to merge base
         let traversal = match branch_oid
             .attach(&repo)
             .ancestors()
@@ -512,7 +492,6 @@ fn format_date_for_display(timestamp_ms: u128) -> String {
         .unwrap()
         .as_millis();
 
-    // Calculate days ago
     let age_ms = now.saturating_sub(timestamp_ms);
     let days_ago = (age_ms / (1000 * 60 * 60 * 24)) as i64;
 
@@ -551,10 +530,8 @@ fn print_applied_branches_table(
         return Ok(());
     }
 
-    // Open repo to get commit information
     let repo = &*ctx.repo.get()?;
 
-    // Define column headers with fixed widths
     // BRANCH is marked no_truncate so the name is always fully visible.
     // AUTHOR is flexible and will shrink first when space is tight.
     let headers = vec![
@@ -573,7 +550,6 @@ fn print_applied_branches_table(
         for branch in &stack.branches {
             let is_single_branch = stack.branches.len() == 1;
 
-            // Get commit information
             let (timestamp_ms, author_name, author_email) =
                 applied_head_commit_info(repo, branch.tip);
             let author_str = author_name
@@ -585,16 +561,13 @@ fn print_applied_branches_table(
                 "unknown".to_string()
             };
 
-            // Type column
             let type_str = "active".to_string();
 
-            // Ahead column
             let ahead_str = commits_ahead_map
                 .and_then(|map| map.get(&branch.name))
                 .map(|count| t.info.paint(format!("↑{count}")))
                 .unwrap_or_default();
 
-            // Merge status indicator
             let merge_status_str = if let Some(map) = merge_status_map {
                 match map.get(&branch.name) {
                     Some(true) => format!("{} ", t.sym().success),
@@ -607,7 +580,6 @@ fn print_applied_branches_table(
 
             let painted_branch_name = t.local_branch.paint(&branch.name);
 
-            // Branch name with tree prefix and merge status
             let branch_with_prefix = if is_single_branch {
                 format!(
                     "{}{}{}",
@@ -642,7 +614,6 @@ fn print_applied_branches_table(
                 format!("{merge_status_str}{painted_branch_name}")
             };
 
-            // Get PR/review info
             let reviews_str = if let Some(reviews) = branch_review_map.get(&branch.name) {
                 let review_numbers = reviews
                     .iter()
@@ -685,7 +656,6 @@ fn print_branches_table(
         return Ok(());
     }
 
-    // Define column headers with fixed widths
     // BRANCH is marked no_truncate so the name is always fully visible.
     // AUTHOR is flexible and will shrink first when space is tight.
     let headers = vec![
@@ -699,13 +669,11 @@ fn print_branches_table(
     let mut table = Table::new(headers).with_truncation(allow_truncation);
 
     for branch in branches {
-        // Ahead column
         let ahead_str = commits_ahead_map
             .and_then(|map| map.get(&branch.name.to_string()))
             .map(|count| t.info.paint(format!("↑{count}")).to_string())
             .unwrap_or_default();
 
-        // Merge status indicator
         let merge_status_str = if let Some(map) = merge_status_map {
             match map.get(&branch.name.to_string()) {
                 Some(true) => format!("{} ", t.sym().success),
@@ -716,10 +684,8 @@ fn print_branches_table(
             String::new()
         };
 
-        // Date column
         let date_str = format_date_for_display(branch.updated_at);
 
-        // Author column
         let author_str = branch
             .last_commiter
             .name
@@ -728,7 +694,6 @@ fn print_branches_table(
             .or_else(|| branch.last_commiter.email.as_ref().map(|e| e.to_string()))
             .unwrap_or_else(|| "Unknown".to_string());
 
-        // Branch name with PR info and merge status
         let reviews_str = if let Some(reviews) = branch_review_map.get(&branch.name.to_string()) {
             let review_numbers = reviews
                 .iter()

@@ -30,7 +30,6 @@ pub enum HookInstallationResult {
 /// when hooks were registered through git config (git 2.54+).
 const CONFIG_HOOK_SCRIPTS_SUBDIR: &str = "gitbutler/hooks";
 
-/// Types of hooks we manage
 #[derive(Debug, Clone, Copy)]
 enum ManagedHookType {
     PreCommit,
@@ -38,7 +37,6 @@ enum ManagedHookType {
 }
 
 impl ManagedHookType {
-    /// Every hook type GitButler manages.
     const ALL: [ManagedHookType; 2] = [ManagedHookType::PreCommit, ManagedHookType::PostCheckout];
 
     fn hook_name(&self) -> &'static str {
@@ -110,12 +108,10 @@ fn uninstall_hook(hooks_dir: &Path, hook_type: ManagedHookType) -> Result<HookIn
     let hook_path = hooks_dir.join(hook_type.hook_name());
     let user_backup_path = hooks_dir.join(hook_type.user_backup_name());
 
-    // Only remove if it's our managed hook
     if hook_path.exists() {
         if is_gitbutler_managed_hook(&hook_path) {
             fs::remove_file(&hook_path).context("Failed to remove managed hook")?;
         } else {
-            // Not our hook, don't touch it
             tracing::debug!(
                 "{} is not GitButler-managed, skipping",
                 hook_type.hook_name()
@@ -124,7 +120,6 @@ fn uninstall_hook(hooks_dir: &Path, hook_type: ManagedHookType) -> Result<HookIn
         }
     }
 
-    // Restore user's backup if it exists
     if user_backup_path.exists() {
         fs::rename(&user_backup_path, &hook_path).context("Failed to restore user hook")?;
     }

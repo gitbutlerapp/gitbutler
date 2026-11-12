@@ -414,6 +414,26 @@ Redid [..] (2000-01-02 00:00:00): [..]
 }
 
 #[test]
+fn undoing_but_branch_new_in_single_branch_mode_deletes_the_branch() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    let listed = |name: &str| env.invoke_git(&format!("branch --list {name}"));
+
+    // With the target checked out, it starts at the target and is checked out.
+    env.but("branch new first").assert().success();
+    env.but("undo").assert().success();
+    assert_eq!(listed("first"), "", "undo deletes the branch it made");
+    assert_eq!(env.invoke_git("symbolic-ref --short HEAD"), "main");
+
+    // Beside another branch checked out on its own, the workspace is set up for both.
+    env.but("branch new first").assert().success();
+    env.but("branch new second").assert().success();
+    env.but("undo").assert().success();
+    assert_eq!(listed("second"), "", "undo deletes the branch it made");
+    assert_ne!(listed("first"), "", "and leaves the one before it");
+    assert_eq!(env.invoke_git("symbolic-ref --short HEAD"), "first");
+}
+
+#[test]
 fn can_undo_and_redo_commit_with_ordinary_branch_checked_out() {
     let env = Sandbox::open_with_default_settings("single-branch-mode");
     env.but("branch new my-branch").assert().success();
@@ -508,10 +528,10 @@ fn can_undo_but_squash_with_two_commits() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-d804e9c 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (76dac26)
-76dac26 2000-01-02 00:00:00 [SQUASH] Squashed commit
-6bc0553 2000-01-02 00:00:00 [COMMIT] Created commit
-be389f5 2000-01-02 00:00:00 [COMMIT] Created commit
+904f69d 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (cab95b3)
+cab95b3 2000-01-02 00:00:00 [SQUASH] Squashed commit
+6880743 2000-01-02 00:00:00 [COMMIT] Created commit
+e17143f 2000-01-02 00:00:00 [COMMIT] Created commit
 
 "#]]);
 }
@@ -541,11 +561,11 @@ fn can_undo_but_squash_with_three_commits() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-61a3754 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (a3d272f)
-a3d272f 2000-01-02 00:00:00 [SQUASH] Squashed commit
-8cc2a4f 2000-01-02 00:00:00 [COMMIT] Created commit
-6bc0553 2000-01-02 00:00:00 [COMMIT] Created commit
-be389f5 2000-01-02 00:00:00 [COMMIT] Created commit
+e73ab4b 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (27edee8)
+27edee8 2000-01-02 00:00:00 [SQUASH] Squashed commit
+b685fa3 2000-01-02 00:00:00 [COMMIT] Created commit
+6880743 2000-01-02 00:00:00 [COMMIT] Created commit
+e17143f 2000-01-02 00:00:00 [COMMIT] Created commit
 
 "#]]);
 }
@@ -574,10 +594,10 @@ fn can_undo_but_squash_with_two_commits_with_message() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-b22f93e 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (76dac26)
-76dac26 2000-01-02 00:00:00 [SQUASH] Squashed commit
-6bc0553 2000-01-02 00:00:00 [COMMIT] Created commit
-be389f5 2000-01-02 00:00:00 [COMMIT] Created commit
+22cfff6 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (cab95b3)
+cab95b3 2000-01-02 00:00:00 [SQUASH] Squashed commit
+6880743 2000-01-02 00:00:00 [COMMIT] Created commit
+e17143f 2000-01-02 00:00:00 [COMMIT] Created commit
 
 "#]]);
 }
@@ -602,10 +622,10 @@ fn can_undo_but_squash_with_branch() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-72952b8 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (76dac26)
-76dac26 2000-01-02 00:00:00 [SQUASH] Squashed commit
-6bc0553 2000-01-02 00:00:00 [COMMIT] Created commit
-be389f5 2000-01-02 00:00:00 [COMMIT] Created commit
+155cab0 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (cab95b3)
+cab95b3 2000-01-02 00:00:00 [SQUASH] Squashed commit
+6880743 2000-01-02 00:00:00 [COMMIT] Created commit
+e17143f 2000-01-02 00:00:00 [COMMIT] Created commit
 
 "#]]);
 }
@@ -630,10 +650,10 @@ fn can_undo_but_squash_with_branch_and_drop_message() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-75379c6 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (76dac26)
-76dac26 2000-01-02 00:00:00 [SQUASH] Squashed commit
-6bc0553 2000-01-02 00:00:00 [COMMIT] Created commit
-be389f5 2000-01-02 00:00:00 [COMMIT] Created commit
+e254425 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (cab95b3)
+cab95b3 2000-01-02 00:00:00 [SQUASH] Squashed commit
+6880743 2000-01-02 00:00:00 [COMMIT] Created commit
+e17143f 2000-01-02 00:00:00 [COMMIT] Created commit
 
 "#]]);
 }
@@ -897,7 +917,7 @@ fn can_undo_single_branch_mode_but_branch_new_creating_workspace() {
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* b1540e5 (HEAD -> one, origin/main, origin/HEAD, two, main, gitbutler/target) M
+* b1540e5 (HEAD -> one, origin/main, origin/HEAD, main, gitbutler/target) M
 * e31e6ca add init
 
 "#]]
@@ -921,7 +941,7 @@ fn can_undo_single_branch_mode_but_branch_new_switching_to_existing_workspace() 
         snapbox::str![[r#"
 * 3a4cfbb (gitbutler/workspace) GitButler Workspace Commit
 |/
-* b1540e5 (HEAD -> two, origin/main, origin/HEAD, three, one, main, gitbutler/target) M
+* b1540e5 (HEAD -> two, origin/main, origin/HEAD, one, main, gitbutler/target) M
 * e31e6ca add init
 
 "#]]
@@ -942,7 +962,7 @@ fn can_undo_single_branch_mode_but_branch_new_switching_to_single_branch_from_wo
         snapbox::str![[r#"
 * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 9477ae7 (A) add A
-* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target, a-branch-1) add M
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]
     );
@@ -964,7 +984,7 @@ fn can_undo_single_branch_mode_but_branch_new_switching_to_single_branch_from_br
         snapbox::str![[r#"
 * edd3eb7 (gitbutler/workspace) GitButler Workspace Commit
 * 9477ae7 (HEAD -> A) add A
-* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target, a-branch-1) add M
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]
     );
@@ -999,9 +1019,10 @@ fn can_undo_switch_workspace_applying_multiple_branches() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
 
-    env.but("commit -b one --no-message").assert().success();
-    env.but("commit -b two --no-message").assert().success();
-    env.but("commit -b three --no-message").assert().success();
+    // Distinct messages keep the three commits, and thus the branches, apart.
+    env.but("commit -b one -m one").assert().success();
+    env.but("commit -b two -m two").assert().success();
+    env.but("commit -b three -m three").assert().success();
 
     env.but("switch one").assert().success();
 

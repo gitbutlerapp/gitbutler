@@ -40,7 +40,6 @@ pub use prompt::{FileResolution, HunkContent, ResolutionResponse, SYSTEM_PROMPT}
 /// The conflicts of a conflicted commit, as per-file hunks.
 #[derive(Debug, Clone)]
 pub struct CommitConflicts {
-    /// The conflicted commit.
     pub commit_id: gix::ObjectId,
     /// The conflicted files that decompose into hunks, sorted by path.
     pub files: Vec<ConflictedFile>,
@@ -265,14 +264,12 @@ pub struct RemainingConflicts {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(RemainingConflicts);
 
-/// The outcome of applying per-hunk resolutions to a conflicted commit.
 #[derive(Debug, Clone)]
 pub struct HunkResolutionResult {
     /// The conflicted commit the resolutions were applied to.
     pub commit_id: gix::ObjectId,
     /// The rewritten commit. Still conflicted when `remaining` is non-empty.
     pub new_commit: gix::ObjectId,
-    /// How many conflicts were resolved.
     pub resolved: usize,
     /// Whether the fully resolved commit ended up with the same tree as its
     /// parent — the resolutions dropped all of its changes.
@@ -284,7 +281,6 @@ pub struct HunkResolutionResult {
     /// conflicted while this is non-empty, however many hunks were resolved,
     /// so a caller reporting "fully resolved" must check both lists.
     pub manual: Vec<ManualConflict>,
-    /// Workspace state after the apply.
     pub workspace: WorkspaceState,
 }
 
@@ -494,18 +490,14 @@ pub struct ResolvedFile {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(ResolvedFile);
 
-/// The outcome of resolving a conflicted commit with AI.
 #[derive(Debug, Clone)]
 pub struct AiResolutionResult {
-    /// The conflicted commit that was resolved.
     pub commit_id: gix::ObjectId,
     /// The rewritten, no-longer-conflicted commit.
     pub new_commit: gix::ObjectId,
     /// A short model-authored markdown summary of the conflict and resolution.
     pub summary: Option<String>,
-    /// The per-file resolutions that were applied.
     pub files: Vec<ResolvedFile>,
-    /// Workspace state after the resolution.
     pub workspace: WorkspaceState,
 }
 
@@ -713,7 +705,6 @@ fn apply_with_snapshot(
     res
 }
 
-/// JSON transport types for this module.
 pub mod json {
     use serde::Serialize;
 

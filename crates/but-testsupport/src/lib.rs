@@ -1,6 +1,3 @@
-//! Utilities for testing.
-#![deny(missing_docs)]
-
 use std::{collections::HashMap, io::Write, path::Path};
 
 use gix::{
@@ -38,7 +35,6 @@ pub fn hunk_header_raw(old: &str, new: &str) -> ((u32, u32), (u32, u32)) {
 
 /// Choose a slightly more obvious, yet easy to type syntax than a function with 4 parameters.
 /// i.e. `hunk_header("-1,10", "+1,10")`.
-/// Returns a [but_core::HunkHeader].
 pub fn hunk_header(old: &str, new: &str) -> but_core::HunkHeader {
     let ((old_start, old_lines), (new_start, new_lines)) = hunk_header_raw(old, new);
     but_core::HunkHeader {
@@ -683,7 +679,6 @@ pub fn id_at<'repo>(
     (id, rn.inner.name)
 }
 
-/// Return the commit by the given `revspec`.
 pub fn id_by_rev<'repo>(repo: &'repo gix::Repository, revspec: &str) -> gix::Id<'repo> {
     repo.rev_parse_single(revspec)
         .expect("well-known revspec when testing")

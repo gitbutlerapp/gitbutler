@@ -428,3 +428,35 @@ fn azure_commit_and_pr_urls() {
         "https://dev.azure.com/myorg/myproject/_git/myrepo/pullrequest/42"
     );
 }
+
+#[test]
+fn ssh_alias_hosts_yield_public_web_urls() {
+    for (remote, base_url) in [
+        (
+            "ssh://git@ssh.github.com:443/owner/repo.git",
+            "https://github.com/owner/repo",
+        ),
+        (
+            "ssh://git@altssh.gitlab.com:443/group/repo.git",
+            "https://gitlab.com/group/repo",
+        ),
+        (
+            "git@ssh.bitbucket.org:owner/repo.git",
+            "https://bitbucket.org/owner/repo",
+        ),
+        (
+            "ssh://git@altssh.bitbucket.org:443/owner/repo.git",
+            "https://bitbucket.org/owner/repo",
+        ),
+    ] {
+        let info = forge_info(remote, &[], None).unwrap();
+        assert_eq!(
+            info.base_url, base_url,
+            "{remote} opens on the public web host"
+        );
+    }
+    assert_eq!(
+        composed_pr_url("git@ssh.bitbucket.org:owner/repo.git", 42),
+        "https://bitbucket.org/owner/repo/pull-requests/42"
+    );
+}

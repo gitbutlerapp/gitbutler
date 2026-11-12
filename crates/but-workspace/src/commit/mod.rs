@@ -21,13 +21,33 @@ fn compute_merge_base_override(
     context_lines: u32,
 ) -> anyhow::Result<gix::ObjectId> {
     let head_tree = repo.head_tree_id_or_empty()?;
-    let mut specs: Vec<_> = consumed.into_iter().map(Ok).collect();
+    let mut specs: Vec<_> = merge_specs_by_path(consumed).into_iter().map(Ok).collect();
     if specs.is_empty() {
         return Ok(head_tree.detach());
     }
     let (committed_tree, _base) =
         but_core::tree::apply_worktree_changes(head_tree.into(), repo, &mut specs, context_lines)?;
     Ok(committed_tree.detach())
+}
+
+/// Combine `specs` for the same path into one, as `apply_worktree_changes()` builds
+/// each path from its base and a later spec for a path would overwrite an earlier one.
+/// A spec without hunk headers selects the whole file.
+fn merge_specs_by_path(specs: Vec<DiffSpec>) -> Vec<DiffSpec> {
+    let mut by_path = std::collections::BTreeMap::<BString, DiffSpec>::new();
+    for spec in specs {
+        let Some(merged) = by_path.get_mut(&spec.path) else {
+            by_path.insert(spec.path.clone(), spec);
+            continue;
+        };
+        if merged.hunk_headers.is_empty() || spec.hunk_headers.is_empty() {
+            merged.hunk_headers.clear();
+        } else {
+            merged.hunk_headers.extend(spec.hunk_headers);
+            merged.hunk_headers.sort();
+        }
+    }
+    by_path.into_values().collect()
 }
 
 /// Which checkout the changes to commit are read from, and hence which one has to
@@ -71,21 +91,14 @@ impl ChangeSource<'_> {
     }
 }
 
-/// Tell the editor which of `all_changes` were consumed, so the checkout that
+/// Tell `editor` which changes from `source` were `consumed`, so the checkout that
 /// provided them doesn't reintroduce them as uncommitted changes.
-fn cancel_consumed_changes<M: but_core::RefMetadata>(
+pub fn cancel_consumed_changes<M: but_core::RefMetadata>(
     editor: &mut but_rebase::graph_rebase::Editor<'_, '_, M>,
     source: &ChangeSource<'_>,
-    all_changes: Vec<DiffSpec>,
-    rejected_specs: &[(but_core::tree::create_tree::RejectionReason, DiffSpec)],
+    consumed: Vec<DiffSpec>,
     context_lines: u32,
 ) -> anyhow::Result<()> {
-    let rejected_paths: std::collections::BTreeSet<_> =
-        rejected_specs.iter().map(|(_, spec)| &spec.path).collect();
-    let consumed: Vec<_> = all_changes
-        .into_iter()
-        .filter(|spec| !rejected_paths.contains(&spec.path))
-        .collect();
     if consumed.is_empty() {
         return Ok(());
     }
@@ -99,16 +112,31 @@ fn cancel_consumed_changes<M: but_core::RefMetadata>(
     Ok(())
 }
 
+/// Return the specs of `all_changes` that weren't rejected, i.e. that were consumed.
+fn consumed_changes(
+    all_changes: Vec<DiffSpec>,
+    rejected_specs: &[(but_core::tree::create_tree::RejectionReason, DiffSpec)],
+) -> Vec<DiffSpec> {
+    let rejected_paths: std::collections::BTreeSet<_> =
+        rejected_specs.iter().map(|(_, spec)| &spec.path).collect();
+    all_changes
+        .into_iter()
+        .filter(|spec| !rejected_paths.contains(&spec.path))
+        .collect()
+}
+
 pub mod reword;
 pub use reword::reword;
 pub mod commit_create;
 pub use commit_create::{CommitCreateOutcome, commit_create};
 pub mod commit_amend;
-pub use commit_amend::{CommitAmendOutcome, commit_amend};
+pub use commit_amend::{AmendInEditorOutcome, CommitAmendOutcome, amend_in_editor, commit_amend};
 pub mod insert_blank_commit;
 pub use insert_blank_commit::insert_blank_commit;
 pub mod move_changes;
 pub use move_changes::{MoveChangesOutcome, move_changes_between_commits};
+pub mod split_commit;
+pub use split_commit::split_commit;
 pub mod uncommit_changes;
 pub use uncommit_changes::{
     UncommitChangesFailure, UncommitChangesFromCommitsOutcome, UncommitChangesOutcome,
@@ -159,7 +187,6 @@ pub mod merge {
     use super::Stack;
     use crate::WorkspaceCommit;
 
-    /// A optionally named tip that can be merged.
     #[derive(Debug, Clone)]
     pub struct Tip {
         /// The name of the reference that points to `commit_id`, or `None` if there is no such reference.
@@ -182,7 +209,6 @@ pub mod merge {
         pub missing_stacks: Vec<gix::refs::FullName>,
     }
 
-    /// A minimal stack for to represent a stack that conflicted.
     #[derive(Clone)]
     pub struct ConflictingStack {
         /// The tip that could not be merged in.
@@ -222,7 +248,6 @@ pub mod merge {
         }
     }
 
-    /// Merging - create a merge-commit along with its tree.
     impl WorkspaceCommit<'_> {
         /// Resolve workspace metadata and anonymous stacks into merge tips.
         ///
@@ -513,7 +538,6 @@ pub mod merge {
                     })
                     .context("having stacks means the loop ran once")?;
 
-                // Finally, create the merge-commit itself.
                 let mut ws_commit =
                     Self::new_from_stacks(stacks.iter().cloned(), repo.object_hash());
                 ws_commit.tree = merge_tree_id;
@@ -605,7 +629,6 @@ pub mod merge {
     }
 }
 
-/// Construction
 impl<'repo> WorkspaceCommit<'repo> {
     const GITBUTLER_WORKSPACE_COMMIT_TITLE: &'static str = "GitButler Workspace Commit";
 
@@ -753,7 +776,6 @@ fn commit_time(overriding_variable_name: &str) -> gix::date::Time {
         .unwrap_or_else(gix::date::Time::now_local_or_utc)
 }
 
-/// Query
 impl WorkspaceCommit<'_> {
     /// Return `true` if this commit is managed by GitButler.
     /// If `false`, this is the tip of the stack itself which will be put underneath a *managed* workspace commit

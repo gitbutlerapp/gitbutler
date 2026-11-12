@@ -32,6 +32,19 @@ mod trailer {
         let result = Trailer::from_str(s);
         assert!(result.is_err());
     }
+
+    #[test]
+    fn agent_round_trips() {
+        for agent in [Some("claude-code".to_owned()), None] {
+            let trailer = Trailer::Agent(agent);
+            assert_eq!(
+                Trailer::from_str(&trailer.to_string()).unwrap(),
+                trailer,
+                "a person reads back as no agent, not as one called `none`"
+            );
+        }
+        assert_eq!(Trailer::Agent(None).to_string(), "agent: none");
+    }
 }
 
 mod version {

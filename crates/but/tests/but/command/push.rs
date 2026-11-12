@@ -1,6 +1,8 @@
-use snapbox::str;
+use snapbox::{IntoData as _, str};
 
-use super::util::{add_worktree_with_commit, sandbox_with_conflicted_commit};
+use super::util::{
+    add_worktree_with_commit, find_branch, sandbox_with_conflicted_commit, status_json,
+};
 use crate::utils::{CommandExt, Sandbox};
 
 fn repo_with_unpushed_branch() -> Sandbox {
@@ -203,6 +205,72 @@ fn push_dry_run_ignores_unreachable_unrelated_remote() {
 }
 
 #[test]
+fn push_shows_gits_reason_when_the_remote_is_unreachable() {
+    let env = repo_with_unpushed_branch();
+    env.invoke_git("remote set-url origin /nonexistent/path/origin.git");
+
+    env.but("push branchB").assert().failure().stderr_eq(str![[r#"
+Error: fatal: '/nonexistent/path/origin.git' does not appear to be a git repository
+fatal: Could not read from remote repository.
+
+Please make sure you have the correct access rights
+and the repository exists.
+
+Hint: Check the remote's URL with `git remote -v`, your network connection and your credentials, then retry
+
+"#]]);
+
+    // A bare push lists what failed per branch, so the reason and the hint have to be there.
+    env.but("push").assert().failure().stdout_eq(str![[r#"
+
+
+✗ Failed to push 2 branches:
+    branchB - fatal: '/nonexistent/path/origin.git' does not appear to be a git repository
+fatal: Could not read from remote repository.
+
+Please make sure you have the correct access rights
+and the repository exists.
+
+Hint: Check the remote's URL with `git remote -v`, your network connection and your credentials, then retry
+    A - fatal: '/nonexistent/path/origin.git' does not appear to be a git repository
+fatal: Could not read from remote repository.
+
+Please make sure you have the correct access rights
+and the repository exists.
+
+Hint: Check the remote's URL with `git remote -v`, your network connection and your credentials, then retry
+
+"#]]).stderr_eq(str![[r#"
+Error: failed to push 2 of 2 branches
+
+"#]]);
+}
+
+/// Git reached the remote and can't write the refs it fetched, because `origin/blocked` is in the
+/// way of `origin/blocked/ref`. The remote isn't at fault, so this stays an internal error.
+#[test]
+fn a_fetch_that_cannot_write_its_refs_stays_an_internal_error() {
+    let env = repo_with_unpushed_branch();
+    let remote_git = env.app_data_dir().join("origin.git");
+    env.invoke_git(&format!(
+        "-C {} branch blocked/ref main",
+        remote_git.display()
+    ));
+    env.invoke_git("update-ref refs/remotes/origin/blocked HEAD");
+
+    env.but("push --dry-run branchB")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: fetching remote `origin` failed
+
+Caused by:
+    0: backend error: git command exited with non-zero exit code 1:
+...
+"#]]);
+}
+
+#[test]
 fn push_dry_run_of_a_stacked_branch_lists_the_branches_beneath_it() {
     let env = repo_with_unpushed_branch();
     env.but("branch new branchC --above branchB")
@@ -373,11 +441,307 @@ fn push_keeps_an_upstream_already_configured() {
 fn push_refuses_conflicted_commits() {
     let env = sandbox_with_conflicted_commit();
 
-    // Try to push the branch - should fail with an error about conflicted commits.
+    // The refusal is bad input: only that prints a hint, and it names the commit to start with.
+    // A dry run gives the same refusal. `origin` is this repository, so the dry run's fetch
+    // makes `A` look pushed, and the refusal can't depend on `A` having something to preview.
+    for command in ["push A", "push A --dry-run", "--json push A --dry-run"] {
+        env.but(command)
+            .assert()
+            .failure()
+            .stdout_eq(str![])
+            .stderr_eq(str![[r#"
+Error: Cannot push branch 'A': the push would include 1 conflicted commit.
+Conflicted commits: nyo
+
+Hint: Start resolving with `but resolve conflicts nyo`, then push again
+
+"#]]);
+    }
+    env.but("resolve conflicts nyo").assert().success();
+}
+
+/// [`sandbox_with_conflicted_commit()`] with a remote that lacks `A`. The fixture's own `origin`
+/// is this repository, so a fetch would make `A` look pushed.
+fn conflicted_commit_with_real_remote() -> Sandbox {
+    let env = sandbox_with_conflicted_commit();
+    let remote = env.app_data_dir().join("origin.git");
+    env.invoke_bash(format!(
+        "git clone -q --bare . {remote} && \
+         git --git-dir={remote} update-ref -d refs/heads/A && \
+         git remote set-url origin {remote}",
+        remote = remote.display(),
+    ));
+    env
+}
+
+/// Three branches a bare push treats differently: `B`, stacked on the conflicted `A`, and the
+/// clean `clean` in its own lane.
+fn repo_with_conflicted_stack_and_clean_lane() -> Sandbox {
+    let env = conflicted_commit_with_real_remote();
+    env.but("branch new B --above A").assert().success();
+    env.file("on-top.txt", "content\n");
+    env.but("commit -b B -m 'work on top'").assert().success();
+    env.but("branch new clean").assert().success();
+    env.file("clean.txt", "content\n");
+    env.but("commit -b clean -m 'clean work'")
+        .assert()
+        .success();
+    env
+}
+
+#[test]
+fn bare_push_dry_run_reports_refused_lanes_beside_clean_ones() {
+    let env = repo_with_conflicted_stack_and_clean_lane();
+
+    // The real push refuses `B`, which takes `A` with it, and still pushes `clean`.
+    env.but("push --dry-run")
+        .assert()
+        .failure()
+        .stdout_eq(str![[r#"
+
+Dry run: Showing what would be pushed
+
+Stack: B (2 branches)
+
+┌─ Branch: B ↑ (on top of A)
+│   → Would not push to: origin/B
+│   Commits: 1 unpushed commit
+│ 
+│     2b888dc work on top
+
+│   ⚠ Cannot push branch 'B': the push would include 1 conflicted commit.
+│     Conflicted commits: nyo
+│     
+│     Hint: Start resolving with `but resolve conflicts nyo`, then push again
+│
+└─ Branch: A
+    → Would not push to: origin/A
+    Commits: 1 unpushed commit
+
+    ⚠ Would not be pushed, because the push of 'B' would be refused.
+
+    ⚡ Force push required
+
+
+   Branch: clean
+    → Would push to: origin/clean
+    Commits: 1 unpushed commit
+
+      13cfef2 clean work
+
+
+"#]])
+        .stderr_eq(str![[r#"
+Error: would refuse to push 1 of 2 branches
+
+"#]]);
+    // A row without a `warning` is a branch that would really be pushed.
+    env.but("--json push --dry-run")
+        .assert()
+        .failure()
+        .stdout_eq(str![[r#"
+{
+  "branches": [
+    {
+      "branchName": "A",
+...
+      "warning": "Would not be pushed, because the push of 'B' would be refused."
+    },
+    {
+      "branchName": "B",
+...
+      "warning": "Cannot push branch 'B': the push would include 1 conflicted commit.[..]then push again",
+      "stackedOn": "A"
+    },
+    {
+      "branchName": "clean",
+...
+      "requiresForce": false
+    }
+  ]
+}
+
+"#]]);
+    env.but("push").assert().failure().stdout_eq(str![[r#"
+
+✓ Successfully pushed 1 commit
+
+  clean -> origin/clean ((new branch) -> 13cfef2)
+
+✗ Failed to push 1 branch:
+    B - Cannot push branch 'B': the push would include 1 conflicted commit.
+Conflicted commits: nyo
+
+Hint: Start resolving with `but resolve conflicts nyo`, then push again
+
+"#]]);
+}
+
+#[test]
+fn bare_push_dry_run_lists_a_branch_that_goes_out_through_a_clean_worktree() {
+    let env = conflicted_commit_with_real_remote();
+    env.but("branch new lower --below A").assert().success();
+    env.file("lower.txt", "content\n");
+    env.but("commit -b lower -m 'lower work'")
+        .assert()
+        .success();
+    env.but("worktree list").assert().success();
+    add_worktree_with_commit(&env, "W", "lower");
+
+    // The push of `A` is refused, but `W` rests on `lower` and takes it along.
+    env.but("push --dry-run")
+        .assert()
+        .failure()
+        .stdout_eq(str![[r#"
+
+Dry run: Showing what would be pushed
+
+Stack: A (2 branches)
+
+┌─ Branch: A ↑ (on top of lower)
+│   → Would not push to: origin/A
+│   Commits: 1 unpushed commit
+
+│   ⚠ Cannot push branch 'A': the push would include 1 conflicted commit.
+│     Conflicted commits: nyo
+│     
+│     Hint: Start resolving with `but resolve conflicts nyo`, then push again
+
+│   ⚡ Force push required
+│
+└─ Branch: lower
+    → Would push to: origin/lower
+    Commits: 1 unpushed commit
+  
+      9883b65 lower work
+
+
+   Branch: W
+    → Would push to: origin/W
+    Commits: 1 unpushed commit
+
+      fc68cee add W
+
+
+"#]]);
+    env.but("push").assert().failure().stdout_eq(str![[r#"
+
+✓ Successfully pushed 1 commit
+
+  lower -> origin/lower ((new branch) -> 9883b65)
+  W -> origin/W ((new branch) -> fc68cee)
+
+✗ Failed to push 1 branch:
+    A - Cannot push branch 'A': the push would include 1 conflicted commit.
+Conflicted commits: nyo
+
+Hint: Start resolving with `but resolve conflicts nyo`, then push again
+
+"#]]);
+}
+
+#[test]
+fn push_of_several_conflicted_commits_starts_resolving_at_the_oldest() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "pull-conflicts-in-both-branches-of-stack",
+    );
+    env.setup_metadata_at_target(&["A"], "main");
+    env.but("pull").assert().success();
+
+    // Commits list newest first, and resolving a commit rebases those above it.
+    env.but("push A").assert().failure().stderr_eq(str![[r#"
+Error: Cannot push branch 'A': the push would include 2 conflicted commits.
+Conflicted commits: wmr, trk
+
+Hint: Start resolving with `but resolve conflicts trk`, then push again
+
+"#]]);
+}
+
+#[test]
+fn push_hint_for_conflicted_commits_works_with_a_branch_checked_out() {
+    let env = Sandbox::open_scenario_with_target_and_default_settings(
+        "single-branch-conflict-in-bottom-commit",
+    );
+    env.but("pull").assert().success();
+
+    // `but resolve <commit>` refuses while a branch is checked out, so the hint can't name it.
     env.but("push A").assert().failure().stderr_eq(str![[r#"
 Error: Cannot push branch 'A': the push would include 1 conflicted commit.
-Conflicted commits: [..]
-Please resolve conflicts before pushing using 'but resolve <commit>'.
+Conflicted commits: rou
+
+Hint: Start resolving with `but resolve conflicts rou`, then push again
+
+"#]]);
+    env.but("resolve conflicts rou").assert().success();
+}
+
+#[test]
+fn bare_push_reports_a_conflict_refusal_with_its_hint() {
+    let env = sandbox_with_conflicted_commit();
+
+    // An internal error reaches `main`, which prints a backtrace with this set. Bad input exits first.
+    env.but("push")
+        .env("RUST_BACKTRACE", "1")
+        .assert()
+        .failure()
+        .stdout_eq(str![[r#"
+
+
+✗ Failed to push 1 branch:
+    A - Cannot push branch 'A': the push would include 1 conflicted commit.
+Conflicted commits: nyo
+
+Hint: Start resolving with `but resolve conflicts nyo`, then push again
+
+"#]])
+        .stderr_eq(str![[r#"
+Error: failed to push 1 of 1 branch
+
+"#]]);
+    env.but("--json push")
+        .assert()
+        .failure()
+        .stdout_eq(str![[r#"
+{
+  "pushed": [],
+  "failed": [
+    {
+      "branchName": "A",
+      "error": "Cannot push branch 'A': the push would include 1 conflicted commit.\nConflicted commits: nyo\n\nHint: Start resolving with `but resolve conflicts nyo`, then push again"
+    }
+  ]
+}
+
+"#]].raw());
+}
+
+#[test]
+fn push_of_something_that_is_not_an_applied_branch_is_bad_input() {
+    let env = repo_with_unpushed_branch();
+
+    // Only bad input prints a hint. A dry run resolves the name the same way.
+    for command in ["push nosuch", "push nosuch --dry-run"] {
+        env.but(command).assert().failure().stderr_eq(str![[r#"
+Error: Branch 'nosuch' not found. Available branches:
+  - A
+  - branchB
+
+Hint: If 'nosuch' exists but isn't applied, run `but apply nosuch` first
+
+"#]]);
+    }
+    let status = status_json(&env);
+    let commit = find_branch(&status, "branchB")["commits"][0]["cliId"]
+        .as_str()
+        .expect("branchB has a commit");
+    env.but(format!("push {commit}"))
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Expected branch identifier, got a commit.
+
+Hint: Use a branch name from `but status`
 
 "#]]);
 }
@@ -418,7 +782,8 @@ fn push_refuses_conflicted_commits_on_ancestors() {
     env.but("push B").assert().failure().stderr_eq(str![[r#"
 Error: Cannot push branch 'B': the push would include 1 conflicted commit.
 Conflicted commits: [..]
-Please resolve conflicts before pushing using 'but resolve <commit>'.
+
+Hint: Start resolving with `but resolve conflicts [..]`, then push again
 
 "#]]);
 }
@@ -430,12 +795,16 @@ fn push_refuses_conflicted_commits_in_anonymous_segments_beneath_a_worktree() {
     add_worktree_with_commit(&env, "W", "A");
     env.invoke_git("update-ref refs/heads/A A~1");
 
-    env.but("push W").assert().failure().stderr_eq(str![[r#"
+    // No branch names the conflicted commit, so a dry run needs the push's whole scope too.
+    for command in ["push W", "push W --dry-run"] {
+        env.but(command).assert().failure().stderr_eq(str![[r#"
 Error: Cannot push branch 'W': the push would include 1 conflicted commit.
 Conflicted commits: [..]
-Please resolve conflicts before pushing using 'but resolve <commit>'.
+
+Hint: Start resolving with `but resolve conflicts [..]`, then push again
 
 "#]]);
+    }
 }
 
 #[test]
@@ -457,6 +826,24 @@ Error: Branch 'A' is merged upstream
 Hint: Most likely you want `but pull`, which updates the workspace and removes landed work. In rare cases `--allow-merged` can bypass this check
 
 "#]]);
+
+    // A dry run fetches, and this fixture's own `origin` doesn't exist.
+    env.invoke_git("remote set-url origin .");
+    env.but("push A --dry-run")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Branch 'A' is merged upstream
+
+Hint: Most likely you want `but pull`, which updates the workspace and removes landed work. In rare cases `--allow-merged` can bypass this check
+
+"#]]);
+    env.but("push A --dry-run --allow-merged")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success();
 }
 
 #[test]

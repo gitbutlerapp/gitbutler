@@ -19,6 +19,8 @@ pub mod onboarding;
 pub mod open;
 pub mod push;
 pub mod skill;
+#[cfg(feature = "nightly")]
+pub mod ui;
 pub mod update;
 pub mod worktree;
 

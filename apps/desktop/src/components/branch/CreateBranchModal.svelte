@@ -31,7 +31,6 @@
 
 	let { projectId, stackId }: Props = $props();
 	const stackService = inject(STACK_SERVICE);
-	const [createNewStack, stackCreation] = stackService.newStack;
 	const [createNewBranch, branchCreation] = stackService.branchCreate;
 	const [createWorktree, worktreeCreation] = stackService.newWorktree;
 	const { openGeneralSettings } = useSettingsModal();
@@ -91,14 +90,10 @@
 			await createWorktree({ projectId, newRef: `refs/heads/${normalizedRefName}` });
 			createRefModal?.close();
 		} else if (createRefType === "stack") {
-			await createNewStack({
+			await createNewBranch({
 				projectId,
-				branch: {
-					name: normalizedRefName,
-					// If addToLeftmost is true, place at position 0 (leftmost)
-					// Otherwise, leave undefined to append to the right
-					order: $addToLeftmost ? 0 : undefined,
-				},
+				newRef: normalizedRefName ? `refs/heads/${normalizedRefName}` : null,
+				placement: { type: "independent", subject: { order: $addToLeftmost ? 0 : null } },
 			});
 			createRefModal?.close();
 		} else {
@@ -132,9 +127,7 @@
 	}
 
 	const isAddingNew = $derived(
-		stackCreation.current.isLoading ||
-			branchCreation.current.isLoading ||
-			worktreeCreation.current.isLoading,
+		branchCreation.current.isLoading || worktreeCreation.current.isLoading,
 	);
 
 	export async function show(initialType?: "stack" | "dependent") {

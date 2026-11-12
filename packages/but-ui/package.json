@@ -1,0 +1,31 @@
+{
+	"name": "@gitbutler/but-ui",
+	"description": "Design tokens, fonts and base styles for GitButler applications",
+	"private": true,
+	"version": "11.3.0",
+	"type": "module",
+	"main": "./tokens/tokens.css",
+	"exports": {
+		"./tokens": "./tokens/tokens.css",
+		"./fonts": "./fonts/fonts.css",
+		"./fonts/*": "./fonts/*",
+		"./core": "./core.css",
+		"./styles/reset": "./styles/reset.css",
+		"./styles/text": "./styles/text.css",
+		"./presets": "./presets.json",
+		"./settings": "./tokens/settings.json"
+	},
+	"scripts": {
+		"build": "node scripts/postprocess-light-dark.mjs && node scripts/check-style-vars.mjs && node scripts/check-presets.mjs",
+		"check": "node scripts/generate-ramps.mjs --check && node scripts/check-ramps.mjs && pnpm build && node scripts/check-contrast.mjs && git diff --exit-code -- tokens/tokens.css tokens/settings.json tokens/tokens.json tokens/accent-samples.json",
+		"dev:tokens": "node scripts/postprocess-light-dark.mjs --watch"
+	},
+	"devDependencies": {
+		"@radix-ui/colors": "3.0.0",
+		"@terrazzo/cli": "0.10.3",
+		"@terrazzo/parser": "0.10.4",
+		"@terrazzo/plugin-css": "0.10.4",
+		"culori": "4.0.2",
+		"dittotones": "0.13.0"
+	}
+}

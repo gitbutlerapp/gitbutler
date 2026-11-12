@@ -2,9 +2,8 @@ use std::collections::BTreeMap;
 
 use anyhow::Context as _;
 use bstr::{BStr, BString, ByteVec};
-use but_api::WorkspaceState;
 use but_core::{
-    DiffSpec, DryRun, RefMetadata,
+    ChangeId, DiffSpec, DryRun, RefMetadata,
     commit::CommitIdentifiers,
     ref_metadata,
     sync::RepoExclusive,
@@ -15,14 +14,18 @@ use but_core::{
 use but_ctx::Context;
 use but_oplog::legacy::SnapshotDetails;
 use but_rebase::graph_rebase::{
-    Editor, LookupStep as _, Step, SuccessfulRebase,
+    CommitMappings, Editor, LookupStep as _, Step, SuccessfulRebase,
     mutate::{InsertSide, RelativeTo},
 };
+#[cfg(not(feature = "graph-workspace"))]
+use but_workspace::RefInfo;
 use but_workspace::branch::create_reference::Anchor;
 use but_workspace::commit::{
-    ChangeSource, MoveChangesOutcome, SquashCommitsOutcome,
+    ChangeSource, MoveChangesOutcome, SquashCommitsOutcome, UncommitChangesFailure,
+    UncommitChangesFromCommitsOutcome, UncommitChangesSource,
     squash_commits::MessageCombinationStrategy,
 };
+use but_workspace::editor_workspace::{leave_unnecessary_workspace, workspace_tips};
 use gix::{
     ObjectId,
     refs::{
@@ -34,8 +37,33 @@ use gix::{
 #[cfg(test)]
 mod tests;
 
-/// Run a workspace transaction.
-///
+/// Running transactions while a branch is checked out on its own, as the CLI and the GUI do.
+#[cfg(feature = "legacy")]
+pub mod single_branch_mode;
+
+pub mod workspace_state;
+
+/// This describes the post-operation workspace view that mutations should
+/// return regardless of whether they executed for real or as a dry-run.
+#[derive(Debug, Clone)]
+pub struct WorkspaceState {
+    /// Commits that were replaced by the operation. Maps `old_id -> new_id`.
+    pub replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
+    pub conflicted_commits: Vec<(gix::ObjectId, ChangeId)>,
+    /// The workspace presented for the frontend. See [`RefInfo`] for more
+    /// detail.
+    #[cfg(not(feature = "graph-workspace"))]
+    pub head_info: RefInfo,
+    /// The workspace presented for the frontend, as the rendered graph
+    /// projection. See
+    /// [`DetailedGraphWorkspace`](but_workspace::ui::workspace::DetailedGraphWorkspace)
+    /// for more detail.
+    #[cfg(feature = "graph-workspace")]
+    pub graph_workspace: but_workspace::ui::workspace::DetailedGraphWorkspace,
+    /// The checkouts whose uncommitted changes now carry conflict markers.
+    pub conflicted_checkouts: Vec<but_rebase::graph_rebase::ConflictedCheckout>,
+}
+
 /// This allows chaining multiple operations and having them all succeed or fail together.
 ///
 /// Note this isn't fully ACID compliant database transactions but rather a "best effort" version
@@ -276,7 +304,7 @@ where
         target: ObjectId,
         how_to_combine_messages: MessageCombinationStrategy,
     ) -> anyhow::Result<CommitIdentifiers> {
-        self.rebase(|editor, commit_mappings| {
+        self.rebase_losing_tips(|editor, commit_mappings| {
             let SquashCommitsOutcome {
                 rebase,
                 commit_selector,
@@ -284,9 +312,9 @@ where
                 editor,
                 subjects
                     .into_iter()
-                    .map(|commit| commit_mappings.map(commit))
-                    .collect(),
-                commit_mappings.map(target),
+                    .map(|commit| commit_mappings.current(commit))
+                    .collect::<anyhow::Result<_>>()?,
+                commit_mappings.current(target)?,
                 how_to_combine_messages,
             )?;
             let new_commit = rebase.lookup_commit(commit_selector)?;
@@ -301,7 +329,7 @@ where
     ) -> anyhow::Result<CommitIdentifiers> {
         self.rebase(|editor, commit_mappings| {
             let (rebase, edited_commit_selector) =
-                but_workspace::commit::reword(editor, commit_mappings.map(commit), message)?;
+                but_workspace::commit::reword(editor, commit_mappings.current(commit)?, message)?;
             let new_commit = rebase.lookup_commit(edited_commit_selector)?;
             Ok((new_commit, rebase))
         })
@@ -311,12 +339,13 @@ where
         &mut self,
         subjects: impl IntoIterator<Item = gix::ObjectId>,
     ) -> anyhow::Result<()> {
-        self.rebase(|editor, commit_mappings| {
+        self.rebase_losing_tips(|editor, commit_mappings| {
             let rebase = but_workspace::commit::discard_commits(
                 editor,
                 subjects
                     .into_iter()
-                    .map(|commit| commit_mappings.map(commit)),
+                    .map(|commit| commit_mappings.current(commit))
+                    .collect::<anyhow::Result<Vec<_>>>()?,
             )?;
             Ok(((), rebase))
         })
@@ -326,12 +355,13 @@ where
         &mut self,
         subjects: impl IntoIterator<Item = gix::ObjectId>,
     ) -> anyhow::Result<()> {
-        self.rebase(|editor, commit_mappings| {
+        self.rebase_losing_tips(|editor, commit_mappings| {
             let mut rebase = but_workspace::commit::discard_commits(
                 editor,
                 subjects
                     .into_iter()
-                    .map(|commit| commit_mappings.map(commit)),
+                    .map(|commit| commit_mappings.current(commit))
+                    .collect::<anyhow::Result<Vec<_>>>()?,
             )?;
             rebase.keep_worktrees_unchanged()?;
             Ok(((), rebase))
@@ -350,13 +380,66 @@ where
                 commit_selector,
             } = but_workspace::commit::uncommit_changes(
                 editor,
-                commit_mappings.map(source),
+                commit_mappings.current(source)?,
                 changes,
                 context_lines,
             )?;
 
             let new_commit = rebase.lookup_commit(commit_selector)?;
             Ok((new_commit, rebase))
+        })
+    }
+
+    pub fn uncommit_changes_from_commit(
+        &mut self,
+        source: gix::ObjectId,
+        changes: Vec<DiffSpec>,
+    ) -> anyhow::Result<CommitIdentifiers> {
+        let context_lines = self.inner.context_lines;
+        self.rebase(|editor, commit_mappings| {
+            let but_workspace::commit::UncommitChangesOutcome {
+                mut rebase,
+                commit_selector,
+            } = but_workspace::commit::uncommit_changes(
+                editor,
+                commit_mappings.current(source)?,
+                changes,
+                context_lines,
+            )?;
+            rebase.keep_worktrees_unchanged()?;
+
+            let new_commit = rebase.lookup_commit(commit_selector)?;
+            Ok((new_commit, rebase))
+        })
+    }
+
+    /// Uncommit what it can of `sources`, returning those it couldn't. See
+    /// [`but_workspace::commit::uncommit_changes_from_commits()`].
+    pub fn uncommit_changes_from_commits(
+        &mut self,
+        sources: impl IntoIterator<Item = UncommitChangesSource>,
+    ) -> anyhow::Result<Vec<UncommitChangesFailure>> {
+        let context_lines = self.inner.context_lines;
+        self.rebase(|editor, commit_mappings| {
+            let sources = sources
+                .into_iter()
+                .map(|source| {
+                    anyhow::Ok(UncommitChangesSource {
+                        commit_id: commit_mappings.current(source.commit_id)?,
+                        changes: source.changes,
+                    })
+                })
+                .collect::<anyhow::Result<Vec<_>>>()?;
+            let UncommitChangesFromCommitsOutcome {
+                mut rebase,
+                failures,
+            } = but_workspace::commit::uncommit_changes_from_commits(
+                editor,
+                sources,
+                context_lines,
+            )?;
+            rebase.keep_worktrees_unchanged()?;
+            Ok((failures, rebase))
         })
     }
 
@@ -387,6 +470,7 @@ where
     }
 
     pub fn remove_reference(&mut self, ref_name: &FullNameRef) -> anyhow::Result<()> {
+        let checkout_is_pending = self.inner.pending_checkout.is_some();
         self.rebase(|mut editor, _| {
             let ref_selector = editor.select_reference(ref_name)?;
 
@@ -466,6 +550,11 @@ where
                 editor.remove_edges(must_disconnect_child, ref_selector)?;
             }
             let rebase = editor.rebase()?;
+            let rebase = if checkout_is_pending {
+                rebase
+            } else {
+                leave_unnecessary_workspace(rebase.into_editor())?
+            };
             Ok(((), rebase))
         })?;
         let repo = self.repo().clone();
@@ -487,9 +576,11 @@ where
         relative_to: RelativeTo,
         side: InsertSide,
     ) -> anyhow::Result<()> {
-        self.rebase(|editor, commit_mappings| {
+        self.rebase_losing_tips(|editor, commit_mappings| {
             let relative_to = match relative_to {
-                RelativeTo::Commit(object_id) => RelativeTo::Commit(commit_mappings.map(object_id)),
+                RelativeTo::Commit(object_id) => {
+                    RelativeTo::Commit(commit_mappings.current(object_id)?)
+                }
                 RelativeTo::Reference(full_name) => RelativeTo::Reference(full_name),
             };
             let rebase =
@@ -498,9 +589,16 @@ where
         })
     }
 
-    pub fn tear_off_branch(&mut self, source_branch: &FullNameRef) -> anyhow::Result<()> {
+    /// Take `source_branch` out of its stack into a stack of its own, placed among the others
+    /// at `order`, or after them all, as [`but_workspace::branch::tear_off_branch()`] says.
+    pub fn tear_off_branch(
+        &mut self,
+        source_branch: &FullNameRef,
+        order: impl Into<Option<usize>>,
+    ) -> anyhow::Result<()> {
+        let order = order.into();
         self.rebase(|editor, _| {
-            let rebase = but_workspace::branch::tear_off_branch(editor, source_branch)?;
+            let rebase = but_workspace::branch::tear_off_branch(editor, source_branch, order)?;
             Ok(((), rebase))
         })?;
 
@@ -513,6 +611,8 @@ where
     /// metadata or require it to appear in the current checkout's projection. It can be used
     /// with [`Transaction::checkout`] to prepare an independent branch before switching to it.
     /// The reference is available to subsequent operations and is removed on rollback or dry run.
+    /// Like [`Transaction::create_reference`], it refuses a name that's taken locally or by a
+    /// remote's branch, or that nests with another branch's.
     pub fn create_reference_at_commit(
         &mut self,
         ref_name: &FullNameRef,
@@ -522,7 +622,13 @@ where
             ref_name.category() == Some(gix::refs::Category::LocalBranch),
             "Can only create local branches under refs/heads"
         );
-        let commit_id = self.inner.commit_mappings.map(commit_id);
+        // As `create_reference` refuses: a name a remote's branch has, which the new branch would
+        // take as its own, or one nesting with another, which a ref edit doesn't notice packed.
+        if but_core::branch::find_unique_refname(self.repo(), ref_name)?.as_ref() != ref_name {
+            but_error::bail_precondition!("Reference '{}' already exists", ref_name.shorten());
+        }
+        but_core::branch::refuse_colliding_refname(self.repo(), ref_name, None)?;
+        let commit_id = self.inner.commit_mappings.current(commit_id)?;
         self.repo().reference(
             ref_name,
             commit_id,
@@ -560,16 +666,20 @@ where
         let anchor = anchor.into();
         let order = order.into();
         self.rebase(|editor, commit_mappings| {
-            let anchor = anchor.map(|anchor| match anchor {
-                Anchor::AtCommit {
-                    commit_id,
-                    position,
-                } => Anchor::AtCommit {
-                    commit_id: commit_mappings.map(commit_id),
-                    position,
-                },
-                anchor => anchor,
-            });
+            let anchor = anchor
+                .map(|anchor| {
+                    anyhow::Ok(match anchor {
+                        Anchor::AtCommit {
+                            commit_id,
+                            position,
+                        } => Anchor::AtCommit {
+                            commit_id: commit_mappings.current(commit_id)?,
+                            position,
+                        },
+                        anchor => anchor,
+                    })
+                })
+                .transpose()?;
             let rebase = but_workspace::branch::create_reference(editor, ref_name, anchor, order)?;
             Ok(((), rebase))
         })
@@ -589,7 +699,7 @@ where
             let rebase = but_workspace::branch::name_segment(
                 editor,
                 checkout,
-                commit_mappings.map(top),
+                commit_mappings.current(top)?,
                 ref_name,
             )?;
             Ok(((), rebase))
@@ -612,7 +722,9 @@ where
         let context_lines = self.inner.context_lines;
         self.rebase(|editor, commit_mappings| {
             let relative_to = match relative_to {
-                RelativeTo::Commit(object_id) => RelativeTo::Commit(commit_mappings.map(object_id)),
+                RelativeTo::Commit(object_id) => {
+                    RelativeTo::Commit(commit_mappings.current(object_id)?)
+                }
                 RelativeTo::Reference(full_name) => RelativeTo::Reference(full_name),
             };
 
@@ -651,7 +763,9 @@ where
     ) -> anyhow::Result<CommitIdentifiers> {
         self.rebase(|editor, commit_mappings| {
             let relative_to = match relative_to {
-                RelativeTo::Commit(object_id) => RelativeTo::Commit(commit_mappings.map(object_id)),
+                RelativeTo::Commit(object_id) => {
+                    RelativeTo::Commit(commit_mappings.current(object_id)?)
+                }
                 RelativeTo::Reference(full_name) => RelativeTo::Reference(full_name),
             };
 
@@ -680,10 +794,12 @@ where
         self.rebase(|editor, commit_mappings| {
             let source_commit_ids = source_commit_ids
                 .into_iter()
-                .map(|commit| commit_mappings.map(commit))
-                .collect::<Vec<_>>();
+                .map(|commit| commit_mappings.current(commit))
+                .collect::<anyhow::Result<Vec<_>>>()?;
             let relative_to = match relative_to {
-                RelativeTo::Commit(object_id) => RelativeTo::Commit(commit_mappings.map(object_id)),
+                RelativeTo::Commit(object_id) => {
+                    RelativeTo::Commit(commit_mappings.current(object_id)?)
+                }
                 RelativeTo::Reference(full_name) => RelativeTo::Reference(full_name),
             };
 
@@ -721,12 +837,15 @@ where
         relative_to: RelativeTo,
         side: InsertSide,
     ) -> anyhow::Result<()> {
-        self.rebase(|editor, commit_mappings| {
+        self.rebase_losing_tips(|editor, commit_mappings| {
             let subject_commit_ids = subject_commit_ids
                 .into_iter()
-                .map(|commit| commit_mappings.map(commit));
+                .map(|commit| commit_mappings.current(commit))
+                .collect::<anyhow::Result<Vec<_>>>()?;
             let relative_to = match relative_to {
-                RelativeTo::Commit(object_id) => RelativeTo::Commit(commit_mappings.map(object_id)),
+                RelativeTo::Commit(object_id) => {
+                    RelativeTo::Commit(commit_mappings.current(object_id)?)
+                }
                 RelativeTo::Reference(full_name) => RelativeTo::Reference(full_name),
             };
 
@@ -754,7 +873,7 @@ where
                 rejected_specs,
             } = but_workspace::commit::commit_amend(
                 editor,
-                commit_mappings.map(target),
+                commit_mappings.current(target)?,
                 changes,
                 context_lines,
                 source,
@@ -774,6 +893,45 @@ where
         })
     }
 
+    /// Split `changes` off `source` into a new commit placed on `side` of `relative_to`,
+    /// returning the new commit.
+    pub fn split_commit(
+        &mut self,
+        source: ObjectId,
+        relative_to: RelativeTo,
+        side: InsertSide,
+        changes: Vec<but_core::DiffSpec>,
+    ) -> anyhow::Result<CommitIdentifiers> {
+        let context_lines = self.context_lines();
+        self.rebase(|editor, commit_mappings| {
+            let relative_to = match relative_to {
+                RelativeTo::Commit(object_id) => {
+                    RelativeTo::Commit(commit_mappings.current(object_id)?)
+                }
+                RelativeTo::Reference(full_name) => RelativeTo::Reference(full_name),
+            };
+
+            let MoveChangesOutcome {
+                rebase,
+                destination_selector,
+                ..
+            } = but_workspace::commit::split_commit(
+                editor,
+                commit_mappings.current(source)?,
+                relative_to,
+                side,
+                changes,
+                context_lines,
+            )?;
+
+            let new_commit = rebase
+                .lookup_commit(destination_selector)
+                .context("failed to find the split off commit")?;
+
+            Ok((new_commit, rebase))
+        })
+    }
+
     pub fn move_committed_changes_between(
         &mut self,
         source: ObjectId,
@@ -782,8 +940,8 @@ where
     ) -> anyhow::Result<CommitIdentifiers> {
         let context_lines = self.context_lines();
         self.rebase(|editor, commit_mappings| {
-            let source = commit_mappings.map(source);
-            let target = commit_mappings.map(target);
+            let source = commit_mappings.current(source)?;
+            let target = commit_mappings.current(target)?;
 
             let MoveChangesOutcome {
                 rebase,
@@ -805,11 +963,12 @@ where
         })
     }
 
-    /// Look up a commit that has been rewritten as part of a rebase.
+    /// The commit `original_commit` is now, after the rewrites made so far: itself if it
+    /// wasn't rewritten. Fails if it was rewritten into several commits.
     ///
     /// In most cases this shouldn't be necessary. See [`with_transaction`] for more details.
-    pub fn get_mapped_commit(&self, original_commit: ObjectId) -> Option<ObjectId> {
-        self.inner.commit_mappings.try_map(original_commit)
+    pub fn get_mapped_commit(&self, original_commit: ObjectId) -> anyhow::Result<ObjectId> {
+        self.inner.commit_mappings.current(original_commit)
     }
 
     /// Returns the in-memory repository that backs this transaction.
@@ -840,9 +999,30 @@ where
             .into_editor();
         let (outcome, new_rebase) = f(editor, &self.inner.commit_mappings)?;
 
-        self.inner.commit_mappings = CommitMappings(new_rebase.history.commit_mappings());
+        self.inner.commit_mappings = new_rebase.history.commit_mappings();
         self.inner.rebase = Some(new_rebase);
         Ok(outcome)
+    }
+
+    fn rebase_losing_tips<F, T>(&mut self, f: F) -> anyhow::Result<T>
+    where
+        F: FnOnce(
+            Editor<'rebase, 'rebase, M>,
+            &CommitMappings,
+        ) -> anyhow::Result<(T, SuccessfulRebase<'rebase, 'rebase, M>)>,
+    {
+        let checkout_is_pending = self.inner.pending_checkout.is_some();
+        self.rebase(|editor, commit_mappings| {
+            let tips_before = workspace_tips(&editor)?.len();
+            let (outcome, rebase) = f(editor, commit_mappings)?;
+            let editor = rebase.into_editor();
+            let rebase = if !checkout_is_pending && workspace_tips(&editor)?.len() < tips_before {
+                leave_unnecessary_workspace(editor)?
+            } else {
+                editor.rebase()?
+            };
+            Ok((outcome, rebase))
+        })
     }
 }
 
@@ -910,19 +1090,6 @@ struct EagerlyCreatedRef {
 struct PendingBranchMetadata {
     name: FullName,
     value: ref_metadata::Branch,
-}
-
-#[derive(Debug, Default)]
-struct CommitMappings(BTreeMap<gix::ObjectId, gix::ObjectId>);
-
-impl CommitMappings {
-    fn map(&self, commit: ObjectId) -> ObjectId {
-        self.try_map(commit).unwrap_or(commit)
-    }
-
-    fn try_map(&self, commit: ObjectId) -> Option<ObjectId> {
-        self.0.get(&commit).copied()
-    }
 }
 
 mod sealed {
@@ -1037,7 +1204,7 @@ fn workspace_state_from_rebase<M: RefMetadata>(
         let target = rebase
             .reference_target(branch.as_ref())
             .or_else(|_| resolve_checkout_target(rebase.repo(), branch.as_ref()))?;
-        let replaced_commits = rebase.history.commit_mappings();
+        let replaced_commits = rebase.history.commit_mappings().sole_successors();
         let conflicted_commits = rebase.history.conflicted_commits.clone();
         let workspace = rebase
             .overlayed_graph_with_workspace_overrides(Some((target, branch)), None)?
@@ -1136,8 +1303,7 @@ fn checkout_reference(repo: &gix::Repository, reference_name: &FullNameRef) -> a
 /// It is intermediate in the sense that the commit hasn't been materialized yet and only exists
 /// in-memory.
 pub struct IntermediateCommitCreateResult {
-    /// If the commit was successfully created. This should only be none if all the DiffSpecs were rejected.
+    /// This should only be none if all the DiffSpecs were rejected.
     pub new_commit: Option<CommitIdentifiers>,
-    /// Any specs that failed to be committed.
     pub rejected_specs: Vec<(RejectionReason, DiffSpec)>,
 }

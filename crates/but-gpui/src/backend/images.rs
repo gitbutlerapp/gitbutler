@@ -1,8 +1,8 @@
-//! The images a pull request's description shows. Only GitHub's own hosts are asked, as Lite
-//! asks: GitHub fetches other hosts' images itself for the pages it shows, so they can't learn
+//! The images a pull request's description shows. Only GitHub's own hosts are asked:
+//! GitHub fetches other hosts' images itself for the pages it shows, so they can't learn
 //! who reads a description, but the Markdown names them as they are, and asking them would
-//! tell them. A redirect is followed only to GitHub and the bucket it keeps uploads in, as
-//! Lite allows. A private repository's images need a sign-in, so those are asked again with
+//! tell them. A redirect is followed only to GitHub and the bucket it keeps uploads in.
+//! A private repository's images need a sign-in, so those are asked again with
 //! the token of each GitHub account added, which goes to GitHub only: a redirect to another
 //! host, as to that bucket, leaves it behind.
 
@@ -48,6 +48,9 @@ fn followed(url: &reqwest::Url) -> bool {
 /// The image at `url`, decoded, its first frame only when it moves, and shrunk to the most a
 /// description shows of it.
 pub fn picture(url: &str) -> Result<Picture> {
+    if but_briefs::is_media_url(url) {
+        return decode(&super::briefs::media(url)?);
+    }
     ensure!(on_github(url), "Only images on GitHub are shown");
     let bytes = match fetch(url, None) {
         Ok(bytes) => bytes,

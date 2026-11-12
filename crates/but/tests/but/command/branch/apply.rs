@@ -653,6 +653,11 @@ fn apply_branch_conflicting_with_workspace_reports_error() {
         .stderr_eq(str![[r#"
 Failed to apply branch: 'conflicting-branch' conflicts with existing stack: 'A'
 
+Hint: to apply 'conflicting-branch', unapply what it conflicts with first:
+  but unapply A && but apply conflicting-branch
+Hint: to leave the workspace as it is, check 'conflicting-branch' out in its own worktree:
+  but worktree new conflicting-branch
+
 "#]])
         .stdout_eq(str![""]);
 
@@ -662,6 +667,26 @@ Failed to apply branch: 'conflicting-branch' conflicts with existing stack: 'A'
         .failure()
         .stderr_eq(str![[r#"
 Failed to apply branch: 'conflicting-branch' conflicts with existing stack: 'A'
+
+Hint: to apply 'conflicting-branch', unapply what it conflicts with first:
+  but unapply A && but apply conflicting-branch
+Hint: to leave the workspace as it is, check 'conflicting-branch' out in its own worktree:
+  but worktree new conflicting-branch
+
+"#]])
+        .stdout_eq(str![""]);
+
+    // `but worktree new origin/conflicting-remote` would create a new local branch of that
+    // name, so a remote branch gets no worktree hint.
+    env.invoke_git("update-ref refs/remotes/origin/conflicting-remote conflicting-branch");
+    env.but("apply origin/conflicting-remote")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Failed to apply branch: 'origin/conflicting-remote' conflicts with existing stack: 'A'
+
+Hint: to apply 'origin/conflicting-remote', unapply what it conflicts with first:
+  but unapply A && but apply origin/conflicting-remote
 
 "#]])
         .stdout_eq(str![""]);
@@ -700,7 +725,7 @@ fn apply_branch_conflicting_with_workspace_reports_json_error() {
         .stdout_eq(str![[r#"
 {
   "status": "conflictAborted",
-  "workspaceChanged": true,
+  "workspaceChanged": false,
   "appliedBranches": [],
   "conflictingStacks": [
     "refs/heads/A"
@@ -789,9 +814,8 @@ Hint: run `but help` for all commands
     );
 }
 
-/// Applying from single branch mode doesn't report the checked-out branch, which was already applied.
 #[test]
-fn apply_from_single_branch_mode_reports_only_requested_branch() {
+fn apply_after_unapplying_down_to_one_branch_reports_that_branch() {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
     create_local_branch_with_commit(&env, "feature-branch");
@@ -808,6 +832,7 @@ fn apply_from_single_branch_mode_reports_only_requested_branch() {
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
+Applied branch 'A' to workspace
 Applied branch 'feature-branch' to workspace
 
 "#]]);

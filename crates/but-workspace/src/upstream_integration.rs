@@ -1,5 +1,3 @@
-//! Integrating upstream changes
-
 use std::collections::{HashMap, HashSet};
 
 use anyhow::{Context, Result, bail};
@@ -34,9 +32,7 @@ pub enum BottomUpdateKind {
     Merge,
 }
 
-/// Describes a particular bottom node and how it should be updated.
 pub struct BottomUpdate {
-    /// Describes how the associated branch should be updated.
     pub kind: BottomUpdateKind,
     /// A pointer to one of the bottom most commits in a stack.
     pub selector: RelativeTo,
@@ -55,11 +51,8 @@ pub struct ReviewIntegrationHint {
     pub source_branch: String,
 }
 
-/// The outcome of integrating upstream
 pub struct IntegrateUpstreamOutcome<'ws, 'meta, M: RefMetadata> {
-    /// The updated project metadata.
     pub project_meta: ProjectMeta,
-    /// The rebased outcome.
     pub rebase: SuccessfulRebase<'ws, 'meta, M>,
 }
 
@@ -157,8 +150,7 @@ struct Stack {
 /// - We replace all steps marked as `content_integrated` that are not
 ///   `historically_integrated` with `None` steps.
 ///
-/// This variant uses no review hints and never swaps an emptied managed workspace for a canned
-/// branch; see [`integrate_upstream_with_hints()`] for both.
+/// This variant uses no review hints; see [`integrate_upstream_with_hints()`] for those.
 pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
     workspace: &'ws mut but_graph::Workspace,
     meta: &'meta mut M,
@@ -400,7 +392,6 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
         }
     }
 
-    // Handle integrated stacks.
     // Determine which stacks (or branches) are integrated, and remove them from the workspace
     // if any.
     let workspace_commit_selector = head_is_workspace_commit
@@ -419,12 +410,11 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
             .nodes
             .values()
             .all(|attrs| attrs.is_integrated() || attrs.reference_integrated.is_some());
-        if !is_selected {
-            continue;
+        if is_selected {
+            selected_stack_nodes.extend(stack.nodes.keys().copied());
         }
-        selected_stack_nodes.extend(stack.nodes.keys().copied());
 
-        if is_fully_integrated {
+        if is_selected && is_fully_integrated {
             // If we're not in the managed workspace, we haven't determined a
             // ref replacement yet and we were checked out on a local branch.
             if !head_is_workspace_commit
@@ -455,11 +445,13 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
             }
         }
 
-        // Remove integrated refs from the workspace and from git.
-        // TODO: allow to keep some references.
+        // Remove integrated refs from the workspace and from git, whether or not their stack is
+        // rebased. A checked-out ref is replaced instead, which moves its checkout, so only when
+        // its stack is.
         for (selector, attrs) in &stack.nodes {
             if worktree_heads.contains(selector) {
-                if let Some(ref_name) = attrs.reference_integrated.as_ref()
+                if is_selected
+                    && let Some(ref_name) = attrs.reference_integrated.as_ref()
                     && should_delete_integrated_local_branch(
                         ref_name.as_ref(),
                         target_ref.as_ref(),
@@ -486,6 +478,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                 if direct_checkout_replacement_ref
                     .as_ref()
                     .is_some_and(|(replacement_selector, _)| replacement_selector == selector)
+                    || (!is_selected && direct_checkout_head_ref_name.as_ref() == Some(ref_name))
                 {
                     continue;
                 }
@@ -520,10 +513,10 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                     *parent_order,
                 )?;
             }
-            [] if !fully_integrated_workspace_parents.is_empty() && stacks.len() > 1 => {
-                // In single-branch mode a managed workspace must not become empty. Prefer the
-                // local target for its checkout, falling back to a uniquely named canned branch,
-                // just like a fully integrated direct checkout.
+            [] if !fully_integrated_workspace_parents.is_empty() => {
+                // A managed workspace must not become empty. Prefer the local target for its
+                // checkout, falling back to a uniquely named canned branch, just like a fully
+                // integrated direct checkout.
                 let workspace_ref_name = workspace_ref_name
                     .as_ref()
                     .map(|name| name.as_ref())
@@ -535,10 +528,6 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                     target_ref_commit_selector,
                     local_target_ref.as_ref().map(|name| name.as_ref()),
                 )?;
-            }
-            [] if !fully_integrated_workspace_parents.is_empty() => {
-                // Otherwise the existing empty managed workspace is retained.
-                editor.add_edge(workspace_commit_selector, target_ref_selector, 0)?;
             }
             _ => {}
         }
@@ -1056,8 +1045,6 @@ fn reference_points_to_target(
         .unwrap_or(false)
 }
 
-/// Whether an integrated local branch ref should be deleted during integration.
-///
 /// Only local branches are eligible for deletion here. As a conservative
 /// heuristic, never delete local `main` or `master`, even if the graph marks
 /// them as integrated. Those names often represent a user's primary local
@@ -1179,8 +1166,6 @@ fn highest_review_heads<M: RefMetadata>(
     Ok(out)
 }
 
-/// Convert a list of selectors into their current commit ids.
-///
 /// Use the commit ids with great care as they might go out of date or have
 /// expected parentages after mutations in the editor.
 ///
@@ -1216,7 +1201,10 @@ fn selector_commit_id<M: RefMetadata>(
                 .id()
                 .detach(),
         ),
-        Step::None => None,
+        Step::None => match editor.direct_parents(selector)?.as_slice() {
+            [(parent, _)] => selector_commit_id(editor, *parent)?,
+            _ => None,
+        },
     })
 }
 

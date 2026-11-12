@@ -1,0 +1,44 @@
+import { stories } from "../docs/stories.ts";
+import { FileStatusBadge, type FileStatusType } from "./FileStatusBadge.tsx";
+
+const statuses: Array<FileStatusType> = ["Addition", "Deletion", "Modification", "Rename"];
+
+const meta = stories({
+	title: "Content & status/FileStatusBadge",
+	id: "components-filestatusbadge",
+	component: FileStatusBadge,
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2134-5945",
+		},
+	},
+	args: {
+		status: "Addition",
+	},
+});
+
+export const Default = meta.story({
+	args: {
+		status: "Addition",
+	},
+});
+
+export const AllStatuses = meta.story({
+	args: {
+		status: "Addition",
+	},
+	render: (args) => (
+		<div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+			{statuses.map((status) => (
+				<div
+					key={status}
+					style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}
+				>
+					<FileStatusBadge {...args} status={status} />
+					<span style={{ fontSize: 11, opacity: 0.5 }}>{status}</span>
+				</div>
+			))}
+		</div>
+	),
+});

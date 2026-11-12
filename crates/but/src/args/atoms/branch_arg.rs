@@ -1,5 +1,5 @@
 use bstr::{BStr, ByteSlice};
-use gix::refs::{Category, FullName};
+use gix::refs::{Category, FullName, FullNameRef};
 
 use crate::{CliError, CliResult, bad_input};
 
@@ -59,14 +59,49 @@ impl BranchArg {
         Ok(segment.cloned())
     }
 
-    /// Validate that the argument is a valid branch name that does not already exist.
+    /// Validate that creating a branch in the workspace can take this name.
     ///
-    /// Unlike the GUI, we don't normalize branch names for users in the CLI, as this could lead to
-    /// unexpected behavior in scripts. This function rejects names that are possible to normalize.
+    /// On top of [`Self::resolve_unused_local_name`], this refuses a name a remote's branch has,
+    /// which the new branch would take as its own. The operations that create the branch refuse
+    /// it too, but can't say what to do about it.
     pub fn resolve_for_creation(
         &self,
         repo: &gix::Repository,
         ws: &but_graph::Workspace,
+    ) -> CliResult<FullName> {
+        let local_name = self.resolve_unused_local_name(repo, ws, None)?;
+        for remote_name in repo.remote_names() {
+            let remote_name = remote_name.as_bstr().to_str_lossy();
+            let on_remote = format!("{remote_name}/{self}");
+            let remote_branch = Category::RemoteBranch.to_full_name(on_remote.as_str())?;
+            if repo.try_find_reference(&remote_branch)?.is_some() {
+                let refusal = bad_input(format!(
+                    "A branch named '{self}' exists on remote '{remote_name}'"
+                ));
+                // `but apply` refuses the target's upstream too.
+                return Err(if ws.is_target_or_upstream(remote_branch.as_ref(), repo)? {
+                    refusal.hint("Pick another name")
+                } else {
+                    refusal.hint(format!(
+                        "Pick another name, or run `but apply {on_remote}` if you meant that branch"
+                    ))
+                }
+                .into());
+            }
+        }
+        Ok(local_name)
+    }
+
+    /// Validate that the argument is a valid branch name that no local branch has or nests with.
+    /// `renamed`, the branch becoming this name, is no obstacle to nesting.
+    ///
+    /// Unlike the GUI, we don't normalize branch names for users in the CLI, as this could lead to
+    /// unexpected behavior in scripts. This function rejects names that are possible to normalize.
+    pub fn resolve_unused_local_name(
+        &self,
+        repo: &gix::Repository,
+        ws: &but_graph::Workspace,
+        renamed: Option<&FullNameRef>,
     ) -> CliResult<FullName> {
         let branch_name = self.0.as_str();
         let normalized = but_core::branch::normalize_short_name(branch_name).map_err(|err| {
@@ -83,16 +118,32 @@ impl BranchArg {
         let local_name = self.resolve_local_branch_name()?;
         if ws.refname_is_segment(local_name.as_ref()) {
             return Err(
-                bad_input(format!("A branch named '{branch_name}' is already applied")).into(),
+                bad_input(format!("A branch named '{branch_name}' is already applied"))
+                    .hint("Pick another name")
+                    .into(),
             );
         }
 
         if repo.try_find_reference(&local_name)?.is_some() {
-            return Err(bad_input(format!(
-                "A branch named '{branch_name}' exists but is not applied"
-            ))
+            // `but apply` refuses the target, so it can't be what to do about this one.
+            return Err(if ws.is_target_or_upstream(local_name.as_ref(), repo)? {
+                bad_input(format!(
+                    "A branch named '{branch_name}' is the workspace target branch"
+                ))
+                .hint("Pick another name")
+            } else {
+                bad_input(format!(
+                    "A branch named '{branch_name}' exists but is not applied"
+                ))
+                .hint(format!(
+                    "Pick another name, or run `but apply {branch_name}` if you meant that branch"
+                ))
+            }
             .into());
         }
+
+        but_core::branch::refuse_colliding_refname(repo, local_name.as_ref(), renamed)
+            .map_err(|err| CliError::from(err).hint("Pick another name"))?;
 
         Ok(local_name)
     }
@@ -144,9 +195,7 @@ impl BranchArg {
         }
 
         if self.0.starts_with("refs/remotes/") {
-            return Err(
-                bad_input(format!("Can only switch to local branches, got '{self}'")).into(),
-            );
+            return Err(bad_input(format!("Can only use local branches, got '{self}'")).into());
         }
 
         if let Ok(branch) = Category::LocalBranch.to_full_name(self.0.as_str())
@@ -156,9 +205,7 @@ impl BranchArg {
         }
 
         if looks_like_remote_branch(repo, self.0.as_str()) {
-            return Err(
-                bad_input(format!("Can only switch to local branches, got '{self}'")).into(),
-            );
+            return Err(bad_input(format!("Can only use local branches, got '{self}'")).into());
         }
 
         Ok(None)
@@ -239,7 +286,7 @@ fn resolve_branch_ref(
 
 fn ensure_existing_local_branch(repo: &gix::Repository, branch: &FullName) -> CliResult<()> {
     if !branch.as_bstr().starts_with_str("refs/heads/") {
-        return Err(bad_input(format!("Can only switch to local branches, got '{branch}'")).into());
+        return Err(bad_input(format!("Can only use local branches, got '{branch}'")).into());
     }
     if repo.try_find_reference(branch.as_ref())?.is_none() {
         return Err(bad_input(format!("Branch '{}' not found", branch.shorten())).into());

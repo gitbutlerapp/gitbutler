@@ -11,6 +11,7 @@
 //! off, as the CLI's are, in Settings › General › Metrics or the desktop app's Telemetry page.
 //! Development builds log them at debug instead.
 
+mod active;
 mod crashes;
 
 use std::collections::{HashMap, HashSet};
@@ -29,7 +30,7 @@ use serde_json::{Map, Value, json};
 use super::{Checkout, Workspace};
 
 const HOST: &str = "https://eu.i.posthog.com";
-/// Tells this app's events from the desktop app's, the CLI's and Lite's.
+/// Tells this app's events from the desktop app's and the CLI's.
 const APP_NAME: &str = "gitbutler-gpui";
 /// The longest quitting waits for what's queued to go out.
 const SHUTDOWN: Duration = Duration::from_secs(2);
@@ -71,27 +72,17 @@ type Early = (Kind, String, Props, DateTime<Utc>);
 static STARTED: Mutex<Option<mpsc::Receiver<()>>> = Mutex::new(None);
 /// When each kind of failure last went out, and how many were held back since.
 static LIMITS: Mutex<Option<HashMap<String, (Instant, u64)>>> = Mutex::new(None);
-/// When `app_active` last went out, and the views opened since, by kind.
-static ACTIVE: Mutex<Active> = Mutex::new(Active {
-    last: None,
-    views: Vec::new(),
-});
+/// What was looked at since `app_active` last went out.
+static ACTIVE: Mutex<active::Active> = Mutex::new(active::Active::new());
 
-struct Active {
-    last: Option<Instant>,
-    views: Vec<(&'static str, u64)>,
-}
-
-/// What `app_active` says about the app as it is: the settings the desktop app reports too, by
-/// its names and values, how many projects there are, and the workspace being looked at.
+/// What `app_active` says about the app as it is: its settings, how many projects there are,
+/// and the workspace being looked at.
 pub struct State<'a> {
-    /// `system`, `light` or `dark`.
-    pub theme: &'static str,
-    /// The interface's scale, 1 at 100%.
-    pub zoom: f64,
-    /// The editor files open in, by the id the desktop app uses too, if one was picked.
-    pub editor: Option<&'a str>,
-    pub ligatures: bool,
+    pub prefs: &'a crate::state::Prefs,
+    /// Whether the project's commits run its hooks.
+    pub hooks: bool,
+    pub single_file_diff: bool,
+    pub briefs: bool,
     pub projects: usize,
     pub workspace: &'a Workspace,
 }
@@ -136,8 +127,9 @@ pub fn start(version: Option<String>) {
     }
 }
 
-/// Before the app ends: say the run ended cleanly, and send what's queued, waiting at most
-/// [`SHUTDOWN`]. It runs on the UI thread, which then has nothing left to draw.
+/// Before the app ends: say the run ended cleanly, send what was looked at since `app_active`
+/// last said, and send what's queued, waiting at most [`SHUTDOWN`]. It runs on the UI thread,
+/// which then has nothing left to draw.
 pub fn quit() {
     let deadline = Instant::now() + SHUTDOWN;
     if let Some(started) = STARTED.lock().take() {
@@ -147,6 +139,8 @@ pub fn quit() {
         return;
     };
     crashes::ended_cleanly();
+    let looked = ACTIVE.lock().take(Instant::now());
+    metrics.send(Kind::Usage, "app_closed", looked, None);
     if let Some(client) = &metrics.client {
         let left = deadline.saturating_duration_since(Instant::now());
         super::runtime()
@@ -154,11 +148,94 @@ pub fn quit() {
     }
 }
 
-/// An operation the user started, named `name`, finished after `took`, failing with
-/// `failure` if it did, on `workspace` as it was shown. An operation that handles its own
-/// failure, as a fetch does, finishes without one, and its error card reports it instead.
+/// What the user did to start an operation, which `api_command` sends as `via`.
+#[derive(Clone, Copy)]
+pub enum Via {
+    Key,
+    /// A click, or a drop at the end of a drag.
+    Pointer,
+    /// An item in a right-click menu, whether clicked or picked with the keys.
+    Menu,
+    /// A command run from ⌘K, whether clicked or picked with the keys.
+    Palette,
+}
+
+impl Via {
+    fn name(self) -> &'static str {
+        match self {
+            Via::Key => "key",
+            Via::Pointer => "pointer",
+            Via::Menu => "menu",
+            Via::Palette => "palette",
+        }
+    }
+}
+
+/// What the user did last, which is what started an operation starting now. One that starts
+/// when another ends, as Pull's update after its fetch, counts as the first did, unless the
+/// user did something else meanwhile. A native dialog's answer is no input here, so what's
+/// confirmed in one counts as what asked. The pointer to start with, as GPUI counts it.
+static INPUT: Mutex<Via> = Mutex::new(Via::Pointer);
+
+/// Note what the user just did. A menu item or ⌘K command notes itself after the key or click
+/// that picked it.
+pub fn input(via: Via) {
+    if matches!(METRICS.get(), Some(None)) {
+        return;
+    }
+    *INPUT.lock() = via;
+    ACTIVE.lock().pressed(Instant::now());
+}
+
+/// The window came in front of other apps', or went behind them. Only time in front counts as
+/// looking at what it shows.
+pub fn in_front(front: bool) {
+    if matches!(METRICS.get(), Some(None)) {
+        return;
+    }
+    ACTIVE.lock().in_front(front, Instant::now());
+}
+
+/// `view`, as `commit` or `history`, is on screen now, opened by the user or by the app, as at
+/// launch, or with `None` nothing is. It gets the time from now, and what starts now is started
+/// from it.
+pub fn shown(view: Option<&'static str>) {
+    if matches!(METRICS.get(), Some(None)) {
+        return;
+    }
+    ACTIVE.lock().show(view, Instant::now());
+}
+
+/// How the user started what starts now, and from which view, for [`operation`].
+pub fn via() -> (Via, Option<&'static str>) {
+    (*INPUT.lock(), ACTIVE.lock().shown())
+}
+
+/// Notes each press of the pointer, wherever in the window and over whatever it lands on, which
+/// starts every click and drag. It takes none of them.
+pub fn pointer_listener() -> impl gpui::IntoElement {
+    use gpui::Styled as _;
+    gpui::canvas(
+        |_, _, _| {},
+        |_, (), window, _| {
+            window.on_mouse_event(|_: &gpui::MouseDownEvent, phase, _, _| {
+                if phase == gpui::DispatchPhase::Capture {
+                    input(Via::Pointer);
+                }
+            });
+        },
+    )
+    .absolute()
+    .inset_0()
+}
+
+/// An operation the user started, named `name`, the way and from the view [`via`] said as it
+/// started, finished after `took`, failing with `failure` if it did, on `workspace` as it was
+/// shown. An operation that handles its own failure, as a fetch does, finishes without one, and
+/// its error card reports it instead.
 pub fn operation(
     name: &'static str,
+    (via, view): (Via, Option<&'static str>),
     took: Duration,
     failure: Option<&anyhow::Error>,
     workspace: Option<&Workspace>,
@@ -169,8 +246,12 @@ pub fn operation(
     let command = camel_case(name);
     let mut props = Props::new();
     props.insert("command".into(), command.clone().into());
+    props.insert("via".into(), via.name().into());
     props.insert("durationMs".into(), (took.as_millis() as u64).into());
     props.insert("failure".into(), failure.is_some().into());
+    if let Some(view) = view {
+        props.insert("view".into(), view.into());
+    }
     if let Some(workspace) = workspace {
         shape(workspace, &mut props);
     }
@@ -216,39 +297,101 @@ pub fn failure_shown<'a>(
 }
 
 /// The user opened `view` in the window, as `commit` or `history`: count it, and once an hour
-/// say the app is in use, with the app as `state` gives it and the views counted since. So
+/// say the app is in use, with the app as `state` gives it and what was looked at since. So
 /// it's seen in use on days nothing is changed with it, as when reading what agents did.
 pub fn viewed<'a>(view: &'static str, state: impl FnOnce() -> State<'a>) {
     if matches!(METRICS.get(), Some(None)) {
         return;
     }
     let now = Instant::now();
-    let views = {
+    let looked = {
         let mut active = ACTIVE.lock();
-        match active.views.iter_mut().find(|(kind, _)| *kind == view) {
-            Some((_, count)) => *count += 1,
-            None => active.views.push((view, 1)),
-        }
+        active.opened(view);
         if (active.last).is_some_and(|last| now.duration_since(last) < ACTIVE_EVERY) {
             return;
         }
         active.last = Some(now);
-        std::mem::take(&mut active.views)
+        active.take(now)
     };
     let state = state();
-    let mut props = Props::new();
-    props.insert("theme".into(), state.theme.into());
-    props.insert("zoom".into(), state.zoom.into());
-    if let Some(editor) = state.editor {
-        props.insert("defaultCodeEditor".into(), editor.into());
-    }
-    props.insert("diffLigatures".into(), state.ligatures.into());
+    let mut props = settings(&state);
     props.insert("projectCount".into(), state.projects.into());
     shape(state.workspace, &mut props);
-    for (kind, count) in views {
-        props.insert(format!("{kind}Views"), count.into());
-    }
+    props.extend(looked);
     queue(Kind::Usage, "app_active", props);
+}
+
+/// `state`'s settings by their property names, as the store holds them, so nothing is read for
+/// them. Never what the user wrote in one, as a font's name or a command. Enums go by the name
+/// the prefs save them under, and a program not picked yet as null.
+fn settings(state: &State) -> Props {
+    use crate::state::Part;
+    use crate::theme::{Appearance, ColorScheme};
+    let prefs = state.prefs;
+    [
+        // The desktop app's names and values.
+        (
+            "theme",
+            json!(match prefs.appearance {
+                Appearance::System => "system",
+                Appearance::Light => "light",
+                Appearance::Dark => "dark",
+            }),
+        ),
+        (
+            "colorScheme",
+            json!(match prefs.color_scheme {
+                ColorScheme::GitButler => "gitbutler",
+                ColorScheme::Ghostty => "ghostty",
+                ColorScheme::Named(_) => "named",
+            }),
+        ),
+        ("zoom", json!(f64::from(prefs.ui_scale.percent()) / 100.)),
+        ("defaultCodeEditor", json!(prefs.editor)),
+        ("diffLigatures", json!(prefs.ligatures)),
+        // This app's own.
+        ("codeSize", json!(prefs.code_size)),
+        ("splitDiff", json!(prefs.split)),
+        ("wrapLines", json!(prefs.wrap)),
+        ("plainLines", json!(prefs.plain_lines)),
+        ("semanticContext", json!(!prefs.no_semantic_context)),
+        ("scopeLines", json!(prefs.whole_scopes)),
+        ("customDiffFont", json!(prefs.diff_font.is_some())),
+        ("statusBar", json!(prefs.shows(Part::StatusBar))),
+        ("headers", json!(prefs.shows(Part::CommitHeader))),
+        ("diffControls", json!(prefs.shows(Part::DiffTools))),
+        ("fileView", json!(prefs.file_view)),
+        ("fileSort", json!(prefs.file_sort)),
+        ("folderLineCounts", json!(prefs.folder_line_counts)),
+        ("folderStops", json!(prefs.folder_stops)),
+        (
+            "composerStartsUnchecked",
+            json!(prefs.composer_starts_unchecked),
+        ),
+        ("navigatorPlace", json!(prefs.navigator_place)),
+        ("watchedOrder", json!(prefs.watched_order)),
+        ("projectsByActivity", json!(prefs.projects_by_activity)),
+        ("activeProjectsOnly", json!(prefs.active_projects_only)),
+        ("inactiveAfter", json!(prefs.inactive_after)),
+        ("mergedWorktrees", json!(prefs.merged_worktrees)),
+        ("branchesStartOpen", json!(prefs.branches_start_open)),
+        ("allBranchCommits", json!(prefs.all_branch_commits)),
+        ("openBranchOnClick", json!(prefs.open_branch_on_click)),
+        ("branchesLocalOnly", json!(prefs.branches_local_only)),
+        ("branchesStatus", json!(prefs.branches_status)),
+        ("defaultTerminal", json!(prefs.terminal)),
+        ("terminalRuns", json!(prefs.terminal_runs)),
+        ("terminalGrouping", json!(prefs.terminal_grouping)),
+        ("customTerminalFont", json!(prefs.terminal_font.is_some())),
+        ("terminalTextSize", json!(prefs.terminal_text)),
+        ("confirmTerminalClose", json!(prefs.confirm_terminal_close)),
+        ("commitHooks", json!(state.hooks)),
+        ("singleFileDiff", json!(state.single_file_diff)),
+        ("briefs", json!(state.briefs)),
+    ]
+    .into_iter()
+    .map(|(name, value)| (name.to_owned(), value))
+    .collect()
 }
 
 /// A project that read can't be read any more, as after an agent's `git merge` onto the
@@ -266,7 +409,12 @@ pub fn load_failed(failure: &super::LoadFailure, err: &anyhow::Error, last: Opti
     let mut props = Props::new();
     props.insert("occurrenceCount".into(), occurrences.into());
     props.insert("folderGone".into(), failure.folder_gone.into());
+    props.insert("repoGone".into(), failure.repo_gone.into());
     props.insert("sparseIndex".into(), failure.sparse_index.into());
+    props.insert(
+        "commitsAbove".into(),
+        failure.commits_above.is_some().into(),
+    );
     props.insert(
         "targetChoice".into(),
         failure.target_choice.is_some().into(),
@@ -277,7 +425,11 @@ pub fn load_failed(failure: &super::LoadFailure, err: &anyhow::Error, last: Opti
     props.insert("targetUntracked".into(), untracked.into());
     error_props(err, &names, &mut props);
     queue(Kind::Usage, "repo:load_failed", props);
-    let known = failure.folder_gone || failure.sparse_index || failure.target_choice.is_some();
+    let known = failure.folder_gone
+        || failure.repo_gone
+        || failure.sparse_index
+        || failure.commits_above.is_some()
+        || failure.target_choice.is_some();
     if !known && unexpected(err) {
         report_error("Couldn't read the project".into(), err, "load", &names);
     }
@@ -316,6 +468,23 @@ pub fn signed_out() {
         (Ok(id), Some(metrics)) => *metrics.id.lock() = id,
         (Ok(_), None) => {}
         (Err(err), _) => tracing::debug!("couldn't save the metrics ID: {err:#}"),
+    }
+}
+
+/// `url`, a page on one of GitButler's sites, with the ID this app's events go out under as
+/// `did`, which the site keeps with the visit to join the two, as the desktop app's links do.
+/// Unchanged while usage metrics are off. `but_api::open::open_url` adds `did` only from an ID
+/// the settings store, and with none stored this app's events go out under the machine's.
+pub fn with_did(url: &str) -> String {
+    let id = (METRICS.get().and_then(Option::as_ref))
+        .filter(|metrics| metrics.usage.load(Ordering::Relaxed))
+        .map(|metrics| metrics.id.lock().clone());
+    match (id, reqwest::Url::parse(url)) {
+        (Some(id), Ok(mut tagged)) => {
+            tagged.query_pairs_mut().append_pair("did", &id);
+            tagged.into()
+        }
+        _ => url.to_owned(),
     }
 }
 
@@ -363,6 +532,10 @@ fn set(kind: Kind, on: bool) -> Result<()> {
             Kind::Errors => &metrics.errors,
         }
         .store(on, Ordering::Relaxed);
+    }
+    // What was looked at before it was turned off, or while it was, isn't sent.
+    if matches!(kind, Kind::Usage) {
+        ACTIVE.lock().take(Instant::now());
     }
     Ok(())
 }
@@ -415,7 +588,7 @@ fn open(version: Option<String>) -> Result<Option<Metrics>> {
     };
     context.insert("$os".into(), os.into());
     context.insert("Arch".into(), std::env::consts::ARCH.into());
-    // Nothing is sampled, but the CLI and Lite stamp every event, and totals divide by it.
+    // Nothing is sampled, but the CLI stamps every event, and totals divide by it.
     context.insert("samplingRate".into(), 1.into());
     context.insert(
         "$session_id".into(),
@@ -573,10 +746,12 @@ fn unexpected(err: &anyhow::Error) -> bool {
         .is_none_or(|context| context.code == but_error::Code::Unknown)
 }
 
-/// `err` for error tracking, grouped by `key` and what it says.
+/// `err` for error tracking, grouped by `key` and what it says: what Git said, when it ran Git,
+/// not the command it ran, so one failure stays one issue however it was asked for.
 fn report_error(kind: String, err: &anyhow::Error, key: &str, names: &HashSet<String>) {
     let value = redact(&format!("{err:#}"), names);
-    let fingerprint = format!("{:x}", md5::compute(format!("{key}\n{value}")));
+    let said = crate::ui::error_summary(&value);
+    let fingerprint = format!("{:x}", md5::compute(format!("{key}\n{said}")));
     let props = json!({
         "$exception_list": [{
             "type": kind,

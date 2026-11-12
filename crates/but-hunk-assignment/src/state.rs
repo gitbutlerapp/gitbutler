@@ -1,5 +1,3 @@
-//! The name of the file holding our state, useful for watching for changes.
-
 use anyhow::Result;
 use but_db::{HunkAssignmentsHandle, HunkAssignmentsHandleMut};
 

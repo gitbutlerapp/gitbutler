@@ -72,7 +72,6 @@ impl Database {
         }
     }
 
-    /// Every key with its value.
     pub fn read(&self) -> Vec<(String, String)> {
         let Some(written) = &self.0 else {
             return Vec::new();

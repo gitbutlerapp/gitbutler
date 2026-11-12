@@ -19,6 +19,21 @@ Hint: Run `but status` for applicable targets.
 }
 
 #[test]
+fn rejects_the_target_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("branch delete main")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Cannot delete 'main': it is the workspace target branch.
+
+"#]])
+        .stdout_eq(str![[]]);
+}
+
+#[test]
 fn can_delete_branch_with_commits() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A"]);
@@ -273,5 +288,193 @@ fn deleting_the_last_lane_keeps_the_workspace_when_checkout_would_overwrite_chan
         std::fs::read_to_string(env.projects_root().join("collision")).unwrap(),
         "local\n",
         "the uncommitted file is preserved"
+    );
+}
+
+#[test]
+fn can_delete_unapplied_branch_and_undo_it() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("unapply B").assert().success();
+
+    env.but("branch delete B")
+        .assert()
+        .success()
+        .stderr_eq(str![[""]])
+        .stdout_eq(str![[r#"
+Discarded branch 'B'
+
+"#]]);
+
+    // `B` and its commit are gone, `A` is untouched.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 9477ae7 (HEAD -> A) add A
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+
+    // Undo brings `B` back on its commit.
+    env.but("undo").assert().success();
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 9477ae7 (HEAD -> A) add A
+| * d3e2ba3 (B) add B
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+}
+
+#[test]
+fn can_delete_applied_and_unapplied_branches_together() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("unapply B").assert().success();
+
+    env.but("branch delete A B")
+        .assert()
+        .success()
+        .stderr_eq(str![[""]])
+        .stdout_eq(str![[r#"
+Discarded branches 'A', 'B'
+
+"#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* 0dc3733 (HEAD -> main, origin/main, origin/HEAD, gitbutler/target) add M
+
+"#]]
+    );
+}
+
+#[test]
+fn refuses_a_branch_checked_out_in_a_linked_worktree() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("worktree list").assert().success();
+    crate::command::util::add_worktree_with_commit(&env, "wt", "main");
+
+    for name in ["wt", "refs/heads/wt"] {
+        env.but(format!("branch delete {name}"))
+            .assert()
+            .failure()
+            .stdout_eq(str![[]])
+            .stderr_eq(str![[r#"
+Error: Cannot delete 'wt': it is checked out in worktree wt
+
+Hint: Run `but worktree remove wt` first, then `but branch delete wt`
+
+"#]]);
+    }
+
+    // The worktree's branch and its commit are untouched.
+    snapbox::assert_data_eq!(
+        env.invoke_git("log --oneline wt"),
+        str![[r#"
+[..] add W
+0dc3733 add M
+"#]]
+    );
+
+    // Following the hint deletes the branch.
+    env.but("worktree remove wt").assert().success();
+    env.but("branch delete wt")
+        .assert()
+        .success()
+        .stderr_eq(str![[""]])
+        .stdout_eq(str![[r#"
+Discarded branch 'wt'
+
+"#]]);
+    snapbox::assert_data_eq!(env.invoke_git("branch --list wt"), str![""]);
+}
+
+/// Git would refuse this for as long as it keeps the entry of the deleted checkout.
+#[test]
+fn deletes_a_branch_whose_worktree_checkout_is_gone() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("worktree list").assert().success();
+    // Different start points, as the same commit would put all of them into the applied lane.
+    let unapplied = crate::command::util::add_worktree_with_commit(&env, "unapplied", "main");
+    let applied = crate::command::util::add_worktree_with_commit(&env, "applied", "A");
+    let locked = crate::command::util::add_worktree_with_commit(&env, "locked", "B");
+    env.invoke_git(&format!("worktree lock {}", locked.display()));
+    for checkout in [&unapplied, &applied, &locked] {
+        std::fs::remove_dir_all(checkout).unwrap();
+    }
+    env.but("apply applied").assert().success();
+
+    for name in ["unapplied", "applied"] {
+        env.but(format!("branch delete {name}"))
+            .assert()
+            .success()
+            .stderr_eq(str![[""]])
+            .stdout_eq(format!("Discarded branch '{name}'\n"));
+    }
+    snapbox::assert_data_eq!(env.invoke_git("branch --list unapplied applied"), str![""]);
+
+    // A locked worktree may only be unmounted, so its branch stays checked out.
+    env.but("branch delete locked")
+        .assert()
+        .failure()
+        .stdout_eq(str![[]])
+        .stderr_eq(str![[r#"
+Error: Refusing to delete a branch that is checked out. Worktrees are: [..]/locked
+
+"#]]);
+}
+
+/// A linked worktree with a detached `HEAD` is drawn as an anonymous lane. It has no branch to
+/// delete, so point at removing the worktree, which is what clears the lane.
+#[test]
+fn refuses_a_linked_worktrees_detached_lane() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("worktree list").assert().success();
+    let wt = crate::command::util::add_worktree_with_commit(&env, "wt", "main");
+    but_testsupport::invoke_bash_at_dir("git switch -q --detach", &wt);
+
+    env.but("worktree list --active")
+        .assert()
+        .success()
+        .stderr_eq(str![[]])
+        .stdout_eq(str![[r#"
+Active worktrees
+i0 wt (detached) - [..]/worktrees/wt
+
+"#]]);
+    env.but("branch delete i0")
+        .assert()
+        .failure()
+        .stdout_eq(str![[]])
+        .stderr_eq(str![[r#"
+Error: Cannot delete 'i0': it is the anonymous lane of worktree wt, not a branch
+
+Hint: Run `but worktree remove wt` to remove the worktree and its lane
+
+"#]]);
+
+    // Following the hint clears the lane and, like `git worktree remove`, keeps the branch.
+    env.but("worktree remove wt").assert().success();
+    env.but("worktree list --active")
+        .assert()
+        .success()
+        .stderr_eq(str![[]])
+        .stdout_eq(str![[r#"
+Active worktrees
+(none)
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.invoke_git("branch --list --format=%(refname:short) wt"),
+        str!["wt"]
     );
 }

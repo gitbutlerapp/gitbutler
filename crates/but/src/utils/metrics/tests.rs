@@ -103,7 +103,7 @@ fn metrics_use_invoked_command_names() {
     {
         assert_command(
             Subcommands::Amend(crate::args::amend::Platform {
-                target: CliIdArg("c1".into()),
+                target: Some(CliIdArg("c1".into())),
                 sources: vec![CliIdArg("a1".into())],
                 allow_merged: Default::default(),
             }),
@@ -276,6 +276,7 @@ fn commit_extra_props_describe_targeting_and_selection_without_ids() {
             changes: (0..change_count)
                 .map(|index| CliIdArg(format!("private-change-{index}")))
                 .collect(),
+            no_hooks: false,
             allow_merged: Default::default(),
             switch: false,
         });
@@ -317,9 +318,11 @@ fn external_extra_props_include_sanitized_subcommand() {
 
 #[test]
 fn internal_errors_omit_private_details() {
-    let result = Err::<(), _>(CliError::Internal(
-        anyhow::anyhow!("private-branch-name failed").context("private-path failed"),
-    ));
+    let result = Err::<(), CliError>(
+        anyhow::anyhow!("private-branch-name failed")
+            .context("private-path failed")
+            .into(),
+    );
     let props = Props::from_cli_error_result(std::time::Instant::now(), &result);
 
     assert_eq!(props.values["error"], "Internal error");
@@ -331,10 +334,38 @@ fn internal_errors_omit_private_details() {
 }
 
 #[test]
+fn internal_errors_and_preconditions_report_the_line_that_left_the_command() {
+    fn internal() -> anyhow::Result<()> {
+        anyhow::bail!("private failure")
+    }
+    fn precondition() -> anyhow::Result<()> {
+        but_error::bail_precondition!("private refusal")
+    }
+    let line = line!() + 2;
+    fn command(step: fn() -> anyhow::Result<()>) -> crate::CliResult<()> {
+        step()?;
+        Ok(())
+    }
+    let site = format!("{}:{line}", file!().replace('\\', "/"));
+
+    for (step, kind) in [
+        (internal as fn() -> anyhow::Result<()>, "internal"),
+        (precondition, "badInput"),
+    ] {
+        let result = command(step).map_err(|err| err.context("private context"));
+        let props = Props::from_cli_error_result(std::time::Instant::now(), &result);
+
+        assert_eq!(props.values["errorKind"], kind);
+        assert_eq!(props.values["errorSite"], site.as_str(), "{kind}");
+    }
+}
+
+#[test]
 fn initialization_errors_use_distinct_kind_without_private_details() {
-    let result = Err::<(), _>(CliError::Initialization(anyhow::anyhow!(
-        "No git repository found at /Users/alice/secret-client"
-    )));
+    let result = Err::<(), _>(CliError::Initialization(
+        anyhow::anyhow!("No git repository found at /Users/alice/secret-client"),
+        std::panic::Location::caller(),
+    ));
 
     let props = Props::from_cli_error_result(std::time::Instant::now(), &result);
 
@@ -348,11 +379,12 @@ fn initialization_errors_use_distinct_kind_without_private_details() {
 #[cfg(feature = "legacy")]
 #[test]
 fn explained_commit_rejections_omit_private_details() {
-    let result = Err::<(), _>(CliError::Internal(anyhow::Error::new(
-        crate::utils::rejection::ExplainedRejection(
+    let result = Err::<(), CliError>(
+        anyhow::Error::new(crate::utils::rejection::ExplainedRejection(
             "Cannot commit private/path on private-branch".to_string(),
-        ),
-    )));
+        ))
+        .into(),
+    );
 
     let props = Props::from_cli_error_result(std::time::Instant::now(), &result);
 
@@ -369,7 +401,7 @@ fn explained_commit_rejections_omit_private_details() {
 
 #[test]
 fn command_failures_do_not_guess_mutation_outcomes() {
-    let result = Err::<(), _>(CliError::Internal(anyhow::anyhow!("private failure")));
+    let result = Err::<(), CliError>(anyhow::anyhow!("private failure").into());
     let props = Props::from_cli_error_result(std::time::Instant::now(), &result);
 
     assert!(!props.values.contains_key("agentSetupOutcome"));
@@ -392,12 +424,28 @@ fn cli_error_metrics_use_low_cardinality_failure_details() {
     assert!(!props.values.contains_key("errorMessage"));
     assert_eq!(props.values["badInputArgName"], "<BRANCH>");
     assert_eq!(props.values["badInputHasHint"], true);
+    assert!(
+        props.values["errorSite"]
+            .as_str()
+            .expect("metric value is a string")
+            .starts_with(&format!("{}:", file!().replace('\\', "/"))),
+        "the site is where the bad input was raised, not where `BadInput` is defined"
+    );
+    assert!(!props.values.contains_key("errorCode"));
     assert!(!props.as_json_string().contains("branch-with-private-name"));
     assert!(
         !props
             .as_json_string()
             .contains("another-private-branch-name")
     );
+
+    let coded_result = Err::<(), _>(
+        bad_input("No git repository found")
+            .code("NoGitRepository")
+            .into(),
+    );
+    let props = Props::from_cli_error_result(std::time::Instant::now(), &coded_result);
+    assert_eq!(props.values["errorCode"], "NoGitRepository");
 
     let external_result = Err::<(), _>(CliError::ExternalCommandNotFound("typo".into()));
     let props = Props::from_cli_error_result(std::time::Instant::now(), &external_result);
@@ -434,6 +482,94 @@ fn cli_error_metrics_use_low_cardinality_failure_details() {
             .len(),
         UNRECOGNIZED_SUBCOMMAND_MAX_CHARS
     );
+}
+
+#[cfg(feature = "legacy")]
+#[test]
+fn parse_errors_name_the_command_reason_and_flag_without_user_text() {
+    use clap::Parser;
+
+    let cases = [
+        // `-a` was removed from `branch new`.
+        (
+            "branch new -a private-name",
+            "branchNew",
+            "UnknownArgument",
+            Some("-a"),
+        ),
+        // An unknown subcommand reports its parent's default command.
+        (
+            "worktree create private-name",
+            "worktreeList",
+            "InvalidSubcommand",
+            None,
+        ),
+        // An unexpected positional is the user's own text.
+        ("status private-name", "status", "UnknownArgument", None),
+        // The command can't be built without its required argument.
+        (
+            "uncommit",
+            "uncommit",
+            "MissingRequiredArgument",
+            Some("<SOURCES>..."),
+        ),
+    ];
+    for (line, command, code, arg_name) in cases {
+        let args: Vec<std::ffi::OsString> =
+            format!("but {line}").split(' ').map(Into::into).collect();
+        let err = crate::args::Args::try_parse_from(&args).expect_err("the line is rejected");
+
+        let (actual_command, props) = parse_error_event(&args, &err, false).expect("an event");
+
+        assert_eq!(serde_json::json!(actual_command), command, "{line}");
+        assert_eq!(props.values["errorKind"], "parseError", "{line}");
+        assert_eq!(props.values["errorCode"], code, "{line}");
+        assert_eq!(
+            props
+                .values
+                .get("badInputArgName")
+                .and_then(|name| name.as_str()),
+            arg_name,
+            "{line}"
+        );
+        assert!(!props.as_json_string().contains("private"), "{line}");
+    }
+
+    let args: Vec<std::ffi::OsString> = ["but", "metrics", "--bogus"].map(Into::into).into();
+    let err = crate::args::Args::try_parse_from(&args).expect_err("the line is rejected");
+    assert!(
+        parse_error_event(&args, &err, false).is_none(),
+        "the metrics transport must not report its own failures"
+    );
+}
+
+#[cfg(feature = "legacy")]
+#[test]
+fn rejected_subcommand_words_are_kept_unless_they_look_like_a_name() {
+    use clap::Parser;
+
+    for (line, word) in [
+        ("branch create", Some("create")),
+        ("branch private-name", Some(INVALID_UNRECOGNIZED_SUBCOMMAND)),
+        ("branch Private", Some(INVALID_UNRECOGNIZED_SUBCOMMAND)),
+        ("status private-name", None),
+    ] {
+        let args: Vec<std::ffi::OsString> =
+            format!("but {line}").split(' ').map(Into::into).collect();
+        let err = crate::args::Args::try_parse_from(&args).expect_err("the line is rejected");
+
+        let (_, props) = parse_error_event(&args, &err, false).expect("an event");
+
+        assert_eq!(
+            props
+                .values
+                .get("unrecognizedSubcommand")
+                .and_then(|word| word.as_str()),
+            word,
+            "{line}"
+        );
+        assert!(!props.as_json_string().contains("rivate"), "{line}");
+    }
 }
 
 #[test]
@@ -494,6 +630,7 @@ fn commit_outcome_properties_are_low_cardinality() {
         },
         branch_name: Some(BranchNameTarget::New(branch_name)),
         changed_path_count: 11,
+        post_commit_hook_failure: None,
     };
     let mut ctx = OneshotMetricsContext::new(CommandName::Commit, Vec::new(), ".".into());
     ctx.record_outcome(&crate::command::CommandOutcome::Commit(outcome));
@@ -564,6 +701,73 @@ fn workspace_shape_counts_lanes_and_stacked_branches() {
         );
         assert_eq!(event.props["maxBranchesPerLane"], serde_json::json!(3));
     });
+}
+
+#[test]
+fn checkout_context_names_the_checkout_kind_and_workspace_mode() {
+    let sandbox =
+        but_testsupport::Sandbox::open_with_default_settings("one-stack-three-dependent-branches");
+    // Worktrees made after the sandbox copy, as copied ones point back into the fixture.
+    sandbox.invoke_bash(
+        "git worktree add -q .git/gitbutler/test-worktrees/linked A
+         git worktree add -q --detach .git/gitbutler/test-worktrees/detached B",
+    );
+    let main = sandbox.projects_root().to_owned();
+    let worktrees = main.join(".git/gitbutler/test-worktrees");
+    let context = |dir: &Path| {
+        let mut event = Event::new(EventKind::Cli(CommandName::Status));
+        add_checkout_context(&mut event, dir);
+        (
+            event.props.get("checkoutKind").cloned(),
+            event.props.get("workspaceMode").cloned(),
+        )
+    };
+    let props = |checkout: &str, mode: &str| {
+        (
+            Some(serde_json::json!(checkout)),
+            Some(serde_json::json!(mode)),
+        )
+    };
+
+    assert_eq!(context(&main), props("main", "workspace"));
+    assert_eq!(
+        context(&worktrees.join("linked")),
+        props("linkedWorktree", "workspace"),
+        "a linked worktree reports the main worktree's mode, not its own branch"
+    );
+    assert_eq!(
+        context(&worktrees.join("detached")),
+        props("detachedWorktree", "workspace")
+    );
+
+    sandbox.invoke_bash("git symbolic-ref HEAD refs/heads/gitbutler/edit");
+    assert_eq!(
+        context(&main),
+        props("main", "workspace"),
+        "edit mode is part of the workspace"
+    );
+
+    sandbox.invoke_bash(
+        "git symbolic-ref HEAD refs/heads/gitbutler/workspace
+         git checkout -q main",
+    );
+    assert_eq!(
+        context(&worktrees.join("linked")),
+        props("linkedWorktree", "singleBranch")
+    );
+
+    let outside = tempfile::tempdir().expect("tempdir");
+    assert_eq!(
+        context(outside.path()),
+        (None, None),
+        "outside a repository nothing is known"
+    );
+    gix::init_bare(outside.path().join("bare.git")).expect("init bare repo");
+    assert_eq!(
+        context(&outside.path().join("bare.git")),
+        (None, None),
+        "a bare repository has no checkout"
+    );
 }
 
 #[test]

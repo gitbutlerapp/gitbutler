@@ -122,6 +122,101 @@ Resolve the next commit with but resolve [..].
 "#]]);
 }
 
+/// A worktree's conflict is seen from edit mode too, so it isn't new when finishing, and it is
+/// left to resolve with the command that can reach it.
+#[test]
+fn resolve_finish_lists_a_worktree_conflict_as_remaining_not_new() {
+    let env = Sandbox::open_scenario_with_target_and_default_settings(
+        "two-conflicted-commits-in-one-branch",
+    );
+    // The first read archives every worktree already on disk.
+    env.but("status").assert().success();
+    env.invoke_bash(format!(
+        r#"
+        git worktree add -q -b 0-worktree "{wt}" main~1
+        (cd "{wt}" && echo worktree >shared.txt && git commit -q -am "worktree change")
+        "#,
+        wt = env.app_data_dir().join("worktrees/0-worktree").display()
+    ));
+    env.but("pull").assert().success().stdout_eq(str![[r#"
+...
+To resolve conflicts:
+  `0-worktree` is in a worktree. Run `but resolve conflicts 0-worktree`, then `but resolve apply <path>:<N> --commit 0-worktree`
+  1. Start with: `but resolve tnr`. Worktree files show no conflict markers until this checks the commit out
+...
+"#]]);
+
+    env.but("resolve tnr").assert().success();
+    env.but("resolve conflicts 0-worktree")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Conflicts in commit [..] on branch 0-worktree
+...
+"#]]);
+    env.file("shared.txt", "resolved\n");
+    env.invoke_git("add shared.txt");
+    env.but("resolve finish")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+✓ Conflict resolution finalized successfully!
+The commit has been updated with your resolved changes.
+No conflict markers remain in the resolved files.
+Workspace restored; no uncommitted changes.
+
+Remaining conflicted commits (oldest first):
+  Branch: 0-worktree
+    ● [..] worktree change
+  Branch: A
+    ● run [conflict] newer change
+Resolve the next commit with but resolve run.
+
+"#]]);
+
+    env.but("resolve run").assert().success();
+    env.file("shared.txt", "resolved\n");
+    env.invoke_git("add shared.txt");
+    env.but("resolve finish")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+...
+Remaining conflicted commits (oldest first):
+  Branch: 0-worktree
+    ● [..] worktree change
+Resolve the next commit with but resolve conflicts [..].
+
+"#]]);
+}
+
+/// A worktree can rest on a stack, whose conflicts then have to go first: resolving them can
+/// conflict the worktree's commit again.
+#[test]
+fn resolve_conflicts_starts_with_the_stack_a_worktree_rests_on() {
+    let env = Sandbox::open_scenario_with_target_and_default_settings(
+        "two-conflicted-commits-in-one-branch",
+    );
+    // The first read archives every worktree already on disk.
+    env.but("status").assert().success();
+    env.invoke_bash(format!(
+        r#"
+        git worktree add -q -b 0-worktree "{wt}" A
+        (cd "{wt}" && echo worktree >shared.txt && git commit -q -am "worktree change")
+        "#,
+        wt = env.app_data_dir().join("worktrees/0-worktree").display()
+    ));
+    env.but("pull").assert().success();
+
+    env.but("resolve conflicts")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Conflicts in commit [..] on branch A
+...
+"#]]);
+}
+
 #[test]
 fn resolve_finish_json_deduplicates_shared_conflicts() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
@@ -383,6 +478,7 @@ fn sandbox_with_conflicted_uncommitted_files() -> Sandbox {
 fn resolve_marks_several_conflicted_files_resolved_including_deleted() {
     let env = sandbox_with_conflicted_uncommitted_files();
     env.remove_file("commit.txt");
+    env.file("second.txt", "resolved\n");
 
     env.but("resolve commit.txt second.txt --json")
         .assert()
@@ -444,6 +540,56 @@ Conflicted uncommitted files can only be marked as resolved: `but resolve <path>
         env.invoke_git("ls-files --unmerged").lines().count(),
         6,
         "nothing was resolved"
+    );
+}
+
+#[test]
+fn resolve_refuses_files_that_still_have_conflict_markers() {
+    let env = sandbox_with_conflicted_uncommitted_files();
+    env.file("commit.txt", "resolved\n");
+
+    // second.txt still has the markers the conflicting checkout wrote.
+    env.but("resolve commit.txt second.txt")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Conflict markers are still in second.txt, so nothing was marked resolved
+
+Hint: Edit second.txt to the wanted content, then run `but resolve commit.txt second.txt` again
+
+"#]]);
+    assert_eq!(
+        env.invoke_git("ls-files --unmerged").lines().count(),
+        6,
+        "neither file was marked resolved"
+    );
+}
+
+#[test]
+fn resolve_points_apply_at_uncommitted_conflicts_and_accepts_dot_slash_paths() {
+    let env = sandbox_with_conflicted_uncommitted_files();
+
+    env.but("resolve apply commit.txt --ours")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: `but resolve apply` can't rewrite commits while uncommitted files are conflicted: commit.txt second.txt
+
+Hint: Edit them to the wanted content, then run `but resolve commit.txt second.txt`
+
+"#]]);
+    env.file("commit.txt", "resolved\n");
+    env.but("resolve ./commit.txt")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+✓ Marked as resolved: commit.txt
+
+"#]]);
+    assert_eq!(
+        env.invoke_git("ls-files --unmerged").lines().count(),
+        3,
+        "only second.txt keeps its base/ours/theirs stages"
     );
 }
 
@@ -865,6 +1011,26 @@ If this isn't right, run `but undo` to revert it.
 
 "#]]);
 
+    // The resolve loop ends by asking for the branch's conflicts again; none left is a success.
+    env.but("resolve conflicts A")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Branch "A" has no conflicted commits.
+
+"#]]);
+
+    // With nothing left to resolve on the branch, `apply` still refuses.
+    env.but("resolve apply shared.txt --commit A --ours")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Branch "A" has no conflicted commits.
+
+Hint: Run `but status` to see which commits are conflicted
+
+"#]]);
+
     env.but("status")
         .assert()
         .success()
@@ -896,4 +1062,109 @@ Hint: run `but help` for all commands
 
 "#]]
     );
+}
+
+#[test]
+fn resolve_apply_reports_mistakes_as_bad_input_and_reads_stdin() {
+    let env = Sandbox::open_scenario_with_target_and_default_settings(
+        "single-branch-conflict-in-bottom-commit",
+    );
+    env.but("pull").assert().success();
+
+    // top.txt is clean in the conflicted commit, so the error names what still conflicts there.
+    env.but("resolve apply top.txt --commit A --ours")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: "top.txt" is not conflicted in commit d5fa75c on branch A, which still has conflicts in: shared.txt
+
+Hint: Run `but resolve conflicts A` to see what is left
+
+"#]]);
+    env.but("resolve apply shared.txt:2 --commit A --ours")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: "shared.txt" has 1 conflict, but conflict 2 was addressed
+
+Hint: Conflicts are renumbered after each apply; run `but resolve conflicts A` to see the current numbers
+
+"#]]);
+
+    // `-F -` reads the replacement content from stdin, as `but commit -F -` does.
+    env.but("resolve apply shared.txt:1 --commit A -F -")
+        .stdin("merged\n")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+✓ Resolved 1 conflict in shared.txt — d5fa75c → 9bb401e
+All conflicts in this commit are resolved.
+If this isn't right, run `but undo` to revert it.
+
+"#]]);
+    assert_eq!(
+        env.invoke_git("show A~1:shared.txt"),
+        "merged",
+        "the bottom commit took the piped content"
+    );
+}
+
+#[test]
+fn resolve_conflicts_prints_an_apply_that_targets_the_listed_commit() {
+    let env = Sandbox::open_scenario_with_target_and_default_settings(
+        "two-conflicted-commits-in-one-branch",
+    );
+    env.but("pull").assert().success();
+
+    // `--commit A` would select A's oldest conflicted commit, not the newer one listed here.
+    env.but("resolve conflicts run")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Conflicts in commit [..] on branch A
+
+shared.txt
+── conflict 1 of 1
+<<< ours (new base)
+upstream
+||| base
+older
+>>> theirs (this commit)
+newer
+
+1 other conflicted commit exists — scope with `but resolve conflicts <branch>`.
+Resolve with `but resolve apply <path>[:<N>] --commit run --ours|--theirs` or pipe mixed content into `but resolve apply <path>:<N> --commit run`. `but resolve --ai` resolves everything at once.
+
+"#]]);
+
+    // The branch name does select the oldest one, so its hint keeps the name.
+    env.but("resolve conflicts A")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+Resolve with `but resolve apply <path>[:<N>] --commit A --ours|--theirs` or pipe mixed content into `but resolve apply <path>:<N> --commit A`. `but resolve --ai` resolves everything at once.
+
+"#]]);
+
+    // The printed command resolves the listed commit and leaves the older one conflicted.
+    env.but("resolve apply shared.txt:1 --commit run --ours")
+        .assert()
+        .success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊◐   run newer change (no changes)
+┊◐   tnr older change (no changes) {conflicted}
+├╯
+┊
+┴ 7f73771 (common base, main, origin/main) 2000-01-02 upstream change
+
+Hint: run `but help` for all commands
+
+"#]]);
 }

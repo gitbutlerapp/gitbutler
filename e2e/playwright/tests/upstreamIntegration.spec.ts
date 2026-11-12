@@ -28,6 +28,16 @@ async function expectWorkspaceCommitParentToBeOriginMaster(pathToRepo: string) {
 		.toBe(git(pathToRepo, ["rev-parse", "origin/master"]));
 }
 
+async function expectCheckoutToReachOriginMaster(pathToRepo: string) {
+	await expect
+		.poll(() => git(pathToRepo, ["rev-parse", "HEAD"]), {
+			message: "Expected HEAD to land on origin/master once the last stack integrated",
+			intervals: [100, 200, 500, 1000],
+		})
+		.toBe(git(pathToRepo, ["rev-parse", "origin/master"]));
+	expect(git(pathToRepo, ["branch", "--list", "gitbutler/workspace"])).toBe("");
+}
+
 async function expectWorkspaceCommitToStayParentedToRemainingStack(pathToRepo: string) {
 	await expect
 		.poll(() => git(pathToRepo, ["rev-parse", "gitbutler/workspace^@"]).split("\n").length, {
@@ -120,7 +130,7 @@ test("should handle the update of workspace with integrated branch gracefully", 
 	await waitForTestIdToNotExist(page, "stack");
 });
 
-test("should reparent workspace commit to advanced target after integrating all stacks", async ({
+test("should check out the advanced target after integrating all stacks", async ({
 	page,
 	gitbutler,
 }) => {
@@ -138,10 +148,8 @@ test("should reparent workspace commit to advanced target after integrating all 
 	await syncAndIntegrate(page);
 
 	await waitForTestIdToNotExist(page, "stack");
-	await expectWorkspaceCommitParentToBeOriginMaster(localClone);
-	expect(git(localClone, ["rev-parse", "master"])).toBe(
-		git(localClone, ["rev-parse", "origin/master"]),
-	);
+	await expectCheckoutToReachOriginMaster(localClone);
+	expect(git(localClone, ["symbolic-ref", "--short", "HEAD"])).toBe("master");
 });
 
 test("should preserve a diverged local target branch during upstream integration", async ({
@@ -174,12 +182,13 @@ test("should preserve a diverged local target branch during upstream integration
 	);
 	await syncAndIntegrate(page);
 
-	await waitForTestIdToNotExist(page, "stack");
+	await expectCheckoutToReachOriginMaster(localClone);
+	expect(git(localClone, ["symbolic-ref", "--short", "HEAD"])).not.toBe("master");
 	expect(git(localClone, ["rev-parse", "master"])).toBe(localMaster);
 	expect(git(localClone, ["rev-parse", "origin/master"])).not.toBe(localMaster);
 });
 
-test("should reparent workspace commit to advanced merge target after integrating all stacks", async ({
+test("should check out the advanced merge target after integrating all stacks", async ({
 	page,
 	gitbutler,
 }) => {
@@ -197,7 +206,8 @@ test("should reparent workspace commit to advanced merge target after integratin
 	await syncAndIntegrate(page);
 
 	await waitForTestIdToNotExist(page, "stack");
-	await expectWorkspaceCommitParentToBeOriginMaster(localClone);
+	await expectCheckoutToReachOriginMaster(localClone);
+	expect(git(localClone, ["symbolic-ref", "--short", "HEAD"])).toBe("master");
 });
 
 test("should handle the update of workspace with integrated parent branch in stack gracefully", async ({

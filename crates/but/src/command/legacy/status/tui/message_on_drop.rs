@@ -2,9 +2,6 @@ use std::sync::mpsc::Sender;
 
 use crate::command::legacy::status::tui::Message;
 
-/// Create a `MessageOnDrop` which, as the name implies, will send a message from its `Drop`
-/// implementation.
-///
 /// This can be used as a sort of RAII guard that'll guarantee we clean up state.
 pub fn message_on_drop(msg: Message, messages: &mut Vec<Message>) -> MessageOnDrop {
     let (tx, rx) = std::sync::mpsc::channel::<Message>();

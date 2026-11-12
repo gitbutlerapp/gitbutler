@@ -1,5 +1,3 @@
-//! Step graph traversal helpers.
-
 use std::collections::HashSet;
 
 use anyhow::Result;

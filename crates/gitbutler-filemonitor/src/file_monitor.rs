@@ -65,7 +65,6 @@ impl FileMonitorHandle {
 
 const ENV_WATCH_MODE: &str = "GITBUTLER_WATCH_MODE";
 
-/// Control how the filesystem watch should be established.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WatchMode {
     /// Recursively watch the worktree (and an extra git-dir if the repo uses
@@ -98,22 +97,6 @@ impl std::str::FromStr for WatchMode {
 }
 
 impl WatchMode {
-    /// Initialise the mode from the environment.
-    pub fn from_env() -> Self {
-        let Ok(mode) = std::env::var(ENV_WATCH_MODE) else {
-            return Self::Auto;
-        };
-
-        mode.parse().ok().unwrap_or_else(|| {
-            tracing::warn!(
-                env = ENV_WATCH_MODE,
-                value = mode,
-                "unknown watch mode; falling back to auto"
-            );
-            WatchMode::Auto
-        })
-    }
-
     /// Initialise the mode from `watch_mode_from_settings`, with environment variable override.
     /// If the environment variable `GITBUTLER_WATCH_MODE` is set, it overrides the feature flag.
     /// Otherwise, the feature flag value is used.
@@ -174,7 +157,6 @@ fn setup_watch_plan(
     git_dir: &Path,
     linked_git_dirs: &[&Path],
 ) -> Result<()> {
-    // Start the watcher, but retry if there are transient errors.
     backoff::retry(watch_backoff_policy(), || {
         let mut paths = debouncer.watcher().paths_mut();
         let mut add_error: Option<(std::path::PathBuf, notify::Error)> = None;
@@ -229,7 +211,6 @@ fn setup_legacy_watch(
         }
     };
 
-    // Start the watcher, but retry if there are transient errors.
     backoff::retry(watch_backoff_policy(), || {
         debouncer
             .watcher()
@@ -882,7 +863,6 @@ impl WatchedCheckout {
     }
 }
 
-/// A classification for a changed file.
 #[derive(Debug, Eq, PartialEq)]
 enum FileKind {
     /// A file in the `.git` repository of the current project itself.

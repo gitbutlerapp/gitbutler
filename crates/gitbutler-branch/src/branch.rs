@@ -10,12 +10,6 @@ pub struct BranchUpdateRequest {
     pub order: Option<usize>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub struct BranchCreateRequest {
-    pub name: Option<String>,
-    pub order: Option<usize>,
-}
-
 /// The identity of a branch as to allow to group similar branches together.
 ///
 /// * For *local* branches, it is what's left without the standard prefix, like `refs/heads`, e.g. `main`

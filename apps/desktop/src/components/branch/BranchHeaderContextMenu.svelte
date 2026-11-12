@@ -13,7 +13,7 @@
 	/**
 	 * Anchor for creating a dependent branch next to `segment`. In a managed workspace a
 	 * reference-relative "below" hands every commit of the segment to the new branch, so it is
-	 * anchored below the segment's bottom commit instead (as Lite does); an empty segment or an
+	 * anchored below the segment's bottom commit instead; an empty segment or an
 	 * ad-hoc workspace keeps the reference-relative request.
 	 */
 	export function createBranchRelativeTo(

@@ -746,6 +746,7 @@ fn row_stack_ids(lines: &[StatusOutputLine]) -> Vec<Option<StackId>> {
                     committed_file: CommittedFileId { commit_id, .. },
                     id: _,
                     hunk: _,
+                    tree_status: _,
                 }) => {
                     let stack_id = commit_stack_ids
                         .get(commit_id)

@@ -3,7 +3,6 @@ use ratatui::text::Span;
 
 use crate::utils::targeting::Side;
 
-/// Direction in which to extend a graph connector line.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExtensionDirection {
     /// Build the connector for a synthetic line rendered above the source line.
@@ -30,8 +29,6 @@ impl From<Side> for ExtensionDirection {
     }
 }
 
-/// Build a connector extension line for the provided connector spans.
-///
 /// The returned connector preserves the input connector width (character count),
 /// and applies graph-continuity rules per connector glyph.
 ///
@@ -48,8 +45,6 @@ where
     out.extend([Span::raw(extend_connector_text(&connector_text, direction))]);
 }
 
-/// Build a connector extension string for a connector prefix.
-///
 /// This function preserves the number of characters in `connector`.
 ///
 /// Graph rules:
@@ -74,7 +69,6 @@ fn extend_connector_text(connector: &str, direction: ExtensionDirection) -> Stri
         .collect()
 }
 
-/// Map one connector glyph to its extension glyph in the chosen direction.
 const fn extension_char(ch: char, direction: ExtensionDirection) -> char {
     match ch {
         ' ' => ' ',

@@ -1,6 +1,6 @@
 //! What a project can wear as its icon, as but.dev's repository picker offers it: the repo
-//! glyph in one of ui-react's colours, or an emoji, what a repository is about first, then
-//! ui-react's set, each found by its name and keywords.
+//! glyph in one of its colours, or an emoji, what a repository is about first, then a shared
+//! set, each found by its name and keywords.
 
 use std::sync::LazyLock;
 
@@ -9,7 +9,7 @@ use gpui::{AnyElement, IntoElement as _, Pixels, Styled as _, div, img, prelude:
 use super::{Icon, icon};
 use crate::theme::Theme;
 
-/// The repo glyph in one of its colours, as ui-react's `EntityGlyph` draws it.
+/// The repo glyph in one of its colours, as but.dev's `RepoGlyph` draws it.
 pub struct Colour {
     /// What but.dev stores after `glyph:`; the outline is stored as no icon at all.
     pub key: &'static str,
@@ -29,7 +29,7 @@ impl Colour {
     }
 }
 
-/// The glyph's colours, in the order ui-react's picker offers them: the outline first.
+/// The glyph's colours, in the order but.dev's picker offers them: the outline first.
 pub const COLOURS: [Colour; 7] = [
     Colour::new("outline", "Outline", None),
     Colour::new("pop", "Teal", Some(Icon::RepoPop)),
@@ -40,7 +40,7 @@ pub const COLOURS: [Colour; 7] = [
     Colour::new("gray", "Gray", Some(Icon::RepoGray)),
 ];
 
-/// The colours whose name holds every word of `query`, as ui-react finds them, by their
+/// The colours whose name holds every word of `query`, as but.dev finds them, by their
 /// name and "colour color glyph".
 pub fn search_colours(query: &str) -> Vec<&'static Colour> {
     let words: Vec<String> = query.split_whitespace().map(str::to_lowercase).collect();
@@ -128,30 +128,105 @@ const REPOSITORY: [(&str, &str, &str); 21] = [
     ("🤡", "clown", "circus joker"),
 ];
 
-/// ui-react's choices, one to a line as `{ emoji: "🐶", name: "dog", keywords: "…" },`.
-const UI_REACT: &str = include_str!("../../../../packages/ui-react/src/entityAvatarChoices.ts");
+/// The rest of the set, chosen to tell things apart at a glance, as but-ui-react's avatar picker
+/// offered them before but.dev took the picker over.
+const SHARED: [(&str, &str, &str); 84] = [
+    ("🕹️", "joystick", "game arcade"),
+    ("🐶", "dog", "puppy pet animal"),
+    ("🐱", "cat", "kitten pet animal"),
+    ("🐸", "frog", "animal green"),
+    ("🐻", "bear", "animal"),
+    ("🌻", "sunflower", "flower plant yellow"),
+    ("🐙", "octopus", "animal sea"),
+    ("🦄", "unicorn", "animal magic"),
+    ("🐝", "bee", "insect animal honey"),
+    ("🍕", "pizza", "food"),
+    ("🌵", "cactus", "plant desert green"),
+    ("🚀", "rocket", "space launch ship"),
+    ("🎸", "guitar", "music instrument"),
+    ("🍩", "doughnut", "donut food sweet"),
+    ("🌈", "rainbow", "weather colour"),
+    ("🔥", "fire", "flame hot"),
+    ("🦖", "dinosaur", "t-rex animal"),
+    ("🍉", "watermelon", "fruit food"),
+    ("⚡", "lightning", "bolt zap electric fast"),
+    ("🐧", "penguin", "animal bird linux"),
+    ("🍋", "lemon", "fruit food yellow"),
+    ("💻", "laptop", "computer machine mac"),
+    ("🖥️", "desktop computer", "machine monitor screen"),
+    ("📺", "television", "tv screen"),
+    ("📱", "phone", "mobile device"),
+    ("⌨️", "keyboard", "computer typing"),
+    ("🤖", "robot", "bot agent ai machine"),
+    ("👾", "alien monster", "game space invader"),
+    ("🛰️", "satellite", "space orbit remote"),
+    ("☁️", "cloud", "weather remote server"),
+    ("🌙", "moon", "night crescent"),
+    ("⭐", "star", "favourite"),
+    ("🪐", "planet", "saturn space"),
+    ("🌍", "globe", "earth world planet"),
+    ("🏔️", "mountain", "snow peak"),
+    ("🌊", "wave", "sea ocean water"),
+    ("🍀", "clover", "luck plant green"),
+    ("🌲", "tree", "evergreen forest plant"),
+    ("🍄", "mushroom", "plant fungus"),
+    ("🐢", "turtle", "animal slow"),
+    ("🦊", "fox", "animal"),
+    ("🐼", "panda", "animal bear"),
+    ("🦉", "owl", "animal bird night"),
+    ("🐳", "whale", "animal sea docker"),
+    ("🦀", "crab", "animal sea rust"),
+    ("🐞", "ladybug", "insect bug animal"),
+    ("🦋", "butterfly", "insect animal"),
+    ("🍓", "strawberry", "fruit food"),
+    ("🥑", "avocado", "fruit food green"),
+    ("🌮", "taco", "food"),
+    ("☕", "coffee", "drink hot cup"),
+    ("🍪", "cookie", "food sweet biscuit"),
+    ("🎮", "game controller", "gamepad play"),
+    ("🎲", "dice", "game random"),
+    ("🧩", "puzzle", "piece jigsaw"),
+    ("🎯", "target", "bullseye dart"),
+    ("🎨", "palette", "art paint design"),
+    ("📚", "books", "library read"),
+    ("🔬", "microscope", "science lab"),
+    ("🧪", "test tube", "science lab experiment"),
+    ("🔭", "telescope", "space science"),
+    ("⚙️", "gear", "settings cog machine"),
+    ("🔧", "wrench", "tool fix spanner"),
+    ("🧲", "magnet", "attract"),
+    ("💡", "light bulb", "idea"),
+    ("🔋", "battery", "power energy"),
+    ("📡", "antenna", "satellite dish signal remote"),
+    ("🗿", "moai", "statue stone"),
+    ("🏰", "castle", "building"),
+    ("🚲", "bicycle", "bike"),
+    ("⛵", "sailboat", "boat sea"),
+    ("✈️", "airplane", "plane travel flight"),
+    ("🎈", "balloon", "party"),
+    ("👻", "ghost", "spooky halloween"),
+    ("💎", "gem", "diamond jewel"),
+    ("🔮", "crystal ball", "magic"),
+    ("🧭", "compass", "direction navigate"),
+    ("🏆", "trophy", "win prize"),
+    ("🎹", "piano", "music keyboard instrument"),
+    ("🎧", "headphones", "music audio"),
+    ("📷", "camera", "photo picture"),
+    ("🌋", "volcano", "mountain eruption"),
+    ("🍔", "burger", "hamburger food"),
+    ("🐿️", "chipmunk", "squirrel animal"),
+];
 
 /// Every emoji to pick from, in the picker's order, each once.
 fn all() -> &'static [Emoji] {
     static ALL: LazyLock<Vec<Emoji>> = LazyLock::new(|| {
-        let repository = REPOSITORY.iter().map(|&(emoji, name, keywords)| Emoji {
+        let mut all: Vec<Emoji> = Vec::new();
+        let choices = REPOSITORY.iter().chain(&SHARED);
+        for emoji in choices.map(|&(emoji, name, keywords)| Emoji {
             emoji,
             name,
             keywords,
-        });
-        let shared = UI_REACT.lines().filter_map(|line| {
-            let rest = line.trim().strip_prefix("{ emoji: \"")?;
-            let (emoji, rest) = rest.split_once("\", name: \"")?;
-            let (name, rest) = rest.split_once("\", keywords: \"")?;
-            let keywords = rest.strip_suffix("\" },")?;
-            Some(Emoji {
-                emoji,
-                name,
-                keywords,
-            })
-        });
-        let mut all: Vec<Emoji> = Vec::new();
-        for emoji in repository.chain(shared) {
+        }) {
             if !all.iter().any(|seen| seen.emoji == emoji.emoji) {
                 all.push(emoji);
             }
@@ -178,11 +253,8 @@ mod tests {
     use super::{ProjectIcon, all, search, search_colours};
 
     #[test]
-    fn ui_reacts_emoji_are_read_after_the_repository_ones() {
-        assert!(
-            all().len() > 60,
-            "ui-react's list reads, one to a line, as entityAvatarChoices.ts writes it"
-        );
+    fn shared_emoji_come_after_the_repository_ones() {
+        assert!(all().len() > 60, "the shared set follows the repository's");
         assert_eq!(all()[0].emoji, "📂", "the repository's own come first");
         assert_eq!(
             search("pet animal")

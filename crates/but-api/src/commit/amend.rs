@@ -1,8 +1,8 @@
-use crate::{WorkspaceState, commit::json::ChangesSource};
+use crate::commit::json::ChangesSource;
 use but_api_macros::but_api;
 use but_core::{DiffSpec, DryRun, sync::RepoExclusive};
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::{Editor, LookupStep as _};
+use but_transaction::{Commit, with_transaction_with_perm_only};
 use but_workspace::commit::ChangeSource;
 use gix::bstr::ByteSlice;
 use tracing::instrument;
@@ -23,7 +23,6 @@ pub fn commit_amend_only(
     changes_source: ChangesSource,
     dry_run: DryRun,
 ) -> anyhow::Result<CommitCreateResult> {
-    let context_lines = ctx.settings.context_lines;
     let mut guard = ctx.exclusive_worktree_access();
     commit_amend_only_impl(
         ctx,
@@ -31,7 +30,6 @@ pub fn commit_amend_only(
         changes,
         &changes_source,
         dry_run,
-        context_lines,
         guard.write_permission(),
     )
 }
@@ -42,45 +40,24 @@ pub(crate) fn commit_amend_only_impl(
     changes: Vec<DiffSpec>,
     changes_source: &ChangesSource,
     dry_run: DryRun,
-    context_lines: u32,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitCreateResult> {
     let worktree = crate::worktrees::open_changes_source(ctx, changes_source)?;
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-
-    let but_workspace::commit::CommitAmendOutcome {
-        rebase,
-        commit_selector,
-        rejected_specs,
-    } = but_workspace::commit::commit_amend(
-        editor,
-        commit_id,
-        changes,
-        context_lines,
-        worktree
-            .as_ref()
-            .map_or(ChangeSource::Head, |(name, repo)| ChangeSource::Worktree {
-                repo,
-                name: name.as_bstr(),
-            }),
-    )?;
-
-    let new_commit = commit_selector
-        .map(|commit_selector| rebase.lookup_pick(commit_selector))
-        .transpose()?;
-    let workspace = WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?;
-
-    // `commit_amend_only_impl()` is called in a loop in at least one caller, so we have to put ws
-    // back.
-    drop(repo);
-    drop(db);
-    ctx.update_workspace_cache(ws);
+    let (_, (amended, workspace)) =
+        with_transaction_with_perm_only(ctx, &mut meta, perm, dry_run, |mut tx| {
+            let source = worktree
+                .as_ref()
+                .map_or(ChangeSource::Head, |(name, repo)| ChangeSource::Worktree {
+                    repo,
+                    name: name.as_bstr(),
+                });
+            Ok(Commit(tx.amend_commit(commit_id, changes, source)?))
+        })?;
 
     Ok(CommitCreateResult {
-        new_commit,
-        rejected_specs,
+        new_commit: amended.new_commit.map(|commit| commit.id),
+        rejected_specs: amended.rejected_specs,
         workspace,
     })
 }
@@ -104,7 +81,6 @@ pub fn commit_amend(
     changes_source: ChangesSource,
     dry_run: DryRun,
 ) -> anyhow::Result<CommitCreateResult> {
-    let context_lines = ctx.settings.context_lines;
     let mut guard = ctx.exclusive_worktree_access();
     let worktree_ref = crate::worktrees::changes_source_ref(ctx, &changes_source)?;
     let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
@@ -121,7 +97,6 @@ pub fn commit_amend(
         changes,
         &changes_source,
         dry_run,
-        context_lines,
         guard.write_permission(),
     );
     if let Some(snapshot) = maybe_oplog_entry

@@ -1,8 +1,5 @@
-/// Options for use in [super::safe_checkout_from_head()].
 #[derive(Default, Debug, Clone)]
 pub struct Options {
-    /// If `true`, do not change `HEAD` to the new commit.
-    ///
     /// This is typically to be avoided, but may be used if you want to change the HEAD location yourself.
     pub skip_head_update: bool,
     /// If set, use this tree instead of `HEAD^{tree}` as the merge base when
@@ -12,8 +9,6 @@ pub struct Options {
     /// commit/amend so the consumed hunks cancel in the 3-way merge and don't
     /// reappear as uncommitted changes.
     pub merge_base_override: Option<gix::ObjectId>,
-    /// Allow checking out GitButler-managed conflicted commits.
-    ///
     /// Most callers should keep the default refusal and surface a higher-level
     /// conflict workflow instead. Rebase materialization may opt in when it
     /// intentionally created the conflicted commit it is about to materialize.
@@ -25,7 +20,6 @@ pub struct Options {
     pub allow_uncommitted_changes_to_conflict_with_new_head: bool,
 }
 
-/// The successful outcome of [super::safe_checkout_from_head()] operation.
 #[derive(Clone)]
 pub struct Outcome {
     /// If `new_head_id` was a commit, these are the ref-edits returned after performing the transaction.
@@ -35,5 +29,32 @@ pub struct Outcome {
     pub conflict_occurred: bool,
 }
 
+/// Why [super::safe_checkout_from_head()] refused: uncommitted changes would be overwritten.
+///
+/// It sits below the [`but_error::Context`] with the message, so callers can tell this refusal
+/// from other preconditions by downcasting to it.
+#[derive(Debug)]
+pub struct UncommittedChangesInTheWay;
+
+impl std::fmt::Display for UncommittedChangesInTheWay {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("uncommitted changes are in the way")
+    }
+}
+
+impl UncommittedChangesInTheWay {
+    /// The refusal to overwrite the uncommitted changes at `paths`, quoted and sorted.
+    pub(in crate::worktree::checkout) fn refusal(paths: &[String]) -> anyhow::Error {
+        anyhow::anyhow!(UncommittedChangesInTheWay).context(
+            but_error::Context::new(format!(
+                "Uncommitted files would be overwritten by checkout: {}",
+                paths.join(", ")
+            ))
+            .with_code(but_error::Code::PreconditionFailed),
+        )
+    }
+}
+
 pub(crate) mod function;
 mod utils;
+mod write;

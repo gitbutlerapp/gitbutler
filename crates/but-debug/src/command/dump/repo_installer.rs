@@ -18,7 +18,6 @@ use super::{
     portable_file_options, sorted_children, stored_file_options,
 };
 
-/// Execute the `dump repo-installer` subcommand.
 pub(super) fn run(
     args: &Args,
     installer_args: &RepoInstallerArgs,

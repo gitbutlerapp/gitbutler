@@ -9,7 +9,6 @@ use crate::{
     CommitFlags, Edge, Graph, Segment, SegmentIndex, SegmentMetadata, StopCondition, init::PetGraph,
 };
 
-/// Debugging
 impl Graph {
     /// Assure that no PII is left in the graph, by deterministically anonymizing branch names.
     ///
@@ -362,7 +361,6 @@ impl Graph {
             .max()
     }
 
-    /// Return `true` if more than one unique worktree is referenced by the graph.
     pub(crate) fn has_multiple_worktrees(&self) -> bool {
         let mut first: Option<&crate::WorktreeKind> = None;
         self.node_weights()
@@ -398,7 +396,6 @@ impl Graph {
         display_graph.dot_graph_unpruned()
     }
 
-    /// Produces a dot-version of the graph without pruning.
     fn dot_graph_unpruned(&self) -> String {
         const HEX: usize = 7;
         let entrypoint = self.entrypoint_location();

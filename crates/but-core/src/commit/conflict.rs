@@ -70,7 +70,6 @@ pub fn strip_conflict_markers(message: &BStr) -> BString {
     let msg_bytes = message.as_bytes();
     let line_ending = line_ending_for(msg_bytes);
 
-    // Strip the subject prefix if present.
     let without_prefix = msg_bytes
         .strip_prefix(CONFLICT_MESSAGE_PREFIX)
         .unwrap_or(msg_bytes);

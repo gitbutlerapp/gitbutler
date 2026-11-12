@@ -10,26 +10,71 @@
 //! wait 500                # milliseconds
 //! key cmd-shift-n         # a keystroke, as in key bindings
 //! type hello world        # text, one keystroke per character
+//! mods alt                # hold modifiers alone, as `cmd`, `alt` and `shift`; with none, let
+//!                         # them go
 //! move 120 300            # window coordinates in logical pixels; with the button held
-//!                         # after `press` or `drag … hold`, a drag's move
+//!                         # after `press` or `drag … hold`, a drag's move; append `cmd`,
+//!                         # `alt` or `shift` to hold them
+//! leave 120 -10           # the pointer goes out of the window there, as macOS says only that
+//!                         # it left, with no move outside
 //! click 120 300           # also dclick and tclick; append `cmd`, `alt` or `shift` to
 //!                         # hold them
-//! rclick 120 300
+//! rclick 120 300         # the right button, and mclick the middle one; with the left
+//!                         # held after `press`, they keep it down, as a hand does
+//! fclick 120 300          # the click that brings the window in front, which only does that
 //! press 120 300           # press the left button there and keep it down, so `move`s
 //!                         # drag with frames between them, as a hand does
 //! drag 120 300 120 500    # append `cmd`, `alt` or `shift` to hold them on letting go, and
 //!                         # `hold` to keep the button down
 //! drop 120 500            # let go of a held drag there
 //! release 120 500         # let go without moving there first, as a hand does
+//! files 120 500 /a /b     # drag those files in from another app, as the Finder does, and
+//!                         # hold them there
+//! files drop 120 500      # let go of them there; each its own line, as macOS sends each
+//!                         # as an event of its own
 //! scroll 900 400 300      # scroll by 300 logical pixels at a window position
 //! scroll 900 400 0 200    # and by 200 to the right
+//! wheel 900 400 1         # turn a mouse's notched wheel 1 notch there, down; -1 up
+//! pinch 900 400 0.5       # pinch a trackpad there, zooming in by half again, out below 0
 //! add /path/to/repo       # add a project, as Add a repository does with the folder picked
+//! pref status-bar off     # show or hide a part, status-bar, headers or diff-controls, as
+//!                         # Settings › Appearance does, or menu-bar, as Settings › Developer
+//! navigator top           # put the navigator across the top, or at the `side`, as Settings
+//!                         # › Appearance does
+//! layout files on         # a layout command, as `scripts/control.sh` gives a dev build the
+//!                         # user looks at (`dev/control.rs`); then print how it's laid out
 //! sh but commit -m x      # run a shell command, as an agent or another app would
 //! size 900 500           # resize the window, in logical pixels
+//! window graph            # send what follows to a graph's own window, or back with `window
+//!                         # main`; prints `WINDOWS 2`, how many are open
+//! activate                # count the window as the active one, as no script's window ever
+//!                         # is; it then draws after any other, as it does with the pointer
+//!                         # over it, so `fclick` in another acts as it would on screen
+//! close                   # the window's close button, as AppKit presses it: `QUIT` says
+//!                         # when that ends the app
+//! controls linux          # draw and handle GNOME's window buttons, on any platform, with
+//!                         # no room for macOS's traffic lights
 //! shot /tmp/view.png      # render the current frame to a PNG, a pixel per logical pixel, so
 //!                         # a point read off it is one `click` takes
 //! shot /tmp/a.png 0 0 400 300  # only that region, in logical pixels, at the display's scale
+//! clock stop              # stop the clock motion is drawn at (`clock::now`), so folds and
+//!                         # slides move only as `tick` and `film` move it; `clock run` runs
+//!                         # it again from there
+//! tick 8                  # move the stopped clock on 8ms
+//! film /tmp/f 240 8       # draw a frame every 8ms of the stopped clock for 240ms, saving each
+//!                         # as `shot` does, all of them labelled in a grid in sheet.png, and
+//!                         # printing what changed in each from the frame before, in clusters
+//!                         # of nearby pixels, largest first, as `FILM 003 t=24ms changed
+//!                         # 2.1% in 2 places: 340x80 at 0,96 (5400px Δ255), 2x2 at 330,60
+//!                         # (4px Δ30)`: size, place, pixels and the most one changed (0–255);
+//!                         # a change in frame 000 is marked `JUMP`, and one after the film
+//!                         # had held still `SNAP`, on its line and on the last
+//! film /tmp/f 240 8 0 0 400 300  # only that region
+//! film /tmp/f 240 8 -- click 306 66  # save before.png, run the input, then film it, on a
+//!                         # clock stopped for the while
 //! keys                    # print what typing would reach, as `KEYS Workspace > Navigator`
+//! window other            # send what follows to the window that isn't the main one, as the
+//!                         # command editor; `window main` goes back, as closing it does
 //! perf next key down      # time an input until loads settle, plus one frame, and the
 //!                         # longest the UI thread was busy meanwhile (`stall`)
 //! perf startup            # time from launch until the first loads settle
@@ -39,6 +84,11 @@
 //! quit
 //! ```
 
+mod control;
+
+pub(crate) use control::layout;
+
+use std::cell::Cell;
 use std::path::PathBuf;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -46,18 +96,70 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context as _, Result, bail};
 use gpui::{
-    AnyWindowHandle, App, AppContext as _, KeyUpEvent, Keystroke, Modifiers, ModifiersChangedEvent,
-    MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, PlatformInput, Point,
-    ScrollDelta, ScrollWheelEvent, TouchPhase, Window, point,
+    AnyWindowHandle, App, AppContext as _, FileDropEvent, KeyUpEvent, Keystroke, Modifiers,
+    ModifiersChangedEvent, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PinchEvent,
+    Pixels, PlatformInput, Point, ScrollDelta, ScrollWheelEvent, TouchPhase, Window, point,
 };
+use image::RgbaImage;
 use parking_lot::Mutex;
 
 use crate::app::AppView;
+use crate::clock;
+use crate::detail::GraphWindow;
+use crate::state::{NavigatorPlace, Prefs};
 
 static LAUNCHED: OnceLock<Instant> = OnceLock::new();
 
+/// The most frames a `film` draws, so a slip in its numbers doesn't run for minutes.
+const MOST_FRAMES: usize = 240;
+
+/// How many of a frame's clusters of changed pixels `film` describes, the largest.
+const CLUSTERS: usize = 3;
+
+/// How close changed pixels are to be in one cluster, in a frame's pixels: close enough that a
+/// word's letters make one, not one each.
+const REACH: u32 = 2;
+
+/// How many pixels a side a `film`'s sheet has at most, the frames shrunk to fit: an agent sees
+/// no more of an image than that.
+const SHEET_SIDE: u32 = 2000;
+
+/// The pixels between a sheet's frames, and their colour.
+const GAP: u32 = 4;
+const GAP_COLOR: image::Rgba<u8> = image::Rgba([128, 128, 128, 255]);
+
 /// Whether the left button is down between commands, after `press` or `drag … hold`.
 static PRESSED: AtomicBool = AtomicBool::new(false);
+/// The script is over, so the app quitting says nothing about what it did.
+static ENDED: AtomicBool = AtomicBool::new(false);
+/// `controls linux` was asked for.
+static LINUX_CONTROLS: AtomicBool = AtomicBool::new(false);
+
+thread_local! {
+    /// The window counted as active, as no script's window really is: see [`is_active`].
+    static ACTIVE: Cell<Option<AnyWindowHandle>> = const { Cell::new(None) };
+}
+
+pub fn is_active(window: &Window) -> bool {
+    ACTIVE.get() == Some(window.window_handle())
+}
+
+/// What `window.activate_window()` would do: count it as active. For real AppKit would show it
+/// and could take the user's keys.
+pub fn activate(window: &mut Window) {
+    let name = match window.root::<AppView>().flatten() {
+        Some(_) => "main",
+        None => "graph",
+    };
+    ACTIVE.set(Some(window.window_handle()));
+    window.refresh();
+    eprintln!("ACTIVATED {name}");
+}
+
+/// Whether to draw and handle GNOME's window buttons here, whatever the platform.
+pub fn linux_controls() -> bool {
+    LINUX_CONTROLS.load(Ordering::Relaxed)
+}
 
 /// Since when the UI thread's longest busy stretch is being kept, and how long it was. Nothing
 /// can be drawn while that thread is busy, so at 120Hz no stretch should pass 8.3ms.
@@ -125,6 +227,12 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
         ),
     );
     watch_stalls(cx);
+    cx.on_app_quit(|_| async {
+        if !ENDED.load(Ordering::Relaxed) {
+            eprintln!("QUIT");
+        }
+    })
+    .detach();
     // In the window, where a script sees and clicks them, not in a native alert, and in the
     // log, where it reads what the narrow dialog cuts off.
     cx.set_prompt_builder(|level, message, detail, actions, handle, window, cx| {
@@ -133,6 +241,8 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
     });
     cx.spawn(async move |cx| {
         use futures::StreamExt as _;
+        let main = window;
+        let mut window = window;
         let mut line_no = 0;
         while let Some(line) = script.next().await {
             line_no += 1;
@@ -145,6 +255,10 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
                 continue;
             }
             let (command, rest) = line.split_once(' ').unwrap_or((line, ""));
+            // A window a step closed leaves the script with the main one.
+            if cx.update_window(window, |_, _, _| ()).is_err() {
+                window = main;
+            }
             // A failed step is reported and the script goes on, so it still reaches `quit`.
             let result: Result<()> = async {
                 match command {
@@ -156,7 +270,25 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
                         Ok(())
                     }
                     "quit" => {
+                        ENDED.store(true, Ordering::Relaxed);
                         cx.update(|cx| cx.quit());
+                        Ok(())
+                    }
+                    "window" => {
+                        let windows = cx.update(|cx| cx.windows());
+                        window = match rest {
+                            "main" => main,
+                            "graph" => (windows.iter())
+                                .copied()
+                                .find(|window| window.downcast::<GraphWindow>().is_some())
+                                .context("no graph window is open")?,
+                            "other" => (windows.iter())
+                                .copied()
+                                .find(|window| *window != main)
+                                .context("no other window is open")?,
+                            _ => anyhow::bail!("window takes main, graph or other"),
+                        };
+                        eprintln!("WINDOWS {}", windows.len());
                         Ok(())
                     }
                     "hold" => {
@@ -197,6 +329,7 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
                         );
                         Ok(())
                     }
+                    "film" => film(rest, window, cx).await,
                     "perf" => {
                         let (label, input) = rest.split_once(' ').unwrap_or((rest, ""));
                         // Draw first so the timing doesn't include catching up on earlier steps.
@@ -235,12 +368,18 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
                         );
                         Ok(())
                     }
-                    _ => cx.update_window(window, |_, window, cx| {
+                    _ => {
                         // macOS stops drawing windows that aren't on screen; draw now so
                         // hit-testing and screenshots see the current state.
-                        frame(window, cx);
-                        dispatch(command, rest, window, cx)
-                    })?,
+                        cx.update_window(window, |_, window, cx| frame(window, cx))?;
+                        if let Some(active) = ACTIVE.get().filter(|active| *active != window) {
+                            cx.update_window(active, |_, window, cx| frame(window, cx))
+                                .ok();
+                        }
+                        cx.update_window(window, |_, window, cx| {
+                            dispatch(command, rest, window, cx)
+                        })?
+                    }
                 }
             }
             .await;
@@ -257,6 +396,7 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
         }
         // No one sees the window, so it has nothing left to do once the script ends: at the
         // end of the file, or when the last writer closes the pipe.
+        ENDED.store(true, Ordering::Relaxed);
         cx.update(|cx| cx.quit());
     })
     .detach();
@@ -289,6 +429,495 @@ async fn frames(window: AnyWindowHandle, cx: &mut gpui::AsyncApp) -> Result<Dura
             .await;
     }
     Ok(slowest)
+}
+
+/// `film`: draw a frame every so often of the stopped clock, as a display would, and save each,
+/// a sheet of them all, and what changed in each. Given an input after `--`, it saves the frame
+/// before it, runs it, and films on a clock it stops for the while.
+async fn film(rest: &str, window: AnyWindowHandle, cx: &mut gpui::AsyncApp) -> Result<()> {
+    let (rest, input) = match rest.split_once(" -- ") {
+        Some((rest, input)) => (rest, Some(input.trim())),
+        None => (rest, None),
+    };
+    let (dir, length, every, region) = match (trailing_numbers(rest), trailing_numbers(rest)) {
+        (Some((dir, [length, every, x, y, width, height])), _) => {
+            (dir, length, every, Some([x, y, width, height]))
+        }
+        (None, Some((dir, [length, every]))) => (dir, length, every, None),
+        (None, None) => bail!(
+            "film takes a folder, how many ms and every how many, then a region, then -- and an input"
+        ),
+    };
+    anyhow::ensure!(
+        clock::stopped() || input.is_some(),
+        "film moves a stopped clock: `clock stop` before the input it films, or give film the input after --"
+    );
+    anyhow::ensure!(
+        every > 0.,
+        "film draws a frame every so many ms, more than 0"
+    );
+    let tick = Duration::try_from_secs_f32(every / 1e3)?;
+    let count = (length / every).max(0.) as usize + 1;
+    anyhow::ensure!(
+        count <= MOST_FRAMES,
+        "film draws at most {MOST_FRAMES} frames"
+    );
+    let dir = PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).with_context(|| format!("creating {}", dir.display()))?;
+    // Where a frame's pixels are in the window: a region's are at the display's scale.
+    let scale = cx.update_window(window, |_, window, _| window.scale_factor())?;
+    let (origin, scale) = match region {
+        Some([x, y, _, _]) => (point(x, y), scale),
+        None => (point(0., 0.), 1.),
+    };
+    let running = !clock::stopped();
+    let filmed = async {
+        let tiles = count + usize::from(input.is_some());
+        let (mut sheet, mut last, mut last_change) = (None::<Sheet>, None::<RgbaImage>, None);
+        // Whether frame 000 changed, before the clock moved, when the changes after the film
+        // had held still came, and whether it holds still now after changing.
+        let (mut jumped, mut snaps, mut held) = (false, Vec::new(), false);
+        if let Some(input) = input {
+            clock::stop();
+            let image = cx.update_window(window, |_, window, cx| {
+                frame(window, cx);
+                capture(region, window)
+            })??;
+            save(&image, &dir.join("before.png"))?;
+            println!("FILM before");
+            (sheet.get_or_insert_with(|| Sheet::new(tiles, image.dimensions())))
+                .add(0, &image, "before");
+            last = Some(image);
+            let (command, rest) = input.split_once(' ').unwrap_or((input, ""));
+            cx.update_window(window, |_, window, cx| dispatch(command, rest, window, cx))??;
+            cx.background_executor()
+                .timer(Duration::from_millis(1))
+                .await;
+        }
+        for n in 0..count {
+            let image = cx.update_window(window, |_, window, cx| {
+                if n > 0 {
+                    clock::tick(tick);
+                }
+                frame(window, cx);
+                capture(region, window)
+            })??;
+            save(&image, &dir.join(format!("{n:03}.png")))?;
+            let at = n as f32 * every;
+            let change = match last.as_ref().map(|last| changed(last, &image)) {
+                None => String::new(),
+                Some(None) => {
+                    held = last_change.is_some();
+                    " unchanged".to_owned()
+                }
+                Some(Some(change)) => {
+                    let mark = match (n, held) {
+                        (0, _) => {
+                            jumped = true;
+                            " JUMP"
+                        }
+                        (_, true) => {
+                            snaps.push(at);
+                            " SNAP"
+                        }
+                        (_, false) => "",
+                    };
+                    held = false;
+                    last_change = Some(at);
+                    format!("{mark} {}", describe(&change, origin, scale))
+                }
+            };
+            println!("FILM {n:03} t={at:.0}ms{change}");
+            (sheet.get_or_insert_with(|| Sheet::new(tiles, image.dimensions()))).add(
+                tiles - count + n,
+                &image,
+                &format!("{at:.0}ms"),
+            );
+            last = Some(image);
+            // Let what the frame started run, as the display's next beat would.
+            cx.background_executor()
+                .timer(Duration::from_millis(1))
+                .await;
+        }
+        anyhow::Ok((sheet, last_change, jumped, snaps))
+    }
+    .await;
+    if running {
+        clock::run();
+    }
+    let (sheet, last_change, jumped, snaps) = filmed?;
+    let Some(sheet) = sheet else {
+        return Ok(());
+    };
+    save(&sheet.image, &dir.join("sheet.png"))?;
+    let last_change = match last_change {
+        Some(at) => format!("the last change at {at:.0}ms"),
+        None => "nothing changed".to_owned(),
+    };
+    let before = match input {
+        Some(_) => " and before.png",
+        None => "",
+    };
+    // On this line too, so a read that keeps only it still sees them.
+    let jump = match jumped {
+        true => "; JUMP at 0ms",
+        false => "",
+    };
+    let snap = match snaps.is_empty() {
+        true => String::new(),
+        false => {
+            let at: Vec<String> = snaps.iter().map(|at| format!("{at:.0}ms")).collect();
+            format!("; SNAP at {}", at.join(", "))
+        }
+    };
+    println!(
+        "FILM {count} frames{before} in {}, {last_change}{jump}{snap}; sheet.png has them {} to a row",
+        dir.display(),
+        sheet.columns,
+    );
+    Ok(())
+}
+
+fn save(image: &RgbaImage, path: &std::path::Path) -> Result<()> {
+    (image.save(path)).with_context(|| format!("saving {}", path.display()))
+}
+
+/// What changed between two frames: how many of their pixels, of how many, and the clusters of
+/// those near one another, the largest first.
+struct Change {
+    count: u64,
+    total: u64,
+    clusters: Vec<Cluster>,
+}
+
+/// Changed pixels within [`REACH`] of one another: how many, their least and greatest x and y, in the
+/// frames' pixels, and how far the most changed of them did, from 0 to 255 in a channel.
+struct Cluster {
+    count: u64,
+    low: (u32, u32),
+    high: (u32, u32),
+    delta: u8,
+}
+
+impl Cluster {
+    fn new(x: u32, y: u32, delta: u8) -> Cluster {
+        Cluster {
+            count: 1,
+            low: (x, y),
+            high: (x, y),
+            delta,
+        }
+    }
+
+    fn add(&mut self, x: u32, y: u32, delta: u8) {
+        self.count += 1;
+        self.low = (self.low.0.min(x), self.low.1.min(y));
+        self.high = (self.high.0.max(x), self.high.1.max(y));
+        self.delta = self.delta.max(delta);
+    }
+}
+
+fn changed(before: &RgbaImage, after: &RgbaImage) -> Option<Change> {
+    let (width, height) = after.dimensions();
+    let total = u64::from(width) * u64::from(height);
+    if before.dimensions() != after.dimensions() {
+        let mut all = Cluster::new(0, 0, u8::MAX);
+        all.add(width.saturating_sub(1), height.saturating_sub(1), u8::MAX);
+        all.count = total;
+        return Some(Change {
+            count: total,
+            total,
+            clusters: Vec::from([all]),
+        });
+    }
+    // How far each pixel changed, in its most changed channel.
+    let mut deltas = image::GrayImage::from_fn(width, height, |x, y| {
+        let (was, now) = (before.get_pixel(x, y), after.get_pixel(x, y));
+        let delta =
+            (was.0.iter().zip(now.0)).fold(0, |most, (was, now)| most.max(was.abs_diff(now)));
+        image::Luma([delta])
+    });
+    let (mut clusters, mut reached) = (Vec::new(), Vec::new());
+    for y in 0..height {
+        for x in 0..width {
+            let Some(delta) = take(&mut deltas, x, y) else {
+                continue;
+            };
+            let mut cluster = Cluster::new(x, y, delta);
+            reached.push((x, y));
+            while let Some((x, y)) = reached.pop() {
+                for y in y.saturating_sub(REACH)..=y + REACH {
+                    for x in x.saturating_sub(REACH)..=x + REACH {
+                        if let Some(delta) = take(&mut deltas, x, y) {
+                            cluster.add(x, y, delta);
+                            reached.push((x, y));
+                        }
+                    }
+                }
+            }
+            clusters.push(cluster);
+        }
+    }
+    clusters.sort_by_key(|cluster| std::cmp::Reverse(cluster.count));
+    (!clusters.is_empty()).then(|| Change {
+        count: clusters.iter().map(|cluster| cluster.count).sum(),
+        total,
+        clusters,
+    })
+}
+
+/// How far pixel `x`, `y` changed, if it did and no cluster has it yet; one has it after.
+fn take(deltas: &mut image::GrayImage, x: u32, y: u32) -> Option<u8> {
+    let image::Luma([delta]) = deltas.get_pixel_mut_checked(x, y)?;
+    (*delta > 0).then(|| std::mem::take(delta))
+}
+
+/// A change as a FILM line says it: the share of the frame, then its largest clusters, each its
+/// size at its place in the window, in points, then its pixels in the frame's and how far the
+/// most changed of them did.
+fn describe(change: &Change, origin: Point<f32>, scale: f32) -> String {
+    let share = change.count as f32 / change.total as f32 * 100.;
+    let share = match share < 0.1 {
+        true => "<0.1%".to_owned(),
+        false => format!("{share:.1}%"),
+    };
+    let mut clusters: Vec<String> = (change.clusters.iter().take(CLUSTERS))
+        .map(|cluster| {
+            let (x, y) = (cluster.low.0 as f32 / scale, cluster.low.1 as f32 / scale);
+            let width = ((cluster.high.0 - cluster.low.0 + 1) as f32 / scale).max(1.);
+            let height = ((cluster.high.1 - cluster.low.1 + 1) as f32 / scale).max(1.);
+            format!(
+                "{width:.0}x{height:.0} at {:.0},{:.0} ({}px Δ{})",
+                origin.x + x,
+                origin.y + y,
+                cluster.count,
+                cluster.delta,
+            )
+        })
+        .collect();
+    let rest = change.clusters.get(CLUSTERS..).unwrap_or_default();
+    if !rest.is_empty() {
+        clusters.push(format!(
+            "and {} more ({}px Δ≤{})",
+            rest.len(),
+            rest.iter().map(|cluster| cluster.count).sum::<u64>(),
+            rest.iter().fold(0, |most, cluster| most.max(cluster.delta)),
+        ));
+    }
+    let places = match change.clusters.len() {
+        1 => "1 place".to_owned(),
+        n => format!("{n} places"),
+    };
+    format!("changed {share} in {places}: {}", clusters.join(", "))
+}
+
+/// A `film`'s frames in a grid, a row at a time, each labelled.
+struct Sheet {
+    image: RgbaImage,
+    columns: u32,
+    tile: (u32, u32),
+}
+
+/// A sheet's layout: how many frames a row, how much they shrink to, and how far from square
+/// the sheet is.
+struct Layout {
+    columns: u32,
+    fit: f32,
+    lopsided: f32,
+}
+
+impl Sheet {
+    /// Room for `count` frames `width` by `height`, in the columns that keep them largest within
+    /// [`SHEET_SIDE`], and the squarest sheet of those.
+    fn new(count: usize, (width, height): (u32, u32)) -> Sheet {
+        let count = count.max(1) as u32;
+        let (width, height) = (width.max(1), height.max(1));
+        let best = (1..=count)
+            .map(|columns| {
+                let rows = count.div_ceil(columns);
+                let across = SHEET_SIDE.saturating_sub((columns - 1) * GAP) as f32
+                    / (columns * width) as f32;
+                let down =
+                    SHEET_SIDE.saturating_sub((rows - 1) * GAP) as f32 / (rows * height) as f32;
+                let fit = across.min(down).min(1.);
+                let lopsided = ((columns * width) as f32 / (rows * height) as f32)
+                    .ln()
+                    .abs();
+                Layout {
+                    columns,
+                    fit,
+                    lopsided,
+                }
+            })
+            .max_by(|a, b| (a.fit.total_cmp(&b.fit)).then(b.lopsided.total_cmp(&a.lopsided)));
+        let Layout { columns, fit, .. } = best.unwrap_or(Layout {
+            columns: 1,
+            fit: 1.,
+            lopsided: 0.,
+        });
+        let rows = count.div_ceil(columns);
+        let tile = (
+            ((width as f32 * fit).round() as u32).max(1),
+            ((height as f32 * fit).round() as u32).max(1),
+        );
+        Sheet {
+            image: RgbaImage::from_pixel(
+                columns * (tile.0 + GAP) - GAP,
+                rows * (tile.1 + GAP) - GAP,
+                GAP_COLOR,
+            ),
+            columns,
+            tile,
+        }
+    }
+
+    /// Put frame `n` in its place, `label` at its top left.
+    fn add(&mut self, n: usize, frame: &RgbaImage, label: &str) {
+        let n = n as u32;
+        let (width, height) = self.tile;
+        let mut tile =
+            image::imageops::resize(frame, width, height, image::imageops::FilterType::Triangle);
+        draw_label(&mut tile, label);
+        let x = (n % self.columns) * (width + GAP);
+        let y = (n / self.columns) * (height + GAP);
+        image::imageops::replace(&mut self.image, &tile, x.into(), y.into());
+    }
+}
+
+/// `label` in white on black at the top left of `tile`, in [`glyph`]'s font, scaled up to read
+/// on the sheet.
+fn draw_label(tile: &mut RgbaImage, label: &str) {
+    const BLACK: image::Rgba<u8> = image::Rgba([0, 0, 0, 255]);
+    const WHITE: image::Rgba<u8> = image::Rgba([255, 255, 255, 255]);
+    // A font pixel's side, in the tile's.
+    let size = (tile.width() / 100).clamp(2, 4);
+    let advance = 6 * size;
+    let chars = label.chars().count() as u32;
+    fill(
+        tile,
+        (0, 0),
+        (2 * size + chars * advance - size, 9 * size),
+        BLACK,
+    );
+    for (at, c) in (0..).zip(label.chars()) {
+        let Some(rows) = glyph(c) else {
+            continue;
+        };
+        for (row, bits) in (0..).zip(rows) {
+            for column in 0..5 {
+                if bits & (0b10000 >> column) != 0 {
+                    let x = size + at * advance + column * size;
+                    fill(tile, (x, size + row * size), (size, size), WHITE);
+                }
+            }
+        }
+    }
+}
+
+/// Paint the rectangle at `at` of `size` in `color`, as much of it as is in `image`.
+fn fill(image: &mut RgbaImage, at: (u32, u32), size: (u32, u32), color: image::Rgba<u8>) {
+    for y in at.1..at.1 + size.1 {
+        for x in at.0..at.0 + size.0 {
+            if let Some(pixel) = image.get_pixel_mut_checked(x, y) {
+                *pixel = color;
+            }
+        }
+    }
+}
+
+/// A 5×7 pixel font with what a sheet's labels say: each glyph's rows, top first, its left
+/// column the highest of five bits.
+fn glyph(c: char) -> Option<[u8; 7]> {
+    Some(match c {
+        '0' => [
+            0b01110, 0b10001, 0b10011, 0b10101, 0b11001, 0b10001, 0b01110,
+        ],
+        '1' => [
+            0b00100, 0b01100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110,
+        ],
+        '2' => [
+            0b01110, 0b10001, 0b00001, 0b00010, 0b00100, 0b01000, 0b11111,
+        ],
+        '3' => [
+            0b11111, 0b00010, 0b00100, 0b00010, 0b00001, 0b10001, 0b01110,
+        ],
+        '4' => [
+            0b00010, 0b00110, 0b01010, 0b10010, 0b11111, 0b00010, 0b00010,
+        ],
+        '5' => [
+            0b11111, 0b10000, 0b11110, 0b00001, 0b00001, 0b10001, 0b01110,
+        ],
+        '6' => [
+            0b00110, 0b01000, 0b10000, 0b11110, 0b10001, 0b10001, 0b01110,
+        ],
+        '7' => [
+            0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b01000, 0b01000,
+        ],
+        '8' => [
+            0b01110, 0b10001, 0b10001, 0b01110, 0b10001, 0b10001, 0b01110,
+        ],
+        '9' => [
+            0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b00010, 0b01100,
+        ],
+        'b' => [
+            0b10000, 0b10000, 0b10110, 0b11001, 0b10001, 0b10001, 0b11110,
+        ],
+        'e' => [
+            0b00000, 0b00000, 0b01110, 0b10001, 0b11111, 0b10000, 0b01110,
+        ],
+        'f' => [
+            0b00110, 0b01001, 0b01000, 0b11100, 0b01000, 0b01000, 0b01000,
+        ],
+        'm' => [
+            0b00000, 0b00000, 0b11010, 0b10101, 0b10101, 0b10101, 0b10101,
+        ],
+        'o' => [
+            0b00000, 0b00000, 0b01110, 0b10001, 0b10001, 0b10001, 0b01110,
+        ],
+        'r' => [
+            0b00000, 0b00000, 0b10110, 0b11001, 0b10000, 0b10000, 0b10000,
+        ],
+        's' => [
+            0b00000, 0b00000, 0b01111, 0b10000, 0b01110, 0b00001, 0b11110,
+        ],
+        _ => return None,
+    })
+}
+
+/// `rest` up to its last `N` words, and those, when they're all numbers: a path before them may
+/// have spaces.
+fn trailing_numbers<const N: usize>(rest: &str) -> Option<(&str, [f32; N])> {
+    let mut numbers = [0.; N];
+    let mut before = rest.trim_end();
+    for number in numbers.iter_mut().rev() {
+        let (head, word) = before.rsplit_once(' ')?;
+        *number = word.parse().ok()?;
+        before = head.trim_end();
+    }
+    Some((before, numbers))
+}
+
+/// The current frame as `shot` saves it: the window at its own scale, so where something shows
+/// is where to click it, or a region of it at the display's, for a closer look.
+fn capture(region: Option<[f32; 4]>, window: &mut Window) -> Result<RgbaImage> {
+    let image = window.render_to_image()?;
+    let scale = window.scale_factor();
+    Ok(match region {
+        None => image::imageops::resize(
+            &image,
+            (image.width() as f32 / scale).round() as u32,
+            (image.height() as f32 / scale).round() as u32,
+            image::imageops::FilterType::Triangle,
+        ),
+        Some([x, y, width, height]) => image::imageops::crop_imm(
+            &image,
+            (x * scale) as u32,
+            (y * scale) as u32,
+            (width * scale) as u32,
+            (height * scale) as u32,
+        )
+        .to_image(),
+    })
 }
 
 /// One frame as the display link would draw it: what waits for the next frame runs, then the
@@ -337,6 +966,13 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             window.dispatch_event(PlatformInput::KeyUp(KeyUpEvent { keystroke }), cx);
             window.dispatch_event(hold(Modifiers::default()), cx);
         }
+        "mods" => {
+            let event = ModifiersChangedEvent {
+                modifiers,
+                capslock: Default::default(),
+            };
+            window.dispatch_event(PlatformInput::ModifiersChanged(event), cx);
+        }
         "type" => {
             for ch in rest.chars() {
                 let key = if ch == ' ' {
@@ -352,12 +988,24 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
         "move" => {
             let at = at()?;
             let pressed = PRESSED.load(Ordering::Relaxed).then_some(MouseButton::Left);
-            window.dispatch_event(mouse_move(at, pressed, Modifiers::default()), cx);
+            window.dispatch_event(mouse_move(at, pressed, modifiers), cx);
+        }
+        "leave" => {
+            let at = at()?;
+            let pressed = PRESSED.load(Ordering::Relaxed).then_some(MouseButton::Left);
+            window.dispatch_event(
+                PlatformInput::MouseExited(gpui::MouseExitEvent {
+                    position: at,
+                    pressed_button: pressed,
+                    modifiers,
+                }),
+                cx,
+            );
         }
         "press" => {
             let at = at()?;
             window.dispatch_event(
-                mouse_down(MouseButton::Left, at, Modifiers::default(), 1),
+                mouse_down(MouseButton::Left, at, Modifiers::default(), 1, false),
                 cx,
             );
             PRESSED.store(true, Ordering::Relaxed);
@@ -378,13 +1026,47 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                 cx,
             );
         }
-        "click" | "rclick" | "dclick" | "tclick" => {
-            let at = at()?;
-            let button = if command == "rclick" {
-                MouseButton::Right
-            } else {
-                MouseButton::Left
+        "wheel" => {
+            let [x, y, notches] = numbers()?[..] else {
+                bail!("wheel takes x y notches");
             };
+            window.dispatch_event(
+                PlatformInput::ScrollWheel(ScrollWheelEvent {
+                    position: point(Pixels::from(x), Pixels::from(y)),
+                    // As the platform sends a notch: a line, or on Windows the three lines its
+                    // setting gives one unless changed.
+                    delta: ScrollDelta::Lines(point(
+                        0.,
+                        -notches * if cfg!(target_os = "windows") { 3. } else { 1. },
+                    )),
+                    modifiers: Modifiers::default(),
+                    touch_phase: TouchPhase::Moved,
+                }),
+                cx,
+            );
+        }
+        "pinch" => {
+            let [x, y, delta] = numbers()?[..] else {
+                bail!("pinch takes x y and how much it zooms by");
+            };
+            window.dispatch_event(
+                PlatformInput::Pinch(PinchEvent {
+                    position: point(Pixels::from(x), Pixels::from(y)),
+                    delta,
+                    modifiers: Modifiers::default(),
+                    phase: TouchPhase::Moved,
+                }),
+                cx,
+            );
+        }
+        "click" | "rclick" | "mclick" | "dclick" | "tclick" | "fclick" => {
+            let at = at()?;
+            let button = match command {
+                "rclick" => MouseButton::Right,
+                "mclick" => MouseButton::Middle,
+                _ => MouseButton::Left,
+            };
+            let held = PRESSED.load(Ordering::Relaxed).then_some(MouseButton::Left);
             // A double or triple click is the clicks before it, then one with that count, a
             // frame apart, as a hand's are, so each sees what the one before it changed.
             let clicks = match command {
@@ -396,9 +1078,14 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                 if count > 1 {
                     frame(window, cx);
                 }
-                window.dispatch_event(mouse_move(at, None, modifiers), cx);
-                window.dispatch_event(mouse_down(button, at, modifiers, count), cx);
-                window.dispatch_event(mouse_up(button, at, modifiers, count), cx);
+                window.dispatch_event(mouse_move(at, held, modifiers), cx);
+                let first = command == "fclick";
+                window.dispatch_event(mouse_down(button, at, modifiers, count, first), cx);
+                // With the left one held, AppKit's release of another button stops before the
+                // app, as `keep_drags_through_other_buttons` has it.
+                if held.is_none() {
+                    window.dispatch_event(mouse_up(button, at, modifiers, count), cx);
+                }
             }
         }
         "drag" => {
@@ -410,7 +1097,7 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                 point(Pixels::from(x2), Pixels::from(y2)),
             );
             let left = MouseButton::Left;
-            window.dispatch_event(mouse_down(left, from, Modifiers::default(), 1), cx);
+            window.dispatch_event(mouse_down(left, from, Modifiers::default(), 1, false), cx);
             for step in 1..=8 {
                 let t = step as f32 / 8.;
                 let at = point(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t);
@@ -441,6 +1128,37 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             window.dispatch_event(mouse_up(left, at, Modifiers::default(), 1), cx);
             PRESSED.store(false, Ordering::Relaxed);
         }
+        // Files dragged in from another app, as macOS hands them over: in and over the window,
+        // then let go.
+        "files" => {
+            let mut parts = rest.split_whitespace().peekable();
+            let dropped = parts.next_if_eq(&"drop").is_some();
+            let mut number = || -> Result<Pixels> {
+                let n = parts.next().context("files takes x y")?;
+                Ok(Pixels::from(n.parse::<f32>().context("expected a number")?))
+            };
+            let position = point(number()?, number()?);
+            let events = match dropped {
+                true => vec![FileDropEvent::Submit { position }],
+                false => vec![
+                    FileDropEvent::Entered {
+                        position,
+                        paths: gpui::ExternalPaths(parts.map(PathBuf::from).collect()),
+                    },
+                    FileDropEvent::Pending { position },
+                ],
+            };
+            for event in events {
+                window.dispatch_event(PlatformInput::FileDrop(event), cx);
+                frame(window, cx);
+            }
+        }
+        // What macOS would hand the running app for a `but://` link.
+        "link" => {
+            let app = window.root::<AppView>().flatten().context("no app view")?;
+            let incoming = crate::backend::links::Incoming::Link(rest.to_owned());
+            app.update(cx, |app, cx| crate::links::open(incoming, app, window, cx));
+        }
         // What the system's folder picker would hand Add a repository.
         "add" => {
             let app = window.root::<AppView>().flatten().context("no app view")?;
@@ -449,12 +1167,64 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                     .update(cx, |store, cx| store.add_project(PathBuf::from(rest), cx))
             });
         }
-        // The window as if another app's covered it, or shown again.
-        "hide" | "show" => {
+        // Where Settings › Appearance would put the navigator, without opening it.
+        "navigator" => {
+            let place = match rest.trim() {
+                "side" => NavigatorPlace::Side,
+                "top" => NavigatorPlace::Top,
+                _ => bail!("navigator takes side or top"),
+            };
             let app = window.root::<AppView>().flatten().context("no app view")?;
             app.update(cx, |app, cx| {
-                (app.store).update(cx, |store, cx| store.set_visible(command == "show", cx))
+                (app.store).update(cx, |store, cx| {
+                    store.set_prefs(move |p| p.navigator_place = place, cx)
+                })
             });
+        }
+        // A part Settings › Appearance would show or hide, without opening it.
+        "pref" => {
+            let (part, state) = rest.split_once(' ').unwrap_or((rest, ""));
+            let on = match state.trim() {
+                "on" => true,
+                "off" => false,
+                _ => bail!("pref takes a part, then on or off"),
+            };
+            // Whether the flag says the part is left out, or that it's drawn.
+            let (flag, hides): (fn(&mut Prefs) -> &mut bool, bool) = match part {
+                "status-bar" => (|p| &mut p.hide_status_bar, true),
+                "headers" => (|p| &mut p.messages_in_diff, true),
+                "full-messages" => (|p| &mut p.full_messages, false),
+                "diff-controls" => (|p| &mut p.hide_diff_controls, true),
+                "menu-bar" => (|p| &mut p.menu_bar_everywhere, false),
+                "terminal-overview" => (|p| &mut p.hide_terminal_overview, true),
+                _ => bail!(
+                    "pref takes status-bar, headers, full-messages, diff-controls, menu-bar or \
+                     terminal-overview"
+                ),
+            };
+            let set = on != hides;
+            let app = window.root::<AppView>().flatten().context("no app view")?;
+            app.update(cx, |app, cx| {
+                (app.store).update(cx, |store, cx| store.set_prefs(move |p| *flag(p) = set, cx))
+            });
+        }
+        "layout" => {
+            control::run(rest, window, cx)?;
+            for line in control::describe(window, cx)?.lines() {
+                println!("LAYOUT {line}");
+            }
+        }
+        // The window as if another app's covered it, or shown again.
+        "hide" | "show" => {
+            let id = window.window_handle().window_id();
+            let store = match window.root::<AppView>().flatten() {
+                Some(app) => app.read(cx).store.clone(),
+                None => {
+                    let graph = window.root::<GraphWindow>().flatten();
+                    graph.context("no app view")?.read(cx).store.clone()
+                }
+            };
+            store.update(cx, |store, cx| store.set_visible(id, command == "show", cx));
         }
         // What an agent, another app or the user does outside the app meanwhile.
         "sh" => {
@@ -472,40 +1242,39 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             window.resize(gpui::size(Pixels::from(width), Pixels::from(height)));
         }
         "shot" => {
-            // A path may have spaces, so a region is the last four words, when they're numbers.
-            let (path, region): (&str, Option<[f32; 4]>) =
-                match rest.rsplitn(5, ' ').collect::<Vec<_>>()[..] {
-                    [height, width, y, x, path] => {
-                        match (x.parse(), y.parse(), width.parse(), height.parse()) {
-                            (Ok(x), Ok(y), Ok(width), Ok(height)) => {
-                                (path, Some([x, y, width, height]))
-                            }
-                            _ => (rest, None),
-                        }
-                    }
-                    _ => (rest, None),
-                };
-            let image = window.render_to_image()?;
-            let scale = window.scale_factor();
-            let image = match region {
-                // At the window's own scale, so where something shows is where to click it.
-                None => image::imageops::resize(
-                    &image,
-                    (image.width() as f32 / scale).round() as u32,
-                    (image.height() as f32 / scale).round() as u32,
-                    image::imageops::FilterType::Triangle,
-                ),
-                // A closer look, so every pixel the display has.
-                Some([x, y, width, height]) => image::imageops::crop_imm(
-                    &image,
-                    (x * scale) as u32,
-                    (y * scale) as u32,
-                    (width * scale) as u32,
-                    (height * scale) as u32,
-                )
-                .to_image(),
+            // A region is the last four words, when they're numbers.
+            let (path, region) = match trailing_numbers(rest) {
+                Some((path, region)) => (path, Some(region)),
+                None => (rest, None),
             };
-            image.save(path).with_context(|| format!("saving {path}"))?;
+            (capture(region, window)?)
+                .save(path)
+                .with_context(|| format!("saving {path}"))?;
+        }
+        "clock" => match rest {
+            "stop" => clock::stop(),
+            "run" => clock::run(),
+            _ => bail!("clock takes stop or run"),
+        },
+        "tick" => {
+            let by = rest.parse::<f32>().context("tick takes milliseconds")?;
+            let by = Duration::try_from_secs_f32(by / 1e3).context("tick takes milliseconds")?;
+            anyhow::ensure!(clock::tick(by), "the clock runs: `clock stop` first");
+        }
+        "activate" => activate(window),
+        "close" => {
+            let closes = match window.root::<AppView>().flatten() {
+                Some(app) => app.update(cx, |app, cx| app.should_close(window, cx)),
+                None => true,
+            };
+            if closes {
+                window.remove_window();
+            }
+        }
+        "controls" => {
+            anyhow::ensure!(rest == "linux", "controls takes linux");
+            LINUX_CONTROLS.store(true, Ordering::Relaxed);
+            cx.refresh_windows();
         }
         // The key contexts from the window down to what's focused, by their names.
         "keys" => {
@@ -536,13 +1305,14 @@ fn mouse_down(
     position: Point<Pixels>,
     modifiers: Modifiers,
     click_count: usize,
+    first_mouse: bool,
 ) -> PlatformInput {
     PlatformInput::MouseDown(MouseDownEvent {
         button,
         position,
         modifiers,
         click_count,
-        first_mouse: false,
+        first_mouse,
     })
 }
 

@@ -84,9 +84,22 @@ fn main() -> anyhow::Result<()> {
     } else {
         custom_settings
     };
+    // Every GitButler client writes the settings file the first time it runs, so without one,
+    // this is the first launch on this machine.
+    #[cfg(feature = "builtin-gpui")]
+    let first_launch = !but_settings::AppSettings::default_settings_path(&config_dir).exists();
     let mut app_settings =
         AppSettingsWithDiskSync::new_with_customization(config_dir, custom_settings)
             .expect("failed to create app settings");
+    // New users start in the native client. The choice is saved, so turning it off later stays
+    // off. Users who had settings from an older version are not new.
+    #[cfg(feature = "builtin-gpui")]
+    if first_launch && !app_settings.get()?.telemetry.migrated_from_legacy {
+        app_settings.update_feature_flags(but_settings::api::FeatureFlagsUpdate {
+            gpui: Some(true),
+            ..Default::default()
+        })?;
+    }
 
     // The native client, on the same settings, accounts and keychain entries. It owns the main
     // thread until it quits, so it starts here, before Tauri does.
@@ -104,6 +117,7 @@ fn main() -> anyhow::Result<()> {
         inherit_interactive_login_shell_environment_if_not_launched_from_terminal();
         // It asks the web app's update feed, as often as the web app would, and installs what
         // it offers with a run of this binary, `install_update_for_gpui`.
+        use tauri::utils::{config::BundleType, platform::bundle_type};
         #[allow(deprecated)]
         let interval = app_settings.get()?.ui.check_for_updates_interval_in_seconds;
         but_gpui::run(Some(but_gpui::Embedded {
@@ -112,6 +126,7 @@ fn main() -> anyhow::Result<()> {
                 .then(|| update_feed(&tauri_context))
                 .flatten(),
             check_every: std::time::Duration::from_secs(interval),
+            manual_install: matches!(bundle_type(), Some(BundleType::Deb | BundleType::Rpm)),
         }));
         return Ok(());
     }
@@ -237,7 +252,6 @@ fn main() -> anyhow::Result<()> {
 
                 let app_handle_for_deep_link = app_handle.clone();
                 app_handle.deep_link().on_open_url(move |_| {
-                    // Get main window
                     if let Some(window) = app_handle_for_deep_link.get_window("main") {
                         let _ = window.unminimize();
                         let _ = window.show();
@@ -316,17 +330,13 @@ fn main() -> anyhow::Result<()> {
                 legacy::projects::tauri_is_gerrit::is_gerrit,
                 legacy::repo::tauri_check_signing_settings::check_signing_settings,
                 legacy::repo::tauri_git_clone_repository::git_clone_repository,
-                legacy::repo::tauri_get_commit_file::get_commit_file,
                 legacy::repo::tauri_get_workspace_file::get_workspace_file,
                 legacy::repo::tauri_get_blob_file::get_blob_file,
-                legacy::repo::tauri_find_files::find_files,
                 legacy::repo::tauri_pre_commit_hook_diffspecs::pre_commit_hook_diffspecs,
                 legacy::repo::tauri_post_commit_hook::post_commit_hook,
                 legacy::repo::tauri_message_hook::message_hook,
-                legacy::virtual_branches::tauri_create_virtual_branch::create_virtual_branch,
                 legacy::virtual_branches::tauri_delete_local_branch::delete_local_branch,
                 legacy::virtual_branches::tauri_get_base_branch_data::get_base_branch_data,
-                legacy::virtual_branches::tauri_set_base_branch::set_base_branch,
                 legacy::virtual_branches::tauri_switch_back_to_workspace::switch_back_to_workspace,
                 legacy::virtual_branches::tauri_update_stack_order::update_stack_order,
                 legacy::virtual_branches::tauri_unapply_stack::unapply_stack,
@@ -348,10 +358,7 @@ fn main() -> anyhow::Result<()> {
                 legacy::config::tauri_set_gb_config::set_gb_config,
                 legacy::config::tauri_store_author_globally_if_unset::store_author_globally_if_unset,
                 legacy::config::tauri_get_author_info::get_author_info,
-                legacy::remotes::tauri_list_remotes::list_remotes,
-                legacy::remotes::tauri_add_remote::add_remote,
                 legacy::modes::tauri_operating_mode::operating_mode,
-                legacy::modes::tauri_head_sha::head_sha,
                 legacy::modes::tauri_enter_edit_mode::enter_edit_mode,
                 legacy::modes::tauri_save_edit_and_return_to_workspace::save_edit_and_return_to_workspace,
                 legacy::modes::tauri_abort_edit_and_return_to_workspace::abort_edit_and_return_to_workspace,

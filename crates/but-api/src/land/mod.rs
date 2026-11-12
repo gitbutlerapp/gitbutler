@@ -42,6 +42,7 @@ use anyhow::{Context as _, bail};
 use but_api_macros::but_api;
 use but_core::DryRun;
 use but_ctx::Context;
+use but_error::bail_precondition;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use gitbutler_git::GitContextExt as _;
 use gix::prelude::ObjectIdExt;
@@ -60,17 +61,14 @@ pub enum BranchLandKind {
     AlreadyIntegrated,
     /// The target advanced to `new_target_oid` (a fast-forward to the branch tip, or a merge commit).
     Updated {
-        /// The commit the target now points at.
         new_target_oid: gix::ObjectId,
         /// The commit the target pointed at before landing, for undo recipes.
         prev_target_oid: gix::ObjectId,
     },
 }
 
-/// The result of landing a branch onto the target.
 #[derive(Debug, Clone)]
 pub struct BranchLandResult {
-    /// What landing did to the target.
     pub landed: BranchLandKind,
     /// The landed branches whose copy on the push remote was deleted after the land (only copies
     /// fully contained in the landed target are deleted).
@@ -82,11 +80,9 @@ pub struct BranchLandResult {
     /// tracking ref hadn't caught up yet, or uncommitted worktree changes conflicted with the
     /// rebase. The land itself succeeded; the caller should suggest running `but pull`.
     pub reconcile_skipped: bool,
-    /// The post-land workspace state.
     pub workspace: WorkspaceState,
 }
 
-/// JSON transport types for the land API.
 pub mod json {
     use crate::json::HexHash;
     use serde::Serialize;
@@ -166,8 +162,6 @@ pub mod json {
     }
 }
 
-/// Reject target configurations that landing cannot handle.
-///
 /// A target without an upstream is landed locally, so only targets with an upstream are checked.
 /// Call this before confirmation or mutation; landing checks it again after reloading the repo.
 pub fn ensure_supported_target_upstream(
@@ -187,14 +181,14 @@ pub fn ensure_supported_target_upstream(
         .filter(|name| !name.is_empty())
         .unwrap_or(&fetch_remote);
     if push_remote != fetch_remote {
-        bail!(
+        bail_precondition!(
             "`but merge` does not yet support triangular remotes (fetch `{fetch_remote}`, \
              push `{push_remote}`). Merge via a pull request instead, or configure a single \
              remote for the target branch."
         );
     }
     if local.shorten() != upstream_branch {
-        bail!(
+        bail_precondition!(
             "`but merge` requires matching local and upstream branch names (local `{}`, upstream `{upstream_branch}`). Merge via a pull request instead.",
             local.shorten(),
         );
@@ -590,7 +584,7 @@ pub fn ensure_landable_checkout(ws: &but_graph::Workspace) -> anyhow::Result<()>
             && name.as_bstr() != gitbutler_operating_modes::EDIT_BRANCH_REF
     });
     if !ws.kind.has_managed_ref() && !single_branch_checkout {
-        bail!("`but merge` requires the GitButler workspace or a checked-out branch.");
+        bail_precondition!("`but merge` requires the GitButler workspace or a checked-out branch.");
     }
     Ok(())
 }
@@ -610,7 +604,7 @@ fn validate_branch_landing(
     whole_stack: bool,
 ) -> anyhow::Result<Vec<String>> {
     let Some(scan) = scan_stack(ctx, branch)? else {
-        bail!(
+        bail_precondition!(
             "Refusing to land `{branch}`: it is not in the workspace. Apply or check out the branch first."
         );
     };
@@ -619,12 +613,12 @@ fn validate_branch_landing(
         // Judge "top of the stack" by position, not by names: a segment whose branch ref was
         // deleted still holds commits that "land the entire stack" would have to include.
         if let Some(top) = scan.upper_segments.first() {
-            bail!(
+            bail_precondition!(
                 "Refusing to land `{branch}` with --whole-stack: it is not the top of its stack. \
                  --whole-stack lands the entire stack; name its top segment `{top}` instead.",
             );
         }
-        bail!(
+        bail_precondition!(
             "Refusing to land `{branch}` with --whole-stack: it is not the top of its stack — \
              unnamed segment(s) with commits sit above it (their branch refs no longer exist), so \
              landing `{branch}` would not land the entire stack.",
@@ -635,14 +629,14 @@ fn validate_branch_landing(
     let publishes_below = scan.commits_below > 0 || !scan.lower_segments.is_empty();
     if publishes_below && !whole_stack {
         if scan.lower_segments.is_empty() {
-            bail!(
+            bail_precondition!(
                 "Refusing to land `{branch}`: {} commit(s) on unnamed segment(s) below it would \
                  also be published to {target_display}. Pass --whole-stack to land `{branch}` \
                  together with everything below it.",
                 scan.commits_below,
             );
         }
-        bail!(
+        bail_precondition!(
             "Refusing to land `{branch}`: it is stacked on top of {} other segment(s) ({}) \
              whose commits would also be published to {target_display}. Land the bottom segment \
              `{}`, or pass --whole-stack to land `{branch}` together with everything below it.",
@@ -653,7 +647,7 @@ fn validate_branch_landing(
     }
 
     if !scan.conflicted.is_empty() {
-        bail!(
+        bail_precondition!(
             "Cannot land `{branch}`: it would publish {} conflicted commit{} ({}). \
              Resolve them first with `but resolve <commit>`.",
             scan.conflicted.len(),

@@ -42,7 +42,6 @@ impl UintId {
     }
 }
 
-/// Lifecycle
 impl UintId {
     /// Pick the first 2 to three characters and see if they are a valid `UintId`.
     /// Return `None` for `value` has more than three characters or less than two.
@@ -82,7 +81,6 @@ impl UintId {
     }
 }
 
-/// A tracker of which [UintId]s have been used.
 #[derive(Default, Debug)]
 pub(crate) struct IdUsage {
     /// A [UintId] is used if it's in this set.

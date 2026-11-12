@@ -23,13 +23,6 @@ impl Refname {
         }
     }
 
-    pub fn with_branch(&self, branch: &str) -> Self {
-        Self {
-            branch: branch.to_string(),
-            remote: self.remote.clone(),
-        }
-    }
-
     pub fn branch(&self) -> &str {
         &self.branch
     }

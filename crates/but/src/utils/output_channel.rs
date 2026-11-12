@@ -15,7 +15,6 @@ use crate::{
     },
 };
 
-/// Default value for a confirmation prompt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConfirmDefault {
     Yes,
@@ -40,7 +39,6 @@ pub enum ConfirmOrEmpty {
 
 /// A utility `std::io::Write` implementation that can always be used to generate output for humans or for scripts.
 pub struct OutputChannel {
-    /// How to print the output, one should match on it. Match on this if you prefer this style.
     format: OutputFormat,
     /// The output to use if there is no pager.
     stdout: std::io::Stdout,
@@ -49,7 +47,6 @@ pub struct OutputChannel {
     /// When `Some`, JSON values written via `write_value` are captured here instead of going to stdout.
     /// Used to buffer mutation JSON before combining with status JSON.
     json_buffer: Option<serde_json::Value>,
-    /// Whether errors should include their complete cause chain.
     full_error_chain: bool,
 }
 
@@ -63,7 +60,6 @@ pub struct ProgressChannel {
 }
 
 impl ProgressChannel {
-    /// Create a new progress channel that writes to stderr if it's a terminal and progress is enabled.
     /// If progress is disabled, the channel becomes a no-op.
     pub fn new(progress_enabled: bool) -> Self {
         ProgressChannel {
@@ -126,8 +122,6 @@ pub trait WriteWithUtils: std::fmt::Write {
     /// used with coloring, and that always copies the string.
     fn truncate_if_unpaged(&self, text: &str, max_width: usize) -> String;
 
-    /// Return `true` if the output is being passed through a pager.
-    ///
     /// This is typically used to avoid truncating text when output is being piped to a pager.
     fn is_paged(&self) -> bool;
 }
@@ -205,7 +199,6 @@ impl<'out> IntermediateChannel<'out> {
         self.out.prepare_for_terminal_input()
     }
 
-    /// Get the output format setting.
     pub fn format(&self) -> OutputFormat {
         self.out.format()
     }
@@ -618,27 +611,21 @@ pub(crate) enum PromptLine {
     Cancelled,
 }
 
-/// How to play input back to the user during prompts.
 #[derive(Debug)]
 enum InputEcho {
     /// Show everything that's typed and displayable.
     Visible,
-    /// Do not show what's printed.
     Hidden,
 }
 
 /// Editing operation derived from a terminal key event.
 #[derive(Debug, PartialEq, Eq)]
 enum KeyEditAction {
-    /// Insert the provided character into the current input buffer.
     Insert(char),
-    /// Delete one character from the input buffer.
     Backspace,
-    /// Submit the current input buffer as a completed line.
     Submit,
     /// End input without submitting a line.
     EndOfInput,
-    /// Ignore this key event because it does not affect editing.
     Ignore,
 }
 
@@ -697,7 +684,6 @@ impl Drop for InputOutputChannel<'_> {
 }
 
 impl OutputChannel {
-    /// Create a new instance to output with `format`.
     pub fn new(format: OutputFormat) -> Self {
         OutputChannel {
             format,
@@ -713,7 +699,6 @@ impl OutputChannel {
         self.full_error_chain = enabled;
     }
 
-    /// Whether errors should include their complete cause chain.
     pub(crate) fn full_error_chain(&self) -> bool {
         self.full_error_chain
     }
@@ -731,7 +716,6 @@ impl OutputChannel {
         self.pager = pager::try_init_pager();
     }
 
-    /// Get the output format setting.
     pub fn format(&self) -> OutputFormat {
         self.format
     }
@@ -772,7 +756,6 @@ impl OutputChannel {
         self.format.is_agent()
     }
 
-    /// A convenience function to create a progress channel that only writes when the output format permits progress.
     /// The progress channel writes to stderr if it's a terminal and the output format permits progress.
     pub fn progress_channel(&self) -> ProgressChannel {
         ProgressChannel::new(self.format.allows_human_ui())
@@ -786,7 +769,6 @@ impl OutputChannel {
         self.format.allows_human_ui() && std::io::stdin().is_terminal() && self.is_terminal()
     }
 
-    /// Return `true` if this channel is connected to a terminal.
     pub fn is_terminal(&self) -> bool {
         self.stdout.is_terminal()
     }
@@ -816,7 +798,6 @@ impl OutputChannel {
     /// in the buffer instead of being written to stdout. Only one value should be written per
     /// buffering session; if called again while the buffer already holds data, a warning is
     /// emitted to stderr and the previous value is replaced.
-    ///
     pub fn write_value(&mut self, value: impl serde::Serialize) -> std::io::Result<()> {
         if self.json_buffer.is_some() {
             let new_value = serde_json::to_value(&value).map_err(std::io::Error::other)?;
@@ -853,7 +834,6 @@ impl OutputChannel {
         self.json_buffer.take()
     }
 
-    /// Returns `true` if output is in JSON mode.
     pub fn is_json(&self) -> bool {
         self.format.is_json()
     }

@@ -1,4 +1,4 @@
-//! Parts of hunks to cut, drag or take out of where they are, as files and hunks are: lines
+//! Parts of hunks to squash, drag or take out of where they are, as files and hunks are: lines
 //! picked by their numbers, and the run of changed lines a gutter grip takes.
 
 use std::collections::{BTreeMap, BTreeSet, HashSet};
@@ -7,8 +7,9 @@ use gpui::{App, Context, Entity, Modifiers, Pixels, Point, SharedString, WeakEnt
 
 use super::Detail;
 use crate::backend::{FileDiff, Hunk, HunkKey, LineKind, Selected};
-use crate::state::Cut;
-use crate::transfer::DragPreview;
+use crate::state::ProjectId;
+use crate::transfer::{Changes, Dragged, Moving};
+use crate::transfer::{Chip, DragPreview};
 
 /// Lines picked in one file of the diff.
 pub(super) struct LinePicks {
@@ -57,9 +58,8 @@ fn changed(file: &FileDiff) -> impl Iterator<Item = (HunkKey, usize)> + '_ {
 }
 
 impl Detail {
-    /// Whether line `line` of the hunk with `key` in the file at `path` is picked.
     pub(super) fn line_picked(&self, path: &str, key: HunkKey, line: usize) -> bool {
-        (self.line_picks.as_ref())
+        (self.page.line_picks())
             .is_some_and(|picks| picks.path == path && picks.lines.contains(&(key, line)))
     }
 
@@ -87,10 +87,13 @@ impl Detail {
         }
         let item = (hunk.key, line);
         let path = &file.file.path;
-        let before = self.line_picks.as_ref().map(|picks| picks.lines.clone());
-        let picks = (self.line_picks.take())
+        let Some(state) = self.page.files_mut() else {
+            return;
+        };
+        let before = state.line_picks.as_ref().map(|picks| picks.lines.clone());
+        let picks = (state.line_picks.take())
             .filter(|picks| picks.path == *path && picks.fingerprint == file.fingerprint);
-        self.line_picks =
+        state.line_picks =
             match (how, picks) {
                 (Pick::Run, Some(mut picks)) => {
                     let order: Vec<_> = changed(file).collect();
@@ -120,8 +123,8 @@ impl Detail {
                     }),
             };
         // Dragging on over the same line picks nothing new.
-        if self.line_picks.as_ref().map(|picks| &picks.lines) != before.as_ref() {
-            self.place_cursor(cursor);
+        if self.page.line_picks().map(|picks| &picks.lines) != before.as_ref() {
+            self.cursor = cursor;
             self.refresh_grip();
             cx.notify();
         }
@@ -132,11 +135,8 @@ impl Detail {
         self.grip_over = (self.grip_over.take()).map(|(at, _)| (at, self.grip_takes(at)));
     }
 
-    /// How many lines are picked.
     pub fn picked_line_count(&self) -> usize {
-        self.line_picks
-            .as_ref()
-            .map_or(0, |picks| picks.lines.len())
+        (self.page.line_picks()).map_or(0, |picks| picks.lines.len())
     }
 
     /// A plain press in the diff off the line numbers: it lets the picked lines go, as a
@@ -146,16 +146,17 @@ impl Detail {
         self.clear_line_picks(cx);
     }
 
-    /// The preview of a drag of `label` from the diff or its files, which lets the picked
+    /// The preview of a drag of `chip` from the diff or its files, which lets the picked
     /// lines go as it starts unless it `carries_picks`: dragging anything else passes them
     /// over.
     pub(super) fn drag_preview(
         &self,
-        label: SharedString,
+        chip: impl Into<Chip>,
         carries_picks: bool,
         detail: WeakEntity<Detail>,
-    ) -> impl Fn(&Cut, Point<Pixels>, &mut Window, &mut App) -> Entity<DragPreview> + 'static {
-        let preview = crate::transfer::drag_preview(self.store.clone(), label);
+    ) -> impl Fn(&Dragged, Point<Pixels>, &mut Window, &mut App) -> Entity<DragPreview> + 'static
+    {
+        let preview = crate::transfer::drag_preview(self.store.clone(), chip);
         move |payload, offset, window, cx| {
             // Nor does it pick the lines whose numbers it passes over, nor keep the grip it
             // started from, which hears nothing more while dragging.
@@ -171,9 +172,48 @@ impl Detail {
         }
     }
 
-    /// Let the picked lines go. Whether any were.
+    /// The preview of a drag of `chip` from the diff itself, as [`Self::drag_preview`], which
+    /// a terminal it's let go on pastes as the patch of what it carries, as it began
+    /// ([`Store::dragged_patch`](crate::state::Store::dragged_patch)).
+    pub(super) fn patch_drag_preview(
+        &self,
+        chip: impl Into<Chip>,
+        carries_picks: bool,
+        detail: WeakEntity<Detail>,
+    ) -> impl Fn(&Dragged, Point<Pixels>, &mut Window, &mut App) -> Entity<DragPreview> + 'static
+    {
+        let preview = self.drag_preview(chip, carries_picks, detail.clone());
+        let store = self.store.clone();
+        move |payload, offset, window, cx| {
+            let patch = (detail.read_with(cx, |detail, _| detail.dragged_patch(payload)))
+                .ok()
+                .flatten();
+            let preview = preview(payload, offset, window, cx);
+            store.update(cx, |store, _| store.dragged_patch = patch);
+            preview
+        }
+    }
+
+    /// What a terminal pastes of `dragged` from the diff: the patch of the file, hunks or
+    /// lines it carries, as copying takes them, or else the file's path, as for a binary file.
+    fn dragged_patch(&self, dragged: &Dragged) -> Option<String> {
+        let Moving::Files(changes) = &dragged.what else {
+            return None;
+        };
+        let [part] = &*changes.files else {
+            return None;
+        };
+        let diff = self.diff.as_ref()?;
+        let file = (diff.files.iter()).find(|file| file.file.path == part.file.path)?;
+        (file.part_patch(part.hunks.as_deref()))
+            .or_else(|| Some(crate::terminal::shell_quoted([&part.file.path])))
+    }
+
+    /// Whether any lines were picked.
     pub fn clear_line_picks(&mut self, cx: &mut Context<Self>) -> bool {
-        let had = self.line_picks.take().is_some();
+        let had = (self.page.files_mut())
+            .and_then(|files| files.line_picks.take())
+            .is_some();
         if had {
             self.refresh_grip();
             cx.notify();
@@ -185,7 +225,10 @@ impl Detail {
     /// them go: a line's place in a changed file may be another line by now.
     pub(super) fn settle_line_picks(&mut self) {
         let diff = self.diff.as_ref();
-        self.line_picks.take_if(|picks| {
+        let Some(files) = self.page.files_mut() else {
+            return;
+        };
+        files.line_picks.take_if(|picks| {
             let file = diff.and_then(|diff| diff.files.iter().find(|f| f.file.path == picks.path));
             file.is_none_or(|file| file.fingerprint != picks.fingerprint)
         });
@@ -219,7 +262,7 @@ impl Detail {
     /// The picked lines of the loaded diff's file at `file`, by hunk and line index, in order.
     pub(super) fn picked_lines(&self, file: usize) -> Vec<(usize, usize)> {
         let (Some(picks), Some(file)) = (
-            self.line_picks.as_ref(),
+            self.page.line_picks(),
             self.diff.as_ref().and_then(|diff| diff.files.get(file)),
         ) else {
             return Vec::new();
@@ -239,23 +282,23 @@ impl Detail {
 
     /// The loaded diff's file the lines are picked in.
     fn line_picks_file(&self) -> Option<usize> {
-        let picks = self.line_picks.as_ref()?;
+        let picks = self.page.line_picks()?;
         (self.diff.as_ref()?.files.iter()).position(|file| file.file.path == picks.path)
     }
 
-    /// The picked lines, to cut, drag or take out.
-    pub(super) fn line_picks_cut(&self, cx: &App) -> Option<Cut> {
+    /// The picked lines, to squash, drag or take out.
+    pub(super) fn line_picks_changes(&self, cx: &App) -> Option<(ProjectId, Changes)> {
         let file = self.line_picks_file()?;
-        self.lines_cut(file, self.picked_lines(file), cx)
+        self.lines_changes(file, self.picked_lines(file), cx)
     }
 
-    /// `lines` of the loaded diff's file at `file`, by hunk and line index, as they'd be cut.
-    pub(super) fn lines_cut(
+    /// `lines` of the loaded diff's file at `file`, by hunk and line index, as changes.
+    pub(super) fn lines_changes(
         &self,
         file: usize,
         lines: impl IntoIterator<Item = (usize, usize)>,
         cx: &App,
-    ) -> Option<Cut> {
+    ) -> Option<(ProjectId, Changes)> {
         let diff_file = self.diff.as_ref()?.files.get(file)?;
         let mut by_hunk: BTreeMap<usize, BTreeSet<usize>> = BTreeMap::new();
         for (hunk, line) in lines {
@@ -269,7 +312,7 @@ impl Detail {
         if keys.is_empty() {
             return None;
         }
-        self.owned_cut(vec![diff_file.part(Some(keys))], cx)
+        self.owned_changes(vec![diff_file.part(Some(keys))], cx)
     }
 
     /// The keys taking `lines` of `hunk` out of the loaded diff: the hunk itself when they're

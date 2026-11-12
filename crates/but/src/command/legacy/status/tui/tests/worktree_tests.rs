@@ -76,9 +76,10 @@ fn linked_worktree_head_marker_survives_reload() {
         env,
         TestTuiOptions {
             launch_options: TuiLaunchOptions {
-                invoked_from: Some(crate::utils::change_source::InvokedFrom::LinkedWorktree(
-                    "wt".into(),
-                )),
+                invoked_from: Some(crate::utils::change_source::InvokedFrom {
+                    linked_worktree: Some("wt".into()),
+                    directory: None,
+                }),
                 ..Default::default()
             },
             ..Default::default()
@@ -102,9 +103,10 @@ fn interactive_commit_picker_marks_invoking_worktree_head() {
         TestTuiOptions {
             run_options: crate::command::legacy::status::TuiRunOptions::PickChanges,
             launch_options: TuiLaunchOptions {
-                invoked_from: Some(crate::utils::change_source::InvokedFrom::LinkedWorktree(
-                    "wt".into(),
-                )),
+                invoked_from: Some(crate::utils::change_source::InvokedFrom {
+                    linked_worktree: Some("wt".into()),
+                    directory: None,
+                }),
                 ..Default::default()
             },
             ..Default::default()

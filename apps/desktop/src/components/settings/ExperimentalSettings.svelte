@@ -2,6 +2,7 @@
 	import { BACKEND } from "$lib/backend";
 	import { fModeEnabled } from "$lib/config/uiFeatureFlags";
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
+	import { hasNativeApp } from "$lib/settings/nativeApp";
 	import { inject } from "@gitbutler/core/context";
 	import { CardGroup, Toggle } from "@gitbutler/ui-svelte";
 
@@ -9,13 +10,8 @@
 	const settingsStore = settingsService.appSettings;
 	const backend = inject(BACKEND);
 
-	// Only the desktop app's nightly and release builds include the native app.
-	let hasNativeApp = $state(false);
-	if (backend.platformName !== "web") {
-		backend
-			.getAppInfo()
-			.then((info) => (hasNativeApp = ["GitButler", "GitButler Nightly"].includes(info.name)));
-	}
+	let nativeApp = $state(false);
+	hasNativeApp(backend).then((has) => (nativeApp = has));
 </script>
 
 <p class="text-12 text-body experimental-settings__text">
@@ -41,7 +37,7 @@
 		{/snippet}
 	</CardGroup.Item>
 
-	{#if hasNativeApp}
+	{#if nativeApp}
 		<CardGroup.Item labelFor="native-app">
 			{#snippet title()}
 				Native app

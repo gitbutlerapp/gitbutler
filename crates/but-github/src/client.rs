@@ -5,18 +5,38 @@ use serde::{Deserialize, Serialize};
 
 use crate::graphql::{
     GQL_DISABLE_PR_AUTO_MERGE, GQL_ENABLE_PR_AUTO_MERGE, GQL_GET_PR, GQL_GET_PR_NODE_ID,
-    GQL_LIST_PR_REVIEW_THREADS, GQL_LIST_PR_REVIEWS, GQL_SET_PR_DRAFT, GQL_SET_PR_READY_FOR_REVIEW,
+    GQL_GET_VIEWER_DEFAULT_MERGE_METHOD, GQL_LIST_PR_REVIEW_THREADS, GQL_LIST_PR_REVIEWS,
+    GQL_SET_PR_DRAFT, GQL_SET_PR_READY_FOR_REVIEW,
 };
 
 const GITHUB_API_BASE_URL: &str = "https://api.github.com";
 
-/// An HTTP error with a status code, returned when the API responds with a non-success status.
-///
 /// This can be downcasted from `anyhow::Error` to distinguish auth failures (401/403) from other errors.
 #[derive(Debug, thiserror::Error)]
 #[error("HTTP {status}")]
 pub struct HttpStatusError {
     pub status: reqwest::StatusCode,
+}
+
+/// The `errors` of a GraphQL reply, and whether every one of them is GitHub turning the request
+/// down, as it does a change the repository doesn't allow, rather than failing to run it.
+#[derive(Debug, thiserror::Error)]
+#[error("GitHub GraphQL returned errors: {messages}")]
+struct GraphQlErrors {
+    messages: String,
+    refused: bool,
+}
+
+/// `err` marked as GitHub turning a change down, when its GraphQL reply said so, so callers
+/// don't count it as a fault of their own, and show GitHub's reason rather than the operation.
+fn refused_change(err: anyhow::Error) -> anyhow::Error {
+    let refusal = match err.downcast_ref::<GraphQlErrors>() {
+        Some(errors) if errors.refused => {
+            format!("GitHub refused the change: {}", errors.messages)
+        }
+        _ => return err,
+    };
+    err.context(but_error::Context::new(refusal).with_code(but_error::Code::PreconditionFailed))
 }
 
 /// Pass successful responses through; failures carry the downcastable
@@ -38,7 +58,6 @@ pub struct GitHubClient {
 }
 
 impl GitHubClient {
-    /// Create a new instance of the GitHub client
     pub fn new(access_token: &Sensitive<String>) -> Result<Self> {
         let mut headers = HeaderMap::new();
         headers.insert(
@@ -68,7 +87,6 @@ impl GitHubClient {
         })
     }
 
-    /// Create a new instance of a GitHub client out of the stored accounts information.
     pub fn from_storage(
         storage: &but_forge_storage::Controller,
         preferred_account: Option<&crate::GithubAccountIdentifier>,
@@ -84,8 +102,6 @@ impl GitHubClient {
         }
     }
 
-    /// Create a new instance of a GitHub client, with a custom base URL.
-    ///
     /// This is used to create the GitHub client for Enterprise users.
     pub fn new_with_host_override(access_token: &Sensitive<String>, host: &str) -> Result<Self> {
         let mut headers = HeaderMap::new();
@@ -116,9 +132,6 @@ impl GitHubClient {
         })
     }
 
-    /// Get the authenticated user.
-    ///
-    /// This is used to verify that the client has been correctly created and it holds the right authentication.
     pub async fn get_authenticated(&self) -> Result<AuthenticatedUser> {
         #[derive(Deserialize)]
         struct User {
@@ -259,7 +272,6 @@ impl GitHubClient {
         Ok(pulls.into_iter().map(Into::into).collect())
     }
 
-    /// The actual REST API call to fetch a page of the checks.
     async fn fetch_check_runs(&self, url: &str, page: usize) -> Result<reqwest::Response> {
         let response = self
             .client
@@ -311,7 +323,6 @@ impl GitHubClient {
         Ok(pulls.into_iter().map(Into::into).collect())
     }
 
-    /// List pull requests associated with a commit on the repository.
     pub async fn list_pulls_for_commit(
         &self,
         owner: &str,
@@ -337,7 +348,6 @@ impl GitHubClient {
         Ok(pulls.into_iter().map(Into::into).collect())
     }
 
-    /// Create a PR.
     pub async fn create_pull_request(
         &self,
         params: &CreatePullRequestParams<'_>,
@@ -449,7 +459,6 @@ impl GitHubClient {
         })
     }
 
-    /// Fetch the information of a given PR.
     pub async fn get_pull_request(
         &self,
         owner: &str,
@@ -510,6 +519,26 @@ impl GitHubClient {
             .await?
             .into_iter()
             .map(PullRequestComment::from)
+            .collect())
+    }
+
+    /// List the reactions on a pull request's description, oldest first.
+    pub async fn list_pull_request_reactions(
+        &self,
+        owner: &str,
+        repo: &str,
+        pr_number: i64,
+    ) -> Result<Vec<Reaction>> {
+        let url = format!(
+            "{}/repos/{}/{}/issues/{}/reactions",
+            self.base_url, owner, repo, pr_number
+        );
+
+        Ok(self
+            .get_all_pages::<GitHubReactionApi>(&url, 10)
+            .await?
+            .into_iter()
+            .map(Reaction::from)
             .collect())
     }
 
@@ -755,9 +784,6 @@ impl GitHubClient {
         Ok(comment.into())
     }
 
-    /// Update the information of a given PR.
-    ///
-    /// This is used e.g. to update the description footers for stacked reviews.
     pub async fn update_pull_request(
         &self,
         params: &UpdatePullRequestParams<'_>,
@@ -791,8 +817,6 @@ impl GitHubClient {
         Ok(pr.into())
     }
 
-    /// Merge a PR.
-    ///
     /// GitHub refuses to merge a stacked PR here and points to its asynchronous merge, so a
     /// stacked PR is merged that way instead.
     pub async fn merge_pull_request(&self, params: &MergePullRequestParams<'_>) -> Result<()> {
@@ -831,7 +855,22 @@ impl GitHubClient {
         {
             return self.merge_pull_request_async(&url, &body).await;
         }
-        bail!("GitHub refused the merge ({status}): {reason}");
+        let refused = format!("GitHub refused the merge ({status}): {reason}");
+        // What GitHub answers when the pull request or repository doesn't allow it, rather
+        // than a request of ours it couldn't read, as a 400 or 404 would say.
+        use reqwest::StatusCode;
+        match matches!(
+            status,
+            StatusCode::FORBIDDEN
+                | StatusCode::METHOD_NOT_ALLOWED
+                | StatusCode::CONFLICT
+                | StatusCode::UNPROCESSABLE_ENTITY
+        ) {
+            true => bail!(
+                but_error::Context::new(refused).with_code(but_error::Code::PreconditionFailed)
+            ),
+            false => bail!(refused),
+        }
     }
 
     /// Merge a PR through GitHub's asynchronous merge at `{merge_url}-async`, and wait until
@@ -898,7 +937,6 @@ impl GitHubClient {
         bail!("GitHub is still merging the pull request after five minutes; check it on GitHub")
     }
 
-    /// Set the draftiness of a PR.
     pub async fn set_pull_request_draft_state(
         &self,
         params: &SetPullRequestDraftStateParams<'_>,
@@ -917,6 +955,7 @@ impl GitHubClient {
             self.set_pull_request_to_ready_for_review(&pull_request_id)
                 .await
         }
+        .map_err(refused_change)
     }
 
     async fn set_pull_request_to_ready_for_review(
@@ -1001,7 +1040,9 @@ impl GitHubClient {
         Ok(())
     }
 
-    /// Enable or disable a PR's auto-merge.
+    /// Enable or disable a PR's auto-merge. Enabled without a merge method, it merges the way
+    /// GitHub's merge box offers the viewer first, since GitHub on its own asks for a merge
+    /// commit, which the repository may not allow.
     pub async fn set_pull_request_auto_merge(
         &self,
         params: &SetPullRequestAutoMergeParams<'_>,
@@ -1014,17 +1055,58 @@ impl GitHubClient {
             AutoMergeState::Disabled => {
                 self.disable_auto_merge_pull_request(&pull_request_id).await
             }
-            AutoMergeState::Enabled(params) => {
-                self.enable_auto_merge_pull_request(&pull_request_id, params)
+            AutoMergeState::Enabled(method) => {
+                let merge_method = match method {
+                    Some(method) => method.into(),
+                    None => {
+                        self.viewer_default_merge_method(params.owner, params.repo)
+                            .await?
+                    }
+                };
+                self.enable_auto_merge_pull_request(&pull_request_id, merge_method)
                     .await
             }
         }
+        .map_err(refused_change)
+    }
+
+    /// The merge method GitHub's merge box offers the viewer first in `owner/repo`: the one
+    /// they last used, else one the repository allows.
+    async fn viewer_default_merge_method(
+        &self,
+        owner: &str,
+        repo: &str,
+    ) -> Result<GraphQlMergeMethod> {
+        #[derive(Serialize)]
+        struct Variables<'a> {
+            owner: &'a str,
+            repo: &'a str,
+        }
+
+        #[derive(Deserialize)]
+        struct QueryData {
+            repository: Repository,
+        }
+
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Repository {
+            viewer_default_merge_method: GraphQlMergeMethod,
+        }
+
+        let data: QueryData = self
+            .graphql_query(
+                GQL_GET_VIEWER_DEFAULT_MERGE_METHOD,
+                &Variables { owner, repo },
+            )
+            .await?;
+        Ok(data.repository.viewer_default_merge_method)
     }
 
     async fn enable_auto_merge_pull_request(
         &self,
         pull_request_id: &PullRequestNodeId,
-        params: &AutoMergeEnableParams<'_>,
+        merge_method: GraphQlMergeMethod,
     ) -> Result<()> {
         #[derive(Deserialize)]
         struct MutationPayload {
@@ -1045,16 +1127,7 @@ impl GitHubClient {
         #[serde(rename_all = "camelCase")]
         struct EnablePullRequestAutoMergeInput<'a> {
             pull_request_id: &'a PullRequestNodeId,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            merge_method: Option<GraphQlMergeMethod>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            expected_head_oid: Option<&'a str>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            commit_headline: Option<&'a str>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            commit_body: Option<&'a str>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            author_email: Option<&'a str>,
+            merge_method: GraphQlMergeMethod,
         }
 
         #[derive(Deserialize)]
@@ -1069,11 +1142,7 @@ impl GitHubClient {
                 &Variables {
                     input: EnablePullRequestAutoMergeInput {
                         pull_request_id,
-                        merge_method: params.merge_method.as_ref().map(Into::into),
-                        expected_head_oid: params.expected_head_oid,
-                        commit_headline: params.commit_headline,
-                        commit_body: params.commit_body,
-                        author_email: params.author_email,
+                        merge_method,
                     },
                 },
             )
@@ -1223,8 +1292,6 @@ impl GitHubClient {
     }
 }
 
-/// Decode a GraphQL response body into `T`.
-///
 /// `data` is typed only once `errors` has been ruled out. GitHub reports a
 /// refused mutation as a null field *inside* `data` alongside `errors`, so
 /// typing the two together fails on that null and loses the message saying
@@ -1236,6 +1303,9 @@ where
     #[derive(Deserialize)]
     struct GraphQlError {
         message: String,
+        /// Set on what GitHub ran and turned down; a query it couldn't validate has none.
+        #[serde(rename = "type")]
+        kind: Option<String>,
     }
 
     #[derive(Deserialize)]
@@ -1247,12 +1317,14 @@ where
     let payload: GraphQlResponse = serde_json::from_slice(body)?;
 
     if let Some(errors) = payload.errors {
+        let refused = (errors.iter())
+            .all(|error| matches!(error.kind.as_deref(), Some("UNPROCESSABLE" | "FORBIDDEN")));
         let messages = errors
             .into_iter()
             .map(|error| error.message)
             .collect::<Vec<_>>()
             .join("; ");
-        bail!("GitHub GraphQL returned errors: {messages}");
+        return Err(GraphQlErrors { messages, refused }.into());
     }
 
     let Some(data) = payload.data else {
@@ -1339,29 +1411,11 @@ pub struct SetPullRequestDraftStateParams<'a> {
     pub draft: bool,
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct AutoMergeEnableParams<'a> {
-    merge_method: Option<MergeMethod>,
-    expected_head_oid: Option<&'a str>,
-    commit_headline: Option<&'a str>,
-    commit_body: Option<&'a str>,
-    author_email: Option<&'a str>,
-}
-
 #[derive(Debug, Clone)]
-pub enum AutoMergeState<'a> {
+pub enum AutoMergeState {
     Disabled,
-    Enabled(AutoMergeEnableParams<'a>),
-}
-
-impl From<bool> for AutoMergeState<'_> {
-    fn from(value: bool) -> Self {
-        if value {
-            AutoMergeState::Enabled(Default::default())
-        } else {
-            AutoMergeState::Disabled
-        }
-    }
+    /// Merging by this method, or with `None` as GitHub's merge box offers the viewer first.
+    Enabled(Option<MergeMethod>),
 }
 
 #[derive(Debug, Clone)]
@@ -1369,10 +1423,10 @@ pub struct SetPullRequestAutoMergeParams<'a> {
     pub owner: &'a str,
     pub repo: &'a str,
     pub pr_number: i64,
-    pub state: AutoMergeState<'a>,
+    pub state: AutoMergeState,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 enum GraphQlMergeMethod {
     Merge,
@@ -1656,7 +1710,6 @@ pub struct CommentReactions {
     pub eyes: i64,
 }
 
-/// A submitted review on a pull request, with the reactions left on it.
 #[derive(Debug, Serialize)]
 pub struct PullRequestReview {
     pub id: i64,
@@ -1790,7 +1843,6 @@ pub struct PullRequestReviewThread {
     pub comments: Vec<PullRequestReviewThreadComment>,
 }
 
-/// One comment inside a review thread.
 #[derive(Debug, Serialize)]
 pub struct PullRequestReviewThreadComment {
     pub id: i64,
@@ -2315,14 +2367,16 @@ mod tests {
     }
 
     /// Answer one connection per response, in order, checking each request's method and path.
+    /// The server's thread ends with the requests it answered.
     fn serve(
         responses: Vec<(&'static str, &'static str, &'static str)>,
-    ) -> (String, std::thread::JoinHandle<()>) {
+    ) -> (String, std::thread::JoinHandle<Vec<String>>) {
         use std::io::{Read as _, Write as _};
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let base_url = format!("http://{}", listener.local_addr().unwrap());
         listener.set_nonblocking(true).unwrap();
         let server = std::thread::spawn(move || {
+            let mut answered = Vec::new();
             for (request_line, status, body) in responses {
                 let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
                 let (mut stream, _) = loop {
@@ -2374,9 +2428,50 @@ mod tests {
                     body.len()
                 )
                 .unwrap();
+                answered.push(String::from_utf8_lossy(&request).into_owned());
             }
+            answered
         });
         (base_url, server)
+    }
+
+    #[tokio::test]
+    async fn auto_merge_asks_for_a_merge_method_the_repository_allows() {
+        let node_id = r#"{"data":{"repository":{"pullRequest":{"id":"PR_1"}}}}"#;
+        // What GitHub answers for a repository that allows only squash merges.
+        let viewer_default = r#"{"data":{"repository":{"viewerDefaultMergeMethod":"SQUASH"}}}"#;
+        let enabled = r#"{"data":{"enablePullRequestAutoMerge":{"pullRequest":{"id":"PR_1"}}}}"#;
+        for (merge_method, responses, expected) in [
+            (None, vec![node_id, viewer_default, enabled], "SQUASH"),
+            (Some(MergeMethod::Rebase), vec![node_id, enabled], "REBASE"),
+        ] {
+            let (base_url, server) = serve(
+                (responses.into_iter())
+                    .map(|body| ("POST /graphql ", "200 OK", body))
+                    .collect(),
+            );
+            let client = GitHubClient {
+                client: reqwest::Client::new(),
+                base_url,
+            };
+            client
+                .set_pull_request_auto_merge(&SetPullRequestAutoMergeParams {
+                    owner: "o",
+                    repo: "r",
+                    pr_number: 7,
+                    state: AutoMergeState::Enabled(merge_method),
+                })
+                .await
+                .expect("auto-merge turns on");
+            let requests = server.join().unwrap();
+            let mutation = requests.last().expect("the mutation was sent");
+            assert!(
+                mutation.contains(&format!(r#""mergeMethod":"{expected}""#)),
+                "GitHub would ask for a merge commit without one, which the repository may \
+                 not allow, so it's the one asked for or GitHub's default for the viewer: \
+                 {mutation}"
+            );
+        }
     }
 
     #[tokio::test(start_paused = true)]
@@ -2432,7 +2527,7 @@ mod tests {
     fn graphql_refusal_reports_githubs_message_not_a_decoding_failure() {
         // How GitHub refuses a mutation: the field it would have returned is
         // null, and the reason is in `errors`.
-        let body = br#"{"data":{"enablePullRequestAutoMerge":null},"errors":[{"message":"Pull request Auto merge is not allowed for this repository"}]}"#;
+        let body = br#"{"data":{"enablePullRequestAutoMerge":null},"errors":[{"type":"UNPROCESSABLE","message":"Pull request Auto merge is not allowed for this repository"}]}"#;
 
         let err = decode_graphql_response::<AutoMergePayload>(body)
             .expect_err("a refused mutation is an error");
@@ -2441,6 +2536,29 @@ mod tests {
             err.to_string(),
             "GitHub GraphQL returned errors: Pull request Auto merge is not allowed for this repository",
             "the reason reaches the caller instead of `invalid type: null, expected struct`"
+        );
+        use but_error::AnyhowContextExt as _;
+        assert_eq!(
+            super::refused_change(err)
+                .downcast_ref::<but_error::Context>()
+                .map(|said| (said.code, said.to_string())),
+            Some((
+                but_error::Code::PreconditionFailed,
+                "GitHub refused the change: Pull request Auto merge is not allowed for this repository"
+                    .into()
+            )),
+            "the repository's settings turned it down, which the user is the one to change, \
+             and the refusal itself carries GitHub's reason for callers that show only it"
+        );
+        let invalid = br#"{"errors":[{"message":"Field 'enablePullRequestAutoMerge' doesn't exist on type 'Mutation'","extensions":{"code":"undefinedField"}}]}"#;
+        let err = decode_graphql_response::<AutoMergePayload>(invalid)
+            .expect_err("a query GitHub can't validate is an error");
+        assert_eq!(
+            super::refused_change(err)
+                .custom_context()
+                .map(|said| said.code),
+            None,
+            "a query of ours GitHub couldn't run is ours to fix"
         );
     }
 

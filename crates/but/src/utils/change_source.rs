@@ -5,7 +5,10 @@
 //! checkout, so [`ChangeSourceId`] is what keeps them apart. This module owns that
 //! concept end to end; `crate::id` only mints the IDs.
 
-use std::path::Path;
+use std::{
+    collections::BTreeSet,
+    path::{Path, PathBuf},
+};
 
 use bstr::{BStr, BString};
 use but_ctx::Context;
@@ -19,36 +22,46 @@ use crate::{CliResult, IdMap, bad_input, id::UncommittedHunkOrFile};
 /// It is not yet a [`ChangeSourceId`]: that needs GitButler to manage the checkout, which
 /// [`Self::managed_source`] checks.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum InvokedFrom {
-    MainWorktree,
-    LinkedWorktree(BString),
+pub struct InvokedFrom {
+    /// The linked worktree `but` runs in, or `None` in the main worktree.
+    pub linked_worktree: Option<BString>,
+    /// The directory `but` runs in, or `None` in a checkout without a working directory.
+    pub directory: Option<InvokedDirectory>,
 }
 
 impl InvokedFrom {
     pub fn discover(directory: &Path) -> anyhow::Result<Self> {
         let repo = gix::discover(directory)?;
-        let name = repo
+        let linked_worktree = repo
             .worktree()
             .map(|worktree| worktree.id().map(|id| id.map(ToOwned::to_owned)))
             .transpose()?
             .flatten();
-        Ok(name.map_or(Self::MainWorktree, Self::LinkedWorktree))
+        Ok(Self {
+            linked_worktree,
+            directory: InvokedDirectory::discover(&repo, directory),
+        })
+    }
+
+    pub fn is_rooted_at(&self, dir: &Path) -> bool {
+        self.directory
+            .as_ref()
+            .is_some_and(|directory| dir.canonicalize().is_ok_and(|dir| dir == directory.root))
     }
 
     /// The checkout itself, whether or not GitButler manages it.
     pub fn checkout(&self) -> ChangeSourceId {
-        match self {
-            InvokedFrom::MainWorktree => ChangeSourceId::Head,
-            InvokedFrom::LinkedWorktree(name) => ChangeSourceId::Worktree(name.clone()),
+        match &self.linked_worktree {
+            None => ChangeSourceId::Head,
+            Some(name) => ChangeSourceId::Worktree(name.clone()),
         }
     }
 
     /// Errors when this is a linked worktree GitButler doesn't manage, as acting on the main
     /// worktree instead would touch changes the user isn't looking at.
     pub fn managed_source(&self, id_map: &IdMap) -> CliResult<ChangeSourceId> {
-        let name = match self {
-            InvokedFrom::MainWorktree => return Ok(ChangeSourceId::Head),
-            InvokedFrom::LinkedWorktree(name) => name,
+        let Some(name) = &self.linked_worktree else {
+            return Ok(ChangeSourceId::Head);
         };
         if id_map.worktree_lane(name.as_ref()).is_none() {
             return Err(
@@ -58,6 +71,59 @@ impl InvokedFrom {
             );
         }
         Ok(ChangeSourceId::Worktree(name.clone()))
+    }
+}
+
+/// The directory `but` runs in, which a path on the command line is relative to.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InvokedDirectory {
+    /// The canonical root of the checkout.
+    root: PathBuf,
+    /// The canonical directory.
+    current: PathBuf,
+}
+
+impl InvokedDirectory {
+    fn discover(repo: &gix::Repository, directory: &Path) -> Option<Self> {
+        Some(Self {
+            root: repo.workdir()?.canonicalize().ok()?,
+            current: directory.canonicalize().ok()?,
+        })
+    }
+
+    /// `path`, which is absolute or relative to this directory, as a path from the root of the
+    /// checkout. That's the empty string for the root itself, and `None` outside of the checkout.
+    pub fn path_from_root(&self, path: &str) -> Option<String> {
+        let path = gix::path::normalize(self.current.join(path).into(), &self.current)?;
+        // Compare from the top down as Git does: symlinks may spell the root differently, like
+        // `/tmp` for `/private/tmp` on macOS, while one below the root is a path of its own.
+        let ancestors: Vec<_> = path.ancestors().collect();
+        let root = ancestors
+            .into_iter()
+            .rev()
+            .find(|dir| dir.canonicalize().is_ok_and(|dir| dir == self.root))?;
+        let components: Option<Vec<_>> = path
+            .strip_prefix(root)
+            .ok()?
+            .components()
+            .map(|component| component.as_os_str().to_str())
+            .collect();
+        Some(components?.join("/"))
+    }
+
+    /// `path`, which is absolute or relative to this directory or the root of the checkout, as a
+    /// path from the root of the checkout if it exists there. An empty path names nothing, not
+    /// this directory.
+    pub fn existing_path_from_root(&self, path: &str) -> Option<PathBuf> {
+        if path.is_empty() {
+            return None;
+        }
+        [&self.current, &self.root]
+            .into_iter()
+            .find_map(|directory| {
+                let path = directory.join(path).canonicalize().ok()?;
+                Some(path.strip_prefix(&self.root).ok()?.to_owned())
+            })
     }
 }
 
@@ -109,6 +175,18 @@ pub struct SourceChanges {
     pub source: ChangeSourceId,
     /// The hunks those changes split into.
     pub changes_with_hunks: Vec<(but_core::TreeChange, NonEmpty<but_core::SingleHunk>)>,
+}
+
+/// The paths of the files with unresolved conflicts in the working tree of `repo`, which have no
+/// CLI IDs as they can't be committed.
+pub fn conflicted_worktree_paths(repo: &gix::Repository) -> anyhow::Result<BTreeSet<String>> {
+    let index = repo.index_or_empty()?;
+    Ok(index
+        .entries()
+        .iter()
+        .filter(|entry| entry.stage() != gix::index::entry::Stage::Unconflicted)
+        .map(|entry| entry.path(&index).to_string())
+        .collect())
 }
 
 /// The names of the linked worktrees whose uncommitted changes get CLI IDs.
@@ -230,7 +308,6 @@ impl UncommittedSelection {
         &self.source
     }
 
-    /// The changes themselves.
     pub fn into_changes(self) -> NonEmpty<UncommittedHunkOrFile> {
         self.changes
     }

@@ -316,6 +316,9 @@ fn undo_leaves_a_local_target_checked_out_in_a_linked_worktree_unchanged() {
 
     env.but("undo").assert().failure().stderr_eq(str![[r#"
 Error: Cannot restore branch 'main' because it is checked out in worktrees: [..]
+
+Hint: Reverse the operation with its inverse instead, such as `but move <commit> --branch <branch>`, `but reword <commit>` or `but uncommit <commit>`
+
 "#]]);
 
     assert_eq!(
@@ -1058,6 +1061,78 @@ Hint: run `but help` for all commands
     assert!(!git_ref_exists(&env, but_core::WORKSPACE_REF_NAME));
 }
 
+/// A main pushed without `-u` is the target inferred for a project without one. It's made to track
+/// origin/main, so the pull that infers it already brings in what landed there, and keeps what
+/// main has that origin/main doesn't.
+#[test]
+fn pull_infers_untracked_main_as_target_tracking_origin() {
+    let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
+    let remote = env.app_data_dir().join("origin.git");
+    let remote = shell_words::quote(&remote.display().to_string()).into_owned();
+    env.invoke_bash(format!(
+        "git clone -q --bare . {remote} && git remote set-url origin {remote}"
+    ));
+    env.invoke_git("branch --unset-upstream main");
+    env.invoke_git("commit --allow-empty -m unpublished");
+    let upstream = env.invoke_git("commit-tree origin/main^{tree} -p origin/main -m upstream");
+    env.invoke_git(&format!("push -q {remote} {upstream}:refs/heads/main"));
+
+    env.but("pull").assert().success();
+    assert_eq!(
+        env.invoke_git("log --format=%s main"),
+        "unpublished\nupstream\nM",
+        "the first pull brings in origin/main and keeps main's unpublished commit on top"
+    );
+}
+
+/// A target stored without tracking, like 0.23.1 stored a `main` pushed without `-u`, isn't
+/// fetched, so a pull names the command that makes it track origin/main.
+#[test]
+fn pull_hints_to_track_remote_branch_for_untracked_stored_target() {
+    let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
+    let remote = env.app_data_dir().join("origin.git");
+    let remote = shell_words::quote(&remote.display().to_string()).into_owned();
+    env.invoke_bash(format!(
+        "git clone -q --bare . {remote} && git remote set-url origin {remote}"
+    ));
+    env.invoke_git("branch --unset-upstream main");
+    env.invoke_git("config gitbutler.project.targetRef refs/heads/main");
+    env.invoke_bash("git config gitbutler.project.targetCommitId $(git rev-parse main)");
+    env.invoke_git("config gitbutler.project.portedMeta true");
+
+    env.but("pull").assert().success().stdout_eq(str![[r#"
+
+No new commits found
+Hint: main tracks no remote branch, so `but pull` doesn't fetch origin/main; run `but config target main` to make it track origin/main
+
+Everything is up to date
+
+"#]]);
+    env.but("pull --check").assert().success().stdout_eq(str![[r#"
+
+Base branch:	main
+Incoming:	0 new commits on main
+Hint: main tracks no remote branch, so `but pull` doesn't fetch origin/main; run `but config target main` to make it track origin/main
+
+Up to date
+
+"#]]);
+
+    env.but("config target main").assert().success();
+    // Once main tracks origin/main, the pull fetches it and the hint is gone.
+    env.but("pull --check")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+
+Base branch:	origin/main
+Upstream:	0 new commits on origin/main
+
+Up to date
+
+"#]]);
+}
+
 /// An unreachable remote that is not the target's must not block pulling: `fetch_from_remotes`
 /// only fails when the target's own fetch remote failed, so a dead unrelated remote (old fork,
 /// deleted mirror) is tolerated.
@@ -1067,6 +1142,54 @@ fn pull_ignores_unreachable_unrelated_remote() {
     env.invoke_git("remote add broken /nonexistent/path/broken.git");
 
     env.but("pull").assert().success();
+}
+
+/// With the network down every remote fails, and only the target's failure stops the pull, so
+/// that's the reason to show. `broken` sorts first, so the first failure isn't the target's.
+#[test]
+fn pull_shows_gits_reason_when_the_target_remote_is_unreachable() {
+    let env = single_branch_integration_scenario();
+    env.invoke_git("remote set-url origin /nonexistent/path/origin.git");
+    env.invoke_git("remote add broken /nonexistent/path/broken.git");
+
+    env.but("pull").assert().failure().stderr_eq(str![[r#"
+Error: fatal: '/nonexistent/path/origin.git' does not appear to be a git repository
+fatal: Could not read from remote repository.
+
+Please make sure you have the correct access rights
+and the repository exists.
+
+Hint: Check the remote's URL with `git remote -v`, your network connection and your credentials, then retry
+
+"#]]);
+}
+
+/// Git reports a refused key as "Permission denied", which is a failure of its own kind.
+#[cfg(unix)]
+#[test]
+fn pull_shows_gits_reason_when_ssh_refuses_the_credentials() {
+    let env = single_branch_integration_scenario();
+    let fake_ssh = env.app_data_dir().join("fake-ssh");
+    let fake_ssh = fake_ssh.display();
+    env.invoke_bash(format!(
+        r#"
+        printf '#!/bin/sh\necho "git@example.invalid: Permission denied (publickey)." >&2\nexit 255\n' > {fake_ssh}
+        chmod +x {fake_ssh}
+        git config core.sshCommand {fake_ssh}
+        git remote set-url origin ssh://git@example.invalid/project.git
+        "#
+    ));
+
+    env.but("pull").assert().failure().stderr_eq(str![[r#"
+Error: git@example.invalid: Permission denied (publickey).
+fatal: Could not read from remote repository.
+
+Please make sure you have the correct access rights
+and the repository exists.
+
+Hint: Check the remote's URL with `git remote -v`, your network connection and your credentials, then retry
+
+"#]]);
 }
 
 #[test]
@@ -1412,6 +1535,45 @@ Hint: run `but branch new` to create a new branch to work on
 Hint: run `but branch new` to create a new branch to work on
 
 "#]]);
+}
+
+#[test]
+fn pull_checks_out_main_after_the_last_stack_integrates() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "pull-one-of-two-stacks-integrated",
+    );
+    env.setup_metadata_at_target(&["A", "B"], "origin/main");
+
+    env.but("pull").assert().success();
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "gitbutler/workspace",
+        "B still needs the workspace after A integrated"
+    );
+
+    env.invoke_bash(
+        r#"
+        merged=$(git commit-tree "$(git merge-tree --write-tree main B)" -p main -p B -m "merge B")
+        git update-ref refs/heads/main "$merged"
+        git update-ref refs/remotes/origin/main "$merged"
+        "#,
+    );
+
+    env.but("pull").assert().success();
+
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "main",
+        "integrating the last stack must not leave an empty managed workspace checked out"
+    );
+    assert_eq!(rev_parse(&env, "HEAD"), rev_parse(&env, "origin/main"));
+    assert!(
+        env.open_repo()
+            .try_find_reference(but_core::WORKSPACE_REF_NAME)
+            .unwrap()
+            .is_none(),
+        "the empty managed workspace reference should be removed"
+    );
 }
 
 #[test]
@@ -1821,6 +1983,29 @@ fn worktrees_behind_target_scenario() -> Sandbox {
     env
 }
 
+/// A pull takes no commit off the branches of linked worktrees, so undoing it restores the
+/// workspace and leaves them rebased, rather than refusing because they moved.
+#[test]
+fn undo_after_pull_leaves_worktree_branches_rebased() {
+    let env = worktrees_behind_target_scenario();
+    let tips_before = env.invoke_git("rev-parse A B");
+    env.but("pull").assert().success();
+    let worktree_tips = env.invoke_git("rev-parse wt-inside wt-outside");
+
+    env.but("undo").assert().success();
+
+    assert_eq!(
+        env.invoke_git("rev-parse A B"),
+        tips_before,
+        "undo must restore the workspace's branches"
+    );
+    assert_eq!(
+        env.invoke_git("rev-parse wt-inside wt-outside"),
+        worktree_tips,
+        "undo must leave the worktrees' branches where the pull put them"
+    );
+}
+
 /// Put a commit adding `upstream.txt` on `origin/main`, for the next fetch to find.
 fn add_upstream_commit(env: &Sandbox) {
     env.invoke_git(
@@ -1839,7 +2024,7 @@ fn contains_target(env: &Sandbox, branch: &str) -> bool {
 }
 
 #[test]
-fn pull_points_worktree_conflicts_at_their_commit_ids() {
+fn pull_points_worktree_conflicts_at_their_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
     // The first read archives every worktree already on disk.
@@ -1853,25 +2038,183 @@ fn pull_points_worktree_conflicts_at_their_commit_ids() {
     ));
     add_upstream_commit(&env);
 
-    // Conflicts are looked up by branch in workspace stacks only, so a worktree's conflicted
-    // commit has to be named by its ID.
     env.but("pull").assert().success().stdout_eq(str![[r#"
 ...
   wt-conflict - conflicted
+      [..] add upstream.txt in worktree
 
 To resolve conflicts:
-  `wt-conflict` is checked out in a worktree. Take its conflicted commit's ID from `but status`, then run `but resolve conflicts <commit-id>` and `but resolve apply <path>:<N> --commit <commit-id>`
+  `wt-conflict` is in a worktree. Run `but resolve conflicts wt-conflict`, then `but resolve apply <path>:<N> --commit wt-conflict`
 
 To undo this operation:
   Run `but undo`
 
 "#]]);
 
+    // Without a target, the lookup finds the worktree's commit, so nothing claims all is well.
+    let conflicts = str![[r#"
+Conflicts in commit [..] on branch wt-conflict
+
+upstream.txt
+── conflict 1 of 1
+<<< ours (new base)
+upstream
+||| base
+
+>>> theirs (this commit)
+worktree
+
+Resolve with `but resolve apply <path>[:<N>] --ours|--theirs` or pipe mixed content into `but resolve apply <path>:<N>`. `but resolve --ai` resolves everything at once.
+
+"#]];
+    env.but("resolve conflicts")
+        .assert()
+        .success()
+        .stdout_eq(conflicts.clone());
     env.but("resolve conflicts wt-conflict")
+        .assert()
+        .success()
+        .stdout_eq(conflicts);
+
+    // The listing names the commit as `but status` does.
+    let status = status_json(&env);
+    let commit = status["worktrees"][0]["branches"][0]["commits"]
+        .as_array()
+        .expect("the worktree lane lists its commits")
+        .iter()
+        .find(|commit| commit["conflicted"].as_bool() == Some(true))
+        .and_then(|commit| commit["cliId"].as_str())
+        .expect("the worktree holds a conflicted commit");
+    env.but("resolve").assert().success().stdout_eq(format!(
+        r#"Found conflicted commits:
+
+Branch: wt-conflict
+  ● {commit} [conflict] add upstream.txt in worktree
+
+Run `but resolve conflicts <branch>` to see a branch's conflicts and how to resolve them.
+"#
+    ));
+
+    // Edit mode can't check that commit out, so it points at the route that works.
+    env.but(format!("resolve {commit}"))
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Branch "wt-conflict" is checked out in a worktree, where conflicts can't be looked up by branch name yet. Take its conflicted commit's ID from `but status`, then run `but resolve conflicts <commit-id>` and `but resolve apply <path>:<N> --commit <commit-id>`.
+Error: Commit [..] can't be checked out for resolution because it is not on a branch applied to the workspace.
+
+Hint: Run `but resolve conflicts [..]`, then `but resolve apply <path>:<N> --commit [..]`. Deletions, renames and binary files can't be resolved this way
+
+"#]]);
+
+    env.but("resolve apply upstream.txt --ours")
+        .assert()
+        .success();
+    env.but("resolve conflicts")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+No conflicted commits found.
+
+"#]]);
+}
+
+/// A commit conflicting on a lower branch of a worktree's lane, and a detached worktree's commit,
+/// which has no branch to go by.
+#[test]
+fn resolve_finds_conflicts_on_lower_branches_and_detached_worktrees() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    // The first read archives every worktree already on disk.
+    env.but("status").assert().success();
+    env.invoke_bash(format!(
+        r#"
+        git worktree add -q -b wt-top "{lower}" main
+        (cd "{lower}" && echo worktree >upstream.txt && git add upstream.txt && git commit -q -m "lower commit" && git branch wt-lower \
+          && echo top >top.txt && git add top.txt && git commit -q -m "top commit")
+        git worktree add -q --detach "{detached}" main
+        (cd "{detached}" && echo detached >upstream.txt && git add upstream.txt && git commit -q -m "detached commit")
+        "#,
+        lower = env.app_data_dir().join("worktrees/wt-top").display(),
+        detached = env.app_data_dir().join("worktrees/wt-detached").display(),
+    ));
+    add_upstream_commit(&env);
+    env.but("pull").assert().success();
+
+    // A branch includes the conflicts below it, as in a workspace stack.
+    for branch in ["wt-lower", "wt-top"] {
+        env.but(format!("resolve conflicts {branch}"))
+            .assert()
+            .success()
+            .stdout_eq(str![[r#"
+Conflicts in commit [..] on branch wt-[..]
+...
+>>> theirs (this commit)
+worktree
+...
+"#]]);
+    }
+    env.but("resolve conflicts wt-detached")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Conflicts in commit [..] on branch wt-detached
+...
+>>> theirs (this commit)
+detached
+...
+"#]]);
+}
+
+/// A worktree can rest on another, whose conflicts then have to go first: resolving them can
+/// conflict the commit above again. Lanes follow the worktrees' names, so the branch names here
+/// sort the other way around.
+#[test]
+fn resolve_conflicts_starts_with_the_worktree_another_rests_on() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    // The first read archives every worktree already on disk.
+    env.but("status").assert().success();
+    env.invoke_bash(format!(
+        r#"
+        git worktree add -q -b z-parent "{parent}" main
+        (cd "{parent}" && echo parent >upstream.txt && git add upstream.txt && git commit -q -m "parent commit")
+        git worktree add -q -b a-child "{child}" z-parent
+        (cd "{child}" && echo child >upstream.txt && git commit -q -am "child commit")
+        "#,
+        parent = env.app_data_dir().join("worktrees/first").display(),
+        child = env.app_data_dir().join("worktrees/second").display(),
+    ));
+    add_upstream_commit(&env);
+    env.but("pull").assert().success();
+
+    env.but("resolve conflicts")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Conflicts in commit [..] on branch z-parent
+...
+>>> theirs (this commit)
+parent
+
+1 other conflicted commit exists — scope with `but resolve conflicts <branch>`.
+...
+"#]]);
+}
+
+/// A worktree branch without conflicts is an ordinary "nothing to do".
+#[test]
+fn resolve_conflicts_on_a_clean_worktree_branch_reports_none() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    // The first read archives every worktree already on disk.
+    env.but("status").assert().success();
+    add_worktree_with_commit(&env, "wt-clean", "main");
+
+    env.but("resolve conflicts wt-clean")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Branch "wt-clean" has no conflicted commits.
 
 "#]]);
 }
@@ -2289,11 +2632,10 @@ Summary
   A - rebased
   B - rebased
   wt-detached - conflicted
+      [..] [conflict] add local
 
 To resolve conflicts:
-  1. Run `but status` to inspect the conflicted commits, then `but resolve <commit>`. Worktree files show no conflict markers until resolve checks the commit out
-  2. Edit files to resolve the conflicts
-  3. Run `but resolve finish` to finalize the resolution
+  `wt-detached` is in a worktree. Run `but resolve conflicts wt-detached`, then `but resolve apply <path>:<N> --commit wt-detached`
 
 To undo this operation:
   Run `but undo`

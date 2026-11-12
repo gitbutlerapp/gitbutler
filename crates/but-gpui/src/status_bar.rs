@@ -1,26 +1,44 @@
-//! The strip along the bottom of the window: what's running, what's cut, and the keys
+//! The strip along the bottom of the window: what's running, what's moving, and the keys
 //! that matter right now.
 
 use gpui::{
-    Action, AnyElement, Context, Div, Focusable as _, Hsla, Role, SharedString, Stateful, Window,
-    div, prelude::*,
+    Action, AnyElement, App, Context, Div, Focusable as _, Hsla, Role, SharedString, Stateful,
+    Window, div, prelude::*,
 };
 
 use crate::app::{
-    AppView, CommandPalette, CutSelection, Fetch, FocusDiff, OpenPullRequest, PasteHere, Push,
-    RenameSelection, StartCommit, UncommitSelection, Undo, UpdateFromTarget,
+    AppView, CommandPalette, Fetch, FinishArranging, FocusDiff, MoveHere, MoveSelection,
+    OpenPullRequest, Push, SquashSelection, StartAmend, StartCommit, Undo, UpdateFromTarget,
+    UseTargetMessage,
 };
-use crate::backend::{Branch, Checkout, CommitId, FileChange, ReviewState, Workspace};
-use crate::detail::{AmendTop, DiscardHunk, NextFile, NextHunk};
+use crate::backend::rebuild::Rebuild;
+use crate::backend::{Branch, Checkout, CommitId, FileChange, Messages, ReviewState, Workspace};
+use crate::detail::{NextFile, NextHunk};
+use crate::edits::Discard;
+use crate::edits::{NameBranch, RenameBranch, RenameTerminal, Reword, Uncommit};
 use crate::pr::{CreatePullRequest, create_offer};
-use crate::state::{Cut, ProjectId, SLOW, Section, Selection};
+use crate::state::{Part, ProjectId, ProjectTab, SLOW, Selection};
 use crate::theme::Theme;
+use crate::transfer::{Op, Transfer};
 use crate::ui::{
     Icon, STATUS_BAR_HEIGHT, Tooltip, ago, dot, dp, duration, h_flex, plural, shortcut,
     shortcut_here, small_icon,
 };
 
 impl AppView {
+    /// Whether the bar draws: unless Settings hides it.
+    pub(crate) fn status_bar_shown(&self, cx: &App) -> bool {
+        self.store.read(cx).prefs.shows(Part::StatusBar)
+    }
+
+    /// The bar's height, or nothing while it doesn't draw, for what sits above it.
+    pub(crate) fn status_bar_height(&self, cx: &App) -> f32 {
+        match self.status_bar_shown(cx) {
+            true => STATUS_BAR_HEIGHT,
+            false => 0.,
+        }
+    }
+
     pub fn render_status_bar(
         &mut self,
         window: &mut Window,
@@ -56,58 +74,150 @@ impl AppView {
         });
         // What the bar's left says, and the keys that go with it, which go on its right with the
         // others.
-        let (state, state_keys): (AnyElement, Vec<(SharedString, &str)>) = if let Some(working) =
-            working
-        {
+        let (state, state_keys): (AnyElement, Vec<(SharedString, &str)>) = if self.swapping() {
+            let state = h_flex()
+                .gap(dp(6.))
+                .child(div().text_color(theme.pop).child("Swapping tiles"))
+                .child("press a tile's letter");
+            (state.into_any_element(), vec![("esc".into(), "cancel")])
+        } else if self.arranging() {
+            let state = div().text_color(theme.pop).child("Arranging tiles");
+            let keys = [("hjkl".into(), "move tile")]
+                .into_iter()
+                .chain(shortcut(&FinishArranging, cx).map(|keys| (keys, "done")))
+                .chain([("esc".into(), "cancel")])
+                .collect();
+            (state.into_any_element(), keys)
+        } else if let Some(working) = working {
             let working = h_flex()
                 .gap(dp(6.))
                 .text_color(theme.pop)
                 .child(small_icon(Icon::Clock).text_color(theme.pop))
                 .child(working);
             (working.into_any_element(), Vec::new())
-        } else if let Some(cut) = &store.cut {
-            // On another commit, a commit goes above it, below it with ⇧, or one that's cut
-            // rather than copied into it with ⌥.
-            let onto_commit = matches!((cut, &store.selection),
-                (Cut::Commit(_, ids) | Cut::CherryPick(_, ids), Some(Selection::Commit(_, id)))
-                    if !ids.contains(id));
-            let paste = match (shortcut(&PasteHere, cx), onto_commit) {
-                (None, _) => Vec::new(),
-                (Some(keys), false) => vec![(keys, "paste here")],
-                (Some(keys), true) => [
-                    (keys.clone(), "above"),
-                    (format!("⇧{keys}").into(), "below"),
-                ]
-                .into_iter()
-                .chain(
-                    matches!(cut, Cut::Commit(..)).then(|| (format!("⌥{keys}").into(), "squash")),
+        } else if let Some((file, says, warn)) = detail.edit_status() {
+            // A file edited in the diff, how that stands: ⌘S saves what's typed, ⌘Z takes back
+            // the last of it, and Esc takes the caret out of the line, then closes the file,
+            // asking to save first.
+            let state = h_flex()
+                .gap(dp(6.))
+                .child(
+                    div()
+                        .text_color(theme.text_1)
+                        .child(format!("Editing {file}")),
                 )
-                .collect(),
+                .child(div().text_color(theme.text_3).child("·"))
+                .child(
+                    div()
+                        .text_color(if warn { theme.warn } else { theme.text_3 })
+                        .child(says),
+                );
+            let mut keys = vec![
+                (crate::ui::keys_text("⌘S").into(), "save"),
+                (crate::ui::keys_text("⌘Z").into(), "undo"),
+            ];
+            // How the edit ends: Esc takes the caret out of the line, then closes the file.
+            if detail.has_caret() {
+                keys.push(("esc".into(), "done"));
+            } else if detail.esc_closes_edit() {
+                keys.push(("esc".into(), "close"));
+            }
+            (state.into_any_element(), keys)
+        } else if let Some(moving) = &store.moving {
+            // What's moving, and where Return lands it, unless that's where it is.
+            let lands = moving.lands(store);
+            // What the composer has checked shows in the composer.
+            let what = match moving.amending() && detail.composing() {
+                true => String::new(),
+                false => moving.describe(store),
             };
-            // What's cut gives way first, then its verb is cut short.
-            let what = h_flex()
+            // A new commit has no name till its message is written.
+            let what = match lands {
+                true => format!("{what} {}", moving.place(store))
+                    .trim_start()
+                    .to_owned(),
+                false => what,
+            };
+            // In the colour each marks rows in, as the TUI's modes have their own.
+            let (doing, color) = (moving.doing(), moving.op.colour(&theme));
+            let state = h_flex()
                 .gap(dp(6.))
                 .min_w_0()
                 .overflow_hidden()
-                .child(div().flex_none().text_color(theme.pop).child(cut.verb()))
-                .child(div().min_w_0().truncate().child(cut.describe(store)));
-            // Not while typing, where ⌘V pastes text and esc leaves the field.
-            let keys = match typing {
-                true => Vec::new(),
-                false => paste
-                    .into_iter()
-                    .chain([("esc".into(), "cancel")])
-                    .collect(),
+                .child(div().flex_none().text_color(color).child(doing))
+                .child(div().min_w_0().truncate().child(what));
+            // Commits squashed into one keep both messages, or only the one they go into's.
+            let messages = match (moving.op, moving.squashed(store)) {
+                (Op::Squash(keep), Some(Transfer::Squash { .. })) => {
+                    let said = match keep {
+                        Messages::Both => "keep only its message",
+                        Messages::Target => "keep both messages",
+                    };
+                    shortcut(&UseTargetMessage, cx).map(|keys| (keys, said))
+                }
+                (Op::Squash(_) | Op::Move | Op::Commit | Op::CherryPick, _) => None,
             };
-            (what.into_any_element(), keys)
+            // Commits or a branch squash instead of moving, or move instead of squashing, and
+            // commits cherry-picked move instead. Uncommitted changes commit instead of
+            // amending, and the other way around.
+            let instead = match moving.op {
+                Op::Squash(_) if moving.amending() => {
+                    shortcut(&StartCommit, cx).map(|keys| (keys, "commit instead"))
+                }
+                Op::Squash(_) | Op::CherryPick => (shortcut(&MoveSelection, cx))
+                    .filter(|_| moving.of_commits())
+                    .map(|keys| (keys, "move instead")),
+                Op::Move => (shortcut(&SquashSelection, cx))
+                    .filter(|_| moving.of_commits())
+                    .map(|keys| (keys, "squash instead")),
+                Op::Commit => shortcut(&StartAmend, cx).map(|keys| (keys, "amend instead")),
+            };
+            // Without the composer, as where the navigator came out for it, Return commits as
+            // it is, without a message. Without the navigator, the arrows go on through the
+            // files.
+            let unseen = (moving.op == Op::Commit || moving.amending()) && !self.navigator_shown();
+            // With it, Return goes to the commit's message first, to keep or rewrite.
+            let verb = match (
+                moving.op == Op::Commit,
+                moving.amending(),
+                detail.composing(),
+            ) {
+                (true, _, false) => "commit",
+                (_, true, true) => "edit the message",
+                (_, _, _) => moving.verb(store),
+            };
+            // In the message of what's amended the keys write it, and those that confirm amend.
+            let writing = moving.amending() && detail.message_focused(window, cx);
+            // What a drag holds goes by the pointer, which only Escape stops.
+            let dragged = moving.dragged(store);
+            let keys = (!unseen && !writing && !dragged)
+                .then(|| ("↑↓".into(), "choose where"))
+                .into_iter()
+                .chain(
+                    (shortcut(&MoveHere, cx).filter(|_| lands && !writing && !dragged))
+                        .map(|keys| (keys, verb)),
+                )
+                .chain(messages.filter(|_| !dragged))
+                .chain(instead.filter(|_| !writing && !dragged))
+                .chain([(
+                    "esc".into(),
+                    match writing {
+                        true => "back",
+                        false => "cancel",
+                    },
+                )])
+                .collect();
+            (state.into_any_element(), keys)
         } else if let Some((n, what, how)) = [
             // Only the navigator's highlight shows them otherwise.
             (
                 store.picked.len(),
                 "commit",
                 Some(match picks_conflicted {
-                    true => "drag them together, or press M to squash or discard them",
-                    false => "drag them together, or press M to squash, uncommit or discard them",
+                    true => "drag them together, or right-click to squash or discard them",
+                    false => {
+                        "drag them together, or right-click to squash, uncommit or discard them"
+                    }
                 }),
             ),
             (
@@ -129,9 +239,13 @@ impl AppView {
                 )
                 .children(how);
             (selected.into_any_element(), vec![("esc".into(), "cancel")])
-        } else if let Some(place) = (detail.is_focused(window, cx) && !detail.diff_hidden(cx))
-            .then(|| detail.cursor_place(cx))
-            .flatten()
+        } else if let Some(place) = (detail.is_focused(window, cx)
+            && (detail.showing_brief() || !detail.diff_hidden(cx)))
+        .then(|| match detail.showing_brief() {
+            true => detail.brief_place(),
+            false => detail.cursor_place(cx),
+        })
+        .flatten()
         {
             // In the diff or the lists beside it, where the cursor is, as an editor's status
             // bar says the line.
@@ -143,9 +257,7 @@ impl AppView {
         // A target with no upstream stands where it is whatever a fetch brings. Not on the
         // project's page, whose header says it, with its own Fetch.
         let fetched = (store.selection.as_ref()).and_then(|selection| {
-            if let Selection::Project(_) | Selection::Section(_, Section::Upstream(None)) =
-                selection
-            {
+            if let Selection::Project(_) = selection {
                 return None;
             }
             let id = selection.project();
@@ -160,57 +272,72 @@ impl AppView {
 
         let detail_focused = detail.is_focused(window, cx);
         // A linked worktree's changes commit and discard as the main checkout's do.
-        let uncommitted = matches!(
-            store.selection,
-            Some(Selection::Uncommitted(_) | Selection::Worktree(..))
-        );
+        let uncommitted = matches!(store.selection, Some(Selection::Uncommitted(..)));
         let composing = uncommitted && detail.composing();
-        let hints: Vec<(&dyn Action, &str)> = if composing {
-            let amend = detail
-                .can_amend(cx)
-                .then_some((&AmendTop as &dyn Action, "amend"));
-            [(&StartCommit as &dyn Action, "commit")]
-                .into_iter()
-                .chain(amend)
-                .collect()
+        let hints: Vec<(&dyn Action, &str)> = if (store.moving.as_ref())
+            .is_some_and(|moving| moving.dragged(store))
+        {
+            // What's selected isn't what the keys do while a drag holds the pointer.
+            Vec::new()
+        } else if composing {
+            // The other's key shows as what to do instead while one's being placed.
+            let moving = store.moving.as_ref();
+            let commit = (&StartCommit as &dyn Action, "commit");
+            let amend = (&StartAmend as &dyn Action, "amend");
+            match moving.map(|moving| (moving.op, moving.amending())) {
+                Some((Op::Commit, _)) => Vec::from([commit]),
+                Some((Op::Squash(_), true)) => Vec::from([amend]),
+                Some((Op::Move | Op::Squash(_) | Op::CherryPick, _)) | None => {
+                    Vec::from([commit, amend])
+                }
+            }
+        } else if !typing && detail_focused && detail.showing_brief() {
+            [
+                (&crate::detail::NextBlock as &dyn Action, "next part"),
+                (&crate::detail::WriteNote, "write a comment"),
+                (&crate::detail::NextBrief, "next brief"),
+            ]
+            .into()
+        } else if !typing && !detail_focused && detail.showing_brief() {
+            vec![(&crate::app::FocusPaneRight, "read the brief")]
+        } else if !typing && detail.back_to_brief() {
+            vec![(&crate::detail::GoBack, "back to the brief")]
         } else if !typing && !detail_focused && detail.shows_conflicts() {
             // Picking takes the keys of the diff, so it needs the focus.
             vec![(&FocusDiff, "pick conflicts")]
         } else if typing
             || (detail_focused && (!detail.has_files() || detail.diff_hidden(cx)))
             || detail.side_list_focused(window)
+            || detail.on_tabs(window)
             || store.selection.is_none()
         {
             Vec::new()
         } else if detail.files_focused(window) {
             vec![(&NextFile, "next file")]
+        } else if detail.on_folder_summary(window, cx) {
+            // The diff's keys go through the folder's files there.
+            vec![(&NextHunk, "next file")]
         } else if detail_focused && uncommitted {
-            // ⌘X takes what's picked, or the hunk or file under the cursor; ⌥⌘Z the picked lines,
-            // or the hunk, and on a file's header or the box above a hunk there's no hunk for it.
+            // This hint is for the picked lines or the hunk, which on a file's header or the box
+            // above a hunk isn't.
             let discard = match detail.picked_line_count() {
-                0 => detail.on_hunk().then_some("discard hunk"),
+                0 => detail.on_hunk(cx).then_some("discard hunk"),
                 _ => Some("discard lines"),
             };
             // First, as the hints line up from the right, so the others stay put as the cursor
             // moves on and off a hunk.
-            let discard = discard.map(|label| (&DiscardHunk as &dyn Action, label));
+            let discard = discard.map(|label| (&Discard as &dyn Action, label));
             (discard.into_iter())
-                .chain([
-                    (&NextHunk as &dyn Action, "next hunk"),
-                    (&CutSelection, "cut"),
-                ])
+                .chain([(&NextHunk as &dyn Action, "next hunk")])
                 .collect()
-        } else if detail_focused && detail.cursor_cut(cx).is_some() {
-            vec![(&NextHunk, "next hunk"), (&CutSelection, "cut")]
+        } else if detail_focused && detail.cursor_changes(cx).is_some() {
+            vec![(&NextHunk, "next hunk")]
         } else if detail_focused {
             vec![(&NextFile, "next file"), (&NextHunk, "next hunk")]
         } else {
-            // In the navigator, the keys for what's selected; what's cut says its own.
+            // In the navigator, the keys for what's selected.
             let mut hints: Vec<(&dyn Action, &str)> = match &store.selection {
-                Some(
-                    Selection::Project(project)
-                    | Selection::Section(project, Section::Upstream(None)),
-                ) => {
+                Some(Selection::Project(project)) => {
                     let behind = (store.workspace(project))
                         .and_then(|ws| ws.target.as_ref())
                         .is_some_and(|target| target.needs_update());
@@ -227,25 +354,34 @@ impl AppView {
                         .is_some_and(|branch| branch.review.is_some());
                     let create = (create_offer(store, selection) == Some(Ok(())))
                         .then_some((&CreatePullRequest as &dyn Action, "create pull request"));
+                    let rename: (&dyn Action, _) = match ref_name {
+                        Some(_) => (&RenameBranch, "rename"),
+                        None => (&NameBranch, "name"),
+                    };
                     (push.then_some((&Push as &dyn Action, "push")).into_iter())
                         .chain(review.then_some((&OpenPullRequest as &dyn Action, "pull request")))
                         .chain(create)
-                        .chain([(&RenameSelection as &dyn Action, "rename")])
+                        .chain([rename])
                         .collect()
                 }
                 Some(Selection::Commit(_, id)) => {
                     let conflicted = picks_conflicted || conflicted(id);
-                    [
-                        (&CutSelection as &dyn Action, "cut"),
-                        (&RenameSelection, "edit message"),
-                    ]
-                    .into_iter()
-                    .chain((!conflicted).then_some((&UncommitSelection as &dyn Action, "uncommit")))
-                    .collect()
+                    [(&Reword as &dyn Action, "reword")]
+                        .into_iter()
+                        .chain((!conflicted).then_some((&Uncommit as &dyn Action, "uncommit")))
+                        .collect()
                 }
-                Some(Selection::Uncommitted(_) | Selection::Worktree(..)) => {
-                    vec![(&StartCommit, "commit")]
+                // What's being placed says its own keys.
+                Some(Selection::Checkout(..) | Selection::Uncommitted(..))
+                    if store.moving.is_some() =>
+                {
+                    Vec::new()
                 }
+                Some(Selection::Checkout(..) | Selection::Uncommitted(..)) => Vec::from([
+                    (&StartCommit as &dyn Action, "commit"),
+                    (&StartAmend, "amend"),
+                ]),
+                Some(Selection::Terminal(..)) => vec![(&RenameTerminal, "rename")],
                 _ => Vec::new(),
             };
             if store.can_undo() {
@@ -257,10 +393,12 @@ impl AppView {
         h_flex()
             .flex_none()
             .h(dp(STATUS_BAR_HEIGHT))
+            // Its controls as far above the window's bottom as below the cards, as the top
+            // bars' are from the window's top.
+            .pb(dp(8.))
             .px(dp(12.))
             .gap(dp(10.))
-            .border_t_1()
-            .border_color(theme.border_3)
+            // On the ground the cards are on, with nothing between, as the top bars are.
             .bg(theme.bg_2)
             .text_size(dp(12.))
             .text_color(theme.text_2)
@@ -282,7 +420,7 @@ impl AppView {
                 )
             })
             .child(div().flex_1().min_w_0().truncate().child(state))
-            // What's cut or picked first, as the hints line up from the right.
+            // What's picked first, as the hints line up from the right.
             .children((state_keys.iter()).map(|(keys, label)| hint(keys, label, &theme)))
             .children(hints.into_iter().filter_map(|(action, label)| {
                 // The keys that run it where the keys go now, so one a keymap binds only
@@ -303,10 +441,10 @@ impl AppView {
                     })
                     .on_click(|_, window, cx| window.dispatch_action(Box::new(CommandPalette), cx)),
             )
-            .children(self.rebuild.is_some().then(|| self.build_button(cx)))
+            .children((cx.has_global::<Rebuild>()).then(|| self.build_button(cx)))
     }
 
-    /// The bar's left while nothing is under way, picked or cut: what in the selected project
+    /// The bar's left while nothing is under way or picked: what in the selected project
     /// needs the user, where something is writing, the commits not read yet and what ⌘Z takes
     /// back, in that order, each a click from what it names. What doesn't fit goes whole,
     /// from the end.
@@ -349,11 +487,12 @@ impl AppView {
                             text,
                             tip,
                             to,
+                            tab: None,
                         }
                     }),
             );
             // The checkout selected says both of its own, so only the others' count.
-            let here = (self.detail.read(cx).selected_checkout(cx)).map(|(_, checkout)| checkout);
+            let here = (self.detail.read(cx).selected_checkout()).map(|(_, checkout)| checkout);
             let writing: Vec<Checkout> = (store.being_written(&project).into_iter())
                 .filter(|checkout| Some(checkout) != here.as_ref())
                 .collect();
@@ -363,19 +502,20 @@ impl AppView {
                     Checkout::Linked(name) => name.to_string(),
                 })
                 .collect();
-            if let (Some(text), Some(first)) = (written_in(&names), writing.first()) {
+            // Alone, the main checkout is the only one there is to name.
+            let text = match store.main_headed(&project) {
+                true => written_in(&names),
+                false => (!names.is_empty()).then(|| "Being written now".to_owned()),
+            };
+            if let (Some(text), Some(first)) = (text, writing.first()) {
                 notes.push(Note {
                     id: "writing",
                     mark: dot(theme.pop).into_any_element(),
                     color: None,
                     text,
                     tip: "Show the worktree",
-                    to: match first {
-                        Checkout::Main => Selection::Uncommitted(project.clone()),
-                        Checkout::Linked(name) => {
-                            Selection::Worktree(project.clone(), name.clone())
-                        }
-                    },
+                    to: Selection::Checkout(project.clone(), first.clone()),
+                    tab: None,
                 });
             }
             let unread: Vec<CommitId> = (workspace.lanes.iter())
@@ -394,6 +534,7 @@ impl AppView {
                     text: format!("{} unread", unread.len()),
                     tip: "Read the first one",
                     to: Selection::Commit(project.clone(), *first),
+                    tab: None,
                 });
             }
         }
@@ -401,7 +542,8 @@ impl AppView {
         // history lists it first.
         if let Some((done_in, said, at)) = store.last_done()
             && store.project(done_in).is_some()
-            && shown != Some(&Selection::History(done_in.clone()))
+            && (shown != Some(&Selection::Project(done_in.clone()))
+                || self.detail.read(cx).project_tab() != ProjectTab::History)
         {
             notes.push(Note {
                 id: "last-done",
@@ -411,7 +553,8 @@ impl AppView {
                 color: None,
                 text: format!("{said}{} · {}", store.in_project(done_in), ago(at / 1000)),
                 tip: "Show the operations history",
-                to: Selection::History(done_in.clone()),
+                to: Selection::Project(done_in.clone()),
+                tab: Some(ProjectTab::History),
             });
         }
         // Each a whole line's height, so what wraps to a second line is out of sight. Pulled
@@ -423,15 +566,16 @@ impl AppView {
             .flex_wrap()
             .overflow_hidden()
             .children(notes.into_iter().map(|note| {
-                let to = note.to;
+                let (to, tab) = (note.to, note.tab);
                 clickable(note.id, &note.text, theme)
                     .when_some(note.color, |el, color| el.text_color(color))
                     .child(note.mark)
                     .child(note.text)
                     .tooltip(Tooltip::text(note.tip))
-                    .on_click(
-                        cx.listener(move |this, _, window, cx| this.select(to.clone(), window, cx)),
-                    )
+                    .on_click(cx.listener(move |this, _, window, cx| match tab {
+                        Some(tab) => this.open_project_tab(to.project().clone(), tab, window, cx),
+                        None => this.select(to.clone(), window, cx),
+                    }))
             }))
             .into_any_element()
     }
@@ -446,6 +590,8 @@ struct Note {
     text: String,
     tip: &'static str,
     to: Selection,
+    /// Which tab of the project `to` is, on one.
+    tab: Option<ProjectTab>,
 }
 
 /// What kind of thing needs the user, which says how the bar marks it.
@@ -480,10 +626,10 @@ fn needs(
     let count = |files: &[FileChange]| files.iter().filter(|file| file.conflicted).count();
     let files: Vec<(usize, Selection)> = std::iter::once((
         count(&workspace.uncommitted),
-        Selection::Uncommitted(project.clone()),
+        Selection::Uncommitted(project.clone(), Checkout::Main),
     ))
     .chain((workspace.worktrees.iter()).map(|worktree| {
-        let to = Selection::Worktree(project.clone(), worktree.name.clone());
+        let to = Selection::Uncommitted(project.clone(), Checkout::Linked(worktree.name.clone()));
         (count(&worktree.uncommitted), to)
     }))
     .filter(|(n, to)| *n > 0 && elsewhere(to))
@@ -538,8 +684,8 @@ fn clickable(id: &'static str, label: &str, theme: &Theme) -> Stateful<Div> {
         .gap(dp(6.))
         .px(dp(6.))
         .h(dp(22.))
-        .rounded(dp(4.))
-        .hover(|el| el.bg(theme.hover()))
+        .rounded(dp(theme.shape.control))
+        .hover(|el| el.bg(theme.hover))
 }
 
 /// An operation's label, which names it as a command ("Push main"), as what's under way
@@ -580,7 +726,7 @@ fn hint(keys: &str, label: &str, theme: &Theme) -> gpui::Div {
 mod tests {
     use super::{Need, needs, under_way};
     use crate::backend::model::build::{branch, full, id, workspace, worktree};
-    use crate::backend::{Checks, FileChange, Review, ReviewState};
+    use crate::backend::{Checkout, Checks, FileChange, Review, ReviewState};
     use crate::state::{ProjectId, Selection};
 
     #[test]
@@ -627,7 +773,7 @@ mod tests {
                 (
                     Need::ConflictedFiles,
                     "3 conflicted files".to_owned(),
-                    Selection::Uncommitted(project.clone())
+                    Selection::Uncommitted(project.clone(), Checkout::Main)
                 ),
                 (
                     Need::FailedChecks,
@@ -637,13 +783,13 @@ mod tests {
             ],
             "a merged pull request's checks and a linked worktree's, which go stale, don't count"
         );
-        let main = Selection::Uncommitted(project.clone());
+        let main = Selection::Uncommitted(project.clone(), Checkout::Main);
         assert_eq!(
             needs(&project, &ws, Some(&main))[1],
             (
                 Need::ConflictedFiles,
                 "2 conflicted files".to_owned(),
-                Selection::Worktree(project.clone(), "agent-x".into())
+                Selection::Uncommitted(project.clone(), Checkout::Linked("agent-x".into()))
             ),
             "Main worktree's page shows its own conflicts, and the linked worktree's still count"
         );

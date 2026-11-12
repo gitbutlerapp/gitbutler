@@ -3,7 +3,10 @@ use but_core::RefMetadata;
 use crate::{
     command::{
         undo::run_mutate_undo_roundtrip_test,
-        util::{branch_commit_cli_ids, commit_two_files_as_two_hunks_each, status_json},
+        util::{
+            add_worktree_with_commit, add_worktree_with_lower_branch, branch_commit_cli_ids,
+            commit_two_files_as_two_hunks_each, status_json,
+        },
     },
     utils::Sandbox,
 };
@@ -688,4 +691,84 @@ fn undo_move_commit_to_branch() {
             .assert()
             .success();
     });
+}
+
+/// Moving a commit out of a linked worktree checks that worktree out without it. Undo must not
+/// rewrite files in another checkout, so it refuses and changes nothing, rather than reporting
+/// success with the commit on neither branch.
+#[test]
+fn undo_refuses_a_move_out_of_a_linked_worktree() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    add_worktree_with_lower_branch(&env, "wt-feature", "A");
+    undo_refuses_moving_the_lower_worktree_commit(&env, "B");
+}
+
+#[test]
+fn undo_refuses_a_single_branch_move_out_of_a_linked_worktree() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.invoke_git("checkout -q -b feature");
+    env.but("status").assert().success();
+    add_worktree_with_lower_branch(&env, "wt-feature", "feature");
+    undo_refuses_moving_the_lower_worktree_commit(&env, "feature");
+}
+
+/// Move the commit `wt-lower` names below `wt-feature` onto `branch`, then undo it.
+#[track_caller]
+fn undo_refuses_moving_the_lower_worktree_commit(env: &Sandbox, branch: &str) {
+    let tips = format!("rev-parse {branch} wt-lower wt-feature");
+    let worktree_commit = env.invoke_git("rev-parse wt-lower");
+    env.but(format!("move {worktree_commit} -b {branch}"))
+        .assert()
+        .success();
+    let tips_after_move = env.invoke_git(&tips);
+
+    env.but("undo")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot restore branch 'wt-feature' because it is checked out in worktrees: [..]
+
+Hint: Reverse the operation with its inverse instead, such as `but move <commit> --branch <branch>`, `but reword <commit>` or `but uncommit <commit>`
+
+"#]]);
+
+    assert_eq!(
+        env.invoke_git(&tips),
+        tips_after_move,
+        "a refused undo must leave the destination and the worktree's branches where they are"
+    );
+}
+
+/// Agents keep committing in their linked worktrees, which must not get in the way of undoing an
+/// operation that didn't touch them. The commits stay where they were made.
+#[test]
+fn undo_keeps_commits_made_in_a_linked_worktree_since() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    let wt_dir = add_worktree_with_commit(&env, "wt-feature", "main");
+    let tips_before = env.invoke_git("rev-parse A B");
+    let commit = env.invoke_git("rev-parse A");
+    env.but(format!("move {commit} -b B")).assert().success();
+    but_testsupport::invoke_bash_at_dir(
+        "echo later >later.txt && git add later.txt && git commit -q -m 'later'",
+        &wt_dir,
+    );
+    let worktree_tip = env.invoke_git("rev-parse wt-feature");
+
+    env.but("undo").assert().success();
+
+    assert_eq!(
+        env.invoke_git("rev-parse A B"),
+        tips_before,
+        "undo must restore what the move changed"
+    );
+    assert_eq!(
+        env.invoke_git("rev-parse wt-feature"),
+        worktree_tip,
+        "undo must leave the commit made in the worktree since"
+    );
 }

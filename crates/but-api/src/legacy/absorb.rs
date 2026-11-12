@@ -6,14 +6,18 @@ use but_api_macros::but_api;
 use but_core::{ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
 use but_hunk_assignment::{
-    AbsorbCandidate, AbsorptionReason, AbsorptionTarget, CommitAbsorption, CommitMap,
-    GroupedChanges, convert_hunks_to_diff_specs,
+    AbsorbCandidate, AbsorptionReason, AbsorptionTarget, CommitAbsorption, GroupedChanges,
+    convert_hunks_to_diff_specs,
 };
 use but_hunk_dependency::ui::{
     HunkDependencies, HunkLock, HunkLockTarget,
     hunk_dependencies_for_workspace_changes_by_worktree_dir,
 };
-use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
+use but_rebase::graph_rebase::{
+    Editor,
+    mutate::{InsertSide, RelativeTo},
+};
+use but_workspace::commit::{ChangeSource, amend_in_editor, cancel_consumed_changes};
 use but_workspace::{RefInfo, branch::Stack};
 use gitbutler_oplog::{
     OplogExt,
@@ -22,10 +26,7 @@ use gitbutler_oplog::{
 use itertools::Itertools;
 use tracing::instrument;
 
-use crate::{
-    commit::amend::commit_amend_only_impl, commit::insert_blank::commit_insert_blank_only_impl,
-    commit::json::ChangesSource,
-};
+use crate::{commit::insert_blank::commit_insert_blank_only_impl, commit::json::ChangesSource};
 use but_core::DryRun;
 
 /// Absorb the changes described by `absorption_plan` using the behavior documented by
@@ -39,8 +40,6 @@ use but_core::DryRun;
 #[instrument(err(Debug))]
 pub fn absorb(ctx: &mut Context, absorption_plan: Vec<CommitAbsorption>) -> anyhow::Result<usize> {
     let mut guard = ctx.exclusive_worktree_access();
-    // Create a snapshot before performing absorb operations
-    // This allows the user to undo if needed
     let _snapshot = ctx
         .create_snapshot(
             SnapshotDetails::new(OperationKind::Absorb),
@@ -52,7 +51,7 @@ pub fn absorb(ctx: &mut Context, absorption_plan: Vec<CommitAbsorption>) -> anyh
 }
 
 /// Absorb the changes described by `absorption_plan` using the exclusive repository
-/// access granted by `perm`, applying the updates through the modern commit amend API.
+/// access granted by `perm`.
 ///
 /// Returns the total amount of rejected diff specs.
 pub fn absorb_with_perm(
@@ -60,31 +59,35 @@ pub fn absorb_with_perm(
     absorption_plan: Vec<CommitAbsorption>,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<usize> {
-    // Apply each group to its target commit and track failures
-    let mut total_rejected = 0;
-    let mut commit_map = CommitMap::default();
     let context_lines = ctx.settings.context_lines;
+    let mut meta = ctx.meta()?;
+    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let mut editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
 
+    let mut total_rejected = 0;
+    let mut consumed = Vec::new();
     for absorption in absorption_plan {
         let diff_specs = convert_hunks_to_diff_specs(&absorption.hunks)?;
-        let commit_id = commit_map.find_mapped_id(absorption.commit_id);
-        let outcome = commit_amend_only_impl(
-            ctx,
-            commit_id,
+        let outcome = amend_in_editor(
+            &mut editor,
+            absorption.commit_id,
             diff_specs,
-            &ChangesSource::Head,
-            DryRun::No,
             context_lines,
-            perm,
+            &ChangeSource::Head,
         )?;
         if !outcome.rejected_specs.is_empty() {
             tracing::warn!(?outcome.rejected_specs, "Failed to commit at least one hunk");
         }
-        for (old, new) in &outcome.workspace.replaced_commits {
-            commit_map.add_mapping(*old, *new);
-        }
         total_rejected += outcome.rejected_specs.len();
+        consumed.extend(outcome.consumed);
     }
+
+    cancel_consumed_changes(&mut editor, &ChangeSource::Head, consumed, context_lines)?;
+    editor.rebase()?.materialize(Default::default())?;
+
+    drop(repo);
+    drop(db);
+    ctx.update_workspace_cache(ws);
     Ok(total_rejected)
 }
 
@@ -115,7 +118,6 @@ pub fn absorption_plan_with_perm(
 ) -> anyhow::Result<Vec<CommitAbsorption>> {
     let (candidates, dependencies) = match target {
         AbsorptionTarget::Branch { branch_name } => {
-            // Get all worktree changes, assignments, and dependencies
             // TODO: Ideally, there's a simpler way of getting the worktree changes without passing the context to it.
             // At this time, the context is passed pretty deep into the function.
             let worktree_changes = crate::diff::changes_in_worktree_with_perm(
@@ -127,10 +129,8 @@ pub fn absorption_plan_with_perm(
             let all_assignments = worktree_changes.assignments;
             let dependencies = worktree_changes.dependencies;
 
-            // Get the stack ID for this branch
             let workspace = crate::legacy::workspace::head_info(ctx)?;
 
-            // Find the stack that contains this branch
             let stack = workspace
                 .stacks
                 .iter()
@@ -146,7 +146,6 @@ pub fn absorption_plan_with_perm(
 
             let stack_id = stack.id.ok_or_else(|| anyhow::anyhow!("Stack has no ID"))?;
 
-            // Filter assignments to just this stack
             let candidates: Vec<AbsorbCandidate> = all_assignments
                 .into_iter()
                 .filter(|a| a.stack_id == Some(stack_id))
@@ -163,7 +162,6 @@ pub fn absorption_plan_with_perm(
             changes,
             assigned_stack_id,
         } => {
-            // Get all worktree changes, assignments, and dependencies
             let worktree_changes = crate::diff::changes_in_worktree_with_perm(
                 ctx,
                 ChangesSource::Head,
@@ -199,7 +197,6 @@ pub fn absorption_plan_with_perm(
             (hunks.into_iter().map(Into::into).collect(), dependencies)
         }
         AbsorptionTarget::All => {
-            // Get all worktree changes, assignments, and dependencies
             // TODO: Ideally, there's a simpler way of getting the worktree changes without passing the context to it.
             // At this time, the context is passed pretty deep into the function.
             let worktree_changes = crate::diff::changes_in_worktree_with_perm(
@@ -219,11 +216,9 @@ pub fn absorption_plan_with_perm(
         }
     };
 
-    // Group all changes by their target commit
     let changes_by_commit =
         group_changes_by_target_commit(ctx, &candidates, dependencies.as_ref(), perm)?;
 
-    // Prepare commit absorptions for display
     let commit_absorptions = prepare_commit_absorptions(ctx, changes_by_commit)?;
 
     Ok(commit_absorptions)
@@ -245,9 +240,7 @@ fn group_changes_by_target_commit(
     // Build an index for O(1) lock lookups per candidate
     let lock_index = dependencies.map(build_lock_index);
 
-    // Process each candidate
     for candidate in candidates {
-        // Determine the target commit for this candidate
         let locks = lock_index
             .as_ref()
             .map(|idx| locks_for_candidate(idx, candidate))
@@ -272,8 +265,6 @@ fn group_changes_by_target_commit(
 /// Per-file entries of `(DiffHunk, locks)` for range-based lock matching.
 type LockIndex = HashMap<String, Vec<(but_core::unified_diff::DiffHunk, Vec<HunkLock>)>>;
 
-/// Build a lookup index from hunk dependencies, grouped by file path.
-///
 /// Each entry retains the original `DiffHunk` range so that lookups can match
 /// by range overlap rather than exact header equality. This is necessary because
 /// dependency hunks are computed with 0 context lines while assignment hunks use
@@ -289,7 +280,6 @@ fn build_lock_index(dependencies: &HunkDependencies) -> LockIndex {
     index
 }
 
-/// Check whether two line ranges overlap.
 /// Ranges are `[start, start + lines)` (1-based start, length in lines).
 /// A range with 0 lines (pure insertion/deletion) is treated as a point at `start`.
 fn ranges_overlap(start_a: u32, lines_a: u32, start_b: u32, lines_b: u32) -> bool {
@@ -364,7 +354,6 @@ fn find_top_most_lock<'a>(locks: &'a [HunkLock], workspace: &RefInfo) -> Option<
     None
 }
 
-/// Find the stack identified by `stack_id` in the workspace projection.
 fn stack_by_id(workspace: &RefInfo, stack_id: StackId) -> Option<&Stack> {
     workspace
         .stacks
@@ -486,8 +475,6 @@ fn ensure_target_commit(
     );
 }
 
-/// Prepare commit absorptions with commit summaries
-///
 /// This returns a vector of absorption information, sorted and ready for processing.
 fn prepare_commit_absorptions(
     ctx: &Context,
@@ -530,7 +517,6 @@ fn prepare_commit_absorptions(
     Ok(commit_absorptions)
 }
 
-/// Get the commit summary message
 fn get_commit_summary(repo: &gix::Repository, commit_id: gix::ObjectId) -> anyhow::Result<String> {
     let commit = repo.find_commit(commit_id)?;
     // The title still carries the trailing newline of single-paragraph messages.

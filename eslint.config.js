@@ -144,7 +144,7 @@ export default defineConfig(
 	{
 		ignores: [
 			// Linted by oxlint, with its own config.
-			"packages/ui-react/**",
+			"packages/but-ui-react/**",
 			"**/.*", // dotfiles aren't ignored by default in FlatConfig
 			".*", // dotfiles aren't ignored by default in FlatConfig
 			"**/.DS_Store",

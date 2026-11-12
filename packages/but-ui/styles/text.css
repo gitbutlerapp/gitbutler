@@ -1,0 +1,111 @@
+@layer text {
+	/* text Base Classes */
+	.text-11 {
+		font-weight: var(--but-font-weight-regular);
+		font-size: 0.6875rem;
+		line-height: var(--but-font-line-height-default);
+		font-family: var(--but-font-family-base);
+	}
+
+	.text-12 {
+		font-weight: var(--but-font-weight-regular);
+		font-size: 0.75rem;
+		line-height: var(--but-font-line-height-default);
+		font-family: var(--but-font-family-base);
+	}
+
+	.text-13 {
+		font-weight: var(--but-font-weight-regular);
+		font-size: 0.8125rem;
+		line-height: var(--but-font-line-height-default);
+		font-family: var(--but-font-family-base);
+	}
+
+	.text-14 {
+		font-weight: var(--but-font-weight-regular);
+		font-size: 0.875rem;
+		line-height: var(--but-font-line-height-default);
+		font-family: var(--but-font-family-base);
+	}
+
+	.text-15 {
+		font-weight: var(--but-font-weight-regular);
+		font-size: 0.938rem;
+		line-height: var(--but-font-line-height-default);
+		font-family: var(--but-font-family-base);
+	}
+
+	.text-16 {
+		font-weight: var(--but-font-weight-regular);
+		font-size: 1rem;
+		line-height: var(--but-font-line-height-default);
+		font-family: var(--but-font-family-base);
+	}
+
+	.text-accent-head {
+		font-weight: 400;
+		font-size: 3.875rem;
+		line-height: var(--but-font-line-height-default);
+		font-family: var(--but-font-family-base);
+	}
+
+	/* Markdown headings, as Figma's Markdown/H1–H3 styles */
+	.text-h1 {
+		font-weight: var(--but-font-weight-semibold);
+		font-size: 1.25rem;
+		line-height: var(--but-font-line-height-heading);
+		font-family: var(--but-font-family-base);
+	}
+
+	.text-h2 {
+		font-weight: var(--but-font-weight-semibold);
+		font-size: 1.125rem;
+		line-height: var(--but-font-line-height-heading);
+		font-family: var(--but-font-family-base);
+	}
+
+	.text-h3 {
+		font-weight: var(--but-font-weight-semibold);
+		font-size: 1rem;
+		line-height: var(--but-font-line-height-heading);
+		font-family: var(--but-font-family-base);
+	}
+
+	/* Reading text under those headings, as Figma's Markdown/Prose: 14 on the body line */
+	.text-prose {
+		font-weight: var(--but-font-weight-regular);
+		font-size: 0.875rem;
+		line-height: var(--but-font-line-height-body);
+		font-family: var(--but-font-family-base);
+	}
+
+	/* MODIFIERS */
+	.text-body {
+		line-height: var(--but-font-line-height-body);
+	}
+
+	.text-semibold {
+		font-weight: var(--but-font-weight-semibold);
+	}
+
+	.text-bold {
+		font-weight: var(--but-font-weight-bold);
+	}
+
+	.text-monospace {
+		font-family: var(--but-font-family-mono);
+	}
+
+	.text-balance {
+		text-wrap: balance;
+	}
+
+	.text-pre {
+		white-space: pre-wrap;
+		word-break: break-word;
+	}
+
+	.text-italic {
+		font-style: italic;
+	}
+}

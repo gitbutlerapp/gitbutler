@@ -6,7 +6,6 @@ use gix::bstr::BString;
 /// The checkout of a repository in which files changed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Checkout {
-    /// The main worktree.
     Main,
     /// The linked worktree of this name, i.e. its directory name under `$GIT_COMMON_DIR/worktrees/`.
     Linked(BString),
@@ -17,14 +16,11 @@ pub enum Checkout {
 pub struct LinkedWorktree {
     /// The directory name under `$GIT_COMMON_DIR/worktrees/`.
     pub name: BString,
-    /// The checkout directory.
     pub workdir: PathBuf,
 }
 
-/// An event for internal use, representing file system changes.
 #[derive(Debug)]
 pub enum InternalEvent {
-    // From file monitor
     /// Paths relative to the git dir of the checkout.
     GitFilesChange(ProjectHandleOrLegacyProjectId, Checkout, Vec<PathBuf>),
     /// Paths relative to the working directory of the checkout.

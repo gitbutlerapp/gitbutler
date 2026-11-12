@@ -792,7 +792,6 @@ impl From<BitbucketApiUser> for BitbucketUser {
     }
 }
 
-/// Generic wrapper around Bitbucket's paginated list responses.
 #[derive(Debug, Deserialize)]
 struct Paginated<T> {
     #[serde(default = "Vec::new")]
@@ -1058,7 +1057,6 @@ pub struct MergePullRequestParams<'a> {
     pub strategy: MergeStrategy,
 }
 
-/// Bitbucket Cloud merge strategies.
 #[derive(Debug, Clone, Copy)]
 pub enum MergeStrategy {
     MergeCommit,

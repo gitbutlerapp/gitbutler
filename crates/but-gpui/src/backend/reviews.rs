@@ -8,14 +8,16 @@ use std::path::Path;
 use anyhow::Result;
 use but_api::legacy::forge;
 use but_ctx::Context;
+use but_error::AnyhowContextExt as _;
 use but_forge::ForgeName;
 
 use super::intent::Run;
 use super::ops::holds;
 use super::upstream::{push, sync_failure};
 use super::{
-    CheckRun, Checks, DiffLine, Forge, ForgeUser, Intent, Note, OpKind, PushState, Remark, Review,
-    ReviewLabel, ReviewState, Thread, open, runtime, short_ref,
+    CheckRun, CheckState, Checks, Conversation, DiffLine, Forge, ForgeUser, Intent, Note, OpKind,
+    PushState, Reaction, Remark, Review, ReviewLabel, ReviewState, Thread, open, runtime,
+    short_ref,
 };
 
 /// Which forge hosts the project: the one its target's remote, or a forge account with a
@@ -23,8 +25,6 @@ use super::{
 fn forge_from(ctx: &Context, overridden: Option<ForgeName>) -> Option<ForgeName> {
     let meta = ctx.project_meta().ok()?;
     let repo = ctx.repo.get().ok()?;
-    // A target branch with no upstream has no remote to name a forge.
-    meta.remote_target_ref(&repo).ok()??;
     let url = forge::remote_url(&meta, &repo).ok()?;
     Some(but_forge::derive_forge_repo_info(&url, overridden)?.forge)
 }
@@ -47,7 +47,6 @@ pub(super) fn detected_and_saved_forge(ctx: &Context) -> (Option<Forge>, Option<
     )
 }
 
-/// `name` as the app names forges.
 pub(super) fn app_forge(name: ForgeName) -> Forge {
     match name {
         ForgeName::GitHub => Forge::GitHub,
@@ -158,23 +157,21 @@ fn check_runs(checks: &[but_forge::CiCheck]) -> Vec<CheckRun> {
                 "" => check.details_url.clone(),
                 url => url.to_owned(),
             },
-            failed: check_failed(check),
-            status: match &check.status {
+            state: check_state(check),
+            note: match &check.status {
                 S::Complete { conclusion, .. } => match conclusion {
-                    C::Success => "Succeeded",
-                    C::Neutral => "Neutral",
-                    C::Skipped => "Skipped",
-                    C::Failure => "Failed",
-                    C::TimedOut => "Timed out",
-                    C::Cancelled => "Cancelled",
-                    C::ActionRequired => "Action required",
-                    C::Unknown => "Finished",
+                    C::Success | C::Failure => None,
+                    C::Neutral => Some("neutral"),
+                    C::Skipped => Some("skipped"),
+                    C::TimedOut => Some("timed out"),
+                    C::Cancelled => Some("cancelled"),
+                    C::ActionRequired => Some("action required"),
+                    C::Unknown => Some("finished"),
                 },
-                S::InProgress => "In progress",
-                S::Queued => "Queued",
-                S::Unknown => "Waiting",
-            }
-            .to_owned(),
+                S::InProgress => None,
+                S::Queued => Some("queued"),
+                S::Unknown => Some("waiting"),
+            },
             started_at: check.started_at.map(|at| at.timestamp()),
             completed_at: match &check.status {
                 S::Complete { completed_at, .. } => completed_at.map(|at| at.timestamp()),
@@ -182,11 +179,8 @@ fn check_runs(checks: &[but_forge::CiCheck]) -> Vec<CheckRun> {
             },
         })
         .collect();
-    runs.sort_by_key(|run| match run.failed {
-        Some(true) => 0,
-        None => 1,
-        Some(false) => 2,
-    });
+    // A stable sort, so each state keeps the forge's order.
+    runs.sort_by_key(|run| run.state);
     runs
 }
 
@@ -201,93 +195,105 @@ pub(super) fn review_state(review: &but_forge::ForgeReview) -> ReviewState {
 
 fn summarize_checks(checks: &[but_forge::CiCheck]) -> Checks {
     checks.iter().fold(Checks::default(), |mut sum, check| {
-        match check_failed(check) {
-            Some(false) => sum.passed += 1,
-            Some(true) => sum.failed += 1,
-            None => sum.running += 1,
+        match check_state(check) {
+            CheckState::Passed | CheckState::Skipped => sum.passed += 1,
+            CheckState::Failed | CheckState::Cancelled => sum.failed += 1,
+            CheckState::Running | CheckState::Queued => sum.running += 1,
         }
         sum
     })
 }
 
-/// Whether a check that finished failed; `None` while it hasn't.
-fn check_failed(check: &but_forge::CiCheck) -> Option<bool> {
+fn check_state(check: &but_forge::CiCheck) -> CheckState {
     use but_forge::{CiConclusion as C, CiStatus as S};
     match &check.status {
-        S::Complete { conclusion, .. } => Some(match conclusion {
-            C::Success | C::Neutral | C::Skipped => false,
-            C::Failure | C::TimedOut | C::Cancelled | C::ActionRequired | C::Unknown => true,
-        }),
-        S::InProgress | S::Queued | S::Unknown => None,
+        S::Complete { conclusion, .. } => match conclusion {
+            C::Success => CheckState::Passed,
+            C::Neutral | C::Skipped => CheckState::Skipped,
+            C::Cancelled => CheckState::Cancelled,
+            C::Failure | C::TimedOut | C::ActionRequired | C::Unknown => CheckState::Failed,
+        },
+        S::InProgress => CheckState::Running,
+        S::Queued | S::Unknown => CheckState::Queued,
     }
 }
 
-/// What [`refresh_reviews`] found.
 pub struct RefreshedReviews {
-    /// Whether the cache changed.
-    pub changed: bool,
+    /// A fingerprint of the pull requests the cache now knows, as
+    /// [`Workspace::reviews`](super::Workspace::reviews).
+    pub reviews: u64,
     /// When the last pull request the cache has merged, in seconds since the epoch.
     pub last_merged: Option<i64>,
 }
 
 /// Ask the forge about the project's pull requests, refreshing the cache that
-/// [`load_workspace`](super::load_workspace) reads, and say whether that changed it and when
-/// the last of them merged. Fails when the project has no forge or no account for it.
+/// [`load_workspace`](super::load_workspace) reads, and say what it now knows and when the
+/// last of them merged. Fails when the project has no forge or no account for it.
 pub fn refresh_reviews(path: &Path) -> Result<RefreshedReviews> {
     let started = std::time::Instant::now();
     tracing::debug!(path = %path.display(), "refreshing reviews");
     let ctx = open(path)?;
-    // Without when each was last synced, which every refresh changes.
-    let cached = || {
-        let mut reviews: Vec<_> = (cached_reviews(&ctx).into_values())
-            .map(|review| but_forge::ForgeReview {
-                last_sync_at: Default::default(),
-                ..review
-            })
-            .collect();
-        reviews.sort_by_key(|review| review.number);
-        reviews
-    };
-    let json =
-        |reviews: &[but_forge::ForgeReview]| serde_json::to_string(reviews).unwrap_or_default();
-    let before = json(&cached());
     forge::list_reviews(&ctx, Some(but_forge::CacheConfig::NoCache))?;
     tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "refreshed reviews");
-    let after = cached();
+    let cached = cached_reviews(&ctx);
     Ok(RefreshedReviews {
-        changed: json(&after) != before,
-        last_merged: (after.iter())
+        reviews: super::reviews_fingerprint(&cached),
+        last_merged: (cached.values())
             .filter_map(|review| timestamp(review.merged_at.as_deref()))
             .max(),
     })
 }
 
+/// Whether [`new_review`] failed as the branch isn't in the workspace any more, as when an
+/// agent unapplied it, the only precondition it checks.
+pub fn branch_left(err: &anyhow::Error) -> bool {
+    (err.custom_context()).is_some_and(|said| said.code == but_error::Code::PreconditionFailed)
+}
+
+/// Whether a failure to ask the forge may pass by itself, so that asking again is worth it: the
+/// forge couldn't be reached, or GitHub failed on its side, as with a 502. Others stay until the
+/// user acts, as a missing account or a keychain prompt they turned down, or asking again
+/// deepens them, as a rate limit does.
+pub fn may_pass(err: &anyhow::Error) -> bool {
+    let unreachable =
+        (err.custom_context()).is_some_and(|context| context.code == but_error::Code::NetworkError);
+    let failed_on_its_side = (err.downcast_ref::<but_github::HttpStatusError>())
+        .is_some_and(|err| err.status.is_server_error());
+    unreachable || failed_on_its_side
+}
+
 /// Ask the forge about the CI of each branch with a pull request, a request per branch, and
-/// say whether that changed what the cache has.
-pub fn refresh_checks(path: &Path) -> Result<bool> {
+/// say what the cache now knows, as [`Workspace::checks`](super::Workspace::checks).
+pub fn refresh_checks(path: &Path) -> Result<u64> {
     let started = std::time::Instant::now();
     let ctx = open(path)?;
-    // Serializing a check leaves out when it was last synced.
-    let cached = || {
-        let mut refs = (ctx.db.get_cache().ok())
-            .and_then(|db| db.ci_checks().list_all_references().ok())
-            .unwrap_or_default();
-        refs.sort();
-        let checks: Vec<_> = (refs.iter())
-            .map(|name| {
-                let cache_only = Some(but_forge::CacheConfig::CacheOnly);
-                let mut checks =
-                    forge::list_ci_checks_for_ref(&ctx, name, cache_only).unwrap_or_default();
-                checks.sort_by_key(|check| check.id);
-                (name, checks)
-            })
-            .collect();
-        serde_json::to_string(&checks).unwrap_or_default()
-    };
-    let before = cached();
     forge::warm_ci_checks_cache(&ctx)?;
     tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "refreshed checks");
-    Ok(cached() != before)
+    Ok(checks_fingerprint(&ctx))
+}
+
+/// A hash of the CI checks the forge cache knows, reading only the cache.
+pub(super) fn checks_fingerprint(ctx: &Context) -> u64 {
+    use std::hash::{Hash as _, Hasher as _};
+    let mut refs = (ctx.db.get_cache().ok())
+        .and_then(|db| db.ci_checks().list_all_references().ok())
+        .unwrap_or_default();
+    refs.sort();
+    let checks: Vec<_> = (refs.iter())
+        .map(|name| {
+            let cache_only = Some(but_forge::CacheConfig::CacheOnly);
+            let mut checks =
+                forge::list_ci_checks_for_ref(ctx, name, cache_only).unwrap_or_default();
+            checks.sort_by_key(|check| check.id);
+            (name, checks)
+        })
+        .collect();
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    // Serializing a check leaves out when it was last synced.
+    serde_json::to_string(&checks)
+        .unwrap_or_default()
+        .hash(&mut hasher);
+    hasher.finish()
 }
 
 /// What a new pull request for `branch` starts with: the branch it would merge into, and a
@@ -310,21 +316,25 @@ pub fn new_review(path: &Path, branch: &super::FullName) -> Result<NewReview> {
     Ok(NewReview { target, template })
 }
 
-/// A pull request just opened, and why updating the other pull requests of its stack failed,
-/// if it did.
+/// A pull request just opened, why updating the other pull requests of its stack failed, if it
+/// did, and why turning its auto-merge on failed, if it was asked for and did.
 pub struct Published {
     pub number: u64,
     pub sync_failed: Option<String>,
+    pub auto_merge_failed: Option<anyhow::Error>,
 }
 
 /// Push `ref_name` and the branches below it, those that have anything to push, then open a
-/// pull request for it. `run_hooks` runs the pre-push hook first. Done says why it failed, a
-/// refused push included, so the card can offer to try again.
+/// pull request for it, with `auto_merge` turning its auto-merge on, merging by `merge_method`
+/// as [`SetAutoMerge`] does. `run_hooks` runs the pre-push hook first. Done says why it failed,
+/// a refused push included, so the card can offer to try again.
 pub struct Publish {
     pub ref_name: super::FullName,
     pub title: String,
     pub body: String,
     pub draft: bool,
+    pub auto_merge: bool,
+    pub merge_method: Option<MergeMethod>,
     pub run_hooks: bool,
 }
 
@@ -347,6 +357,8 @@ impl Publish {
             title,
             body,
             draft,
+            auto_merge,
+            merge_method,
             run_hooks,
         } = self;
         // The pull request's head is the branch as the remote names it: what a push reports,
@@ -359,7 +371,7 @@ impl Publish {
             None => tracked_name(&ctx, &ref_name)?,
         };
         let outcome = runtime().handle().block_on(forge::publish_review(
-            ctx.into_sync(),
+            ctx.to_sync(),
             forge::PublishReviewInput {
                 title,
                 body,
@@ -368,9 +380,16 @@ impl Publish {
                 draft,
             },
         ))?;
+        let number = outcome.review.number as u64;
+        // It's open by now, so a failure here only says so, as trying again would open another.
+        let auto_merge_failed = match auto_merge {
+            true => set_auto_merge(&ctx, number, true, merge_method).err(),
+            false => None,
+        };
         Ok(Published {
-            number: outcome.review.number as u64,
+            number,
             sync_failed: sync_failure(outcome.review_sync).or(push_sync_failed),
+            auto_merge_failed,
         })
     }
 }
@@ -392,7 +411,6 @@ fn tracked_name(ctx: &Context, branch: &super::FullName) -> Result<Option<String
     Ok(tracked)
 }
 
-/// Ways to merge a pull request, as the forge offers them.
 pub use but_forge::ReviewMergeMethod as MergeMethod;
 
 /// Merge pull request `number`, then fetch so the target has the merge and the workspace can
@@ -433,7 +451,6 @@ impl Intent for Merge {
     }
 }
 
-/// What the forge says about whether a pull request can merge now.
 pub use but_forge::ReviewMergeStatus as MergeStatus;
 
 /// Ask the forge whether pull request `number` can merge now. GitHub works it out when asked,
@@ -443,28 +460,67 @@ pub fn merge_status(path: &Path, number: u64) -> Result<MergeStatus> {
     (runtime().handle()).block_on(forge::get_review_merge_status(ctx, number as usize))
 }
 
-/// Turn auto-merge of pull request `number` on or off. Asking for the request again records
-/// that in the cache, so the reload after shows it.
+/// Turn auto-merge of pull request `number` on or off, merging by `method` once it can, or with
+/// `None` the way the forge offers first.
 pub struct SetAutoMerge {
     pub number: u64,
     pub on: bool,
+    pub method: Option<MergeMethod>,
 }
 
 impl Intent for SetAutoMerge {
     type Done = ();
 
     fn apply(self, run: &mut Run) -> Result<()> {
-        let Self { number, on } = self;
+        set_auto_merge(run.ctx(), self.number, self.on, self.method)
+    }
+
+    fn kind(&self) -> OpKind {
+        OpKind::Forge
+    }
+}
+
+/// Turn auto-merge of pull request `number` on or off, merging by `method`, or with `None` the
+/// way the forge offers first. Asking for the request again records that in the cache, so the
+/// reload after shows it.
+fn set_auto_merge(ctx: &Context, number: u64, on: bool, method: Option<MergeMethod>) -> Result<()> {
+    (runtime().handle()).block_on(forge::set_review_auto_merge(
+        ctx.to_sync(),
+        number as usize,
+        on,
+        method,
+    ))?;
+    if let Err(err) = forge::get_review(ctx, number as usize) {
+        tracing::warn!(
+            ?err,
+            "set auto-merge, but couldn't read the pull request back"
+        );
+    }
+    Ok(())
+}
+
+/// Make pull request `number` a draft, or ready for review. Asking for the request again
+/// records that in the cache, so the reload after shows it.
+pub struct SetDraft {
+    pub number: u64,
+    pub draft: bool,
+}
+
+impl Intent for SetDraft {
+    type Done = ();
+
+    fn apply(self, run: &mut Run) -> Result<()> {
+        let SetDraft { number, draft } = self;
         let ctx = run.ctx();
-        (runtime().handle()).block_on(forge::set_review_auto_merge(
+        (runtime().handle()).block_on(forge::set_review_draftiness(
             ctx.to_sync(),
             number as usize,
-            on,
+            draft,
         ))?;
         if let Err(err) = forge::get_review(ctx, number as usize) {
             tracing::warn!(
                 ?err,
-                "set auto-merge, but couldn't read the pull request back"
+                "set whether it's a draft, but couldn't read the pull request back"
             );
         }
         Ok(())
@@ -475,29 +531,106 @@ impl Intent for SetAutoMerge {
     }
 }
 
-/// A review's verdict, as the forge gives it.
+/// Give pull request `number` a new title or description, leaving each that's `None` as the
+/// forge has it, so an edit made there meanwhile stays. Asking for the request again records
+/// it in the cache, so the reload after shows it.
+pub struct EditReview {
+    pub number: u64,
+    pub title: Option<String>,
+    pub body: Option<String>,
+}
+
+impl Intent for EditReview {
+    type Done = ();
+
+    fn apply(self, run: &mut Run) -> Result<()> {
+        let Self {
+            number,
+            title,
+            body,
+        } = self;
+        let ctx = run.ctx();
+        (runtime().handle()).block_on(forge::update_review(
+            ctx.to_sync(),
+            number as usize,
+            title,
+            body,
+            None,
+            None,
+        ))?;
+        if let Err(err) = forge::get_review(ctx, number as usize) {
+            tracing::warn!(?err, "edited, but couldn't read the pull request back");
+        }
+        Ok(())
+    }
+
+    fn kind(&self) -> OpKind {
+        OpKind::Forge
+    }
+}
+
 pub use but_forge::ForgeReviewSubmissionState as Verdict;
 
 /// How many of the diff's lines a thread quotes at least, as GitHub does.
 const EXCERPT_LINES: usize = 4;
 
-/// What's been said on pull request `number`, newest first. Only GitHub's is read; other
-/// forges' reads as nothing.
-pub fn conversation(path: &Path, number: u64) -> Result<Vec<Remark>> {
+/// What's been said on pull request `number`. Only GitHub's is read; other forges' reads as
+/// nothing.
+pub fn conversation(path: &Path, number: u64) -> Result<Conversation> {
     let started = std::time::Instant::now();
     let ctx = open(path)?.into_sync();
-    let (comments, reviews, threads) = runtime().handle().block_on(async {
+    let (reactions, comments, reviews, threads) = runtime().handle().block_on(async {
         futures::try_join!(
+            forge::list_review_reactions(ctx.clone(), number as usize),
             forge::list_review_comments(ctx.clone(), number as usize),
             forge::list_review_submissions(ctx.clone(), number as usize),
             forge::list_review_threads(ctx, number as usize),
         )
     })?;
     tracing::debug!(elapsed = ?started.elapsed(), number, "read the conversation");
-    Ok(remarks(comments, reviews, threads))
+    Ok(Conversation {
+        reactions: grouped(reactions),
+        remarks: remarks(comments, reviews, threads),
+    })
 }
 
-/// `comments`, `reviews` and `threads` as the conversation shows them, newest first, as Lite's,
+/// `reactions` by kind, in the order each kind was first left.
+fn grouped(reactions: Vec<but_forge::ForgeReviewReaction>) -> Vec<Reaction> {
+    let mut grouped: Vec<Reaction> = Vec::new();
+    for reaction in reactions {
+        let emoji = emoji(&reaction.kind).map_or(reaction.kind, str::to_owned);
+        let person = reaction.user.as_ref().map(person);
+        match grouped.iter_mut().find(|group| group.emoji == emoji) {
+            Some(group) => {
+                group.count += 1;
+                group.people.extend(person);
+            }
+            None => grouped.push(Reaction {
+                emoji,
+                count: 1,
+                people: person.into_iter().collect(),
+            }),
+        }
+    }
+    grouped
+}
+
+/// The emoji GitHub draws for a reaction it names `kind`.
+fn emoji(kind: &str) -> Option<&'static str> {
+    Some(match kind {
+        "+1" => "👍",
+        "-1" => "👎",
+        "laugh" => "😄",
+        "confused" => "😕",
+        "heart" => "❤️",
+        "hooray" => "🎉",
+        "rocket" => "🚀",
+        "eyes" => "👀",
+        _ => return None,
+    })
+}
+
+/// `comments`, `reviews` and `threads` as the conversation shows them, newest first,
 /// those without a time last: each review followed by the threads it started, each a remark of
 /// its own so a long review draws only what's on screen, and nothing that says nothing, as a
 /// comment of only HTML comments, or the empty review GitHub makes of an answer in a thread,
@@ -578,17 +711,22 @@ fn note(
     // GitHub's REST names a bot "name[bot]", its GraphQL "name"; the tag says it either way.
     let bot = author.is_some_and(|user| user.is_bot || user.login.ends_with("[bot]"));
     Note {
-        author: author.map(|user| ForgeUser {
-            login: (user.login.strip_suffix("[bot]"))
-                .unwrap_or(&user.login)
-                .to_owned(),
-            avatar_url: user.avatar_url.clone(),
-        }),
+        author: author.map(person),
         bot,
         body: crate::ui::markdown::parse(body),
         at,
         edited: (timestamp(edited_at).zip(at)).is_some_and(|(edited, at)| edited > at),
         url,
+    }
+}
+
+/// `user` by their login without the "[bot]" GitHub's REST gives a bot.
+fn person(user: &but_forge::ForgeReviewUser) -> ForgeUser {
+    ForgeUser {
+        login: (user.login.strip_suffix("[bot]"))
+            .unwrap_or(&user.login)
+            .to_owned(),
+        avatar_url: user.avatar_url.clone(),
     }
 }
 
@@ -651,12 +789,151 @@ fn hunk_starts(header: &str) -> Option<(u32, u32)> {
 #[cfg(test)]
 mod tests {
     use but_forge::{
-        ForgeReviewComment, ForgeReviewSubmission, ForgeReviewThread, ForgeReviewThreadComment,
-        ForgeReviewThreadSide, ForgeReviewUser,
+        ForgeReviewComment, ForgeReviewReaction, ForgeReviewSubmission, ForgeReviewThread,
+        ForgeReviewThreadComment, ForgeReviewThreadSide, ForgeReviewUser,
     };
 
-    use super::{Remark, Verdict, excerpt, remarks};
-    use crate::backend::{LineKind, Note};
+    use super::{Remark, Verdict, excerpt, grouped, may_pass, remarks};
+    use crate::backend::ops::tests::{git, repo_with, target_origin_main};
+    use crate::backend::{LineKind, Note, load_workspace, open};
+
+    #[test]
+    fn the_minute_poll_asks_again_only_after_a_failure_that_may_pass() {
+        use but_error::{Code, Context};
+        let coded =
+            |code, message| anyhow::anyhow!("what").context(Context::new_static(code, message));
+        let server_error = but_github::HttpStatusError {
+            status: reqwest::StatusCode::BAD_GATEWAY,
+        };
+        for (err, passes, what) in [
+            (
+                coded(Code::NetworkError, "Unable to connect to GitHub."),
+                true,
+                "the forge couldn't be reached, as just after the Mac wakes",
+            ),
+            (server_error.into(), true, "GitHub failed on its side"),
+            (
+                coded(Code::ForgeNotAuthenticated, "Not authenticated."),
+                false,
+                "there's no account to ask with",
+            ),
+            (
+                coded(Code::Unknown, "System keychain access failed"),
+                false,
+                "the user turned down the keychain's prompt, which asking again would repeat",
+            ),
+            (
+                coded(Code::GitHubRateLimited, "Rate limit exceeded."),
+                false,
+                "asking before the limit resets deepens it",
+            ),
+            (
+                anyhow::anyhow!("failed to determine remote for branch refs/heads/main"),
+                false,
+                "a project with no remote fails the same way every time",
+            ),
+        ] {
+            let err = err.context("Failed to list open pull requests");
+            assert_eq!(may_pass(&err), passes, "{what}");
+        }
+    }
+
+    #[test]
+    fn a_workspace_read_tells_a_check_moving_on_from_a_sync_that_changed_nothing() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            let origin = "https://github.com/o/r.git";
+            git(path, &["remote", "set-url", "origin", origin]);
+            let read = || load_workspace(path, Default::default()).unwrap().checks;
+            // A context of its own, as another process has.
+            let write = |status: &str, synced: &str| {
+                let check = serde_json::from_value(serde_json::json!({
+                    "id": 1, "name": "test", "reference": "feature", "status_type": status,
+                    "status_conclusion": null, "status_completed_at": null, "started_at": null,
+                    "output_summary": "", "output_text": "", "output_title": "", "head_sha": "",
+                    "url": "", "html_url": "", "details_url": "", "pull_requests": "[]",
+                    "last_sync_at": synced, "struct_version": but_forge::CiCheck::struct_version(),
+                }))
+                .unwrap();
+                let ctx = open(path).unwrap();
+                let mut db = ctx.db.get_cache_mut().unwrap();
+                let table = db.ci_checks_mut().unwrap();
+                table.set_for_reference("feature", vec![check]).unwrap();
+            };
+            write("Queued", "2026-11-03T10:00:00");
+            let synced = read();
+
+            write("Queued", "2026-11-03T10:01:00");
+            assert_eq!(
+                read(),
+                synced,
+                "every refresh stamps each row, which mustn't reload the project every minute"
+            );
+
+            write("InProgress", "2026-11-03T10:02:00");
+            assert_ne!(read(), synced, "a check moving on shows, whoever wrote it");
+        })
+    }
+
+    #[test]
+    fn a_workspace_read_tells_an_edit_from_a_sync_that_changed_nothing() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            let read = || load_workspace(path, Default::default()).unwrap().reviews;
+            // A context of its own, as another process has.
+            let write = |review: &but_forge::ForgeReview| {
+                let ctx = open(path).unwrap();
+                but_forge::cache_review(&mut ctx.db.get_cache_mut().unwrap(), review).unwrap();
+            };
+            let mut review = but_forge::ForgeReview {
+                html_url: String::new(),
+                number: 1,
+                title: "Title".into(),
+                body: Some("Body".into()),
+                author: None,
+                labels: Vec::new(),
+                draft: false,
+                source_branch: "feature".into(),
+                target_branch: "main".into(),
+                sha: String::new(),
+                integration_commit_shas: Vec::new(),
+                created_at: None,
+                modified_at: Some("2026-11-03T10:00:00Z".into()),
+                merged_at: None,
+                closed_at: None,
+                repository_ssh_url: None,
+                repository_https_url: None,
+                repo_owner: None,
+                head_repo_is_fork: false,
+                reviewers: Vec::new(),
+                auto_merge_enabled: false,
+                unit_symbol: "#".into(),
+                last_sync_at: Default::default(),
+            };
+            write(&review);
+            let synced = read();
+
+            review.last_sync_at = chrono::Local::now().naive_local();
+            write(&review);
+            assert_eq!(
+                read(),
+                synced,
+                "every refresh stamps each row, which mustn't reload the project every minute"
+            );
+
+            review.body = Some("Edited".into());
+            review.modified_at = Some("2026-11-03T10:01:00Z".into());
+            write(&review);
+            assert_ne!(
+                read(),
+                synced,
+                "an edit shows, whoever wrote it to the cache"
+            );
+        })
+    }
 
     fn user(login: &str, is_bot: bool) -> Option<ForgeReviewUser> {
         Some(ForgeReviewUser {
@@ -792,6 +1069,42 @@ review Commented codex (bot): "Some suggestions"
 comment alice: "First!"
 comment bob: "Undated"
 "#]]
+        );
+    }
+
+    #[test]
+    fn reactions_group_by_kind_in_the_order_each_was_first_left() {
+        let reaction = |kind: &str, login: &str| ForgeReviewReaction {
+            id: 1,
+            kind: kind.into(),
+            user: user(login, login.ends_with("[bot]")),
+        };
+        let grouped = grouped(vec![
+            reaction("eyes", "chatgpt-codex-connector[bot]"),
+            reaction("+1", "alice"),
+            reaction("eyes", "bob"),
+            reaction("party", "carol"),
+            ForgeReviewReaction {
+                id: 2,
+                kind: "+1".into(),
+                user: None,
+            },
+        ]);
+        let shown: Vec<_> = (grouped.iter())
+            .map(|reaction| {
+                let who: Vec<_> = reaction.people.iter().map(|p| p.login.as_str()).collect();
+                format!("{} {} {}", reaction.emoji, reaction.count, who.join(","))
+            })
+            .collect();
+        assert_eq!(
+            shown,
+            [
+                "👀 2 chatgpt-codex-connector,bob",
+                "👍 2 alice",
+                "party 1 carol"
+            ],
+            "a bot's login loses its [bot], a kind GitHub hasn't named shows as it's named, \
+             and a reaction without a user still counts"
         );
     }
 

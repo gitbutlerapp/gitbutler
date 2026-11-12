@@ -1,10 +1,8 @@
 //! The ability to create a Git representation of diverse 'state' that can be restored at a later time.
 
-/// Structures to call the [create_tree()] function.
 pub mod create_tree;
 pub use create_tree::function::create_tree;
 
-/// Utilities related to resolving previously created snapshots.
 pub mod resolve_tree;
 pub use resolve_tree::function::resolve_tree;
 
@@ -21,12 +19,10 @@ mod commit {
 
     use crate::RefMetadata;
 
-    /// A commit representing a snapshot, along with metadata.
     #[expect(dead_code)]
     pub struct Commit<'repo> {
         /// The id of the commit that was used for accessing its metadata.
         id: gix::Id<'repo>,
-        /// The fully decoded commit.
         inner: gix::objs::Commit,
     }
 
@@ -35,9 +31,7 @@ mod commit {
     #[derive(Debug, PartialEq, Clone, Serialize)]
     #[serde(rename_all = "camelCase")]
     pub struct CommitTrailer {
-        /// Trailer key.
         pub key: String,
-        /// Trailer value.
         pub value: String,
     }
 
@@ -64,14 +58,12 @@ mod commit {
         }
     }
 
-    /// Metadata attached to [`Commit`]s holding snapshots.
     pub struct CommitMetadata {
         /// The name of the operation that created the commit.
         /// This is an internal string.
         pub operation: String,
         /// The title of the commit for user consumption, typically created using information from `trailers`.
         pub title: String,
-        /// Properties to be stored with the commit.
         pub trailers: Vec<CommitTrailer>,
     }
 

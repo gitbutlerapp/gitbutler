@@ -1,5 +1,3 @@
-//! Functions that operate on the workspace.
-
 use std::{
     collections::HashSet,
     time::{SystemTime, UNIX_EPOCH},
@@ -23,6 +21,7 @@ use but_serde::BStringForFrontend;
 use but_workspace::{
     BottomUpdate, BottomUpdateKind, IntegrateUpstreamOutcome, ReviewIntegrationHint,
 };
+use nonempty::NonEmpty;
 use tracing::{instrument, warn};
 
 /// Result of restoring the previously applied branches into the workspace.
@@ -34,33 +33,6 @@ pub struct WorkspaceRecreateResult {
     pub conflicting_stacks: Vec<gix::refs::FullName>,
     /// Whether the repository was already on a managed workspace and nothing was changed.
     pub already_on_workspace: bool,
-}
-
-/// Create an empty workspace commit at the workspace base without changing refs or the checkout.
-///
-/// Fails if the workspace has no base or the base is absent from its graph.
-/// Callers remain responsible for checkout, ref updates, metadata, and undo recording.
-pub(crate) fn create_empty_workspace_commit(
-    repo: &gix::Repository,
-    ws: &but_graph::Workspace,
-) -> anyhow::Result<gix::ObjectId> {
-    let base = ws.highest_base().context("Workspace must have a base")?;
-    let segment_idx = ws
-        .graph
-        .segment_by_commit_id(base)
-        .context("Workspace base must be present in the graph")?
-        .id;
-    let merged = but_workspace::WorkspaceCommit::from_new_merge_with_tips(
-        [but_workspace::commit::merge::Tip {
-            name: None,
-            commit_id: base,
-            segment_idx,
-        }],
-        &ws.graph,
-        repo,
-        None,
-    )?;
-    Ok(merged.workspace_commit_id)
 }
 
 /// Recreate an existing workspace by applying all previously applied branches, under
@@ -107,110 +79,62 @@ pub fn workspace_recreate_with_perm(
         Vec::new()
     } else {
         let mut meta = ctx.meta()?;
-        let (repo, mut ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+        let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
 
-        let previously_applied_stack_heads: Vec<gix::refs::FullName> = {
+        // The branches of each saved stack that still exist, tip first.
+        let previously_applied_stacks: Vec<NonEmpty<gix::refs::FullName>> = {
             let workspace_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
             let workspace_meta = meta.workspace(workspace_ref.as_ref())?;
-            let mut existing_heads = Vec::new();
+            let mut existing_stacks = Vec::new();
             for stack in workspace_meta.stacks(but_core::ref_metadata::StackKind::Applied) {
                 // A deleted tip must not hide surviving lower branches in the saved stack.
                 // Only absence is recoverable; propagate reference lookup errors.
+                let mut existing_branches = Vec::new();
                 for branch in stack.branches.iter().filter(|branch| !branch.archived) {
                     if repo.try_find_reference(branch.ref_name.as_ref())?.is_some() {
-                        existing_heads.push(branch.ref_name.clone());
-                        break;
+                        existing_branches.push(branch.ref_name.clone());
                     }
                 }
+                existing_stacks.extend(NonEmpty::from_vec(existing_branches));
             }
-            existing_heads
+            existing_stacks
         };
 
-        let head_name = repo
-            .head()?
-            .referent_name()
-            .filter(|name| name.category() == Some(gix::refs::Category::LocalBranch))
-            .context("HEAD must refer to a local branch")?
-            .to_owned();
-
-        if ws
-            .graph
-            .project_meta
-            .target_ref
-            .as_ref()
-            .is_none_or(|target| target.as_local_full_name_ref() != head_name.as_ref())
-        {
-            // Applying the current branch enters the workspace with one branch applied.
-            let outcome = but_workspace::branch::apply(
-                head_name.as_ref(),
-                ws.clone(),
-                &repo,
-                &mut meta,
-                but_workspace::branch::apply::Options {
-                    allow_applying_already_applied_branch_when_outside_workspace: true,
-                    ..Default::default()
-                },
-            )?;
-            if outcome.status.persisted_mutation() {
-                ws = outcome.workspace;
+        // Reapply the saved stacks in metadata order. If it fails due to conflict or overlap,
+        // remove the offending stack and try again.
+        let mut stacks = previously_applied_stacks;
+        let mut conflicting_stacks = Vec::new();
+        loop {
+            let editor =
+                but_rebase::graph_rebase::Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+            let (index, err) = match switch_to_workspace_with_stacks(editor, &stacks)? {
+                Ok(rebase) => {
+                    rebase.materialize(Default::default())?;
+                    break;
+                }
+                Err(failed_stack) => failed_stack,
+            };
+            let stack = stacks.remove(index);
+            if err
+                .downcast_ref::<but_rebase::merge::ConflictErrorContext>()
+                .is_some()
+            {
+                conflicting_stacks.push(stack.head);
+            } else if err
+                .downcast_ref::<but_workspace::branch::apply::OverlapErrorContext>()
+                .is_some()
+            {
+                // A stack that shares commits with another one is usually already in the
+                // workspace through it.
+                warn!("Not reapplying an overlapping stack: {err:#}");
             } else {
-                anyhow::bail!(
-                    "BUG: failed to apply head ref ({head_name}). Failed with {:?}",
-                    outcome.status
-                )
+                return Err(err);
             }
         }
-
-        let result = if previously_applied_stack_heads.is_empty() {
-            if matches!(ws.kind, but_graph::workspace::WorkspaceKind::AdHoc) {
-                let workspace_commit_id = create_empty_workspace_commit(&repo, &ws)?;
-                but_core::worktree::safe_checkout_from_head(
-                    workspace_commit_id,
-                    &repo,
-                    but_core::worktree::checkout::Options {
-                        skip_head_update: true,
-                        ..Default::default()
-                    },
-                )?;
-                repo.reference(
-                    but_core::WORKSPACE_REF_NAME,
-                    workspace_commit_id,
-                    gix::refs::transaction::PreviousValue::MustExist,
-                    "Restore workspace without deleted branches",
-                )?;
-            }
-            drop(repo);
-            crate::branch::workspace_checkout_with_perm_only(ctx, perm)?;
-            Vec::new()
-        } else {
-            let mut conflicting_stacks = Vec::new();
-
-            // Reapply the saved heads in metadata order, retaining partial successes.
-            for stack_ref in previously_applied_stack_heads {
-                let apply_outcome = but_workspace::branch::apply(
-                    stack_ref.as_ref(),
-                    ws.clone(),
-                    &repo,
-                    &mut meta,
-                    but_workspace::branch::apply::Options::default(),
-                )?;
-
-                if !apply_outcome.conflicting_stacks.is_empty() {
-                    conflicting_stacks.push(stack_ref);
-                }
-
-                if apply_outcome.status.persisted_mutation() {
-                    ws = apply_outcome.workspace;
-                }
-            }
-            drop(repo);
-
-            conflicting_stacks
-        };
-
+        drop((repo, db));
         ctx.update_workspace_cache(ws);
 
-        result
+        conflicting_stacks
     };
 
     if let Some(snapshot) = maybe_oplog_entry {
@@ -235,6 +159,86 @@ pub fn workspace_recreate_with_perm(
         conflicting_stacks,
         already_on_workspace,
     })
+}
+
+/// Put a workspace commit on top of `HEAD` and check it out, then apply `stacks`, each given
+/// tip first, to it.
+///
+/// If a stack can't be applied, its index in `stacks` is returned with the error, which carries a
+/// [`but_rebase::merge::ConflictErrorContext`] if it conflicts with the stacks before it, and a
+/// [`but_workspace::branch::apply::OverlapErrorContext`] if it shares commits with them.
+fn switch_to_workspace_with_stacks<'ws, 'meta, M: RefMetadata>(
+    editor: but_rebase::graph_rebase::Editor<'ws, 'meta, M>,
+    stacks: &[NonEmpty<gix::refs::FullName>],
+) -> anyhow::Result<
+    Result<but_rebase::graph_rebase::SuccessfulRebase<'ws, 'meta, M>, (usize, anyhow::Error)>,
+> {
+    let (mut rebase, _) = but_workspace::editor_workspace::switch_to_workspace(editor)?;
+    for (order, stack) in stacks.iter().enumerate() {
+        rebase = match but_workspace::branch::apply_stack(
+            rebase.into_editor(),
+            stack.head.as_ref(),
+            order,
+        ) {
+            Ok(outcome) => outcome.rebase,
+            Err(err) => return Ok(Err((order, err))),
+        };
+    }
+    let mut editor = rebase.into_editor();
+    if let Some(target) = editor.target_selector() {
+        for NonEmpty {
+            head: tip,
+            tail: lower_branches,
+        } in stacks
+        {
+            for lower_branch in lower_branches {
+                stack_lower_branch(&mut editor, target, tip.as_ref(), lower_branch.as_ref())?;
+            }
+        }
+    }
+    Ok(Ok(editor.rebase()?))
+}
+
+/// If `lower_branch` points to a commit in the lane of `tip` and is not already in a lane, move it
+/// into the lane.
+fn stack_lower_branch<M: RefMetadata>(
+    editor: &mut but_rebase::graph_rebase::Editor<'_, '_, M>,
+    target: but_rebase::graph_rebase::Selector,
+    tip: &gix::refs::FullNameRef,
+    lower_branch: &gix::refs::FullNameRef,
+) -> anyhow::Result<()> {
+    let Some(lower) = editor.try_select_reference(lower_branch) else {
+        return Ok(());
+    };
+    // Must not already be in a lane.
+    if !editor.direct_children(lower)?.is_empty() {
+        return Ok(());
+    }
+    let [(commit, _)] = editor.direct_parents(lower)?[..] else {
+        return Ok(());
+    };
+    // Find the other end of the edge that we must break (the child's commit).
+    let mut step = editor.select_reference(tip)?;
+    let child_of_commit = loop {
+        if step == target {
+            return Ok(());
+        }
+        let Some((parent, _)) = editor
+            .direct_parents(step)?
+            .into_iter()
+            .min_by_key(|(_, order)| *order)
+        else {
+            return Ok(());
+        };
+        if parent == commit {
+            break step;
+        }
+        step = parent;
+    };
+    for order in editor.remove_edges(child_of_commit, commit)? {
+        editor.add_edge(child_of_commit, lower, order)?;
+    }
+    Ok(())
 }
 
 /// The persisted status of fetches performed through [`workspace_fetch_from_remotes()`].
@@ -417,6 +421,36 @@ pub fn workspace_fetch_from_remotes(
     fetch_result.map(|_| ())
 }
 
+/// Delete the remote-tracking refs whose branches every remote no longer has, as an update does
+/// once it has rebased, so branches merged and deleted on the forge stop showing as pushed.
+/// Every remote gets an attempt, and the first failure is returned. Like
+/// [`workspace_fetch_from_remotes()`], it holds no repository lock while the remotes are contacted.
+pub fn workspace_prune_remotes(
+    ctx: &mut but_ctx::Context,
+    action: Option<String>,
+) -> anyhow::Result<()> {
+    let repo_path = ctx.workdir_or_gitdir()?;
+    let remotes = (ctx.repo.get()?.remote_names().iter())
+        .map(|name| name.to_str().map(str::to_owned))
+        .collect::<Result<Vec<_>, _>>()?;
+    let repo_fetch_lock = fetch_lock(&ctx.gitdir);
+    let pruned = {
+        let _fetch_guard = repo_fetch_lock
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        remotes
+            .iter()
+            .map(|remote| {
+                gitbutler_git::prune_with_askpass(&repo_path, remote, action.clone())
+                    .with_context(|| format!("pruning remote `{remote}` failed"))
+            })
+            .collect::<Vec<_>>()
+    };
+    let _guard = ctx.exclusive_worktree_access();
+    ctx.invalidate_workspace_cache()?;
+    pruned.into_iter().collect()
+}
+
 /// Return the in-process lock that serializes network fetches for the repository at `gitdir`,
 /// so overlapping fetches wait for each other without blocking other repository operations.
 fn fetch_lock(gitdir: &std::path::Path) -> std::sync::Arc<std::sync::Mutex<()>> {
@@ -486,7 +520,7 @@ pub fn get_workspace(
 /// See [`but_workspace::init::set_target_ref_and_init_project()`] for details. The target is always
 /// validated against `HEAD`; an unreachable stored target commit is replaced by their merge-base.
 /// An omitted `push_remote` preserves its current value. It deliberately records no oplog snapshot
-/// because only project metadata changes, not repository state.
+/// because only project metadata and the target's upstream configuration change, not repository state.
 #[but_api]
 #[instrument(err(Debug))]
 pub fn set_target_ref_and_init_project(
@@ -494,13 +528,14 @@ pub fn set_target_ref_and_init_project(
     target_ref: &gix::refs::FullNameRef,
     push_remote: Option<String>,
 ) -> anyhow::Result<()> {
-    let guard = ctx.exclusive_worktree_access();
+    let mut guard = ctx.exclusive_worktree_access();
     {
         let repo = ctx.repo.get()?;
         let target_ref = but_core::ref_metadata::LocalRefName::new(target_ref.to_owned())?;
         but_workspace::init::set_target_ref_and_init_project(&repo, &target_ref, push_remote)?;
     }
-    ctx.invalidate_workspace_cache()?;
+    // The target may now track a remote branch, which the cached repository sees once reloaded.
+    ctx.reload_repo_and_invalidate_workspace(guard.write_permission())?;
     drop(guard);
     Ok(())
 }
@@ -560,7 +595,6 @@ pub fn resolve_worktree_conflicts_with_perm(
     Ok(())
 }
 
-/// Result of integrating upstream changes into the current workspace.
 #[derive(Debug, Clone)]
 pub struct WorkspaceIntegrateUpstreamOutcome {
     /// The post-operation or preview workspace state.
@@ -571,7 +605,6 @@ pub struct WorkspaceIntegrateUpstreamOutcome {
     pub worktree_conflicts: Vec<BStringForFrontend>,
 }
 
-/// JSON transport types for workspace APIs.
 pub mod json {
     use but_serde::BStringForFrontend;
     use serde::{Deserialize, Serialize};
@@ -720,7 +753,6 @@ pub enum UpdateScope {
 }
 
 impl UpdateScope {
-    /// Whether it updates the workspace.
     pub fn workspace(self) -> bool {
         matches!(self, UpdateScope::All | UpdateScope::Workspace)
     }
@@ -755,37 +787,23 @@ pub fn is_behind_target(
     target_tip: gix::ObjectId,
     target_commit: gix::ObjectId,
 ) -> anyhow::Result<bool> {
-    let behind = |head: gix::ObjectId| -> anyhow::Result<bool> {
-        let mut missing = repo.rev_walk([target_tip]).with_hidden([head]).all()?;
-        Ok(missing.next().transpose()?.is_some())
-    };
-    let workspace_behind = || -> anyhow::Result<bool> {
-        Ok(target_commit != target_tip
-            || head_info.can_fast_forward_local_target
-            || match repo.head_id() {
-                Ok(head) => behind(head.detach())?,
-                Err(_) => false,
-            })
-    };
-    let worktrees_behind = || -> anyhow::Result<bool> {
-        for worktree in &head_info.worktrees {
-            if worktree.rebasable_base().is_some() && behind(worktree.head)? {
-                return Ok(true);
-            }
-        }
-        Ok(false)
-    };
-    Ok((scope.workspace() && workspace_behind()?) || (scope.worktrees() && worktrees_behind()?))
+    Ok(
+        (scope.workspace() && head_info.workspace_behind(repo, target_tip, target_commit)?)
+            || (scope.worktrees() && !head_info.worktrees_behind(repo, target_tip)?.is_empty()),
+    )
 }
 
 /// The name of the target branch within its remote, like `main` for `refs/remotes/origin/main`.
+/// A target without upstream uses its local name, which is what pushing it creates.
 ///
-/// Errors if no target is set, or if its remote cannot be determined.
+/// Errors if no target is set, or if the upstream's remote cannot be determined.
 pub fn remote_target_short_name(
     project_meta: &but_core::ref_metadata::ProjectMeta,
     repo: &gix::Repository,
 ) -> anyhow::Result<String> {
-    let target_ref = project_meta.remote_target_ref_or_err(repo)?;
+    let Some(target_ref) = project_meta.remote_target_ref(repo)? else {
+        return Ok(project_meta.target_ref_or_err()?.shorten().to_string());
+    };
     but_core::extract_remote_name_and_short_name(target_ref.as_ref(), &repo.remote_names())
         .map(|(_remote_name, short_name)| short_name.to_string())
         .with_context(|| format!("failed to determine remote for branch {target_ref}"))
@@ -878,13 +896,12 @@ pub fn workspace_integrate_upstream_only(
     )
 }
 
-/// Integrate upstream changes into the current workspace and record an oplog
-/// snapshot on success.
+/// Apply `updates` to the workspace and rebase the linked worktrees on the target's history
+/// onto it, as `but pull` does, recording an oplog snapshot on success.
 ///
-/// This acquires exclusive worktree access from `ctx`, applies the requested
-/// upstream updates, and commits a best-effort `MergeUpstream` oplog snapshot
-/// when the integration succeeds. When `dry_run` is enabled, the returned
-/// workspace previews the integration and no oplog entry is persisted. See
+/// This acquires exclusive worktree access from `ctx` and commits a best-effort
+/// `MergeUpstream` oplog snapshot when the integration succeeds. When `dry_run` is enabled,
+/// the returned workspace previews the integration and no oplog entry is persisted. See
 /// [`workspace_integrate_upstream_with_perm()`] for lower-level details.
 #[but_api(try_from = json::WorkspaceIntegrateUpstreamOutcome)]
 #[instrument(err(Debug))]
@@ -894,11 +911,28 @@ pub fn workspace_integrate_upstream(
     dry_run: DryRun,
 ) -> anyhow::Result<WorkspaceIntegrateUpstreamOutcome> {
     let mut guard = ctx.exclusive_worktree_access();
+    let perm = guard.write_permission();
+    let head_info = {
+        let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
+        but_workspace::graph_to_ref_info(
+            &ws,
+            &repo,
+            but_workspace::ref_info::Options {
+                project_meta: ws.graph.project_meta.clone(),
+                traversal: but_graph::init::Options::limited(),
+                expensive_commit_info: false,
+                ..Default::default()
+            },
+        )?
+    };
+    let worktrees = rebase_lane_bottoms(selected_lanes(&head_info, UpdateScope::Worktrees));
     workspace_integrate_upstream_with_perm(
         ctx,
-        updates.into_iter().map(Into::into).collect(),
+        (updates.into_iter().map(Into::into))
+            .chain(worktrees)
+            .collect(),
         dry_run,
-        guard.write_permission(),
+        perm,
     )
 }
 
@@ -1509,6 +1543,24 @@ mod tests {
             super::remote_target_short_name(&project_meta, &repo)?,
             "trunk",
             "review matching uses the upstream branch, not the local name or a shorter remote prefix"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn remote_target_short_name_uses_local_name_without_upstream() -> anyhow::Result<()> {
+        let (repo, _tmp) = repo_with_feature_branch()?;
+        let project_meta = but_core::ref_metadata::ProjectMeta {
+            target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+                "refs/heads/feature".try_into()?,
+            )?),
+            push_remote: Some("origin".into()),
+            ..Default::default()
+        };
+        assert_eq!(
+            super::remote_target_short_name(&project_meta, &repo)?,
+            "feature",
+            "a target without upstream is pushed under its local name, so reviews target that name"
         );
         Ok(())
     }

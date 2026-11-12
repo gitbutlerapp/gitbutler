@@ -16,6 +16,7 @@ use anyhow::{Context as _, bail};
 use but_core::RefMetadata;
 use but_error::bail_precondition;
 use gix::refs::transaction::PreviousValue;
+use itertools::Itertools as _;
 
 /// Delete `ref_name` and its local branch configuration, returning whether the ref existed.
 ///
@@ -23,7 +24,8 @@ use gix::refs::transaction::PreviousValue;
 /// should also be removed. Missing refs are accepted and still have their configuration cleaned
 /// up; the return value reflects whether the ref existed when locked for deletion,
 /// not whether configuration changed.
-/// A branch checked out in any worktree causes a precondition error. Configuration-cleanup
+/// A branch checked out in any worktree causes a precondition error, unless the checkout is gone,
+/// see [`prune_gone()`](crate::worktrees::prune_gone()). Configuration-cleanup
 /// failures after ref deletion are logged and treated as success; use
 /// [`gix::Repository::delete_local_branches()`] directly to handle those failures explicitly.
 ///
@@ -40,6 +42,7 @@ pub fn delete_local_branch(
     repo: &mut gix::Repository,
     ref_name: &gix::refs::FullNameRef,
 ) -> anyhow::Result<bool> {
+    crate::worktrees::prune_gone(repo, ref_name)?;
     match repo.delete_local_branches([ref_name.to_owned()]) {
         Ok(deleted) => Ok(!deleted.is_empty()),
         Err(err) => {
@@ -57,8 +60,12 @@ pub fn delete_local_branch(
                 err.downcast_any_ref::<gix::repository::branch::delete::CheckedOutError>()
             {
                 bail_precondition!(
-                    "Refusing to delete a branch that is checked out. Worktrees are: {:?}",
-                    checked_out.worktree_dirs
+                    "Refusing to delete a branch that is checked out. Worktrees are: {}",
+                    checked_out
+                        .worktree_dirs
+                        .iter()
+                        .map(|dir| dir.display())
+                        .join(", ")
                 )
             }
             Err(err.into())

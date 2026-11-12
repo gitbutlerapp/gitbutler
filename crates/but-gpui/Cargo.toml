@@ -7,6 +7,7 @@ authors.workspace = true
 license-file = "../../LICENSE.md"
 description = "An experimental native GitButler client built on GPUI"
 publish = false
+default-run = "gitbutler-gpui"
 # GPUI follows Zed's toolchain.
 rust-version = "1.98"
 
@@ -14,28 +15,49 @@ rust-version = "1.98"
 name = "gitbutler-gpui"
 path = "src/main.rs"
 
+[[bin]]
+name = "gitbutler-gpui-stories"
+path = "src/bin/gitbutler-gpui-stories.rs"
+required-features = ["stories"]
+
 [lints]
 workspace = true
 
 [features]
 ## Scripted input and frame screenshots for development, see `src/dev.rs`.
 dev-script = ["gpui/test-support", "gpui_platform/test-support"]
+## A window of the shared controls in their states, as `gitbutler-gpui-stories`, see
+## `src/stories`.
+stories = []
 
 [target.'cfg(unix)'.dependencies]
 # Build and restart's Cancel stops the build's whole process group.
 libc.workspace = true
 
+[target.'cfg(windows)'.dependencies]
+# A later launch hands the running app its links over a named pipe, as Zed's does.
+windows = { version = "0.62", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+    "Win32_System_IO",
+    "Win32_System_Pipes",
+    "Win32_System_Threading",
+] }
+
 [target.'cfg(target_os = "macos")'.dependencies]
-# Text drawn as the web apps draw it and the Dock icon (see `run`), scripted runs kept out of
-# App Nap, and the cursor shown again when the window becomes key.
+# The Dock icon (see `run`), scripted runs kept out of App Nap, the cursor shown again when the
+# window becomes key, and the window's least width lowered while it's narrowed to the navigator.
+# In a dev build, a drag kept going through a click of another button.
+block2 = "0.6.2"
 objc2 = "0.6.4"
 raw-window-handle = "0.6.2"
-objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSData", "NSDictionary", "NSObject", "NSProcessInfo", "NSString", "NSUserDefaults", "NSValue"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSData", "NSProcessInfo", "NSString", "objc2-core-foundation"] }
 
 [dependencies]
 anyhow.workspace = true
 futures.workspace = true
-serde.workspace = true
+serde = { workspace = true, features = ["rc"] }
 serde_json.workspace = true
 toml.workspace = true
 tracing.workspace = true
@@ -43,10 +65,10 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 # The log files, in the desktop app's log folder.
 tracing-appender = "0.2.5"
 unicode-segmentation.workspace = true
-bstr.workspace = true
+bstr = { workspace = true, features = ["serde"] }
 # The forge cache's timestamps.
 chrono = { workspace = true, features = ["clock"] }
-gix = { workspace = true, features = ["sha1", "blame", "mailmap"] }
+gix = { workspace = true, features = ["sha1", "blame", "mailmap", "serde"] }
 reqwest.workspace = true
 md5.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
@@ -61,6 +83,8 @@ rusqlite.workspace = true
 # The keymap, in Zed's format: JSON with comments, bindings kept in the file's order.
 serde_json_lenient.workspace = true
 indexmap = { workspace = true, features = ["serde"] }
+# Every kind of navigator row, which Go to anything decides on one by one.
+strum = { version = "0.27", features = ["derive"] }
 
 # GitButler, consumed only from `src/backend`.
 but-action.workspace = true
@@ -68,12 +92,14 @@ but-api = { workspace = true, features = ["legacy"] }
 but-branches.workspace = true
 but-askpass.workspace = true
 but-bitbucket.workspace = true
+but-briefs.workspace = true
 but-core.workspace = true
 but-error.workspace = true
 but-forge.workspace = true
 but-forge-storage.workspace = true
 but-github.workspace = true
 but-gitlab.workspace = true
+but-hunk-dependency.workspace = true
 but-llm.workspace = true
 but-ctx = { workspace = true, features = ["legacy"] }
 but-path.workspace = true
@@ -81,7 +107,7 @@ but-oplog.workspace = true
 but-rebase.workspace = true
 but-secret.workspace = true
 but-settings.workspace = true
-but-transaction.workspace = true
+but-transaction = { workspace = true, features = ["legacy"] }
 but-workspace = { workspace = true, features = ["legacy"] }
 gitbutler-operating-modes.workspace = true
 gitbutler-project.workspace = true
@@ -101,10 +127,17 @@ image = { version = "0.25.1", default-features = false, features = ["png", "jpeg
 deltoids = { git = "https://github.com/juanibiapina/deltoids", rev = "b797d011ecc6b733025461cc98fae6f9f8719429" }
 # Pull request descriptions as formatted text. Only its parser: none of its HTML output.
 pulldown-cmark = { version = "0.13.4", default-features = false }
+# The embedded terminals: shells on pseudo-terminals, emulated by libghostty-vt.
+but-tty.workspace = true
+but-ui-control.workspace = true
+# Quotes the paths of files dropped on a terminal for the shell.
+shell-words.workspace = true
 
 [build-dependencies]
 # The Windows executable's icon; it adds nothing to builds for elsewhere.
 embed-resource = "3.0.9"
+# Reads but-ui's tokens, which the build script writes as constants.
+serde_json.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::client::GitLabClient;
 
-/// Persist GitLab account access tokens securely.
 pub fn persist_gl_access_token(
     account_id: &GitlabAccountIdentifier,
     access_token: &Sensitive<String>,
@@ -16,18 +15,13 @@ pub fn persist_gl_access_token(
     persist_gitlab_account(&oauth_account, storage)
 }
 
-/// Delete a GitLab account access token for a given username.
 pub fn delete_gl_access_token(
     account_id: &GitlabAccountIdentifier,
     storage: &but_forge_storage::Controller,
 ) -> Result<()> {
     // The token itself may be unreadable here (stored by another build kind, or a keychain
     // that refuses the read); the account entry has to go regardless.
-    let Some(account) = storage
-        .gitlab_accounts()?
-        .into_iter()
-        .find(|account| GitlabAccountIdentifier::from(account) == *account_id)
-    else {
+    let Some(account) = find_stored_gitlab_account(account_id, storage)? else {
         return Ok(());
     };
     storage.remove_gitlab_account(&account)?;
@@ -37,13 +31,14 @@ pub fn delete_gl_access_token(
     secret::delete(account.access_token_key(), secret::Namespace::BuildKind)
 }
 
-/// Retrieve a GitLab account access token for a given username.
 pub fn get_gl_access_token(
     account_id: &GitlabAccountIdentifier,
     storage: &but_forge_storage::Controller,
 ) -> Result<Option<Sensitive<String>>> {
-    let account = find_gitlab_account(account_id, storage)?;
-    Ok(account.map(|acct| acct.access_token()))
+    let Some(account) = find_stored_gitlab_account(account_id, storage)? else {
+        return Ok(None);
+    };
+    retrieve_gitlab_secret(account.access_token_key())
 }
 
 pub fn list_known_gitlab_accounts(
@@ -253,48 +248,12 @@ fn delete_all_gitlab_accounts(storage: &but_forge_storage::Controller) -> Result
     Ok(())
 }
 
-fn find_gitlab_account(
+fn find_stored_gitlab_account(
     account_id: &GitlabAccountIdentifier,
     storage: &but_forge_storage::Controller,
-) -> Result<Option<GitLabAccount>> {
-    let accounts = storage.gitlab_accounts()?;
-    let result = match account_id {
-        GitlabAccountIdentifier::PatUsername { username } => accounts.iter().find_map(|account| {
-            if let but_forge_storage::settings::GitLabAccount::Pat {
-                username: acct_username,
-                access_token_key,
-            } = account
-                && acct_username == username
-                && let Some(access_token) = retrieve_gitlab_secret(access_token_key).ok().flatten()
-            {
-                return Some(GitLabAccount::Pat {
-                    username: acct_username.clone(),
-                    access_token,
-                });
-            }
-            None
-        }),
-        GitlabAccountIdentifier::SelfHosted { username, host } => {
-            accounts.iter().find_map(|account| {
-                if let but_forge_storage::settings::GitLabAccount::SelfHosted {
-                    username: acct_username,
-                    host: acct_host,
-                    access_token_key,
-                } = account
-                    && acct_host == host
-                    && acct_username == username
-                    && let Some(access_token) =
-                        retrieve_gitlab_secret(access_token_key).ok().flatten()
-                {
-                    return Some(GitLabAccount::SelfHosted {
-                        username: acct_username.clone(),
-                        host: acct_host.clone(),
-                        access_token,
-                    });
-                }
-                None
-            })
-        }
-    };
-    Ok(result)
+) -> Result<Option<but_forge_storage::settings::GitLabAccount>> {
+    Ok(storage
+        .gitlab_accounts()?
+        .into_iter()
+        .find(|account| GitlabAccountIdentifier::from(account) == *account_id))
 }

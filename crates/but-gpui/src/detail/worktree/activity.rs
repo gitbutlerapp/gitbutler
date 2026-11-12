@@ -45,8 +45,8 @@ fn quarters_said(quarters: &BTreeSet<i64>, now: i64) -> Option<String> {
     (!runs.is_empty()).then(|| said.collect::<Vec<_>>().join(", "))
 }
 
-/// `commits` by how far they've got, as a bar, glyphed as the navigator's commits are: landed
-/// on the target, pushed, and only here; it reads as how far along. Commits only here fill in
+/// `commits` by how far they've got, as a bar, glyphed as the navigator's commits are: merged
+/// into the target, pushed, and only here; it reads as how far along. Commits only here fill in
 /// grey, darker than pushed ones, so the page adds no colour beside the edits' teal. With none, an
 /// empty bar holds its place, so picking a quiet quarter moves nothing under it.
 fn commits_split(commits: &[Made], theme: &Theme) -> gpui::AnyElement {
@@ -57,7 +57,7 @@ fn commits_split(commits: &[Made], theme: &Theme) -> gpui::AnyElement {
                 Icon::CommitFill,
                 theme.purple,
                 theme.purple,
-                "landed".to_owned(),
+                "merged".to_owned(),
                 count(CommitState::Integrated),
             ),
             (
@@ -82,7 +82,12 @@ fn commits_split(commits: &[Made], theme: &Theme) -> gpui::AnyElement {
             .px(dp(6.))
             .pt(dp(8.))
             .gap(dp(6.))
-            .child(div().h(dp(6.)).rounded(dp(2.)).bg(theme.border_2))
+            .child(
+                div()
+                    .h(dp(6.))
+                    .rounded(dp(theme.shape.xs))
+                    .bg(theme.border_2),
+            )
             .child(
                 h_flex()
                     .gap(dp(4.))
@@ -117,7 +122,11 @@ impl Detail {
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Div {
-        let span = &self.now.span;
+        let none = SlotPick::default();
+        let span = self
+            .page
+            .overview()
+            .map_or(&none, |overview| &overview.span);
         let bars = activity.map_or_else(|| vec![0; QUARTERS], |a| a.bars(now, QUARTERS));
         let first = window_start(now) / QUARTER;
         let mut committed = vec![0usize; QUARTERS];
@@ -140,7 +149,7 @@ impl Detail {
             .map(|(_, (n, _))| n)
             .sum();
         let busy = quarters()
-            .filter(|(ix, (n, landed))| in_view(*ix) && (*n > 0 || *landed > 0))
+            .filter(|(ix, (n, merged))| in_view(*ix) && (*n > 0 || *merged > 0))
             .count();
         // Once every commit's files are read, so the count doesn't climb as they come in.
         let changed: Option<HashSet<&String>> = (scoped.iter())
@@ -180,26 +189,29 @@ impl Detail {
         let range = quarters_said(&span.slots, now).unwrap_or("last 12 hours".to_owned());
         let clear = picked.then(|| {
             clear_button("now-quarters-clear").on_click(cx.listener(|this, _, _, cx| {
-                this.now.span = SlotPick::default();
+                if let Some(overview) = this.page.overview_mut() {
+                    overview.span = SlotPick::default();
+                }
                 cx.notify()
             }))
         });
-        let columns = quarters().map(|(ix, (n, landed))| {
+        let columns = quarters().map(|(ix, (n, merged))| {
             let quarter = first + ix as i64;
             let start = quarter * QUARTER;
             let inside = span.keeps(quarter);
             let mut tip = format!("{}–{}", local_clock(start), local_clock(start + QUARTER));
-            match (n, landed) {
+            match (n, merged) {
                 (0, 0) => tip.push_str(" · quiet"),
                 (0, _) => {}
                 (n, _) => tip.push_str(&format!(" · {}", plural(n as usize, "edit"))),
             }
-            if landed > 0 {
-                tip.push_str(&format!(" · {}", plural(landed, "commit")));
+            if merged > 0 {
+                tip.push_str(&format!(" · {}", plural(merged, "commit")));
             }
+            // Outside what's picked, the bars are faint.
             let (edit, commit) = match inside {
-                true => (theme.pop, theme.text_2),
-                false => (theme.pop.opacity(0.2), theme.text_2.opacity(0.25)),
+                true => (1., 1.),
+                false => (0.2, 0.25),
             };
             let column = v_flex()
                 .id(("now-quarter", ix))
@@ -226,9 +238,9 @@ impl Detail {
                             // activity draws a quiet day.
                             .h(dp((n as f32 / most as f32 * BARS_HEIGHT).max(2.)))
                             .rounded_t(dp(1.))
-                            .bg(match n {
-                                0 => theme.border_2,
-                                _ => edit,
+                            .map(|el| match n {
+                                0 => el.bg(theme.border_2),
+                                _ => el.bg(theme.pop).opacity(edit),
                             }),
                     ),
             )
@@ -238,14 +250,15 @@ impl Detail {
                     .h(dp(COMMITS_HEIGHT))
                     .pt(dp(2.))
                     .px(dp(1.))
-                    .when(landed > 0, |el| {
-                        let share = landed as f32 / most_commits as f32;
+                    .when(merged > 0, |el| {
+                        let share = merged as f32 / most_commits as f32;
                         el.child(
                             div()
                                 .w_full()
                                 .h(dp((share * (COMMITS_HEIGHT - 2.)).max(4.)))
                                 .rounded_b(dp(1.))
-                                .bg(commit),
+                                .bg(theme.text_2)
+                                .opacity(commit),
                         )
                     }),
             )
@@ -295,7 +308,9 @@ impl Detail {
     }
 
     fn quarter_gesture(&mut self, gesture: SlotGesture, cx: &mut Context<Self>) {
-        if self.now.span.apply(gesture) {
+        if let Some(overview) = self.page.overview_mut()
+            && overview.span.apply(gesture)
+        {
             cx.notify();
         }
     }

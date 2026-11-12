@@ -195,8 +195,6 @@ fn ensure_vb_storage_in_sync(
     }
 }
 
-/// Compare observed TOML metadata against DB sync metadata.
-///
 /// Returns `Ordering::Greater` when TOML is newer than what DB has last seen.
 /// Returns `Ordering::Equal` when TOML has the same mtime and sha256 as last seen.
 /// Returns `Ordering::Less` when TOML is older than DB's last-seen metadata.
@@ -592,7 +590,6 @@ struct DbTomlFileState {
     toml_last_seen_sha256: Option<String>,
 }
 
-/// Extract just the parts that corelate the db state with the toml file from `db_state`.
 fn into_db_toml_file_info(db_state: VbState) -> DbTomlFileState {
     DbTomlFileState {
         toml_last_seen_mtime_ns: db_state.toml_last_seen_mtime_ns,

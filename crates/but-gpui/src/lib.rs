@@ -18,10 +18,19 @@
 // Indexes and byte offsets go through `get`, `split_once` and the like: what's drawn skips what's
 // gone, as a row a reload just took away, and the rest returns early rather than make up a value.
 #![cfg_attr(not(test), deny(clippy::indexing_slicing, clippy::string_slice))]
+// What blocks is kept off the UI thread, which tests don't run on: snapbox, for one, looks for
+// the file its snapshot is in.
+#![cfg_attr(test, allow(clippy::disallowed_methods))]
 
 mod app;
 #[expect(clippy::disallowed_methods, reason = "its work runs off the UI thread")]
 mod backend;
+mod clipboard;
+mod clock;
+mod command_editor;
+mod commands;
+mod commit_blocked;
+mod control;
 mod detail;
 #[cfg(feature = "dev-script")]
 #[expect(
@@ -33,6 +42,8 @@ mod edits;
 mod fps;
 mod help;
 mod keymap;
+mod links;
+mod menu_bar;
 mod navigator;
 mod open_in;
 mod overlays;
@@ -43,26 +54,17 @@ mod rebuild;
 mod settings;
 mod state;
 mod status_bar;
+#[cfg(feature = "stories")]
+mod stories;
+mod terminal;
+#[expect(
+    clippy::disallowed_methods,
+    reason = "where colours are made, from but-ui's tokens or a colour scheme"
+)]
 mod theme;
 mod transfer;
 mod ui;
 mod whats_new;
-
-/// Draw text as GitButler's web apps do, with `-webkit-font-smoothing: antialiased`. Unless the
-/// app's `AppleFontSmoothing` says otherwise, GPUI thickens glyph strokes the way macOS font
-/// smoothing would, lighter text more, so the same fonts read heavier here than in but.dev.
-/// A registered default lives in memory only and is never written to the app's preferences.
-#[cfg(target_os = "macos")]
-fn draw_text_unsmoothed() {
-    use objc2_foundation::{NSDictionary, NSNumber, NSString, NSUserDefaults};
-
-    let key = NSString::from_str("AppleFontSmoothing");
-    let off = NSNumber::numberWithInt(0);
-    let defaults =
-        NSDictionary::<NSString, objc2::runtime::AnyObject>::from_slices(&[&*key], &[off.as_ref()]);
-    // SAFETY: the dictionary maps strings to objects, as `registerDefaults:` takes.
-    unsafe { NSUserDefaults::standardUserDefaults().registerDefaults(&defaults) };
-}
 
 /// What the desktop app's binary gives the client when it starts it instead of its web one.
 #[derive(Clone)]
@@ -72,8 +74,10 @@ pub struct Embedded {
     /// The desktop app's update feed for this build and version, which answers with a newer
     /// version or with nothing; `None` when the build doesn't look for updates.
     pub update_feed: Option<String>,
-    /// How often to ask the feed.
     pub check_every: std::time::Duration,
+    /// Installed from a `.deb` or `.rpm`, which the system's package manager owns and the
+    /// updater can't replace, so a new version is downloaded and installed by hand.
+    pub manual_install: bool,
 }
 
 impl gpui::Global for Embedded {}
@@ -86,6 +90,58 @@ pub const WEB_APP_ONCE: &str = "GITBUTLER_WEB_APP_ONCE";
 /// that run opens no window, installs it with the web app's updater, and writes how much it
 /// has downloaded, in percent, a line each time it changes.
 pub const INSTALL_UPDATE: &str = "GITBUTLER_INSTALL_UPDATE";
+
+/// How small the window can be made, in logical pixels, but for its width while it's narrowed
+/// to the navigator.
+const LEAST_WINDOW_WIDTH: f32 = 900.;
+const LEAST_WINDOW_HEIGHT: f32 = 500.;
+
+/// Where a dev script's windows open: never shown, and should anything show one anyway, off to
+/// the side, where AppKit leaves only an edge on screen.
+fn off_screen(size: gpui::Size<gpui::Pixels>) -> gpui::WindowBounds {
+    use crate::ui::fixed;
+
+    gpui::WindowBounds::Windowed(gpui::Bounds::new(
+        gpui::point(fixed(-10000.), fixed(-10000.)),
+        size,
+    ))
+}
+
+/// How a window of the app opens, its headers standing in for a title bar.
+fn window_options(
+    title: gpui::SharedString,
+    bounds: gpui::WindowBounds,
+    display_id: Option<gpui::DisplayId>,
+    least: gpui::Size<gpui::Pixels>,
+) -> gpui::WindowOptions {
+    use crate::ui::fixed;
+
+    let scripted = app::scripted();
+    gpui::WindowOptions {
+        window_bounds: Some(bounds),
+        display_id,
+        titlebar: Some(gpui::TitlebarOptions {
+            title: Some(title),
+            appears_transparent: true,
+            traffic_light_position: Some(gpui::point(fixed(14.), fixed(15.))),
+        }),
+        window_min_size: Some(least),
+        focus: !scripted,
+        show: !scripted,
+        // macOS only. The headers drag the window and take its title bar's double
+        // click (`ui::drags_window`), so AppKit leaves the title bar to them, and
+        // doesn't hold each click there back to see whether a second one follows.
+        app_owns_titlebar_drag: true,
+        // Linux only. The app draws the frame itself, as it has no title bar
+        // elsewhere either, and the window goes with the desktop app's launcher,
+        // which names the executable as its window class.
+        window_decorations: Some(gpui::WindowDecorations::Client),
+        app_id: std::env::current_exe()
+            .ok()
+            .and_then(|exe| Some(exe.file_name()?.to_str()?.to_owned())),
+        ..Default::default()
+    }
+}
 
 /// The desktop app's binary, to start again. On Linux an AppImage's own file: this one is
 /// inside it, from a mount that goes once this process ends.
@@ -140,27 +196,32 @@ fn install_update(progress: impl Fn(u8)) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Give the Dock the desktop app's icon for this build's channel, as its bundle has it. A
-/// binary run on its own has no bundle to carry one, so the Dock would show a terminal's.
+/// The desktop app's icon for this build's channel, as its bundle has it.
 #[cfg(target_os = "macos")]
-fn set_dock_icon() {
+fn channel_icon() -> &'static [u8] {
     use but_path::AppChannel;
+    match AppChannel::new() {
+        AppChannel::Release => include_bytes!("../../gitbutler-tauri/icons/release/icon.icns"),
+        AppChannel::Nightly => include_bytes!("../../gitbutler-tauri/icons/nightly/icon.icns"),
+        AppChannel::Dev => include_bytes!("../../gitbutler-tauri/icons/dev/icon.icns"),
+    }
+}
+
+/// Give the Dock `icon`, an image in any format `NSImage` reads. A binary run on its own has
+/// no bundle to carry one, so the Dock would show a terminal's.
+#[cfg(target_os = "macos")]
+fn set_dock_icon(icon: &[u8]) {
     use objc2::rc::{Allocated, Retained};
     use objc2::runtime::AnyObject;
     use objc2::{class, msg_send};
     use objc2_foundation::NSData;
 
-    let icns: &[u8] = match AppChannel::new() {
-        AppChannel::Release => include_bytes!("../../gitbutler-tauri/icons/release/icon.icns"),
-        AppChannel::Nightly => include_bytes!("../../gitbutler-tauri/icons/nightly/icon.icns"),
-        AppChannel::Dev => include_bytes!("../../gitbutler-tauri/icons/dev/icon.icns"),
-    };
-    let icns = NSData::with_bytes(icns);
+    let icon = NSData::with_bytes(icon);
     // SAFETY: AppKit's documented `NSImage` and `NSApplication` messages, sent on the main
     // thread once the application exists, with the argument types they take.
     unsafe {
         let alloc: Allocated<AnyObject> = msg_send![class!(NSImage), alloc];
-        let image: Option<Retained<AnyObject>> = msg_send![alloc, initWithData: &*icns];
+        let image: Option<Retained<AnyObject>> = msg_send![alloc, initWithData: &*icon];
         let Some(image) = image else {
             return;
         };
@@ -173,20 +234,29 @@ fn set_dock_icon() {
 /// before its own setup for the client, which logs too.
 pub use backend::logs::init as init_logging;
 
+#[cfg(feature = "stories")]
+pub use stories::run as run_stories;
+
 /// Run the app until it quits: open its window on this thread, which must be the process's
 /// main thread, as macOS draws windows from there. `embedded` when the desktop app's binary
 /// starts it. Call [`init_logging`] first.
 pub fn run(embedded: Option<Embedded>) {
     #[cfg(feature = "dev-script")]
     dev::mark_launch();
-    use gpui::{
-        App, Bounds, Menu, MenuItem, QuitMode, SystemMenuType, TitlebarOptions, WindowBounds,
-        WindowDecorations, WindowOptions, point, prelude::*, size,
-    };
+    use gpui::{App, Bounds, QuitMode, WindowBounds, prelude::*, size};
 
     use crate::app::AppView;
     use crate::ui::fixed;
 
+    // With the app already running, this launch hands it its links and is done.
+    let Some(incoming_links) = backend::links::hand_off() else {
+        return;
+    };
+    // Out of the folder it was started in, as an app opened from Finder is: Git can't open any
+    // project once that folder is deleted, as a linked worktree it was started from can be.
+    if let Err(err) = std::env::set_current_dir("/") {
+        tracing::warn!("couldn't leave the folder the app started in: {err}");
+    }
     backend::init();
     backend::metrics::start(embedded.as_ref().map(|embedded| embedded.version.clone()));
     // The desktop app writes to the same files, so say which app this is.
@@ -196,11 +266,22 @@ pub fn run(embedded: Option<Embedded>) {
         os = std::env::consts::OS,
         "starting the GPUI client"
     );
-    #[cfg(target_os = "macos")]
-    draw_text_unsmoothed();
 
-    gpui_platform::application()
-        .with_assets(ui::Assets)
+    // Before the terminals, as taking those lets the build handing them over exit.
+    #[cfg(unix)]
+    let tilings = backend::rebuild::handed_tilings();
+    // Before anything starts a process that would inherit their masters.
+    #[cfg(unix)]
+    let handed = but_tty::handed();
+
+    let platform = gpui_platform::current_platform(false);
+    let app = match state::screen_reader_on() {
+        true => gpui::Application::with_platform(platform),
+        false => gpui::Application::new_inaccessible(platform),
+    };
+    // Before `run`, as the link that launched the app can arrive while it starts.
+    let links = links::listen(&app, incoming_links);
+    app.with_assets(ui::Assets)
         .with_quit_mode(QuitMode::LastWindowClosed)
         .run(|cx: &mut App| {
             // Before the other quit handlers run, and so outside the little time GPUI gives
@@ -212,7 +293,7 @@ pub fn run(embedded: Option<Embedded>) {
             .detach();
             // GPUI awaits what quit handlers return only once they've all run, the store's
             // save included, so this writes out what they logged.
-            cx.on_app_quit(|_| async { backend::logs::flush() })
+            cx.on_app_quit(|_| async { backend::logs::flush_at_quit() })
                 .detach();
             // Without them, text falls back to the system's fonts.
             if let Err(err) = cx.text_system().add_fonts(ui::fonts()) {
@@ -220,68 +301,32 @@ pub fn run(embedded: Option<Embedded>) {
             }
             #[cfg(target_os = "linux")]
             ui::prewarm_fonts(cx);
-            let has_update_feed = embedded.as_ref().is_some_and(|e| e.update_feed.is_some());
             match embedded {
                 Some(embedded) => cx.set_global(embedded),
                 // The desktop app's bundle gives the Dock its icon.
                 #[cfg(target_os = "macos")]
-                None => set_dock_icon(),
+                None => set_dock_icon(channel_icon()),
                 #[cfg(not(target_os = "macos"))]
                 None => {}
+            }
+            if let Some(rebuild) = backend::rebuild::Rebuild::detect() {
+                cx.set_global(rebuild);
             }
             // GPUI has no alerts of its own on Linux, and its stand-in cuts long text off.
             #[cfg(target_os = "linux")]
             cx.set_prompt_builder(ui::alert::alert);
             help::register(cx);
+            // For the metrics: an operation a key press starts says so.
+            cx.intercept_keystrokes(|_, _, _| backend::metrics::input(backend::metrics::Via::Key))
+                .detach();
             cx.on_action(|_: &app::Hide, cx| cx.hide());
             cx.on_action(|_: &app::HideOthers, cx| cx.hide_other_apps());
             cx.on_action(|_: &app::ShowAll, cx| cx.unhide_other_apps());
-            // The standard macOS menus. AppKit fills a menu named "Window" with the window
-            // list and tiling, and "Services" with what other apps offer. Set again whenever
-            // the keymap changes, as the menu bar takes the keys when it's set.
-            let set_menus = move |cx: &mut App| {
-                let mut app_menu = vec![MenuItem::action("About GitButler", help::About)];
-                if has_update_feed {
-                    app_menu.push(MenuItem::action("Check for Updates…", app::CheckForUpdates));
-                }
-                cx.set_menus([
-                    Menu::new("GitButler").items(app_menu.into_iter().chain([
-                        MenuItem::separator(),
-                        MenuItem::action("Settings…", settings::OpenSettings),
-                        MenuItem::separator(),
-                        MenuItem::os_submenu("Services", SystemMenuType::Services),
-                        MenuItem::separator(),
-                        MenuItem::action("Hide GitButler", app::Hide),
-                        MenuItem::action("Hide Others", app::HideOthers),
-                        MenuItem::action("Show All", app::ShowAll),
-                        MenuItem::separator(),
-                        MenuItem::action("Quit GitButler", app::Quit),
-                    ])),
-                    Menu::new("File").items([
-                        MenuItem::action("Add Project…", app::AddProject),
-                        MenuItem::action("Clone Repository…", projects::CloneRepository),
-                        MenuItem::separator(),
-                        MenuItem::action("Close Window", app::CloseWindow),
-                    ]),
-                    Menu::new("View").items([
-                        MenuItem::action("Actual Size", app::ActualSize),
-                        MenuItem::action("Zoom In", app::ZoomIn),
-                        MenuItem::action("Zoom Out", app::ZoomOut),
-                    ]),
-                    Menu::new("Window").items([
-                        MenuItem::action("Minimize", app::Minimize),
-                        MenuItem::action("Zoom", app::Zoom),
-                    ]),
-                    Menu::new("Help").items([
-                        MenuItem::action("GitButler Docs", help::OpenDocs),
-                        MenuItem::action("What's New", help::OpenReleaseNotes),
-                        MenuItem::action("Keyboard Shortcuts", settings::OpenKeyboardShortcuts),
-                        MenuItem::separator(),
-                        MenuItem::action("Report an Issue…", help::ReportIssue),
-                        MenuItem::action("Show Settings Folder", help::ShowConfigFolder),
-                        MenuItem::action("Show Logs Folder", help::ShowLogsFolder),
-                    ]),
-                ]);
+            // The menu bar, as `assets/keymaps/menus.json` lays it out. Set again whenever the
+            // keymap changes, as the menu bar takes the keys when it's set.
+            let set_menus = |cx: &mut App| {
+                let menus = keymap::menus::built(&keymap::bar_menus(cx), cx);
+                cx.set_menus(menus);
             };
 
             // A script drives a window no one sees, so its run keeps out of the Dock, the menu
@@ -292,18 +337,15 @@ pub fn run(embedded: Option<Embedded>) {
             }
             // Before the window, which opens where the saved state says.
             let store = cx.new(state::Store::new);
+            #[cfg(unix)]
+            store.update(cx, |store, cx| {
+                store.adopt_terminals(handed, cx);
+                store.adopt_tilings(tilings);
+            });
             keymap::bind(&store, set_menus, cx);
             let default_size = size(fixed(1360.), fixed(860.));
             let (display_id, bounds) = match store.read(cx).window_place(cx) {
-                // Never shown (`show` below), and should anything show it anyway, off to the
-                // side, where AppKit leaves only an edge on screen.
-                _ if scripted => (
-                    None,
-                    WindowBounds::Windowed(Bounds::new(
-                        point(fixed(-10000.), fixed(-10000.)),
-                        default_size,
-                    )),
-                ),
+                _ if scripted => (None, off_screen(default_size)),
                 Some((display, bounds)) => (Some(display), bounds),
                 None => (
                     None,
@@ -311,30 +353,12 @@ pub fn run(embedded: Option<Embedded>) {
                 ),
             };
             let window = cx.open_window(
-                WindowOptions {
-                    window_bounds: Some(bounds),
+                window_options(
+                    "GitButler".into(),
+                    bounds,
                     display_id,
-                    titlebar: Some(TitlebarOptions {
-                        title: Some("GitButler".into()),
-                        appears_transparent: true,
-                        traffic_light_position: Some(point(fixed(14.), fixed(15.))),
-                    }),
-                    window_min_size: Some(size(fixed(900.), fixed(500.))),
-                    focus: !scripted,
-                    show: !scripted,
-                    // macOS only. The headers drag the window and take its title bar's double
-                    // click (`ui::drags_window`), so AppKit leaves the title bar to them, and
-                    // doesn't hold each click there back to see whether a second one follows.
-                    app_owns_titlebar_drag: true,
-                    // Linux only. The app draws the frame itself, as it has no title bar
-                    // elsewhere either, and the window goes with the desktop app's launcher,
-                    // which names the executable as its window class.
-                    window_decorations: Some(WindowDecorations::Client),
-                    app_id: std::env::current_exe()
-                        .ok()
-                        .and_then(|exe| Some(exe.file_name()?.to_str()?.to_owned())),
-                    ..Default::default()
-                },
+                    size(fixed(LEAST_WINDOW_WIDTH), fixed(LEAST_WINDOW_HEIGHT)),
+                ),
                 |window, cx| cx.new(|cx| AppView::new(store, window, cx)),
             );
             let window = match window {
@@ -363,6 +387,9 @@ pub fn run(embedded: Option<Embedded>) {
                     .update(cx, |app, window, cx| app.quit(&app::Quit, window, cx))
                     .unwrap_or_else(|_| cx.quit())
             });
+            links::follow(links, window, cx);
+            #[cfg(unix)]
+            control::listen(window.into(), cx);
             #[cfg(feature = "dev-script")]
             dev::run_from_env(window.into(), cx);
             if !scripted {

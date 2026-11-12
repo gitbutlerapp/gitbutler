@@ -1,17 +1,13 @@
-#![allow(missing_docs)]
 use but_serde::BStringForFrontend;
 use gix::ObjectId;
 use serde::Serialize;
 
 use crate::commit_engine::RejectionReason;
 
-/// A rejected change with its reason and path.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RejectedChange {
-    /// The reason for the rejection.
     pub reason: RejectionReason,
-    /// The path of the rejected change.
     pub path: BStringForFrontend,
 }
 

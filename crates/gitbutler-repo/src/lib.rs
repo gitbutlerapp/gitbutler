@@ -6,14 +6,12 @@ pub use traversal::{
 };
 
 pub use commands::{FileInfo, RepoCommands, read_worktree_file};
-pub use remote::GitRemote;
 
 mod repository_ext;
-pub use repository_ext::{commit_with_signature_gix, commit_without_signature_gix};
+pub use repository_ext::commit_without_signature_gix;
 
 pub mod hooks;
 pub mod managed_hooks;
-mod remote;
 
 pub const GITBUTLER_COMMIT_AUTHOR_NAME: &str = "GitButler";
 pub const GITBUTLER_COMMIT_AUTHOR_EMAIL: &str = "gitbutler@gitbutler.com";

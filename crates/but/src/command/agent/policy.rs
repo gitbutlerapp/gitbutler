@@ -304,7 +304,6 @@ fn write_section_header(body: &mut String, title: &str) {
     body.push_str("\n\n");
 }
 
-/// Write a `### {title}` section followed by its bullets.
 fn write_section(body: &mut String, title: &str, bullets: &[&str]) {
     write_section_header(body, title);
     write_bullets(body, bullets);

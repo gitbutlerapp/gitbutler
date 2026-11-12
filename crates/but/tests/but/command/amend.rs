@@ -2,7 +2,8 @@ use snapbox::str;
 
 use crate::{
     command::util::{
-        add_dirty_worktree, branch_commit_cli_ids, status_json_with_files as status_json,
+        add_dirty_worktree, add_worktree_with_lower_branch, branch_commit_cli_ids,
+        status_json_with_files as status_json,
     },
     utils::Sandbox,
 };
@@ -306,7 +307,7 @@ error: unexpected argument '--changes' found
 
   tip: to pass '--changes' as a value, use '-- --changes'
 
-Usage: but amend --target <COMMIT_OR_BRANCH> <SOURCES>...
+Usage: but amend <SOURCES>...
 
 For more information, try '--help'.
 
@@ -319,11 +320,15 @@ fn parse_error_appends_examples() {
 
     // A rejected amend command line must end with the registered example
     // invocations, after clap's own error and usage output.
-    env.but("amend").assert().failure().stderr_eq(str![[r#"
-error: the following required arguments were not provided:
-  --target <COMMIT_OR_BRANCH>
+    env.but("amend --nope")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+error: unexpected argument '--nope' found
 
-Usage: but amend --target <COMMIT_OR_BRANCH> [SOURCES]...
+  tip: to pass '--nope' as a value, use '-- --nope'
+
+Usage: but amend [OPTIONS] [SOURCES]...
 
 For more information, try '--help'.
 
@@ -516,7 +521,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 fn amend_without_sources_in_an_unmanaged_worktree_is_refused() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
+    let wt_dir = super::util::add_unmanaged_worktree(&env, "wt-feature");
     env.file("main-file.txt", "main change");
 
     env.but("amend --target lrm")
@@ -542,16 +547,19 @@ fn amend_refuses_changes_from_several_checkouts() {
     add_dirty_worktree(&env, "wt-feature", "A");
     env.file("main.txt", "dirty in the main worktree\n");
 
-    env.but("amend main.txt wt-feature:note.txt --target tpm")
-        .assert()
-        .failure()
-        .stdout_eq(str![])
-        .stderr_eq(str![[r#"
+    // Without a target the refusal stays about the mistake rather than asking to name one.
+    for target in ["--target tpm", ""] {
+        env.but(format!("amend main.txt wt-feature:note.txt {target}"))
+            .assert()
+            .failure()
+            .stdout_eq(str![])
+            .stderr_eq(str![[r#"
 Error: Cannot use changes from the uncommitted area and worktree wt-feature together
 
 Hint: An operation can only take changes from one checkout at a time
 
 "#]]);
+    }
 }
 
 /// A clean worktree's ID expands to no changes, which is refused before the
@@ -649,4 +657,341 @@ Amended lrm
 Hint: run `but help` for all commands
 
 "#]]);
+}
+
+/// In single-branch mode the stack also lists the branches below the one checked out, and those
+/// can't be meant.
+#[test]
+fn amend_without_target_goes_to_the_branch_checked_out() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.file("one.txt", "one\n");
+    env.file("two.txt", "two\n");
+
+    env.but("amend one.txt")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Amended [..]
+
+"#]]);
+    env.but("amend")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Amended [..]
+
+"#]]);
+
+    let status = status_json(&env);
+    assert!(branch_commits_contain_file(&status, "C", "one.txt"));
+    assert!(branch_commits_contain_file(&status, "C", "two.txt"));
+    assert!(status["uncommittedChanges"].as_array().unwrap().is_empty());
+}
+
+#[test]
+fn amend_without_target_goes_to_the_only_branch_of_a_workspace() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.file("new.txt", "content\n");
+
+    env.but("amend")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Amended [..]
+
+"#]]);
+
+    assert!(branch_commits_contain_file(
+        &status_json(&env),
+        "A",
+        "new.txt"
+    ));
+}
+
+/// The stacks of the workspace don't matter in a linked worktree, and which checkout counts is
+/// the one the changes are in rather than the one `but` runs in.
+#[test]
+fn amend_without_target_goes_to_the_branch_of_the_worktree_with_the_changes() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
+    env.but("commit -m 'on the worktree branch' note.txt")
+        .current_dir(&wt_dir)
+        .assert()
+        .success();
+    let tip_parent = env.invoke_git("rev-parse wt-feature^");
+    env.file("main-file.txt", "main change");
+
+    for (amend, dir, file) in [
+        ("amend", wt_dir.as_path(), "bare.txt"),
+        ("amend file.txt", wt_dir.as_path(), "file.txt"),
+        ("amend wt:@", env.projects_root(), "area.txt"),
+    ] {
+        std::fs::write(wt_dir.join(file), "content\n").unwrap();
+        env.but(amend)
+            .current_dir(dir)
+            .assert()
+            .success()
+            .stderr_eq(str![])
+            .stdout_eq(str![[r#"
+Amended [..]
+
+"#]]);
+        assert_eq!(
+            env.invoke_git(&format!("show wt-feature:{file}")),
+            "content",
+            "{amend} amends into the tip of the worktree's branch"
+        );
+        assert_eq!(env.invoke_git("rev-parse wt-feature^"), tip_parent);
+    }
+
+    let status = status_json(&env);
+    assert!(
+        uncommitted_contains_file(&status, "main-file.txt"),
+        "the main worktree's change stays uncommitted"
+    );
+}
+
+#[test]
+fn amend_without_target_refuses_where_several_branches_can_be_meant() {
+    let two_stacks = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    two_stacks.setup_metadata(&["A", "B"]);
+    let one_stack_of_two_branches =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-dependent-branches");
+    one_stack_of_two_branches.setup_metadata(&["A", "B"]);
+
+    for env in [two_stacks, one_stack_of_two_branches] {
+        env.file("new.txt", "content\n");
+        let head = env.invoke_git("rev-parse HEAD");
+
+        env.but("amend new.txt")
+            .assert()
+            .failure()
+            .stdout_eq(str![])
+            .stderr_eq(str![[r#"
+Error: Unclear which commit to amend into
+
+Hint: Name it with `--target`.
+Examples:
+  but amend -t <commit> <file-or-hunk>...   # amend selected uncommitted changes
+  but amend -t <commit>                     # amend all uncommitted changes
+  but amend -t <branch>                     # amend into the tip of a branch
+
+
+"#]]);
+        assert_eq!(env.invoke_git("rev-parse HEAD"), head);
+    }
+}
+
+#[test]
+fn amend_without_target_refuses_a_detached_head() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.invoke_git("checkout --detach");
+    env.file("new.txt", "content\n");
+    let head = env.invoke_git("rev-parse HEAD");
+
+    env.but("amend")
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: Unclear which commit to amend into
+...
+"#]]);
+    assert_eq!(env.invoke_git("rev-parse HEAD"), head);
+}
+
+/// The tip of a branch without commits of its own belongs to some other branch, or the target.
+#[test]
+fn amend_without_target_refuses_a_branch_without_commits() {
+    let single_branch = Sandbox::open_with_default_settings("single-branch-mode");
+    single_branch.file("new.txt", "content\n");
+    let head = single_branch.invoke_git("rev-parse HEAD");
+
+    single_branch
+        .but("amend")
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: There is no branch to amend into
+
+Hint: Run `but commit` to make a first commit
+
+"#]]);
+    assert_eq!(single_branch.invoke_git("rev-parse HEAD"), head);
+
+    single_branch.invoke_git("checkout -q -b empty");
+
+    single_branch
+        .but("amend")
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: Branch empty has no commits to amend
+
+Hint: Run `but commit` to make its first commit
+
+"#]]);
+    assert_eq!(single_branch.invoke_git("rev-parse HEAD"), head);
+
+    let worktree = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    worktree.setup_metadata(&["A"]);
+    let wt_dir = add_dirty_worktree(&worktree, "wt-feature", "A");
+    let head = worktree.invoke_git("rev-parse A");
+
+    worktree
+        .but("amend")
+        .current_dir(&wt_dir)
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: Branch wt-feature has no commits to amend
+
+Hint: Run `but commit` to make its first commit
+
+"#]]);
+    assert_eq!(worktree.invoke_git("rev-parse A"), head);
+}
+
+/// With `--target` optional, what used to be a parse error about the missing flag reaches the
+/// sources, where a commit or branch would otherwise be sent off to look for change IDs.
+#[test]
+fn amend_without_target_points_a_commit_or_branch_source_at_the_flag() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.file("new.txt", "content\n");
+    let commit = branch_commit_cli_ids(&status_json(&env), "A")[0].clone();
+
+    for source in [commit.as_str(), "A"] {
+        env.but(format!("amend {source} new.txt"))
+            .assert()
+            .failure()
+            .stdout_eq(str![])
+            .stderr_eq(str![[r#"
+Error: Could not find uncommitted change: '[..]'
+
+Hint: That is a commit or branch. To amend into it, name it with `--target`:
+  but amend -t [..] <file-or-hunk>...
+
+"#]]);
+    }
+}
+
+/// Changes in another checkout don't count: the one `but` runs in has nothing to amend, whether
+/// or not a target is named, and amending would still rewrite that commit.
+#[test]
+fn amend_without_sources_refuses_a_clean_checkout() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    add_dirty_worktree(&env, "wt-feature", "A");
+    let tip = env.invoke_git("rev-parse A");
+
+    for amend in ["amend", "amend -t A"] {
+        env.but(amend)
+            .assert()
+            .failure()
+            .stdout_eq(str![])
+            .stderr_eq(str![[r#"
+Error: No changes to amend
+
+Hint: Run `but status` to show applicable targets
+
+"#]]);
+        assert_eq!(env.invoke_git("rev-parse A"), tip);
+    }
+}
+
+/// A linked worktree's branch is a target like a workspace branch, in either mode and from either
+/// checkout, and it means that branch's tip rather than the tip of the lane.
+#[test]
+fn amend_into_a_worktree_branch_by_name() {
+    let workspace = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    workspace.setup_metadata(&["A"]);
+    let single_branch = Sandbox::open_with_default_settings("single-branch-mode");
+
+    for (env, start_point) in [(workspace, "A"), (single_branch, "main")] {
+        env.but("status").assert().success();
+        let wt_dir = add_worktree_with_lower_branch(&env, "wt-feature", start_point);
+
+        for (amend, dir, file) in [
+            ("amend -t wt-feature", wt_dir.as_path(), "in-worktree.txt"),
+            (
+                "amend in-main.txt -t wt-feature",
+                env.projects_root(),
+                "in-main.txt",
+            ),
+            ("amend -t wt-lower", wt_dir.as_path(), "in-lower.txt"),
+        ] {
+            std::fs::write(dir.join(file), "content\n").unwrap();
+            env.but(amend)
+                .current_dir(dir)
+                .assert()
+                .success()
+                .stderr_eq(str![])
+                .stdout_eq(str![[r#"
+Amended [..]
+
+"#]]);
+        }
+
+        assert_eq!(
+            env.invoke_git("show --format= --name-only wt-feature"),
+            "in-main.txt\nin-worktree.txt\nwt-top.txt",
+            "the tip of the named branch took the changes of both checkouts"
+        );
+        assert_eq!(
+            env.invoke_git("show --format= --name-only wt-lower"),
+            "in-lower.txt\nwt-file.txt",
+            "naming the lower branch means its own tip, not the tip of the lane"
+        );
+        assert_eq!(
+            env.invoke_git("rev-parse wt-feature^"),
+            env.invoke_git("rev-parse wt-lower"),
+            "no commit was added"
+        );
+    }
+}
+
+/// A branch without commits only has the commit below it to offer, which belongs to another
+/// branch or to the target.
+#[test]
+fn amend_refuses_a_branch_without_commits_as_target() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.but("status").assert().success();
+    let single = Sandbox::open_with_default_settings("single-branch-mode");
+    single.invoke_git("checkout -q -b empty");
+    single.file("new.txt", "content\n");
+
+    let wt_on_lane = add_dirty_worktree(&env, "wt-on-lane", "A");
+    let wt_on_target = add_dirty_worktree(&env, "wt-on-target", "main");
+    for (env, branch, dir, below) in [
+        (&env, "wt-on-lane", wt_on_lane.as_path(), "A"),
+        (&env, "wt-on-target", wt_on_target.as_path(), "main"),
+        (&single, "empty", single.projects_root(), "main"),
+    ] {
+        let before = env.invoke_git(&format!("rev-parse {below}"));
+
+        env.but(format!("amend -t {branch}"))
+            .current_dir(dir)
+            .assert()
+            .failure()
+            .stdout_eq(str![])
+            .stderr_eq(str![[r#"
+Error: --target cannot be an empty branch
+
+"#]]);
+        assert_eq!(
+            env.invoke_git(&format!("rev-parse {below}")),
+            before,
+            "the commit below the empty branch isn't rewritten"
+        );
+    }
 }

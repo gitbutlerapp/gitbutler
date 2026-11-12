@@ -41,6 +41,10 @@ pub struct BaseBranch {
     )]
     pub current_sha: Option<gix::ObjectId>,
     pub behind: usize,
+    /// Whether updating the workspace from the target would change anything.
+    pub workspace_behind: bool,
+    /// The names of the linked worktrees an update would rebase onto the target.
+    pub worktrees_behind: Vec<String>,
     pub upstream_commits: Vec<RemoteCommit>,
     pub recent_commits: Vec<RemoteCommit>,
     pub last_fetched_ms: Option<u128>,
@@ -187,7 +191,6 @@ pub(crate) fn set_base_branch(
         return go_back_to_integration(ctx, perm);
     }
 
-    // lookup a branch by name
     let mut target_branch = repo
         .try_find_reference(target_branch_ref.to_string().as_str())?
         .ok_or(anyhow!("remote branch '{target_branch_ref}' not found"))?;
@@ -380,7 +383,28 @@ pub(crate) fn target_to_base_branch(
 
     let behind = upstream_commits.len();
 
-    // get some recent commits
+    let (workspace_behind, worktrees_behind) = match target_ref_commit_id {
+        Some(tip) => {
+            let head_info = but_workspace::graph_to_ref_info(
+                ws,
+                repo,
+                but_workspace::ref_info::Options {
+                    project_meta: project_meta.clone(),
+                    traversal: but_graph::init::Options::limited(),
+                    expensive_commit_info: false,
+                    ..Default::default()
+                },
+            )?;
+            (
+                head_info.workspace_behind(repo, tip, target_sha)?,
+                (head_info.worktrees_behind(repo, tip)?.into_iter())
+                    .map(|worktree| worktree.name.to_string())
+                    .collect(),
+            )
+        }
+        None => (false, Vec::new()),
+    };
+
     let recent_commits = first_parent_commit_ids_with_limit(repo, target_sha, 20)
         .context("failed to get recent commits")?
         .iter()
@@ -419,6 +443,8 @@ pub(crate) fn target_to_base_branch(
         base_sha: target_sha,
         current_sha: target_ref_commit_id,
         behind,
+        workspace_behind,
+        worktrees_behind,
         upstream_commits,
         recent_commits,
         last_fetched_ms: project

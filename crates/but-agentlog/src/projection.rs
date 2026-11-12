@@ -299,7 +299,6 @@ pub struct ProjectionSnapshotInput {
     pub generated_at_unix_seconds: u64,
 }
 
-/// Bounds for the public projection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct ProjectionLimits {
     pub max_turns: usize,

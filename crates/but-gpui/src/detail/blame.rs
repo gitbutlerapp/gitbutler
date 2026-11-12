@@ -5,7 +5,7 @@ use gpui::Context;
 use super::Detail;
 use crate::backend::{self, CommitId, DiffSource, HunkKey, LineKind};
 use crate::overlays::MenuItem;
-use crate::state::{ProjectId, Selection};
+use crate::state::{CodePlace, ProjectId, Selection};
 
 /// What a menu's way to the last commit looks for: the lines a hunk adds, as its header's menu
 /// has it, or the one added line right-clicked, by its number. Hunks close together are one,
@@ -72,12 +72,12 @@ impl Detail {
         let Some(repo) = self.store.read(cx).path(&project) else {
             return;
         };
-        let asked = self.selection(cx);
+        let asked = self.selection();
         let blamed = backend::run(move || backend::blame_lines(&repo, tip, path.as_ref(), &lines));
         cx.spawn(async move |this, cx| {
             let blamed = blamed.await;
             this.update(cx, |this, cx| {
-                if this.selection(cx) != asked {
+                if this.selection() != asked {
                     return;
                 }
                 let paths = match blamed {
@@ -106,10 +106,10 @@ impl Detail {
                         cx,
                     );
                 };
-                this.pending_file = Some(path);
-                this.store.update(cx, |store, cx| {
-                    store.select(Some(Selection::Commit(project, id)), cx)
-                });
+                let selection = Selection::Commit(project, id);
+                if (this.store).update(cx, |store, cx| store.select_by_hand(selection, cx)) {
+                    this.pending_file = Some(CodePlace::File { path, line: None }.into());
+                }
             })
             .ok();
         })

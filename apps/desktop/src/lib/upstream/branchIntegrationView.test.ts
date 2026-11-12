@@ -244,7 +244,7 @@ describe("branchIntegrationView", () => {
 				target: null,
 				worktrees: [],
 			},
-			checkoutConflictOccurred: false,
+			conflictedCheckouts: [],
 		};
 
 		expect(buildNextStateGraphRows({ workspace, branchRef: BRANCH_REF })).toEqual([

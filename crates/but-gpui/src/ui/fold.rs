@@ -1,24 +1,27 @@
-//! Folds that open and close over a moment rather than at once, as ui-react's sections fold
-//! in `--transition-medium`: what a fold holds grows down from its heading as one curtain, or
+//! Folds that open and close over a moment rather than at once, as but-ui-react's sections fold
+//! in `--but-transition-medium`: what a fold holds grows down from its heading as one curtain, or
 //! shrinks back up into it, its chevron turning as it goes. What's closing stays drawn till
 //! it's shut, taking no clicks. Panes beside the others slide open and shut over the same
-//! moment ([`Slide`]). Under reduced motion, folds and slides open and close at once.
+//! moment ([`Slide`]), and a list's rows slide to where a reorder puts them ([`Reorder`]).
+//! Under reduced motion, all of them get there at once.
 
 use std::cell::Cell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::f32::consts::FRAC_PI_2;
 use std::hash::Hash;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use gpui::{
-    AnimationExt as _, AnyElement, App, Div, ElementId, Hsla, Length, Pixels,
-    SpringAnimationElement, Svg, Transformation, div, prelude::*, radians,
+    AnimationExt as _, AnyElement, App, Bounds, ContentMask, Div, Element, ElementId,
+    GlobalElementId, Hsla, InspectorElementId, LayoutId, Length, ListState, Pixels,
+    SpringAnimationElement, Style, Svg, Transformation, Window, div, prelude::*, radians,
 };
 
 use super::{Icon, fixed, small_icon, switch_spring};
+use crate::clock;
 
-/// How long a fold takes to open or close: design-core's `--transition-medium`.
+/// How long a fold takes to open or close: but-ui's `--but-transition-medium`.
 pub const FOLD: Duration = Duration::from_millis(150);
 
 /// The most rows a list's fold moves, which is more than a window shows: those past them
@@ -53,7 +56,7 @@ impl<K: Eq + Hash> Default for Folds<K> {
     fn default() -> Self {
         Self {
             moving: HashMap::new(),
-            now: Instant::now(),
+            now: clock::now(),
         }
     }
 }
@@ -64,7 +67,7 @@ impl<K: Eq + Hash> Folds<K> {
     pub fn start(&mut self, key: K, open: bool, cx: &App) {
         match cx.reduce_motion() {
             true => self.stop(&key),
-            false => self.start_at(key, open, Instant::now()),
+            false => self.start_at(key, open, clock::now()),
         }
     }
 
@@ -74,7 +77,7 @@ impl<K: Eq + Hash> Folds<K> {
             false => 1.,
         };
         let at = (self.moving.get(&key)).map_or(shut, |m| m.openness(now));
-        let since = set_out(open, at, now);
+        let since = set_out(open, at, FOLD, now);
         let height = (self.moving.remove(&key)).map_or_else(Rc::default, |m| m.height);
         self.moving.insert(
             key,
@@ -111,7 +114,6 @@ impl<K: Eq + Hash> Folds<K> {
         open || self.closing(key)
     }
 
-    /// Whether any fold moves.
     pub fn any(&self) -> bool {
         !self.moving.is_empty()
     }
@@ -120,7 +122,7 @@ impl<K: Eq + Hash> Folds<K> {
     /// say whether any did, for a view whose rows then change. While [`Self::any`] still
     /// moves, the view asks for the frame after.
     pub fn frame(&mut self) -> bool {
-        self.frame_at(Instant::now())
+        self.frame_at(clock::now())
     }
 
     fn frame_at(&mut self, now: Instant) -> bool {
@@ -248,12 +250,14 @@ impl Move {
 }
 
 /// A pane sliding open or shut beside the others, as the navigator and the file list do, over
-/// [`FOLD`] as a fold moves. It keeps its width and its place as it goes, and the edge of the
-/// pane beside it moves across it, so neither lays out its rows again at every width. One
-/// turned back partway goes back from where it is. Under reduced motion, it opens and closes
-/// at once.
-#[derive(Default)]
-pub struct Slide(Option<Sliding>);
+/// [`FOLD`] as a fold moves, or as long as it's made to last. It keeps its width and its place
+/// as it goes, and the edge of the pane beside it moves across it, so neither lays out its rows
+/// again at every width. One turned back partway goes back from where it is. Under reduced
+/// motion, it opens and closes at once.
+pub struct Slide {
+    sliding: Option<Sliding>,
+    lasting: Duration,
+}
 
 #[derive(Clone, Copy)]
 struct Sliding {
@@ -261,12 +265,25 @@ struct Sliding {
     since: Instant,
 }
 
+impl Default for Slide {
+    fn default() -> Self {
+        Self::lasting(FOLD)
+    }
+}
+
 impl Slide {
+    pub fn lasting(lasting: Duration) -> Self {
+        Self {
+            sliding: None,
+            lasting,
+        }
+    }
+
     /// The pane just opened, or shut: it moves there from where it is.
     pub fn start(&mut self, open: bool, cx: &App) {
         match cx.reduce_motion() {
-            true => self.0 = None,
-            false => self.start_at(open, Instant::now()),
+            true => self.sliding = None,
+            false => self.start_at(open, clock::now()),
         }
     }
 
@@ -276,19 +293,20 @@ impl Slide {
             false => 1.,
         };
         let at = self.openness(now).unwrap_or(shut);
-        let since = set_out(open, at, now);
-        self.0 = Some(Sliding { open, since });
+        let since = set_out(open, at, self.lasting, now);
+        self.sliding = Some(Sliding { open, since });
     }
 
     /// How far open the pane is at `now`, from 0 shut to 1 open, while it moves; `None` at rest.
     pub fn openness(&self, now: Instant) -> Option<f32> {
-        let Sliding { open, since } = self.0?;
-        (now.saturating_duration_since(since) < FOLD).then(|| openness(open, since, now))
+        let Sliding { open, since } = self.sliding?;
+        (now.saturating_duration_since(since) < self.lasting)
+            .then(|| openness_over(open, since, now, self.lasting))
     }
 
     /// Whether the pane is closing at `now`, so it's still drawn.
     pub fn closing(&self, now: Instant) -> bool {
-        self.openness(now).is_some() && self.0.is_some_and(|s| !s.open)
+        self.openness(now).is_some() && self.sliding.is_some_and(|s| !s.open)
     }
 
     /// How much of the pane shows at `now`, from 0 to 1: as far as it's open while it moves,
@@ -302,25 +320,72 @@ impl Slide {
     }
 }
 
+/// A number gliding, over [`FOLD`] or as long as it's made to last, from where it was to where it's going, which may itself move
+/// on the way, as a tab's place does while the tabs before it slide. Under reduced motion, it's
+/// there at once.
+#[derive(Clone, Copy)]
+pub struct Glide {
+    set_out: Option<(f32, Instant)>,
+    lasting: Duration,
+}
+
+impl Default for Glide {
+    fn default() -> Self {
+        Self::lasting(FOLD)
+    }
+}
+
+impl Glide {
+    pub fn lasting(lasting: Duration) -> Self {
+        Self {
+            set_out: None,
+            lasting,
+        }
+    }
+
+    pub fn start(&mut self, from: f32, cx: &App) {
+        self.set_out = (!cx.reduce_motion()).then(|| (from, clock::now()));
+    }
+
+    pub fn at(&self, to: f32, now: Instant) -> f32 {
+        match self.set_out {
+            Some((from, since)) => {
+                from + (to - from) * openness_over(true, since, now, self.lasting)
+            }
+            None => to,
+        }
+    }
+
+    pub fn moving(&self, now: Instant) -> bool {
+        (self.set_out).is_some_and(|(_, since)| now.saturating_duration_since(since) < self.lasting)
+    }
+}
+
 /// A hairline along the edge of a pane sliding over another, as the border the other has at
 /// rest: placed at the edge by the caller.
 pub fn edge(color: Hsla) -> Div {
     div().absolute().top_0().bottom_0().w(fixed(1.)).bg(color)
 }
 
-/// When a move toward `open` that's `at` open by `now` set out, so it goes on from there.
-fn set_out(open: bool, at: f32, now: Instant) -> Instant {
+/// When a move toward `open` that takes `lasting` and is `at` open by `now` set out, so it goes
+/// on from there.
+fn set_out(open: bool, at: f32, lasting: Duration, now: Instant) -> Instant {
     // How far along its way there a move that's at `at` now is.
     let along = match open {
         true => unease(at),
         false => unease(1. - at),
     };
-    (now.checked_sub(FOLD.mul_f32(along))).unwrap_or(now)
+    (now.checked_sub(lasting.mul_f32(along))).unwrap_or(now)
 }
 
 /// How far open a move toward `open` that set out at `since` is at `now`, from 0 to 1.
-fn openness(open: bool, since: Instant, now: Instant) -> f32 {
-    let along = now.saturating_duration_since(since).as_secs_f32() / FOLD.as_secs_f32();
+pub fn openness(open: bool, since: Instant, now: Instant) -> f32 {
+    openness_over(open, since, now, FOLD)
+}
+
+/// [`openness`] of a move that takes `lasting`.
+fn openness_over(open: bool, since: Instant, now: Instant, lasting: Duration) -> f32 {
+    let along = now.saturating_duration_since(since).as_secs_f32() / lasting.as_secs_f32();
     let eased = ease(along.clamp(0., 1.));
     match open {
         true => eased,
@@ -349,6 +414,256 @@ pub fn inert(el: Div, closing: bool) -> Div {
     })
 }
 
+/// `child` drawn over what's drawn after it, as `gpui::deferred` draws it, but cut to what
+/// clips it where it's laid out, as a list clips its rows: a row sliding over the rows it passes
+/// stays inside its list. Those with a higher [`OnTop::priority`] are drawn over the rest, and
+/// one inside another is cut to the same.
+pub fn on_top(child: impl IntoElement) -> OnTop {
+    let mask = Rc::new(Cell::new(None));
+    let child = Masked {
+        child: child.into_any_element(),
+        mask: mask.clone(),
+    };
+    OnTop {
+        child: Some(child.into_any_element()),
+        mask,
+        priority: 0,
+    }
+}
+
+pub struct OnTop {
+    child: Option<AnyElement>,
+    /// What clips it where it's laid out, for its child once it's drawn on top.
+    mask: Rc<Cell<Option<ContentMask<Pixels>>>>,
+    priority: usize,
+}
+
+impl OnTop {
+    pub fn priority(mut self, priority: usize) -> Self {
+        self.priority = priority;
+        self
+    }
+}
+
+impl Element for OnTop {
+    type RequestLayoutState = ();
+    type PrepaintState = ();
+
+    fn id(&self) -> Option<ElementId> {
+        None
+    }
+
+    fn source_location(&self) -> Option<&'static core::panic::Location<'static>> {
+        None
+    }
+
+    fn request_layout(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> (LayoutId, ()) {
+        let layout_id = match &mut self.child {
+            Some(child) => child.request_layout(window, cx),
+            None => window.request_layout(Style::default(), None, cx),
+        };
+        (layout_id, ())
+    }
+
+    fn prepaint(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        _: Bounds<Pixels>,
+        _: &mut (),
+        window: &mut Window,
+        _: &mut App,
+    ) {
+        if let Some(child) = self.child.take() {
+            let (offset, mask) = (window.element_offset(), window.content_mask());
+            self.mask.set(Some(mask));
+            window.defer_draw(child, offset, self.priority, Some(mask));
+        }
+    }
+
+    fn paint(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        _: Bounds<Pixels>,
+        _: &mut (),
+        _: &mut (),
+        _: &mut Window,
+        _: &mut App,
+    ) {
+    }
+}
+
+impl IntoElement for OnTop {
+    type Element = Self;
+
+    fn into_element(self) -> Self::Element {
+        self
+    }
+}
+
+/// What [`OnTop`] draws, cut to `mask` as it's prepainted too. GPUI cuts what's drawn later only
+/// as it paints it, so something on top inside it would otherwise be cut to the whole window,
+/// and drawn, and take the pointer, past the list it's in.
+struct Masked {
+    child: AnyElement,
+    mask: Rc<Cell<Option<ContentMask<Pixels>>>>,
+}
+
+impl Element for Masked {
+    type RequestLayoutState = ();
+    type PrepaintState = ();
+
+    fn id(&self) -> Option<ElementId> {
+        None
+    }
+
+    fn source_location(&self) -> Option<&'static core::panic::Location<'static>> {
+        None
+    }
+
+    fn request_layout(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> (LayoutId, ()) {
+        (self.child.request_layout(window, cx), ())
+    }
+
+    fn prepaint(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        _: Bounds<Pixels>,
+        _: &mut (),
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        let child = &mut self.child;
+        window.with_content_mask(self.mask.get(), |window| child.prepaint(window, cx));
+    }
+
+    fn paint(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        _: Bounds<Pixels>,
+        _: &mut (),
+        _: &mut (),
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        self.child.paint(window, cx);
+    }
+}
+
+impl IntoElement for Masked {
+    type Element = Self;
+
+    fn into_element(self) -> Self::Element {
+        self
+    }
+}
+
+/// Whether `list`, its rows laid out `inset` below its top, draws row `ix`, as it was last laid
+/// out: it draws those from the one at its top down to the last that starts above its bottom,
+/// and only measures those past them.
+pub fn listed(list: &ListState, inset: Pixels, ix: usize) -> bool {
+    let view = list.viewport_bounds();
+    (list.bounds_for_item(ix)).is_some_and(|row| row.top() + inset < view.bottom())
+}
+
+/// `row`, row `ix` of `list`, drawn only if the list doesn't draw it itself ([`listed`]): so a
+/// row sliding into view from past the list's top or bottom, where the list draws none, is
+/// drawn by one it does. It asks once the list has laid out the frame, so it goes inside
+/// something drawn after the list, as [`on_top`] is.
+pub fn unlisted(list: ListState, inset: Pixels, ix: usize, row: impl IntoElement) -> Unlisted {
+    Unlisted {
+        list,
+        inset,
+        ix,
+        row: row.into_any_element(),
+    }
+}
+
+pub struct Unlisted {
+    list: ListState,
+    inset: Pixels,
+    ix: usize,
+    row: AnyElement,
+}
+
+impl Element for Unlisted {
+    type RequestLayoutState = ();
+    /// Whether the row is drawn here.
+    type PrepaintState = bool;
+
+    fn id(&self) -> Option<ElementId> {
+        None
+    }
+
+    fn source_location(&self) -> Option<&'static core::panic::Location<'static>> {
+        None
+    }
+
+    fn request_layout(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> (LayoutId, ()) {
+        (self.row.request_layout(window, cx), ())
+    }
+
+    fn prepaint(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        _: Bounds<Pixels>,
+        _: &mut (),
+        window: &mut Window,
+        cx: &mut App,
+    ) -> bool {
+        let here = !listed(&self.list, self.inset, self.ix);
+        if here {
+            self.row.prepaint(window, cx);
+        }
+        here
+    }
+
+    fn paint(
+        &mut self,
+        _: Option<&GlobalElementId>,
+        _: Option<&InspectorElementId>,
+        _: Bounds<Pixels>,
+        _: &mut (),
+        here: &mut bool,
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        if *here {
+            self.row.paint(window, cx);
+        }
+    }
+}
+
+impl IntoElement for Unlisted {
+    type Element = Self;
+
+    fn into_element(self) -> Self::Element {
+        self
+    }
+}
+
 /// A fold's chevron, in `color`: pointing right, or down while `open`, turning between the
 /// two on the spring a switch's knob slides on, which settles in about [`FOLD`]. One clicked
 /// again mid-turn turns back from where it is.
@@ -373,7 +688,7 @@ pub fn turned(
         })
 }
 
-/// CSS's `ease`, which design-core's transitions ride: a cubic Bézier through (0.25, 0.1) and
+/// CSS's `ease`, which but-ui's transitions ride: a cubic Bézier through (0.25, 0.1) and
 /// (0.25, 1), at `x` of the way through its time.
 fn ease(x: f32) -> f32 {
     let t = solve(x, |t| bezier(t, 0.25, 0.25));
@@ -405,9 +720,293 @@ fn solve(target: f32, f: impl Fn(f32) -> f32) -> f32 {
     (low + high) / 2.
 }
 
+/// A list's rows sliding to where a reorder put them, over [`FOLD`] as a fold moves unless
+/// it's made [`Reorder::lasting`] another time, by their keys. Rows reordered again partway
+/// slide on from where they're drawn. Under reduced motion, rows move at once.
+pub struct Reorder<K> {
+    from: HashMap<K, f32>,
+    since: Instant,
+    /// The frame being drawn, which every row reads its offset at.
+    now: Instant,
+    lasting: Duration,
+}
+
+impl<K> Default for Reorder<K> {
+    fn default() -> Self {
+        Self::lasting(FOLD)
+    }
+}
+
+impl<K> Reorder<K> {
+    pub fn lasting(lasting: Duration) -> Self {
+        let now = clock::now();
+        Self {
+            from: HashMap::new(),
+            since: now,
+            now,
+            lasting,
+        }
+    }
+}
+
+impl<K: Eq + Hash + Clone> Reorder<K> {
+    /// Slide the rows a reorder moved, each from as far from where it's laid out as `offsets`
+    /// says, as [`reordered`] works out.
+    pub fn start(&mut self, offsets: HashMap<K, f32>, cx: &App) {
+        match cx.reduce_motion() {
+            true => self.from.clear(),
+            false => self.start_at(offsets, clock::now()),
+        }
+    }
+
+    fn start_at(&mut self, offsets: HashMap<K, f32>, now: Instant) {
+        if offsets.is_empty() {
+            return;
+        }
+        let mut from: HashMap<K, f32> = (self.from.keys())
+            .map(|key| (key.clone(), self.offset_at(key, now)))
+            .collect();
+        for (key, by) in offsets {
+            *from.entry(key).or_default() += by;
+        }
+        from.retain(|_, by| *by != 0.);
+        (self.from, self.since, self.now) = (from, now, now);
+    }
+
+    /// How far row `key` is drawn from where it's laid out, in this frame.
+    pub fn offset(&self, key: &K) -> f32 {
+        self.offset_at(key, self.now)
+    }
+
+    fn offset_at(&self, key: &K, now: Instant) -> f32 {
+        let left = 1. - openness_over(true, self.since, now, self.lasting);
+        self.from.get(key).map_or(0., |by| by * left)
+    }
+
+    pub fn any(&self) -> bool {
+        !self.from.is_empty()
+    }
+
+    /// How far the row drawn furthest from where it's laid out is, in this frame.
+    pub fn furthest(&self) -> f32 {
+        let left = 1. - openness_over(true, self.since, self.now, self.lasting);
+        (self.from.values()).fold(0., |far, by| f32::max(far, by.abs())) * left
+    }
+
+    /// Go on to the frame being drawn, letting the rows that got there rest. While
+    /// [`Self::any`] still slides, the view asks for the frame after.
+    pub fn frame(&mut self) {
+        self.frame_at(clock::now());
+    }
+
+    fn frame_at(&mut self, now: Instant) {
+        self.now = now;
+        if now.saturating_duration_since(self.since) >= self.lasting {
+            self.from.clear();
+        }
+    }
+}
+
+/// How far each row of a list sits from where it's laid out, as it starts sliding there,
+/// after the rows went from `old` to `new`: each by its key, if it keeps one, and its height.
+/// The rows whose order changed slide from where they were. The rest slide as far as those
+/// moved them, as rows only added or removed move nothing, and rows without a key stay put.
+pub fn reordered<'a, K: Eq + Hash + Clone>(
+    old: &'a [(Option<K>, f32)],
+    new: &'a [(Option<K>, f32)],
+) -> HashMap<K, f32> {
+    let counts = |rows: &'a [(Option<K>, f32)]| {
+        let mut counts: HashMap<&K, usize> = HashMap::new();
+        for key in rows.iter().filter_map(|(key, _)| key.as_ref()) {
+            *counts.entry(key).or_default() += 1;
+        }
+        counts
+    };
+    let (in_old, in_new) = (counts(old), counts(new));
+    let kept = |key: &'a K| in_old.get(key) == Some(&1) && in_new.get(key) == Some(&1);
+    let rank: HashMap<&K, usize> = (old.iter().filter_map(|(key, _)| key.as_ref()))
+        .filter(|key| kept(key))
+        .enumerate()
+        .map(|(rank, key)| (key, rank))
+        .collect();
+    let along_new: Vec<&K> = (new.iter().filter_map(|(key, _)| key.as_ref()))
+        .filter(|key| kept(key))
+        .collect();
+    let ranks: Vec<usize> = along_new
+        .iter()
+        .filter_map(|key| rank.get(key).copied())
+        .collect();
+    let stayed: HashSet<&K> = (longest_rise(&ranks).into_iter())
+        .filter_map(|ix| along_new.get(ix).copied())
+        .collect();
+    // Where each kept row starts, and how tall the rows only on that side above it are.
+    let places = |rows: &'a [(Option<K>, f32)]| {
+        let (mut top, mut alone) = (0., 0.);
+        let mut places: HashMap<&K, (f32, f32)> = HashMap::new();
+        for (key, height) in rows {
+            match key {
+                Some(key) if kept(key) => _ = places.insert(key, (top, alone)),
+                Some(_) => alone += height,
+                None => {}
+            }
+            top += height;
+        }
+        places
+    };
+    let (was, is) = (places(old), places(new));
+    (is.iter())
+        .filter_map(|(key, (top, added))| {
+            let (was_top, removed) = was.get(key)?;
+            let by = match stayed.contains(key) {
+                true => was_top - top + added - removed,
+                false => was_top - top,
+            };
+            (by != 0.).then(|| ((*key).clone(), by))
+        })
+        .collect()
+}
+
+/// How far each row of a list sits from where it's laid out, as it starts sliding there,
+/// after the rows went from `old` to `new`, as [`reordered`] says, but with every row that keeps
+/// its key sliding from where it was, those a row added or taken away pushed along too: the
+/// room that row takes or leaves opens or closes rather than jumps.
+pub fn shifted<'a, K: Eq + Hash + Clone>(
+    old: &'a [(Option<K>, f32)],
+    new: &'a [(Option<K>, f32)],
+) -> HashMap<K, f32> {
+    // Where each row starts by its key, `None` for a key more than one row has.
+    let tops = |rows: &'a [(Option<K>, f32)]| {
+        let (mut top, mut tops) = (0., HashMap::<&K, Option<f32>>::new());
+        for (key, height) in rows {
+            if let Some(key) = key {
+                (tops.entry(key))
+                    .and_modify(|at| *at = None)
+                    .or_insert(Some(top));
+            }
+            top += height;
+        }
+        tops
+    };
+    let was = tops(old);
+    (tops(new).into_iter())
+        .filter_map(|(key, top)| {
+            let by = (*was.get(key)?)? - top?;
+            (by != 0.).then(|| (key.clone(), by))
+        })
+        .collect()
+}
+
+/// The indexes of a longest strictly rising run of `seq`, in order.
+fn longest_rise(seq: &[usize]) -> Vec<usize> {
+    let value = |ix: usize| seq.get(ix).copied().unwrap_or_default();
+    let (mut tails, mut before): (Vec<usize>, Vec<Option<usize>>) = (Vec::new(), Vec::new());
+    for (ix, &x) in seq.iter().enumerate() {
+        let at = tails.partition_point(|&tail| value(tail) < x);
+        before.push(at.checked_sub(1).and_then(|at| tails.get(at).copied()));
+        match tails.get_mut(at) {
+            Some(tail) => *tail = ix,
+            None => tails.push(ix),
+        }
+    }
+    let mut run = Vec::with_capacity(tails.len());
+    let mut at = tails.last().copied();
+    while let Some(ix) = at {
+        run.push(ix);
+        at = before.get(ix).copied().flatten();
+    }
+    run.reverse();
+    run
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reordered_rows_slide_on_from_where_they_are() {
+        let mut reorder = Reorder::default();
+        let start = Instant::now();
+        reorder.start_at(HashMap::from([("a", 30.)]), start);
+        assert_eq!(reorder.offset(&"a"), 30., "it starts where it was");
+        reorder.frame_at(start + FOLD / 2);
+        let halfway = reorder.offset(&"a");
+        assert!(halfway > 0. && halfway < 30., "halfway, it's partly there");
+        reorder.start_at(HashMap::from([("a", -10.), ("b", 10.)]), reorder.now);
+        assert!(
+            (reorder.offset(&"a") - (halfway - 10.)).abs() < 1e-3,
+            "moved again, it goes on from where it's drawn"
+        );
+        reorder.frame_at(reorder.now + FOLD);
+        assert!(!reorder.any(), "then rests");
+        assert_eq!(reorder.offset(&"b"), 0., "where it's laid out");
+    }
+
+    /// Rows 10 tall by their keys, `-` for one without.
+    fn rows(keys: &[&'static str]) -> Vec<(Option<&'static str>, f32)> {
+        keys.iter()
+            .map(|key| ((*key != "-").then_some(*key), 10.))
+            .collect()
+    }
+
+    fn sorted(offsets: HashMap<&'static str, f32>) -> Vec<(&'static str, f32)> {
+        let mut offsets: Vec<_> = offsets.into_iter().collect();
+        offsets.sort_by(|a, b| a.0.cmp(b.0));
+        offsets
+    }
+
+    #[test]
+    fn rows_slide_only_where_their_order_changed() {
+        assert_eq!(
+            sorted(reordered(
+                &rows(&["a1", "a2", "-", "b1", "b2"]),
+                &rows(&["b1", "b2", "-", "a1", "a2"])
+            )),
+            [("a1", -30.), ("a2", -30.), ("b1", 30.), ("b2", 30.)],
+            "a swap slides both sections from where they were, the keyless row between snapping"
+        );
+        assert!(
+            reordered(&rows(&["a", "b"]), &rows(&["x", "a", "b"])).is_empty(),
+            "a row added above moves nothing"
+        );
+        assert_eq!(
+            sorted(reordered(
+                &rows(&["a", "b", "c"]),
+                &rows(&["x", "c", "a", "b"])
+            )),
+            [("a", -10.), ("b", -10.), ("c", 10.)],
+            "the moved row slides from its old place, and those it passed by its height alone"
+        );
+    }
+
+    #[test]
+    fn shifted_rows_slide_from_where_they_were_past_rows_added_and_taken_away() {
+        assert_eq!(
+            sorted(shifted(&rows(&["a", "b"]), &rows(&["x", "a", "b"]))),
+            [("a", -10.), ("b", -10.)],
+            "a row added above pushes them down, sliding"
+        );
+        // `k` moves two down, leaving `l` where it was.
+        assert_eq!(
+            sorted(shifted(
+                &rows(&["k", "a", "b"]),
+                &rows(&["l", "a", "k", "b"])
+            )),
+            [("b", -10.), ("k", -20.)],
+            "the moved row slides from its old place, the row it made room above slides down"
+        );
+        assert_eq!(
+            sorted(shifted(
+                &rows(&["l", "a", "k", "b"]),
+                &rows(&["k", "a", "b"])
+            )),
+            [("b", 10.), ("k", 20.)],
+            "back again, it slides home and the room it took closes"
+        );
+        assert!(
+            shifted(&rows(&["a", "a", "-"]), &rows(&["-", "a", "a"])).is_empty(),
+            "a key more than one row has stays put, as the keyless do with a reorder"
+        );
+    }
 
     #[test]
     fn ease_runs_from_shut_to_open_as_css_does() {
@@ -557,6 +1156,24 @@ mod tests {
             "there, it rests"
         );
         assert_eq!(slide.share(false, there), 0., "and is drawn shut");
+    }
+
+    #[test]
+    fn a_slide_made_to_last_less_gets_there_sooner() {
+        let quick = FOLD / 2;
+        let mut slide = Slide::lasting(quick);
+        let start = Instant::now();
+        slide.start_at(true, start);
+        let halfway = slide.openness(start + quick / 2);
+        assert!(
+            halfway.is_some_and(|at| at > 0. && at < 1.),
+            "halfway through its own time, it's partway open"
+        );
+        assert!(
+            slide.openness(start + quick).is_none(),
+            "there in its own time, before a fold's"
+        );
+        assert_eq!(slide.share(true, start + quick), 1., "and is drawn open");
     }
 
     #[test]

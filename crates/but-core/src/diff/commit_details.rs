@@ -1,7 +1,5 @@
-/// A bundle of information about a commit.
 #[derive(Debug, Clone)]
 pub struct CommitDetails {
-    /// The fully decoded commit.
     pub commit: crate::CommitOwned,
     /// Whether [`commit`](Self::commit) is conflicted, per [`crate::Commit::is_conflicted()`],
     /// captured here as the detached commit cannot determine it anymore.
@@ -10,7 +8,6 @@ pub struct CommitDetails {
     pub diff_with_first_parent: Vec<crate::TreeChange>,
     /// The stats of the changes, which are computed only when explicitly requested.
     pub line_stats: Option<LineStats>,
-    /// Represents what was causing a particular commit to conflict when rebased.
     pub conflict_entries: Option<crate::commit::ConflictEntries>,
 }
 
@@ -29,7 +26,6 @@ pub struct LineStats {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(LineStats);
 
-/// Lifecycle
 impl CommitDetails {
     /// Compute the tree-diff for `commit_id` with its first parent and optionally calculate `line_stats`.
     pub fn from_commit_id(commit_id: gix::Id, line_stats: bool) -> anyhow::Result<Self> {

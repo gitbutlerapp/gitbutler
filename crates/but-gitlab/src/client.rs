@@ -100,13 +100,11 @@ impl GitLabClient {
             .timeout(GITLAB_REQUEST_TIMEOUT)
             .build()?;
 
-        let base_url = if host.ends_with("/api/v4") {
-            host.to_string()
-        } else if host.ends_with('/') {
-            format!("{host}api/v4")
-        } else {
-            format!("{host}/api/v4")
-        };
+        let trimmed = host.trim_end_matches('/');
+        let base_url = format!(
+            "{}/api/v4",
+            trimmed.strip_suffix("/api/v4").unwrap_or(trimmed)
+        );
         // reqwest rejects a URL without a scheme and host at request time with a
         // generic builder error; check the same rule up front so the user is told
         // what is wrong with the host they entered.
@@ -491,7 +489,11 @@ impl GitLabClient {
         let response = self.client.put(&url).json(&body).send().await?;
 
         if !response.status().is_success() {
-            bail!("Failed to merge merge request: {}", response.status());
+            let status = response.status();
+            return Err(refusal(
+                status,
+                format!("Failed to merge merge request: {status}"),
+            ));
         }
 
         Ok(())
@@ -531,7 +533,10 @@ impl GitLabClient {
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            bail!("Failed to set merge request draft state: {status} - {error_text}");
+            return Err(refusal(
+                status,
+                format!("Failed to set merge request draft state: {status} - {error_text}"),
+            ));
         }
 
         Ok(())
@@ -563,7 +568,10 @@ impl GitLabClient {
             if !response.status().is_success() {
                 let status = response.status();
                 let error_text = response.text().await.unwrap_or_default();
-                bail!("Failed to enable merge request auto-merge: {status} - {error_text}");
+                return Err(refusal(
+                    status,
+                    format!("Failed to enable merge request auto-merge: {status} - {error_text}"),
+                ));
             }
 
             return Ok(());
@@ -579,7 +587,10 @@ impl GitLabClient {
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            bail!("Failed to disable merge request auto-merge: {status} - {error_text}");
+            return Err(refusal(
+                status,
+                format!("Failed to disable merge request auto-merge: {status} - {error_text}"),
+            ));
         }
 
         Ok(())
@@ -1067,7 +1078,12 @@ struct GitLabMergeRequest {
     description: Option<String>,
     author: Option<GitLabApiUser>,
     labels: Vec<String>,
-    draft: bool,
+    // GitLab 15.4 replaced `work_in_progress` with `draft`, so older
+    // instances only send the former. Either one being set means a draft.
+    #[serde(default)]
+    draft: Option<bool>,
+    #[serde(default)]
+    work_in_progress: bool,
     source_branch: String,
     target_branch: String,
     sha: Option<String>,
@@ -1106,7 +1122,7 @@ impl From<GitLabMergeRequest> for MergeRequest {
             description: mr.description,
             author,
             labels: mr.labels.into_iter().map(Into::into).collect(),
-            draft: mr.draft,
+            draft: mr.draft.unwrap_or(mr.work_in_progress),
             source_branch: mr.source_branch,
             target_branch: mr.target_branch,
             sha: mr.sha.unwrap_or_default(),
@@ -1149,9 +1165,25 @@ fn source_project_differs_from_target(
     source_project_id != target_project_id
 }
 
-/// Marks credential lookups that came up empty, so consumers can tell "the
-/// user is not authenticated" apart from a failing forge and e.g. keep
-/// serving cached data instead of surfacing an error.
+/// `message` as an error, marked as GitLab turning the request down when `status` says the
+/// merge request or project doesn't allow it, rather than that it couldn't read a request of
+/// ours, as a 400 or 404 would.
+fn refusal(status: reqwest::StatusCode, message: String) -> anyhow::Error {
+    use reqwest::StatusCode;
+    match matches!(
+        status,
+        StatusCode::FORBIDDEN
+            | StatusCode::METHOD_NOT_ALLOWED
+            | StatusCode::CONFLICT
+            | StatusCode::UNPROCESSABLE_ENTITY
+    ) {
+        true => anyhow::anyhow!(
+            but_error::Context::new(message).with_code(but_error::Code::PreconditionFailed)
+        ),
+        false => anyhow::anyhow!(message),
+    }
+}
+
 pub(crate) const NOT_AUTHENTICATED: but_error::Context = but_error::Context::new_static(
     but_error::Code::ForgeNotAuthenticated,
     "Not authenticated with GitLab. Connect your account under Settings → Integrations.",
@@ -1189,7 +1221,7 @@ mod tests {
     use super::{
         GitLabMergeRequest, GitLabPipelineJob, GitLabPipelineRef, MAX_MERGE_REQUEST_REQUESTS,
         MergeRequest, merge_request_page_is_safe, next_page_from_headers, normalize_pipeline_jobs,
-        repo_owner_from_path_with_namespace, update_draft_state_in_title,
+        refusal, repo_owner_from_path_with_namespace, update_draft_state_in_title,
     };
     use reqwest::header::{HeaderMap, HeaderValue};
 
@@ -1369,7 +1401,8 @@ mod tests {
             description: None,
             author: None,
             labels: vec![],
-            draft: false,
+            draft: Some(false),
+            work_in_progress: false,
             source_branch: "feature".into(),
             target_branch: "main".into(),
             sha: Some("1234567890abcdef1234567890abcdef12345678".into()),
@@ -1429,7 +1462,8 @@ mod tests {
             description: None,
             author: None,
             labels: vec![],
-            draft: false,
+            draft: Some(false),
+            work_in_progress: false,
             source_branch: "feature".into(),
             target_branch: "main".into(),
             sha: Some("1234567890abcdef1234567890abcdef12345678".into()),
@@ -1463,7 +1497,8 @@ mod tests {
             description: None,
             author: None,
             labels: vec![],
-            draft: false,
+            draft: Some(false),
+            work_in_progress: false,
             source_branch: "feature".into(),
             target_branch: "main".into(),
             sha: Some("1234567890abcdef1234567890abcdef12345678".into()),
@@ -1485,6 +1520,31 @@ mod tests {
         assert!(
             mr.source_project_is_fork,
             "Missing target project IDs should compare against the MR project for fork handling"
+        );
+    }
+
+    #[test]
+    fn gitlab_turning_a_request_down_is_marked_but_its_own_failure_is_not() {
+        use but_error::{AnyhowContextExt as _, Code};
+        let code = |status| {
+            refusal(status, "Failed to merge merge request".into())
+                .custom_context()
+                .map(|said| said.code)
+        };
+        assert_eq!(
+            code(reqwest::StatusCode::METHOD_NOT_ALLOWED),
+            Some(Code::PreconditionFailed),
+            "the project doesn't allow it, which the user is the one to change"
+        );
+        assert_eq!(
+            code(reqwest::StatusCode::BAD_GATEWAY),
+            None,
+            "GitLab's own failure"
+        );
+        assert_eq!(
+            code(reqwest::StatusCode::BAD_REQUEST),
+            None,
+            "a request GitLab couldn't read is ours to fix"
         );
     }
 }

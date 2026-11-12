@@ -1,0 +1,505 @@
+.row {
+	display: flex;
+	position: relative;
+	column-gap: var(--but-gap-icon-text);
+	align-items: center;
+	min-height: var(--but-size-control);
+	/* Less on the end: a menu button sets itself in from the edge already. */
+	padding-inline: var(--but-space-lg) var(--but-space-sm);
+	border-radius: var(--but-radius-control);
+	color: var(--but-foreground);
+	text-decoration: none;
+	cursor: var(--control-cursor);
+
+	/* No transition: hover and selection share this ground, and selection moves with the arrow
+	   keys (design/foundations/states.md, "List rows snap"). */
+	&:where(:hover) {
+		background-color: var(--but-hover);
+	}
+
+	/* After hover, so a selected row reads the same under the pointer. */
+	&[data-selected] {
+		background-color: var(--but-selected-inactive);
+	}
+
+	&:focus-visible {
+		outline: var(--but-focus-ring);
+		outline-offset: -1px;
+	}
+}
+
+/* The solid fill and inverted contents are for the list holding the selection focus only, as in
+   FileList. --selection-inverted turns badges and counts to their inverted colours. */
+:where([data-selection-focused="true"]:not([data-selection-focus-styles="false"] *))
+	.row[data-selected] {
+	--selection-inverted: true;
+
+	background-color: var(--but-selected);
+	color: var(--but-selected-foreground);
+
+	.icon,
+	.toggle {
+		color: var(--but-inverse-muted-foreground);
+	}
+
+	&.nav .meta {
+		color: var(--but-inverse-subtle-foreground);
+	}
+
+	/* A pull request's state colours its glyph and a merged title. The opposite scheme makes those
+	   light-dark() colours resolve to their inverted values, as Badge and MetaCount do. */
+	.branchGlyph,
+	.conflicted,
+	.title {
+		color-scheme: dark;
+
+		@media (prefers-color-scheme: dark) {
+			color-scheme: light;
+		}
+	}
+
+	/* The inverted button colours, on the buttons themselves, since a variant declares these on
+	   its own element and an inherited value would lose to it. An outline's edge takes the inverted
+	   outline's colour; a ghost has no edge for it to colour. */
+	button {
+		--button-bg: transparent;
+		--button-fg: var(--but-inverse-foreground);
+		--button-hover-bg: var(--but-inverse-ghost-hover);
+
+		border-color: color-mix(in srgb, var(--but-inverse-foreground) 26%, transparent);
+	}
+}
+
+/* The indent: one guide per level, and the chevron of a row that folds in its own step. */
+.steps {
+	display: flex;
+	column-gap: 4px;
+	flex-shrink: 0;
+	align-self: stretch;
+}
+
+.step {
+	display: flex;
+	position: relative;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+	width: 12px;
+}
+
+/* Runs the row's full height and on through the pixel between rows, so the guides of the rows
+   above and below join into one line under the row they sit in. */
+.guide::before {
+	position: absolute;
+	width: 1px;
+	inset-block: 0 -1px;
+	background-color: color-mix(in srgb, var(--but-muted-foreground) 20%, transparent);
+	content: "";
+}
+
+.toggle {
+	padding: 0;
+	border: none;
+	background: none;
+	color: var(--but-subtle-foreground);
+	cursor: var(--control-cursor);
+
+	&:hover,
+	&:focus-visible {
+		color: var(--but-muted-foreground);
+	}
+}
+
+/* Where the chevron would be on a row with nothing to unfold. */
+.empty {
+	color: var(--but-subtle-foreground);
+	opacity: 0.5;
+}
+
+/* A row's glyph is drawn at 14, its box's size, as 🍑 But UI's rows draw them; an Icon is 16 unless told. */
+.icon {
+	--icon-size: 14px;
+
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+	width: 14px;
+	height: 14px;
+	color: var(--but-muted-foreground);
+}
+
+.label {
+	display: flex;
+	column-gap: var(--but-space-md);
+	align-items: center;
+	/* Gives way to the state beside it, never under it: a badge too wide for what is left is cut
+	   rather than drawn over the counts. */
+	min-width: 0;
+	overflow: hidden;
+}
+
+.name {
+	overflow: hidden;
+	line-height: 17px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* Registered so it interpolates, and inherited so the text inside can follow it: how far a cut name
+   has run, which moves the text and sizes both fades. */
+@property --shift {
+	syntax: "<length>";
+	inherits: true;
+	initial-value: 0px;
+}
+
+/* Registered so the scroll timeline can set it: 24px on a cut name, nothing on one that fits. */
+@property --fade-end {
+	syntax: "<length>";
+	inherits: false;
+	initial-value: 0px;
+}
+
+/* A cut name fades out at its end rather than ending in an ellipsis. Only a name that overflows can
+   scroll, and a scroll timeline that can't scroll is inactive, so a name that fits is never masked.
+   Under the pointer it runs to its end and back, at the pace measureRuns sets, after a beat so a
+   pointer passing over the list doesn't set every row moving. Each fade is as wide as the text
+   hidden past its edge, up to 24px, so the text is never cut with no fade at either end. */
+@supports (animation-timeline: scroll()) {
+	.name {
+		text-overflow: clip;
+		animation: name-cut linear both;
+		animation-timeline: scroll(self inline);
+		mask-image: linear-gradient(
+			to right,
+			transparent,
+			#000 min(24px, var(--shift)),
+			#000 calc(100% - var(--fade-end)),
+			transparent
+		);
+	}
+
+	.run {
+		display: inline-block;
+		translate: calc(-1 * var(--shift));
+		vertical-align: top;
+	}
+
+	@media (prefers-reduced-motion: no-preference) {
+		/* The run takes over the end fade from the scroll timeline, which goes inactive as the name
+		   reaches its end and no longer overflows. The first pass skips the hold at the start: the
+		   beat before it is pause enough. The curve eases less than ease-in-out, so the name gets
+		   going without a crawl at the start of each pass. */
+		.row:hover .name[data-runs] {
+			--fade-end: min(24px, var(--run) - var(--shift));
+
+			animation: name-run var(--run-duration) cubic-bezier(0.35, 0.15, 0.65, 0.85)
+				calc(0.25s - 0.15 * var(--run-duration)) infinite alternate both;
+			animation-timeline: auto;
+		}
+	}
+}
+
+@keyframes name-cut {
+	from,
+	to {
+		--fade-end: 24px;
+	}
+}
+
+/* A pause at each end, so the start and the end each hold long enough to read. */
+@keyframes name-run {
+	0%,
+	15% {
+		--shift: 0px;
+	}
+
+	85%,
+	100% {
+		--shift: var(--run);
+	}
+}
+
+.meta {
+	display: flex;
+	column-gap: var(--but-space-md);
+	flex-shrink: 0;
+	align-items: center;
+}
+
+/* A TargetItem keeps Update beside its count rather than in its place: a step more room tells the
+   button from the count. */
+.target .meta {
+	column-gap: var(--but-space-lg);
+}
+
+/* Each picture tucks under the one before it, cut where that one sits with a sliver of gap, rather
+   than ringed in a ground colour: the row's ground changes under the pointer and on selection. */
+.authors {
+	display: flex;
+
+	& > * + * {
+		margin-left: -4px;
+		mask-image: radial-gradient(circle at -3px 50%, transparent 8.5px, #000 8.5px);
+	}
+}
+
+/* compact: the name takes the line and the state sits at the end, where it stays: the menu follows
+   it under the pointer, on keyboard focus and on a selected row, and the name gives way. The
+   actions, a next step for what the state counts (Update for ↓, Push for ↑), take the state's
+   place under the pointer and on keyboard focus only, so a selected row still says where it stands.
+   Keyboard focus only: a click focuses what it lands on (the chevron too), and the actions would
+   stay up after it. Also while the row's menu is open: the popup takes the pointer and the focus
+   away from the row, and its button must stay put. */
+.compact {
+	.label {
+		flex-grow: 1;
+	}
+}
+
+.end {
+	display: grid;
+	flex-shrink: 0;
+	justify-items: end;
+
+	& > * {
+		grid-area: 1 / 1;
+	}
+}
+
+.hover {
+	display: flex;
+	visibility: hidden;
+	column-gap: var(--but-space-sm);
+	align-items: center;
+
+	.row:is(:hover, :focus-visible, :has(:focus-visible), :has([aria-haspopup][aria-expanded="true"]))
+		& {
+		visibility: visible;
+	}
+}
+
+/* The hidden state gives up its width too, so the name runs on up to the actions rather than
+   stopping where the wider state began. The actions stay put at the end. */
+.endSwaps .meta {
+	.row:is(:hover, :focus-visible, :has(:focus-visible), :has([aria-haspopup][aria-expanded="true"]))
+		& {
+		visibility: hidden;
+		max-width: 0;
+		overflow: hidden;
+	}
+}
+
+/* With no state to swap with, the actions keep no room while hidden: the name takes the line, and
+   gives the end back only while they show, as the menu does. */
+.endBare {
+	.row:not(
+			:hover,
+			:focus-visible,
+			:has(:focus-visible),
+			:has([aria-haspopup][aria-expanded="true"])
+		)
+		& {
+		display: none;
+	}
+}
+
+/* The menu takes the row's end only while it shows, so the name keeps the width the rest of the
+   time. */
+.menu {
+	display: none;
+	flex-shrink: 0;
+	margin-inline-start: auto;
+
+	.row:is(
+			:hover,
+			:focus-visible,
+			:has(:focus-visible),
+			[data-selected],
+			:has([aria-haspopup][aria-expanded="true"])
+		)
+		& {
+		display: flex;
+	}
+}
+
+/* A pull request's state in its glyph. */
+.branchGlyph.open {
+	color: var(--but-success-text);
+}
+
+.branchGlyph.closed {
+	color: var(--but-danger-text);
+}
+
+.branchGlyph.merged {
+	color: var(--but-done-text);
+}
+
+/* A conflicted commit's warning, in its glyph's place. Flex, so the wrapper that names it takes
+   no line box of its own, which would sit the icon on a text baseline above the row's centre. */
+.conflicted {
+	display: flex;
+	color: var(--but-danger-text);
+}
+
+.badge {
+	flex-shrink: 0;
+}
+
+/* A merged request is done with: its title recedes, until the row is the one picked. */
+.merged .title {
+	color: var(--but-done-text);
+	opacity: 0.6;
+}
+
+.merged[data-selected] .title {
+	opacity: 1;
+}
+
+.picture {
+	display: flex;
+}
+
+/* A stack's caption names what follows; it doesn't open, so alone it doesn't answer the pointer
+   beyond showing its menu. */
+.caption {
+	color: var(--but-subtle-foreground);
+	cursor: default;
+
+	&:where(:hover) {
+		background-color: transparent;
+	}
+
+	.icon {
+		color: var(--but-subtle-foreground);
+	}
+}
+
+/* One that folds takes the click anywhere on it, so it tints under the pointer as the tail does. */
+.captionFolds {
+	cursor: var(--control-cursor);
+
+	&:where(:hover) {
+		background-color: var(--but-hover);
+	}
+}
+
+/* "Stack" keeps its width, a step above the muted tip after it, which gives way. */
+.word {
+	flex-shrink: 0;
+	color: var(--but-muted-foreground);
+}
+
+/* A page's value at its end ("Light", "Teal") reads two steps under its name. A NavItem has no menu
+   to set itself in from the edge, so the end keeps the start's inset. */
+.nav:has(.meta) {
+	padding-inline-end: var(--but-space-lg);
+}
+
+.nav .meta {
+	color: var(--but-subtle-foreground);
+	font-size: 13px;
+}
+
+.more {
+	width: 100%;
+	border: none;
+	background: none;
+	color: var(--but-muted-foreground);
+	font: inherit;
+	text-align: start;
+
+	/* The row's own tint, which the button's reset above would otherwise clear; the label keeps its
+	   colour, so the tail stays quieter than the rows it hides. */
+	&:hover {
+		background-color: var(--but-hover);
+	}
+
+	.icon {
+		color: var(--but-subtle-foreground);
+	}
+
+	.label {
+		flex-grow: 1;
+	}
+}
+
+.divider {
+	display: flex;
+	column-gap: var(--but-gap-icon-text);
+	align-items: center;
+	height: 20px;
+	padding-inline: var(--but-space-lg);
+}
+
+.line {
+	flex-grow: 1;
+	border-top: 1px dashed var(--but-border-subtle);
+}
+
+/* A NoticeItem says what its rows would have, in the quiet grey of a hint. */
+.notice {
+	color: var(--but-muted-foreground);
+}
+
+/* Its way out reads as a link, as TextLink does, though it stays in the app. */
+.noticeAction {
+	padding: 0;
+	border: none;
+	background: none;
+	color: inherit;
+	font: inherit;
+	text-decoration: underline;
+	text-decoration-color: color-mix(in srgb, currentcolor 40%, transparent);
+	text-underline-position: from-font;
+	cursor: pointer;
+
+	&:hover {
+		color: var(--but-foreground);
+		text-decoration-color: currentcolor;
+	}
+
+	&:focus-visible {
+		border-radius: var(--but-radius-control);
+		outline: var(--but-focus-ring);
+	}
+}
+
+/* A group's name and its chevron, quieter than the pages they head. A button when it folds, reset
+   as MoreItem's is, keeping the row's tint. */
+.groupLabel {
+	width: 100%;
+	border: none;
+	background: none;
+	color: var(--but-subtle-foreground);
+	font: inherit;
+	text-align: start;
+
+	&:is(button):hover {
+		background-color: var(--but-hover);
+	}
+
+	&:not(button) {
+		cursor: default;
+
+		&:hover {
+			background-color: transparent;
+		}
+	}
+}
+
+/* A NavItem that is a button, reset as a GroupLabel's is, keeping the row's tint: a leading row with
+   no page of its own, which folds its card, or a row that opens a picker. */
+button.nav {
+	width: 100%;
+	border: none;
+	background: none;
+	font: inherit;
+	text-align: start;
+
+	&:hover {
+		background-color: var(--but-hover);
+	}
+}

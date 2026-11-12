@@ -1,4 +1,3 @@
-//! Functions for materializing a rebase
 use anyhow::{Context, Result, bail};
 use but_core::{
     ObjectStorageExt as _, RefMetadata,
@@ -12,7 +11,9 @@ use gix::{
     },
 };
 
-use crate::graph_rebase::{Checkout, MaterializeOutcome, PaddedCheckout, SuccessfulRebase};
+use crate::graph_rebase::{
+    Checkout, ConflictedCheckout, MaterializeOutcome, PaddedCheckout, SuccessfulRebase,
+};
 
 struct LinkedCheckoutSpec {
     name: BString,
@@ -33,6 +34,26 @@ struct LinkedCheckoutRepo {
     repo: gix::Repository,
     target: gix::ObjectId,
     merge_base_override: Option<gix::ObjectId>,
+    worktree: LinkedWorktreeCheckout,
+}
+
+/// Context on an error checking out the linked worktree `name` at `path`, which a rewrite
+/// moved to a new commit.
+#[derive(Debug, Clone)]
+struct LinkedWorktreeCheckout {
+    name: BString,
+    path: std::path::PathBuf,
+}
+
+impl std::fmt::Display for LinkedWorktreeCheckout {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Could not update worktree '{}' at {}",
+            self.name,
+            self.path.display()
+        )
+    }
 }
 
 fn head_target(id: gix::ObjectId, ref_name: Option<gix::refs::FullName>) -> Target {
@@ -142,12 +163,15 @@ fn open_linked_checkout_repos(
                 repo: worktree_repo,
                 target: spec.target,
                 merge_base_override: spec.merge_base_override,
+                worktree: LinkedWorktreeCheckout {
+                    name: spec.name,
+                    path: proxy.base()?,
+                },
             })
         })
         .collect()
 }
 
-/// Options for [SuccessfulRebase::materialize].
 #[derive(Default)]
 pub struct MaterializeOptions {
     /// Materializes a rebase without checking out the editor's own worktree.
@@ -247,7 +271,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                 workspace: self.workspace,
                 meta: self.meta,
                 db: self.db,
-                checkout_conflict_occurred: false,
+                conflicted_checkouts: Vec::new(),
             });
         }
 
@@ -264,20 +288,25 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
 
         ref_edits.extend(worktree_head_edits(&specs)?);
 
-        let checkout_conflict_occurred = if !materialize_options.without_checkout {
+        let mut conflicted_checkouts = Vec::new();
+        if !materialize_options.without_checkout {
             let linked_repos = open_linked_checkout_repos(&repo, specs)?;
             for linked_repo in linked_repos {
-                safe_checkout_from_head(
+                let outcome = safe_checkout_from_head(
                     linked_repo.target,
                     &linked_repo.repo,
                     Options {
                         skip_head_update: true,
                         merge_base_override: linked_repo.merge_base_override,
                         allow_conflicted_commit_checkout: false,
-                        // Don't allow for linked worktrees.
-                        allow_uncommitted_changes_to_conflict_with_new_head: false,
+                        allow_uncommitted_changes_to_conflict_with_new_head: true,
                     },
-                )?;
+                )
+                .with_context(|| linked_repo.worktree.clone())?;
+                if outcome.conflict_occurred {
+                    let LinkedWorktreeCheckout { name, path } = linked_repo.worktree;
+                    conflicted_checkouts.push(ConflictedCheckout::Worktree { name, path });
+                }
             }
 
             if let Some(head) = &head {
@@ -288,17 +317,14 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                         skip_head_update: true,
                         merge_base_override: head.merge_base_override,
                         allow_conflicted_commit_checkout: false,
-                        // Allow for our worktree.
                         allow_uncommitted_changes_to_conflict_with_new_head: true,
                     },
                 )?;
-                outcome.conflict_occurred
-            } else {
-                false
+                if outcome.conflict_occurred {
+                    conflicted_checkouts.push(ConflictedCheckout::Head);
+                }
             }
-        } else {
-            false
-        };
+        }
 
         if let Some(head) = head {
             let target = head_target(head.target, head.ref_name);
@@ -326,12 +352,10 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
             workspace: self.workspace,
             meta: self.meta,
             db: self.db,
-            checkout_conflict_occurred,
+            conflicted_checkouts,
         })
     }
 
-    /// Convenience for [Self::materialize] with
-    /// [MaterializeOptions::without_checkout] set.
     pub fn materialize_without_checkout(self) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
         self.materialize(MaterializeOptions {
             without_checkout: true,

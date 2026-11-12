@@ -2,7 +2,7 @@ pub mod entry;
 mod oplog;
 pub use oplog::OplogExt;
 pub use oplog::RestoreKind;
-pub use oplog::{peel_restore_snapshot, restore_checkpoint};
+pub use oplog::{BranchInOtherWorktree, peel_restore_snapshot, restore_checkpoint};
 mod reflog;
 mod snapshot;
 pub use snapshot::SnapshotExt;

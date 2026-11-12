@@ -2,13 +2,13 @@ use but_forge::{ForgeName, MergedReviewFromMessage, merged_review_from_message};
 
 #[test]
 fn github_merge_button_message() {
-    let message = "Merge pull request #15383 from gitbutlerapp/lite-graph-rails\n\nLite: use the new commit line tokens for graph rails\n";
+    let message = "Merge pull request #15383 from gitbutlerapp/desktop-graph-rails\n\nDesktop: use the new commit line tokens for graph rails\n";
     assert_eq!(
         merged_review_from_message(&ForgeName::GitHub, message),
         Some(MergedReviewFromMessage {
             number: 15383,
-            title: "Lite: use the new commit line tokens for graph rails",
-            source_branch: Some("lite-graph-rails"),
+            title: "Desktop: use the new commit line tokens for graph rails",
+            source_branch: Some("desktop-graph-rails"),
         })
     );
 }

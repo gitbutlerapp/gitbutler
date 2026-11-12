@@ -9,8 +9,11 @@ env:
   RUST_BACKTRACE: full
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # A new push to a pull request supersedes its last run. Each master commit gets a group
+  # of its own, so no master run is cancelled or dropped from the queue: they save the
+  # caches pull requests restore, and show which merge broke master.
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -19,15 +22,16 @@ permissions:
 jobs:
   changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       node: ${{ steps.filter.outputs.node }}
       rust: ${{ steps.filter.outputs.rust }}
       rust_core: ${{ steps.filter.outputs.rust_core }}
       ui: ${{ steps.filter.outputs.ui }}
-      but_sdk: ${{ steps.filter.outputs.but_sdk }}
       docs: ${{ steps.filter.outputs.docs }}
       but_installer: ${{ steps.filter.outputs.but_installer }}
       install_script: ${{ steps.filter.outputs.install_script }}
+      tauri_gui: ${{ steps.filter.outputs.tauri_gui }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -50,14 +54,6 @@ jobs:
               - 'pnpm-lock.yaml'
             ui:
               - 'packages/ui-svelte/**'
-            but_sdk:
-              - 'crates/!(but-gpui)/**'
-              - *workflows
-              - 'Cargo.lock'
-              - 'Cargo.toml'
-              - 'package.json'
-              - 'pnpm-lock.yaml'
-              - 'packages/but-sdk/**'
             common-rust: &rust
               - *workflows
               - 'Cargo.lock'
@@ -66,32 +62,37 @@ jobs:
               - *rust
               - 'crates/**'
             # Only gitbutler-tauri's `builtin-gpui` feature links the GPUI client, and only
-            # test-rust-windows builds with it. A change to just the GPUI client can't affect
-            # any other crate, so jobs that never build it can skip it.
+            # test-rust-windows builds with it. A change to just the GPUI client or its
+            # terminals (but-tty) can't affect any other crate, so jobs that never build it can
+            # skip it.
             rust_core:
               - *rust
-              - 'crates/!(but-gpui)/**'
+              - 'crates/!(but-gpui|but-tty)/**'
             but_installer:
               - 'Cargo.lock'
               - 'Cargo.toml'
               - 'crates/but-installer/**'
             install_script:
               - 'scripts/install.sh'
-
-  # This smoke test is here only because we have somewhat poor visibility on the scheduled nightly
-  # builds (whether they fail or succeed). It's my hope that by having this as a non-required check
-  # on every push, we'll be quicker to detect that there is an incompatibility.
-  #
-  # It should absolutely _not_ be a required check, however, as it checks nightly <-> release. The
-  # fact that the latest nightly is incompatible with the latest release cannot possibly be related
-  # to the current push. This is just a signal for us that we should check it out.
-  smoke-test-adjacent-release-compatibility:
-    uses: ./.github/workflows/smoke-test-version-compatibility.yaml
+            # The Tauri app and what only it uses. quality.but.dev checks the rest (its spec is
+            # specs/gitbutler.toml in gitbutlerapp/taste-tester), so the checks below run only
+            # when one of these (or CI itself) changes.
+            # Keep in sync with check-e2e-changes.yml, whose filter also has but-api
+            # and but-server, so they don't start the Rust and Windows jobs here.
+            tauri_gui:
+              - *workflows
+              - 'apps/desktop/**'
+              - 'crates/gitbutler-tauri/**'
+              - 'packages/ui-svelte/**'
+              - 'packages/shared/**'
+              - 'packages/core/**'
+              - 'e2e/**'
 
   prettier:
     needs: changes
-    if: ${{ needs.changes.outputs.node == 'true' || needs.changes.outputs.docs == 'true' }}
+    if: ${{ needs.changes.outputs.tauri_gui == 'true' && (needs.changes.outputs.node == 'true' || needs.changes.outputs.docs == 'true') }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -101,8 +102,9 @@ jobs:
 
   lint-node:
     needs: changes
-    if: ${{ needs.changes.outputs.node == 'true' }}
+    if: ${{ needs.changes.outputs.tauri_gui == 'true' && (needs.changes.outputs.node == 'true') }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -112,8 +114,9 @@ jobs:
 
   check-node:
     needs: changes
-    if: ${{ needs.changes.outputs.node == 'true' }}
+    if: ${{ needs.changes.outputs.tauri_gui == 'true' && (needs.changes.outputs.node == 'true') }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -123,8 +126,9 @@ jobs:
 
   unittest-node:
     needs: changes
-    if: ${{ needs.changes.outputs.node == 'true' }}
-    runs-on: ubuntu-latest
+    if: ${{ needs.changes.outputs.tauri_gui == 'true' && (needs.changes.outputs.node == 'true') }}
+    runs-on: ubuntu-24.04 # Playwright 1.58 does not support Ubuntu 26.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -136,7 +140,7 @@ jobs:
           version=$(pnpm --filter @gitbutler/ui-svelte --fail-if-no-match exec node -p 'require("playwright/package.json").version')
           echo "playwright-version=v$version" >> "$GITHUB_OUTPUT"
       - name: Cache playwright binaries
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: playwright-cache
         with:
           path: |
@@ -154,42 +158,11 @@ jobs:
           BUILDKITE_ANALYTICS_BRANCH: ${{ github.head_ref || github.ref_name }}
           BUILDKITE_ANALYTICS_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
-  but-sdk-build-check:
-    needs: changes
-    if: ${{ needs.changes.outputs.but_sdk == 'true' }}
-    runs-on: ubuntu-latest
-    env:
-      CARGO_TERM_COLOR: always
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Cache apt archives
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v5
-        with:
-          path: .apt-cache
-          key: ${{ runner.os }}-apt-but-sdk-${{ hashFiles('scripts/install-minimal-debian-dependencies.sh') }}
-      - name: Install dependencies for but-sdk
-        run: |
-          sudo ./scripts/install-minimal-debian-dependencies.sh "$PWD/.apt-cache"
-          sudo chown -R "$(id -u)":"$(id -g)" "$PWD/.apt-cache"
-      - uses: ./.github/actions/init-env-node
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          shared-key: but-sdk-build-check
-          save-if: ${{ github.ref == 'refs/heads/master' }}
-      - name: Build but-sdk
-        run: pnpm --filter @gitbutler/but-sdk build
-      - name: Verify generated types are up-to-date
-        run: ./scripts/generate-sdk-types.sh
-      - name: Check but-sdk
-        run: pnpm --filter @gitbutler/but-sdk check
-
   rust-lint:
     needs: changes
-    if: ${{ needs.changes.outputs.rust == 'true' }}
+    if: ${{ needs.changes.outputs.tauri_gui == 'true' && (needs.changes.outputs.rust == 'true') }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: read
@@ -206,114 +179,34 @@ jobs:
         with:
           shared-key: lint
           save-if: ${{ github.ref == 'refs/heads/master' }}
-      - run: cargo fmt --check --all
-      - run: cargo check --workspace --all-targets
-      - run: |
-          # should work without the "legacy" feature
-          cargo check -p but-testsupport --all-targets
-          cargo check -p but-testsupport --all-targets --features sandbox
-          cargo check -p but-testsupport --all-targets --features sandbox-but-api
-          cargo check -p but-ctx --all-targets
-          cargo check -p but-serde --all-targets
-          cargo check -p but-meta --all-targets
-          cargo check -p but-graph --all-targets
-          cargo check -p but-workspace --all-targets
-          cargo check -p but-api --all-targets
-          cargo check -p but --all-targets
-          # both workspace-projection flavors must keep compiling
-          cargo check -p but-api --all-targets --features graph-workspace
-          cargo check -p but --all-targets --features graph-workspace
-          make check-modern-but
-        name: Special `cargo check` runs
-        env:
-          RUSTFLAGS: "--deny warnings"
-      - name: cargo clippy
+      - name: Install Zig
+        uses: $/.github/actions/setup-zig
+      # quality.but.dev runs fmt and clippy for the rest of the workspace.
+      - name: cargo clippy -p gitbutler-tauri
         run: |
           rustup component add clippy
-          cargo clippy --workspace --all-targets -- -D warnings
-          cargo clippy --workspace --all-targets --no-default-features -- -D warnings
-          cargo clippy --workspace --all-targets --all-features -- -D warnings
+          cargo clippy -p gitbutler-tauri --all-targets -- -D warnings
+          cargo clippy -p gitbutler-tauri --all-targets --no-default-features -- -D warnings
+          cargo clippy -p gitbutler-tauri --all-targets --all-features -- -D warnings
 
-  # Find unused cargo dependencies
-  cargo-machete:
+  rust-test-variants:
     needs: changes
-    if: ${{ needs.changes.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Install cargo-machete
-        run: cargo install --locked cargo-machete --version 0.9.1
-      - name: Run cargo-machete on workspace
-        run: cargo machete
-
-  cargo-deny:
-    needs: changes
-    if: ${{ needs.changes.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
-        with:
-          command: check bans licenses sources
-
-  cargo-doc:
-    needs: changes
-    if: ${{ needs.changes.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
-    env:
-      CARGO_TERM_COLOR: always
-      RUSTDOCFLAGS: -D warnings
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          shared-key: cargo-doc
-          save-if: ${{ github.ref == 'refs/heads/master' }}
-      - name: Dependencies for 'keyring'
-        run: sudo ./scripts/install-minimal-debian-dependencies.sh
-      # fontconfig's build script looks it up with pkg-config.
-      - name: Dependencies for the GPUI client
-        run: sudo apt-get install -y --no-install-recommends libxcb1-dev libxkbcommon-x11-dev libfontconfig-dev
-      - name: Check documentation
-        run: cargo doc --workspace --no-deps --exclude gitbutler-tauri --exclude but-api-macros-tests --features but/nightly
-
-  rust-test:
-    needs: changes
-    if: ${{ needs.changes.outputs.rust == 'true' }}
+    if: ${{ needs.changes.outputs.tauri_gui == 'true' && (needs.changes.outputs.rust_core == 'true') }}
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-latest, macos-15]
-    runs-on: ${{ matrix.platform }}
+        include:
+          # quality.but.dev runs this only on master, so pull requests still get it here. The
+          # main test run and `make test-modern-but` are on quality.but.dev.
+          - name: without nightly
+            run: cargo nextest run --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --profile ci
+    name: rust-test-variants (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       CARGO_TERM_COLOR: always
       GITBUTLER_TESTS_NO_CLEANUP: "1"
-      # These six tests fail on macOS CI for unclear reasons. Keep running them locally.
-      NEXTEST_FILTER: >-
-        ${{ matrix.platform == 'macos-15' && 'not (
-          test(=tests::reconciliation_reuses_filter_process) |
-          test(=tests::core_hunks_reuse_filter_process) |
-          test(=tests::assign_reuses_filter_process) |
-          test(=tests::reused_filter_recovers_after_file_failure) |
-          test(=locked_index_rejects_enter_edit_mode_without_changes) |
-          test(=locked_symlinked_index_rejects_enter_edit_mode_without_changes)
-        )' || 'all()' }}
-      # Redirect the app-data dir so any test that loads user-level settings writes here.
-      # The final step asserts nothing did - see 'Assert test hermeticity'.
-      # (a literal path - the `runner` context is not available in job-level `env`)
       E2E_TEST_APP_DATA_DIR: /tmp/hermeticity-guard
-      # A change to just the GPUI client only needs its own tests.
-      PACKAGES: ${{ needs.changes.outputs.rust_core == 'true' && '--workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --features but/nightly' || '-p but-gpui' }}
     defaults:
       run:
         shell: bash
@@ -325,16 +218,15 @@ jobs:
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: cargo-test-no-tauri-${{ runner.os }}
+          # The only job left using this cache, so it saves it now.
           save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Install Zig
+        uses: $/.github/actions/setup-zig
       - name: Dependencies for 'keyring'
-        if: runner.os == 'Linux'
         run: sudo ./scripts/install-minimal-debian-dependencies.sh
-      # The libraries GPUI links to on Linux, for its windows and its font lookup.
       - name: Dependencies for the GPUI client
-        if: runner.os == 'Linux'
-        run: sudo apt-get install -y --no-install-recommends libxcb1-dev libxkbcommon-x11-dev libfontconfig-dev
-      - name: Install cargo-nextest (Linux)
-        if: runner.os == 'Linux'
+        run: sudo timeout 300 apt-get install -y --no-install-recommends -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 libxcb1-dev libxkbcommon-x11-dev libfontconfig-dev
+      - name: Install cargo-nextest
         run: |
 
           # To update the version of cargo-nextest, replace the version specifier in the `curl` command and update the
@@ -346,55 +238,8 @@ jobs:
           echo "66786b9abe23920d022a182d1416b1bbc8130dd4872a9553d76985a1708dcd1e  cargo-nextest.tar.gz" | sha256sum -c -
           tar -xzf cargo-nextest.tar.gz -C ${CARGO_HOME:-~/.cargo}/bin
           rm cargo-nextest.tar.gz
-      - name: Install cargo-nextest (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          # Keep the version in sync with Linux above. Checksum from the release's
-          # cargo-nextest-<VERSION>-universal-apple-darwin.sha256 artifact.
-          curl -LsSf https://get.nexte.st/0.9.143/mac -o cargo-nextest.tar.gz
-          echo "4830d430411148d17602a75cc880bfb4dc8dac153dea59a48a2ef4cc93577f07  cargo-nextest.tar.gz" | shasum -a 256 -c -
-          tar -xzf cargo-nextest.tar.gz -C ${CARGO_HOME:-~/.cargo}/bin
-          rm cargo-nextest.tar.gz
-      - name: Run workspace tests
-        run: cargo nextest run $PACKAGES --profile ci -E "$NEXTEST_FILTER"
-      - name: Run doctests
-        run: cargo test --doc $PACKAGES
-      - name: Upload results to tests.but.dev
-        if: ${{ always() && !cancelled() && runner.os == 'Linux' }}
-        continue-on-error: true
-        env:
-          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.TEST_RESULTS_TOKEN_CARGO }}
-          RUN_BRANCH: ${{ github.head_ref || github.ref_name }}
-          RUN_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          RUN_KEY: ${{ github.run_id }}-${{ github.run_attempt }}
-          RUN_NUMBER: ${{ github.run_number }}
-          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          curl --fail-with-body -X POST \
-            -H "Authorization: Token $BUILDKITE_ANALYTICS_TOKEN" \
-            -F "data=@target/nextest/ci/junit.xml" \
-            -F "format=junit" \
-            -F "run_env[CI]=github_actions" \
-            -F "run_env[key]=$RUN_KEY" \
-            -F "run_env[number]=$RUN_NUMBER" \
-            -F "run_env[branch]=$RUN_BRANCH" \
-            -F "run_env[commit_sha]=$RUN_COMMIT_SHA" \
-            -F "run_env[url]=$RUN_URL" \
-            -F "tags[framework]=nextest" \
-            -F "tags[language]=rust" \
-            -F "tags[type]=unit" \
-            https://tests.but.dev/v1/uploads
-      - name: Run workspace tests without nightly
-        if: github.ref == 'refs/heads/master'
-        run: cargo nextest run --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --profile ci -E "$NEXTEST_FILTER"
-      # It's intentional to use 'name equals run-script' so it's easy to re-run locally on failure.
-      - run: make test-modern-but
-        if: needs.changes.outputs.rust_core == 'true'
-      - name: test vendored
-        if: needs.changes.outputs.rust_core == 'true'
-        run: |
-          set -x
-          (cd crates/gitbutler-filemonitor/vendor/debouncer && cargo test)
+      - name: ${{ matrix.name }}
+        run: ${{ matrix.run }}
       - name: Assert test hermeticity
         run: |
           if [ -e "$E2E_TEST_APP_DATA_DIR" ]; then
@@ -403,46 +248,13 @@ jobs:
             exit 1
           fi
 
-  rust-test-but-api-macros:
-    needs: changes
-    if: ${{ needs.changes.outputs.rust_core == 'true' }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: read
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - features: ""
-            cache_suffix: default
-          - features: "--features legacy"
-            cache_suffix: legacy
-          - features: "--features tauri"
-            cache_suffix: tauri
-    container:
-      image: ghcr.io/gitbutlerapp/ci-base-image@sha256:3eaeae1b07072796a53dc1e7585cdc1f462d0b11d10ecd3685c6fa8082d647dd
-    env:
-      CARGO_TERM_COLOR: always
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          shared-key: cargo-test-but-api-macros-${{ matrix.cache_suffix }}
-          save-if: ${{ github.ref == 'refs/heads/master' }}
-      - name: Test but-api-macros ${{ matrix.features || '(default)' }}
-        run: cargo test -p but-api-macros-tests ${{ matrix.features }}
-
   rust-test-tauri:
     needs: changes
-    if: ${{ needs.changes.outputs.rust_core == 'true' }}
+    if: ${{ needs.changes.outputs.tauri_gui == 'true' && (needs.changes.outputs.rust_core == 'true') }}
     runs-on: ubuntu-latest
+    # A build with no cache must finish within this limit. A job that times out saves no cache,
+    # so the next run also starts with no cache.
+    timeout-minutes: 45
     permissions:
       contents: read
       packages: read
@@ -462,6 +274,9 @@ jobs:
         with:
           shared-key: cargo-test-tauri
           save-if: ${{ github.ref == 'refs/heads/master' }}
+      # quality.but.dev tests but-api-macros without features and with `legacy`.
+      - name: Test but-api-macros --features tauri
+        run: cargo test -p but-api-macros-tests --features tauri
       - run: |
           set -e
           cargo check -p gitbutler-tauri --no-default-features
@@ -473,7 +288,8 @@ jobs:
   check-rust-windows:
     needs: changes
     runs-on: windows-latest
-    if: ${{ needs.changes.outputs.rust == 'true' }}
+    timeout-minutes: 25
+    if: ${{ needs.changes.outputs.tauri_gui == 'true' && (needs.changes.outputs.rust == 'true') }}
     env:
       CARGO_TERM_COLOR: always
     steps:
@@ -485,18 +301,21 @@ jobs:
         with:
           shared-key: cargo-check-windows
           save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Install Zig
+        uses: $/.github/actions/setup-zig
       - name: "cargo check"
         run: cargo check --workspace --all-targets --features windows
       # The GPUI client's Windows code: the lint job runs on Linux, which builds it as a stub.
-      - name: "cargo clippy -p but-gpui"
-        run: cargo clippy -p but-gpui --all-targets -- -D warnings
+      - name: "cargo clippy -p but-gpui -p but-tty"
+        run: cargo clippy -p but-gpui -p but-tty --all-targets -- -D warnings
 
-  # Separate from check-rust-windows so the two run side by side: these steps build code,
-  # those only check it, so they share little of their work or their cache.
+  # Separate from check-rust-windows and build-tauri-windows so the three run side by side:
+  # each builds different code, so they share little of their work or their cache.
   test-rust-windows:
     needs: changes
     runs-on: windows-latest
-    if: ${{ needs.changes.outputs.rust == 'true' }}
+    timeout-minutes: 35
+    if: ${{ needs.changes.outputs.tauri_gui == 'true' && (needs.changes.outputs.rust == 'true') }}
     env:
       CARGO_TERM_COLOR: always
     steps:
@@ -508,8 +327,29 @@ jobs:
         with:
           shared-key: cargo-test
           save-if: ${{ github.ref == 'refs/heads/master' }}
-      - name: "cargo test -p but-gpui"
-        run: cargo test -p but-gpui
+      - name: Install Zig
+        uses: $/.github/actions/setup-zig
+      - name: "cargo test -p but-gpui -p but-tty"
+        run: cargo test -p but-gpui -p but-tty
+
+  build-tauri-windows:
+    needs: changes
+    runs-on: windows-latest
+    timeout-minutes: 25
+    if: ${{ needs.changes.outputs.tauri_gui == 'true' && (needs.changes.outputs.rust == 'true') }}
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: cargo-build-tauri-windows
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Install Zig
+        uses: $/.github/actions/setup-zig
       # The desktop app with the native client, as Windows builds ship it: GPUI's and Tauri's
       # resources only clash when the executable links.
       - name: "cargo build -p gitbutler-tauri --features windows,builtin-gpui"
@@ -538,6 +378,7 @@ jobs:
             target: ""
 
     runs-on: ${{ matrix.platform }}
+    timeout-minutes: 20
 
     env:
       CARGO_TERM_COLOR: always
@@ -574,6 +415,7 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.install_script == 'true' || needs.changes.outputs.but_installer == 'true' }}
     runs-on: ubuntu-22.04
+    timeout-minutes: 5
     permissions: {}
     outputs:
       release_version: ${{ steps.fetch.outputs.release_version }}
@@ -603,6 +445,7 @@ jobs:
           - platform: ubuntu-22.04 # [linux, x64]
           - platform: ubuntu-22.04-arm # [linux, ARM64]
     runs-on: ${{ matrix.platform }}
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -638,9 +481,10 @@ jobs:
           - platform: ubuntu-22.04-arm # [linux, ARM64]
             artifact_id: linux-aarch64
     runs-on: ${{ matrix.platform }}
+    timeout-minutes: 15
     steps:
       - name: Download ${{ matrix.artifact_id }} installer
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: "but-installer-${{ matrix.artifact_id }}-${{ github.run_number }}"
           path: .
@@ -658,6 +502,7 @@ jobs:
     needs: build-installer
     if: ${{ github.ref == 'refs/heads/master' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
@@ -665,22 +510,22 @@ jobs:
         with:
           persist-credentials: false
       - name: Download macOS x86_64 installer
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: "but-installer-macos-15-x86_64-${{ github.run_number }}"
           path: s3-upload/macos/x86_64
       - name: Download macOS aarch64 installer
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: "but-installer-macos-15-aarch64-${{ github.run_number }}"
           path: s3-upload/macos/aarch64
       - name: Download Linux x86_64 installer
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: "but-installer-linux-x86_64-${{ github.run_number }}"
           path: s3-upload/linux/x86_64
       - name: Download Linux aarch64 installer
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: "but-installer-linux-aarch64-${{ github.run_number }}"
           path: s3-upload/linux/aarch64
@@ -695,7 +540,21 @@ jobs:
           aws_bucket: "releases.gitbutler.com"
           source_dir: "s3-upload/"
           destination_dir: "installers/${{ github.sha }}"
+      # Master runs overlap, so one that finishes after a newer installer change landed must
+      # leave installers/latest to that change's run. The paths are the but_installer filter's.
+      - name: Check no newer installer change is on master
+        id: tip
+        env:
+          SHA: ${{ github.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin master
+          if git diff --quiet "$SHA" FETCH_HEAD -- Cargo.lock Cargo.toml crates/but-installer; then
+            echo "latest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "latest=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Upload to S3 (latest)
+        if: steps.tip.outputs.latest == 'true'
         uses: shallwefootball/s3-upload-action@4350529f410221787ccf424e50133cbc1b52704e # master
         with:
           aws_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -714,15 +573,13 @@ jobs:
       - changes
       - check-rust-windows
       - test-rust-windows
-      - rust-test
-      - rust-test-but-api-macros
+      - build-tauri-windows
+      - rust-test-variants
       - rust-test-tauri
       - rust-lint
-      - cargo-machete
-      - cargo-doc
       - build-installer
-      - but-sdk-build-check
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     env:
       CARGO_TERM_COLOR: always
     steps:
@@ -735,6 +592,7 @@ jobs:
   # Check that all `actions/checkout` in CI jobs have `persist-credentials: false`.
   check-no-persist-credentials:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     env:
       GLOB: .github/workflows/*.@(yaml|yml)
@@ -762,8 +620,9 @@ jobs:
           test -z "$(<query-output.txt)"  # Report failure if we found anything
   test-ui:
     needs: changes
-    if: ${{ needs.changes.outputs.ui == 'true' }}
+    if: ${{ needs.changes.outputs.tauri_gui == 'true' && (needs.changes.outputs.ui == 'true') }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
       packages: read
@@ -782,7 +641,7 @@ jobs:
           version=$(pnpm --filter @gitbutler/ui-svelte --fail-if-no-match exec node -p 'require("playwright/package.json").version')
           echo "playwright-version=v$version" >> "$GITHUB_OUTPUT"
       - name: cache playwright binaries
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: playwright-cache
         with:
           path: |

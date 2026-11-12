@@ -4,6 +4,7 @@ use anyhow::{Context, Result};
 use async_openai::{
     Client,
     config::OpenAIConfig,
+    error::OpenAIError,
     types::chat::{
         ChatCompletionMessageToolCalls, ChatCompletionRequestAssistantMessageContent,
         ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage,
@@ -24,6 +25,21 @@ use crate::{
 
 pub trait OpenAIClientProvider {
     fn client(&self) -> Result<Client<OpenAIConfig>>;
+}
+
+/// `err`, with the reason of an endpoint that answers errors as `{"error": "…"}`, as
+/// GitButler's proxy does, rather than in OpenAI's shape, which async-openai can't read.
+fn readable(err: OpenAIError) -> anyhow::Error {
+    #[derive(serde::Deserialize)]
+    struct Said {
+        error: String,
+    }
+    if let OpenAIError::JSONDeserialize(_, body) = &err
+        && let Ok(Said { error }) = serde_json::from_str(body)
+    {
+        return anyhow::anyhow!("The AI provider answered: {error}");
+    }
+    err.into()
 }
 
 impl From<ChatMessage> for ChatCompletionRequestMessage {
@@ -239,7 +255,6 @@ pub fn tool_calling_loop(
         let mut tool_response_messages: Vec<ChatCompletionRequestMessage> = vec![];
 
         for call in tool_calls {
-            // Extract function call from the enum
             let (id, function_name, function_args) = match call {
                 ChatCompletionMessageToolCalls::Function(func_call) => (
                     func_call.id.clone(),
@@ -471,7 +486,6 @@ fn from_openai_chat_messages(messages: Vec<ChatCompletionRequestMessage>) -> Vec
     chat_messages
 }
 
-/// Helper function to handle text response from streaming
 fn handle_text_response(
     text_response: String,
     text_response_buffer: &mut Vec<String>,
@@ -514,7 +528,7 @@ async fn structured_output<T: serde::Serialize + DeserializeOwned + JsonSchema>(
         .response_format(response_format)
         .build()?;
 
-    let response = client.chat().create(request).await?;
+    let response = client.chat().create(request).await.map_err(readable)?;
 
     for choice in response.choices {
         if let Some(content) = choice.message.content {
@@ -568,7 +582,7 @@ async fn response(
         .messages(messages)
         .build()?;
 
-    let response = client.chat().create(request).await?;
+    let response = client.chat().create(request).await.map_err(readable)?;
 
     for choice in response.choices {
         if let Some(content) = choice.message.content {
@@ -591,7 +605,7 @@ async fn tool_calling(
         .tools(tools)
         .build()?;
 
-    let response = client.chat().create(request).await?;
+    let response = client.chat().create(request).await.map_err(readable)?;
 
     Ok(response)
 }
@@ -607,26 +621,30 @@ async fn stream_response(
         .messages(messages.clone())
         .build()?;
 
-    let mut stream = client.chat().create_stream(request).await?;
+    let mut stream = client
+        .chat()
+        .create_stream(request)
+        .await
+        .map_err(readable)?;
 
     let mut response_text: Option<String> = None;
 
     while let Some(result) = stream.next().await {
-        let response = result.context("Failed to receive response from OpenAI stream")?;
-        if let Some(chat_choice) = response.choices.first() {
-            // If there is any text content in the response, call the on_token callback
-            if let Some(content) = &chat_choice.delta.content {
-                if response_text.is_none() {
-                    response_text = Some(String::new());
-                }
-
-                if let Some(text) = response_text.as_mut() {
-                    text.push_str(content);
-                }
-
-                let content_str = content.as_str();
-                on_token(content_str);
+        let response =
+            (result.map_err(readable)).context("Failed to receive response from OpenAI stream")?;
+        if let Some(chat_choice) = response.choices.first()
+            && let Some(content) = &chat_choice.delta.content
+        {
+            if response_text.is_none() {
+                response_text = Some(String::new());
             }
+
+            if let Some(text) = response_text.as_mut() {
+                text.push_str(content);
+            }
+
+            let content_str = content.as_str();
+            on_token(content_str);
         }
     }
 
@@ -646,7 +664,11 @@ async fn tool_calling_stream(
         .tools(tools)
         .build()?;
 
-    let mut stream = client.chat().create_stream(request).await?;
+    let mut stream = client
+        .chat()
+        .create_stream(request)
+        .await
+        .map_err(readable)?;
 
     let tool_call_states: Arc<Mutex<HashMap<(u32, u32), ToolCall>>> =
         Arc::new(Mutex::new(HashMap::new()));
@@ -654,9 +676,9 @@ async fn tool_calling_stream(
     let mut response_text: Option<String> = None;
 
     while let Some(result) = stream.next().await {
-        let response = result.context("Failed to receive response from OpenAI stream")?;
+        let response =
+            (result.map_err(readable)).context("Failed to receive response from OpenAI stream")?;
         if let Some(chat_choice) = response.choices.first() {
-            // Keep track of tool call states
             if let Some(tool_calls) = &chat_choice.delta.tool_calls {
                 for tool_call_chunk in tool_calls.iter() {
                     let key = (chat_choice.index, tool_call_chunk.index);
@@ -688,7 +710,6 @@ async fn tool_calling_stream(
                 }
             }
 
-            // If finished streaming the tool calls, return them.
             if let Some(finish_reason) = &chat_choice.finish_reason
                 && matches!(
                     finish_reason,
@@ -712,7 +733,6 @@ async fn tool_calling_stream(
                 return Ok((Some(tool_calls_to_process), response_text));
             }
 
-            // If there is any text content in the response, call the on_token callback
             if let Some(content) = &chat_choice.delta.content {
                 if response_text.is_none() {
                     response_text = Some(String::new());
@@ -735,6 +755,19 @@ async fn tool_calling_stream(
 mod tests {
     use super::make_schema_strict;
     use serde_json::json;
+
+    #[test]
+    fn a_string_error_from_the_proxy_says_its_reason() {
+        let body = r#"{"error":"401 Unauthorized"}"#;
+        let unread = serde_json::from_str::<async_openai::error::WrappedError>(body)
+            .expect_err("async-openai expects an object under `error`");
+        let err = super::readable(super::OpenAIError::JSONDeserialize(unread, body.into()));
+        assert_eq!(
+            err.to_string(),
+            "The AI provider answered: 401 Unauthorized",
+            "the proxy's reason, not a decoding error"
+        );
+    }
 
     #[test]
     fn schemas_are_rewritten_for_strict_mode() {

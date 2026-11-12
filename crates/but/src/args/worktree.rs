@@ -38,23 +38,45 @@ pub enum Subcommands {
     /// directories. Untracked files are copied if any prefix of their path is in the
     /// `.worktreeinclude` file and they are also gitignored.
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    #[clap(alias = "add")]
     New {
-        /// Start the new branch at COMMIT instead of the workspace base.
+        /// Start the new branch at BRANCH_OR_COMMIT instead of the workspace base.
         ///
-        /// Accepts a commit SHA or CLI ID, not a branch. Conflicted commits are refused.
-        #[clap(short = 'A', long, value_name = "COMMIT")]
+        /// Accepts a branch by name or CLI ID, a commit by SHA or CLI ID, or any Git revision like
+        /// `origin/main`. Conflicted commits and the GitButler workspace commit are refused.
+        #[clap(short = 'A', long, value_name = "BRANCH_OR_COMMIT")]
         above: Option<CliIdArg>,
         /// The branch to check out, created if it doesn't exist, or a generated one.
         name: Option<BranchArg>,
+        /// Alternative spelling of NAME, for the `-b <branch>` habit from `git worktree add`
+        /// and `but commit`.
+        #[clap(
+            short = 'b',
+            long = "branch",
+            value_name = "NAME",
+            conflicts_with = "name",
+            hide = true
+        )]
+        branch: Option<BranchArg>,
     },
-    /// Hide a worktree from the workspace.
+    /// Reuse an archived worktree on a new branch at the target's tip, or create one there.
+    ///
+    /// Picks the most recently updated archived worktree whose branch is already in the
+    /// target, isn't in the workspace, and that has no uncommitted changes and no Git
+    /// operation in progress. It is shown in the workspace again on a new branch with a
+    /// generated name, so the files Git doesn't track, such as build output and installed
+    /// dependencies, are kept. Its old branch stays as it was, with its upstream. Without
+    /// such a worktree, creates a new one at the target's tip, like `but worktree new`.
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Recycle,
+    /// Hide a worktree from the workspace until `but` runs inside it again.
     Archive {
-        /// The worktree, by CLI ID (see `but wt list`) or name.
+        /// The worktree, by CLI ID (see `but wt list`), name, or path.
         worktree: CliIdArg,
     },
     /// Show an archived worktree in the workspace again.
     Unarchive {
-        /// The worktree, by CLI ID (see `but wt list`) or name.
+        /// The worktree, by CLI ID (see `but wt list`), name, or path.
         worktree: CliIdArg,
     },
     /// Remove a worktree from disk, like `git worktree remove`.
@@ -67,7 +89,7 @@ pub enum Subcommands {
         /// Remove the worktree even if it has uncommitted changes.
         #[clap(short, long)]
         force: bool,
-        /// The worktree, by CLI ID (see `but wt list`) or name.
+        /// The worktree, by CLI ID (see `but wt list`), name, or path.
         worktree: CliIdArg,
     },
 }

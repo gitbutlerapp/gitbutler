@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 
 use super::{
-    files::{find_line_anchored, upsert_managed_block, upsert_managed_block_file},
+    files::{
+        find_line_anchored, remove_managed_blocks, upsert_managed_block, upsert_managed_block_file,
+    },
     plan::{collect_instruction_writes, collect_skill_installs},
     *,
 };
@@ -212,6 +214,28 @@ fn upsert_managed_block_rejects_partial_block() {
 }
 
 #[test]
+fn remove_managed_blocks_keeps_surrounding_text_and_line_endings() {
+    let block = format!("{MANAGED_BLOCK_START}\nrules\n{MANAGED_BLOCK_END}\n");
+    let crlf_block = block.replace('\n', "\r\n");
+    for (existing, expected) in [
+        (
+            format!("before\n\n{block}\nafter\n"),
+            Some("before\n\nafter\n"),
+        ),
+        (format!("before\r\n\r\n{crlf_block}"), Some("before\r\n")),
+        ("no block\n".to_string(), None),
+    ] {
+        assert_eq!(
+            remove_managed_blocks(&existing)
+                .expect("well-formed input")
+                .as_deref(),
+            expected,
+            "removing the block from {existing:?} keeps the rest as it was"
+        );
+    }
+}
+
+#[test]
 fn push_to_target_is_the_only_repo_local_option() {
     for option in WorkflowOption::ALL {
         assert_eq!(
@@ -401,7 +425,6 @@ fn skill_installs_expand_both_scopes() {
     }));
 }
 
-/// Count the number of line-anchored block start markers.
 fn anchored_start_count(text: &str) -> usize {
     let mut count = 0;
     let mut pos = 0;
@@ -578,6 +601,31 @@ fn poolside_skill_paths_follow_scope() {
     assert_eq!(
         AgentTarget::Poolside.skill_path_components(Scope::Global),
         Some(&[".config", "poolside", "skills", "but"][..])
+    );
+}
+
+#[test]
+fn amp_installs_where_it_loads_skills_and_reads_agents_md() {
+    assert_eq!(
+        AgentTarget::from_detected(detect_agent::Agent::Amp),
+        Some(AgentTarget::Amp)
+    );
+    // These are the locations the skill freshness check looks in for Amp.
+    assert_eq!(
+        AgentTarget::Amp.skill_path_components(Scope::Global),
+        Some(&[".config", "agents", "skills", "gitbutler"][..])
+    );
+    assert_eq!(
+        AgentTarget::Amp.skill_path_components(Scope::Repository),
+        Some(&[".agents", "skills", "gitbutler"][..])
+    );
+    assert_eq!(
+        AgentTarget::Amp.global_instruction_components(),
+        Some(&[".config", "amp", "AGENTS.md"][..])
+    );
+    assert_eq!(
+        AgentTarget::Amp.shared_instruction_components(),
+        &["AGENTS.md"][..]
     );
 }
 

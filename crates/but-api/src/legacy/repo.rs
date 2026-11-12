@@ -12,7 +12,6 @@ use gitbutler_repo::{
 };
 use tracing::instrument;
 
-/// JSON types.
 pub mod json {
     use serde::Serialize;
 
@@ -80,16 +79,6 @@ async fn handle_git_prompt_clone(prompt: String, url: String) -> Option<String> 
         .await
 }
 
-#[but_api]
-#[instrument(err(Debug))]
-pub fn get_commit_file(
-    ctx: &Context,
-    relative_path: PathBuf,
-    commit_id: gix::ObjectId,
-) -> Result<FileInfo> {
-    ctx.read_file_from_commit(commit_id, &relative_path)
-}
-
 #[but_api(json::FileInfo)]
 #[instrument(err(Debug))]
 pub fn get_workspace_file(ctx: &Context, relative_path: String) -> Result<FileInfo> {
@@ -123,6 +112,10 @@ pub fn pre_commit_hook_diffspecs(
     ctx: &but_ctx::Context,
     changes: Vec<DiffSpec>,
 ) -> Result<HookResult> {
+    // Building the tree and swapping the index cost time, so do neither without a hook.
+    if !hooks::has_pre_commit(ctx)? {
+        return Ok(HookResult::NotConfigured);
+    }
     let repo = ctx.repo.get()?;
     let head = repo
         .head_tree_id_or_empty()
@@ -147,11 +140,4 @@ pub fn post_commit_hook(ctx: &but_ctx::Context) -> Result<HookResult> {
 #[instrument(err(Debug))]
 pub fn message_hook(ctx: &but_ctx::Context, message: String) -> Result<MessageHookResult> {
     gitbutler_repo::hooks::commit_msg(ctx, message)
-}
-
-#[but_api]
-#[instrument(err(Debug))]
-pub fn find_files(ctx: &Context, query: String, limit: Option<usize>) -> Result<Vec<String>> {
-    let limit = limit.unwrap_or(10);
-    ctx.find_files(&query, limit)
 }

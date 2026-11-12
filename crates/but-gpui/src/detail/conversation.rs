@@ -1,4 +1,4 @@
-//! A pull request's conversation, under its description, as Lite's activity: its comments and
+//! A pull request's conversation, under its description: its comments and
 //! reviews, newest first, each review with the threads it started on the diff. It's there to
 //! read. Answering, reacting and resolving happen on the forge, where a note's time opens it.
 
@@ -11,7 +11,7 @@ use super::{Detail, PageFold};
 use crate::backend::reviews::Verdict;
 use crate::backend::{Forge, Note, Remark, Review, Thread};
 use crate::state::ProjectId;
-use crate::theme::Theme;
+use crate::theme::{Hue, Theme};
 use crate::ui::diff::{excerpt, split_path};
 use crate::ui::fold;
 use crate::ui::markdown;
@@ -58,7 +58,7 @@ impl Detail {
                     .tooltip(Tooltip::text(error_summary(err)))
                     .into_any_element(),
             ),
-            Some(Ok(remarks)) if remarks.is_empty() => {
+            Some(Ok(said)) if said.remarks.is_empty() => {
                 Some(quiet("No comments").into_any_element())
             }
             Some(Ok(_)) => None,
@@ -81,17 +81,15 @@ impl Detail {
         )
     }
 
-    /// How many remarks the conversation on pull request `number` of `project` shows.
     pub(super) fn remarks_shown(&self, project: &ProjectId, number: u64, cx: &App) -> usize {
         let store = self.store.read(cx);
         let github = store.workspace(project).and_then(|ws| ws.forge) == Some(Forge::GitHub);
         match store.conversation(project, number) {
-            Some(Ok(remarks)) if github => remarks.len(),
+            Some(Ok(said)) if github => said.remarks.len(),
             _ => 0,
         }
     }
 
-    /// The `ix`th remark of the conversation on pull request `number` of `project`.
     pub(super) fn remark_at(
         &self,
         project: &ProjectId,
@@ -100,23 +98,64 @@ impl Detail {
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Option<Div> {
-        let Some(Ok(remarks)) = self.store.read(cx).conversation(project, number) else {
+        let Some(Ok(said)) = self.store.read(cx).conversation(project, number) else {
             return None;
         };
-        Some(self.remark(remarks.get(ix)?, theme, cx))
+        Some(self.remark(said.remarks.get(ix)?, theme, cx))
     }
 
-    /// A comment or review as Lite's card, or a thread, set in under the review that started it.
+    /// The reactions to the description of pull request `number` of `project`, as GitHub's:
+    /// a pill of each kind with how many left it, named in its tooltip.
+    pub(super) fn reactions(
+        &self,
+        project: &ProjectId,
+        number: u64,
+        theme: &Theme,
+        cx: &App,
+    ) -> Option<Div> {
+        let Some(Ok(said)) = self.store.read(cx).conversation(project, number) else {
+            return None;
+        };
+        if said.reactions.is_empty() {
+            return None;
+        }
+        let pills = said.reactions.iter().map(|reaction| {
+            let names: Vec<_> = (reaction.people.iter())
+                .map(|person| person.login.as_str())
+                .collect();
+            h_flex()
+                .id(ElementId::Name(
+                    format!("reaction-{}", reaction.emoji).into(),
+                ))
+                .h(dp(24.))
+                .px(dp(8.))
+                .gap(dp(5.))
+                .rounded_full()
+                .border_1()
+                .border_color(theme.border_2)
+                .text_size(dp(12.))
+                .child(reaction.emoji.clone())
+                .child(
+                    div()
+                        .text_color(theme.text_2)
+                        .child(reaction.count.to_string()),
+                )
+                .tooltip(Tooltip::text(names.join(", ")))
+        });
+        Some(h_flex().flex_wrap().gap(dp(6.)).children(pills))
+    }
+
+    /// A comment or review as a card, or a thread, set in under the review that started it.
     fn remark(&self, remark: &Remark, theme: &Theme, cx: &Context<Self>) -> Div {
         let card = card(theme).p(dp(14.)).gap(dp(8.));
         match remark {
             Remark::Comment(note) => card
                 .child(header(note, None, false, theme))
-                .child(markdown::render(&note.url, &note.body, theme)),
+                .child(self.note_body(note, theme, cx)),
             Remark::Review { verdict, note } => card
                 .child(header(note, Some(*verdict), false, theme))
                 .when(!note.body.is_empty(), |el| {
-                    el.child(markdown::render(&note.url, &note.body, theme))
+                    el.child(self.note_body(note, theme, cx))
                 }),
             // Under its review, in line with the review's words.
             Remark::Thread { thread, in_review } => div()
@@ -125,10 +164,18 @@ impl Detail {
         }
     }
 
-    /// A thread as Lite's: a row naming where it hangs that folds it, then the lines it's on
+    /// What `note` says, its text selectable.
+    fn note_body(&self, note: &Note, theme: &Theme, cx: &Context<Self>) -> AnyElement {
+        let select = self.note_select(&note.url, cx);
+        markdown::render(&note.url, &note.body, Some(select), theme)
+    }
+
+    /// A thread: a row naming where it hangs that folds it, then the lines it's on
     /// and what was said there. It shows open unless it's resolved.
     fn thread(&self, thread: &Thread, theme: &Theme, cx: &Context<Self>) -> Div {
-        let open = thread.resolved == self.threads_flipped.contains(&thread.id);
+        let flipped =
+            (self.page.review()).is_some_and(|review| review.threads_flipped.contains(&thread.id));
+        let open = thread.resolved == flipped;
         let (name, dir) = split_path(&thread.path);
         let lines = match thread.lines {
             Some((start, end)) if start < end => format!(":{start}-{end}"),
@@ -152,7 +199,7 @@ impl Detail {
             .py(dp(7.))
             .gap(dp(6.))
             .text_size(dp(12.))
-            .hover(|el| el.bg(theme.hover()))
+            .hover(|el| el.bg(theme.hover))
             .child(fold::chevron("fold", open, theme.text_3))
             .child(
                 h_flex()
@@ -174,7 +221,7 @@ impl Detail {
                             .child(format!("{name}{lines}")),
                     ),
             )
-            .children(state.map(|label| tag(theme.text_2).child(label)))
+            .children(state.map(|label| tag(Hue::Gray, theme).child(label)))
             .when(!open, |el| {
                 el.child(
                     div()
@@ -184,8 +231,11 @@ impl Detail {
                 )
             })
             .on_click(cx.listener(move |this, _, _, cx| {
-                if !this.threads_flipped.remove(&id) {
-                    this.threads_flipped.insert(id.clone());
+                let Some(review) = this.page.review_mut() else {
+                    return;
+                };
+                if !review.threads_flipped.remove(&id) {
+                    review.threads_flipped.insert(id.clone());
                 }
                 this.page_folds
                     .start(PageFold::Thread(id.clone()), !open, cx);
@@ -193,7 +243,7 @@ impl Detail {
             }));
         let fold = PageFold::Thread(thread.id.clone());
         v_flex()
-            .rounded(dp(6.))
+            .rounded(dp(theme.shape.card))
             .border_1()
             .border_color(theme.border_3)
             .bg(theme.bg_2)
@@ -219,7 +269,7 @@ impl Detail {
                                         el.pt(dp(10.)).border_t_1().border_color(theme.border_3)
                                     })
                                     .child(header(note, None, true, theme))
-                                    .child(markdown::render(&note.url, &note.body, theme))
+                                    .child(self.note_body(note, theme, cx))
                             })),
                     ),
                 )
@@ -251,17 +301,19 @@ fn header(note: &Note, verdict: Option<Verdict>, compact: bool, theme: &Theme) -
             )
     });
     let verdict = verdict.map(|verdict| match verdict {
-        Verdict::Approved => ("Approved", theme.safe),
-        Verdict::ChangesRequested => ("Changes requested", theme.danger),
-        Verdict::Commented => ("Reviewed", theme.text_2),
-        Verdict::Dismissed => ("Review dismissed", theme.text_2),
+        Verdict::Approved => ("Approved", Hue::Safe),
+        Verdict::ChangesRequested => ("Changes requested", Hue::Danger),
+        Verdict::Commented => ("Reviewed", Hue::Gray),
+        Verdict::Dismissed => ("Review dismissed", Hue::Gray),
     });
     h_flex()
         .min_h(dp(20.))
         .gap(dp(6.))
         .children(author)
-        .when(note.bot, |el| el.child(tag(theme.text_2).child("Agent")))
-        .children(verdict.map(|(label, color)| tag(color).child(label)))
+        .when(note.bot, |el| {
+            el.child(tag(Hue::Gray, theme).child("Agent"))
+        })
+        .children(verdict.map(|(label, hue)| tag(hue, theme).child(label)))
         .child(div().flex_grow(1.))
         .children(note.at.map(|at| opens(note, at, compact, theme)))
 }

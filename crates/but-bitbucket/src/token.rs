@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::client::BitbucketClient;
 
-/// Persist Bitbucket account access tokens securely.
 pub fn persist_bb_access_token(
     account_id: &BitbucketAccountIdentifier,
     access_token: &Sensitive<String>,
@@ -16,18 +15,13 @@ pub fn persist_bb_access_token(
     persist_bitbucket_account(&account, storage)
 }
 
-/// Delete a Bitbucket account access token for a given account.
 pub fn delete_bb_access_token(
     account_id: &BitbucketAccountIdentifier,
     storage: &but_forge_storage::Controller,
 ) -> Result<()> {
     // The token itself may be unreadable here (stored by another build kind, or a keychain
     // that refuses the read); the account entry has to go regardless.
-    let Some(account) = storage
-        .bitbucket_accounts()?
-        .into_iter()
-        .find(|account| BitbucketAccountIdentifier::from(account) == *account_id)
-    else {
+    let Some(account) = find_stored_bitbucket_account(account_id, storage)? else {
         return Ok(());
     };
     storage.remove_bitbucket_account(&account)?;
@@ -37,13 +31,14 @@ pub fn delete_bb_access_token(
     secret::delete(account.access_token_key(), secret::Namespace::BuildKind)
 }
 
-/// Retrieve a Bitbucket account access token for a given account.
 pub fn get_bb_access_token(
     account_id: &BitbucketAccountIdentifier,
     storage: &but_forge_storage::Controller,
 ) -> Result<Option<Sensitive<String>>> {
-    let account = find_bitbucket_account(account_id, storage)?;
-    Ok(account.map(|acct| acct.access_token()))
+    let Some(account) = find_stored_bitbucket_account(account_id, storage)? else {
+        return Ok(None);
+    };
+    retrieve_bitbucket_secret(account.access_token_key())
 }
 
 pub fn list_known_bitbucket_accounts(
@@ -214,28 +209,12 @@ fn delete_all_bitbucket_accounts(storage: &but_forge_storage::Controller) -> Res
     Ok(())
 }
 
-fn find_bitbucket_account(
+fn find_stored_bitbucket_account(
     account_id: &BitbucketAccountIdentifier,
     storage: &but_forge_storage::Controller,
-) -> Result<Option<BitbucketAccount>> {
-    let accounts = storage.bitbucket_accounts()?;
-    let result = match account_id {
-        BitbucketAccountIdentifier::ApiToken { email } => accounts.iter().find_map(|account| {
-            let but_forge_storage::settings::BitbucketAccount::ApiToken {
-                email: acct_email,
-                access_token_key,
-            } = account;
-            if acct_email == email
-                && let Some(access_token) =
-                    retrieve_bitbucket_secret(access_token_key).ok().flatten()
-            {
-                return Some(BitbucketAccount::ApiToken {
-                    email: acct_email.clone(),
-                    access_token,
-                });
-            }
-            None
-        }),
-    };
-    Ok(result)
+) -> Result<Option<but_forge_storage::settings::BitbucketAccount>> {
+    Ok(storage
+        .bitbucket_accounts()?
+        .into_iter()
+        .find(|account| BitbucketAccountIdentifier::from(account) == *account_id))
 }

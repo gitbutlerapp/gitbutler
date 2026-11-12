@@ -7,9 +7,9 @@ use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
-use anyhow::{Result, bail};
+use anyhow::Result;
 use but_api::legacy::oplog::{self, RestoreKind};
-use but_oplog::legacy::{OperationKind, SnapshotDetails};
+use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
 use gix::bstr::ByteSlice as _;
 use serde::Deserialize;
 
@@ -17,7 +17,6 @@ use super::intent::Run;
 use super::{CommitId, Intent, OpKind, SnapshotId, open, short_ref, short_text};
 use but_core::WORKSPACE_REF_NAME;
 
-/// One operation in the log.
 #[derive(Debug, Clone)]
 pub struct Operation {
     /// The snapshot taken just before it.
@@ -32,6 +31,8 @@ pub struct Operation {
     pub kind: Option<OperationKind>,
     /// What it did to the branches and their commits, when its snapshot says.
     pub changes: Vec<Change>,
+    /// The AI agent that did it, like `claude-code`, when the oplog says one did.
+    pub agent: Option<String>,
 }
 
 /// A commit as a snapshot, or the workspace now, has it.
@@ -190,6 +191,12 @@ pub fn list(
             K::SquashCommit if amended(&changes) => K::AmendCommit,
             kind => kind,
         });
+        let agent = (snapshot.details.iter())
+            .flat_map(|details| &details.trailers)
+            .find_map(|trailer| match trailer {
+                Trailer::Agent(agent) => agent.clone(),
+                _ => None,
+            });
         let (title, detail) = match snapshot.details {
             Some(details) => match details.operation {
                 K::RestoreFromSnapshotViaUndo => restored("Undo"),
@@ -221,6 +228,7 @@ pub fn list(
             time: snapshot.created_at.seconds,
             kind,
             changes,
+            agent,
         });
     }
     Ok((operations, more))
@@ -388,7 +396,6 @@ fn checkout_branches(
     Some(branches)
 }
 
-/// Commit `commit` from its own `data`.
 fn recorded(repo: &gix::Repository, commit: gix::ObjectId, data: &[u8]) -> Option<Recorded> {
     let parsed = gix::objs::CommitRef::from_bytes(data, repo.object_hash())
         .ok()?
@@ -537,7 +544,7 @@ impl Intent for Restore {
                 super::is_ancestor(&repo, snapshot.0, later.0).unwrap_or(false)
             };
             if kept.iter().any(since) {
-                bail!(UNRECORDED);
+                but_error::bail_precondition!("{UNRECORDED}");
             }
             drop(repo);
             let kind = RestoreKind::ExplicitRestoreFromSnapshot;
@@ -565,10 +572,55 @@ impl Intent for TakeSnapshot {
             but_oplog::UnmaterializedOplogSnapshot::prepare_checkpoint(
                 ctx,
                 details,
+                &[],
                 perm.read_permission(),
             )?
             .commit(ctx, perm)
         })
+    }
+}
+
+/// Undo the commits made on top of `workspace_commit` outside GitButler, as `git reset --soft`
+/// does: the workspace reads again, with their changes uncommitted.
+pub struct UncommitAboveWorkspace {
+    pub workspace_commit: gix::ObjectId,
+}
+
+impl Intent for UncommitAboveWorkspace {
+    type Done = ();
+
+    fn apply(self, run: &mut Run) -> Result<()> {
+        run.locked(|ctx, perm| {
+            let repo = ctx.repo.get()?.clone();
+            super::ops::refuse_unfinished(&repo, false)?;
+            let mut workspace = repo.find_reference(WORKSPACE_REF_NAME)?;
+            let tip = workspace.peel_to_id()?.detach();
+            // Only commits on top of it go, never ones it was moved away from since.
+            anyhow::ensure!(
+                tip != self.workspace_commit
+                    && repo
+                        .merge_base(tip, self.workspace_commit)?
+                        .map(gix::Id::detach)
+                        == Some(self.workspace_commit),
+                "The workspace changed since. Read the project again and try once more."
+            );
+            but_oplog::UnmaterializedOplogSnapshot::prepare_checkpoint(
+                ctx,
+                SnapshotDetails::new(OperationKind::UndoCommit),
+                &[],
+                perm.read_permission(),
+            )?
+            .commit(ctx, perm)?;
+            workspace.set_target_id(
+                self.workspace_commit,
+                "GitButler: uncommit commits on top of the workspace commit",
+            )?;
+            Ok(())
+        })
+    }
+
+    fn kind(&self) -> OpKind {
+        OpKind::UncommitAboveWorkspace
     }
 }
 
@@ -594,7 +646,7 @@ impl Intent for Redo {
                 return Ok(None);
             };
             if self.kept.contains(&SnapshotId(target.commit_id)) {
-                bail!(UNRECORDED);
+                but_error::bail_precondition!("{UNRECORDED}");
             }
             let since = (target.created_at.seconds * 1000).max(self.accepted.unwrap_or_default());
             // As for undo, what a terminal did since would be taken back too.
@@ -616,7 +668,6 @@ impl Intent for Redo {
     }
 }
 
-/// The newest entry in the project's operation log.
 pub fn oplog_head(ctx: &but_ctx::Context) -> Option<SnapshotId> {
     let newest = oplog::list_snapshots(ctx, 1, None, None, None).ok()?;
     newest
@@ -624,7 +675,25 @@ pub fn oplog_head(ctx: &but_ctx::Context) -> Option<SnapshotId> {
         .map(|snapshot| SnapshotId(snapshot.commit_id))
 }
 
-/// What undoing an operation came to.
+/// How many of the newest operation log entries a workspace load reads: more than one load ever
+/// misses, as the watcher reloads within a second of a change.
+pub const NEWEST_ENTRIES: usize = 10;
+
+/// The [`NEWEST_ENTRIES`] newest entries in the project's operation log, newest first, each with
+/// whether a person recorded it: no agent was detected. One recorded before GitButler noted that
+/// counts as an agent's.
+pub fn newest_entries(ctx: &but_ctx::Context) -> Vec<(SnapshotId, bool)> {
+    let snapshots =
+        oplog::list_snapshots(ctx, NEWEST_ENTRIES, None, None, None).unwrap_or_default();
+    (snapshots.into_iter())
+        .map(|snapshot| {
+            let person = (snapshot.details.as_ref())
+                .is_some_and(|details| details.trailers.contains(&Trailer::Agent(None)));
+            (SnapshotId(snapshot.commit_id), person)
+        })
+        .collect()
+}
+
 pub enum Undone {
     /// It was undone: what it was.
     Done(&'static str),
@@ -739,7 +808,7 @@ fn moved_since(ctx: &but_ctx::Context, after: i64, spans: &[(i64, i64)]) -> Resu
         let Some(lines) = log.rev()? else {
             // HEAD always has a log while Git keeps them: without, nothing here can tell.
             if name == head {
-                anyhow::bail!(
+                but_error::bail_precondition!(
                     "Git keeps no log of what moved HEAD here, as with core.logAllRefUpdates \
                      off, so undo can't tell what happened since. Operations history can still \
                      restore to before it."
@@ -876,6 +945,46 @@ mod tests {
                 Change::TargetMoved { .. } => panic!("compare leaves the target alone"),
             })
             .collect()
+    }
+
+    #[test]
+    fn commits_made_on_top_of_the_workspace_are_uncommitted() {
+        use crate::backend::ops::tests::{branch_named, git, repo_with, target_origin_main};
+        use but_workspace::ref_info::CommitsAboveWorkspaceCommit;
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["checkout", "-q", "-b", "feature"]);
+            git(path, &["commit", "-q", "--allow-empty", "-m", "Feature"]);
+            crate::backend::apply(path, branch_named("second")).unwrap();
+            std::fs::write(path.join("oops"), "oops\n").unwrap();
+            git(path, &["add", "oops"]);
+            git(path, &["commit", "-q", "-m", "Made with git"]);
+
+            let err = crate::backend::load_workspace(path, Default::default()).unwrap_err();
+            let above = *err.downcast_ref::<CommitsAboveWorkspaceCommit>().unwrap();
+            assert_eq!(above.count, 1);
+            let uncommit = || {
+                crate::backend::apply(
+                    path,
+                    super::UncommitAboveWorkspace {
+                        workspace_commit: above.workspace_commit_id,
+                    },
+                )
+            };
+            uncommit().unwrap();
+
+            let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+            let uncommitted: Vec<_> = (workspace.uncommitted.iter())
+                .map(|file| file.path.as_str())
+                .collect();
+            assert_eq!(uncommitted, ["oops"], "the commit's changes are kept");
+            assert!(
+                uncommit().is_err(),
+                "with nothing on top of the workspace commit any more, nothing goes"
+            );
+        })
     }
 
     #[test]

@@ -14,7 +14,6 @@ use strum::IntoEnumIterator as _;
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
-    /// The id of the commit that represents the snapshot
     #[serde(rename = "id", with = "but_serde::object_id")]
     pub commit_id: gix::ObjectId,
     /// Snapshot creation time in milliseconds from Unix epoch, based on a commit as `commit_id`.
@@ -24,21 +23,15 @@ pub struct Snapshot {
     pub details: Option<SnapshotDetails>,
 }
 
-/// The payload of a snapshot commit
-///
 /// This is persisted as a commit message in the title, body and trailers format (<https://git-scm.com/docs/git-interpret-trailers>)
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotDetails {
-    /// The version of the snapshot format
     pub version: Version,
     /// The type of operation that was performed just before the snapshot was created
     pub operation: OperationKind,
-    /// The title / label of the snapshot
     pub title: String,
-    /// Additional text describing the snapshot
     pub body: Option<String>,
-    /// Additional key value pairs that describe the snapshot
     pub trailers: Vec<Trailer>,
 }
 
@@ -390,7 +383,7 @@ impl FromStr for Version {
     }
 }
 
-/// Represents a key value pair stored in a snapshot, like `key: value\n`
+/// A key value pair stored in a snapshot, like `key: value\n`
 /// Using the git trailer format (<https://git-scm.com/docs/git-interpret-trailers>)
 #[derive(Debug, PartialEq, Clone, strum::EnumDiscriminants)]
 #[strum_discriminants(derive(strum::EnumIter))]
@@ -411,6 +404,10 @@ pub enum Trailer {
     Before(usize),
     After(usize),
     Sha(gix::ObjectId),
+    /// The AI agent driving the program that recorded the snapshot, like `claude-code`, or
+    /// `None` when none was detected, as for a person. Snapshots recorded before this was
+    /// added have neither.
+    Agent(Option<String>),
     /// Trailer of unknown origin. GitButler should ideally never be generating such trailers but
     /// we might see them when parsing user data.
     Other {
@@ -434,6 +431,8 @@ impl Trailer {
     const SHA_KEY: &str = "sha";
     const MESSAGE_KEY: &str = "message";
     const BRANCH_KEY: &str = "branch";
+    const AGENT_KEY: &str = "agent";
+    const NO_AGENT: &str = "none";
 
     pub fn key(&self) -> &str {
         match self {
@@ -452,6 +451,7 @@ impl Trailer {
             Trailer::Before(..) => Self::BEFORE_KEY,
             Trailer::After(..) => Self::AFTER_KEY,
             Trailer::Sha(..) => Self::SHA_KEY,
+            Trailer::Agent(..) => Self::AGENT_KEY,
         }
     }
 
@@ -472,6 +472,7 @@ impl Trailer {
             Trailer::Before(n) => n.to_string().into(),
             Trailer::After(n) => n.to_string().into(),
             Trailer::Sha(commit) => commit.to_string().into(),
+            Trailer::Agent(agent) => agent.as_deref().unwrap_or(Self::NO_AGENT).into(),
         }
     }
 }
@@ -611,6 +612,13 @@ impl FromStr for Trailer {
                 TrailerDiscriminants::Branch => {
                     if key == Self::BRANCH_KEY {
                         return Ok(Self::Branch(unescaped_value));
+                    }
+                }
+                TrailerDiscriminants::Agent => {
+                    if key == Self::AGENT_KEY {
+                        return Ok(Self::Agent(
+                            (unescaped_value != Self::NO_AGENT).then_some(unescaped_value),
+                        ));
                     }
                 }
             }

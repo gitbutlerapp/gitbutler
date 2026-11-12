@@ -25,7 +25,6 @@ fn unix_epoch() -> SystemTime {
 /// This tracks the head of the oplog, persisted in operations-log.toml.  
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Oplog {
-    /// This is the sha of the last oplog commit
     #[serde(with = "but_serde::object_id_opt", default)]
     pub head_sha: Option<gix::ObjectId>,
     /// The time when the last snapshot was created. Seconds since Epoch
@@ -46,20 +45,15 @@ impl Default for Oplog {
 }
 
 pub(crate) struct OplogHandle {
-    /// The path to the file containing the oplog head state.
     file_path: PathBuf,
 }
 
 impl OplogHandle {
-    /// Creates a new concurrency-safe handle to the state of the oplog.
     pub fn new(base_path: &Path) -> Self {
         let file_path = base_path.join(OPLOG_FILE_NAME);
         Self { file_path }
     }
 
-    /// Persists the oplog head for the given repository.
-    ///
-    /// Errors if the file cannot be read or written.
     pub fn set_oplog_head(&self, sha: gix::ObjectId) -> Result<()> {
         let mut oplog = self.read_file()?;
         oplog.head_sha = Some(sha);
@@ -67,16 +61,11 @@ impl OplogHandle {
         Ok(())
     }
 
-    /// Gets the oplog head sha for the given repository.
-    ///
-    /// Errors if the file cannot be read or written.
     pub fn oplog_head(&self) -> Result<Option<gix::ObjectId>> {
         let oplog = self.read_file()?;
         Ok(oplog.head_sha)
     }
 
-    /// Reads and parses the state file.
-    ///
     /// If the file does not exist, it will be created.
     fn read_file(&self) -> Result<Oplog> {
         read_toml_file_or_default(&self.file_path)

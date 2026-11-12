@@ -1,5 +1,3 @@
-//! Various functions that involve launching the Git editor (i.e. `GIT_EDITOR`).
-//!
 //! When no external editor is configured, falls back to the built-in TUI editor.
 use std::{ffi::OsStr, io::Write as _};
 
@@ -12,10 +10,6 @@ fn ignore_rest_marker(comment_prefix: &str) -> String {
     format!("{comment_prefix} --- ignore-rest ---")
 }
 
-/// Launches the user's preferred text editor to edit some `initial_text`,
-/// identified by a `filename_safe_intent` to help the user understand what's wanted of them.
-/// Note that this string must be valid in filenames.
-///
 /// Returns the edited text (*without known encoding*), with comment lines (starting with `#`) removed.
 pub fn from_editor_no_comments(filename_safe_intent: &str, initial_text: &str) -> Result<BString> {
     let content = from_editor(filename_safe_intent, initial_text, ".txt")?;
@@ -28,8 +22,6 @@ pub fn from_editor_no_comments(filename_safe_intent: &str, initial_text: &str) -
 ///
 /// If `diff_text` is `Some`, appends it after an ignore-rest marker line in the editor.
 /// The marker and everything below it is automatically stripped from the returned text.
-///
-/// Returns the edited text (*without known encoding*), with comment lines removed.
 pub fn from_editor_no_comments_as_patch(
     filename_safe_intent: &str,
     initial_text: &str,
@@ -61,10 +53,6 @@ fn filter_content_from_editor<'a>(content: &'a BStr, comment_prefix: &str) -> Ve
         .collect()
 }
 
-/// Launches the user's preferred text editor to edit some `initial_text`,
-/// identified by a `filename_safe_intent` to help the user understand what's wanted of them.
-/// Note that this string must be valid in filenames.
-///
 /// If the user has an external editor configured (via `GIT_EDITOR`, `core.editor`, or `EDITOR`),
 /// that editor is used. Otherwise, the built-in TUI editor is launched.
 ///
@@ -102,14 +90,12 @@ fn open_editor(
     }
 }
 
-/// Launch an external editor (vim, code, etc.) to edit text via a temporary file.
 fn from_external_editor(
     editor_cmd: &str,
     filename_safe_intent: &str,
     initial_text: &str,
     file_suffix: &str,
 ) -> Result<BString> {
-    // Create a temporary file with the initial text
     let mut tempfile = tempfile::Builder::new()
         .prefix(&format!("but_{filename_safe_intent}_"))
         .suffix(file_suffix)
@@ -137,7 +123,6 @@ fn from_external_editor(
         .into())
 }
 
-/// Launch the built-in TUI editor.
 fn from_builtin_editor(
     filename_safe_intent: &str,
     initial_text: &str,
@@ -145,7 +130,6 @@ fn from_builtin_editor(
 ) -> Result<BString> {
     use super::editor::{EditorMode, hard_wrap_commit_message, run_builtin_editor};
 
-    // Determine editor mode based on the intent
     let mode = if filename_safe_intent.contains("commit") {
         EditorMode::CommitMessage
     } else if filename_safe_intent.contains("branch") {
@@ -163,11 +147,6 @@ fn from_builtin_editor(
     }
 }
 
-/// Get the user's preferred editor command, if one is configured.
-///
-/// Runs `git var GIT_EDITOR`, which lets git do its resolution of the editor command.
-/// This typically uses the git config value for `core.editor`, and env vars like `GIT_EDITOR` or `EDITOR`.
-///
 /// Returns `None` when no editor is configured, signalling that the built-in editor should be used.
 ///
 /// Note: Because git config parsing is used, the current directory matters for potential local git config overrides.
@@ -175,8 +154,6 @@ pub fn get_editor_command() -> Option<String> {
     get_editor_command_impl(std::env::vars_os())
 }
 
-/// Internal implementation that can be tested with the controlled environment `env`.
-///
 /// Checks the standard Git editor sources in precedence order:
 /// 1. `GIT_EDITOR` env var
 /// 2. `core.editor` git config
@@ -205,12 +182,10 @@ fn get_editor_command_impl<AsOsStr: AsRef<OsStr>>(
             .filter(|v| !v.is_empty())
     };
 
-    // 1. GIT_EDITOR environment variable
     if let Some(editor) = lookup_env("GIT_EDITOR") {
         return Some(editor);
     }
 
-    // 2. core.editor from git config
     {
         let mut cmd = std::process::Command::new(gix::path::env::exe_invocation());
         let res = cmd
@@ -228,17 +203,14 @@ fn get_editor_command_impl<AsOsStr: AsRef<OsStr>>(
         }
     }
 
-    // 3. VISUAL environment variable
     if let Some(editor) = lookup_env("VISUAL") {
         return Some(editor);
     }
 
-    // 4. EDITOR environment variable
     if let Some(editor) = lookup_env("EDITOR") {
         return Some(editor);
     }
 
-    // No configured editor — the caller should use the built-in editor.
     None
 }
 

@@ -1,5 +1,3 @@
-//! Enumeration of linked worktrees and their archived state.
-//!
 //! This is the single home of linked-worktree state: every reader - listings, and
 //! graph building when it seeds extra traversal heads - must go through
 //! [`worktrees_with_state()`] so archived worktrees are excluded consistently, and
@@ -12,8 +10,7 @@ use gix::bstr::{BStr, BString};
 
 use crate::DbHandle;
 
-/// Whether `ref_name` is a workspace ref, kept in sync with
-/// `but_core::is_workspace_ref_name()` by hand: depending on but-core here would
+/// Kept in sync with `but_core::is_workspace_ref_name()` by hand: depending on but-core here would
 /// pull libgit2 into every crate that reaches but-db, for two string comparisons.
 fn is_workspace_ref(ref_name: &gix::refs::FullName) -> bool {
     let name = ref_name.as_bstr();
@@ -28,7 +25,6 @@ fn is_workspace_ref(ref_name: &gix::refs::FullName) -> bool {
 pub struct WorktreeEntry {
     /// Whether the worktree is hidden from listings and graph traversal.
     pub archived: bool,
-    /// The worktree checkout directory.
     pub path: PathBuf,
     /// The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`,
     /// which survives `git worktree move`.
@@ -91,8 +87,6 @@ pub fn worktree_head(repo: &gix::Repository, name: &BStr) -> Result<Option<Workt
     }
 }
 
-/// List all usable linked worktrees of `repo` with their archived state.
-///
 /// The first-ever read *adopts*: every worktree already on disk (whether usable or
 /// not) is archived, assuming it predates GitButler's worktree support, and an
 /// explicit marker records that adoption ran even when no worktree exists yet. A

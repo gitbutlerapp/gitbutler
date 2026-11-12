@@ -1,0 +1,7 @@
+.top {
+	stop-color: color-mix(in srgb, var(--but-primary), var(--but-primary-foreground) 60%);
+}
+
+.bottom {
+	stop-color: color-mix(in srgb, var(--but-primary), var(--but-primary-foreground) 20%);
+}

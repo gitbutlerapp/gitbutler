@@ -1,8 +1,3 @@
-//! Command implementation for managing `but` configuration.
-//!
-//! Provides subcommands to view and modify configuration settings including
-//! user information, AI provider, forge accounts, and target branch.
-
 use std::fmt::{Display, Write};
 
 use anyhow::{Context as _, Result};
@@ -11,7 +6,7 @@ use but_core::{GitConfigSettings, GitHubStackingMode};
 use but_core::{
     RepositoryExt,
     git_config::{remove_config_value, set_config_value},
-    ref_metadata::{UnresolvedLegacyTargetReason, UnresolvedLegacyTargetRefError},
+    ref_metadata::{LocalRefName, UnresolvedLegacyTargetReason, UnresolvedLegacyTargetRefError},
 };
 use but_ctx::Context;
 use but_llm::{
@@ -81,7 +76,6 @@ impl AiScope {
 
 type AiConfigInfo = AiConfigurationSnapshot;
 
-/// Main entry point for config command
 pub async fn exec(
     ctx: &mut Context,
     out: &mut OutputChannel,
@@ -110,8 +104,6 @@ pub async fn exec(
 }
 
 /// Handle AI config subcommand without repository context.
-///
-/// This supports global configuration from outside of a git repository.
 pub(crate) fn ai_config(
     out: &mut OutputChannel,
     cmd: Option<AiSubcommand>,
@@ -124,7 +116,6 @@ pub(crate) fn ai_config(
     ai_config_inner(None, out, cmd, local, global)
 }
 
-/// Show overview of important settings
 async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
     let t = theme::get();
     #[derive(Serialize)]
@@ -142,14 +133,12 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
         username: String,
     }
 
-    // Get user info from git config
     let user_info = {
         let repo = ctx.repo.get()?;
         let config = repo.config_snapshot();
         get_user_config_info(&config)
     };
 
-    // Get target branch
     cfg_if! {
         if #[cfg(feature = "legacy")] {
             let mut guard = ctx.exclusive_worktree_access();
@@ -160,7 +149,6 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
         }
     };
 
-    // Get forge accounts
     let known_accounts = but_api::github::list_known_github_accounts()?;
     let forge_accounts: Vec<ForgeAccountInfo> = known_accounts
         .iter()
@@ -174,11 +162,9 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
         writeln!(out, "\n{}", t.important.paint("GitButler Configuration"))?;
         writeln!(out)?;
 
-        // User section
         writeln!(out, "{}:", t.important.paint("User"))?;
         write_user_config_human(out, &user_info)?;
 
-        // Target branch
         writeln!(out, "{}:", t.important.paint("Target Branch"))?;
         if let Some(branch) = &target_branch {
             writeln!(out, "    {}", t.config_value.paint(branch))?;
@@ -187,7 +173,6 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
         }
         writeln!(out)?;
 
-        // Forge
         writeln!(out, "{}:", t.important.paint("Forge"))?;
         if forge_accounts.is_empty() {
             writeln!(
@@ -208,7 +193,6 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
         }
         writeln!(out)?;
 
-        // Hints
         writeln!(out, "{}", t.hint.paint("Available subcommands:"))?;
         writeln!(
             out,
@@ -449,7 +433,6 @@ pub(crate) fn load_app_settings_sync() -> Result<AppSettingsWithDiskSync> {
     AppSettingsWithDiskSync::new_with_customization(config_dir, None)
 }
 
-/// User configuration information
 #[derive(serde::Serialize)]
 struct UserConfigInfo {
     name: Option<String>,
@@ -463,7 +446,6 @@ struct UserConfigInfo {
     editor_scope: Option<gix::config::Source>,
 }
 
-/// Get user configuration info from git config
 fn get_user_config_info(config: &gix::config::File) -> UserConfigInfo {
     let (name, name_scope) = get_config_string_and_scope(config, "user.name");
     let (email, email_scope) = get_config_string_and_scope(config, "user.email");
@@ -480,7 +462,6 @@ fn get_user_config_info(config: &gix::config::File) -> UserConfigInfo {
     }
 }
 
-/// Write user config info in human-readable format
 fn write_user_config_human(out: &mut dyn std::fmt::Write, info: &UserConfigInfo) -> Result<()> {
     let t = theme::get();
     writeln!(
@@ -515,7 +496,6 @@ fn write_user_config_human(out: &mut dyn std::fmt::Write, info: &UserConfigInfo)
     Ok(())
 }
 
-/// Handle user config subcommand
 pub(crate) async fn user_config(
     ctx: Option<&Context>,
     out: &mut OutputChannel,
@@ -525,7 +505,6 @@ pub(crate) async fn user_config(
     let repo = ctx.map(|ctx| ctx.repo.get()).transpose()?;
 
     match cmd {
-        // View user config
         None => {
             let user_info = match repo.as_deref() {
                 Some(repo) => get_user_config_info(&repo.config_snapshot()),
@@ -553,7 +532,6 @@ pub(crate) async fn user_config(
                 out.write_value(serde_json::json!(user_info))?;
             }
         }
-        // Set user config
         Some(UserSubcommand::Set { key, value, global }) => {
             let git_key = key.to_git_key();
             edit_git_config(repo.as_deref(), global.into(), |config| {
@@ -581,7 +559,6 @@ pub(crate) async fn user_config(
                 }))?;
             }
         }
-        // Unset user config
         Some(UserSubcommand::Unset { key, global }) => {
             let git_key = key.to_git_key();
             edit_git_config(repo.as_deref(), global.into(), |config| {
@@ -616,17 +593,20 @@ pub(crate) async fn user_config(
 pub(crate) async fn forge_config(
     out: &mut OutputChannel,
     cmd: Option<ForgeSubcommand>,
-) -> Result<()> {
+) -> CliResult<()> {
     match cmd {
-        Some(ForgeSubcommand::Auth) => forge_auth(out).await,
-        Some(ForgeSubcommand::ListUsers) => forge_show_overview(out).await,
-        Some(ForgeSubcommand::Forget { username }) => forge_forget(username, out).await,
+        Some(ForgeSubcommand::Auth) => forge_auth(out).await?,
+        Some(ForgeSubcommand::ListUsers) => forge_show_overview(out).await?,
+        Some(ForgeSubcommand::Forget { username }) => forge_forget(username, out).await?,
         #[cfg(feature = "legacy")]
         Some(ForgeSubcommand::GithubStacks { .. }) => {
-            anyhow::bail!("GitHub stacks configuration requires a repository")
+            return Err(
+                anyhow::anyhow!("GitHub stacks configuration requires a repository").into(),
+            );
         }
-        None => forge_show_overview(out).await,
+        None => forge_show_overview(out).await?,
     }
+    Ok(())
 }
 
 #[cfg(feature = "legacy")]
@@ -777,7 +757,6 @@ fn extract_account_details(
 ) -> Vec<ForgeAccount> {
     let mut accounts: Vec<ForgeAccount> = Vec::new();
 
-    // Add GitHub accounts
     for account in &known_gh_accounts {
         let (username, account_type) = match account {
             but_github::GithubAccountIdentifier::OAuthUsername { username } => {
@@ -798,7 +777,6 @@ fn extract_account_details(
         });
     }
 
-    // Add GitLab accounts
     for account in &known_gl_accounts {
         let (username, account_type) = match account {
             but_gitlab::GitlabAccountIdentifier::PatUsername { username } => {
@@ -816,7 +794,6 @@ fn extract_account_details(
         });
     }
 
-    // Add Bitbucket accounts
     for account in &known_bb_accounts {
         let (username, account_type) = match account {
             but_bitbucket::BitbucketAccountIdentifier::ApiToken { email } => {
@@ -832,8 +809,7 @@ fn extract_account_details(
     accounts
 }
 
-/// Authenticate with a forge provider (GitHub, GitLab, etc)
-async fn forge_auth(out: &mut OutputChannel) -> Result<()> {
+async fn forge_auth(out: &mut OutputChannel) -> CliResult<()> {
     #[derive(Debug, Clone)]
     enum ForgeProvider {
         GitHub,
@@ -857,9 +833,11 @@ async fn forge_auth(out: &mut OutputChannel) -> Result<()> {
         ("Bitbucket", ForgeProvider::Bitbucket)
     ];
     let selected_option = {
-        let mut input = out
-            .prepare_for_terminal_input()
-            .context("Human input required - run this in a terminal")?;
+        let mut input = out.prepare_for_terminal_input().ok_or_else(|| {
+            bad_input("Human input required - run this in a terminal").hint(
+                "Ask the user to run `but config forge auth` in a terminal. It has no non-interactive form",
+            )
+        })?;
         input
             .prompt_select(
                 "Select a forge provider to authenticate with",
@@ -872,10 +850,11 @@ async fn forge_auth(out: &mut OutputChannel) -> Result<()> {
     };
 
     match selected_option {
-        ForgeProvider::GitHub => github_auth(out).await,
-        ForgeProvider::GitLab => gitlab_auth(out).await,
-        ForgeProvider::Bitbucket => bitbucket_auth(out).await,
+        ForgeProvider::GitHub => github_auth(out).await?,
+        ForgeProvider::GitLab => gitlab_auth(out).await?,
+        ForgeProvider::Bitbucket => bitbucket_auth(out).await?,
     }
+    Ok(())
 }
 
 /// Authenticate with Bitbucket Cloud using an Atlassian API token.
@@ -926,7 +905,6 @@ async fn bitbucket_auth(out: &mut OutputChannel) -> Result<()> {
     Ok(())
 }
 
-/// Authenticate with GitLab
 async fn gitlab_auth(out: &mut OutputChannel) -> Result<()> {
     #[derive(Debug, Clone)]
     enum AuthMethod {
@@ -962,7 +940,6 @@ async fn gitlab_auth(out: &mut OutputChannel) -> Result<()> {
     }
 }
 
-/// Authenticate with GitLab using a Personal Access Token (PAT)
 async fn gitlab_pat(mut inout: InputOutputChannel<'_>) -> Result<()> {
     use but_gitlab::AuthStatusResponse;
 
@@ -978,7 +955,6 @@ async fn gitlab_pat(mut inout: InputOutputChannel<'_>) -> Result<()> {
     Ok(())
 }
 
-/// Authenticate with self-hosted GitLab
 async fn gitlab_self_hosted(mut inout: InputOutputChannel<'_>) -> Result<()> {
     use but_gitlab::AuthStatusResponse;
 
@@ -998,7 +974,6 @@ async fn gitlab_self_hosted(mut inout: InputOutputChannel<'_>) -> Result<()> {
     Ok(())
 }
 
-/// Authenticate with GitHub
 async fn github_auth(out: &mut OutputChannel) -> Result<()> {
     #[derive(Debug, Clone)]
     enum AuthMethod {
@@ -1038,7 +1013,6 @@ async fn github_auth(out: &mut OutputChannel) -> Result<()> {
     }
 }
 
-/// Authenticate with GitHub using a Personal Access Token (PAT)
 async fn github_pat(mut inout: InputOutputChannel<'_>) -> Result<()> {
     use but_github::AuthStatusResponse;
 
@@ -1054,7 +1028,6 @@ async fn github_pat(mut inout: InputOutputChannel<'_>) -> Result<()> {
     Ok(())
 }
 
-/// Authenticate with GitHub Enterprise
 async fn github_enterprise(mut inout: InputOutputChannel<'_>) -> Result<()> {
     use but_github::AuthStatusResponse;
 
@@ -1118,23 +1091,17 @@ async fn display_authenticated_github_accounts(
     let mut some_accounts_invalid = false;
 
     for account in known_gh_accounts {
-        let account_status = but_api::github::check_github_credentials(account.clone())
-            .await
-            .ok();
-
-        let message = match account_status {
-            Some(but_github::CredentialCheckResult::Valid) => {
-                t.success.paint("(valid credentials)")
-            }
-            Some(but_github::CredentialCheckResult::Invalid) => {
+        let message = match but_api::github::check_github_credentials(account.clone()).await {
+            Ok(but_github::CredentialCheckResult::Valid) => t.success.paint("(valid credentials)"),
+            Ok(but_github::CredentialCheckResult::Invalid) => {
                 some_accounts_invalid = true;
                 t.attention.paint("(invalid credentials)")
             }
-            Some(but_github::CredentialCheckResult::NoCredentials) => {
+            Ok(but_github::CredentialCheckResult::NoCredentials) => {
                 some_accounts_invalid = true;
                 t.attention.paint("(no credentials)")
             }
-            None => t.error.paint("(unknown status)"),
+            Err(err) => t.error.paint(format!("(unknown status: {err:#})")),
         };
 
         writeln!(out, "  • {account} {message}")?;
@@ -1162,23 +1129,17 @@ async fn display_authenticated_gitlab_accounts(
     let mut some_accounts_invalid = false;
 
     for account in known_gl_accounts {
-        let account_status = but_api::gitlab::check_gitlab_credentials(account.clone())
-            .await
-            .ok();
-
-        let message = match account_status {
-            Some(but_gitlab::CredentialCheckResult::Valid) => {
-                t.success.paint("(valid credentials)")
-            }
-            Some(but_gitlab::CredentialCheckResult::Invalid) => {
+        let message = match but_api::gitlab::check_gitlab_credentials(account.clone()).await {
+            Ok(but_gitlab::CredentialCheckResult::Valid) => t.success.paint("(valid credentials)"),
+            Ok(but_gitlab::CredentialCheckResult::Invalid) => {
                 some_accounts_invalid = true;
                 t.attention.paint("(invalid credentials)")
             }
-            Some(but_gitlab::CredentialCheckResult::NoCredentials) => {
+            Ok(but_gitlab::CredentialCheckResult::NoCredentials) => {
                 some_accounts_invalid = true;
                 t.attention.paint("(no credentials)")
             }
-            None => t.error.paint("(unknown status)"),
+            Err(err) => t.error.paint(format!("(unknown status: {err:#})")),
         };
 
         writeln!(out, "  • {account} {message}")?;
@@ -1206,23 +1167,19 @@ async fn display_authenticated_bitbucket_accounts(
     let mut some_accounts_invalid = false;
 
     for account in known_bb_accounts {
-        let account_status = but_api::bitbucket::check_bitbucket_credentials(account.clone())
-            .await
-            .ok();
-
-        let message = match account_status {
-            Some(but_bitbucket::CredentialCheckResult::Valid) => {
+        let message = match but_api::bitbucket::check_bitbucket_credentials(account.clone()).await {
+            Ok(but_bitbucket::CredentialCheckResult::Valid) => {
                 t.success.paint("(valid credentials)")
             }
-            Some(but_bitbucket::CredentialCheckResult::Invalid) => {
+            Ok(but_bitbucket::CredentialCheckResult::Invalid) => {
                 some_accounts_invalid = true;
                 t.attention.paint("(invalid credentials)")
             }
-            Some(but_bitbucket::CredentialCheckResult::NoCredentials) => {
+            Ok(but_bitbucket::CredentialCheckResult::NoCredentials) => {
                 some_accounts_invalid = true;
                 t.attention.paint("(no credentials)")
             }
-            None => t.error.paint("(unknown status)"),
+            Err(err) => t.error.paint(format!("(unknown status: {err:#})")),
         };
 
         writeln!(out, "  • {account} {message}")?;
@@ -1262,7 +1219,6 @@ fn forget_account(account: &AccountToForget) -> Result<()> {
     }
 }
 
-/// Forget a GitHub account
 async fn forge_forget(username: Option<String>, out: &mut OutputChannel) -> Result<()> {
     let known_gh_accounts = but_api::github::list_known_github_accounts()?;
     let known_gl_accounts = but_api::gitlab::list_known_gitlab_accounts()?;
@@ -1289,7 +1245,6 @@ async fn forge_forget(username: Option<String>, out: &mut OutputChannel) -> Resu
         }
     }
 
-    // Handle case where no matching account was found
     if accounts_to_delete.is_empty() {
         if let Some((username, out)) = username.zip(out.for_human()) {
             writeln!(out, "No known forge account matching '{username}'")?;
@@ -1297,17 +1252,14 @@ async fn forge_forget(username: Option<String>, out: &mut OutputChannel) -> Resu
         return Ok(());
     }
 
-    // Handle different scenarios based on number of accounts
     match accounts_to_delete.as_slice() {
         [single_account] => {
-            // Single account: delete automatically
             forget_account(single_account)?;
             if let Some(out) = out.for_human() {
                 writeln!(out, "Forgot forge account '{single_account}'")?;
             }
         }
         _ => {
-            // Multiple accounts: prompt user to select
             let Some(mut input) = out.prepare_for_terminal_input() else {
                 anyhow::bail!("Username ambiguous, got {accounts_to_delete:?}");
             };
@@ -1806,7 +1758,6 @@ fn get_ai_config_info(repo: Option<&gix::Repository>, scope: AiScope) -> Result<
     }
 }
 
-/// Handle target config subcommand
 async fn target_config(
     ctx: &mut Context,
     out: &mut OutputChannel,
@@ -1891,7 +1842,8 @@ async fn target_config(
                     .with_context(|| format!("Failed to find push remote '{push_remote}'"))?;
             }
 
-            let target_ref = {
+            let mut guard = ctx.exclusive_worktree_access();
+            let (target_ref, created) = {
                 let repo = ctx.repo.get()?;
                 let ref_name: gix::refs::FullName = if new_branch.starts_with("refs/") {
                     new_branch
@@ -1915,24 +1867,41 @@ async fn target_config(
                         .with_context(|| format!("Target branch '{new_branch}' not found"))?;
                 }
                 match but_core::ref_metadata::resolve_local_target(ref_name.as_ref(), &repo) {
-                    Ok(target_ref) => target_ref,
+                    Ok(target_ref) => (target_ref, false),
                     // The remote name is shorthand for the local branch tracking it, not a stored
                     // legacy target, so the error describes the input rather than a migration.
-                    Err(err)
-                        if err
-                            .downcast_ref::<UnresolvedLegacyTargetRefError>()
-                            .is_some_and(|unresolved| {
-                                unresolved.reason == UnresolvedLegacyTargetReason::NoTrackingBranch
-                            }) =>
-                    {
-                        let target_ref = ref_name.shorten();
-                        return Err(bad_input(format!("No local branch tracks {target_ref}"))
-                            .hint(track_remote_target_hint(target_ref))
-                            .into());
+                    Err(err) => {
+                        if let Some(unresolved) =
+                            err.downcast_ref::<UnresolvedLegacyTargetRefError>()
+                            && unresolved.reason == UnresolvedLegacyTargetReason::NoTrackingBranch
+                        {
+                            // The branch is left out of the undo timeline, as setting the target is:
+                            // a snapshot needs a target to read, and there is often none yet.
+                            match create_branch_to_track(&repo, ref_name.as_ref())? {
+                                Some(target_ref) => (target_ref, true),
+                                None => {
+                                    let target_ref = ref_name.shorten();
+                                    return Err(bad_input(format!(
+                                        "No local branch tracks {target_ref}"
+                                    ))
+                                    .hint(track_remote_target_hint(unresolved))
+                                    .into());
+                                }
+                            }
+                        } else {
+                            return Err(err.into());
+                        }
                     }
-                    Err(err) => return Err(err.into()),
                 }
             };
+            if created {
+                // Setting the target makes a branch without an upstream track the default remote,
+                // so it must see the upstream the new branch got, which the cached repository
+                // reads only once reloaded.
+                ctx.reload_repo_and_invalidate_workspace(guard.write_permission())?;
+            }
+            // Setting the target takes the lock itself.
+            drop(guard);
             but_api::workspace::set_target_ref_and_init_project(
                 ctx,
                 target_ref.as_local_full_name_ref(),
@@ -1944,7 +1913,30 @@ async fn target_config(
     Ok(())
 }
 
-/// Handle push remote config subcommand.
+/// Create the local branch named as the remote-tracking `target`, like main for origin/main, to
+/// track it as `git switch main` does. `None` if a branch has that name already, `target` is
+/// symbolic like origin/HEAD, or no single remote fetches into `target` to name one.
+fn create_branch_to_track(
+    repo: &gix::Repository,
+    target: &gix::refs::FullNameRef,
+) -> Result<Option<LocalRefName>> {
+    if matches!(
+        repo.find_reference(target)?.target(),
+        gix::refs::TargetRef::Symbolic(_)
+    ) {
+        return Ok(None);
+    }
+    let Ok(Some((local, _remote))) = repo.upstream_branch_and_remote_for_tracking_branch(target)
+    else {
+        return Ok(None);
+    };
+    if repo.try_find_reference(local.as_ref())?.is_some() {
+        return Ok(None);
+    }
+    let local = but_workspace::branch::local_tracking_branch(repo, target)?;
+    Ok(Some(LocalRefName::new(local)?))
+}
+
 fn push_remote_config(
     ctx: &mut Context,
     out: &mut OutputChannel,
@@ -2017,7 +2009,6 @@ fn config_source_scope(source: gix::config::Source) -> &'static str {
     }
 }
 
-/// Format the scope for display
 fn format_scope(scope: Option<gix::config::Source>) -> String {
     match scope {
         Some(source) => theme::get()

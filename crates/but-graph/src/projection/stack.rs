@@ -7,7 +7,6 @@ use gix::prelude::ObjectIdExt;
 
 use crate::{CommitFlags, Graph, SegmentIndex};
 
-/// A list of segments that together represent a list of dependent branches, stacked on top of each other.
 #[derive(Clone)]
 pub struct Stack {
     /// If the stack belongs to a managed workspace, the `id` will be set and persist.
@@ -18,7 +17,6 @@ pub struct Stack {
     pub segments: Vec<StackSegment>,
 }
 
-/// Query
 impl Stack {
     /// Return the first commit of the first segment, or `None` this stack is completely empty, or has only empty segments.
     pub fn tip(&self) -> Option<gix::ObjectId> {
@@ -27,7 +25,6 @@ impl Stack {
             .and_then(|s| s.commits.first().map(|c| c.id))
     }
 
-    /// Return the name of the first segment of the stack.
     pub fn ref_name(&self) -> Option<&gix::refs::FullNameRef> {
         self.segments.first().and_then(|s| s.ref_name())
     }
@@ -112,7 +109,6 @@ impl std::fmt::Debug for Stack {
     }
 }
 
-/// What a linked worktree's own commits are resting on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WorktreeBase {
     /// The base commit is owned by a workspace stack, or by a worktree listed earlier in
@@ -124,7 +120,6 @@ pub enum WorktreeBase {
 }
 
 impl WorktreeBase {
-    /// The commit the worktree's own commits are resting on.
     pub fn commit_id(&self) -> gix::ObjectId {
         match self {
             WorktreeBase::InWorkspace(id) | WorktreeBase::Outside(id) => *id,
@@ -150,7 +145,6 @@ pub struct WorktreeStack {
     pub segments: Vec<StackSegment>,
 }
 
-/// Query
 impl WorktreeStack {
     /// The commits this worktree owns, from `head` down.
     pub fn commits(&self) -> impl Iterator<Item = &StackCommit> {
@@ -182,9 +176,7 @@ impl std::fmt::Debug for WorktreeStack {
 /// A [`Stack`] or a [`WorktreeStack`], seen as the tip-to-base list of segments either one is.
 #[derive(Debug, Clone, Copy)]
 pub enum Lane<'a> {
-    /// A stack of the workspace.
     Stack(&'a Stack),
-    /// The history a linked worktree owns.
     Worktree(&'a WorktreeStack),
 }
 
@@ -255,18 +247,15 @@ pub struct StackSegment {
     /// Further, despite being in a simple list, their order is based on a simple topological walk, so
     /// this form doesn't imply a linear history.
     pub commits_on_remote: Vec<StackCommit>,
-    /// Read-only branch metadata with additional information, or `None` if nothing was present.
     pub metadata: Option<ref_metadata::Branch>,
 }
 
-/// Access
 impl StackSegment {
     /// Return the top-most commit id, or `None` if this segment is empty.
     pub fn tip(&self) -> Option<gix::ObjectId> {
         self.commits.first().map(|c| c.id)
     }
 
-    /// Return the name of the stack segment, if present.
     pub fn ref_name(&self) -> Option<&gix::refs::FullNameRef> {
         self.ref_info.as_ref().map(|ri| ri.ref_name.as_ref())
     }
@@ -347,18 +336,15 @@ impl StackSegment {
 /// The same as [Commits](crate::Commit), but with [StackCommitFlags].
 #[derive(Clone, Eq, PartialEq)]
 pub struct StackCommit {
-    /// The hash of the commit.
     pub id: gix::ObjectId,
     /// The IDs of the parent commits, but may be empty if this is the first commit.
     pub parent_ids: Vec<gix::ObjectId>,
-    /// Additional properties to help classify this commit.
     pub flags: StackCommitFlags,
     /// The references pointing to this commit, even after dereferencing tag objects, along with their worktree information.
     /// These can be names of tags and branches.
     pub refs: Vec<crate::RefInfo>,
 }
 
-/// Utilities
 impl StackCommit {
     /// Attach this commit to `repo` for more detailed access of the commit itself
     /// via [`but_core::Commit`].
@@ -374,12 +360,10 @@ impl StackCommit {
         but_core::Commit::from_id(self.id.attach(repo))
     }
 
-    /// Return an iterator over all reference names that point to this commit.
     pub fn ref_iter(&self) -> impl Iterator<Item = &gix::refs::FullNameRef> + Clone {
         self.refs.iter().map(|ri| ri.ref_name.as_ref())
     }
 
-    /// Collect additional information on `commit` using `repo`.
     pub fn from_graph_commit(commit: &crate::Commit) -> Self {
         StackCommit {
             id: commit.id,
@@ -449,7 +433,6 @@ impl std::fmt::Debug for StackCommit {
 }
 
 bitflags! {
-    /// Define how to debug-print the commit.
     #[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
     pub struct StackCommitDebugFlags: u8 {
         /// Is a designated remote commit, i.e. available only from a remote tracking branch.
@@ -461,7 +444,6 @@ bitflags! {
 }
 
 bitflags! {
-    /// Provide more information about a commit, as gathered during traversal and as member of the stack.
     #[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
     pub struct StackCommitFlags: u8 {
         /// This commit was pushed to a remote and thus could have been observed by others.
@@ -502,8 +484,6 @@ bitflags! {
 }
 
 impl StackCommitFlags {
-    /// Return a less verbose debug string.
-    ///
     /// Note that this only displays flags that are not used when displaying [the whole commit](StackCommit::debug_string()).
     pub fn debug_string(&self) -> String {
         let flags = *self & (Self::InWorkspace | Self::Integrated | Self::ShallowBoundary);

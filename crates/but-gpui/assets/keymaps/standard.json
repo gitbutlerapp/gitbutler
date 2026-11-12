@@ -1,0 +1,682 @@
+// The keymap, like the `but` TUI's. Its keys for moving around, copying, undoing, renaming,
+// committing, moving and squashing commits and adding an empty commit, Return or z to fold and unfold, f to show and hide the
+// files, / to filter or find, ⌘C to copy, ⌘K for the command palette, ⌘P to go to anything
+// and ⌘J to a terminal, ⌘T to open a terminal, ⌘R to fetch and ⇧⌘R to pull, ⌘1, ⌘2 and ⌘3 to go
+// to the navigator, the files and the diff, ] and [ (or ⇧⌘] and ⇧⌘[) to step through a project's
+// tabs, ⌃Tab and ⌃⇧Tab to step along the navigator's tabs, ⌘B and ⌥⌘B to show and hide the
+// navigator and the details, ⌘D and ⇧⌘D to split a tile,
+// ⇧⌘T and ⌃⌘T to open a terminal beside it, ⌘I, ⇧⌘I and ⌃⌘I to pick a command for one to run,
+// ⌘] and ⌘[ to go between tiles (Ghostty's keys for them on Linux), ⇧⌘H, ⇧⌘J, ⇧⌘K and ⇧⌘L to go to the tile on that side, ⇧⌘M and ⌥⌘M to move and
+// swap one, and the keys the app's lists and overlays need.
+// `base.json`, which macOS gives every app, binds after these. `secondary` is cmd on macOS and
+// ctrl elsewhere; a section with "os" binds only there. Order matters: within a context the
+// binding added last wins, and the last binding for an action is the key right-click menus,
+// tooltips and the status bar show, so the TUI's letters come after the arrows. The menu bar
+// shows the first.
+[
+  // ⌘K opens the command palette, and so does ⇧⌘P, as in VS Code. ⌘K comes last so the status
+  // bar shows it; the menu bar shows the first.
+  {
+    "bindings": { "secondary-shift-p": "app::CommandPalette", "secondary-k": "app::CommandPalette" }
+  },
+  // : for the TUI's command line, ? for its help and Esc to go back. y copies the selection, as
+  // ⌘C does, bound first so y is the key shown, and ⇧Y picks what else of it to copy. u undoes
+  // and ⇧U redoes. ← and →, or h and l, go to the pane on that side, as l focuses the TUI's
+  // details and h its status.
+  {
+    "context": "Workspace && !TextInput",
+    "bindings": {
+      "escape": "app::Cancel",
+      "secondary-c": "navigator::CopySelection",
+      "y": "navigator::CopySelection",
+      "shift-y": "palette::CopyMore",
+      "secondary-z": "app::Undo",
+      "right": "app::FocusPaneRight",
+      "l": "app::FocusPaneRight",
+      "left": "app::FocusPaneLeft",
+      "h": "app::FocusPaneLeft"
+    }
+  },
+  // ⌘R fetches, and ⇧⌘R pulls: fetches, then updates the workspace
+  // and the worktrees, as `but pull` does.
+  {
+    "bindings": {
+      "secondary-r": "remote::Fetch",
+      "secondary-shift-r": "remote::Pull"
+    }
+  },
+  // ⌘P goes to anything, the TUI's branch picker for more than branches, ⌘1, ⌘2 and ⌘3 go to the
+  // navigator, the files and the diff, ⌘4 to the terminal overview under the navigator, and ⌘B and ⌥⌘B show or hide the navigator and the
+  // details. ⌘J goes to a terminal, as VS Code's and Zed's open the
+  // panel theirs are in, and ⌘T opens one, as a terminal app opens a tab. From a terminal too,
+  // which takes the TUI's letters.
+  {
+    "bindings": {
+      "secondary-p": "palette::GoTo",
+      "secondary-j": "palette::GoToTerminal",
+      "secondary-t": "terminal::NewTerminal",
+      "secondary-1": "app::FocusNavigator",
+      "secondary-2": "app::FocusChanges",
+      "secondary-3": "app::FocusDiff",
+      "secondary-4": "app::FocusTerminals",
+      "secondary-b": "app::ToggleNavigator",
+      "secondary-alt-b": "app::ToggleDetail",
+      "secondary-o": "app::AddProject",
+      "secondary-shift-o": "projects::CloneRepository",
+      "secondary-n": "navigator::NewBranch"
+    }
+  },
+  // A project's tabs, Overview, Branches, Operations history and Graph, as ⇧⌘] and ⇧⌘[ step
+  // through tabs in Safari, Xcode and Zed, and Ctrl+PageDown and Ctrl+PageUp in browsers and VS
+  // Code elsewhere. Only on the project's page, in whichever tile it's in: elsewhere, as in the
+  // navigator or a terminal, there are no tabs to step through.
+  {
+    "os": ["macos"],
+    "context": "Diff",
+    "bindings": {
+      "cmd-}": "app::NextProjectPage",
+      "cmd-{": "app::PreviousProjectPage"
+    }
+  },
+  {
+    "os": ["windows", "linux"],
+    "context": "Diff",
+    "bindings": {
+      "ctrl-pagedown": "app::NextProjectPage",
+      "ctrl-pageup": "app::PreviousProjectPage"
+    }
+  },
+  // ⌃Tab and ⌃⇧Tab step along the navigator's tabs across the top, as l and h do on them, and as
+  // they step through tabs in browsers and Finder. From anywhere, a terminal too, and the keys
+  // stay where they are.
+  {
+    "bindings": {
+      "ctrl-tab": "app::NextNavigatorTab",
+      "ctrl-shift-tab": "app::PreviousNavigatorTab"
+    }
+  },
+  // A page's own tabs, as Changes and Pull request, on the same keys, as they're the tabs in
+  // front. After the project's, so these come first, and a page with none goes on to those.
+  {
+    "os": ["macos"],
+    "context": "Diff",
+    "bindings": {
+      "cmd-}": "diff::SwitchTab",
+      "cmd-{": "diff::PreviousTab"
+    }
+  },
+  {
+    "os": ["windows", "linux"],
+    "context": "Diff",
+    "bindings": {
+      "ctrl-pagedown": "diff::SwitchTab",
+      "ctrl-pageup": "diff::PreviousTab"
+    }
+  },
+  // ⌘D divides the tile with the keys to the right and ⇧⌘D below it, ⇧⌘T and ⌃⌘T do so with a new
+  // terminal, without asking what to show there, and ⌘] and ⌘[ go to the next tile and the one
+  // before, as iTerm's and Ghostty's panes do. ⇧⌘↩ zooms it, ⌥⌘↩ being amend's, ⌘W closes it
+  // (base.json), and the window from anywhere else, ⇧⌘M moves it with the keys, ⌘M being the
+  // window's, and ⌥⌘M swaps it with another. On macOS, where ⌘ leaves a terminal's Ctrl keys
+  // alone: elsewhere Ctrl+D and Ctrl+[ are a shell's.
+  {
+    "os": ["macos"],
+    "bindings": {
+      "cmd-d": "tiling::SplitRight",
+      "cmd-shift-d": "tiling::SplitBelow",
+      "cmd-shift-t": "tiling::NewTerminalRight",
+      "cmd-ctrl-t": "tiling::NewTerminalBelow",
+      "cmd-]": "tiling::NextTile",
+      "cmd-[": "tiling::PreviousTile",
+      "cmd-shift-enter": "tiling::ZoomTile",
+      "cmd-shift-m": "tiling::ArrangeTiles",
+      "cmd-alt-m": "tiling::SwapTiles"
+    }
+  },
+  // ⌘I picks a command, as an agent, for a new terminal to run, as VS Code's and Cursor's start
+  // theirs, and ⇧⌘I and ⌃⌘I open it beside the tile, as ⇧⌘T and ⌃⌘T do a terminal. On macOS
+  // only: elsewhere Ctrl+I is a terminal's Tab.
+  {
+    "os": ["macos"],
+    "bindings": {
+      "cmd-i": "terminal::NewTerminalWith",
+      "cmd-shift-i": "tiling::NewTerminalWithRight",
+      "cmd-ctrl-i": "tiling::NewTerminalWithBelow"
+    }
+  },
+  // ⇧⌘H, ⇧⌘J, ⇧⌘K and ⇧⌘L go straight to the tile on that side, past the panes and rows of the
+  // one with the keys, with the navigator a tile left of the rest, and in it ⇧⌘J and ⇧⌘K go to the
+  // project on that side. From a terminal or a text field too, which take the letters. Ctrl+Shift
+  // elsewhere, which a terminal gives up as it does Ctrl+Shift+R. The arrows do too, but not
+  // from a terminal or a text field, where they select to the line's ends, and before the
+  // letters so the letters are the keys shown.
+  {
+    "context": "Workspace && !TextInput",
+    "bindings": {
+      "secondary-shift-left": "app::FocusTileLeft",
+      "secondary-shift-down": "app::FocusTileDown",
+      "secondary-shift-up": "app::FocusTileUp",
+      "secondary-shift-right": "app::FocusTileRight"
+    }
+  },
+  {
+    "context": "Workspace",
+    "bindings": {
+      "secondary-shift-h": "app::FocusTileLeft",
+      "secondary-shift-j": "app::FocusTileDown",
+      "secondary-shift-k": "app::FocusTileUp",
+      "secondary-shift-l": "app::FocusTileRight"
+    }
+  },
+  // On Linux, Ghostty's keys there: Ctrl+Shift+O and Ctrl+Shift+E split right and below, and
+  // Ctrl+Super+] and Ctrl+Super+[ go to the next tile and the one before. A text field keeps
+  // Ctrl+Shift+E, which selects to its line's end. Ctrl+Shift+T and Ctrl+Super+T open a
+  // terminal beside the tile, as ⇧⌘T and ⌃⌘T do on macOS.
+  {
+    "os": ["linux"],
+    "bindings": {
+      "ctrl-shift-o": "tiling::SplitRight",
+      "ctrl-shift-e": "tiling::SplitBelow",
+      "ctrl-shift-t": "tiling::NewTerminalRight",
+      "ctrl-super-t": "tiling::NewTerminalBelow",
+      "ctrl-super-]": "tiling::NextTile",
+      "ctrl-super-[": "tiling::PreviousTile"
+    }
+  },
+  // The TUI's status list: up and down, ⇧J and ⇧K, or ⇧↓ and ⇧↑, between sections, g and ⇧G
+  // to either end. n adds an empty commit above the selected one, or on top of the selected
+  // branch. m moves the selected commit, as the TUI's m does, and ⇧S squashes the uncommitted
+  // changes into it, as the TUI's ⇧R does. Return folds or unfolds what the selected row heads:
+  // a card, a section, a worktree, a stack, a branch or a merge. z does too, as vim's za does,
+  // before Return so Return is the key shown. o opens the selected project or linked worktree in
+  // the editor, as it opens the file under the cursor in the diff.
+  {
+    "context": "Navigator && !TextInput",
+    "bindings": {
+      "o": "open_in::OpenInEditor",
+      "shift-up": "navigator::PreviousSection",
+      "shift-down": "navigator::NextSection",
+      "shift-k": "navigator::PreviousSection",
+      "shift-j": "navigator::NextSection",
+      "n": "edits::AddEmptyCommitAbove",
+      "m": "navigator::MoveSelection",
+      "shift-s": "navigator::SquashIntoSelection",
+      "z": "navigator::ToggleFold",
+      "enter": "navigator::ToggleFold"
+    }
+  },
+  // s squashes the selected commit, branch or changes, or in the diff the picked files or lines,
+  // or the hunk or file under the cursor, as the TUI's r does: r is reword's here, below. p cherry-picks the selected
+  // commit, a remote's, or one picked on the Branches or target page, as the TUI's p does.
+  {
+    "context": "(Navigator || Diff) && !TextInput",
+    "bindings": { "s": "navigator::SquashSelection", "p": "edits::CherryPick" }
+  },
+  // While commits move, the keys above step through where they can land, and Return lands
+  // them there. After the list's Return, so it wins. m, s and p move, squash or cherry-pick
+  // them instead, and while squashing u keeps only the target's message, as in the TUI, after
+  // undo's u, so it wins.
+  {
+    "context": "Navigator && Moving && !TextInput",
+    "bindings": { "enter": "navigator::MoveHere" }
+  },
+  {
+    "context": "Navigator && Squashing && !TextInput",
+    "bindings": { "u": "navigator::UseTargetMessage" }
+  },
+  // r rewords a commit, renames a branch or a terminal and names the unnamed branch, where the
+  // TUI's squashes: a section apiece, as the key runs the one the selection has.
+  {
+    "context": "Navigator && !TextInput",
+    "bindings": { "r": "edits::Reword" }
+  },
+  {
+    "context": "Navigator && !TextInput",
+    "bindings": { "r": "edits::RenameBranch" }
+  },
+  {
+    "context": "Navigator && !TextInput",
+    "bindings": { "r": "edits::NameBranch", "f2": "edits::Reword" }
+  },
+  {
+    "context": "(Navigator || TerminalOverview) && !TextInput",
+    "bindings": { "r": "edits::RenameTerminal", "f2": "edits::RenameTerminal" }
+  },
+  // The TUI's details: j and k between hunks, ⌃D and ⌃U half a page, ⇧J and ⇧K, or ⇧↓ and ⇧↑,
+  // a few lines, from the file list too, whose keys stay there, g and ⇧G to the first and last
+  // file. Return or z on a file's header folds or unfolds it, as on its row in the file list.
+  {
+    "context": "Diff && !TextInput",
+    "bindings": {
+      "down": "diff::NextHunk",
+      "j": "diff::NextHunk",
+      "up": "diff::PreviousHunk",
+      "k": "diff::PreviousHunk",
+      "ctrl-d": "diff::HalfPageDown",
+      "ctrl-u": "diff::HalfPageUp",
+      "shift-down": "diff::ScrollDown",
+      "shift-up": "diff::ScrollUp",
+      "shift-j": "diff::ScrollDown",
+      "shift-k": "diff::ScrollUp",
+      "g": "diff::FirstFile",
+      "shift-g": "diff::LastFile",
+      "z": "diff::ToggleFileFold",
+      "enter": "diff::ToggleFileFold"
+    }
+  },
+  // On the Graph, the arrows, or h, j, k and l, go from commit to commit: down to its parent, up
+  // to its child and across to the nearest on that side, and past the last on to the pane there.
+  {
+    "context": "Graph && !TextInput",
+    "bindings": {
+      "up": "graph::StepUp",
+      "k": "graph::StepUp",
+      "down": "graph::StepDown",
+      "j": "graph::StepDown",
+      "left": "graph::StepLeft",
+      "h": "graph::StepLeft",
+      "right": "graph::StepRight",
+      "l": "graph::StepRight"
+    }
+  },
+  // Discarding, one command for whatever has the keys, says what it takes as a menu offers it.
+  // x discards too, as in the TUI, bound first so ⌘⌫ is the key shown.
+  {
+    "context": "(Navigator || Diff || TerminalOverview) && !TextInput",
+    "bindings": { "x": "edits::Discard", "secondary-backspace": "edits::Discard" }
+  },
+  // f shows or hides the file list, or the files beside a History or Branches list, as f shows
+  // a commit's files in the TUI. From the navigator too, which the app passes it on from.
+  {
+    "context": "(Navigator || Diff) && !TextInput",
+    "bindings": { "f": "diff::ToggleFiles", "shift-space": "diff::PageUp" }
+  },
+  // / searches what has the keys: the navigator with its filter, the diff with its find bar, and
+  // the file list or a list with its filter, as the project page's commits, Branches and
+  // Operations history have. Those are inside the diff's context, so theirs wins there.
+  {
+    "context": "Navigator && !TextInput",
+    "bindings": { "/": "navigator::FocusFilter", "shift-n": "edits::AddEmptyCommitBelow", "f2": "edits::RenameBranch", "secondary-shift-u": "navigator::ToggleRead", "secondary-shift-n": "navigator::NewBranchOnTop", "secondary-f": "navigator::FocusFilter" }
+  },
+  // On the navigator's tabs across the top, what the navigator's keys do to its rows they do to the
+  // rows of the card under a tab, so the tabs count as the navigator too. These go down and back up
+  // them and fold them. Along the tabs and off them is the Workspace's h, l and ⇧⌘H to L.
+  {
+    "context": "Tabs && !TextInput",
+    "bindings": {
+      "up": "navigator::SelectPrevious",
+      "k": "navigator::SelectPrevious",
+      "down": "navigator::SelectNext",
+      "j": "navigator::SelectNext",
+      "shift-right": "navigator::Expand",
+      "shift-l": "navigator::Expand",
+      "shift-left": "navigator::Collapse",
+      "shift-h": "navigator::Collapse"
+    }
+  },
+  // In the terminal overview, ↑ and ↓, or k and j, show the terminal above or below where it is,
+  // as the navigator's rows show theirs, and Return gives it the keys, as → does. On a status's
+  // heading, Return folds or unfolds it. r or F2 renames the terminal and ⌘⌫ closes it, as on
+  // its row in the navigator.
+  {
+    "context": "TerminalOverview && !TextInput",
+    "bindings": {
+      "up": "navigator::SelectPrevious",
+      "k": "navigator::SelectPrevious",
+      "down": "navigator::SelectNext",
+      "j": "navigator::SelectNext",
+      "enter": "navigator::Confirm"
+    }
+  },
+  // On the drawer's bar, which folds but isn't the selection, the navigator's keys that move and
+  // fold and no others, as those would act on the row it left.
+  {
+    "context": "DrawerBar && !TextInput",
+    "bindings": {
+      "up": "navigator::SelectPrevious",
+      "k": "navigator::SelectPrevious",
+      "down": "navigator::SelectNext",
+      "j": "navigator::SelectNext",
+      "g": "navigator::SelectFirst",
+      "shift-g": "navigator::SelectLast",
+      "z": "navigator::ToggleFold",
+      "enter": "navigator::ToggleFold",
+      "/": "navigator::FocusFilter",
+      "home": "navigator::SelectFirst",
+      "end": "navigator::SelectLast",
+      "secondary-f": "navigator::FocusFilter"
+    }
+  },
+  {
+    "context": "Diff && !TextInput",
+    "bindings": { "/": "find::FindInDiff", "secondary-f": "diff::FilterFiles", "home": "diff::FirstFile", "end": "diff::LastFile", "pagedown": "diff::PageDown", "pageup": "diff::PageUp", "o": "open_in::OpenInEditor", "i": "diff::EditLines", "secondary-s": "diff::SaveEdits" }
+  },
+  // A file typed in in the diff: Esc puts the caret away, keeping what's typed, rather than go
+  // back.
+  {
+    "context": "Diff && Editing",
+    "bindings": { "escape": "diff::FinishEdit" }
+  },
+  // A line of a file edited in the diff, as an editor's: Tab indents and ⇧Tab outdents, ⌥↑ and
+  // ⌥↓ move the line, ⇧⌘K deletes it, and ⇧⌥↑ and ⇧⌥↓ select by line, as macOS selects by
+  // paragraph. Any other field keeps Tab for going on.
+  {
+    "context": "TextInput && LineEditor",
+    "bindings": {
+      "tab": "text_input::Indent",
+      "shift-tab": "text_input::Outdent",
+      "alt-up": "text_input::MoveLineUp",
+      "alt-down": "text_input::MoveLineDown",
+      "secondary-shift-k": "text_input::DeleteLine",
+      "alt-shift-up": "text_input::SelectParagraphBackward",
+      "alt-shift-down": "text_input::SelectParagraphForward"
+    }
+  },
+  {
+    "context": "(Files || List) && !TextInput",
+    "bindings": { "/": "diff::FilterFiles" }
+  },
+  // The file list, inside the diff's context, steps through its files rather than going on to
+  // the diff's hunks, which would take the keys there, and through a tree's folders too when
+  // Settings › Appearance asks for it.
+  {
+    "context": "Files && !TextInput",
+    "bindings": {
+      "down": "diff::NextFile",
+      "j": "diff::NextFile",
+      "up": "diff::PreviousFile",
+      "k": "diff::PreviousFile",
+      "secondary-a": "diff::PickAllFiles"
+    }
+  },
+  // While committing, Space checks or unchecks the file under the cursor, as the TUI's Space
+  // marks one, and as a click on its checkbox does, and goes on to the next; in the diff, the
+  // hunk under its cursor. Return in the list goes on to the message, once what goes in is
+  // checked.
+  {
+    "context": "Diff && Composer && !TextInput",
+    "bindings": { "space": "diff::ToggleCheck" }
+  },
+  // ⌘A checks every file, over the list's picking them all, and ⇧⌘A unchecks them.
+  {
+    "context": "(Diff || Files) && Composer && !TextInput",
+    "bindings": {
+      "secondary-a": "diff::CheckAll",
+      "secondary-shift-a": "diff::UncheckAll"
+    }
+  },
+  // A commit placed with the navigator hidden, and so no composer, Return commits as it is,
+  // without a message, rather than folding the file.
+  {
+    "context": "Diff && Committing && !TextInput",
+    "bindings": { "enter": "app::StartCommit" }
+  },
+  // And an amend placed that way, keeping the commit's message.
+  {
+    "context": "Diff && Amending && !TextInput",
+    "bindings": { "enter": "app::StartAmend" }
+  },
+  // c commits the uncommitted changes, as the TUI's c does: the keys above step through where
+  // the commit goes, and Return writes its message, or commits once it's written. ⌘↩ does too,
+  // from the file filter and a terminal as well. After Return's,
+  // above, so c is the key shown.
+  {
+    "context": "(Workspace && !TextInput) || (Files && !Composer > TextInput) || Terminal",
+    "bindings": {
+      "secondary-enter": "app::StartCommit"
+    }
+  },
+  {
+    "context": "Workspace && !TextInput",
+    "bindings": {
+      "c": "app::StartCommit"
+    }
+  },
+  // Amends, typing the message too.
+  {
+    "context": "Workspace",
+    "bindings": { "secondary-alt-enter": "app::StartAmend" }
+  },
+  {
+    "context": "Files && Composer && !TextInput",
+    "bindings": {
+      "enter": "diff::WriteMessage"
+    }
+  },
+  {
+    "context": "(Navigator || List) && !TextInput",
+    "bindings": {
+      "g": "navigator::SelectFirst",
+      "shift-g": "navigator::SelectLast",
+      "home": "navigator::SelectFirst",
+      "end": "navigator::SelectLast"
+    }
+  },
+  // The History and Branches lists step and jump as the navigator does, and fold, the arrows
+  // last so menus show them. Return and z fold or unfold as in the
+  // navigator, the People card under a list too; on Operations history, where nothing folds,
+  // they restore to before the operation, after asking.
+  {
+    "context": "List && !TextInput",
+    "bindings": {
+      "shift-l": "navigator::Expand",
+      "shift-right": "navigator::Expand",
+      "shift-h": "navigator::Collapse",
+      "shift-left": "navigator::Collapse",
+      "z": "navigator::ToggleFold",
+      "enter": "navigator::ToggleFold"
+    }
+  },
+  // After the text field's own keys, so these win in the find field.
+  {
+    "context": "FindBar > TextInput",
+    "bindings": {
+      "enter": "find::FindNext",
+      "shift-enter": "find::FindPrevious"
+    }
+  },
+  // After the text field's own keys, so these win in a commit message's fields.
+  {
+    "context": "MessageTitle > TextInput",
+    "bindings": {
+      "enter": "message_editor::ToBody"
+    }
+  },
+  // A commit's title commits on Return, written or not, as a body is seldom wanted: Tab goes
+  // to it. A pull request's title goes on to its body.
+  {
+    "context": "Composer > MessageTitle > TextInput",
+    "bindings": { "enter": "text_input::Submit" }
+  },
+  {
+    "context": "MessageBody > TextInput",
+    "bindings": {
+      "shift-tab": "message_editor::ToTitle",
+      "backspace": "message_editor::LeaveEmptyBody"
+    }
+  },
+  // A commit's title edited in its row saves on Return too, and Tab goes on to its body, in the
+  // commit's header.
+  {
+    "context": "(MessageTitle || Reword) > TextInput",
+    "bindings": {
+      "tab": "message_editor::ToBody"
+    }
+  },
+  // After the text field's own keys, so these win inside the palette. ⌃P and ⌃N, as in the
+  // TUI's jump.
+  {
+    "context": "Palette > TextInput",
+    "bindings": {
+      "up": "palette::PaletteUp",
+      "down": "palette::PaletteDown",
+      "ctrl-p": "palette::PaletteUp",
+      "ctrl-n": "palette::PaletteDown",
+      "tab": "palette::NextGroup",
+      "shift-tab": "palette::PreviousGroup"
+    }
+  },
+  // ⇧F10 opens the selected row's right-click menu, as on Windows and Linux and in VS Code.
+  {
+    "context": "Workspace && !TextInput",
+    "bindings": { "shift-f10": "app::ShowContextMenu", "tab": "app::FocusNextPane", "secondary-shift-z": "app::Redo", "shift-tab": "app::FocusPreviousPane", "u": "app::Undo", "shift-u": "app::Redo", "shift-p": "remote::Push" }
+  },
+  // Tabs take the keys as the panes do: ↑ and ↓ go between them and what's over and under them.
+  {
+    "context": "((Navigator || Tabs || List) && !TextInput) || ContextMenu",
+    "bindings": {
+      "k": "navigator::SelectPrevious",
+      "j": "navigator::SelectNext"
+    }
+  },
+  // A right-click menu's items, as Settings' pages: Return runs the one the keys are on.
+  {
+    "context": "ContextMenu",
+    "bindings": {
+      "enter": "navigator::Confirm"
+    }
+  },
+  // The menu bar the app draws where the platform has none: F10 opens its first menu, as on
+  // Windows, and ← and →, or h and l, go to the menu beside the open one.
+  {
+    "context": "Workspace",
+    "bindings": {
+      "f10": "menu_bar::OpenMenuBar"
+    }
+  },
+  {
+    "context": "ContextMenu",
+    "bindings": {
+      "left": "menu_bar::PreviousMenu",
+      "h": "menu_bar::PreviousMenu",
+      "right": "menu_bar::NextMenu",
+      "l": "menu_bar::NextMenu"
+    }
+  },
+  // Settings' pages, from its search box too, as the palette's list is.
+  {
+    "context": "((Navigator || Tabs || List) && !TextInput) || ContextMenu || (SettingsPages > TextInput)",
+    "bindings": {
+      "up": "navigator::SelectPrevious",
+      "down": "navigator::SelectNext"
+    }
+  },
+  {
+    "context": "SettingsPages && !TextInput",
+    "bindings": {
+      "up": "navigator::SelectPrevious",
+      "k": "navigator::SelectPrevious",
+      "down": "navigator::SelectNext",
+      "j": "navigator::SelectNext"
+    }
+  },
+  // Back to the search box from a page link or a control, as / goes to the navigator's filter.
+  {
+    "context": "Settings && !TextInput",
+    "bindings": { "/": "settings::FocusSearch", "secondary-f": "settings::FocusSearch" }
+  },
+  // Moving a tile with the keys, from Arrange tiles: a step at a time, Return to leave it there
+  // and Escape to put the tiles back, as moving a commit has them. After the text field's own
+  // keys, so these win here.
+  {
+    "context": "ArrangingTiles",
+    "bindings": {
+      "left": "tiling::MoveTileLeft",
+      "h": "tiling::MoveTileLeft",
+      "down": "tiling::MoveTileDown",
+      "j": "tiling::MoveTileDown",
+      "up": "tiling::MoveTileUp",
+      "k": "tiling::MoveTileUp",
+      "right": "tiling::MoveTileRight",
+      "l": "tiling::MoveTileRight",
+      "enter": "tiling::FinishArranging"
+    }
+  },
+  // Swapping a tile, from Swap tiles: the letters over the others are read as they're pressed,
+  // and Escape leaves the tiles as they are.
+  {
+    "context": "ArrangingTiles || SwappingTiles",
+    "bindings": {
+      "escape": "tiling::CancelArranging"
+    }
+  },
+  // A description's image previewed: the one before or after it, and Space closes it, as in
+  // Quick Look.
+  {
+    "context": "ImagePreview",
+    "bindings": {
+      "left": "image_preview::PreviousImage",
+      "h": "image_preview::PreviousImage",
+      "right": "image_preview::NextImage",
+      "escape": "app::Cancel",
+      "l": "image_preview::NextImage",
+      "down": "image_preview::NextImage",
+      "up": "image_preview::PreviousImage",
+      "j": "image_preview::NextImage",
+      "k": "image_preview::PreviousImage"
+    }
+  },
+  {
+    "context": "Diff && BriefBack && !TextInput",
+    "bindings": {
+      "escape": "brief::GoBack"
+    }
+  },
+  {
+    "context": "Diff && Brief && !TextInput",
+    "bindings": {
+      "down": "brief::NextBlock",
+      "j": "brief::NextBlock",
+      "up": "brief::PreviousBlock",
+      "k": "brief::PreviousBlock",
+      "enter": "brief::OpenBlock",
+      "c": "brief::WriteNote",
+      "escape": "brief::GoBack"
+    }
+  },
+  {
+    "os": ["windows","linux"],
+    "context": "Workspace && !TextInput",
+    "bindings": {
+      "f6": "app::FocusNextPane",
+      "shift-f6": "app::FocusPreviousPane",
+      "ctrl-y": "app::Redo"
+    }
+  },
+  {
+    "os": ["macos"],
+    "context": "Navigator && !TextInput",
+    "bindings": {
+      "secondary-alt-backspace": "edits::UnapplyStack"
+    }
+  },
+  {
+    "os": ["windows","linux"],
+    "context": "Navigator && !TextInput",
+    "bindings": {
+      "ctrl-shift-backspace": "edits::UnapplyStack"
+    }
+  },
+  {
+    "os": ["macos"],
+    "context": "Navigator && !TextInput",
+    "bindings": {
+      "secondary-alt-backspace": "edits::Uncommit"
+    }
+  },
+  {
+    "os": ["windows","linux"],
+    "context": "Navigator && !TextInput",
+    "bindings": {
+      "ctrl-shift-backspace": "edits::Uncommit"
+    }
+  },
+  {
+    "context": "Diff || FindBar",
+    "bindings": {
+      "secondary-f": "find::FindInDiff",
+      "secondary-g": "find::FindNext",
+      "secondary-shift-g": "find::FindPrevious"
+    }
+  }
+]

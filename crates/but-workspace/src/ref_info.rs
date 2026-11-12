@@ -21,24 +21,18 @@ use gix::Repository;
 /// Note that additional information can be computed and placed in the [`LocalCommit`].
 #[derive(Clone, Eq, PartialEq)]
 pub struct Commit {
-    /// The hash of the commit.
     pub id: gix::ObjectId,
     /// The IDs of the parent commits, but may be empty if this is the first commit.
     pub parent_ids: Vec<gix::ObjectId>,
-    /// The hash of the tree associated with the object.
     pub tree_id: gix::ObjectId,
     /// The complete message, verbatim.
     pub message: BString,
-    /// The signature at which the commit was authored.
     pub author: gix::actor::Signature,
-    /// The signature at which the commit was committed.
     pub committer: gix::actor::Signature,
     /// The references pointing to this commit, even after dereferencing tag objects, along with workspace information.
     /// These can be names of tags and branches.
     pub refs: Vec<but_graph::RefInfo>,
-    /// Additional properties to help classify this commit.
     pub flags: StackCommitFlags,
-    /// Whether the commit is in a conflicted state, a GitButler concept.
     /// GitButler will perform rebasing/reordering etc. without interruptions and flag commits as conflicted if needed.
     /// Conflicts are resolved via the Edit Mode mechanism.
     ///
@@ -51,7 +45,6 @@ pub struct Commit {
     /// if it's not stored in the Commit. Use [`Self::change_id()`] to always get the change id,
     /// if necessary, by deriving it from the commit hash itself.
     pub change_id: Option<but_core::ChangeId>,
-    /// Optional URL to the Gerrit review for this commit, if applicable.
     pub gerrit_review_url: Option<String>,
 }
 
@@ -106,7 +99,6 @@ impl Commit {
         )
     }
 
-    /// A special constructor for very specific case.
     pub(crate) fn from_commit_ahead_of_workspace_commit(
         commit: but_core::Commit<'_>,
         graph_commit: &but_graph::Commit,
@@ -123,7 +115,6 @@ impl Commit {
 /// A commit that is reachable through the *local tracking branch*, with additional, computed information.
 #[derive(Clone, Eq, PartialEq)]
 pub struct LocalCommit {
-    /// The simple commit.
     pub inner: Commit,
     /// Provide additional information on how this commit relates to other points of reference, like its remote branch,
     /// or the target branch to integrate with.
@@ -157,7 +148,6 @@ impl std::fmt::Debug for LocalCommit {
 /// The state of the [local commit](LocalCommit) in relation to its remote tracking branch or its integration branch.
 #[derive(Default, Debug, Eq, PartialEq, Clone, Copy)]
 pub enum LocalCommitRelation {
-    /// The commit is only local
     #[default]
     LocalOnly,
     /// The commit is also present in the remote tracking branch.
@@ -328,14 +318,12 @@ pub struct Segment {
     pub base: Option<gix::ObjectId>,
 }
 
-/// Direct Access (without graph)
 impl Segment {
     /// Return the top-most commit id of the segment.
     pub fn tip(&self) -> Option<gix::ObjectId> {
         self.commits.first().map(|commit| commit.id)
     }
 
-    /// Return the name of the branch at the tip of the segment, if present.
     pub fn ref_name(&self) -> Option<&gix::refs::FullNameRef> {
         self.ref_info.as_ref().map(|ri| ri.ref_name.as_ref())
     }
@@ -359,7 +347,6 @@ pub struct Lane<'a> {
 /// What a segment is known by before and after its lane is rebased.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SegmentIdentity {
-    /// The branch naming the segment.
     Branch(gix::refs::FullName),
     /// The worktree whose detached `HEAD` owns the segment, by its stable name.
     DetachedWorktree(BString),
@@ -452,7 +439,32 @@ impl std::fmt::Debug for Segment {
     }
 }
 
-use anyhow::{Context as _, bail};
+/// The error [`graph_to_ref_info()`] fails with when commits sit on top of the workspace commit,
+/// most likely because `git commit` added them while `gitbutler/workspace` was checked out.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CommitsAboveWorkspaceCommit {
+    /// How many commits are on top of the workspace commit.
+    pub count: usize,
+    /// The workspace commit that resetting to keeps their changes uncommitted.
+    pub workspace_commit_id: gix::ObjectId,
+}
+
+impl std::fmt::Display for CommitsAboveWorkspaceCommit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Found {} commit(s) on top of the workspace commit.\n\n\
+             Run the following command in your working directory to fix this while leaving your worktree unchanged.\n\
+             Worktree changes need to be re-committed manually for now.\n\n    \
+             git reset --soft {}",
+            self.count, self.workspace_commit_id
+        )
+    }
+}
+
+impl std::error::Error for CommitsAboveWorkspaceCommit {}
+
+use anyhow::Context as _;
 use but_graph::{
     Graph,
     petgraph::Direction,
@@ -670,20 +682,14 @@ pub fn graph_to_ref_info(
         .is_some_and(|target| info.has_lanes_behind(graph, target));
 
     if let Some(info) = &info.ancestor_workspace_commit {
-        // This is the MVP version of what should be guided by the UI - just communicate through
-        // an error message, which can only be recovered once the command is executed.
-        let mut msg = format!(
-            "Found {} commit(s) on top of the workspace commit.\n\n",
-            info.commits_outside.len()
-        );
-        let ws_commit_id =
-            graph[info.segment_with_managed_commit].commits[info.commit_index_of_managed_commit].id;
-        msg.push_str(
-                    "Run the following command in your working directory to fix this while leaving your worktree unchanged.\n",
-                );
-        msg.push_str("Worktree changes need to be re-committed manually for now.\n\n");
-        msg.push_str(&format!("    git reset --soft {ws_commit_id}"));
-        bail!("{msg}");
+        // Fail with a typed error, so callers can offer the reset it describes.
+        return Err(CommitsAboveWorkspaceCommit {
+            count: info.commits_outside.len(),
+            workspace_commit_id: graph[info.segment_with_managed_commit].commits
+                [info.commit_index_of_managed_commit]
+                .id,
+        }
+        .into());
     }
     info.compute_similarity(graph, repo, opts.expensive_commit_info)?;
     if let GerritMode::Enabled(metadata) = opts.gerrit_mode {
@@ -765,6 +771,37 @@ impl RefInfo {
                         != Some(target.segment_index)
                 })
         })
+    }
+
+    /// Whether updating the workspace onto `target_tip` would change anything: `target_commit`,
+    /// the stored one, isn't the tip, the local target can fast-forward to it, or `HEAD` lacks it.
+    pub fn workspace_behind(
+        &self,
+        repo: &Repository,
+        target_tip: gix::ObjectId,
+        target_commit: gix::ObjectId,
+    ) -> anyhow::Result<bool> {
+        Ok(target_commit != target_tip
+            || self.can_fast_forward_local_target
+            || match repo.head_id() {
+                Ok(head) => lacks(repo, target_tip, head.detach())?,
+                Err(_) => false,
+            })
+    }
+
+    /// The worktrees an update rebases onto `target_tip` that lack it.
+    pub fn worktrees_behind(
+        &self,
+        repo: &Repository,
+        target_tip: gix::ObjectId,
+    ) -> anyhow::Result<Vec<&crate::worktrees::WorktreeInfo>> {
+        let mut behind = Vec::new();
+        for worktree in &self.worktrees {
+            if worktree.rebasable_base().is_some() && lacks(repo, target_tip, worktree.head)? {
+                behind.push(worktree);
+            }
+        }
+        Ok(behind)
     }
 
     /// Every lane, i.e. each stack followed by each worktree in tip order.
@@ -849,10 +886,16 @@ impl RefInfo {
             // The merged head is the review's PUSHED commit, so match the
             // tip's remote counterpart when it has one: a local rewrite
             // between push and merge must not break the window.
-            let tip = segment.commits.first().map(|commit| match commit.relation {
-                LocalCommitRelation::LocalAndRemote(remote_id) => remote_id.to_string(),
-                _ => commit.id.to_string(),
-            });
+            let tip = segment
+                .commits
+                .first()
+                .map(|commit| match commit.relation {
+                    LocalCommitRelation::LocalAndRemote(remote_id) => remote_id.to_string(),
+                    _ => commit.id.to_string(),
+                })
+                // A branch without commits points at its base, as one the target moved past does
+                // while a worktree keeps it checked out.
+                .or_else(|| segment.base.map(|id| id.to_string()));
             apply_review_to_metadata(
                 &mut segment.metadata,
                 cached,
@@ -1023,6 +1066,12 @@ impl crate::worktrees::WorktreeInfo {
                 .collect::<anyhow::Result<_>>()?,
         })
     }
+}
+
+/// Whether `head` lacks any commit of `tip`.
+fn lacks(repo: &Repository, tip: gix::ObjectId, head: gix::ObjectId) -> anyhow::Result<bool> {
+    let mut missing = repo.rev_walk([tip]).with_hidden([head]).all()?;
+    Ok(missing.next().transpose()?.is_some())
 }
 
 fn beneath_padding(id: gix::ObjectId, repo: &gix::Repository) -> anyhow::Result<gix::ObjectId> {

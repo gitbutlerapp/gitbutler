@@ -135,7 +135,8 @@ pub enum HelpTopic {
     /// * **Branch:**
     ///     - The entire branch name
     ///     - An exact short ID for the branch name, as shown by `but status`
-    /// * **Uncommitted file:** A path-derived ID that is typically 1-3 characters
+    /// * **Uncommitted file:** A path-derived ID that is typically 1-3 characters, or the path of
+    ///   the file or a directory above it, from the repository root or the current directory
     /// * **Uncommitted hunk:** `<uncommitted_file_cli_id>:<hunk_cli_id>`
     ///     - Run `but diff` to show all current uncommitted hunks and their IDs
     /// * **Uncommitted area:** Always `@`
@@ -279,6 +280,10 @@ pub enum Subcommands {
         /// Show full commit messages and files changed for each commit
         #[clap(short = 'v', long = "verbose")]
         verbose: bool,
+        /// Show how many lines each changed file added and removed. For a branch, this is the
+        /// same as `--verbose`.
+        #[clap(long)]
+        stat: bool,
     },
 
     #[cfg(feature = "legacy")]
@@ -383,7 +388,7 @@ pub enum Subcommands {
     #[clap(alias = "land")]
     Merge {
         /// Branch ID or name to merge onto the target branch.
-        branch: String,
+        branch: CliIdArg,
         /// Skip the confirmation prompt.
         #[clap(long)]
         yes: bool,
@@ -410,23 +415,39 @@ pub enum Subcommands {
     #[clap(hide = true, name = "_comment")]
     _Comment(comment::Platform),
 
+    #[cfg(feature = "nightly")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    #[clap(hide = true, name = "_ui")]
+    _Ui(ui::Platform),
+
     /// Resolve conflicts in a commit or in uncommitted files.
     ///
     /// When a commit is in a conflicted state (marked with conflicts during rebase),
-    /// use this command to enter resolution mode, resolve the conflicts, and finalize.
+    /// list its conflicts and resolve them without checking the commit out. This works with
+    /// `gitbutler/workspace` or a single branch checked out, and for a worktree's branch.
     /// Uncommitted files marked `{conflicted}` by `but status` are resolved with
     /// `but resolve <path>...` once they hold the desired content (or were deleted).
     ///
     /// ## Workflow
+    ///
+    /// 1. List the conflicts: `but resolve conflicts <commit-id>`
+    /// 2. Resolve each one with the `but resolve apply` command it prints
+    /// 3. Repeat until no conflicts remain
+    ///
+    /// Alternatively, resolve with AI in one step: `but resolve <commit-id> --ai`,
+    /// or `but resolve --ai` to resolve all conflicted commits in the workspace, oldest first.
+    ///
+    /// ## Resolution mode
+    ///
+    /// To run code against a resolution (build or test at that commit), or for a conflict
+    /// `apply` can't take (such as a deletion, a rename or a binary file), check the commit
+    /// out instead. This needs `gitbutler/workspace` and a branch applied to it.
     ///
     /// 1. Enter resolution mode: `but resolve <commit-id>`
     /// 2. Resolve conflicts in your editor (remove conflict markers)
     /// 3. Check remaining conflicts: `but resolve status`
     /// 4. Finalize resolution: `but resolve finish`
     ///    Or cancel: `but resolve cancel`
-    ///
-    /// Alternatively, resolve with AI in one step: `but resolve <commit-id> --ai`,
-    /// or `but resolve --ai` to resolve all conflicted commits, oldest first.
     ///
     /// When in resolution mode, `but status` will also show that you're resolving conflicts.
     ///
@@ -439,8 +460,9 @@ pub enum Subcommands {
         /// A commit to enter resolution mode for, or one or more conflicted uncommitted
         /// files (as listed by `but status`) to mark as resolved with their current
         /// worktree content. Resolution mode checks the commit out until `finish` or
-        /// `cancel`, and is refused while a single branch is checked out; the `conflicts` and
-        /// `apply` subcommands resolve a commit without it, in either case.
+        /// `cancel`, and is refused while a single branch is checked out or for a commit on a
+        /// worktree's branch; the `conflicts` and `apply` subcommands resolve a commit without
+        /// it, in either case.
         targets: Vec<String>,
         /// Resolve the conflicts with the configured AI model and apply the result.
         ///
@@ -458,10 +480,6 @@ pub enum Subcommands {
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Apply(apply::Platform),
-
-    #[cfg(feature = "legacy")]
-    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    Open(open::Platform),
 
     /// Push changes in a branch to remote.
     ///
@@ -574,10 +592,13 @@ pub enum Subcommands {
     Reword {
         /// Commit ID to edit, branch ID to rename, or anonymous branch ID to name
         target: CliIdArg,
-        /// The new commit message or branch name. Without it, a terminal opens the editor
+        /// The new commit message or branch name. Without it or `-F`, a terminal opens the editor
         /// and a non-interactive run fails.
         #[clap(short = 'm', long = "message", conflicts_with = "fix_formatting")]
         message: Option<String>,
+        /// Read the new commit message or branch name from `FILE`, or from stdin when `FILE` is `-`.
+        #[clap(short = 'F', long, value_name = "FILE", conflicts_with_all = ["message", "fix_formatting"])]
+        file: Option<atoms::MessageFileArg>,
         /// Format the existing commit message to 72-char line wrapping without opening an editor
         #[clap(
             id = "fix_formatting",
@@ -643,10 +664,11 @@ pub enum Subcommands {
     ///
     /// This command:
     /// - Creates an oplog snapshot of the current state
+    /// - Undoes any commits made directly on gitbutler/workspace, keeping their changes uncommitted
     /// - Finds the first active branch and checks it out
     ///     - Alternatively, use `--checkout-to <branch>` to override this default
-    /// - Cherry-picks any dangling commits from gitbutler/workspace
-    /// - Provides instructions on how to return to GitButler mode
+    ///
+    /// Other applied branches stay unapplied until you run `but apply <branch>`.
     ///
     /// This is useful when you want to temporarily or permanently leave GitButler
     /// management and work with standard Git commands.
@@ -691,17 +713,25 @@ pub enum Subcommands {
         path: Option<PathBuf>,
     },
 
-    /// Open files in the workspace using any defined program.
+    /// Open files or hunks in an editor, or with `--gui`, what a CLI ID names in the GitButler GUI.
     #[cfg(feature = "nightly")]
-    #[clap(hide = true, name = "_open")]
+    #[clap(hide = true, name = "_open", after_long_help = gui_places_help())]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     _Open {
-        /// One or more files or hunks to open.
+        /// What to open, by CLI ID from `but status` or `but diff`: one or more files or hunks, or
+        /// with `--gui`, one ID, a link's parameters for a place with no ID, or an ID with more of
+        /// them. For more details about CLI IDs, see `but help cli-ids`.
         #[clap(num_args = 1..)]
         sources: Vec<CliIdArg>,
         /// The program to use for opening.
-        #[clap(long, short = 'p')]
+        #[clap(long, short = 'p', conflicts_with = "gui")]
         program_id: Option<String>,
+        /// Open it in the GitButler GUI instead.
+        #[clap(long)]
+        gui: bool,
+        /// With `--gui`, print the link that opens it without opening it.
+        #[clap(long = "dry-run", requires = "gui")]
+        dry_run: bool,
     },
 
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
@@ -871,7 +901,7 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Skill(skill::Platform),
 
-    /// Set up GitButler for AI coding agents.
+    /// Set up or remove GitButler for AI coding agents.
     ///
     /// Runs a guided setup wizard for installing GitButler agent skills and
     /// writing workflow steering instructions into supported agent instruction
@@ -1040,8 +1070,6 @@ pub mod mcp;
 #[cfg(feature = "legacy")]
 pub mod r#move;
 #[cfg(feature = "legacy")]
-pub mod open;
-#[cfg(feature = "legacy")]
 pub mod pick;
 #[cfg(feature = "legacy")]
 pub mod redo;
@@ -1056,6 +1084,8 @@ pub mod squash;
 pub mod switch;
 #[cfg(feature = "legacy")]
 pub mod tui;
+#[cfg(feature = "nightly")]
+pub mod ui;
 #[cfg(feature = "legacy")]
 pub mod unapply;
 #[cfg(feature = "legacy")]
@@ -1135,6 +1165,29 @@ pub(crate) fn find_subcommand(args: &[std::ffi::OsString]) -> Option<(usize, &st
     None
 }
 
+/// Example invocations appended to a `but _open` parse error.
+#[cfg(all(feature = "legacy", feature = "nightly"))]
+const OPEN_ERROR_EXAMPLES: &str = "\
+Examples:
+  but _open <file-or-hunk>...            # open in an editor
+  but _open <id> --gui                   # open in the GitButler GUI
+  but _open <id> --gui --dry-run         # print the link instead
+  but _open to=project tab=graph --gui   # a place with no CLI ID, by its link's parameters
+";
+
+/// What `but _open --help` ends with: every place a link opens, from `but-gpui`'s `LINKS.md`,
+/// which its tests write from the app's own lists.
+#[cfg(feature = "nightly")]
+fn gui_places_help() -> String {
+    const LINKS: &str = include_str!("../../../but-gpui/LINKS.md");
+    // Past the note on how it's written, which is for the app's developers.
+    let places = (LINKS.split_once("-->")).map_or(LINKS, |(_, places)| places.trim_start());
+    format!(
+        "With --gui, a place with no CLI ID is given as its link's parameters, each its own \
+         argument, as but _open to=project tab=graph --gui.\n\n{places}"
+    )
+}
+
 /// Example invocations appended to a subcommand's parse error, for the
 /// commands whose grammar most often trips people up.
 pub(crate) fn error_examples(subcommand: &str) -> Option<&'static str> {
@@ -1143,8 +1196,11 @@ pub(crate) fn error_examples(subcommand: &str) -> Option<&'static str> {
         Some(match subcommand {
             "commit" => commit::ERROR_EXAMPLES,
             "amend" => amend::ERROR_EXAMPLES,
+            "diff" => diff::ERROR_EXAMPLES,
             "move" => r#move::ERROR_EXAMPLES,
             "squash" => squash::ERROR_EXAMPLES,
+            #[cfg(feature = "nightly")]
+            "_open" => OPEN_ERROR_EXAMPLES,
             _ => return None,
         })
     }

@@ -49,7 +49,6 @@ impl From<ConflictStage> for Stage {
 }
 
 impl Pending {
-    /// Whether this adds an entry at `stage`.
     fn adds_at(&self, stage: Stage) -> bool {
         match self {
             Pending::Remove => false,
@@ -126,7 +125,6 @@ pub struct Edit<'index> {
 }
 
 impl<'index> Edit<'index> {
-    /// Start editing `state`.
     pub fn new(state: &'index mut gix::index::State) -> Self {
         Edit {
             state,

@@ -18,11 +18,12 @@ pub(super) enum AgentTarget {
     Windsurf,
     OpenCode,
     Poolside,
+    Amp,
     AgentSkills,
 }
 
 impl AgentTarget {
-    pub(super) const ALL: [Self; 8] = [
+    pub(super) const ALL: [Self; 9] = [
         Self::Codex,
         Self::ClaudeCode,
         Self::Cursor,
@@ -30,6 +31,7 @@ impl AgentTarget {
         Self::Windsurf,
         Self::OpenCode,
         Self::Poolside,
+        Self::Amp,
         Self::AgentSkills,
     ];
 
@@ -42,6 +44,7 @@ impl AgentTarget {
             Self::Windsurf => "Windsurf",
             Self::OpenCode => "OpenCode",
             Self::Poolside => "Poolside",
+            Self::Amp => "Amp",
             Self::AgentSkills => "Agent Skills",
         }
     }
@@ -59,6 +62,7 @@ impl AgentTarget {
             }
             Self::OpenCode => "Install the OpenCode skill and write OpenCode AGENTS.md steering.",
             Self::Poolside => "Install the Poolside skill and write Poolside AGENTS.md steering.",
+            Self::Amp => "Install the Amp skill and write Amp AGENTS.md steering.",
             Self::AgentSkills => {
                 "Install the shared .agents skill format and write generic AGENTS.md steering."
             }
@@ -75,6 +79,7 @@ impl AgentTarget {
             detect_agent::Agent::GitHubCopilot => Some(Self::GitHubCopilot),
             detect_agent::Agent::OpenCode => Some(Self::OpenCode),
             detect_agent::Agent::Poolside => Some(Self::Poolside),
+            detect_agent::Agent::Amp => Some(Self::Amp),
             detect_agent::Agent::Devin
             | detect_agent::Agent::Dirac
             | detect_agent::Agent::DeepSeekHarness => Some(Self::AgentSkills),
@@ -92,7 +97,6 @@ impl AgentTarget {
             | detect_agent::Agent::Crush
             | detect_agent::Agent::PulumiNeo
             | detect_agent::Agent::Goose
-            | detect_agent::Agent::Amp
             | detect_agent::Agent::Cline
             | detect_agent::Agent::RooCode
             | detect_agent::Agent::Trae
@@ -140,6 +144,7 @@ impl AgentTarget {
             Self::GitHubCopilot => &[".copilot"],
             Self::OpenCode => &[".config", "opencode"],
             Self::Poolside => &[".config", "poolside"],
+            Self::Amp => &[".config", "amp"],
             Self::Windsurf => &[".codeium"],
             // The shared `.agents` format has no agent-specific config to detect.
             Self::AgentSkills => return None,
@@ -154,7 +159,9 @@ impl AgentTarget {
             Self::GitHubCopilot => &[".github", "copilot-instructions.md"],
             Self::Cursor => &[".cursor"],
             Self::Poolside => &[".poolside"],
-            Self::Codex | Self::OpenCode | Self::Windsurf | Self::AgentSkills => return None,
+            Self::Codex | Self::OpenCode | Self::Windsurf | Self::Amp | Self::AgentSkills => {
+                return None;
+            }
         })
     }
 
@@ -164,15 +171,13 @@ impl AgentTarget {
     /// carry a path; `Both` is expanded into Global + Repository before this is
     /// called.
     pub(super) fn skill_path_components(self, scope: Scope) -> Option<&'static [&'static str]> {
-        crate::command::skill::path_components_for(
-            self.skill_format_name(),
-            matches!(scope, Scope::Global),
-        )
+        let global = matches!(scope, Scope::Global);
+        crate::command::skill::path_components_for(self.skill_format_name(global), global)
     }
 
     /// This agent's `SKILL_FORMATS` display name. The install paths themselves
     /// are the single source of truth in `crate::command::skill`.
-    pub(super) fn skill_format_name(self) -> &'static str {
+    fn skill_format_name(self, global: bool) -> &'static str {
         match self {
             Self::Codex => "Codex",
             Self::ClaudeCode => "Claude Code",
@@ -181,6 +186,9 @@ impl AgentTarget {
             Self::Windsurf => "Windsurf",
             Self::OpenCode => "OpenCode",
             Self::Poolside => "Poolside",
+            // Amp has no skill folder of its own; it reads the shared ones.
+            Self::Amp if global => "Universal Agents",
+            Self::Amp => "Agent Skills",
             Self::AgentSkills => "Agent Skills",
         }
     }
@@ -193,6 +201,7 @@ impl AgentTarget {
             Self::Codex
             | Self::OpenCode
             | Self::Poolside
+            | Self::Amp
             | Self::AgentSkills
             | Self::Cursor
             | Self::Windsurf => &["AGENTS.md"],
@@ -208,6 +217,7 @@ impl AgentTarget {
             Self::GitHubCopilot => Some(&[".copilot", "copilot-instructions.md"]),
             Self::OpenCode => Some(&[".config", "opencode", "AGENTS.md"]),
             Self::Poolside => Some(&[".config", "poolside", "AGENTS.md"]),
+            Self::Amp => Some(&[".config", "amp", "AGENTS.md"]),
             Self::Windsurf => Some(&[".codeium", "windsurf", "memories", "global_rules.md"]),
             Self::Cursor | Self::AgentSkills => None,
         }

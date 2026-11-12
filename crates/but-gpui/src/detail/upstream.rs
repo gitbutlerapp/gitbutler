@@ -1,54 +1,89 @@
 //! A project's page: where it is, when it last fetched, how busy the target has been and
 //! who's been committing to it, and its history, the commits the workspace doesn't have yet
-//! first, each with the pull request that landed it. Selecting a commit shows its diff.
+//! first, each with the pull request that merged it. Selecting a commit shows its diff.
 
 use std::cell::Cell;
 use std::collections::{BTreeSet, HashSet};
 use std::time::{Duration, Instant};
 
 use gpui::{
-    AnyElement, Context, MouseButton, MouseDownEvent, Pixels, Point, SharedString, div, prelude::*,
+    AnyElement, Bounds, Context, MouseButton, MouseDownEvent, Pixels, Point, SharedString, Window,
+    div, prelude::*,
 };
 
+mod changed_path;
 mod shipped;
 
 use super::panes::{
-    Crumb, CrumbTo, LIST_MIN_HEIGHT, clear_button, list_heading, measured, meta_item, meta_row,
-    not_found, reveal_side_row, rows_under, side_header, side_list, step_from, title_text,
-    unfinished_banner,
+    Crumb, CrumbTo, LIST_MIN_HEIGHT, clear_button, list_heading, measured, message_body, meta_item,
+    meta_row, not_found, reveal_side_row, rows_under, side_header, side_list, step_from,
+    title_text, unfinished_banner,
 };
-use super::pull_request::TABS_HEIGHT;
+use super::pull_request::{TABS_HEIGHT, tab};
 use super::slots::{SlotGesture, SlotPick, ends_drag, picks_slot};
 use super::{Detail, PageFold};
-use crate::backend::upstream::{self, ACTIVITY_DAYS, Overview, Person, TargetCommit};
+use crate::app::{CopyCommitId, OpenPullRequest};
+use crate::backend::upstream::{self, ACTIVITY_DAYS, Overview, PathQuery, Person, TargetCommit};
 use crate::backend::{self, Checkout, CommitId, DiffSource, Forge};
-use crate::overlays::MenuItem;
-use crate::state::{Cut, Pane, ProjectId, Selection};
+use crate::clipboard;
+use crate::edits::CherryPick;
+use crate::overlays::{MenuItem, has_keys};
+use crate::state::{Pane, Part, ProjectId, ProjectTab, Selection};
 use crate::theme::Theme;
+use crate::transfer::Moving;
 use crate::ui::emoji::ProjectIcon;
 use crate::ui::fold::inert;
 use crate::ui::markdown;
 use crate::ui::person::{byline, byline_avatar};
 use crate::ui::{
-    ButtonStyle, Icon, Tooltip, age_column, button, dp, error_summary, faint, fixed, fold_button,
-    guide, h_flex, icon, list_row, muted, plural, quiet, resize_handle, resize_pane, section_label,
-    shortcut, side_row, small_icon, v_flex,
+    ButtonStyle, Icon, Tooltip, age_column, button, count_badge, dp, error_summary, faint, fixed,
+    fold_button, guide, h_flex, icon, list_row, muted, plural, quiet, resize_handle, resize_pane,
+    section_label, shortcut, shown_row, side_row, small_icon, v_flex,
 };
 
 /// Where the middle of a merge's chevron sits in its row: the row's padding and half the
 /// chevron's step.
 const FOLD_MIDDLE: f32 = 8. + 7.;
 
-/// What the page opens on: what landed lately, even when nothing did, once the target's
+/// What the page opens on: what merged lately, even when nothing did, once the target's
 /// summed up, else the newest commit.
 fn opening(summary: Option<&Overview>, commits: &[TargetCommit]) -> Option<Picked> {
     (summary.is_some().then_some(Picked::Shipped))
         .or_else(|| commits.first().map(|c| Picked::Commit(c.id)))
 }
 
-/// What a target commit is called: the pull request it landed, by its title, as Lite names
-/// it, or else the commit's own title.
-fn label(commit: &TargetCommit) -> SharedString {
+/// What a target commit's message says after its title: its body without the line naming the
+/// pull request it merged, or that pull request's description when that's all it says.
+fn target_text(commit: &TargetCommit) -> String {
+    // A merge names the pull request by its title, which the body often repeats.
+    let names_review =
+        |line: &&str| (commit.review.as_ref()).is_some_and(|r| line.trim() == r.title);
+    let own = (commit.body.lines())
+        .filter(|line| !names_review(line))
+        .any(|line| !line.trim().is_empty());
+    // A merge with no more to say than the pull request it merged says what that does, in
+    // its description's words.
+    let described;
+    let text = match (own, &commit.review) {
+        (false, Some(review)) if !review.body.trim().is_empty() => {
+            let end = review.body.floor_char_boundary(4096);
+            let body = review.body.get(..end).unwrap_or(&review.body);
+            let blocks = markdown::parse(body);
+            described = markdown::selected_text(&blocks, ((0, 0), (blocks.len(), 0)));
+            &described
+        }
+        _ => &commit.body,
+    };
+    let shown = (text.lines())
+        .filter(|line| !names_review(line))
+        .collect::<Vec<_>>()
+        .join("\n");
+    shown.trim().to_owned()
+}
+
+/// What a target commit is called: the pull request it merged, by its title,
+/// or else the commit's own title.
+pub(super) fn label(commit: &TargetCommit) -> SharedString {
     match (commit.review.as_ref()).filter(|review| !review.title.is_empty()) {
         Some(review) => review.title.clone().into(),
         None => crate::ui::commit_title(&commit.title),
@@ -66,7 +101,7 @@ const STALE_AFTER: Duration = Duration::from_secs(60);
 /// narrowest.
 const MIN_DIFF: f32 = 560.;
 
-/// What's picked on the page: what landed lately, or a commit of the target.
+/// What's picked on the page: what merged lately, or a commit of the target.
 #[derive(Clone, Copy, PartialEq)]
 enum Picked {
     Shipped,
@@ -79,7 +114,7 @@ pub(super) struct Upstream {
     selected: Option<Picked>,
     /// The commit of the selected merge shown in place of everything it brought in.
     merged_pick: Option<CommitId>,
-    /// What landed lately and the activity, read with the newest page; `None` until read, or
+    /// What merged lately and the activity, read with the newest page; `None` until read, or
     /// when there's no target to read them from.
     summary: Option<Overview>,
     /// When the project last fetched successfully, and why the last fetch failed; `None`
@@ -93,18 +128,36 @@ pub(super) struct Upstream {
     failed: Option<String>,
     /// Reading the next page, which starts once its row scrolls into view, or on Show older.
     paging: Cell<Paging>,
-    /// A commit picked off what landed lately, not listed yet: the pages are read until it is.
+    /// A commit picked off what merged lately, not listed yet: the pages are read until it is.
     pending: Option<CommitId>,
     view: View,
 }
 
 impl Upstream {
+    /// A page with nothing read yet, filtered to `view`.
+    fn unread(view: View) -> Self {
+        Self {
+            commits: Vec::new(),
+            more: false,
+            selected: None,
+            merged_pick: None,
+            summary: None,
+            // Whether it has a remote isn't known yet, which `None` would say it hasn't.
+            fetch: Some((None, None)),
+            unconnected_forge: None,
+            seen: (0, Instant::now()),
+            failed: None,
+            paging: Cell::new(Paging::Idle),
+            pending: None,
+            view,
+        }
+    }
+
     /// The activity's days picked, while any are.
     fn picked_days(&self) -> Option<&BTreeSet<i64>> {
         Some(&self.view.days.slots).filter(|days| !days.is_empty())
     }
 
-    /// The person picked, if any.
     fn picked_person(&self) -> Option<&Person> {
         let email = self.view.person.as_ref()?;
         let summary = self.summary.as_ref()?;
@@ -113,13 +166,15 @@ impl Upstream {
 }
 
 /// What the history is filtered to, by the activity's days, whose commits by email and the
-/// part of the repository by what landed there, and the merges whose commits show under them.
+/// part of the repository by what merged there, and the merges whose commits show under them.
 /// A reload keeps it.
 #[derive(Default)]
 struct View {
     days: SlotPick,
     person: Option<String>,
     area: Option<String>,
+    /// Only the commits that changed these paths are read.
+    path: Option<PathQuery>,
     open_merges: HashSet<CommitId>,
 }
 
@@ -141,6 +196,8 @@ enum Row {
     More,
     /// Past the activity's days, while filtering: older ones, read on a click.
     Older,
+    /// Looking through what the commits changed for the words in the filter.
+    ChangedPath,
 }
 
 impl Detail {
@@ -185,7 +242,10 @@ impl Detail {
             || current.is_some_and(|u| {
                 u.pending.is_some() || u.view.area.is_some() || u.view.person.is_some()
             });
+        let changing = current.and_then(|u| u.view.path.clone());
         let limit = match more {
+            // The commits found, however far back they are.
+            true if changing.is_some() => PAGE,
             true if words => PAGE * 100,
             true if reading_back => PAGE * 8,
             true => PAGE,
@@ -194,9 +254,9 @@ impl Detail {
         let project = project.clone();
         let workspace = self.store.read(cx).workspace(&project);
         let forge = workspace.and_then(|ws| ws.forge);
-        // What landed lately, only with the newest page: paging further back keeps what was
+        // What merged lately, only with the newest page: paging further back keeps what was
         // read.
-        let newest = after.is_none();
+        let newest = !more;
         let now = crate::ui::now();
         // The branches the header counts are the Branches page's, read on their own rather
         // than waited for; that page then opens with them.
@@ -205,11 +265,16 @@ impl Detail {
         }
         self._upstream_load = cx.spawn(async move |this, cx| {
             let result = backend::run(move || {
-                // What landed lately takes longest, so it's read beside the page rather than
+                // What merged lately takes longest, so it's read beside the page rather than
                 // after it.
                 std::thread::scope(|scope| {
                     let summary = newest.then(|| scope.spawn(|| upstream::overview(&path, now)));
-                    let (mut commits, mut more) = upstream::target_commits(&path, after, limit)?;
+                    let (mut commits, mut more) = match &changing {
+                        Some(query) => {
+                            upstream::target_commits_changing(&path, query, after, limit)?
+                        }
+                        None => upstream::target_commits(&path, after, limit)?,
+                    };
                     // The newest page stops where the workspace forked off, often a commit or
                     // two in, so the rest of a page is read with it rather than a wait after.
                     let short = PAGE.saturating_sub(commits.len() as u32);
@@ -225,7 +290,7 @@ impl Detail {
                     });
                     let fetch = upstream::fetch_status(&path)?;
                     let summary = summary
-                        .and_then(|s| joined(s.join(), "what landed"))
+                        .and_then(|s| joined(s.join(), "what merged"))
                         .flatten();
                     Ok((page, fetch, forge.filter(|_| !connected), summary))
                 })
@@ -235,7 +300,7 @@ impl Detail {
                 let ((commits, mut has_more), fetch, unconnected_forge, summary) = match result {
                     Ok(loaded) => loaded,
                     // Paging further back keeps what's listed.
-                    Err(err) if after.is_some() => {
+                    Err(err) if more => {
                         if let Some(upstream) = this.upstream.get_mut(&project) {
                             upstream.paging.set(Paging::Failed);
                             // A commit waited for isn't, rather than with every reload.
@@ -260,18 +325,10 @@ impl Detail {
                         this.upstream.insert(
                             project.clone(),
                             Upstream {
-                                commits: Vec::new(),
-                                more: false,
-                                selected: None,
-                                merged_pick: None,
-                                summary: None,
                                 fetch,
-                                unconnected_forge: None,
                                 seen: (seen, Instant::now()),
                                 failed: Some(backend::read_failure(&err)),
-                                paging: Cell::new(Paging::Idle),
-                                pending: None,
-                                view,
+                                ..Upstream::unread(view)
                             },
                         );
                         this.refresh_diff(false, cx);
@@ -289,7 +346,7 @@ impl Detail {
                 // it cut short the reload after a fetch.
                 let now = (seen, Instant::now());
                 let (mut list, was, pick, seen, summary, older) = match previous {
-                    Some(previous) if after.is_some() => (
+                    Some(previous) if more => (
                         previous.commits,
                         previous.selected,
                         previous.merged_pick,
@@ -323,8 +380,14 @@ impl Detail {
                         Picked::Shipped => summary.is_some(),
                         Picked::Commit(id) => list.iter().any(|c| c.id == *id),
                     })
+                    // The newest that changed the path, rather than what merged lately.
+                    .or_else(|| {
+                        (view.path.as_ref())
+                            .and(list.first())
+                            .map(|c| Picked::Commit(c.id))
+                    })
                     .or_else(|| opening(summary.as_ref(), &list));
-                // A commit picked before it was listed, once it is, while it can be: what landed
+                // A commit picked before it was listed, once it is, while it can be: what merged
                 // lately goes back no further than the summary's first day.
                 let found = pending.filter(|id| list.iter().any(|c| c.id == *id));
                 let within = (summary.as_ref().zip(list.last()))
@@ -348,12 +411,14 @@ impl Detail {
                         view,
                     },
                 );
+                if selected != was {
+                    this.open_at_path_filtered(&project);
+                }
                 this.refresh_diff(false, cx);
                 this.load_selected_merge(&project, cx);
                 // Left since, the page keeps the pick for later rather than taking over what's
                 // shown now, as a composer opened meanwhile.
-                let shown = matches!(&this.selection(cx),
-                    Some(Selection::Project(p)) if *p == project);
+                let shown = this.on_tab(ProjectTab::Overview).as_ref() == Some(&project);
                 match found {
                     Some(id) if shown => {
                         this.pick_on_page(&project, Picked::Commit(id), None, cx);
@@ -467,42 +532,39 @@ impl Detail {
         (self.merged_commit(project, cx)).or_else(|| self.selected_target_commit(project))
     }
 
-    /// Whether the window leaves the diff out, as a pull request and what landed take its
+    /// Whether the window leaves the diff out, as a pull request and what merged take its
     /// place.
     pub fn diff_hidden(&self, cx: &gpui::App) -> bool {
-        self.showing_review(cx)
+        self.over_changes(cx)
             || self.showing_shipped(cx)
-            || self.showing_branches_overview(cx)
-            || self.showing_now(cx)
+            || self.showing_branches_overview()
             || self.choosing_target(cx)
-            || self.overview_only(cx)
+            || self.overview_only()
     }
 
     /// Whether the project's page asks which of the local branches tracking its target is it.
     pub fn choosing_target(&self, cx: &gpui::App) -> bool {
         let store = self.store.read(cx);
-        match self.selection(cx) {
-            Some(Selection::Project(project)) => {
-                (store.project(&project)).is_some_and(|entry| entry.target_choice.is_some())
-            }
-            _ => false,
-        }
+        (self.on_tab(ProjectTab::Overview)).is_some_and(|project| {
+            (store.project(&project)).is_some_and(|entry| entry.target_choice.is_some())
+        })
     }
 
     /// Whether a list page shows a commit's or a branch's files between its list and the diff.
     pub(super) fn has_files_beside(&self, cx: &gpui::App) -> bool {
-        let shows = match &self.selection(cx) {
-            Some(Selection::Project(project)) => self.showing_target_commit(project, cx),
-            Some(Selection::Branches(project)) => self.selected_other_branch(project).is_some(),
-            _ => false,
-        };
-        shows && !self.showing_review(cx)
+        let project_on = |tab| self.on_tab(tab);
+        let shows = (project_on(ProjectTab::Overview))
+            .is_some_and(|project| self.showing_target_commit(&project, cx))
+            || (project_on(ProjectTab::Branches))
+                .is_some_and(|project| self.selected_other_branch(&project).is_some())
+            || self.graph_beside();
+        shows && !self.over_changes(cx)
     }
 
     /// Whether a list page shows the files beside its list: it has some, and they aren't
     /// hidden, as they are at first.
-    pub(super) fn beside_files_shown(&self, cx: &gpui::App) -> bool {
-        self.has_files_beside(cx) && !self.beside_files_hidden
+    pub(crate) fn beside_files_shown(&self, cx: &gpui::App) -> bool {
+        self.has_files_beside(cx) && !self.hides_beside_files(cx)
     }
 
     /// How wide the files beside a list page's list are while they show: as wide as dragged,
@@ -552,13 +614,15 @@ impl Detail {
         project: &ProjectId,
         header: Option<AnyElement>,
         theme: &Theme,
+        window: &gpui::Window,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let below = match self.showing_review(cx) {
-            true => self.render_review_tab(project, theme, cx),
-            false => self.render_files_beside(theme, cx),
+        let below = match (self.showing_review(cx), self.showing_brief()) {
+            (true, _) => self.render_review_tab(project, theme, cx),
+            (false, true) => self.render_brief_tab(theme, window, cx),
+            (false, false) => self.render_files_beside(theme, window, cx),
         };
-        let tabs = self.selected_review(cx).map(|review| {
+        let tabs = self.page_tabs(theme, window, cx).map(|tabs| {
             h_flex()
                 .flex_none()
                 .h(dp(TABS_HEIGHT))
@@ -566,7 +630,7 @@ impl Detail {
                 .items_end()
                 .border_b_1()
                 .border_color(theme.border_3)
-                .child(self.review_tabs(review, theme, cx))
+                .child(tabs)
         });
         // How wide it is, for whether the files fit beside the diff.
         let width = measured(&self.beside_width, &self.app, |bounds| {
@@ -587,7 +651,12 @@ impl Detail {
     /// Under a list page's tabs: the files unless they're hidden, beside the diff, which the
     /// window draws over the rest. Sliding, they stay as they are, the diff sliding over them,
     /// and shutting, they're drawn till it's over them.
-    fn render_files_beside(&self, theme: &Theme, cx: &Context<Self>) -> AnyElement {
+    fn render_files_beside(
+        &self,
+        theme: &Theme,
+        window: &Window,
+        cx: &Context<Self>,
+    ) -> AnyElement {
         let shown = self.beside_files_shown(cx);
         let drawn =
             shown || (self.has_files_beside(cx) && self.beside_slide.closing(Instant::now()));
@@ -595,7 +664,7 @@ impl Detail {
             .flex_1()
             .min_h_0()
             .items_start()
-            .on_drag_move(resize_pane(Pane::BesideFiles, self.store.clone()))
+            .on_drag_move(resize_pane(Pane::BesideFiles, 0., self.store.clone()))
             .when(drawn, |el| {
                 el.child(inert(
                     v_flex()
@@ -609,12 +678,65 @@ impl Detail {
                         // through the files, as in a checkout's file list.
                         .track_focus(&self.files_focus)
                         .key_context("Files")
-                        .child(self.render_diff_file_list(theme, cx))
+                        .child(self.render_diff_file_list(theme, window, cx))
                         .child(resize_handle(Pane::BesideFiles, self.store.clone(), theme)),
                     !shown,
                 ))
             })
             .into_any_element()
+    }
+
+    /// Whether the message over a list page's diff draws: a commit's, or an opened branch's
+    /// header. Always, unless it lists first among the files instead, as a commit's page
+    /// or a branch's.
+    pub(super) fn list_header_shown(&self, project: &ProjectId, cx: &gpui::App) -> bool {
+        let on_branches = self.on_tab(ProjectTab::Branches).is_some();
+        let part = match on_branches && self.picked_branch_commit(project).is_none() {
+            true => Part::BranchHeader,
+            false => Part::CommitHeader,
+        };
+        self.store.read(cx).prefs.shows(part)
+    }
+
+    /// The commit whose message shows over a list page's diff: the project page's, or the
+    /// one picked of the opened branch.
+    pub(super) fn target_message_commit<'a>(
+        &'a self,
+        project: &ProjectId,
+        cx: &'a gpui::App,
+    ) -> Option<&'a TargetCommit> {
+        match (self.selection()?, self.project_tab()) {
+            (Selection::Project(_), ProjectTab::Overview) => self.shown_target_commit(project, cx),
+            (Selection::Project(_), ProjectTab::Branches) => self.picked_branch_commit(project),
+            _ => None,
+        }
+    }
+
+    /// [`Self::target_message_commit`]'s message, where the diff lists it first: its title,
+    /// who wrote it and when, its ID, and the whole of the rest of it.
+    pub(super) fn target_commit_message(
+        &self,
+        project: &ProjectId,
+        flat: bool,
+        theme: &Theme,
+        cx: &gpui::App,
+    ) -> Option<(gpui::Div, Option<gpui::Div>)> {
+        let commit = self.target_message_commit(project, cx)?;
+        let title =
+            title_text(label(commit)).when(flat, |el| el.text_size(dp(18.)).line_height(dp(26.)));
+        let meta = meta_row(theme)
+            .child(byline(
+                &commit.author,
+                &commit.email,
+                commit.agent.as_ref(),
+                commit.time,
+                theme,
+            ))
+            .child(self.sha_chip(commit.id, theme));
+        let top = v_flex().min_w_0().gap(dp(8.)).child(title).child(meta);
+        let shown = target_text(commit);
+        let body = (!shown.is_empty()).then(|| message_body(shown, theme));
+        Some((top, body))
     }
 
     /// A target commit's message: its title and who wrote it and when, with a link that shows
@@ -628,35 +750,9 @@ impl Detail {
         // Folded, it's as tall whatever the commit, so picking another moves nothing below:
         // one line of title, and one of who wrote it, which holds the link.
         const LINE: f32 = 20.;
-        // A merge names the pull request by its title, which the body often repeats.
-        let names_review =
-            |line: &&str| (commit.review.as_ref()).is_some_and(|r| line.trim() == r.title);
-        let own = (commit.body.lines())
-            .filter(|line| !names_review(line))
-            .any(|line| !line.trim().is_empty());
-        // A merge with no more to say than the pull request it landed says what that does, in
-        // its description's words.
-        let described;
-        let text = match (own, &commit.review) {
-            (false, Some(review)) if !review.body.trim().is_empty() => {
-                let end = review.body.floor_char_boundary(4096);
-                let body = review.body.get(..end).unwrap_or(&review.body);
-                described = (markdown::parse(body).iter())
-                    .map(|block| block.text.as_str())
-                    .filter(|text| !text.trim().is_empty())
-                    .collect::<Vec<_>>()
-                    .join("\n");
-                &described
-            }
-            _ => &commit.body,
-        };
-        let shown = (text.lines())
-            .filter(|line| !names_review(line))
-            .collect::<Vec<_>>()
-            .join("\n");
-        let shown = shown.trim().to_owned();
+        let shown = target_text(commit);
         let title = label(commit).to_string();
-        let open = self.message_open;
+        let open = self.message_open(cx);
         let toggle = (!shown.is_empty()).then(|| {
             let label = match open {
                 true => "Hide message",
@@ -665,10 +761,7 @@ impl Detail {
             button("target-message-more", label)
                 .small()
                 .style(ButtonStyle::Ghost)
-                .on_click(cx.listener(|this, _, _, cx| {
-                    this.message_open = !this.message_open;
-                    cx.notify();
-                }))
+                .on_click(cx.listener(|this, _, _, cx| this.toggle_message(cx)))
         });
         // And the rule along its bottom.
         let height = measured(&self.target_message_height, &self.app, |bounds| {
@@ -703,7 +796,7 @@ impl Detail {
                         commit.time,
                         theme,
                     ))
-                    .child(self.sha_chip(commit.id, theme, cx))
+                    .child(self.sha_chip(commit.id, theme))
                     .children(toggle),
             )
             .when(open && !shown.is_empty(), |el| {
@@ -724,22 +817,19 @@ impl Detail {
             .into_any_element()
     }
 
-    /// Whether the project's page shows what landed lately, in place of a diff.
+    /// Whether the project's page shows what merged lately, in place of a diff.
     pub fn showing_shipped(&self, cx: &gpui::App) -> bool {
-        match &self.selection(cx) {
-            Some(Selection::Project(project)) => {
-                self.editing(project, cx).is_none()
-                    && (self.upstream_for(project))
-                        .is_some_and(|u| u.selected == Some(Picked::Shipped))
-            }
-            _ => false,
-        }
+        (self.on_tab(ProjectTab::Overview)).is_some_and(|project| {
+            self.editing(&project, cx).is_none()
+                && (self.upstream_for(&project))
+                    .is_some_and(|u| u.selected == Some(Picked::Shipped))
+        })
     }
 
-    /// Esc on the project's page with a commit shown: back to what landed
+    /// Esc on the project's page with a commit shown: back to what merged
     /// lately, whether it did.
     pub fn close_opened_target(&mut self, cx: &mut Context<Self>) -> bool {
-        let Some(Selection::Project(project)) = self.selection(cx) else {
+        let Some(project) = self.on_tab(ProjectTab::Overview) else {
             return false;
         };
         let opened = self.editing(&project, cx).is_none()
@@ -760,12 +850,12 @@ impl Detail {
         // letting go of the filter unseen.
         let who = upstream.view.person.as_ref();
         let person = upstream.picked_person();
-        // What landed in the area picked, of what the summary has; with no summary to say, the
+        // What merged in the area picked, of what the summary has; with no summary to say, the
         // area doesn't filter.
         let area = (upstream.view.area.as_ref()).filter(|_| upstream.summary.is_some());
         let in_area: HashSet<CommitId> = (area.zip(upstream.summary.as_ref()))
             .map(|(area, summary)| {
-                (summary.landings.iter())
+                (summary.merges.iter())
                     .filter(|l| l.areas.iter().any(|a| a == area))
                     .map(|l| l.id)
                     .collect()
@@ -788,7 +878,7 @@ impl Detail {
         let filtered = !query.is_empty();
         let shown = |commit: &TargetCommit| {
             picked.is_none_or(|(d, today)| d.contains(&upstream::day_of(commit.time).min(today)))
-                && who.is_none_or(|_| person.is_some_and(|p| p.landed.contains(&commit.id)))
+                && who.is_none_or(|_| person.is_some_and(|p| p.merged.contains(&commit.id)))
                 && area.is_none_or(|_| in_area.contains(&commit.id))
                 && found(commit)
         };
@@ -842,12 +932,15 @@ impl Detail {
             rows.push(Row::More);
         } else if rows.is_empty() && picked.is_some() {
             rows.push(Row::Heading(format!("No commits on {target} then")));
-        } else if rows.is_empty() && bounded {
+        } else if rows.is_empty() && (bounded || upstream.view.path.is_some()) {
             rows.push(Row::Heading(format!("No commits on {target} match")));
         }
         if upstream.more && past && filtered && picked.is_none() && who.is_none() && area.is_none()
         {
             rows.push(Row::Older);
+        }
+        if filtered {
+            rows.insert(0, Row::ChangedPath);
         }
         rows
     }
@@ -941,7 +1034,7 @@ impl Detail {
                     v_flex()
                         .w(dp(260.))
                         .py(dp(4.))
-                        .rounded(dp(8.))
+                        .rounded(dp(theme.shape.popup))
                         .border_1()
                         .border_color(theme.border_3)
                         .text_left()
@@ -1032,8 +1125,8 @@ impl Detail {
         cx.notify();
     }
 
-    /// Filter the history to what landed `email`'s commits, or not at all.
-    fn filter_landed(
+    /// Filter the history to what merged `email`'s commits, or not at all.
+    fn filter_merged(
         &mut self,
         project: &ProjectId,
         email: Option<String>,
@@ -1046,7 +1139,7 @@ impl Detail {
         cx.notify();
     }
 
-    /// Filter the history to what landed in `area`, or let go of the area.
+    /// Filter the history to what merged in `area`, or let go of the area.
     fn filter_area(&mut self, project: &ProjectId, area: Option<String>, cx: &mut Context<Self>) {
         if let Some(upstream) = self.upstream.get_mut(project) {
             upstream.view.area = area;
@@ -1057,12 +1150,13 @@ impl Detail {
 
     /// Back to the top of the history, its newest commit kept, as a filter changes.
     pub(super) fn show_newest_kept(&mut self, _cx: &mut Context<Self>) {
+        self.forget_side_top();
         self.upstream_scroll.scroll_to(Default::default());
     }
 
-    /// Whose commits landed on the target, the most landings first, counted on the days
+    /// Whose commits merged into the target, the most merges first, counted on the days
     /// picked or all the activity's, and only those that changed the area picked; the one picked
-    /// stays, however few they have then. Clicking one filters the history to what landed theirs.
+    /// stays, however few they have then. Clicking one filters the history to what merged theirs.
     fn render_people(
         &self,
         project: &ProjectId,
@@ -1075,16 +1169,16 @@ impl Detail {
         if summary.people.is_empty() && who.is_none() {
             return None;
         }
-        // What landed in the area picked on those days, while one is.
+        // What merged in the area picked on those days, while one is.
         let in_area: Option<HashSet<CommitId>> = (upstream.view.area.as_ref()).map(|area| {
-            (summary.landings.iter())
+            (summary.merges.iter())
                 .filter(|l| l.areas.contains(area) && days.is_none_or(|d| d.contains(&l.day)))
                 .map(|l| l.id)
                 .collect()
         });
         let on_days = |person: &Person| -> usize {
             if let Some(in_area) = &in_area {
-                return person.landed.intersection(in_area).count();
+                return person.merged.intersection(in_area).count();
             }
             (person.daily.iter().enumerate())
                 .filter(|(ix, _)| {
@@ -1099,17 +1193,17 @@ impl Detail {
             .map(|(p, n)| (p.email.clone(), p.name.clone(), p.email.clone(), n))
             .collect();
         people.sort_by_key(|(.., n)| std::cmp::Reverse(*n));
-        // Landings, as a merge bringing in several of someone's commits counts once.
+        // Merges, as a merge commit bringing in several of someone's commits counts once.
         let counted = match days {
-            None => format!("landings · {ACTIVITY_DAYS} days"),
-            Some(_) => "landings · days picked".to_owned(),
+            None => format!("merges · {ACTIVITY_DAYS} days"),
+            Some(_) => "merges · days picked".to_owned(),
         };
         let project = project.clone();
         Some(self.people_card(
             people,
             who.map(String::as_str),
-            (counted, "No commits landed then"),
-            move |this, email, cx| this.filter_landed(&project, email, cx),
+            (counted, "No commits merged then"),
+            move |this, email, cx| this.filter_merged(&project, email, cx),
             window,
             cx,
         ))
@@ -1125,7 +1219,7 @@ impl Detail {
         let Some(upstream) = self.upstream_for(project) else {
             return;
         };
-        // Over what landed lately, the target names the page, last.
+        // Over what merged lately, the target names the page, last.
         let target = (self.store.read(cx).workspace(project)).and_then(|ws| ws.target_name());
         if upstream.selected == Some(Picked::Shipped) {
             return crumbs.push((target.unwrap_or("Target".into()).into_owned().into(), None));
@@ -1151,19 +1245,14 @@ impl Detail {
         }
     }
 
-    /// Opening the project's page, wherever from: it shows what landed lately, rather than
-    /// what was picked on it last, as the Branches page shows its overview.
-    pub(super) fn open_on_shipped(&mut self, project: &ProjectId) {
+    /// Coming back to the project's page, which shows what was picked on it last: a read cut
+    /// short as it was left isn't still going.
+    pub(super) fn resume_project_page(&mut self, project: &ProjectId) {
         let Some(upstream) = self.upstream.get_mut(project) else {
             return;
         };
-        // A read cut short when the page was left isn't still going.
         upstream.paging.set(Paging::Idle);
         upstream.pending = None;
-        if upstream.summary.is_some() {
-            upstream.selected = Some(Picked::Shipped);
-            upstream.merged_pick = None;
-        }
     }
 
     /// Back to what the page opens on, as when it's picked again.
@@ -1179,15 +1268,15 @@ impl Detail {
     /// Pick commit `id` on the project page shown, as the crumb of a merge does over a commit
     /// of it.
     pub(super) fn pick_target_commit(&mut self, id: CommitId, cx: &mut Context<Self>) {
-        if let Some(project) = self.selected_project(cx) {
+        if let Some(project) = self.selected_project() {
             self.pick_on_page(&project, Picked::Commit(id), None, cx)
         }
     }
 
-    /// Open the commit on `project`'s history that landed a branch: the one that landed its
-    /// pull request `pull`, else its commit `id` itself, as when it landed as it was. Says
+    /// Open the commit on `project`'s history that merged a branch: the one that merged its
+    /// pull request `pull`, else its commit `id` itself, as when it merged as it was. Says
     /// whether the history lists either.
-    pub(super) fn open_landing(
+    pub(super) fn open_merge(
         &mut self,
         project: &ProjectId,
         pull: Option<u64>,
@@ -1195,13 +1284,13 @@ impl Detail {
         cx: &mut Context<Self>,
     ) -> bool {
         let commits = self.upstream_for(project).map_or(&[][..], |u| &u.commits);
-        let landed = (commits.iter())
+        let merged = (commits.iter())
             .find(|c| c.id == id || (c.review.as_ref()).is_some_and(|r| Some(r.number) == pull))
             .map(|c| c.id);
-        if let Some(landed) = landed {
-            self.pick_landed(project, landed, cx);
+        if let Some(merged) = merged {
+            self.pick_merged(project, merged, cx);
         }
-        landed.is_some()
+        merged.is_some()
     }
 
     /// Read the next page of `project`'s history, while its oldest read is no older than
@@ -1220,9 +1309,9 @@ impl Detail {
         older
     }
 
-    /// Open commit `id` of what landed lately, reading older pages of the history until
+    /// Open commit `id` of what merged lately, reading older pages of the history until
     /// it's listed.
-    fn pick_landed(&mut self, project: &ProjectId, id: CommitId, cx: &mut Context<Self>) {
+    fn pick_merged(&mut self, project: &ProjectId, id: CommitId, cx: &mut Context<Self>) {
         let Some(upstream) = self.upstream.get_mut(project) else {
             return;
         };
@@ -1239,6 +1328,7 @@ impl Detail {
 
     /// Bring the commit picked into view in the history, as it was picked from elsewhere.
     fn scroll_to_picked(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+        self.forget_side_top();
         let Some(upstream) = self.upstream_for(project) else {
             return;
         };
@@ -1274,7 +1364,8 @@ impl Detail {
             // Picked now, a commit still waited for no longer is.
             upstream.pending = None;
         }
-        self.message_open = false;
+        self.open_at_path_filtered(project);
+        self.close_message();
         self.load_selected_merge(project, cx);
         self.show_picked(cx);
     }
@@ -1294,10 +1385,77 @@ impl Detail {
     ) {
         self.pick_on_page(project, Picked::Commit(merge), merged, cx);
         let project = project.clone();
-        let items = move |this: &mut Self, _: &mut Context<Self>| {
-            this.target_commit_items(&project, merge, merged)
+        let items = move |this: &mut Self, cx: &mut Context<Self>| {
+            this.target_commit_items(&project, merge, merged, cx)
         };
         self.open_menu(at, items, cx);
+    }
+
+    /// The target commit picked, a merge's commit when one of those is: the merge, and the
+    /// commit of it.
+    fn picked_target_commit(&self, project: &ProjectId) -> Option<(&TargetCommit, CommitId)> {
+        let upstream = self.upstream_for(project)?;
+        let commit = self.selected_target_commit(project)?;
+        Some((commit, upstream.merged_pick.unwrap_or(commit.id)))
+    }
+
+    /// The pull request of the target's merge picked, not one of its commits.
+    pub(super) fn target_pull_request(&self, project: &ProjectId) -> Option<String> {
+        let (commit, id) = self.picked_target_commit(project)?;
+        (id == commit.id).then(|| commit.review.as_ref()?.url.clone())?
+    }
+
+    /// Register what's done to the target's commit picked on the project's page, from the
+    /// list or its header: copying its ID, and copying one coming in into the workspace.
+    pub(super) fn upstream_page_actions(
+        &self,
+        el: gpui::Stateful<gpui::Div>,
+        cx: &mut Context<Self>,
+    ) -> gpui::Stateful<gpui::Div> {
+        let Some(project) = self.on_tab(ProjectTab::Overview) else {
+            return el;
+        };
+        let Some((commit, id)) = self.picked_target_commit(&project) else {
+            return el;
+        };
+        let incoming = id == commit.id && commit.incoming && !commit.merge;
+        let title: SharedString = commit.title.clone().into();
+        let el = clipboard::copy_on::<CopyCommitId>(el, &self.store, id.0.to_string());
+        el.when(incoming, |el| {
+            el.on_action(cx.listener(move |this, _: &CherryPick, window, cx| {
+                let (project, copies) = (project.clone(), [(id, title.clone())].into());
+                this.app.update_later(window, cx, move |app, window, cx| {
+                    app.cherry_pick(project, Moving::Copies(copies), window, cx)
+                })
+            }))
+        })
+    }
+
+    /// What right-clicking the target's commit picked offers, and where its row is while it
+    /// shows.
+    pub(super) fn target_page_menu(
+        &self,
+        project: &ProjectId,
+        cx: &Context<Self>,
+    ) -> Option<(Vec<MenuItem>, Option<Bounds<Pixels>>)> {
+        let upstream = self.upstream_for(project)?;
+        let merge = self.selected_target_commit(project)?.id;
+        let merged = upstream.merged_pick;
+        let items = self.target_commit_items(project, merge, merged, cx);
+        let is_merge = |ix: usize| upstream.commits.get(ix).is_some_and(|c| c.id == merge);
+        let is_merged = |m: usize| {
+            let of = self.store.read(cx).merged.get(&merge)?.as_ref()?;
+            Some(of.0.get(m)?.id)
+        };
+        let row = (self.upstream_rows(upstream, "", cx).iter()).position(|row| match *row {
+            Row::Commit(ix) => merged.is_none() && is_merge(ix),
+            Row::Merged(ix, m) => merged.is_some() && is_merge(ix) && is_merged(m) == merged,
+            _ => false,
+        });
+        Some((
+            items,
+            row.and_then(|row| shown_row(&self.upstream_scroll, row)),
+        ))
     }
 
     /// What right-clicking the target's commit `merge`, or `merged` among its commits, offers.
@@ -1306,6 +1464,7 @@ impl Detail {
         project: &ProjectId,
         merge: CommitId,
         merged: Option<CommitId>,
+        cx: &Context<Self>,
     ) -> Vec<MenuItem> {
         let Some(upstream) = self.upstream_for(project) else {
             return Vec::new();
@@ -1321,37 +1480,25 @@ impl Detail {
                     true => "Hide commits",
                     false => "Show commits",
                 };
-                items.push(MenuItem::new(label, move |app, _, cx| {
-                    (app.detail).update(cx, |detail, cx| detail.toggle_merge(&shown, merge, cx))
-                }));
-            }
-            if commit.incoming && !commit.merge {
-                let picked = project.clone();
-                items.push(MenuItem::new("Cherry-pick", move |app, _, cx| {
-                    app.cut(Cut::CherryPick(picked.clone(), [merge].into()), cx)
-                }));
-            }
-            if let Some(url) = (commit.review.as_ref()).and_then(|r| r.url.clone()) {
-                items.push(MenuItem::new("Open pull request", move |_, _, cx| {
-                    cx.open_url(&url)
+                // This page's, which needn't be the home tile's.
+                let this = cx.entity();
+                items.push(MenuItem::new(label, move |_, _, cx| {
+                    this.update(cx, |detail, cx| detail.toggle_merge(&shown, merge, cx))
                 }));
             }
         }
-        let id = merged.unwrap_or(merge);
-        let copy = MenuItem::new("Copy commit ID", move |app, _, cx| {
-            app.copy_text(id.0.to_string(), cx)
-        });
-        items.push(match items.is_empty() {
-            true => copy,
-            false => copy.separated(),
-        });
+        items.extend([
+            MenuItem::command(&CherryPick, cx),
+            MenuItem::command(&OpenPullRequest, cx),
+            MenuItem::command(&CopyCommitId, cx).separated(),
+        ]);
         items
     }
 
     /// ⇧→ in the list: open the picked merge, or step into its commits when it's open, as
     /// on the Branches page. ⇧← folds it, or steps from one of its commits back up to it.
     fn fold_upstream(&mut self, open: bool, cx: &mut Context<Self>) {
-        let Some(project) = self.selected_project(cx) else {
+        let Some(project) = self.selected_project() else {
             return;
         };
         let Some(upstream) = self.upstream_for(&project) else {
@@ -1367,7 +1514,9 @@ impl Detail {
             upstream.view.open_merges.contains(&id),
         ) {
             (true, false, false) if merge => self.toggle_merge(&project, id, cx),
-            (true, false, true) => self.step_upstream(1, cx),
+            (true, false, true) => {
+                self.step_upstream(1, cx);
+            }
             (false, true, _) => self.pick_on_page(&project, Picked::Commit(id), None, cx),
             (false, false, true) => self.toggle_merge(&project, id, cx),
             _ => {}
@@ -1377,7 +1526,7 @@ impl Detail {
     /// Return in the TUI's keymap: fold or unfold the picked merge's commits. One of them
     /// stays as it is.
     fn toggle_upstream_fold(&mut self, cx: &mut Context<Self>) {
-        let Some(project) = self.selected_project(cx) else {
+        let Some(project) = self.selected_project() else {
             return;
         };
         let Some(upstream) = self.upstream_for(&project) else {
@@ -1392,13 +1541,14 @@ impl Detail {
         }
     }
 
-    /// Select the target commit `delta` rows from the selected one, keeping it in view.
-    pub(super) fn step_upstream(&mut self, delta: isize, cx: &mut Context<Self>) {
-        let Some(project) = self.selected_project(cx) else {
-            return;
+    /// Select the target commit `delta` rows from the selected one, keeping it in view. Says
+    /// whether there was one.
+    pub(super) fn step_upstream(&mut self, delta: isize, cx: &mut Context<Self>) -> bool {
+        let Some(project) = self.selected_project() else {
+            return false;
         };
         let Some(upstream) = self.upstream_for(&project) else {
-            return;
+            return false;
         };
         let merged = |ix: usize, m: usize| {
             let merge = upstream.commits.get(ix)?.id;
@@ -1416,22 +1566,23 @@ impl Detail {
                 _ => None,
             })
             .collect();
-        // From what landed lately, which sits over the list, only down.
+        // From what merged lately, which sits over the list, only down.
         if upstream.selected == Some(Picked::Shipped) && delta < 0 {
-            return;
+            return false;
         }
         let current = (upstream.selected, upstream.merged_pick);
         let at = (picks.iter()).position(|(_, (picked, pick))| (Some(*picked), *pick) == current);
         let Some(&(row, (picked, pick))) = step_from(&picks, at, delta) else {
-            return;
+            return false;
         };
         let count = rows.len();
         self.pick_on_page(&project, picked, pick, cx);
         reveal_side_row(&self.upstream_scroll, count, row, false, Theme::get(cx));
+        true
     }
 
     /// How busy the target has been: a bar for each day, the last week's stronger, counting
-    /// only what landed the person picked's commits and changed the area picked, as the history
+    /// only what merged the person picked's commits and changed the area picked, as the history
     /// lists them. Clicking a day, shift-clicking another or dragging across them filters the
     /// history to them.
     fn render_activity(
@@ -1442,15 +1593,15 @@ impl Detail {
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let summary = upstream.summary.as_ref()?;
-        // A person picked who's no longer among those who landed anything keeps nothing.
+        // A person picked who's no longer among those who merged anything keeps nothing.
         let (who, area) = (upstream.view.person.as_ref(), upstream.view.area.as_ref());
-        let theirs = upstream.picked_person().map(|p| &p.landed);
+        let theirs = upstream.picked_person().map(|p| &p.merged);
         let mut daily = vec![0; summary.daily.len()];
-        for landing in (summary.landings.iter())
+        for merge in (summary.merges.iter())
             .filter(|l| who.is_none() || theirs.is_some_and(|theirs| theirs.contains(&l.id)))
             .filter(|l| area.is_none_or(|area| l.areas.contains(area)))
         {
-            let at = usize::try_from(landing.day - summary.first_day).ok();
+            let at = usize::try_from(merge.day - summary.first_day).ok();
             if let Some(n) = at.and_then(|at| daily.get_mut(at)) {
                 *n += 1;
             }
@@ -1467,14 +1618,17 @@ impl Detail {
         ))
     }
 
-    /// A project's header: its icon, which opens the picker, and its name, over where it is
-    /// and when it last fetched.
+    /// The header across a project's pages, `page` the one shown: its icon, which opens the
+    /// picker, and its name, over where it is and when it last fetched, and under them the
+    /// tabs to its other pages.
     pub(super) fn render_project_header(
         &self,
-        project: &ProjectId,
+        page: &Selection,
         theme: &Theme,
+        window: &Window,
         cx: &Context<Self>,
     ) -> AnyElement {
+        let project = page.project();
         let store = self.store.read(cx);
         let Some(entry) = store.project(project) else {
             return div().into_any_element();
@@ -1491,8 +1645,8 @@ impl Detail {
             .flex()
             .items_center()
             .justify_center()
-            .rounded(dp(4.))
-            .hover(|el| el.bg(theme.hover()))
+            .rounded(dp(theme.shape.control))
+            .hover(|el| el.bg(theme.hover))
             .text_size(dp(16.))
             .child(mark)
             // No tooltip: it would sit over the picker's search field.
@@ -1517,7 +1671,7 @@ impl Detail {
                     .text_ellipsis_middle()
                     .child(crate::ui::short_path(&entry.project.path)),
             )
-            .when(!entry.folder_gone, |el| {
+            .when(!entry.gone, |el| {
                 let said = match &fetch {
                     Some(None) => "No remote to fetch from".into(),
                     Some(Some((Some(at), _))) => format!("Fetched {}", crate::ui::ago(*at)),
@@ -1566,7 +1720,6 @@ impl Detail {
         // way first.
         let workspace = entry.workspace.as_ref();
         let applied = workspace.map_or(0, |ws| ws.branches_in(&Checkout::Main).count());
-        let unapplied = self.unapplied(project);
         let worktrees = workspace.map_or(0, |ws| ws.worktrees.len());
         let meta = meta
             .child(
@@ -1597,25 +1750,61 @@ impl Detail {
                             target.name
                         ))),
                 )
-            }))
-            // Last, as it's read after the rest, so nothing moves when it shows.
-            .children(unapplied.map(|n| {
-                meta_item(Icon::Branch, theme)
-                    .flex_none()
-                    .id("unapplied-count")
-                    .child(format!("{n} not applied"))
-                    .tooltip(Tooltip::text(
-                        "Branches in progress that aren't applied: with commits of their own, \
-                         and no merged or closed pull request",
-                    ))
             }));
         let title = h_flex()
             .items_start()
             .gap(dp(8.))
             .child(trigger)
             .child(title_text(entry.project.name.clone()));
-        let target = Selection::Project(project.clone());
-        self.page_header(title, meta, target, None, None, theme, cx)
+        let tabs = self.project_tabs(page, theme, window, cx);
+        self.project_page_header(title, meta, project, tabs, theme)
+    }
+
+    pub(crate) fn project_tabs_focused(&self, window: &Window) -> bool {
+        self.project_tabs_focus.is_focused(window)
+    }
+
+    /// The tabs to a project's pages, `page` the one selected; Branches says how many are in
+    /// progress without being applied. They take the keys as the panes do.
+    fn project_tabs(
+        &self,
+        page: &Selection,
+        theme: &Theme,
+        window: &Window,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let project = page.project();
+        let unapplied = self.unapplied(project).filter(|n| *n > 0);
+        let solid = has_keys(&self.project_tabs_focus, window, cx);
+        h_flex()
+            .track_focus(&self.project_tabs_focus)
+            .map(|el| self.tab_keys(el, cx))
+            // The first tab's label, not its hover ground, lines up with the text above.
+            .ml(dp(-8.))
+            .children(ProjectTab::ALL.map(|to| {
+                let (id, glyph, label) = match to {
+                    ProjectTab::Overview => ("tab-overview", Icon::Repo, "Overview"),
+                    ProjectTab::Branches => ("tab-branches", Icon::Branch, "Branches"),
+                    ProjectTab::History => ("tab-history", Icon::Clock, "Operations history"),
+                    ProjectTab::Graph => ("tab-graph", Icon::Fork, "Graph"),
+                };
+                let selected = self.project_tab() == to;
+                tab(id, glyph, label, selected, solid, theme)
+                    .when(id == "tab-branches", |el| {
+                        el.children(unapplied.map(|n| count_badge(n, theme)))
+                            .tooltip(Tooltip::text(
+                                "Branches that aren't applied. The count is those in progress: \
+                                 with commits of their own, and no merged or closed pull request",
+                            ))
+                    })
+                    // Clicking what's open only gives the tabs the keys, as any press on them.
+                    .when(!selected, |el| {
+                        el.on_click(
+                            cx.listener(move |this, _, window, cx| this.show_tab(to, window, cx)),
+                        )
+                    })
+            }))
+            .into_any_element()
     }
 
     pub(super) fn render_upstream_side(
@@ -1635,7 +1824,7 @@ impl Detail {
             .and_then(|ws| ws.target.as_ref())
             .map(|t| t.name.clone());
         let upstream = self.upstream_for(project);
-        let missing = entry.folder_gone;
+        let missing = entry.gone;
         let fetch_error = upstream.and_then(|u| u.fetch.as_ref()?.1.clone());
         let fetched = upstream.and_then(|u| u.fetch.as_ref()?.0);
         let fetching = store.fetching(project);
@@ -1650,7 +1839,7 @@ impl Detail {
                 .mt(dp(4.))
                 .gap(dp(8.))
                 .p(dp(8.))
-                .rounded(dp(6.))
+                .rounded(dp(theme.shape.card))
                 .bg(ground)
         };
         // Where it is and when it fetched head its page; here, what needs doing, if anything.
@@ -1659,7 +1848,7 @@ impl Detail {
             // shows on hover, the column being narrow.
             fetch_error.map(|err| {
                 let last = fetched.map(|at| format!(" It last fetched {}.", crate::ui::ago(at)));
-                let again = super::resolve::banner_action("fetch-again", "Try again", theme)
+                let again = super::resolve::banner_action("fetch-again", "Try again")
                     .disabled_because(fetching.then_some("Fetching…"))
                     .dispatch(&crate::app::Fetch);
                 super::resolve::warn_banner(
@@ -1671,7 +1860,7 @@ impl Detail {
                 .into_any_element()
             }),
             upstream.and_then(|u| u.unconnected_forge).map(|forge| {
-                callout(theme.hover())
+                callout(theme.hover)
                     .child(div().text_color(theme.text_1).child(format!(
                         "Connect {} to see pull requests and CI here.",
                         forge.name()
@@ -1689,12 +1878,8 @@ impl Detail {
             }),
             missing.then(|| {
                 let remove = project.clone();
-                callout(theme.danger.opacity(0.08))
-                    .child(
-                        div()
-                            .text_color(theme.danger)
-                            .child("The project's folder isn't there any more."),
-                    )
+                callout(theme.danger_soft)
+                    .child(div().text_color(theme.danger).children(entry.error.clone()))
                     .child(
                         crate::ui::button("forget", "Remove")
                             .small()
@@ -1706,9 +1891,36 @@ impl Detail {
                     )
                     .into_any_element()
             }),
+            entry.commits_above.map(|above| {
+                let project = project.clone();
+                callout(theme.danger_soft)
+                    .child(div().text_color(theme.danger).children(entry.error.clone()))
+                    .child(
+                        crate::ui::button("uncommit-above", "Uncommit, keep the changes")
+                            .small()
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                let project = project.clone();
+                                this.store.update(cx, |store, cx| {
+                                    store.apply(
+                                        &project,
+                                        "Uncommit",
+                                        Default::default(),
+                                        backend::history::UncommitAboveWorkspace {
+                                            workspace_commit: above.workspace_commit_id,
+                                        },
+                                        |_, (), _| {},
+                                        cx,
+                                    )
+                                })
+                            })),
+                    )
+                    .into_any_element()
+            }),
             // Which branch is the target is asked beside, so it isn't said here too.
             (entry.error.clone())
-                .filter(|_| !missing && entry.target_choice.is_none())
+                .filter(|_| {
+                    !missing && entry.target_choice.is_none() && entry.commits_above.is_none()
+                })
                 .map(|err| {
                     h_flex()
                         .gap(dp(8.))
@@ -1724,6 +1936,16 @@ impl Detail {
         let list = match upstream {
             // Its banner says so; reading its history fails with no more to say.
             _ if missing => div().flex_1().into_any_element(),
+            // There's no branch to pick until the first commit makes one.
+            _ if (entry.workspace.as_ref()).is_some_and(|ws| ws.tree.is_none()) => {
+                crate::ui::empty_state(
+                    None,
+                    "No commits yet",
+                    "Make the first one, then pick the branch your work goes into",
+                    theme,
+                    cx,
+                )
+            }
             None => crate::ui::loading_state("Loading…", theme, cx),
             // Picking the target again is the way out of what it most often is, as a target that
             // more than one local branch tracks.
@@ -1747,7 +1969,12 @@ impl Detail {
                 cx,
             ),
             // The page lists what it read, whether or not the project is expanded and loaded.
-            Some(upstream) if upstream.commits.is_empty() => {
+            // Not while it's being read again for a path, or when no commit changed that path.
+            Some(upstream)
+                if upstream.commits.is_empty()
+                    && !upstream.more
+                    && upstream.view.path.is_none() =>
+            {
                 // A target the remote renamed or deleted is said so, not as if never picked.
                 let lost = (entry.workspace.as_ref()).and_then(|ws| ws.lost_target.clone());
                 let unpushed = (entry.workspace.as_ref()).and_then(|ws| ws.target_branch.clone());
@@ -1801,6 +2028,7 @@ impl Detail {
                     |merge| rows_under(&self.upstream_scroll, merge, theme),
                 );
                 let shown = project.clone();
+                self.restore_side_top(&self.upstream_scroll, rows.len(), cx);
                 let list = side_list(
                     rows.len(),
                     &self.upstream_scroll,
@@ -1812,7 +2040,7 @@ impl Detail {
                     },
                     move |this, ix, theme, window, cx| {
                         let upstream = this.upstream_for(&shown)?;
-                        let solid = this.side_focus.is_focused(window);
+                        let solid = has_keys(&this.side_focus, window, cx);
                         // A commit, or one that merge `under` brought in. A click picks it and
                         // a right-click opens its menu.
                         let commit_row = |commit: &TargetCommit, under: Option<&TargetCommit>| {
@@ -1823,14 +2051,14 @@ impl Detail {
                             let selected = upstream.selected == Some(Picked::Commit(merge))
                                 && upstream.merged_pick == merged;
                             let on = selected && solid;
-                            // Landed, as everything here has, in purple, as the app marks what
-                            // landed; amber while the workspace doesn't have it yet.
+                            // Merged, as everything here has, in purple, as the app marks what
+                            // merged; amber while the workspace doesn't have it yet.
                             let glyph = match (on, incoming) {
                                 (true, _) => theme.text_inverted,
                                 (false, true) => theme.warn,
                                 (false, false) => theme.purple,
                             };
-                            // One that landed a pull request by the request, as Lite names it,
+                            // One that merged a pull request by the request,
                             // its number, merge commit and ID on hover.
                             let tip = (commit.review.as_ref()).map(|review| {
                                 let short = id.short();
@@ -1855,6 +2083,7 @@ impl Detail {
                                         ("target-commit-fold", ix),
                                         Some(open),
                                         ink,
+                                        &this.side_focus,
                                         cx,
                                         move |this, _, cx| this.toggle_merge(&project, id, cx),
                                     )
@@ -1901,7 +2130,7 @@ impl Detail {
                             Row::Heading(heading) => list_heading(heading.clone(), theme),
                             // Under a merge's commits' titles.
                             Row::Note(note) => h_flex()
-                                .h(dp(crate::ui::ROW_HEIGHT))
+                                .h(dp(theme.sizes.control))
                                 .mx(dp(6.))
                                 .pl(dp(8. + 14. + 8. + 12. + 8.))
                                 .child(guide(FOLD_MIDDLE, theme))
@@ -1937,6 +2166,16 @@ impl Detail {
                                     .on_click(cx.listener(move |this, _, _, cx| {
                                         this.load_upstream(&project, true, false, cx);
                                         cx.notify();
+                                    }))
+                                    .into_any_element()
+                            }
+                            Row::ChangedPath => {
+                                let project = shown.clone();
+                                list_row("target-changed-path", false, theme)
+                                    .text_color(theme.text_2)
+                                    .child("Search changed paths")
+                                    .on_click(cx.listener(move |this, _, _, cx| {
+                                        this.search_paths(&project, cx)
                                     }))
                                     .into_any_element()
                             }
@@ -1980,6 +2219,7 @@ impl Detail {
                     cx,
                 )
                 .child(self.filter_field(&self.target_filter, window, cx))
+                .children(self.render_path_filter(project, upstream, theme, cx))
                 .children(self.render_activity(project, upstream, theme, cx))
                 .child(list.flex_1().min_h(dp(LIST_MIN_HEIGHT)))
                 .children(self.render_people(project, upstream, window, cx))
@@ -2098,12 +2338,11 @@ fn activity_strip(
                     .w_full()
                     .h(dp((n as f32 / most as f32 * HEIGHT).max(2.)))
                     .rounded_t(fixed(1.))
-                    .bg(match (n, picked.is_empty(), inside, recent) {
-                        (0, ..) => theme.border_2,
-                        (_, false, true, _) => theme.pop,
-                        (_, false, false, _) => theme.pop.opacity(0.2),
-                        (_, true, _, true) => theme.pop,
-                        (_, true, _, false) => theme.pop.opacity(0.4),
+                    .map(|el| match (n, picked.is_empty(), inside, recent) {
+                        (0, ..) => el.bg(theme.border_2),
+                        (_, false, true, _) | (_, true, _, true) => el.bg(theme.pop),
+                        (_, false, false, _) => el.bg(theme.pop).opacity(0.2),
+                        (_, true, _, false) => el.bg(theme.pop).opacity(0.4),
                     }),
             )
         })

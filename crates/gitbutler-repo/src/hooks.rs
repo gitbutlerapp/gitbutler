@@ -23,7 +23,6 @@ pub struct ErrorData {
     pub error: String,
 }
 
-/// Hook result indicating either success or failure.
 #[derive(Serialize, PartialEq, Debug, Clone)]
 #[serde(tag = "status", rename_all = "lowercase")]
 pub enum HookResult {
@@ -32,8 +31,6 @@ pub enum HookResult {
     Failure(ErrorData),
 }
 
-/// Message hook result indicating either success, message, or failure.
-///
 /// A message hook can optionally mutate the message, so this special type is
 /// needed to distinguish between success, and success with message.
 #[derive(Serialize, PartialEq, Debug, Clone)]
@@ -79,6 +76,16 @@ pub fn commit_msg(ctx: &Context, mut message: String) -> Result<MessageHookResul
             }
         }
     }
+}
+
+/// Whether a `pre-commit` hook exists, so callers can skip building the tree it would check.
+pub fn has_pre_commit(ctx: &Context) -> Result<bool> {
+    #[expect(deprecated, reason = "libgit2 hook adapter boundary")]
+    Ok(git2_hooks::hook_available(
+        &*ctx.git2_repo.get()?,
+        husky_search_paths(ctx),
+        git2_hooks::HOOK_PRE_COMMIT,
+    )?)
 }
 
 pub fn pre_commit_with_tree(ctx: &Context, tree_id: gix::ObjectId) -> Result<HookResult> {
@@ -261,7 +268,6 @@ pub fn pre_push(
         return Ok(HookResult::NotConfigured);
     };
 
-    // Execute the pre-push hook with remote name and URL as arguments
     let mut child = std::process::Command::try_from({
         let mut prep = gix::command::prepare(&hook_path);
         if cfg!(windows) {

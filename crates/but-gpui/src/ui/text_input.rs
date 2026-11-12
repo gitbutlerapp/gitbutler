@@ -8,8 +8,8 @@ use std::ops::Range;
 use std::time::Duration;
 
 use gpui::{
-    App, Bounds, ClipboardItem, ContentMask, Context, CursorStyle, ElementId, ElementInputHandler,
-    Entity, EntityInputHandler, EventEmitter, FocusHandle, Focusable, GlobalElementId, KeyBinding,
+    App, Bounds, ContentMask, Context, CursorStyle, ElementId, ElementInputHandler, Entity,
+    EntityInputHandler, EventEmitter, FocusHandle, Focusable, GlobalElementId, KeyBinding,
     LayoutId, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PaintQuad, Pixels, Point,
     Role, ScrollHandle, SharedString, Style, Task, TextRun, UTF16Selection, UnderlineStyle, Window,
     WrappedLine, actions, div, fill, point, prelude::*, relative, size,
@@ -17,12 +17,29 @@ use gpui::{
 use unicode_segmentation::UnicodeSegmentation as _;
 
 use super::fixed;
-use crate::theme::Theme;
+use crate::clipboard;
+use crate::theme::{Highlight, Theme};
 
 actions!(
     text_input,
     [
-        SelectAll, Newline, Submit, Cancel, Paste, Cut, Copy, Undo, Redo
+        SelectAll,
+        Newline,
+        Submit,
+        Cancel,
+        Paste,
+        Cut,
+        Copy,
+        Undo,
+        Redo,
+        Save,
+        Indent,
+        Outdent,
+        MoveLineUp,
+        MoveLineDown,
+        DeleteLine,
+        SelectParagraphBackward,
+        SelectParagraphForward
     ]
 );
 
@@ -71,6 +88,60 @@ struct Delete {
 
 const CONTEXT: &str = "TextInput";
 
+impl Target {
+    fn words(self) -> &'static str {
+        match self {
+            Target::Left => "left",
+            Target::Right => "right",
+            Target::Up => "up",
+            Target::Down => "down",
+            Target::WordLeft => "word left",
+            Target::WordRight => "word right",
+            Target::LineStart => "line start",
+            Target::LineEnd => "line end",
+            Target::Start => "start",
+            Target::End => "end",
+        }
+    }
+}
+
+pub struct BoundKey {
+    /// What they do, as `Move` and `Delete` run keys for many targets.
+    pub title: String,
+    pub action: &'static str,
+    pub label: SharedString,
+}
+
+/// The keys [`bind_keys`] binds on this platform, for the command editor.
+pub fn bound_keys(cx: &App) -> Vec<BoundKey> {
+    let keymap = cx.key_bindings();
+    let keymap = keymap.borrow();
+    (keymap.bindings())
+        .filter(|binding| {
+            let in_field = binding
+                .predicate()
+                .is_some_and(|p| p.to_string() == CONTEXT);
+            in_field && binding.action().name().starts_with("text_input::")
+        })
+        .map(|binding| BoundKey {
+            title: title_of(binding.action()),
+            action: binding.action().name(),
+            label: super::keys_of(binding),
+        })
+        .collect()
+}
+
+fn title_of(action: &dyn gpui::Action) -> String {
+    if let Some(Move { to, select }) = action.as_any().downcast_ref::<Move>() {
+        let verb = if *select { "Select to" } else { "Move to" };
+        return format!("{verb} {}", to.words());
+    }
+    if let Some(Delete { to }) = action.as_any().downcast_ref::<Delete>() {
+        return format!("Delete to {}", to.words());
+    }
+    crate::commands::title_of(action.name())
+}
+
 /// The platform's text keys: on macOS the Cocoa text system's, ⌘ for lines, ⌥ for words and
 /// Emacs's ⌃ keys; elsewhere ctrl for words and the document, home and end for lines.
 pub fn bind_keys(cx: &mut App) {
@@ -104,6 +175,7 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("secondary-x", Cut, c),
         KeyBinding::new("secondary-z", Undo, c),
         KeyBinding::new("secondary-shift-z", Redo, c),
+        KeyBinding::new("secondary-s", Save, c),
     ]);
     #[cfg(target_os = "macos")]
     cx.bind_keys([
@@ -151,6 +223,7 @@ pub fn bind_keys(cx: &mut App) {
     ]);
 }
 
+#[derive(Clone, Copy)]
 pub enum InputEvent {
     Changed,
     /// Enter in a single-line field, or cmd-enter in any field.
@@ -158,15 +231,67 @@ pub enum InputEvent {
     Cancel,
 }
 
+/// What a [`TextInput::line_editor`] hands its owner: the keys that go past its one line.
+#[derive(Clone)]
+pub enum LineEvent {
+    /// Enter, splitting the line at the caret, at this byte offset.
+    Split(usize),
+    /// Backspace at the start, joining the line to the one before.
+    JoinBack,
+    /// Delete at the end, joining the next line to this one.
+    JoinNext,
+    /// ↑ (-1) or ↓ (1), to the line before or after, from this byte offset.
+    Step(isize, usize),
+    /// ⌘Z and ⇧⌘Z, which go back and forth through the edits of every line.
+    Undo,
+    Redo,
+    /// ⌘S.
+    Save,
+    /// Text pasted that runs over more than one line, as the clipboard has it.
+    Paste(String),
+    /// Tab (true) and ⇧Tab (false): the line indented a step, or outdented.
+    Indent(bool),
+    /// ⌥↑ (-1) and ⌥↓ (1): the line moved past the one before or after it.
+    MoveLine(isize),
+    /// ⇧⌘K: the line taken out.
+    DeleteLine,
+    /// ⌘↑ (true) and ⌘↓ (false): to the start of the first line, or the end of the last.
+    Edge(bool),
+    /// ⇧↑ (-1) and ⇧↓ (1): the selection carried on to the line before or after.
+    Select(isize),
+    /// ⇧⌘↑ (true) and ⇧⌘↓ (false): the selection carried on to the file's start or end.
+    SelectEdge(bool),
+    /// The selection carried past this line's start (-1) or end (1), as ⇧← at its start or ⇧→
+    /// at its end: onto the line before or after, at its end when `true`, else its start.
+    SelectAcross(isize, bool),
+    /// The caret moved within the line, or a click put it there: a selection over more lines
+    /// than this one goes.
+    Moved,
+    /// ⌘C, or with `cut` ⌘X, with what this line has selected: the owner copies that, or all
+    /// it has selected over more lines.
+    Copy {
+        cut: bool,
+        own: String,
+    },
+}
+
 pub struct TextInput {
     focus_handle: FocusHandle,
     content: String,
     placeholder: SharedString,
     multiline: bool,
+    /// Enter submits though the text wraps, for what's short but may not fit on a line.
+    enter_submits: bool,
     /// Draw `*` instead of the text, for passwords.
     masked: bool,
     /// Type a dash for a space, as in a branch name.
     dashes: bool,
+    /// One line of many, as a line of a diff being edited: what goes past its ends, Enter, and
+    /// ↑ and ↓ go to the owner as events. It draws tabs as four spaces, as the diff does.
+    line_editor: bool,
+    /// A line editor's text drawn as the diff draws it, with tabs as four spaces, and the text
+    /// it's for: once that's typed in, it's plain, as the diff shows a typed line.
+    styles: Option<(String, Vec<SpanStyle>)>,
     selected_range: Range<usize>,
     selection_reversed: bool,
     marked_range: Option<Range<usize>>,
@@ -187,9 +312,12 @@ pub struct TextInput {
     is_selecting: bool,
     cursor_visible: bool,
     blink: Task<()>,
+    /// `blink` runs, which it stops doing once the field loses the keys.
+    blinking: bool,
 }
 
 impl EventEmitter<InputEvent> for TextInput {}
+impl EventEmitter<LineEvent> for TextInput {}
 
 impl TextInput {
     pub fn new(
@@ -203,8 +331,11 @@ impl TextInput {
             content: String::new(),
             placeholder: placeholder.into(),
             multiline,
+            enter_submits: false,
             masked: false,
             dashes: false,
+            line_editor: false,
+            styles: None,
             selected_range: 0..0,
             selection_reversed: false,
             marked_range: None,
@@ -221,7 +352,42 @@ impl TextInput {
             is_selecting: false,
             cursor_visible: true,
             blink: Task::ready(()),
+            blinking: false,
         }
+    }
+
+    /// Make it one line of many, which hands what goes past its ends to its owner as
+    /// [`LineEvent`]s.
+    pub fn line_editor(mut self) -> Self {
+        self.line_editor = true;
+        self
+    }
+
+    /// Draw the text as it is now with `styles`, over it as shown, tabs as four spaces, as a
+    /// diff's line colours its syntax.
+    pub fn set_styles(&mut self, styles: Vec<SpanStyle>) {
+        self.styles = Some((self.content.clone(), styles));
+    }
+
+    /// Where byte `raw` of the text is in it as drawn: a line editor's tabs are four spaces.
+    fn shown_at(&self, raw: usize) -> usize {
+        match self.line_editor {
+            true => raw + TAB_EXTRA * tabs_before(&self.content, raw),
+            false => raw,
+        }
+    }
+
+    /// The byte of the text at `shown` in it as drawn: see [`raw_for`].
+    fn raw_at(&self, shown: usize) -> usize {
+        match self.line_editor {
+            true => raw_for(&self.content, shown),
+            false => shown,
+        }
+    }
+
+    pub fn enter_submits(mut self) -> Self {
+        self.enter_submits = true;
+        self
     }
 
     pub fn masked(mut self) -> Self {
@@ -246,9 +412,43 @@ impl TextInput {
         &self.content
     }
 
+    /// The byte offset of the caret.
+    pub fn caret(&self) -> usize {
+        self.cursor_offset()
+    }
+
+    /// Where the selection began, which the caret's end of it moves away from.
+    pub fn anchor(&self) -> usize {
+        match self.selection_reversed {
+            true => self.selected_range.end,
+            false => self.selected_range.start,
+        }
+    }
+
+    /// Select `range`, the caret at its start when `reversed`, else at its end.
+    pub fn select_range(&mut self, range: Range<usize>, reversed: bool, cx: &mut Context<Self>) {
+        let len = self.content.len();
+        let at = |n: usize| {
+            (0..=n.min(len))
+                .rev()
+                .find(|&n| self.content.is_char_boundary(n))
+                .unwrap_or(0)
+        };
+        self.selected_range = at(range.start)..at(range.end);
+        self.selection_reversed = reversed;
+        cx.notify();
+    }
+
+    /// Take out what's selected, as typing over it would.
+    pub fn delete_selected(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.selected_range.is_empty() {
+            self.insert("", window, cx);
+        }
+    }
+
     pub fn set_text(&mut self, text: impl Into<String>, cx: &mut Context<Self>) {
         self.remember(Edit::Set);
-        self.content = cleaned(&text.into(), self.multiline);
+        self.content = cleaned(&text.into(), self.multiline || self.line_editor);
         self.selected_range = self.content.len()..self.content.len();
         self.marked_range = None;
         cx.emit(InputEvent::Changed);
@@ -262,6 +462,28 @@ impl TextInput {
         (self.undo, self.redo) = (Vec::new(), Vec::new());
     }
 
+    /// Show `text` as the field was left, which nothing needs to hear of: no one typed it.
+    pub fn restore(&mut self, text: impl Into<String>, cx: &mut Context<Self>) {
+        self.content = cleaned(&text.into(), self.multiline || self.line_editor);
+        self.selected_range = self.content.len()..self.content.len();
+        self.marked_range = None;
+        (self.undo, self.redo) = (Vec::new(), Vec::new());
+        self.break_undo_run();
+        cx.notify();
+    }
+
+    /// Put the caret at byte `offset`, or the end of the text before it, as where a field opens
+    /// on lines it was asked for.
+    pub fn place_caret(&mut self, offset: usize, cx: &mut Context<Self>) {
+        let at = (0..=offset.min(self.content.len()))
+            .rev()
+            .find(|&at| self.content.is_char_boundary(at))
+            .unwrap_or(0);
+        self.selected_range = at..at;
+        self.selection_reversed = false;
+        cx.notify();
+    }
+
     pub fn select_all_text(&mut self, cx: &mut Context<Self>) {
         self.selected_range = 0..self.content.len();
         self.selection_reversed = false;
@@ -272,6 +494,7 @@ impl TextInput {
     /// redraws it twice a second.
     fn restart_blink(&mut self, window: &Window, cx: &mut Context<Self>) {
         self.cursor_visible = true;
+        self.blinking = true;
         self.blink = cx.spawn_in(window, async move |this, cx| {
             loop {
                 cx.background_executor()
@@ -282,6 +505,7 @@ impl TextInput {
                         this.focus_handle.is_focused(window) && window.is_window_active();
                     // Leave the caret on for when focus comes back, or the next key or click.
                     this.cursor_visible = !blinking || !this.cursor_visible;
+                    this.blinking = blinking;
                     cx.notify();
                     blinking
                 });
@@ -380,7 +604,11 @@ impl TextInput {
     }
 
     fn position_for_offset(&self, offset: usize) -> Option<Point<Pixels>> {
-        position_in(&self.last_layout, self.last_line_height, offset)
+        position_in(
+            &self.last_layout,
+            self.last_line_height,
+            self.shown_at(offset),
+        )
     }
 
     /// `offset` clamped into the text and onto a character boundary.
@@ -405,7 +633,7 @@ impl TextInput {
                 let index = match line.closest_index_for_position(local, self.last_line_height) {
                     Ok(index) | Err(index) => index,
                 };
-                return self.clamp(start + index);
+                return self.clamp(self.raw_at(start + index));
             }
             y += height;
         }
@@ -443,6 +671,41 @@ impl TextInput {
     }
 
     fn move_cursor(&mut self, action: &Move, window: &mut Window, cx: &mut Context<Self>) {
+        if self.line_editor && action.select {
+            let at = self.cursor_offset();
+            match action.to {
+                // Past the line's ends, onto the next, as in an editor.
+                Target::Left | Target::WordLeft | Target::LineStart if at == 0 => {
+                    return cx.emit(LineEvent::SelectAcross(-1, true));
+                }
+                Target::Right | Target::WordRight | Target::LineEnd if at == self.content.len() => {
+                    return cx.emit(LineEvent::SelectAcross(1, false));
+                }
+                _ => {}
+            }
+            match action.to {
+                Target::Up => return cx.emit(LineEvent::Select(-1)),
+                Target::Down => return cx.emit(LineEvent::Select(1)),
+                Target::Start => return cx.emit(LineEvent::SelectEdge(true)),
+                Target::End => return cx.emit(LineEvent::SelectEdge(false)),
+                _ => {}
+            }
+        }
+        if self.line_editor && !action.select {
+            let step = match action.to {
+                Target::Up => Some(-1),
+                Target::Down => Some(1),
+                _ => None,
+            };
+            if let Some(step) = step {
+                return cx.emit(LineEvent::Step(step, self.cursor_offset()));
+            }
+            match action.to {
+                Target::Start => return cx.emit(LineEvent::Edge(true)),
+                Target::End => return cx.emit(LineEvent::Edge(false)),
+                _ => {}
+            }
+        }
         if action.select {
             return self.select_to(self.target(action.to), window, cx);
         }
@@ -453,6 +716,9 @@ impl TextInput {
             to => self.target(to),
         };
         self.move_to(target, window, cx);
+        if self.line_editor {
+            cx.emit(LineEvent::Moved);
+        }
     }
 
     fn select_all(&mut self, _: &SelectAll, window: &mut Window, cx: &mut Context<Self>) {
@@ -484,11 +750,48 @@ impl TextInput {
     }
 
     fn undo(&mut self, _: &Undo, _: &mut Window, cx: &mut Context<Self>) {
-        self.step(true, cx)
+        match self.line_editor {
+            true => cx.emit(LineEvent::Undo),
+            false => self.step(true, cx),
+        }
     }
 
     fn redo(&mut self, _: &Redo, _: &mut Window, cx: &mut Context<Self>) {
-        self.step(false, cx)
+        match self.line_editor {
+            true => cx.emit(LineEvent::Redo),
+            false => self.step(false, cx),
+        }
+    }
+
+    /// ⇧⌥↑ and ⇧⌥↓ in a line editor, as macOS selects by paragraph: to this line's start, or
+    /// `forward` its end, and from there on to the line before's start or the next's end.
+    fn select_paragraph(&mut self, forward: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.line_editor {
+            return cx.propagate();
+        }
+        let (at, end) = (self.cursor_offset(), self.content.len());
+        match (forward, at) {
+            (false, 0) => cx.emit(LineEvent::SelectAcross(-1, false)),
+            (true, at) if at == end => cx.emit(LineEvent::SelectAcross(1, true)),
+            (false, _) => self.select_to(0, window, cx),
+            (true, _) => self.select_to(end, window, cx),
+        }
+    }
+
+    /// A line editor's line keys, which its key context alone binds: see [`LineEvent`].
+    fn line_action(&mut self, event: LineEvent, cx: &mut Context<Self>) {
+        match self.line_editor {
+            true => cx.emit(event),
+            false => cx.propagate(),
+        }
+    }
+
+    /// Only a line editor's owner saves: in any other field ⌘S goes on to what's around it.
+    fn save(&mut self, _: &Save, _: &mut Window, cx: &mut Context<Self>) {
+        match self.line_editor {
+            true => cx.emit(LineEvent::Save),
+            false => cx.propagate(),
+        }
     }
 
     /// Go back to the text before the last change, or with `back` false forward again.
@@ -512,6 +815,18 @@ impl TextInput {
     }
 
     fn delete(&mut self, action: &Delete, window: &mut Window, cx: &mut Context<Self>) {
+        if self.line_editor && self.selected_range.is_empty() {
+            let at = self.cursor_offset();
+            match action.to {
+                Target::Left | Target::WordLeft | Target::LineStart if at == 0 => {
+                    return cx.emit(LineEvent::JoinBack);
+                }
+                Target::Right | Target::WordRight | Target::LineEnd if at == self.content.len() => {
+                    return cx.emit(LineEvent::JoinNext);
+                }
+                _ => {}
+            }
+        }
         // Set directly rather than with `select_to`, which would end the run of deletes that
         // undo takes back in one step.
         if self.selected_range.is_empty() {
@@ -525,7 +840,10 @@ impl TextInput {
     }
 
     fn newline(&mut self, _: &Newline, window: &mut Window, cx: &mut Context<Self>) {
-        if self.multiline {
+        if self.line_editor {
+            return cx.emit(LineEvent::Split(self.cursor_offset()));
+        }
+        if self.multiline && !self.enter_submits {
             self.insert("\n", window, cx);
         } else {
             cx.emit(InputEvent::Submit);
@@ -546,21 +864,38 @@ impl TextInput {
     }
 
     fn paste(&mut self, _: &Paste, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(text) = cx.read_from_clipboard().and_then(|item| item.text()) {
+        if let Some(text) = clipboard::text(cx) {
+            if self.line_editor && text.contains(['\n', '\r']) {
+                return cx.emit(LineEvent::Paste(text));
+            }
             self.insert(&text, window, cx);
         }
     }
 
     fn copy(&mut self, _: &Copy, _: &mut Window, cx: &mut Context<Self>) {
+        if self.line_editor {
+            let own = (self.content.get(self.selected_range.clone())).unwrap_or_default();
+            return cx.emit(LineEvent::Copy {
+                cut: false,
+                own: own.to_owned(),
+            });
+        }
         if !self.selected_range.is_empty()
             && !self.masked
             && let Some(text) = self.content.get(self.selected_range.clone())
         {
-            cx.write_to_clipboard(ClipboardItem::new_string(text.to_string()));
+            clipboard::copy_silently(text.to_string(), cx);
         }
     }
 
     fn cut(&mut self, _: &Cut, window: &mut Window, cx: &mut Context<Self>) {
+        if self.line_editor {
+            let own = (self.content.get(self.selected_range.clone())).unwrap_or_default();
+            return cx.emit(LineEvent::Copy {
+                cut: true,
+                own: own.to_owned(),
+            });
+        }
         if !self.selected_range.is_empty() && !self.masked {
             self.copy(&Copy, window, cx);
             self.insert("", window, cx)
@@ -573,6 +908,10 @@ impl TextInput {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        // A line editor's owner places the caret and selects, as its lines are one text.
+        if self.line_editor {
+            return;
+        }
         self.is_selecting = true;
         let offset = self.offset_for_mouse(event.position);
         // Three clicks take the paragraph, as in the platform's fields.
@@ -645,7 +984,7 @@ impl TextInput {
     /// the selection, and return the byte range it now takes.
     fn splice(&mut self, range_utf16: Option<Range<usize>>, new_text: &str) -> Range<usize> {
         // Tab isn't typing in a one-line field, as a branch name, as in the platform's own.
-        if !self.multiline && new_text == "\t" {
+        if !self.multiline && !self.line_editor && new_text == "\t" {
             let at = self.cursor_offset();
             return at..at;
         }
@@ -653,7 +992,7 @@ impl TextInput {
             " " if self.dashes => "-",
             text => text,
         };
-        let new_text = &cleaned(new_text, self.multiline);
+        let new_text = &cleaned(new_text, self.multiline || self.line_editor);
         let range = range_utf16
             .map(|range_utf16| self.range_from_utf16(&range_utf16))
             .or(self.marked_range.clone())
@@ -822,7 +1161,12 @@ impl Focusable for TextInput {
 }
 
 impl Render for TextInput {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // Back with the keys, as after a press the list around it took them a moment, or in a
+        // field made with them: the caret blinks again. Focus moving draws the window again.
+        if !self.blinking && self.focus_handle.is_focused(window) && window.is_window_active() {
+            self.restart_blink(window, cx);
+        }
         super::shown_when_focused(div().id("text-input"))
             .role(if self.multiline {
                 Role::MultilineTextInput
@@ -830,7 +1174,11 @@ impl Render for TextInput {
                 Role::TextInput
             })
             .aria_label(self.placeholder.clone())
-            .key_context(CONTEXT)
+            // A line editor's own keys, as Tab indenting, bind to it alone.
+            .key_context(match self.line_editor {
+                true => "TextInput LineEditor",
+                false => CONTEXT,
+            })
             .track_focus(&self.focus_handle)
             .cursor(CursorStyle::IBeam)
             .w_full()
@@ -845,6 +1193,32 @@ impl Render for TextInput {
             .on_action(cx.listener(Self::copy))
             .on_action(cx.listener(Self::undo))
             .on_action(cx.listener(Self::redo))
+            .on_action(cx.listener(Self::save))
+            .on_action(
+                cx.listener(|this, _: &SelectParagraphBackward, window, cx| {
+                    this.select_paragraph(false, window, cx)
+                }),
+            )
+            .on_action(cx.listener(|this, _: &SelectParagraphForward, window, cx| {
+                this.select_paragraph(true, window, cx)
+            }))
+            .on_action(
+                cx.listener(|this, _: &Indent, _, cx| {
+                    this.line_action(LineEvent::Indent(true), cx)
+                }),
+            )
+            .on_action(cx.listener(|this, _: &Outdent, _, cx| {
+                this.line_action(LineEvent::Indent(false), cx)
+            }))
+            .on_action(cx.listener(|this, _: &MoveLineUp, _, cx| {
+                this.line_action(LineEvent::MoveLine(-1), cx)
+            }))
+            .on_action(cx.listener(|this, _: &MoveLineDown, _, cx| {
+                this.line_action(LineEvent::MoveLine(1), cx)
+            }))
+            .on_action(cx.listener(|this, _: &DeleteLine, _, cx| {
+                this.line_action(LineEvent::DeleteLine, cx)
+            }))
             .on_mouse_down(MouseButton::Left, cx.listener(Self::on_mouse_down))
             .on_mouse_up(MouseButton::Left, cx.listener(Self::on_mouse_up))
             .on_mouse_up_out(MouseButton::Left, cx.listener(Self::on_mouse_up))
@@ -925,23 +1299,34 @@ impl Element for TextElement {
         } else if input.masked {
             // One `*` per byte keeps every offset into the text valid for the layout.
             "*".repeat(input.content.len()).into()
+        } else if input.line_editor {
+            input.content.replace('\t', TAB).into()
         } else {
             input.content.clone().into()
         };
+        // Its syntax, while it's as it was when given them.
+        let styles = (input.styles.as_ref())
+            .filter(|(text, _)| !is_empty && *text == input.content)
+            .map(|(_, styles)| styles.as_slice());
         let color = if is_empty { theme.text_3 } else { style.color };
 
         let mut lines = Vec::new();
         let mut offset = 0;
         for raw in text.split('\n') {
-            let mut runs = vec![TextRun {
+            let base = TextRun {
                 len: raw.len(),
                 font: style.font(),
                 color,
                 background_color: None,
                 underline: None,
                 strikethrough: None,
-            }];
+            };
+            let mut runs = match styles {
+                Some(styles) => styled_runs(raw.len(), &base, styles),
+                None => vec![base],
+            };
             if let Some(marked) = input.marked_range.as_ref().filter(|_| !is_empty) {
+                let marked = input.shown_at(marked.start)..input.shown_at(marked.end);
                 let line_range = offset..offset + raw.len();
                 let start = marked.start.max(line_range.start);
                 let end = marked.end.min(line_range.end);
@@ -1000,14 +1385,15 @@ impl Element for TextElement {
             if is_empty {
                 Some(point(Pixels::ZERO, Pixels::ZERO))
             } else {
-                position_in(&lines, line_height, target)
+                position_in(&lines, line_height, input.shown_at(target))
             }
         };
 
         // A single line longer than the field slides sideways, as little as keeps the caret
-        // in it.
+        // in it. A line editor's doesn't: it scrolls with the lines around it, in the box it's
+        // `scrolled_by`, so it stays lined up with them.
         let scroll_x = match (input.multiline, lines.first()) {
-            (false, Some((_, line))) => {
+            (false, Some((_, line))) if !input.line_editor => {
                 let room = bounds.size.width - theme.scaled(2.);
                 let caret = position(cursor_offset).map_or(Pixels::ZERO, |at| at.x);
                 let slack = (line.size(line_height).width - room).max(Pixels::ZERO);
@@ -1028,7 +1414,15 @@ impl Element for TextElement {
             }
         } else if let (Some(start), Some(end)) = (position(selected.start), position(selected.end))
         {
-            let selection_color = theme.pop.opacity(if focused { 0.25 } else { 0.12 });
+            // A diff line being edited selects as the diff's lines do, so a selection over
+            // more lines is one color; on a green line pop's would read as green.
+            let selection_color = match input.line_editor {
+                true => theme.highlight(Highlight::Words),
+                false => theme.highlight(match focused {
+                    true => Highlight::Selected,
+                    false => Highlight::SelectedUnfocused,
+                }),
+            };
             let mut row_top = start.y;
             while row_top <= end.y {
                 let left = if row_top == start.y {
@@ -1116,9 +1510,11 @@ impl Element for TextElement {
         });
         let line_height = prepaint.line_height;
         let lines = std::mem::take(&mut prepaint.lines);
+        // How far past the caret a line editor's box keeps in view.
+        let room = Theme::get(cx).scaled(24.);
         self.input.update(cx, |input, _cx| {
             // Once the caret moved, scroll the box just enough to show it.
-            let caret = position_in(&lines, line_height, input.cursor_offset());
+            let caret = position_in(&lines, line_height, input.shown_at(input.cursor_offset()));
             let focused = input.focus_handle.is_focused(window);
             if let Some((scroll, shown)) = &mut input.scroll
                 && focused
@@ -1135,6 +1531,16 @@ impl Element for TextElement {
                     offset.y -= bottom - (view.bottom() - inset);
                 } else if top < view.top() + inset {
                     offset.y += view.top() + inset - top;
+                }
+                // A line editor's box scrolls sideways, with the lines around it: as little as
+                // shows the caret, a few characters' room past it.
+                if input.line_editor {
+                    let x = bounds.left() + caret.x;
+                    if x + room > view.right() {
+                        offset.x -= x + room - view.right();
+                    } else if x < view.left() + room {
+                        offset.x = (offset.x + view.left() + room - x).min(Pixels::ZERO);
+                    }
                 }
                 if offset != scroll.offset() {
                     scroll.set_offset(offset);
@@ -1153,6 +1559,76 @@ impl Element for TextElement {
 /// The height a laid-out line takes; an empty one still takes a row.
 fn row_height(line: &WrappedLine, line_height: Pixels) -> Pixels {
     line.size(line_height).height.max(line_height)
+}
+
+/// Bytes of a line editor's text as drawn, and how they look.
+pub type SpanStyle = (Range<usize>, gpui::HighlightStyle);
+
+/// How a line editor draws a tab, as the diff's lines do, and the bytes that adds.
+const TAB: &str = "    ";
+const TAB_EXTRA: usize = TAB.len() - 1;
+
+/// The byte of `text` at byte `shown` of it drawn with tabs as [`TAB`], the nearer end of a
+/// tab drawn there.
+fn raw_for(text: &str, shown: usize) -> usize {
+    let mut at = 0;
+    for (ix, c) in text.char_indices() {
+        let width = match c {
+            '\t' => TAB.len(),
+            c => c.len_utf8(),
+        };
+        if shown < at + width {
+            return match c == '\t' && shown - at > width / 2 {
+                true => ix + 1,
+                false => ix,
+            };
+        }
+        at += width;
+    }
+    text.len()
+}
+
+fn tabs_before(text: &str, at: usize) -> usize {
+    (text.char_indices())
+        .take_while(|(ix, _)| *ix < at)
+        .filter(|(_, c)| *c == '\t')
+        .count()
+}
+
+/// Runs over `len` bytes like `base`, with `styles` over theirs, as a diff line's syntax: the
+/// first style over a byte wins, and what none covers stays as `base`.
+fn styled_runs(len: usize, base: &TextRun, styles: &[SpanStyle]) -> Vec<TextRun> {
+    let mut runs = Vec::new();
+    let mut at = 0;
+    let push = |runs: &mut Vec<TextRun>, len: usize, style: Option<&gpui::HighlightStyle>| {
+        if len == 0 {
+            return;
+        }
+        let mut run = TextRun {
+            len,
+            ..base.clone()
+        };
+        if let Some(style) = style {
+            run.color = style.color.unwrap_or(run.color);
+            run.background_color = style.background_color.or(run.background_color);
+            run.font.weight = style.font_weight.unwrap_or(run.font.weight);
+            run.font.style = style.font_style.unwrap_or(run.font.style);
+        }
+        runs.push(run);
+    };
+    let mut sorted: Vec<&SpanStyle> = styles.iter().collect();
+    sorted.sort_by_key(|(range, _)| range.start);
+    for (range, style) in sorted {
+        let (start, end) = (range.start.max(at), range.end.min(len));
+        if start >= end {
+            continue;
+        }
+        push(&mut runs, start - at, None);
+        push(&mut runs, end - start, Some(style));
+        at = end;
+    }
+    push(&mut runs, len.saturating_sub(at), None);
+    runs
 }
 
 /// Where byte `offset` falls in `lines`, from their top left.
@@ -1186,7 +1662,43 @@ fn cleaned(text: &str, multiline: bool) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::cleaned;
+    use super::{TAB, cleaned, raw_for, styled_runs, tabs_before};
+
+    #[test]
+    fn a_tab_drawn_as_spaces_maps_back_to_its_byte() {
+        let text = "\t\tx = 1";
+        assert_eq!(tabs_before(text, 2), 2, "both tabs are before the x");
+        let x = 2 * TAB.len();
+        assert_eq!(raw_for(text, x), 2, "the x is drawn after two tabs' spaces");
+        assert_eq!(raw_for(text, 1), 0, "near a tab's start is before it");
+        assert_eq!(raw_for(text, 3), 1, "near its end is after it");
+        assert_eq!(raw_for(text, 99), text.len(), "past the end is the end");
+    }
+
+    #[test]
+    fn styles_split_the_line_into_runs() {
+        let base = gpui::TextRun {
+            len: 10,
+            font: gpui::font("Zed Mono"),
+            color: gpui::black(),
+            background_color: None,
+            underline: None,
+            strikethrough: None,
+        };
+        let red = gpui::HighlightStyle {
+            color: Some(gpui::red()),
+            ..Default::default()
+        };
+        let runs = styled_runs(10, &base, &[(2..5, red)]);
+        let lens: Vec<usize> = runs.iter().map(|run| run.len).collect();
+        assert_eq!(lens, [2, 3, 5], "plain, styled, plain");
+        assert_eq!(
+            runs[1].color,
+            gpui::red(),
+            "the styled run takes its colour"
+        );
+        assert_eq!(runs[2].color, gpui::black(), "the rest keeps the base");
+    }
 
     #[test]
     fn pasted_line_breaks_fit_the_field() {

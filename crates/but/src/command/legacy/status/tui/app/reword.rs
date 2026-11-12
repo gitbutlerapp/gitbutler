@@ -180,7 +180,6 @@ impl App {
         Ok(())
     }
 
-    /// Handles key input while inline reword mode is active.
     fn handle_reword_inline_input(&mut self, ev: Event) {
         if let Mode::InlineReword(inline_reword_mode) = self
             .mode

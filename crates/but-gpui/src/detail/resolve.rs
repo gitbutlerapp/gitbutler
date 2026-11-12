@@ -16,7 +16,8 @@ use crate::app::AppView;
 use crate::backend::conflicts::{self, Keep};
 use crate::backend::{self, Branch, Checkout, Commit, CommitId, Conflict, FullName, Workspace, ai};
 use crate::state::{Overlay, ProjectId, Rereads, Selection, snack};
-use crate::theme::Theme;
+use crate::theme::{Hue, Theme};
+use crate::transfer::{Move, Op};
 use crate::ui::conflict::{self, Actions, Kept, Name, Part, Pick};
 use crate::ui::diff::{DiffRow, Layout, OnToggle};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -101,7 +102,6 @@ impl Detail {
             .then(|| (diff.key.project.clone(), conflicted))
     }
 
-    /// The conflicted commit shown, and its project.
     pub(super) fn conflicted_commit(&self) -> Option<(ProjectId, CommitId)> {
         match self.conflicted()? {
             (project, Conflicted::Commit(id)) => Some((project, id)),
@@ -109,14 +109,28 @@ impl Detail {
         }
     }
 
-    /// Whether the diff shown has conflicts to pick.
     pub fn shows_conflicts(&self) -> bool {
         self.conflicts().next().is_some()
     }
 
-    /// The key context of the detail: with conflicts to pick, and with picks to apply.
-    pub(super) fn key_context(&self) -> &'static str {
+    /// The key context of the detail: with conflicts to pick, and with picks to apply, while
+    /// a file is edited in the diff, while the composer's open, or while a commit or an amend is placed without it, as with the
+    /// navigator hidden.
+    pub(super) fn key_context(&self, cx: &App) -> &'static str {
+        let store = self.store.read(cx);
+        let held = (store.moving.as_ref()).filter(|moving| !moving.dragged(store));
+        let placing = matches!(held, Some(Move { op: Op::Commit, .. }));
+        let amending = held.is_some_and(Move::amending);
         match (self.conflicts().next(), self.resolving.keeping.is_empty()) {
+            // Esc puts the caret away, or closes the file it's away from, rather than go back.
+            (None, _) if self.has_caret() || self.esc_closes_edit() => "Diff Editing",
+            (None, _) if self.composing => "Diff Composer",
+            (None, _) if placing => "Diff Committing",
+            (None, _) if amending => "Diff Amending",
+            (None, _) if self.showing_brief() => "Diff Brief",
+            (None, _) if self.back_to_brief() => "Diff BriefBack",
+            // Beside a commit's changes, the graph's column takes its keys, and the diff its own.
+            (None, _) if self.showing_graph() && !self.graph_beside() => "Diff Graph",
             (None, _) => "Diff",
             (Some(_), true) => "Diff Conflicts",
             (Some(_), false) => "Diff Conflicts Picked",
@@ -146,7 +160,6 @@ impl Detail {
             })
     }
 
-    /// How `conflict`, of the file at `path`, lays out.
     pub(super) fn conflict_view(&self, path: &str, conflict: &Conflict) -> conflict::View {
         let r = &self.resolving;
         let key = key(path, conflict);
@@ -225,7 +238,10 @@ impl Detail {
         let switched = now != self.resolving.of;
         if switched {
             let mut others = std::mem::take(&mut self.resolving.others);
-            let left = std::mem::take(&mut self.resolving);
+            let mut left = std::mem::take(&mut self.resolving);
+            // A suggestion streams into what's shown, so one under way stops here, or it would
+            // land in this one, or show as under way forever on coming back.
+            left.suggesting.clear();
             if let Some(of) = left.of.clone().filter(|_| !left.keeping.is_empty()) {
                 others.insert(of, left);
             }
@@ -272,7 +288,6 @@ impl Detail {
             .map(|(ix, _, c)| (ix, c))
     }
 
-    /// The row showing `part` of conflict `key`.
     fn conflict_row_ix(&self, key: &Key, part: Part) -> Option<usize> {
         let (file, found) = self.find_conflict(key)?;
         let row = DiffRow::Conflict {
@@ -529,12 +544,22 @@ impl Detail {
             .map(|(file, c, _)| key(&file.path, c))
             .collect();
         let detail = cx.entity().downgrade();
+        let of = self.resolving.of.clone();
         let forget = move |cx: &mut App| {
             (detail.update(cx, |detail, _| {
+                // Of those applied, as another may be shown by now.
+                let shown = &mut detail.resolving;
+                let resolving = match shown.of == of {
+                    true => shown,
+                    false => match of.as_ref().and_then(|of| shown.others.get_mut(of)) {
+                        Some(left) => left,
+                        None => return,
+                    },
+                };
                 for id in &applied {
-                    detail.resolving.keeping.remove(id);
-                    detail.resolving.suggesting.remove(id);
-                    detail.resolving.ancestors.remove(id);
+                    resolving.keeping.remove(id);
+                    resolving.suggesting.remove(id);
+                    resolving.ancestors.remove(id);
                 }
             }))
             .ok();
@@ -778,7 +803,7 @@ impl Detail {
             .map(|(_, _, c)| self.side_names(c, cx))
             .unwrap_or_default();
         let apply = (matches!(conflicted, Conflicted::Files(_)) && decided > 0).then(|| {
-            let style = banner_action("apply-resolutions", "Apply", theme);
+            let style = banner_action("apply-resolutions", "Apply");
             apply_with(style, decided, entity)
         });
         let (title, detail, action): (String, String, Option<AnyElement>) = match older {
@@ -790,7 +815,7 @@ impl Detail {
                      of these."
                         .into(),
                     Some(
-                        banner_action("go-older", "Go to it", theme)
+                        banner_action("go-older", "Go to it")
                             .on_click(move |_, _, cx| {
                                 store_entity.update(cx, |store, cx| {
                                     store
@@ -886,7 +911,7 @@ fn oldest_first(workspace: &Workspace, commit: CommitId) -> Vec<CommitId> {
 
 /// The oldest conflicted commit from branch `ref_name` down the lanes it rests on, and the
 /// branch holding it. None when that's a linked worktree's, as its conflicts resolve in it.
-pub(super) fn oldest_conflict<'a>(
+pub fn oldest_conflict<'a>(
     workspace: &'a Workspace,
     ref_name: &FullName,
 ) -> Option<(&'a Branch, &'a Commit)> {
@@ -924,7 +949,7 @@ fn stack_after(workspace: &Workspace, commit: CommitId) -> Vec<(CommitId, String
         .collect()
 }
 
-/// A condition on the warn ground, as ui-react's `Banner`: its line, beside the one fix.
+/// A condition on the warn ground, as but-ui-react's `Banner`: its line, beside the one fix.
 /// The sentence that explains it shows on hover, as the column it sits in is narrow.
 pub(super) fn warn_banner(
     title: impl Into<gpui::SharedString>,
@@ -939,8 +964,8 @@ pub(super) fn warn_banner(
         .pl(dp(10.))
         .pr(dp(8.))
         .py(dp(6.))
-        .rounded(dp(6.))
-        .bg(theme.warn.opacity(0.1))
+        .rounded(dp(theme.shape.card))
+        .bg(theme.warn_soft)
         .text_color(theme.warn)
         .tooltip(Tooltip::text(detail))
         .child(small_icon(Icon::Warning).text_color(theme.warn))
@@ -957,15 +982,11 @@ pub(super) fn warn_banner(
 }
 
 /// A banner's fix: a small ghost button in the banner's colour.
-pub(super) fn banner_action(
-    id: &'static str,
-    label: &'static str,
-    theme: &Theme,
-) -> crate::ui::Button {
+pub(super) fn banner_action(id: &'static str, label: &'static str) -> crate::ui::Button {
     button(id, label)
         .small()
         .style(ButtonStyle::Ghost)
-        .tint(theme.warn)
+        .tint(Hue::Warn)
 }
 
 impl AppView {
@@ -990,7 +1011,8 @@ impl AppView {
     /// selected branch or commit's stack.
     fn conflict_to_resolve(&self, cx: &App) -> Option<(ProjectId, CommitId)> {
         let store = self.store.read(cx);
-        let selection = (store.selection.as_ref()).filter(|s| !store.in_linked(s))?;
+        let selection = self.selection(cx).filter(|s| !store.in_linked(s))?;
+        let selection = &selection;
         let workspace = store.workspace(selection.project())?;
         let conflicted =
             |id: CommitId| workspace.find_commit(id).is_some_and(|(_, c)| c.conflicted);
@@ -1089,10 +1111,6 @@ mod tests {
     use crate::backend::model::build::{branch, commit_name, id, workspace, worktree};
 
     #[test]
-    #[expect(
-        clippy::disallowed_methods,
-        reason = "a test, and snapbox looks for the file its snapshot is in"
-    )]
     fn conflicts_resolve_oldest_first_down_the_lanes_a_lane_rests_on() {
         let ws = workspace(
             vec![vec![

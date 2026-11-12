@@ -11,7 +11,7 @@ fn uses_the_promoted_diff_arguments() {
         panic!("expected diff command. Got {cmd:?}");
     };
 
-    assert!(args.target.is_some(), "the diff target should be parsed");
+    assert_eq!(args.targets.len(), 1, "the diff target should be parsed");
 }
 
 #[test]

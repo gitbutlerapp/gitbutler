@@ -6,12 +6,11 @@ use termtree::Tree;
 
 type StringTree = Tree<String>;
 
-/// Visualize `graph` as a tree.
 pub fn graph_workspace(workspace: &but_graph::Workspace) -> StringTree {
     graph_workspace_inner(workspace, None)
 }
 
-/// Visualize `graph` as a tree, and remap random stack ids to something deterministic.
+/// Remaps random stack ids to something deterministic.
 pub fn graph_workspace_determinisitcally(workspace: &but_graph::Workspace) -> StringTree {
     graph_workspace_inner(workspace, Some(Default::default()))
 }
@@ -82,7 +81,6 @@ fn tree_for_stack_segment(
     root
 }
 
-/// Visualize `graph` as a tree.
 pub fn graph_tree(graph: &Graph) -> StringTree {
     let mut root = Tree::new("".to_string());
     let mut seen = Default::default();

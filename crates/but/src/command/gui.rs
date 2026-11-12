@@ -1,5 +1,6 @@
 use anyhow::{Context as _, Result};
 use but_path::AppChannel;
+use but_path::link::OpenLink;
 
 /// Open the GitButler GUI application for `possibly_project_dir`,
 /// which must be a directory or trigger an error.
@@ -21,6 +22,10 @@ pub fn open(possibly_project_dir: &std::path::Path, new_window: bool) -> Result<
             possibly_project_dir.display()
         )
     })?;
-    channel.open(&absolute_path, new_window)?;
+    channel.open(&OpenLink {
+        path: absolute_path,
+        new_window,
+        at: Vec::new(),
+    })?;
     Ok(())
 }

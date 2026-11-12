@@ -6,7 +6,6 @@ import {
 	workspaceStackDetailTags,
 	type WorkspaceDetails,
 } from "$lib/stacks/headInfoAdapters";
-import { tauriBaseQuery } from "$lib/state/backendQuery";
 import { createSelectByIds, createSelectNth } from "$lib/state/customSelectors";
 import {
 	invalidatesItem,
@@ -51,8 +50,6 @@ import type {
 	InsertSide,
 	RelativeTo,
 	RefInfo,
-	StackEntryNoOpt,
-	HeadAndMode,
 	BottomUpdate,
 	WorkspaceIntegrateUpstreamOutcome,
 	BranchCreatePlacement,
@@ -65,11 +62,6 @@ import type {
 	BranchRenameResult,
 	PushResult,
 } from "@gitbutler/but-sdk";
-
-export type BranchParams = {
-	name?: string;
-	order?: number;
-};
 
 /** Where a new commit goes: `side` of `relativeTo`. */
 export type CommitPlacement = {
@@ -293,41 +285,6 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				];
 			},
 		}),
-		createStack: build.mutation<StackEntryNoOpt, { projectId: string; branch: BranchParams }>({
-			extraOptions: {
-				command: "create_virtual_branch",
-				actionName: "Create Stack",
-			},
-			async queryFn(args, api, extraOptions) {
-				const project = { projectId: args.projectId };
-				const mode = await tauriBaseQuery(project, api, { command: "operating_mode" });
-				if (mode.error !== undefined) return { error: mode.error };
-
-				// Independent stacks need a managed workspace, regardless of whether the
-				// caller is the branch modal, commit drawer, or a drag-and-drop action.
-				if ((mode.data as HeadAndMode).operatingMode.type === "OutsideWorkspace") {
-					const switched = await tauriBaseQuery(project, api, {
-						command: "switch_back_to_workspace",
-					});
-					if (switched.error !== undefined) return { error: switched.error };
-				}
-
-				const created = await tauriBaseQuery(args, api, extraOptions);
-				if (created.error !== undefined) return { error: created.error };
-				return { data: created.data as StackEntryNoOpt };
-			},
-			invalidatesTags: (result, _error) => [
-				invalidatesItem(ReduxTag.StackDetails, result?.id || "undefined"),
-				invalidatesList(ReduxTag.StackDetails),
-				invalidatesList(ReduxTag.Stacks),
-				invalidatesList(ReduxTag.BranchListing),
-				invalidatesList(ReduxTag.HeadMetadata),
-				invalidatesList(ReduxTag.HeadSha),
-				invalidatesList(ReduxTag.WorktreeChanges),
-				invalidatesType(ReduxTag.ForgeProvider),
-				invalidatesType(ReduxTag.BaseBranchData),
-			],
-		}),
 		updateStackOrder: build.mutation<
 			void,
 			{ projectId: string; stacks: { id: string; order: number }[] }
@@ -537,6 +494,10 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 			query: (args) => args,
 			invalidatesTags: [
 				invalidatesList(ReduxTag.HeadSha),
+				invalidatesList(ReduxTag.HeadMetadata),
+				invalidatesList(ReduxTag.WorktreeChanges),
+				invalidatesType(ReduxTag.ForgeProvider),
+				invalidatesType(ReduxTag.BaseBranchData),
 				invalidatesList(ReduxTag.Stacks),
 				invalidatesList(ReduxTag.StackDetails),
 				invalidatesList(ReduxTag.BranchListing),

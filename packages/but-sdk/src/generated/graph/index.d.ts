@@ -156,6 +156,10 @@ export type BaseBranch = {
    */
   currentSha: string | null;
   behind: number;
+  /** Whether updating the workspace from the target would change anything. */
+  workspaceBehind: boolean;
+  /** The names of the linked worktrees an update would rebase onto the target. */
+  worktreesBehind: Array<string>;
   upstreamCommits: Array<RemoteCommit>;
   recentCommits: Array<RemoteCommit>;
   lastFetchedMs: number | null;
@@ -718,6 +722,19 @@ export type ConflictHunk = {
   contextAfter: string;
 };
 
+/** A checkout whose uncommitted changes conflicted with the commit it moved to. */
+export type ConflictedCheckout = {
+  type: "head";
+} | {
+  type: "worktree";
+  subject: {
+    /** The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`. */
+    name: string;
+    /** The worktree checkout directory. */
+    path: string;
+  };
+};
+
 /** One conflicted file and its conflicts, in file order. */
 export type ConflictedFile = {
   /** The repo-relative path of the file. */
@@ -962,11 +979,24 @@ export type FeatureFlags = {
    * starts, on macOS builds that include it.
    */
   gpui: boolean;
+  /**
+   * In the native client (GPUI), the single file diff: show only the selected file of a
+   * diff, filling the pane, rather than every file one after another.
+   */
+  gpuiSingleFileDiff: boolean;
+  /**
+   * In the native client (GPUI), show the brief about a branch on a tab of its page. Every few
+   * minutes, open projects tell GitButler's server their addresses and their newest branches'
+   * names and commits' ids.
+   */
+  gpuiBriefs: boolean;
 };
 
 /** Update request for [`crate::app_settings::FeatureFlags`]. */
 export type FeatureFlagsUpdate = {
   gpui?: boolean | null;
+  gpuiSingleFileDiff?: boolean | null;
+  gpuiBriefs?: boolean | null;
 };
 
 export type Fetch = {
@@ -1424,10 +1454,6 @@ export type GixTime = {
 export type HeadAndMode = {
   head: string | null;
   operatingMode: OperatingMode;
-};
-
-export type HeadSha = {
-  headSha: string;
 };
 
 /**
@@ -2405,42 +2431,6 @@ export type Stack = {
   segments: Array<Segment>;
 };
 
-/**
- * **Temporary type to help transitioning to the optional version of stack-entry** and ultimately, to [`crate::RefInfo`].
- * WARNING: for use by parts in the code that can rely on having a non-optional `stack_id`. The goal is to have none of these.
- */
-export type StackEntryNoOpt = {
-  /** The ID of the stack. */
-  id: string;
-  /**
-   * The list of the branch information that are part of the stack.
-   * The list is never empty.
-   * The first entry in the list is always the most recent branch on top the stack.
-   */
-  heads: Array<StackHeadInfo>;
-  /** The tip of the top-most branch, i.e., the most recent commit that would become the parent of new commits of the topmost stack branch. */
-  tip: string;
-  /** The zero-based index for sorting stacks. */
-  order: number | null;
-  /** If `true`, then any head in this stack is checked directly so `HEAD` points to it, and this is only ever `true` for a single stack. */
-  isCheckedOut: boolean;
-};
-
-/** The information about the branch inside a stack */
-export type StackHeadInfo = {
-  /** The name of the branch. */
-  name: string;
-  /** The tip of the branch. */
-  tip: string;
-  /** The associated forge review with this branch, e.g. GitHub PRs or GitLab MRs */
-  reviewId: number | null;
-  /**
-   * If `true`, then this head is checked directly so `HEAD` points to it, and this is only ever `true` for a single head.
-   * This is `false` if the worktree is checked out.
-   */
-  isCheckedOut: boolean;
-};
-
 /** Represents a reference to an associated virtual branch */
 export type StackReference = {
   /** A non-normalized name of the branch, set by the user */
@@ -2843,11 +2833,8 @@ export type WorkspaceState = {
    * rendered graph projection.
    */
   graphWorkspace: DetailedGraphWorkspace;
-  /**
-   * True if a checkout occurred, and a conflict occurred during that
-   * checkout.
-   */
-  checkoutConflictOccurred: boolean;
+  /** The checkouts whose uncommitted changes now carry conflict markers. */
+  conflictedCheckouts: Array<ConflictedCheckout>;
 };
 
 /** A non-archived linked worktree along with the segments it owns exclusively. */

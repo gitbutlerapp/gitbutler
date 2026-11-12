@@ -434,7 +434,7 @@ Squashed branches 'a-branch-1', 'add-file-branch' into tqv
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ ta [target-branch]
+┊╭┄ ta [target-branch] [HEAD]
 ┊● tqv author 2000-01-01 00:00:00 +0000 (sha 5ce6b4f)
 ┊│     new commit on new branch
 ┊│     tqv:q A file
@@ -517,7 +517,7 @@ Squashed branches 'target-branch', 'a-branch-1', 'add-file-branch' into tqv
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ ta [target-branch]
+┊╭┄ ta [target-branch] [HEAD]
 ┊● tqv author 2000-01-01 00:00:00 +0000 (sha 2a2f0c1)
 ┊│     target commit
 ┊│     tqv:q A file
@@ -776,6 +776,8 @@ fn cannot_squash_commit_into_itself() {
         .stderr_eq(snapbox::str![[r#"
 Error: Cannot squash a commit into itself
 
+Hint: Use a --target that is not also a source
+
 "#]]);
 }
 
@@ -824,6 +826,9 @@ fn aborts_on_conflicts() {
     env.file("file.txt", "changed file content");
     env.but("commit -m 'change file'").assert().success();
 
+    env.file("other.txt", "other content");
+    env.but("commit -m 'add other file'").assert().success();
+
     env.remove_file("file.txt");
     env.but("commit -m 'remove file'").assert().success();
 
@@ -834,8 +839,10 @@ fn aborts_on_conflicts() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   nwl remove file
-┊│     nwl:u D file.txt
+┊●   nvz remove file
+┊│     nvz:u D file.txt
+┊●   pkx add other file
+┊│     pkx:x A other.txt
 ┊●   lyo change file
 ┊│     lyo:u M file.txt
 ┊●   oyv add file
@@ -848,13 +855,18 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but("squash nwl -t oyv")
+    // The hint names the commit that also changes file.txt, but not the one that adds other.txt.
+    env.but("squash nvz -t oyv")
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
 Error: Cannot squash commits that would result in merge conflicts
 
+Hint: Earlier commits change the same lines. To squash them along, run `but squash nvz lyo -t oyv`
+
 "#]]);
+
+    env.but("squash nvz lyo -t oyv -u").assert().success();
 }
 
 #[test]
@@ -999,7 +1011,7 @@ Squashed branch 'one' into uqr
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ se [second]
+┊╭┄ se [second] [HEAD]
 ┊●   uqr add two
 ┊│     uqr:q A four
 ┊│     uqr:k A one
@@ -1594,6 +1606,8 @@ Hint: run `but help` for all commands
         .stderr_eq(snapbox::str![[r#"
 Error: Cannot uncommit commits that would result in merge conflicts
 
+Hint: Later commits depend on these changes. Run `but uncommit qon xnw` first, then retry
+
 "#]]);
 
     env.but("squash lrm:q -t @")
@@ -1601,6 +1615,8 @@ Error: Cannot uncommit commits that would result in merge conflicts
         .failure()
         .stderr_eq(snapbox::str![[r#"
 Error: Cannot uncommit hunks that would result in merge conflicts
+
+Hint: Later commits depend on these changes. Run `but uncommit qon xnw` first, then retry
 
 "#]]);
 }
@@ -3302,7 +3318,7 @@ Uncommitted 'A', 'B', 'C'
 ┊   pl A B
 ┊   wx A C
 ┊
-┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main, HEAD) 2000-01-02 add M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -3373,7 +3389,7 @@ Uncommitted 'a-branch-1'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main, HEAD) 2000-01-02 add M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -3455,6 +3471,41 @@ Squashed branch 'wt-feature' into nsn
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]
+    );
+}
+
+/// `--target` takes a linked worktree's branch the way it takes that branch's tip commit.
+#[test]
+fn squash_into_a_worktree_branch_by_name() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.but("status").assert().success();
+    let wt_dir = super::util::add_worktree_with_commit(&env, "wt-feature", "A");
+    env.invoke_bash(format!(
+        r#"cd "{}" && echo more >more.txt && git add more.txt && git commit -q -m 'more W'"#,
+        wt_dir.display()
+    ));
+    let bottom = env.invoke_git("rev-parse wt-feature^");
+
+    env.but(format!("squash {bottom} -t wt-feature -m 'add W'"))
+        .current_dir(&wt_dir)
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Squashed [..] into [..]
+
+"#]]);
+
+    assert_eq!(
+        env.invoke_git("rev-list --count A..wt-feature"),
+        "1",
+        "the bottom commit folded into the tip of the branch"
+    );
+    assert_eq!(
+        env.invoke_git("show --format=%s --name-only wt-feature"),
+        "add W\n\nmore.txt\nwt-file.txt",
+        "the tip holds the files of both commits under the new message"
     );
 }
 
@@ -3637,7 +3688,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 fn squash_without_sources_in_an_unmanaged_worktree_is_refused() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    let wt_dir = super::util::add_dirty_worktree(&env, "wt-feature", "A");
+    let wt_dir = super::util::add_unmanaged_worktree(&env, "wt-feature");
     env.file("main-file.txt", "main change");
 
     env.but("squash --target lrm")

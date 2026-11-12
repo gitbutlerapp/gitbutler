@@ -44,3 +44,15 @@ fn never_show_diff() {
 fn conflicting_diff_flags() {
     assert!(Args::try_parse_from(["but", "reword", "a", "--diff", "--no-diff"]).is_err());
 }
+
+#[test]
+fn message_file_conflicts_with_other_message_sources() {
+    for other in ["--message=x", "--fix-formatting"] {
+        let err = Args::try_parse_from(["but", "reword", "a", "--file=msg", other]).unwrap_err();
+        assert_eq!(
+            err.kind(),
+            clap::error::ErrorKind::ArgumentConflict,
+            "{other} and --file can't both decide the new message"
+        );
+    }
+}

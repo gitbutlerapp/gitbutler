@@ -1,0 +1,50 @@
+import { stories } from "../docs/stories.ts";
+import { Icon } from "./Icon.tsx";
+import { icons } from "./icons.ts";
+
+const iconNames = Array.from(icons.keys()).sort((a, b) => a.localeCompare(b));
+
+const meta = stories<{ size: number }>({
+	title: "Icons/Icon",
+	id: "components-icon",
+});
+
+/** One icon, at 16px. */
+export const Default = meta.story({
+	args: { size: 16 },
+	render: (args) => <Icon name="branch" size={args.size} />,
+});
+
+export const AllIcons = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=231-330&t=ZB1Gk29sFC15sDSb-1",
+		},
+		layout: "wide",
+	},
+	render: (args) => (
+		<div
+			style={{
+				display: "grid",
+				gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))",
+				gap: 16,
+			}}
+		>
+			{iconNames.map((name) => (
+				<div
+					key={name}
+					style={{
+						display: "flex",
+						flexDirection: "column",
+						gap: 12,
+						padding: 16,
+					}}
+				>
+					<Icon name={name} size={args.size} />
+					<span style={{ fontSize: 11, lineHeight: 1.3, opacity: 0.5 }}>{name}</span>
+				</div>
+			))}
+		</div>
+	),
+});

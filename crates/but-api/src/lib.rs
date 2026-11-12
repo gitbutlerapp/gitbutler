@@ -6,13 +6,6 @@
 //! on this level.
 //! Lower-level crates like `but-workspace` won't use filesystem-based locking beyond what Git offers natively.
 #![forbid(unsafe_code)]
-#![deny(missing_docs)]
-
-use std::collections::BTreeMap;
-
-use but_core::ChangeId;
-#[cfg(not(feature = "graph-workspace"))]
-use but_workspace::RefInfo;
 
 #[cfg(feature = "legacy")]
 pub mod legacy;
@@ -26,10 +19,8 @@ pub mod gitlab;
 /// Functions for Bitbucket authentication.
 pub mod bitbucket;
 
-/// Functions that take a branch as input.
 pub mod branch;
 
-/// Functions that operate on the workspace.
 pub mod workspace;
 
 /// Listing target-branch history relative to the workspace.
@@ -45,7 +36,6 @@ pub mod land;
 /// Ephemeral comments anchored to lines in diffs, shared between the GUI and the CLI.
 pub mod comments;
 
-/// Functions that operate commits
 pub mod commit;
 
 /// Functions that operate on linked git worktrees (experimental).
@@ -61,43 +51,15 @@ pub mod diff;
 /// EXPERIMENTAL
 pub mod json;
 
-/// Functions releated to platform detection and information.
 pub mod platform;
 
 pub mod open;
 
 pub mod panic_capture;
 
-/// App-level AI configuration.
 pub mod ai;
 
-/// Functions for workspace state.
-pub mod workspace_state;
-
-/// Represents the workspace for the frontend
-///
-/// This describes the post-operation workspace view that mutations should
-/// return regardless of whether they executed for real or as a dry-run.
-#[derive(Debug, Clone)]
-pub struct WorkspaceState {
-    /// Commits that were replaced by the operation. Maps `old_id -> new_id`.
-    pub replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
-    /// Conflicted commits that were created.
-    pub conflicted_commits: Vec<(gix::ObjectId, ChangeId)>,
-    /// The workspace presented for the frontend. See [`RefInfo`] for more
-    /// detail.
-    #[cfg(not(feature = "graph-workspace"))]
-    pub head_info: RefInfo,
-    /// The workspace presented for the frontend, as the rendered graph
-    /// projection. See
-    /// [`DetailedGraphWorkspace`](but_workspace::ui::workspace::DetailedGraphWorkspace)
-    /// for more detail.
-    #[cfg(feature = "graph-workspace")]
-    pub graph_workspace: but_workspace::ui::workspace::DetailedGraphWorkspace,
-    /// True if a checkout occurred, and a conflict occurred during that
-    /// checkout.
-    pub checkout_conflict_occurred: bool,
-}
+pub use but_transaction::{WorkspaceState, workspace_state};
 
 #[cfg(test)]
 mod tests {

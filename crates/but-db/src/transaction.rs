@@ -11,7 +11,6 @@ impl<'conn> From<rusqlite::Transaction<'conn>> for Transaction<'conn> {
     }
 }
 
-/// Helpers
 impl<'conn> Transaction<'conn> {
     pub(crate) fn inner(&self) -> &rusqlite::Transaction<'conn> {
         self.inner
@@ -26,8 +25,6 @@ impl<'conn> Transaction<'conn> {
     }
 }
 
-/// Transactions, to allow ORM handles to be created more easily,
-/// and make sure multiple dependent calls to the ORM can be consistent.
 impl DbHandle {
     /// Create a new *deferred* transaction which can be used to create new table-handles on.
     /// *Deferred* means that the transaction does not block other writers until the first
@@ -85,7 +82,6 @@ impl DbHandle {
     }
 }
 
-/// Transactions
 impl AppCacheHandle {
     /// Create a new *deferred* transaction which can be used to create new table-handles on.
     /// *Deferred* means that the transaction does not block other writers until the first
@@ -124,7 +120,6 @@ impl AppCacheHandle {
     }
 }
 
-/// Transactions
 impl CacheHandle {
     /// Create a new *deferred* transaction which can be used to create new table-handles on.
     /// *Deferred* means that the transaction does not block other writers until the first
@@ -201,7 +196,6 @@ fn immediate_optional_transaction(
     }
 }
 
-/// Operations
 impl Transaction<'_> {
     /// Change the *connection* underlying the transaction to be non-blocking,
     /// i.e. trying to get a lock on the database will fail immediately if it is already locked, without waiting
@@ -214,7 +208,6 @@ impl Transaction<'_> {
         Ok(())
     }
 
-    /// Consume the transaction and commit it, without recovery.
     pub fn commit(mut self) -> Result<(), rusqlite::Error> {
         let res = self.reset_connection_to_blocking_if_needed();
         self.inner
@@ -224,7 +217,6 @@ impl Transaction<'_> {
             .and(res)
     }
 
-    /// Roll all changes so far back, making this instance unusable.
     pub fn rollback(mut self) -> Result<(), rusqlite::Error> {
         let res = self.reset_connection_to_blocking_if_needed();
         self.inner

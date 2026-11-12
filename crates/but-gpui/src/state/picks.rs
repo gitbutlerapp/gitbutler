@@ -81,7 +81,6 @@ impl<T: Clone + Eq + Hash> Picks<T> {
         Some(item.clone())
     }
 
-    /// Pick everything in `order`.
     pub fn all(&mut self, order: &[T]) {
         self.picked = order.to_vec();
         self.kept = self.picked.clone();

@@ -1,26 +1,47 @@
 //! The window's root: the project navigator on the left, details on the right, the keys,
 //! and the actions that work anywhere in the window. `overlays.rs` draws what opens above.
 
-use std::time::Instant;
+pub(crate) mod ui_control;
+
+use std::cell::Cell;
+use std::collections::HashMap;
+use std::rc::Rc;
+use std::time::{Duration, Instant};
 
 use gpui::{
-    AnyView, App, ClipboardItem, Context, Entity, FocusHandle, Focusable, FontFeatures, Pixels,
-    Point, PromptLevel, Role, StyleRefinement, Subscription, WeakEntity, Window, actions, div,
-    prelude::*,
+    AnyView, App, Bounds, Context, DispatchPhase, Div, DragMoveEvent, Entity, ExternalPaths,
+    FocusHandle, Focusable, FontFeatures, KeyDownEvent, ModifiersChangedEvent, MouseButton,
+    MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, PlatformInput, Point, PromptLevel, Role,
+    SharedString, StyleRefinement, Subscription, Task, WeakEntity, Window, actions, div,
+    prelude::*, relative,
 };
 
-use crate::backend::upstream::UpdateScope;
-use crate::backend::{self, short_ref};
-use crate::detail::{Detail, DiffPane};
-use crate::navigator::Navigator;
-use crate::overlays::{ContextMenu, MenuItem, Prompt};
-use crate::palette::Palette;
+use crate::backend::upstream::{UpdateConflicts, UpdateScope};
+use crate::backend::{self, Checkout, short_ref};
+use crate::command_editor::OpenCommandEditor;
+use crate::detail::{Detail, DiffPane, KeptPages, KeyMove, KeyPane};
+use crate::navigator::{Navigator, NavigatorTabs, TerminalOverview};
+use crate::overlays::{ContextMenu, MenuItem, Prompt, overlay};
+use crate::palette::{Choice, Palette};
 use crate::projects::pick_folder;
-use crate::state::{Cut, MeshPick, Pane, ProjectId, Selection, Store, StoreEvent, snack};
-use crate::theme::{Theme, UiScale};
-use crate::transfer::{Place, Transfer};
-use crate::ui::fold::{Slide, edge, inert};
-use crate::ui::{HEADER_HEIGHT, dp, fixed, resize_pane};
+use crate::state::{
+    Area, Axis, Divider, DividerDrag, Drawn, FileView, Junction, Landing, MeshPick, NavigatorPlace,
+    Pane, Part, Prefs, ProjectId, ProjectTab, RowKey, Selection, Side, Store, StoreEvent, Tile,
+    Tiling, Zones, along_edge, snack, tile_beside, up_to_date,
+};
+use crate::terminal::{NewTerminal, TerminalId};
+use crate::theme::{ColorScheme, Hue, Theme, UiScale};
+use crate::transfer::{
+    Changes, Dragged, Move, Moving, Op, Place, ProjectDrag, TerminalDrag, Transfer,
+    terminal_preview,
+};
+use crate::ui::fold::{OnTop, Slide, edge, inert, on_top};
+use crate::ui::{
+    Button, ButtonStyle, HEADER_HEIGHT, Icon, TILE_BAR, TILE_MARGIN, commit_title, dp, fixed,
+    gap_divider, gap_junction, h_flex, icon_button, mark_dragged, placed, resize_pane, small_icon,
+    tile_card, tile_content, v_flex,
+};
+use crate::{clipboard, clock};
 
 // Named in the keymap as area::Action, by where they act.
 actions!(
@@ -43,16 +64,32 @@ actions!(
         FocusNavigator,
         FocusChanges,
         FocusDiff,
+        FocusTerminals,
         FocusNextPane,
         FocusPreviousPane,
         FocusPaneLeft,
         FocusPaneRight,
+        FocusTileLeft,
+        FocusTileRight,
+        FocusTileUp,
+        FocusTileDown,
         StartCommit,
+        StartAmend,
         ToggleNavigator,
+        ToggleNavigatorPlace,
+        ToggleDetail,
+        ToggleTerminalOverview,
         CommandPalette,
+        ChangeTheme,
+        ShowContextMenu,
         CheckForUpdates,
         BuildAndRestart,
+        BuildAndRestartFromHere,
         OperationsHistory,
+        NextProjectPage,
+        PreviousProjectPage,
+        NextNavigatorTab,
+        PreviousNavigatorTab,
         CloseWindow,
     ]
 );
@@ -64,23 +101,27 @@ actions!(
         MarkAllRead,
         NewBranch,
         NewBranchOnTop,
+        NewWorktree,
+        NewWorktreeWithName,
+        RecycleWorktree,
         SelectPrevious,
         SelectNext,
         Expand,
         Collapse,
         ToggleFold,
         Confirm,
-        CutSelection,
-        PasteHere,
-        DeleteSelection,
-        UncommitSelection,
-        RenameSelection,
+        MoveSelection,
+        MoveHere,
+        SquashSelection,
+        SquashIntoSelection,
+        UseTargetMessage,
     ]
 );
 actions!(
     remote,
     [
         Fetch,
+        Pull,
         UpdateFromTarget,
         UpdateWorkspace,
         UpdateWorktrees,
@@ -88,20 +129,126 @@ actions!(
     ]
 );
 actions!(pr, [OpenPullRequest]);
+actions!(
+    tiling,
+    [
+        SplitRight,
+        SplitBelow,
+        NewTerminalRight,
+        NewTerminalBelow,
+        NewTerminalWithRight,
+        NewTerminalWithBelow,
+        ZoomTile,
+        EqualizeTiles,
+        NextTile,
+        PreviousTile,
+        CopyTileDiagram,
+        ArrangeTiles,
+        SwapTiles,
+        MoveTileLeft,
+        MoveTileRight,
+        MoveTileUp,
+        MoveTileDown,
+        FinishArranging,
+        CancelArranging
+    ]
+);
+actions!(
+    copy,
+    [
+        CopyCommitId,
+        CopyBranchName,
+        CopyPullRequestLink,
+        CopySnapshotId,
+        CopyPath,
+        CopyRelativePath,
+        CopyAbsolutePath,
+        CopyErrorMessage,
+    ]
+);
 
 pub struct AppView {
     pub store: Entity<Store>,
     pub detail: Entity<Detail>,
     diff: Entity<DiffPane>,
+    /// The pages of the tiles pinned to the selected row, each a detail of its own with its
+    /// diff. A pinned terminal is drawn as it is, with none.
+    pages: HashMap<RowKey, Page>,
+    /// The state of the pages not drawn now.
+    kept_pages: Entity<KeptPages>,
+    /// The tile sliding open out of its split, or shut into it, while one is.
+    tile_slide: Option<TileSlide>,
+    /// The lines of the selected row's tiling sliding to where they're even, while they are.
+    tile_glide: Option<TileGlide>,
+    tile_zoom: Option<TileZoom>,
+    /// The tile being moved with the keys, while one is.
+    arranging: Option<Arranging>,
+    /// Has the keys while a tile's being moved with them, so they reach neither a terminal nor
+    /// the page in it.
+    arranging_focus: FocusHandle,
+    /// The selected row's tiles sliding to where the keys moved one, while they are.
+    tile_shift: Option<TileShift>,
+    /// The tile zoomed on each row left with one zoomed, to zoom again on coming back.
+    kept_zooms: HashMap<RowKey, Tile>,
+    row_drag: Option<RowDrag>,
+    row_tile: Option<RowTile>,
+    /// Whether the selected row's tiles are moving, sliding or dragged: see
+    /// [`Self::move_tiles`].
+    tiles_moving: bool,
+    /// The tile pressed by its bar, dragged once the pointer's moved far enough, until it's
+    /// let go and it's settled where it lands.
+    tile_drag: Option<TileDrag>,
+    /// The room the tiles share, in the window, as it was last drawn.
+    tile_room: Rc<Cell<Bounds<Pixels>>>,
     pub(crate) navigator: Entity<Navigator>,
+    /// The navigator across the window's top, in its place beside the panes.
+    tabs: Entity<NavigatorTabs>,
+    /// The terminals of every project, under the navigator beside the panes, while Settings
+    /// shows it.
+    pub(crate) terminals: Entity<TerminalOverview>,
+    /// Whether it's there, as Settings had it when last drawn, and it sliding down or back up.
+    navigator_on_top: bool,
+    tabs_slide: Slide,
     pub menu: Option<ContextMenu>,
+    /// A menu with commands in it, waiting for the frame that registers the actions of the
+    /// selection it opened on, to say which it offers.
+    pub pending_menu: Option<ContextMenu>,
+    /// What the next menu gives the keys to when it closes without running an item, rather than
+    /// what had them as it opened: the line being typed in, for a file's menu from the diff.
+    pub(crate) menu_returns_to: Option<gpui::FocusHandle>,
+    /// The open menu's, which takes the keys from what had them.
+    pub(crate) menu_focus: FocusHandle,
+    /// The menu bar's menu the open menu is, by its place in the bar: see `menu_bar`.
+    pub(crate) menu_bar: Option<usize>,
+    /// Where the menu bar's names were last drawn, for its menus to hang from.
+    pub(crate) menu_bar_names: Rc<std::cell::RefCell<Vec<Bounds<Pixels>>>>,
     pub prompt: Option<Prompt>,
     /// The emoji picker open on a project's icon.
     pub icon_picker: Option<crate::projects::IconPicker>,
     pub navigator_open: bool,
-    /// The navigator sliding open or shut.
     navigator_slide: Slide,
+    /// Whether the detail shows beside the navigator. Hidden, the navigator takes the window;
+    /// the two are never both hidden.
+    pub(crate) detail_open: bool,
+    /// The detail sliding in from the window's right edge or back off it.
+    detail_slide: Slide,
+    /// The window narrowed to the navigator while the detail is hidden, or narrowing to it or
+    /// widening back as the detail slides, where the window can be resized for it.
+    narrowing: Option<Narrowing>,
+    /// Resizes the window a step at a time as it narrows or widens, by
+    /// [`AppView::step_narrowing`].
+    resizing: Option<Task<()>>,
+    /// The navigator out over the detail while it's closed.
+    peek: Peek,
+    /// Where a commit or an amend being placed was started from, and the changes selected for
+    /// it, so Esc goes back there, as it does from a move, which leaves the selection alone.
+    placing_from: Option<(Selection, Selection)>,
+    /// macOS's traffic lights are out of the way of the navigator out over the detail.
+    #[cfg(target_os = "macos")]
+    lights_away: bool,
     pub palette: Option<Palette>,
+    /// The colour scheme selected in its picker, which the window draws in until that closes.
+    previewed_scheme: Option<ColorScheme>,
     /// The modal on screen, if any, what takes its keys, its card's own, which Tab keeps
     /// to, the subscription that closes it, and what had the keys before it opened, to give
     /// them back.
@@ -112,16 +259,74 @@ pub struct AppView {
         Subscription,
         Option<FocusHandle>,
     )>,
+    /// The page Settings showed as it closed, and how far its cards were scrolled, which it
+    /// opens to again.
+    pub(crate) settings_left: Option<(crate::settings::Page, gpui::Point<gpui::Pixels>)>,
     /// Palette commands by label, most recently run first.
     pub recent_commands: Vec<&'static str>,
-    /// How to build the app again, when `cargo run` started it, for Build and restart.
-    pub(crate) rebuild: Option<backend::rebuild::Rebuild>,
     /// The build under way or last ended, and what shows it when it fails out of sight.
     pub(crate) building: Option<(Entity<crate::rebuild::BuildOutput>, Subscription)>,
     /// The frames drawn each second, drawn over everything while `Prefs::show_fps` is on.
     fps: Entity<crate::fps::Fps>,
     _subscriptions: Vec<Subscription>,
 }
+
+/// How near the window's left edge the pointer brings the closed navigator out over the
+/// detail, as Arc's sidebar comes out.
+const PEEK_EDGE: f32 = 6.;
+/// How far the terminal overview's card is in from the column's edges, as the navigator's cards
+/// are, and the most of the column it takes fitting its rows, which scroll past that.
+const TERMINALS_MARGIN: f32 = 8.;
+const TERMINALS_MOST: f32 = 0.45;
+/// The most of the column it takes once its line's dragged, leaving the navigator its header.
+const TERMINALS_MOST_DRAGGED: f32 = 0.85;
+/// How far the navigator out over the detail floats from the window's edges.
+const PEEK_INSET: f32 = 6.;
+/// How far past its card the shadow of the navigator out over the detail reaches, which goes
+/// off the window with it as it slides away.
+const PEEK_SHADOW: f32 = 16.;
+/// How long the pointer can stray past the navigator out over the detail before it goes back,
+/// so overshooting its edge a little leaves it out.
+const PEEK_GRACE: Duration = Duration::from_millis(300);
+
+/// The closed navigator out over the detail, as the pointer at the window's left edge brings
+/// it, until the pointer strays from it, or as ⌘1 brings it, until the keys leave it.
+#[derive(Default)]
+struct Peek {
+    open: bool,
+    /// It sliding in from the window's edge or back off it.
+    slide: Slide,
+    /// Sends it back once the pointer has strayed from it for [`PEEK_GRACE`].
+    leaving: Option<Task<()>>,
+    /// Brought out by ⌘1, so it stays while it has the keys, whatever the pointer does.
+    keyed: bool,
+    /// Where ⌘1 was pressed: the selection, and what had the keys, which Esc goes back to.
+    returns_to: Option<(Selection, Option<FocusHandle>)>,
+    /// Brought out to place a commit in, as ⌘↩ does while it's hidden, so it goes back once
+    /// that's committed or let go, as it went back from ⌘1.
+    committing: bool,
+}
+
+/// The window narrowing to the navigator as the detail slides in under it, or widening back as
+/// it slides out, in unscaled pixels.
+#[derive(Clone, Copy)]
+struct Narrowing {
+    /// The window's width with the detail, which the panes are laid out for meanwhile, so
+    /// they aren't laid out again at every width.
+    wide: f32,
+    /// The navigator's, which it keeps meanwhile, and the window's once narrowed.
+    navigator: f32,
+    /// Resized to where the slide ended, after which its width is the user's.
+    settled: bool,
+    /// How many steps the window has been asked for where the slide ended.
+    asked: u8,
+}
+
+/// How often the window is resized as it narrows or widens: about a frame at 120Hz.
+const RESIZE_STEP: Duration = Duration::from_millis(8);
+/// How many steps the window is asked for its width where the detail's slide ended, until it
+/// has it: a resize that never lands, as one the screen holds back, leaves it as it is.
+const LAST_RESIZE_TRIES: u8 = 30;
 
 /// The app, as the views it owns reach it: only once the update running now is over. Reached
 /// at once, the app could update or read the view that asked, which is being updated, and that
@@ -165,72 +370,258 @@ impl AppHandle {
 }
 
 impl AppView {
-    /// Where the diff starts beside the detail's file list at `now`, when the selection has a
-    /// diff.
-    fn diff_left(&self, now: Instant, window: &Window, cx: &App) -> Option<f32> {
+    /// Where the diff starts beside `detail`'s file list at `now`, when its page has a diff,
+    /// and how far past the right edge it reaches, as it slides in beside the graph.
+    fn diff_left(
+        detail: &Entity<Detail>,
+        now: Instant,
+        window: &Window,
+        cx: &App,
+    ) -> Option<(f32, f32)> {
+        let detail = detail.read(cx);
+        let has_diff = detail.shows_page() && !detail.diff_hidden(cx);
+        has_diff.then(|| {
+            let past = detail.graph_sliding_by(now, window, cx);
+            (detail.diff_left(now, window, cx), past)
+        })
+    }
+
+    /// Make the details of the pages pinned to the selected row, and drop those of pages no
+    /// longer pinned there, which only the tiles on screen keep, keeping how they were left.
+    fn sync_pages(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let store = self.store.read(cx);
-        let detail = self.detail.read(cx);
-        let has_diff = store.selection.is_some() && !detail.diff_hidden(cx);
-        has_diff.then(|| detail.diff_left(now, window, cx))
+        let tiling = (store.selection.as_ref()).map(|selection| store.row_key(selection));
+        let pinned = store.pinned();
+        let pages: Vec<RowKey> = (pinned.into_iter())
+            .filter(|row| !matches!(row, RowKey::Row(Selection::Terminal(..))))
+            .collect();
+        // A row pinned in two tilings is a tile in each, looked at apart.
+        let (mut staying, going): (HashMap<RowKey, Page>, HashMap<RowKey, Page>) =
+            std::mem::take(&mut self.pages)
+                .into_iter()
+                .partition(|(row, page)| {
+                    Some(&page.tiling) == tiling.as_ref() && pages.contains(row)
+                });
+        for page in going.into_values() {
+            page.detail.update(cx, |detail, cx| detail.keep_page(cx));
+        }
+        let Some(tiling) = tiling else {
+            return;
+        };
+        for row in pages {
+            let page = staying.remove(&row).unwrap_or_else(|| {
+                let (store, app) = (self.store.clone(), AppHandle::of(cx));
+                let (kept, pinned) = (self.kept_pages.clone(), (tiling.clone(), row.clone()));
+                let detail = cx.new(|cx| Detail::new(store, app, kept, Some(pinned), window, cx));
+                let diff = cx.new(|cx| DiffPane::new(&detail, window, cx));
+                let tiling = tiling.clone();
+                Page {
+                    tiling,
+                    detail,
+                    diff,
+                }
+            });
+            self.pages.insert(row, page);
+        }
+    }
+
+    /// Keep the pages of the selected row's tiling, which went from `from` to `to`, for `to`.
+    fn move_pages(&mut self, from: &RowKey, to: &RowKey, cx: &mut Context<Self>) {
+        for page in std::mem::take(&mut self.pages).into_values() {
+            page.detail.update(cx, |detail, cx| detail.keep_page(cx));
+        }
+        self.kept_pages
+            .update(cx, |kept, _| kept.move_tiling(from, to));
+    }
+
+    /// Forget the pages of tiles no longer in their tiling.
+    fn forget_closed_tiles(&mut self, cx: &mut Context<Self>) {
+        let store = self.store.clone();
+        self.kept_pages.update(cx, |kept, cx| {
+            let store = store.read(cx);
+            kept.retain(|(row, tile, _)| *tile == Tile::Home || store.has_tile(row, tile));
+        });
+    }
+
+    /// Forget the pages of what's gone from the navigator: `project`'s commits, now it's read
+    /// again, and any project removed.
+    fn forget_gone_rows(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+        let store = self.store.clone();
+        self.kept_pages.update(cx, |kept, cx| {
+            let store = store.read(cx);
+            let keys = store.commit_keys(project);
+            kept.retain(|(row, ..)| match row {
+                RowKey::Commit(of, key) if of == project => {
+                    keys.as_ref().is_none_or(|keys| keys.contains(key.as_str()))
+                }
+                RowKey::Commit(of, _) => store.project(of).is_some(),
+                RowKey::Row(selection) | RowKey::Changes(selection) => {
+                    store.project(selection.project()).is_some()
+                }
+                RowKey::Tab(of, _) => store.project(of).is_some(),
+            });
+        });
     }
 
     pub fn new(store: Entity<Store>, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        cx.set_global(theme_for(store.read(cx), window));
+        cx.set_global(theme_for(store.read(cx), None, window));
+        let window_id = window.window_handle().window_id();
         #[cfg(target_os = "macos")]
-        place_traffic_lights(window, cx);
+        place_traffic_lights(false, window, cx);
+        #[cfg(target_os = "macos")]
+        if backend::settings::dev_build() {
+            keep_drags_through_other_buttons();
+        }
         let app = AppHandle::of(cx);
-        let detail = cx.new(|cx| Detail::new(store.clone(), app.clone(), window, cx));
+        let kept_pages = cx.new(|_| KeptPages::default());
+        let detail = cx.new(|cx| {
+            let (kept, app) = (kept_pages.clone(), app.clone());
+            Detail::new(store.clone(), app, kept, None, window, cx)
+        });
         let diff = cx.new(|cx| DiffPane::new(&detail, window, cx));
-        let navigator = cx.new(|cx| Navigator::new(app, store.clone(), detail.clone(), window, cx));
-        window.focus(&navigator.focus_handle(cx), cx);
+        let navigator =
+            cx.new(|cx| Navigator::new(app.clone(), store.clone(), detail.clone(), window, cx));
+        let terminals = cx.new(|cx| TerminalOverview::new(app.clone(), store.clone(), cx));
+        let tabs = cx.new(|cx| {
+            NavigatorTabs::new(app, store.clone(), navigator.clone(), terminals.clone(), cx)
+        });
+        let strip_keys = tabs.read(cx).focus_handle().clone();
+        navigator.update(cx, |navigator, _| navigator.set_strip_keys(strip_keys));
+        // Where it was left, it's there from the first frame rather than sliding there.
+        let navigator_on_top = store.read(cx).prefs.navigator_place == NavigatorPlace::Top;
+        // Across the top it isn't drawn, and keys given to what isn't drawn reach nothing.
+        match navigator_on_top {
+            true => detail.update(cx, |detail, cx| detail.focus(window, cx)),
+            false => window.focus(&navigator.focus_handle(cx), cx),
+        }
         let subscriptions = vec![
             // A menu's items and the palette's commands act on the selection and the picks, so
             // when an agent's change moves them off what they opened on, they go rather than
             // act on something else. Menu items can hold the commit they opened on, so a menu
-            // goes when an agent only rewrote it too, as does M's list of them; the palette's
+            // goes when an agent only rewrote it too, as ⌘K does while it lists such items;
             // commands read the selection when run.
             cx.observe_in(&store, window, |this, store, window, cx| {
                 let store = store.read(cx);
                 let menu_gone =
                     (this.menu.as_ref()).is_some_and(|m| m.acting_on != store.acting_on());
+                if (this.pending_menu.as_ref()).is_some_and(|m| m.acting_on != store.acting_on()) {
+                    this.pending_menu = None;
+                }
                 let palette_gone = (this.palette.as_ref()).is_some_and(|p| match p.holds_ids {
                     true => p.acting_on != store.acting_on(),
                     false => !store.still_acting_on(&p.acting_on),
                 });
                 if menu_gone {
-                    this.menu = None;
+                    this.close_menu(window, cx);
                 }
                 if palette_gone {
                     this.close_palette(window, cx);
                 }
                 cx.notify()
             }),
-            cx.subscribe_in(&store, window, |this, _, event, window, cx| {
-                if let StoreEvent::AuthorMissing(project) = event {
-                    this.ask_author(project.clone(), window, cx);
+            cx.subscribe_in(&store, window, |this, _, event, window, cx| match event {
+                StoreEvent::AuthorMissing(project) => this.ask_author(project.clone(), window, cx),
+                StoreEvent::TerminalOpened => this.enter_terminal(window, cx),
+                StoreEvent::CommitBlocked => this.ask_where_blocked_commit_goes(window, cx),
+                StoreEvent::UpdateConflicts {
+                    project,
+                    scope,
+                    found,
+                    detail,
+                } => this.ask_to_update_with_conflicts(
+                    project.clone(),
+                    *scope,
+                    found.clone(),
+                    detail,
+                    window,
+                    cx,
+                ),
+                StoreEvent::LinkOpened { project, at } => {
+                    crate::links::land(this, project.clone(), at, window, cx)
                 }
+                StoreEvent::TilingChanged => {
+                    this.drop_stale_tile_drag(cx);
+                    this.drop_stale_row_tile(cx);
+                    this.drop_stale_zoom(cx);
+                    this.drop_stale_arranging(cx);
+                    this.move_tiles(cx);
+                    this.sync_pages(window, cx);
+                    this.forget_closed_tiles(cx)
+                }
+                StoreEvent::TilingMoved { from, to } => this.move_pages(from, to, cx),
+                StoreEvent::Loaded(project) => this.forget_gone_rows(project, cx),
+                StoreEvent::TilePinned(pinned) => {
+                    // A row dragged in slides on from where it's been held.
+                    if this.row_tile.is_none() {
+                        this.slide_tile(pinned.clone(), None, cx);
+                    }
+                    if !this.covered()
+                        && let Some(focus) = this.tile_focus(&Tile::Pinned(pinned.clone()), cx)
+                    {
+                        // Tiles draw in the detail, and the keys come back from what's not drawn.
+                        this.set_detail(true, window, cx);
+                        window.focus(&focus, cx);
+                    }
+                }
+                StoreEvent::TileClosed {
+                    before,
+                    tile,
+                    terminal,
+                } => {
+                    // Before the tiling changing forgets the drag.
+                    let listed = (this.tile_drag.as_ref()).is_some_and(|drag| {
+                        drag.over_navigator && drag.tile == Tile::Pinned(tile.clone())
+                    });
+                    let going = Going {
+                        before: before.clone(),
+                        terminal: terminal.clone(),
+                        page: this.pages.remove(tile),
+                        listed,
+                    };
+                    this.slide_tile(tile.clone(), Some(going), cx);
+                }
+                StoreEvent::RowDragEnded => {
+                    this.row_drag = None;
+                    this.move_tiles(cx);
+                }
+                // Another row's tiling, with nothing of this one's to slide.
+                StoreEvent::SelectionChanged => {
+                    this.tile_slide = None;
+                    this.tile_drag = None;
+                    this.arranging = None;
+                    this.keep_zoom();
+                    this.take_row_tile_back(cx);
+                    this.restore_zoom(cx);
+                    this.move_tiles(cx);
+                    this.sync_pages(window, cx)
+                }
+                _ => {}
             }),
             cx.observe_window_appearance(window, |this, window, cx| {
                 this.apply_appearance(window, cx)
             }),
             #[cfg(target_os = "macos")]
-            cx.observe_global_in::<Theme>(window, |_, window, cx| place_traffic_lights(window, cx)),
-            // A scripted window opens off screen, which isn't where the user left theirs.
+            cx.observe_global_in::<Theme>(window, |this, window, cx| {
+                place_traffic_lights(this.lights_away, window, cx)
+            }),
+            // A scripted window opens off screen, which isn't where the user left theirs, and
+            // one narrowed to the navigator opens again with the detail.
             cx.observe_window_bounds(window, |this, window, cx| {
-                if !scripted() {
+                if !scripted() && this.narrowing.is_none() {
                     this.store
                         .update(cx, |store, cx| store.save_window_place(window, cx));
                 }
             }),
-            cx.observe_window_visibility(window, |this, visibility, _, cx| {
+            cx.observe_window_visibility(window, move |this, visibility, _, cx| {
                 if !scripted() {
                     this.store.update(cx, |store, cx| {
-                        store.set_visible(visibility.is_visible(), cx)
+                        store.set_visible(window_id, visibility.is_visible(), cx)
                     });
                 }
             }),
             // The CLI and GitButler's other apps add and remove projects too, and folders move.
             cx.observe_window_activation(window, |this, window, cx| {
+                backend::metrics::in_front(window.is_window_active());
                 if window.is_window_active() {
                     #[cfg(target_os = "macos")]
                     show_cursor_again(window);
@@ -238,53 +629,208 @@ impl AppView {
                         store.load_projects(cx);
                         store.recheck_folders(cx);
                     });
+                    crate::keymap::reload(cx);
                 }
             }),
             // Keys go to what's focused, so when it leaves the screen, as the Branches page's
             // list does once Apply selects the branch, they go to the navigator instead, or to
-            // the diff while a message is being written.
-            cx.on_focus_lost(window, |this, window, cx| this.restore_focus(window, cx)),
+            // the diff while a message is being written. A tile closed with them, or whose shell
+            // exited, gives them to the tile that had them before, as tmux's last pane does.
+            cx.on_focus_lost(window, |this, window, cx| {
+                if !this.tile_lost_keys(window, cx) {
+                    this.restore_focus(window, cx)
+                }
+                // GPUI says this during a draw, where moving focus asks for no frame, so what
+                // took the keys would go on being drawn without them.
+                window.on_next_frame(|window, _| window.refresh());
+            }),
+            // The navigator ⌘1 brought out goes back once the keys leave it and the terminal
+            // overview under it, as ⌘2 and ⌘3 take them. GPUI blurs it as another app comes in
+            // front too, which leaves it out.
+            cx.on_focus_out(&navigator.focus_handle(cx), window, Self::keys_left_peek),
+            cx.on_focus_out(&terminals.focus_handle(cx), window, Self::keys_left_peek),
         ];
-        // Closing the window quits, so it asks the same as ⌘Q.
         let this = cx.entity().downgrade();
         window.on_window_should_close(cx, move |window, cx| {
-            this.update(cx, |this, cx| this.can_quit(window, cx))
+            this.update(cx, |this, cx| this.should_close(window, cx))
                 .unwrap_or(true)
         });
         Self::listen_for_credential_prompts(window, cx);
         // Visibility arrives only as it changes, so a window that opens hidden says so here.
-        if !scripted() {
-            let visible = window.is_visible();
-            store.update(cx, |store, cx| store.set_visible(visible, cx));
-        }
+        let visible = scripted() || window.is_visible();
+        store.update(cx, |store, cx| store.set_visible(window_id, visible, cx));
+        backend::metrics::in_front(window.is_window_active());
         Self {
             store,
             detail,
             diff,
+            pages: HashMap::new(),
+            kept_pages,
+            tile_slide: None,
+            tile_glide: None,
+            tile_zoom: None,
+            arranging: None,
+            arranging_focus: cx.focus_handle(),
+            tile_shift: None,
+            kept_zooms: HashMap::new(),
+            row_drag: None,
+            row_tile: None,
+            tiles_moving: false,
+            tile_drag: None,
+            tile_room: Rc::default(),
             navigator,
+            tabs,
+            terminals,
+            navigator_on_top,
+            tabs_slide: Slide::default(),
             menu: None,
+            pending_menu: None,
+            menu_returns_to: None,
+            menu_focus: cx.focus_handle(),
+            menu_bar: None,
+            menu_bar_names: Rc::default(),
             prompt: None,
             icon_picker: None,
-            navigator_open: true,
+            navigator_open: !navigator_on_top,
             navigator_slide: Slide::default(),
+            detail_open: true,
+            detail_slide: Slide::default(),
+            narrowing: None,
+            resizing: None,
+            peek: Peek::default(),
+            placing_from: None,
+            #[cfg(target_os = "macos")]
+            lights_away: false,
             palette: None,
+            previewed_scheme: None,
             modal: None,
+            settings_left: None,
             recent_commands: Vec::new(),
-            rebuild: backend::rebuild::Rebuild::detect(),
             building: None,
             fps: cx.new(|_| crate::fps::Fps::default()),
             _subscriptions: subscriptions,
         }
     }
 
-    /// Use the theme the appearance setting and the system call for.
+    /// Use the theme the appearance setting and the system call for, in the scheme previewed
+    /// if there is one.
     pub fn apply_appearance(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        cx.set_global(theme_for(self.store.read(cx), window));
+        let scheme = self.previewed_scheme.as_ref();
+        cx.set_global(theme_for(self.store.read(cx), scheme, window));
         cx.refresh_windows();
     }
 
+    /// Draw the window in `scheme` without keeping it, or with none, in the one in use again.
+    pub fn preview_scheme(
+        &mut self,
+        scheme: Option<ColorScheme>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.previewed_scheme != scheme {
+            self.previewed_scheme = scheme;
+            self.apply_appearance(window, cx);
+        }
+    }
+
+    /// List the colour schemes, GitButler's, the Ghostty config's and every Ghostty theme, to
+    /// pick one to draw the app and its terminals in. It opens on the one in use, and the
+    /// window draws in whichever is selected.
+    pub fn pick_color_scheme(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let current = self.store.read(cx).prefs.color_scheme.clone();
+        let named = but_tty::Ghostty::themes()
+            .into_iter()
+            .map(ColorScheme::Named);
+        let choices = ([ColorScheme::GitButler, ColorScheme::Ghostty].into_iter())
+            .chain(named)
+            .map(|scheme| {
+                let in_use = scheme == current;
+                let detail = match &scheme {
+                    _ if in_use => Some("In use"),
+                    ColorScheme::GitButler => Some("Light or dark, as Appearance says"),
+                    ColorScheme::Ghostty => Some("The themes your Ghostty config sets"),
+                    ColorScheme::Named(_) => None,
+                };
+                let previews = scheme.clone();
+                let choice = Choice::new(scheme.label().to_owned(), move |app, window, cx| {
+                    app.previewed_scheme = None;
+                    (app.store).update(cx, |store, cx| {
+                        store.set_prefs(|prefs| prefs.color_scheme = scheme, cx)
+                    });
+                    app.apply_appearance(window, cx);
+                })
+                .previews(previews, in_use);
+                match detail {
+                    Some(detail) => choice.detail(detail),
+                    None => choice,
+                }
+            })
+            .collect();
+        self.open_picker(None, "Search colour schemes", "Use", choices, window, cx);
+    }
+
+    pub fn pick_diff_font(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let current = self.store.read(cx).prefs.diff_font.clone();
+        let own = Theme::get(cx).mono_font.clone();
+        let set = |prefs: &mut Prefs, font| prefs.diff_font = font;
+        self.pick_font(own, "GitButler's own".into(), current, set, window, cx);
+    }
+
+    pub fn pick_terminal_font(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let current = self.store.read(cx).prefs.terminal_font.clone();
+        let ghostty = but_tty::Ghostty::load();
+        let detail = (ghostty.font_families.into_iter().next())
+            .map_or("Your Ghostty config sets none".into(), SharedString::from);
+        let set = |prefs: &mut Prefs, font| prefs.terminal_font = font;
+        self.pick_font("As Ghostty's".into(), detail, current, set, window, cx);
+    }
+
+    /// List `unpicked`, which `detail` explains and leaves no font picked, then the installed
+    /// fonts, for `set` to keep the one chosen. `current` is the one in use.
+    fn pick_font(
+        &mut self,
+        unpicked: SharedString,
+        detail: SharedString,
+        current: Option<String>,
+        set: fn(&mut Prefs, Option<String>),
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let text_system = cx.text_system().clone();
+        cx.spawn_in(window, async move |this, cx| {
+            let families = (cx.background_spawn(async move { text_system.all_font_names() })).await;
+            let families = families
+                .into_iter()
+                .filter(|family| !family.starts_with('.'));
+            let fonts = families.map(|family| (family.clone().into(), Some(family), None));
+            let choices: Vec<Choice> = std::iter::once((unpicked, None, Some(detail)))
+                .chain(fonts)
+                .map(|(label, font, detail)| {
+                    let in_use = font == current;
+                    let choice = Choice::new(label, move |app, window, cx| {
+                        (app.store).update(cx, |store, cx| {
+                            store.set_prefs(|prefs| set(prefs, font), cx)
+                        });
+                        app.apply_appearance(window, cx);
+                        (app.detail).update(cx, |detail, cx| detail.remeasure(cx));
+                    });
+                    match detail {
+                        _ if in_use => choice.detail("In use"),
+                        Some(detail) => choice.detail(detail),
+                        None => choice,
+                    }
+                })
+                .collect();
+            this.update_in(cx, |this, window, cx| {
+                this.open_picker(None, "Search fonts", "Use", choices, window, cx)
+            })
+            .ok();
+        })
+        .detach();
+    }
+
     /// Select `selection`. Asked for again, as a crumb naming the page shown is clicked, the
-    /// page goes back to how it opens, as the navigator's row does.
+    /// page goes back to how it opens.
     pub fn select(&mut self, selection: Selection, window: &mut Window, cx: &mut Context<Self>) {
         self.store
             .update(cx, |store, cx| store.reopen(selection, cx));
@@ -305,37 +851,83 @@ impl AppView {
         }
     }
 
-    /// Whether to quit right away. While an operation hasn't finished, ask instead, and quit
-    /// on a yes: quitting would stop it partway.
+    /// Whether the window's close button closes it. Closing quits, so it asks the same as ⌘Q,
+    /// and says so itself, as a graph in a window of its own would otherwise keep the app open.
+    pub(crate) fn should_close(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let quits = self.can_quit(window, cx);
+        if quits {
+            cx.quit();
+        }
+        quits
+    }
+
+    /// Whether to quit right away. While an operation hasn't finished or a terminal is open,
+    /// ask instead, and quit on a yes: quitting would stop the operation partway and end what
+    /// runs in the terminal.
     fn can_quit(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
-        let (message, detail) = match self.store.read(cx).unfinished() {
-            0 => return true,
-            1 => (
+        let store = self.store.read(cx);
+        let operations = match store.unfinished() {
+            0 => None,
+            1 => Some((
                 "Quit before the operation finishes?".to_owned(),
-                "It may stop partway.",
-            ),
-            n => (
+                "It may stop partway.".to_owned(),
+            )),
+            n => Some((
                 format!("Quit before {n} operations finish?"),
-                "They may stop partway.",
-            ),
+                "They may stop partway.".to_owned(),
+            )),
         };
-        self.confirm_then(None, message, detail, "Quit", window, cx, |_, cx| cx.quit());
+        let terminals = match store.terminals.count() {
+            0 => None,
+            1 => Some((
+                "Quit with a terminal open?".to_owned(),
+                "The terminal closes, and what runs in it ends.".to_owned(),
+            )),
+            n => Some((
+                format!("Quit with {n} terminals open?"),
+                format!("The {n} terminals close, and what runs in them ends."),
+            )),
+        };
+        // Operations ask first, as they're what quitting would leave half done.
+        let (message, detail) = match (operations, terminals) {
+            (None, None) => return true,
+            (Some(asked), None) | (None, Some(asked)) => asked,
+            (Some((message, operations)), Some((_, terminals))) => {
+                (message, format!("{operations} {terminals}"))
+            }
+        };
+        // It's on this window, which the graph's own window may have been asked from.
+        crate::ui::activate(window);
+        self.confirm_then(None, message, &detail, "Quit", window, cx, |_, cx| {
+            cx.quit()
+        });
         false
     }
 
-    /// Draw the whole interface at `scale`.
     pub fn set_ui_scale(&mut self, scale: UiScale, cx: &mut Context<Self>) {
         (self.store).update(cx, |store, cx| {
             store.set_prefs(|prefs| prefs.ui_scale = scale, cx)
         });
         cx.set_global(Theme::get(cx).clone().with_scale(scale));
-        // The lists keep the heights their rows had, which only the width changing drops.
+        self.remeasure_lists(cx);
+        cx.refresh_windows();
+    }
+
+    /// The lists keep the heights their rows had, which only the width changing drops: after
+    /// anything else changes how tall a row draws, they measure them again.
+    fn remeasure_lists(&mut self, cx: &mut Context<Self>) {
         self.detail.update(cx, |detail, cx| detail.remeasure(cx));
         self.navigator.update(cx, |navigator, _| {
             navigator.list.remeasure();
             navigator.drawer_list.remeasure()
         });
-        cx.refresh_windows();
+        self.terminals.read(cx).remeasure();
+    }
+
+    /// Draw the app as the look in Settings has it: its accent, ground, corners and density.
+    pub fn apply_look(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.apply_appearance(window, cx);
+        self.remeasure_lists(cx);
     }
 
     /// ⌘+, ⌘− and ⌘0: the scale `step` gives, said in a snackbar.
@@ -361,29 +953,82 @@ impl AppView {
     fn fetch(&mut self, _: &Fetch, _: &mut Window, cx: &mut Context<Self>) {
         if let Some(project) = self.selected_project(cx) {
             self.store.update(cx, |store, cx| {
-                store.fetch(&project, cx);
+                store.fetch(&project, None, cx);
                 store.refresh_forge(&project);
             });
         }
     }
 
-    fn new_branch(&mut self, _: &NewBranch, window: &mut Window, cx: &mut Context<Self>) {
-        // Not while a prompt or picker is open: the branch would be made out of sight behind it.
-        if self.covered() {
-            return;
+    /// Fetch the selected project, then update its workspace and worktrees, as `but pull` does.
+    fn pull(&mut self, _: &Pull, _: &mut Window, cx: &mut Context<Self>) {
+        if let Some(project) = self.selected_project(cx) {
+            self.store.update(cx, |store, cx| {
+                store.fetch(&project, Some(UpdateScope::All), cx);
+                store.refresh_forge(&project);
+            });
         }
-        let Some(project) = self.selected_project(cx).or_else(|| {
-            self.store
-                .read(cx)
-                .projects
-                .iter()
+    }
+
+    /// The selected project, else the first watched one, to start a branch or worktree in. None
+    /// while a prompt or picker is open: it would be made out of sight behind it.
+    fn project_to_start_in(&self, cx: &App) -> Option<ProjectId> {
+        if self.covered() {
+            return None;
+        }
+        self.selected_project(cx).or_else(|| {
+            let store = self.store.read(cx);
+            (store.projects.iter())
                 .find(|p| p.expanded)
                 .map(|p| p.id.clone())
-        }) else {
+        })
+    }
+
+    fn new_branch(&mut self, _: &NewBranch, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(project) = self.project_to_start_in(cx) else {
             return;
         };
         let create = backend::CreateBranch { name: None };
         self.new_branch_at(project, true, None, None, window, cx, create);
+    }
+
+    fn new_worktree(&mut self, _: &NewWorktree, _: &mut Window, cx: &mut Context<Self>) {
+        let Some(project) = self.project_to_start_in(cx) else {
+            return;
+        };
+        let create = backend::worktrees::CreateWorktree::New(None);
+        (self.store).update(cx, |store, cx| store.create_worktree(&project, create, cx))
+    }
+
+    fn recycle_worktree(&mut self, _: &RecycleWorktree, _: &mut Window, cx: &mut Context<Self>) {
+        let Some(project) = self.project_to_start_in(cx) else {
+            return;
+        };
+        (self.store).update(cx, |store, cx| store.recycle_worktree(&project, cx))
+    }
+
+    fn new_worktree_with_name(
+        &mut self,
+        _: &NewWorktreeWithName,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(project) = self.project_to_start_in(cx) else {
+            return;
+        };
+        let selected = project.clone();
+        self.prompt_branch(
+            Selection::Project(project),
+            "New worktree",
+            window,
+            cx,
+            |name| backend::worktrees::CreateWorktree::New(Some(name)),
+            move |store, name, cx| {
+                store.select(
+                    Some(Selection::Checkout(selected, Checkout::Linked(name))),
+                    cx,
+                )
+            },
+        )
     }
 
     /// Ask the desktop app's update feed now: show the update card for the newer version it
@@ -509,93 +1154,115 @@ impl AppView {
         .detach();
     }
 
-    fn cut_selection(&mut self, _: &CutSelection, window: &mut Window, cx: &mut Context<Self>) {
-        let in_diff = self.detail.read(cx).is_focused(window, cx);
-        let cut = match self.selection(cx) {
-            // From a commit's diff, its lines, hunk or file under the cursor.
-            Some(Selection::Commit(..)) if in_diff => self.detail.read(cx).cursor_cut(cx),
-            // The picked commits with it, when it's one of them.
-            Some(Selection::Commit(project, id)) => {
-                let ids = self.store.read(cx).with_picks(&project, id);
-                Some(Cut::Commit(project, ids))
+    /// Squash what's picked in the diff or the file list, with the keys in the navigator, from
+    /// the selection's row, which holds it. The navigator squashes what's selected there itself.
+    fn squash_from_detail(
+        &mut self,
+        _: &SquashSelection,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if !self.detail.read(cx).is_focused(window, cx) {
+            return;
+        }
+        let Some((project, changes)) = (self.detail_changes(cx))
+            .and_then(|(project, changes)| Some((project, changes.movable()?)))
+        else {
+            return;
+        };
+        // The composer's checks say what goes in, as it amends with them.
+        if changes.from.is_none() && self.detail.read(cx).composing() {
+            return window.dispatch_action(Box::new(StartAmend), cx);
+        }
+        self.catch_up_navigator(window, cx);
+        (self.navigator).update(cx, |navigator, cx| {
+            navigator.squash(project, Moving::Files(changes), None, window, cx);
+        });
+    }
+
+    /// What the detail, which has the keys, squashes: the lines, hunk or file under the cursor
+    /// of a diff, or what the composer has checked.
+    fn detail_changes(&self, cx: &App) -> Option<(ProjectId, Changes)> {
+        let detail = self.detail.read(cx);
+        match self.selection(cx) {
+            // A branch's or a stack's diff has them of the commits that made them.
+            Some(Selection::Commit(..) | Selection::Branch(..) | Selection::Stack(..)) => {
+                detail.cursor_changes(cx)
             }
-            Some(Selection::Branch(project, Some(ref_name))) => {
-                Some(Cut::Branch(project, ref_name))
-            }
-            // From the diff, the lines, hunk or file under the cursor; from the navigator or
-            // the composer, what's checked.
-            Some(Selection::Uncommitted(_) | Selection::Worktree(..))
-                if in_diff && !self.detail.read(cx).composing() =>
-            {
-                self.detail.read(cx).cursor_cut(cx)
-            }
-            Some(Selection::Uncommitted(_) | Selection::Worktree(..)) => {
-                let detail = self.detail.read(cx);
-                (detail.selected_checkout(cx)).and_then(|(project, worktree)| {
+            Some(Selection::Uncommitted(..)) if !detail.composing() => detail.cursor_changes(cx),
+            Some(Selection::Uncommitted(..)) => {
+                (detail.selected_checkout()).and_then(|(project, worktree)| {
                     let files = detail.files_to_move(&project, worktree.clone(), cx);
-                    (!files.is_empty()).then(|| Cut::Files {
-                        project,
-                        from: None,
-                        worktree,
-                        files: files.into(),
+                    (!files.is_empty()).then(|| {
+                        let changes = Changes {
+                            from: None,
+                            worktree,
+                            files: files.into(),
+                        };
+                        (project, changes)
                     })
                 })
             }
             _ => None,
-        };
-        if let Some(cut) = cut {
-            self.cut(cut, cx);
         }
     }
 
-    fn paste_here(&mut self, _: &PasteHere, window: &mut Window, cx: &mut Context<Self>) {
-        let (Some(cut), Some(target)) = (self.store.read(cx).cut.clone(), self.selection(cx))
-        else {
-            return;
-        };
-        let place = Place::from_keys(window.modifiers(), &cut, &target);
-        // Pasting lets go of the cut, before it lands: letting go clears snackbars, and landing
-        // can show one. A drop leaves the cut alone.
-        if Transfer::resolve(&cut, &target, place, self.store.read(cx)).is_some() {
-            self.store.update(cx, |store, cx| store.set_cut(None, cx));
-        }
-        self.transfer(&cut, &target, place, window, cx);
-    }
-
-    pub fn cut(&mut self, cut: Cut, cx: &mut Context<Self>) {
-        let message = format!(
-            "{} {}, ready to paste with {}",
-            cut.verb(),
-            cut.describe(self.store.read(cx)),
-            crate::ui::keys_text("⌘V")
-        );
-        self.store.update(cx, |store, cx| {
-            store.set_cut(Some(cut), cx);
-            store.snack(message, cx);
+    /// Start cherry-picking `what` into `project` from a page of the detail: the navigator
+    /// takes the keys to place the copies, coming out over the detail while it's hidden, as ⌘1
+    /// brings it.
+    pub(crate) fn cherry_pick(
+        &mut self,
+        project: ProjectId,
+        what: Moving,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.focus_navigator(&FocusNavigator, window, cx);
+        (self.navigator).update(cx, |navigator, cx| {
+            navigator.cherry_pick(project, what, window, cx)
         });
     }
 
-    /// Land `payload` on `target`, from a drop or a paste.
+    /// Land `what` on `target`, from a drop.
     pub fn transfer(
         &mut self,
-        payload: &Cut,
+        what: &Moving,
         target: &Selection,
         place: Place,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(transfer) = Transfer::resolve(payload, target, place, self.store.read(cx)) else {
+        self.land(what, target, place, None, window, cx)
+    }
+
+    /// Do what `what` landing on `target` at `place` does, as a drop does, and land the move
+    /// with the keys `lands` if that's what it is.
+    pub fn land(
+        &mut self,
+        what: &Moving,
+        target: &Selection,
+        place: Place,
+        lands: Option<crate::transfer::Move>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(transfer) = Transfer::resolve(what, target, place, self.store.read(cx)) else {
             snack(&self.store, "That can't go there", cx);
             return;
         };
         let project = target.project().clone();
-        let staged = (self.store).update(cx, |store, cx| transfer.perform(&project, store, cx));
+        let staged =
+            (self.store).update(cx, |store, cx| transfer.perform(&project, lands, store, cx));
         if let Some((branch, files)) = staged {
-            self.store.update(cx, |store, cx| {
-                store.select(Some(Selection::Uncommitted(project.clone())), cx)
+            let changes = Selection::Uncommitted(project.clone(), Checkout::Main);
+            let row = self.store.read(cx).row_key(&changes);
+            self.uncover_home(&row, cx);
+            self.store
+                .update(cx, |store, cx| store.select(Some(changes), cx));
+            self.detail.update(cx, |detail, cx| {
+                detail.follow_selection(window, cx);
+                detail.stage(branch, &files, window, cx)
             });
-            self.detail
-                .update(cx, |detail, cx| detail.stage(branch, &files, window, cx));
         }
     }
 
@@ -605,17 +1272,39 @@ impl AppView {
         if cx.stop_active_drag(window) {
             return;
         }
+        if self.tile_dragged() {
+            return self.let_go_tile(true, cx);
+        }
         // The menu first, as it can be open over a modal.
-        if self.menu.take().is_some() {
-            cx.notify();
-            return;
+        if self.menu.is_some() {
+            return self.close_menu(window, cx);
         }
         if self.modal.is_some() {
             return self.close_modal(window, cx);
         }
+        // A move under way, before what's in the pane with the keys, as it's what they do. A
+        // commit being placed goes with the composer it's made from.
+        let moving = self.store.read(cx).moving.as_ref();
+        match moving.map(|moving| (moving.op, moving.amending())) {
+            Some((Op::Commit, _) | (Op::Squash(_), true)) => {
+                (self.detail).update(cx, |detail, cx| detail.cancel_commit(window, cx));
+                if self.peek.committing {
+                    self.send_peek_back(window, cx);
+                }
+                self.back_to_placing_from(cx);
+                return;
+            }
+            Some((Op::Move | Op::Squash(_) | Op::CherryPick, _)) => {
+                return self
+                    .store
+                    .update(cx, |store, cx| store.set_moving(None, cx));
+            }
+            None => {}
+        }
         if self.detail.read(cx).is_focused(window, cx) {
             // Undo the nearest thing first: a text selection, then the file filter.
-            // Then the branch opened on the Branches page, for its table.
+            // Then the branch opened on the Branches page, for its table, and the commit
+            // pinned on the Graph, for the whole graph.
             let handled = self.detail.update(cx, |detail, cx| {
                 detail.clear_text_selection(cx)
                     || detail.clear_line_picks(cx)
@@ -623,36 +1312,32 @@ impl AppView {
                     || detail.close_open_filter(window, cx)
                     || detail.close_opened_branch(cx)
                     || detail.close_opened_target(cx)
-                    || detail.close_changes(cx)
+                    || detail.unpin_graph(cx)
             });
             if handled {
                 return cx.notify();
             }
-            // What's cut or picked goes next, below, as the status bar's esc says.
-            let store = self.store.read(cx);
-            if store.cut.is_none() && store.picked.is_empty() {
+            // What's picked goes next, below, as the status bar's esc says.
+            if self.store.read(cx).picked.is_empty() {
                 return self.focus_main(window, cx);
             }
         }
-        // With nothing cut or picked, the branch opened on the Branches page goes back to its
-        // table.
+        // With nothing picked, the navigator ⌘1 brought out goes back, and with it the selection
+        // and the keys to where ⌘1 was pressed, while that's still there.
         let store = self.store.read(cx);
-        if store.cut.is_none()
-            && store.picked.is_empty()
+        if self.peek.keyed && store.picked.is_empty() && self.column_has_keys(window, cx) {
+            return self.send_peek_back(window, cx);
+        }
+        // With nothing picked, the branch opened on the Branches page goes back to its table.
+        if store.picked.is_empty()
             && self.detail.update(cx, |detail, cx| {
-                detail.close_opened_branch(cx)
-                    || detail.close_opened_target(cx)
-                    || detail.close_changes(cx)
+                detail.close_opened_branch(cx) || detail.close_opened_target(cx)
             })
         {
             return cx.notify();
         }
-        let store = self.store.read(cx);
-        let mut let_go = store.cut.is_some() || !store.picked.is_empty();
-        if store.cut.is_some() {
-            self.store.update(cx, |store, cx| store.set_cut(None, cx));
-        }
-        if !self.store.read(cx).picked.is_empty() {
+        let mut let_go = !self.store.read(cx).picked.is_empty();
+        if let_go {
             self.store.update(cx, |store, cx| {
                 store.picked.clear();
                 cx.notify()
@@ -661,7 +1346,7 @@ impl AppView {
         let_go |= self.detail.update(cx, |detail, cx| {
             detail.clear_file_picks(cx) | detail.clear_line_picks(cx)
         });
-        // With nothing cut or picked, the newest card, as its Dismiss does.
+        // With nothing picked, the newest card, as its Dismiss does.
         let store = self.store.read(cx);
         let card = (store.toasts.iter().rev())
             .find(|toast| matches!(toast.notice, crate::state::Notice::Error { .. }));
@@ -681,21 +1366,210 @@ impl AppView {
         if self.covered() {
             return;
         }
-        // Asking for the navigator brings it back.
-        if !self.navigator_open {
+        self.catch_up_navigator(window, cx);
+        // Across the top, it's there already.
+        if self.strip_is_navigator() {
+            let strip = self.tabs.read(cx).focus_handle().clone();
+            return window.focus(&strip, cx);
+        }
+        let navigator = self.navigator.focus_handle(cx);
+        // Asking for the hidden navigator brings it out over the detail, as the pointer does,
+        // and back beside it while it's still sliding away.
+        if !self.navigator_open && !self.navigator_slide.closing(clock::now()) {
+            if !self.column_has_keys(window, cx) {
+                self.peek.returns_to = self.selection(cx).map(|s| (s, window.focused(cx)));
+            }
+            self.peek.keyed = true;
+            if !self.peek.open {
+                self.open_peek(cx);
+            }
+        } else if !self.navigator_open {
             self.set_navigator(true, window, cx);
         }
-        window.focus(&self.navigator.focus_handle(cx), cx);
+        window.focus(&navigator, cx);
+    }
+
+    /// Bring the navigator's rows up to date while it's out of sight, where nothing draws them,
+    /// as where a commit or a squash can go is worked out from them, before a frame could.
+    fn catch_up_navigator(&self, window: &Window, cx: &mut Context<Self>) {
+        if !self.navigator_shown() {
+            (self.navigator).update(cx, |navigator, cx| navigator.catch_up_rows(window, cx));
+        }
+    }
+
+    /// Open a terminal on the checkout the selection is in, the main one when it's in none.
+    fn new_terminal(&mut self, _: &NewTerminal, _: &mut Window, cx: &mut Context<Self>) {
+        self.store.update(cx, |store, cx| {
+            let Some(selection) = store.selection.clone() else {
+                return;
+            };
+            let checkout = store.checkout_of(&selection).unwrap_or(Checkout::Main);
+            store.open_terminal(selection.project().clone(), checkout, cx);
+        });
+    }
+
+    /// Open a terminal in a new tile beside the one with the keys, along `axis`, on the checkout
+    /// that tile shows, without asking what to show there as a split does.
+    fn new_terminal_beside(&mut self, axis: Axis, window: &mut Window, cx: &mut Context<Self>) {
+        let at = self.focused_tile(window, cx);
+        (self.store).update(cx, |store, cx| store.pin_terminal(at, axis, cx));
+    }
+
+    /// The terminal the detail's place shows, while one is selected.
+    fn shown_terminal(&self, cx: &App) -> Option<Entity<crate::terminal::Terminal>> {
+        let store = self.store.read(cx);
+        match store.selection.as_ref()? {
+            Selection::Terminal(_, id) => store.terminals.get(*id).cloned(),
+            _ => None,
+        }
+    }
+
+    /// Give the keys to what covers the detail, if anything does: a tile zoomed over the home
+    /// one, or else the terminal shown.
+    fn focus_cover(&self, window: &mut Window, cx: &mut App) -> bool {
+        let cover =
+            (self.zoomed_over_home(cx)).or_else(|| Some(self.shown_terminal(cx)?.focus_handle(cx)));
+        if let Some(cover) = &cover {
+            window.focus(cover, cx);
+        }
+        cover.is_some()
+    }
+
+    /// Go into the selected terminal, to type in: the detail it shows in comes back, and it
+    /// takes the keys. Selecting it alone leaves them where they were, so ↑ and ↓ go past it.
+    pub(crate) fn enter_terminal(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        // Not from under what's open over it, as when a prompt opened while its shell started.
+        if self.covered() || self.shown_terminal(cx).is_none() {
+            return;
+        }
+        self.set_detail(true, window, cx);
+        self.focus_cover(window, cx);
+        // The navigator ⌘1 brought out goes back now the keys left it, which no frame shows
+        // when a picker's choice runs at once, so GPUI never says it lost them.
+        if self.peek.keyed {
+            self.close_peek(window, cx);
+        }
+    }
+
+    /// Show terminal `id` where it is, as the terminal overview and the terminal picker go to
+    /// it: its own row, or the row whose tiling it lives in a tile of, that tile the one of its
+    /// tiles that had the keys last. With `enter` the tile takes them, once it's drawn.
+    pub(crate) fn show_terminal(
+        &mut self,
+        id: TerminalId,
+        enter: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.covered() {
+            return;
+        }
+        let Some((selection, tile)) = self.store.read(cx).terminal_tile(id) else {
+            return;
+        };
+        (self.store).update(cx, |store, cx| {
+            if store.selection.as_ref() != Some(&selection) {
+                store.select(Some(selection), cx);
+            }
+            // A folded card it's in unfolds, as Go to anything's jumps do.
+            store.unfold_to_selection(cx);
+            store.note_tile_with_keys(&tile);
+            cx.notify();
+        });
+        self.set_detail(true, window, cx);
+        if enter && self.peek.keyed {
+            self.close_peek(window, cx);
+        }
+        // Once the row's tiling is drawn, with the zoom it kept, which another tile's hides it.
+        Self::once_drawn(window, cx, move |this, window, cx| {
+            if this.zoomed().is_some_and(|zoomed| *zoomed != tile) {
+                this.zoom_out(cx);
+            }
+            if enter
+                && !this.covered()
+                && let Some(focus) = this.tile_focus(&tile, cx)
+            {
+                window.focus(&focus, cx);
+            }
+        });
+    }
+
+    /// Whether the terminal overview is drawn under the navigator, beside the panes or out over
+    /// the detail, or across the top, has a tab, whose card it's drawn in once the keys are
+    /// there.
+    fn terminals_shown(&self, cx: &App) -> bool {
+        (self.navigator_shown() || self.strip_is_navigator())
+            && self.store.read(cx).prefs.shows(Part::TerminalOverview)
+    }
+
+    /// Give the terminal overview the keys, bringing the navigator it's under back beside the
+    /// panes and the overview into it, as Settings would. Across the top, the card under its tab
+    /// comes down with them.
+    fn focus_terminals(&mut self, _: &FocusTerminals, window: &mut Window, cx: &mut Context<Self>) {
+        if self.covered() {
+            return;
+        }
+        if !self.store.read(cx).prefs.shows(Part::TerminalOverview) {
+            (self.store).update(cx, |store, cx| {
+                store.set_prefs(|prefs| prefs.hide_terminal_overview = false, cx)
+            });
+        }
+        if !self.navigator_open && !self.navigator_on_top {
+            self.set_navigator(true, window, cx);
+        }
+        let focus = self.terminals.focus_handle(cx);
+        // Not drawn yet if it just came in.
+        Self::once_drawn(window, cx, move |this, window, cx| {
+            if !this.covered() && this.terminals_shown(cx) {
+                window.focus(&focus, cx);
+            }
+        });
+    }
+
+    /// Show or hide the terminal overview, the keys going to the navigator if it had them.
+    fn toggle_terminal_overview(
+        &mut self,
+        _: &ToggleTerminalOverview,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let had_keys = self.terminals.focus_handle(cx).contains_focused(window, cx);
+        (self.store).update(cx, |store, cx| {
+            store.set_prefs(|p| p.hide_terminal_overview ^= true, cx)
+        });
+        if had_keys {
+            window.focus(&self.navigator.focus_handle(cx), cx);
+        }
     }
 
     /// Focus the navigator, or the changes while the navigator isn't on screen, so keys
-    /// always reach something visible.
+    /// always reach something visible. Out over the detail, it's on screen.
     pub(crate) fn focus_main(&self, window: &mut Window, cx: &mut App) {
-        if self.navigator_open {
+        self.focus_main_by(Detail::focus, window, cx)
+    }
+
+    /// [`AppView::focus_main`], but the page's file list takes the keys rather than its diff, or
+    /// its list on a page with one, as when they come down from the navigator's tabs across the
+    /// top. Of the page just selected there, which has a file list where the one before may not.
+    pub(crate) fn focus_page_files(&self, window: &mut Window, cx: &mut App) {
+        let focus = |detail: &mut Detail, window: &mut Window, cx: &mut Context<Detail>| {
+            detail.follow_selection(window, cx);
+            detail.focus_files(window, cx)
+        };
+        self.focus_main_by(focus, window, cx)
+    }
+
+    fn focus_main_by(
+        &self,
+        focus: fn(&mut Detail, &mut Window, &mut Context<Detail>),
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        if self.navigator_open || self.peek.open {
             window.focus(&self.navigator.focus_handle(cx), cx);
-        } else {
+        } else if !self.focus_cover(window, cx) {
             self.detail
-                .update(cx, |detail, cx| detail.focus(window, cx));
+                .update(cx, |detail, cx| focus(detail, window, cx));
         }
     }
 
@@ -707,51 +1581,271 @@ impl AppView {
             // A message being written whose box left the screen, as when an operation selects
             // something else, hands its keys to the diff rather than to the navigator, where
             // single letters rename and start branches. ⇧P still pushes from either.
-            None if self.detail.read(cx).composing() => self
+            None if self.detail_open && self.detail.read(cx).composing() => self
                 .detail
                 .update(cx, |detail, cx| detail.focus(window, cx)),
             None => self.focus_main(window, cx),
         }
     }
 
-    /// The file list, or the diff while the list is hidden; a Branches, Operations history or
-    /// project page's list.
-    /// Tab, or ⇧Tab going back: the next of the navigator, the file list and the diff that show,
-    /// round again. Without `wrap`, as → and ← go, only the panes on that side.
-    fn focus_pane(
-        &mut self,
-        forward: bool,
-        wrap: bool,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if self.covered() {
+    /// Have the keys go on `by` that move: past the panes of the tile with them to the next,
+    /// left of the tiles to the navigator, and going round, through all of those. On either
+    /// tabs, ← and → go to the tab on that side first, and in the navigator, ⇧⌘J and ⇧⌘K go to
+    /// the project on that side. Over what's open or while a tile's moved with them they stay,
+    /// and with the detail hidden, where the navigator is the only pane, they stay in it.
+    pub(crate) fn move_keys(&mut self, by: KeyMove, window: &mut Window, cx: &mut Context<Self>) {
+        if self.covered() || self.arranging.is_some() {
             return;
         }
-        let detail = self.detail.read(cx);
-        let at = if self.navigator.focus_handle(cx).contains_focused(window, cx) {
-            0
-        } else if detail.files_focused(window) || detail.side_list_focused(window) {
-            1
-        } else {
-            2
-        };
-        // A page that's an overview alone has no pane past the navigator to take the keys.
-        let shown = [
-            self.navigator_open,
-            detail.files_shown(cx),
-            !detail.overview_only(cx),
-        ];
-        let next = |n: usize| (at + if forward { n } else { 3 - n }) % 3;
-        match (1..3)
-            .map(next)
-            .filter(|&pane| wrap || (pane > at) == forward)
-            .find(|&pane| shown.get(pane) == Some(&true))
+        let from = self.place_with_keys(window, cx);
+        if self.step_strip(&from, by, window, cx)
+            || self.step_project(&from, by, window, cx)
+            || !self.detail_open
         {
-            Some(0) => window.focus(&self.navigator.focus_handle(cx), cx),
-            Some(1) => (self.detail).update(cx, |detail, cx| detail.focus_files(window, cx)),
-            Some(_) => (self.detail).update(cx, |detail, cx| detail.focus(window, cx)),
-            None => {}
+            return;
+        }
+        if self.step_tabs(&from, by, window, cx) {
+            return;
+        }
+        let Some(to) = self.place_after(&from, by, cx).filter(|to| *to != from) else {
+            // A page with no panes has nowhere for the keys to land, which leaves the navigator's
+            // rows with them, but the tabs are left for the page however it's laid out.
+            if from == KeyPlace::Navigator
+                && by == KeyMove::TileBeside(Side::Bottom)
+                && self.strip_is_navigator()
+            {
+                self.focus_main(window, cx);
+            }
+            return;
+        };
+        self.focus_place(&to, window, cx);
+        if let KeyPlace::Tile(tile, Some(pane)) = &from
+            && let Some(detail) = self.tile_detail(tile, cx)
+        {
+            detail.update(cx, |detail, _| detail.left_pane(*pane));
+        }
+    }
+
+    /// Whether the navigator's rows can be got at on screen: it's there, or across the top, its
+    /// tabs are, with the card under them.
+    pub(crate) fn rows_in_sight(&self) -> bool {
+        self.navigator_shown() || self.strip_is_navigator()
+    }
+
+    /// Whether the keys are on the navigator's tabs.
+    pub(crate) fn strip_has_keys(&self, window: &Window, cx: &App) -> bool {
+        self.tabs.read(cx).focus_handle().is_focused(window)
+    }
+
+    /// Whether the navigator's tabs take its keys: across the top, but for while it's out over
+    /// the detail.
+    fn strip_is_navigator(&self) -> bool {
+        self.navigator_on_top && !self.peek.open
+    }
+
+    /// Along the navigator's tabs, in `from`: h and l the tab beside it, ⇧⌘H and ⇧⌘L the project.
+    /// The terminal overview is in the card under its tab, so it steps along them too. Says
+    /// whether `by` was that, there being one or not.
+    fn step_strip(
+        &mut self,
+        from: &KeyPlace,
+        by: KeyMove,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let on_strip = matches!(from, KeyPlace::Navigator | KeyPlace::Terminals);
+        if !on_strip || !self.strip_is_navigator() {
+            return false;
+        }
+        let (side, projects_only) = match by {
+            KeyMove::Beside(side) => (side, false),
+            KeyMove::TileBeside(side) => (side, true),
+            KeyMove::Round { .. } => return false,
+        };
+        let forward = match side {
+            Side::Left => false,
+            Side::Right => true,
+            Side::Top => return true,
+            Side::Bottom => return false,
+        };
+        (self.tabs).update(cx, |tabs, cx| tabs.step(forward, projects_only, window, cx));
+        true
+    }
+
+    /// ⇧⌘J or ⇧⌘K in the navigator, whose projects stand over each other as tiles do: the
+    /// project on that side. Says whether `by` from `from` was that, there being one or not.
+    fn step_project(
+        &mut self,
+        from: &KeyPlace,
+        by: KeyMove,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        // The tabs stand side by side, and down from them is the page.
+        if self.strip_is_navigator() {
+            return false;
+        }
+        let forward = match (from, by) {
+            (KeyPlace::Navigator, KeyMove::TileBeside(Side::Bottom)) => true,
+            (KeyPlace::Navigator, KeyMove::TileBeside(Side::Top)) => false,
+            _ => return false,
+        };
+        let stepped = (self.navigator).update(cx, |navigator, cx| {
+            navigator.step_project(forward, window, cx)
+        });
+        // Past the last project is the terminal overview, as it's under them.
+        if !stepped && forward && self.terminals_shown(cx) {
+            window.focus(&self.terminals.focus_handle(cx), cx);
+        }
+        true
+    }
+
+    /// ← or → on either tabs, in `from`: the tab on that side. Says whether there was one.
+    fn step_tabs(
+        &mut self,
+        from: &KeyPlace,
+        by: KeyMove,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let forward = match by {
+            KeyMove::Beside(Side::Left) => false,
+            KeyMove::Beside(Side::Right) => true,
+            KeyMove::Beside(Side::Top | Side::Bottom)
+            | KeyMove::TileBeside(_)
+            | KeyMove::Round { .. } => return false,
+        };
+        let KeyPlace::Tile(tile, Some(pane)) = from else {
+            return false;
+        };
+        match pane {
+            KeyPane::ProjectTabs => (self.tile_detail(tile, cx)).is_some_and(|detail| {
+                detail.update(cx, |detail, cx| {
+                    detail.step_project_tab(forward, window, cx)
+                })
+            }),
+            KeyPane::Tabs => (self.tile_detail(tile, cx)).is_some_and(|detail| {
+                detail.update(cx, |detail, cx| detail.step_tab(forward, window, cx))
+            }),
+            KeyPane::List | KeyPane::Files | KeyPane::Diff => false,
+        }
+    }
+
+    /// The detail of `tile`'s page, while it shows one rather than a terminal.
+    fn tile_detail(&self, tile: &Tile, cx: &App) -> Option<Entity<Detail>> {
+        match tile {
+            Tile::Home => self
+                .shown_terminal(cx)
+                .is_none()
+                .then(|| self.detail.clone()),
+            Tile::Pinned(RowKey::Row(Selection::Terminal(..))) => None,
+            Tile::Pinned(row) => Some(self.pages.get(row)?.detail.clone()),
+        }
+    }
+
+    /// The tiles that show, and where: the one zoomed, else the selected row's, else the home
+    /// tile alone.
+    fn shown_tiles(&self, cx: &App) -> Vec<(Tile, Area)> {
+        match (self.zoomed(), self.store.read(cx).tiling()) {
+            (Some(tile), _) => Vec::from([(tile.clone(), Area::WHOLE)]),
+            (None, Some(tiling)) => tiling.areas(),
+            (None, None) => Vec::from([(Tile::Home, Area::WHOLE)]),
+        }
+    }
+
+    fn place_with_keys(&self, window: &Window, cx: &App) -> KeyPlace {
+        let strip = self.tabs.read(cx).focus_handle().is_focused(window);
+        if strip || self.navigator.focus_handle(cx).contains_focused(window, cx) {
+            return KeyPlace::Navigator;
+        }
+        if self.terminals.focus_handle(cx).contains_focused(window, cx) {
+            return KeyPlace::Terminals;
+        }
+        let tile = (self.zoomed().cloned()).unwrap_or_else(|| self.focused_tile(window, cx));
+        let pane = self.tile_detail(&tile, cx);
+        let pane = pane.map(|detail| detail.read(cx).pane_with_keys(window, cx));
+        KeyPlace::Tile(tile, pane)
+    }
+
+    /// Where `by` takes the keys from `from`, as [`AppView::move_keys`] says.
+    fn place_after(&self, from: &KeyPlace, by: KeyMove, cx: &App) -> Option<KeyPlace> {
+        if let KeyPlace::Tile(tile, Some(pane)) = from {
+            let detail = self.tile_detail(tile, cx)?;
+            let next = detail.read(cx).key_pane_after(*pane, by, cx);
+            if next.is_some() {
+                return Some(KeyPlace::Tile(tile.clone(), next));
+            }
+        }
+        let tiles = self.shown_tiles(cx);
+        let strip = self.strip_is_navigator();
+        let navigator = self.navigator_shown() || strip;
+        let terminals = self.terminals_shown(cx);
+        let came_from = match from {
+            KeyPlace::Navigator | KeyPlace::Terminals => self.store.read(cx).last_tile_with_keys(),
+            KeyPlace::Tile(tile, _) => self.store.read(cx).tile_with_keys_before(tile),
+        };
+        let next = match by {
+            KeyMove::Beside(side) | KeyMove::TileBeside(side) if strip => {
+                stop_beside_strip(&from.stop(), side, &tiles, came_from.as_ref())
+            }
+            KeyMove::Beside(side) | KeyMove::TileBeside(side) => {
+                stop_beside(&from.stop(), side, &tiles, navigator, came_from.as_ref())
+            }
+            KeyMove::Round { forward } => {
+                stop_round(&from.stop(), forward, &tiles, navigator, terminals)
+            }
+        };
+        match next? {
+            KeyStop::Navigator => Some(KeyPlace::Navigator),
+            KeyStop::Terminals => Some(KeyPlace::Terminals),
+            KeyStop::Tile(tile) => {
+                let alone = tile == Tile::Home && tiles.len() == 1;
+                self.place_in(tile, by, alone, cx)
+            }
+        }
+    }
+
+    /// Where the keys land coming into `tile` `by` that move. A page with no panes has nothing
+    /// to take them while it's the home tile `alone`; any other stops them, to go on from, as
+    /// ⌘] does.
+    fn place_in(&self, tile: Tile, by: KeyMove, alone: bool, cx: &App) -> Option<KeyPlace> {
+        let Some(detail) = self.tile_detail(&tile, cx) else {
+            return Some(KeyPlace::Tile(tile, None));
+        };
+        let pane = detail.read(cx).key_pane_entered(by, cx);
+        (pane.is_some() || !alone).then_some(KeyPlace::Tile(tile, pane))
+    }
+
+    fn focus_place(&mut self, place: &KeyPlace, window: &mut Window, cx: &mut Context<Self>) {
+        match place {
+            KeyPlace::Navigator if self.strip_is_navigator() => {
+                let strip = self.tabs.read(cx).focus_handle().clone();
+                window.focus(&strip, cx)
+            }
+            KeyPlace::Navigator => window.focus(&self.navigator.focus_handle(cx), cx),
+            KeyPlace::Terminals => window.focus(&self.terminals.focus_handle(cx), cx),
+            KeyPlace::Tile(tile, Some(pane)) => {
+                if let Some(detail) = self.tile_detail(tile, cx) {
+                    detail.update(cx, |detail, cx| detail.focus_key_pane(*pane, window, cx));
+                }
+            }
+            KeyPlace::Tile(tile, None) => {
+                if let Some(focus) = self.tile_focus(tile, cx) {
+                    window.focus(&focus, cx);
+                }
+            }
+        }
+    }
+
+    /// Move the keys off the navigator as it goes, to the home tile's pane beside it, as → from
+    /// it does there. A page with none, as an overview alone or a branch with no commits, gives
+    /// them to the detail.
+    fn focus_past_navigator(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.focus_cover(window, cx) {
+            (self.detail).update(cx, |detail, cx| {
+                let pane = detail.key_pane_entered(KeyMove::Beside(Side::Right), cx);
+                detail.focus_key_pane(pane.unwrap_or(KeyPane::Diff), window, cx);
+            });
         }
     }
 
@@ -762,11 +1856,57 @@ impl AppView {
         cx: &mut Context<Self>,
     ) {
         if let Some(selection) = self.selection(cx) {
-            self.select(Selection::History(selection.project().clone()), window, cx);
+            self.open_project_tab(selection.project().clone(), ProjectTab::History, window, cx);
         }
     }
 
-    /// As the window's close button does: closing it quits, asking first while operations run.
+    /// ⌃Tab or ⌃⇧Tab from anywhere: the next tab across the top or back, as l and h step along
+    /// them with the keys there, leaving the keys where they are. On the home tile they go to
+    /// the terminal the tab shows there, so coming back to one goes on in it.
+    fn step_navigator_tab(&mut self, forward: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if self.covered() || !self.strip_is_navigator() {
+            return;
+        }
+        let home = matches!(
+            self.place_with_keys(window, cx),
+            KeyPlace::Tile(Tile::Home, _)
+        );
+        (self.tabs).update(cx, |tabs, cx| tabs.step(forward, false, window, cx));
+        if home {
+            self.focus_cover(window, cx);
+        }
+    }
+
+    /// A brief's command from the palette with the keys elsewhere, as in the navigator: the page
+    /// handles it, so it goes there.
+    fn brief_command<A: gpui::Action + Clone>(
+        &mut self,
+        action: &A,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.detail.read(cx).is_focused(window, cx) {
+            return;
+        }
+        let focus = self.detail.read(cx).focus_handle(cx);
+        window.focus(&focus, cx);
+        window.dispatch_action(Box::new(action.clone()), cx);
+    }
+
+    pub(crate) fn open_project_tab(
+        &mut self,
+        project: ProjectId,
+        tab: ProjectTab,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        (self.store).update(cx, |store, cx| store.show_tab(project, tab, cx));
+        self.focus_main(window, cx);
+    }
+
+    /// As the window's close button does: closing it quits, asking first while operations run
+    /// or terminals are open. A tile that can close and has the keys takes the action first and
+    /// closes instead.
     fn close_window(&mut self, _: &CloseWindow, window: &mut Window, cx: &mut Context<Self>) {
         if self.can_quit(window, cx) {
             cx.quit();
@@ -777,66 +1917,239 @@ impl AppView {
         if self.covered() {
             return;
         }
-        self.detail
-            .update(cx, |detail, cx| detail.focus_files(window, cx));
+        // Asking for what's in the detail brings it back.
+        self.set_detail(true, window, cx);
+        if !self.focus_cover(window, cx) {
+            self.detail
+                .update(cx, |detail, cx| detail.focus_files(window, cx));
+        }
     }
 
     fn focus_diff(&mut self, _: &FocusDiff, window: &mut Window, cx: &mut Context<Self>) {
         if self.covered() {
             return;
         }
-        self.detail
-            .update(cx, |detail, cx| detail.focus(window, cx));
+        self.set_detail(true, window, cx);
+        if !self.focus_cover(window, cx) {
+            self.detail
+                .update(cx, |detail, cx| detail.focus(window, cx));
+        }
     }
 
+    /// Whether the navigator shows, beside the detail or out over it.
+    pub(crate) fn navigator_shown(&self) -> bool {
+        self.navigator_open || self.peek.open
+    }
+
+    /// Place a commit of the uncommitted changes of the selection's checkout with the keys,
+    /// from the selection: the navigator steps through where it can go, and the composer shows
+    /// what goes in and the message. While one's being placed, as Return does there. With the
+    /// navigator out of sight, only the status bar says where it goes, the composer stays
+    /// closed and what's shown stays as it is: Return, or this again, commits it all there
+    /// without a message.
     fn start_commit(&mut self, _: &StartCommit, window: &mut Window, cx: &mut Context<Self>) {
+        // What's typed in the diff goes in too, not only what's saved of it yet.
+        (self.detail).update(cx, |detail, cx| detail.flush_edits(cx));
+        if let Some(moving) = (self.store.read(cx).moving.clone()).filter(|m| m.op == Op::Commit) {
+            // From the composer, with its message, written first; without it, as where the
+            // navigator came out for the commit, as it is, the navigator going back once it's
+            // made.
+            if self.detail.read(cx).composing() {
+                return (self.detail).update(cx, |detail, cx| detail.commit_here(window, cx));
+            }
+            (self.detail).update(cx, |detail, cx| detail.commit_now(moving, cx));
+            if self.peek.committing && self.store.read(cx).moving.is_none() {
+                self.send_peek_back(window, cx);
+            }
+            return;
+        }
+        self.place_changes(false, window, cx)
+    }
+
+    /// Amend a commit with the uncommitted changes of the selection's checkout, from the
+    /// selection: the navigator steps through what they can go into, and the composer shows
+    /// what goes in and the commit's message. While one's being placed, as Return does there:
+    /// the keys go to the message, to keep or rewrite, and from there amend. With the navigator
+    /// out of sight, the composer stays closed: Return, or this again, amends it with all of
+    /// them, keeping its message.
+    fn start_amend(&mut self, _: &StartAmend, window: &mut Window, cx: &mut Context<Self>) {
+        (self.detail).update(cx, |detail, cx| detail.flush_edits(cx));
+        if self.covered() {
+            return;
+        }
+        if !(self.store.read(cx).moving.as_ref()).is_some_and(Move::amending) {
+            return self.place_changes(true, window, cx);
+        }
+        if self.detail.read(cx).composing() {
+            return (self.detail).update(cx, |detail, cx| detail.amend_here(window, cx));
+        }
+        (self.navigator).update(cx, |navigator, cx| navigator.land_move(window, cx));
+        if self.peek.committing && self.store.read(cx).moving.is_none() {
+            self.send_peek_back(window, cx);
+        }
+    }
+
+    /// Start placing the uncommitted changes of the selection's checkout, as a new commit or
+    /// with `amend`, into one.
+    fn place_changes(&mut self, amend: bool, window: &mut Window, cx: &mut Context<Self>) {
         let Some(selection) = self.selection(cx) else {
             return;
         };
         // Only what's on screen gets committed: from another page, ⌘↩ shows the changes
         // first, a linked worktree's from its branches and commits.
         let project = selection.project().clone();
-        let checkout = match (&selection, self.store.read(cx).worktree_for(&selection)) {
-            (Selection::Uncommitted(_) | Selection::Worktree(..), _) => selection.clone(),
-            (_, Some(worktree)) => Selection::Worktree(project, worktree.name.clone()),
-            (_, None) => Selection::Uncommitted(project),
+        let checkout = match &selection {
+            Selection::Uncommitted(..) => selection.clone(),
+            _ => {
+                let checkout = self.store.read(cx).checkout_of(&selection);
+                Selection::Uncommitted(project.clone(), checkout.unwrap_or_default())
+            }
         };
-        if selection == checkout {
-            return self
-                .detail
-                .update(cx, |detail, cx| detail.commit_or_write(window, cx));
+        let Some(worktree) = self.store.read(cx).checkout_of(&checkout) else {
+            return;
+        };
+        self.catch_up_navigator(window, cx);
+        // Refused here, what's shown stays as it is.
+        let navigator = self.navigator.read(cx);
+        if amend && let Some(why) = navigator.amend_refused(&project, &worktree, &selection, cx) {
+            return snack(&self.store, why, cx);
         }
-        // From a branch, or one of its commits, the commit goes on that branch.
-        let branch = (self.store.read(cx).branch_for(&selection))
-            .and_then(|branch| branch.ref_name.clone())
-            .filter(|_| matches!(checkout, Selection::Uncommitted(_)));
-        self.store
-            .update(cx, |store, cx| store.select(Some(checkout.clone()), cx));
-        // Once the detail has taken the new selection's checks, which it does as this update
-        // ends: opened before, the composer would be of the checkout left, and close.
-        let detail = self.detail.clone();
-        window.defer(cx, move |window, cx| {
-            detail.update(cx, |detail, cx| {
-                if let Some(branch) = branch {
-                    detail.branch_created(checkout.project(), branch, cx);
-                }
-                detail.focus_message(window, cx)
-            })
+        // Esc goes back to it.
+        self.placing_from = (selection != checkout).then(|| (selection.clone(), checkout.clone()));
+        let shown = self.rows_in_sight();
+        if shown {
+            // The message is written in the detail.
+            self.set_detail(true, window, cx);
+        }
+        // From where it's started, before the selection is the changes'.
+        let start = (self.navigator).update(cx, |navigator, cx| match amend {
+            true => navigator.amend_start(&project, &selection, cx),
+            false => navigator.commit_start(&project, &selection, cx),
         });
+        // The hidden navigator comes out over the detail to place it in, as ⌘1 brings it,
+        // what's shown staying as it is, without the composer. An amend starts from the
+        // changes' row, as what's squashed is selected.
+        if !shown {
+            self.focus_navigator(&FocusNavigator, window, cx);
+            self.peek.committing = self.peek.keyed;
+            if amend {
+                self.store
+                    .update(cx, |store, cx| store.select(Some(checkout), cx));
+            }
+            let placing = self.navigator.update(cx, |navigator, cx| {
+                navigator.start_placing(amend, project, worktree, start, window, cx)
+            });
+            // With nowhere to place them, it has nothing to come out for.
+            if !placing {
+                self.send_peek_back(window, cx);
+            }
+            return;
+        }
+        let row = self.store.read(cx).row_key(&checkout);
+        self.uncover_home(&row, cx);
+        if selection != checkout {
+            self.store
+                .update(cx, |store, cx| store.select(Some(checkout), cx));
+        }
+        // Not where the composer won't open, as while a commit is being edited.
+        let (opens, opened) = self.detail.update(cx, |detail, cx| {
+            detail.follow_selection(window, cx);
+            (!detail.composing(), detail.open_composer(window, cx))
+        });
+        if !opened {
+            return;
+        }
+        let placing = self.navigator.update(cx, |navigator, cx| {
+            navigator.start_placing(amend, project, worktree, start, window, cx)
+        });
+        // A commit can still go on the branch the composer shows; an amend has no commit.
+        if amend && !placing && opens {
+            self.detail
+                .update(cx, |detail, cx| detail.leave_composer(window, cx));
+        }
     }
 
-    /// Open the pull request of the selected branch, or of the branch the selected commit
-    /// is on, in the browser. Without one, start one where that's possible.
+    /// Select again what placing a commit or an amend was started from, as it's let go, while
+    /// the changes it selected still are and what it started from is still there.
+    fn back_to_placing_from(&mut self, cx: &mut Context<Self>) {
+        let Some((from, changes)) = self.placing_from.take() else {
+            return;
+        };
+        let store = self.store.read(cx);
+        if store.selection.as_ref() != Some(&changes) || !store.still_there(&from) {
+            return;
+        }
+        self.store
+            .update(cx, |store, cx| store.select(Some(from), cx));
+    }
+
+    /// The pull request of the selected branch, or of what a page has picked: the branch
+    /// opened on the Branches page, or the target's merge.
+    pub(crate) fn pull_request_url(&self, cx: &App) -> Option<String> {
+        let store = self.store.read(cx);
+        match store.branch_for(store.selection.as_ref()?) {
+            Some(branch) => branch.review.as_ref()?.url.clone(),
+            None => self.detail.read(cx).page_pull_request(),
+        }
+    }
+
+    /// Register a copy of each thing the selection has to copy, as its menu offers them:
+    /// its pull request's link, a commit's ID, a branch's name, a checkout's path, and why a
+    /// project can't be read. The pages' own picks are the detail's.
+    pub(crate) fn copy_actions(
+        &self,
+        el: gpui::Stateful<gpui::Div>,
+        cx: &Context<Self>,
+    ) -> gpui::Stateful<gpui::Div> {
+        let store = self.store.read(cx);
+        let el = el.when_some(self.pull_request_url(cx), |el, url| {
+            clipboard::copy_on::<CopyPullRequestLink>(el, &self.store, url)
+        });
+        let path = |path: &std::path::Path| path.display().to_string();
+        match store.selection.as_ref() {
+            Some(Selection::Commit(_, id) | Selection::Upstream(_, _, id)) => {
+                clipboard::copy_on::<CopyCommitId>(el, &self.store, id.0.to_string())
+            }
+            Some(Selection::Branch(_, Some(ref_name))) => {
+                let name = short_ref(ref_name).into_owned();
+                clipboard::copy_on::<CopyBranchName>(el, &self.store, name)
+            }
+            Some(Selection::Project(project)) => {
+                let error =
+                    (store.project(project)).and_then(|p| Some(p.error.clone()?.to_string()));
+                el.when_some(store.path(project), |el, dir| {
+                    clipboard::copy_on::<CopyPath>(el, &self.store, path(&dir))
+                })
+                .when_some(error, |el, error| {
+                    let store = self.store.clone();
+                    el.on_action(move |_: &CopyErrorMessage, _, cx| {
+                        clipboard::copy_error(&store, error.clone(), cx)
+                    })
+                })
+            }
+            Some(Selection::Checkout(project, Checkout::Linked(name))) => {
+                let worktree =
+                    (store.workspace(project)).and_then(|ws| ws.find_worktree(name.as_ref()));
+                el.when_some(worktree, |el, worktree| {
+                    clipboard::copy_on::<CopyPath>(el, &self.store, path(&worktree.path))
+                })
+            }
+            Some(Selection::Mesh(project, id, MeshPick::Checkout)) => {
+                el.when_some(store.mesh_checkout(project, id), |el, checkout| {
+                    clipboard::copy_on::<CopyPath>(el, &self.store, checkout.path.clone())
+                })
+            }
+            _ => el,
+        }
+    }
+
     fn open_pull_request(
         &mut self,
         _: &OpenPullRequest,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let url = self.selection(cx).and_then(|selection| {
-            let branch = self.store.read(cx).branch_for(&selection)?;
-            branch.review.as_ref()?.url.clone()
-        });
+        let url = self.pull_request_url(cx);
         let create = crate::pr::CreatePullRequest;
         match url {
             Some(url) => cx.open_url(&url),
@@ -847,34 +2160,34 @@ impl AppView {
         }
     }
 
-    /// Copy what's selected in the form other tools take: a file's path, a commit's id,
-    /// a branch's name or a project's directory. What it copied blinks, as the TUI highlights
-    /// it.
+    /// Copy what's selected in the form other tools take: a hunk or a file's diff as git prints
+    /// it, a commit's id, a branch's name or a project's or worktree's directory, as dropping its
+    /// row on a terminal pastes it. What it copied blinks, as the TUI highlights it.
     fn copy_selection(&mut self, _: &CopySelection, window: &mut Window, cx: &mut Context<Self>) {
-        let file = (self.detail.read(cx).is_focused(window, cx))
-            .then(|| self.detail.update(cx, |detail, cx| detail.copy(cx)))
+        let tile = self.focused_tile(window, cx);
+        let detail = self.tile_detail(&tile, cx).unwrap_or(self.detail.clone());
+        let file = (detail.read(cx).is_focused(window, cx))
+            .then(|| detail.update(cx, |detail, cx| detail.copy(window, cx)))
             .flatten();
         let selected = file.is_none();
         let text = file.or_else(|| match self.selection(cx)? {
             Selection::Commit(project, id) => {
                 let (_, commit) = self.store.read(cx).find_commit(&project, id)?;
-                Some(if commit.has_change_id() {
-                    commit.key.clone()
-                } else {
-                    id.0.to_string()
-                })
+                Some(commit.reference())
             }
             Selection::Upstream(_, _, id) => Some(id.0.to_string()),
+            Selection::Terminal(..) => None,
             Selection::Branch(_, ref_name) => {
                 ref_name.map(|ref_name| short_ref(&ref_name).into_owned())
             }
-            Selection::Project(project) => {
+            // The main worktree's folder is the project's.
+            Selection::Project(project) | Selection::Checkout(project, Checkout::Main) => {
                 Some(self.store.read(cx).path(&project)?.display().to_string())
             }
-            Selection::Worktree(project, name) => {
-                let workspace = self.store.read(cx).workspace(&project)?;
-                let worktree = workspace.find_worktree(name.as_ref())?;
-                Some(worktree.path.display().to_string())
+            Selection::Checkout(project, Checkout::Linked(name)) => {
+                let path =
+                    (self.store.read(cx)).checkout_path(&project, &Checkout::Linked(name))?;
+                Some(path.display().to_string())
             }
             Selection::Mesh(project, id, MeshPick::Checkout) => Some(
                 self.store
@@ -883,10 +2196,9 @@ impl AppView {
                     .path
                     .clone(),
             ),
-            Selection::Uncommitted(_)
+            Selection::Uncommitted(..)
+            | Selection::Pending(..)
             | Selection::Mesh(..)
-            | Selection::Branches(_)
-            | Selection::History(_)
             | Selection::Stack(..)
             | Selection::Section(..) => None,
         });
@@ -894,18 +2206,16 @@ impl AppView {
             if selected {
                 (self.navigator).update(cx, |navigator, cx| navigator.blink_selection(cx));
             }
-            self.copy_text(text, cx);
+            clipboard::copy(&self.store, text, cx);
         }
     }
 
-    /// Do `act` in the composer, if it's open.
     fn in_composer(
         &self,
         window: &mut Window,
         cx: &mut Context<Self>,
         act: impl FnOnce(&mut crate::detail::Detail, &mut Window, &mut Context<crate::detail::Detail>),
     ) {
-        // Not from what's open over it.
         if self.covered() {
             return;
         }
@@ -925,13 +2235,6 @@ impl AppView {
             || self.icon_picker.is_some()
     }
 
-    /// Put `text` on the clipboard and say so.
-    pub fn copy_text(&mut self, text: String, cx: &mut Context<Self>) {
-        let message = copied(&text);
-        cx.write_to_clipboard(ClipboardItem::new_string(text));
-        snack(&self.store, message, cx);
-    }
-
     fn update_selected_project(&mut self, scope: UpdateScope, cx: &mut Context<Self>) {
         if let Some(project) = self.selected_project(cx) {
             self.update_from_target(project, scope, cx);
@@ -939,7 +2242,7 @@ impl AppView {
     }
 
     /// Rebase what `scope` picks onto the target. When that would leave commits conflicted
-    /// that aren't now, the card saying so offers to go ahead.
+    /// that aren't now, the window asks whether to go ahead.
     pub fn update_from_target(
         &mut self,
         project: ProjectId,
@@ -950,18 +2253,37 @@ impl AppView {
         let Some(target) = store.workspace(&project).and_then(|ws| ws.target.as_ref()) else {
             return;
         };
-        let (behind, what) = match scope {
-            UpdateScope::All => (target.needs_update(), "Already"),
-            UpdateScope::Workspace => (target.workspace_behind, "The workspace is already"),
-            UpdateScope::Worktrees => (target.worktrees_behind, "The worktrees are already"),
+        let behind = match scope {
+            UpdateScope::All => target.needs_update(),
+            UpdateScope::Workspace => target.workspace_behind,
+            UpdateScope::Worktrees => target.worktrees_behind,
         };
         if !behind {
-            let message = format!("{what} up to date with {}", target.name);
-            snack(&self.store, message, cx);
+            snack(&self.store, up_to_date(scope, &target.name), cx);
             return;
         }
         self.store.update(cx, |store, cx| {
             store.update_from_target(&project, scope, None, cx)
+        });
+    }
+
+    /// Ask whether to update `project` anyway, leaving conflicted just what the update `found`
+    /// it would, as `detail` says.
+    fn ask_to_update_with_conflicts(
+        &mut self,
+        project: ProjectId,
+        scope: UpdateScope,
+        found: UpdateConflicts,
+        detail: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let at = Some(Selection::Project(project.clone()));
+        let message = "Update and leave conflicts?".to_owned();
+        self.confirm_then(at, message, detail, "Update", window, cx, move |app, cx| {
+            app.store.update(cx, |store, cx| {
+                store.update_from_target(&project, scope, Some(found), cx)
+            })
         });
     }
 
@@ -974,6 +2296,14 @@ impl AppView {
         self.set_navigator(!self.navigator_open, window, cx);
     }
 
+    fn toggle_detail(&mut self, _: &ToggleDetail, window: &mut Window, cx: &mut Context<Self>) {
+        self.set_detail(!self.detail_open, window, cx);
+    }
+
+    fn change_theme(&mut self, _: &ChangeTheme, window: &mut Window, cx: &mut Context<Self>) {
+        self.pick_color_scheme(window, cx);
+    }
+
     fn command_palette(&mut self, _: &CommandPalette, window: &mut Window, cx: &mut Context<Self>) {
         if self.palette.is_some() {
             self.close_palette(window, cx);
@@ -982,25 +2312,3106 @@ impl AppView {
         }
     }
 
-    /// Show or hide the navigator, sliding it there. When it goes, focus moves off it, and it
-    /// comes back with it, as hiding it took it away.
+    /// Put the navigator at the side if it's across the top, or the other way round, as
+    /// Settings does.
+    fn toggle_navigator_place(
+        &mut self,
+        _: &ToggleNavigatorPlace,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.store.update(cx, |store, cx| {
+            store.set_prefs(
+                |prefs| {
+                    prefs.navigator_place = match prefs.navigator_place {
+                        NavigatorPlace::Side => NavigatorPlace::Top,
+                        NavigatorPlace::Top => NavigatorPlace::Side,
+                    }
+                },
+                cx,
+            )
+        });
+    }
+
+    /// Slide the navigator to where Settings just put it: out of the column as the tabs come
+    /// down over the panes, or back. Called as the window draws, so the rest waits till that's
+    /// over.
+    fn follow_navigator_place(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let on_top = self.store.read(cx).prefs.navigator_place == NavigatorPlace::Top;
+        if on_top == self.navigator_on_top {
+            return;
+        }
+        self.navigator_on_top = on_top;
+        self.tabs_slide.start(on_top, cx);
+        cx.defer_in(window, move |this, window, cx| {
+            this.set_navigator(!on_top, window, cx);
+            // The tabs are going, with the keys they had.
+            if !on_top && this.tabs.read(cx).focus_handle().is_focused(window) {
+                window.focus(&this.navigator.focus_handle(cx), cx);
+            }
+        });
+    }
+
+    /// Hand the keys on from the navigator, a press in a card under its tabs having given it
+    /// them, unless it's out over the detail, where it can use them.
+    pub(crate) fn keys_off_hidden_navigator(&self, window: &mut Window, cx: &mut Context<Self>) {
+        let navigator = self.navigator.focus_handle(cx);
+        if !self.peek.open && navigator.contains_focused(window, cx) {
+            self.focus_page_files(window, cx);
+        }
+    }
+
+    /// Show or hide the navigator, sliding it there. The keys stay where they are, but for
+    /// moving off it when it goes, and onto it when it comes back while they're on a diff with
+    /// nothing for them. Out over the detail already, it shows beside it at once rather than
+    /// sliding in again. Hidden while the detail is, the detail comes back in its place.
     pub(crate) fn set_navigator(
         &mut self,
         navigator_open: bool,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if navigator_open != self.navigator_open {
+        // Across the top, it never shows beside the panes.
+        let navigator_open = navigator_open && !self.navigator_on_top;
+        if !navigator_open {
+            self.set_detail(true, window, cx);
+        }
+        let peeking = self.peek.open || self.peek.slide.closing(clock::now());
+        if navigator_open {
+            self.peek = Peek::default();
+            (self.navigator).update(cx, |navigator, cx| navigator.set_floating(false, cx));
+        }
+        if navigator_open && peeking {
+            self.navigator_slide = Slide::default();
+        } else if navigator_open != self.navigator_open {
             self.navigator_slide.start(navigator_open, cx);
         }
         self.navigator_open = navigator_open;
-        if navigator_open {
+        if !navigator_open && self.column_has_keys(window, cx) {
+            self.focus_past_navigator(window, cx);
+        } else if navigator_open && self.detail.read(cx).keys_stranded(window, cx) {
             window.focus(&self.navigator.focus_handle(cx), cx);
-        } else if self.navigator.focus_handle(cx).contains_focused(window, cx) {
-            self.focus_main(window, cx);
         }
         cx.notify();
     }
+
+    /// Show or hide the detail. Hiding it narrows the window to the navigator as the detail
+    /// slides in under it, and showing it widens the window back, as [`AppView::narrow_window`]
+    /// can; otherwise the detail slides off the window's right edge, the navigator's edge
+    /// following it to take the window. Hidden while the navigator is, the navigator comes back
+    /// in its place. The keys it takes with it go to the navigator.
+    pub(crate) fn set_detail(
+        &mut self,
+        detail_open: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        // With the navigator across the top, there's nothing to take the window in its place.
+        if detail_open == self.detail_open || self.navigator_on_top {
+            return;
+        }
+        if !detail_open {
+            self.set_navigator(true, window, cx);
+        }
+        self.narrow_window(detail_open, window, cx);
+        self.detail_slide.start(detail_open, cx);
+        self.detail_open = detail_open;
+        let navigator = self.navigator.focus_handle(cx);
+        if !detail_open && !self.covered() && !navigator.contains_focused(window, cx) {
+            window.focus(&navigator, cx);
+        }
+        cx.notify();
+    }
+
+    /// Have the window narrow to the navigator as the detail goes, or widen back by as much as
+    /// that took as it comes back, the navigator keeping the width it has. Only on macOS, where
+    /// the window's least width can be lowered for it, and out of full screen.
+    fn narrow_window(&mut self, detail_open: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let scale = Theme::get(cx).scale;
+        let width = f32::from(window.viewport_size().width) / scale;
+        let resizes = cfg!(target_os = "macos") && !window.is_fullscreen();
+        self.narrowing = match self.narrowing {
+            _ if !resizes => None,
+            // Turned back partway, it goes back from where it is.
+            Some(narrowing) if !narrowing.settled => Some(Narrowing {
+                asked: 0,
+                ..narrowing
+            }),
+            Some(narrowing) => Some(Narrowing {
+                wide: width + narrowing.wide - narrowing.navigator,
+                navigator: width,
+                settled: false,
+                asked: 0,
+            }),
+            None if detail_open => None,
+            None => Some(Narrowing {
+                wide: width,
+                navigator: (self.detail.read(cx)).navigator_width(clock::now(), window, cx),
+                settled: false,
+                asked: 0,
+            }),
+        };
+        let least = match self.narrowing {
+            Some(_) => Pane::Navigator.limits().0 * scale,
+            None => crate::LEAST_WINDOW_WIDTH,
+        };
+        set_least_width(least, window);
+        // From a task rather than as frames are drawn: each resize has AppKit draw the window
+        // at once, in step with its new width, where a frame drawn on the display's beat for the
+        // width before can land after it and be stretched to the new one.
+        self.resizing = self.narrowing.is_some().then(|| {
+            cx.spawn_in(window, async move |this, cx| {
+                loop {
+                    cx.background_executor().timer(RESIZE_STEP).await;
+                    let step = |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
+                        this.step_narrowing(window, cx)
+                    };
+                    if !this.update_in(cx, step).unwrap_or(false) {
+                        break;
+                    }
+                }
+            })
+        });
+    }
+
+    /// Resize the window to as much of the detail as shows while it narrows to the navigator or
+    /// widens back, then to where the slide ended until it's there, after which its width is
+    /// the user's. Widened back, the panes lay out for the window again, and it can't be made
+    /// as narrow as the navigator. Whether there's another step.
+    fn step_narrowing(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Some(mut narrowing) = self.narrowing.filter(|narrowing| !narrowing.settled) else {
+            return false;
+        };
+        let now = clock::now();
+        let shown = self.detail_slide.share(self.detail_open, now);
+        let width = narrowing.navigator + (narrowing.wide - narrowing.navigator) * shown;
+        let width = Theme::get(cx).scaled(width).round();
+        let viewport = window.viewport_size();
+        let sliding = self.detail_slide.openness(now).is_some();
+        // A resize lands a step or more later, so the last is asked for again until the window
+        // has it, for a while.
+        let there = (viewport.width - width).abs() < fixed(0.5);
+        if sliding || (!there && narrowing.asked < LAST_RESIZE_TRIES) {
+            window.resize(gpui::size(width, viewport.height));
+            if !sliding {
+                narrowing.asked += 1;
+            }
+            self.narrowing = Some(narrowing);
+            return true;
+        }
+        if self.detail_open {
+            self.narrowing = None;
+            set_least_width(crate::LEAST_WINDOW_WIDTH, window);
+        } else {
+            self.narrowing = Some(Narrowing {
+                settled: true,
+                ..narrowing
+            });
+        }
+        cx.notify();
+        false
+    }
+
+    /// Bring the closed navigator out over the detail as the pointer, `at` from the panes' top
+    /// left, reaches the window's left edge below the location bar, so going for macOS's
+    /// traffic lights doesn't send them out of its way, and send it back once the pointer has
+    /// strayed past it for [`PEEK_GRACE`], unless [`AppView::peek_held`].
+    fn follow_pointer(
+        &mut self,
+        at: Point<Pixels>,
+        window: &mut Window,
+        cx: &mut Context<AppView>,
+    ) {
+        let now = clock::now();
+        if self.navigator_open || self.navigator_slide.closing(now) {
+            return;
+        }
+        let Point { x, y } = at;
+        if !self.peek.open {
+            let beside = y >= Theme::get(cx).scaled(HEADER_HEIGHT);
+            let edge = x <= fixed(PEEK_EDGE) && !self.navigator_on_top;
+            if edge && beside && !self.covered() {
+                self.open_peek(cx);
+            }
+            return;
+        }
+        let width = self.detail.read(cx).navigator_width(now, window, cx);
+        let strayed = x > Theme::get(cx).scaled(PEEK_INSET + width);
+        if !strayed {
+            self.peek.leaving = None;
+        } else if self.peek.leaving.is_none() && !self.peek_held(window, cx) {
+            self.peek.leaving = Some(cx.spawn_in(window, async move |this, cx| {
+                cx.background_executor().timer(PEEK_GRACE).await;
+                this.update_in(cx, |this, window, cx| this.close_peek(window, cx))
+                    .ok();
+            }));
+        }
+    }
+
+    /// Bring the closed navigator out over the detail.
+    fn open_peek(&mut self, cx: &mut Context<AppView>) {
+        self.peek.open = true;
+        self.peek.slide.start(true, cx);
+        (self.navigator).update(cx, |navigator, cx| navigator.set_floating(true, cx));
+        cx.notify();
+    }
+
+    /// Whether the navigator out over the detail stays though the pointer strayed from it:
+    /// what was opened from it is over the window, a drag may be headed for it, its filter or
+    /// a terminal's name being changed under it has the keys, or it or the terminal overview
+    /// has them since ⌘1 brought it out. The pointer's next move looks again.
+    fn peek_held(&self, window: &Window, cx: &App) -> bool {
+        let keys = self.column_has_keys(window, cx);
+        let typing = keys
+            && !self.navigator.focus_handle(cx).is_focused(window)
+            && !self.terminals.focus_handle(cx).is_focused(window);
+        self.covered() || cx.has_active_drag() || typing || (self.peek.keyed && keys)
+    }
+
+    /// Whether the keys are on the navigator or the terminal overview under it.
+    fn column_has_keys(&self, window: &Window, cx: &App) -> bool {
+        self.navigator.focus_handle(cx).contains_focused(window, cx)
+            || self.terminals.focus_handle(cx).contains_focused(window, cx)
+    }
+
+    /// Send the navigator ⌘1 brought out back as the keys leave it or the terminal overview
+    /// under it, for somewhere else than the other.
+    fn keys_left_peek(
+        &mut self,
+        _: gpui::FocusOutEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        // After the frame, as a notify while it's drawn draws nothing.
+        if self.peek.keyed && window.is_window_active() {
+            cx.defer_in(window, |this, window, cx| this.close_peek(window, cx));
+        }
+    }
+
+    /// Send the navigator ⌘1 brought out back, and with it the selection and the keys to where
+    /// ⌘1 was pressed, while that's still there.
+    fn send_peek_back(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.peek.keyed = false;
+        if let Some((selection, focus)) = self.peek.returns_to.take()
+            && self.store.read(cx).still_there(&selection)
+        {
+            self.store
+                .update(cx, |store, cx| store.select(Some(selection), cx));
+            if let Some(focus) = focus {
+                window.focus(&focus, cx);
+            }
+        }
+        self.close_peek(window, cx);
+    }
+
+    /// Send the navigator out over the detail back, unless [`AppView::peek_held`], moving the
+    /// keys off it, as it takes no more.
+    fn close_peek(&mut self, window: &mut Window, cx: &mut Context<AppView>) {
+        self.peek.leaving = None;
+        if !self.peek.open || self.peek_held(window, cx) {
+            return;
+        }
+        self.peek.open = false;
+        self.peek.keyed = false;
+        self.peek.returns_to = None;
+        self.peek.committing = false;
+        self.peek.slide.start(false, cx);
+        if self.column_has_keys(window, cx) {
+            self.focus_past_navigator(window, cx);
+        }
+        cx.notify();
+    }
+
+    /// Follows the pointer anywhere over the panes, over what takes it too, for the closed
+    /// navigator to come out over the detail: in from their left edge, which is the window's
+    /// but for the frame a desktop that leaves it to the app has drawn around them.
+    fn watch_pointer(&self, cx: &Context<AppView>) -> impl IntoElement {
+        let this = cx.entity().downgrade();
+        gpui::canvas(
+            |_, _, _| {},
+            move |bounds, (), window, _| {
+                window.on_mouse_event(move |event: &MouseMoveEvent, phase, window, cx| {
+                    if phase == DispatchPhase::Capture {
+                        let at = event.position - bounds.origin;
+                        this.update(cx, |this, cx| this.follow_pointer(at, window, cx))
+                            .ok();
+                    }
+                });
+            },
+        )
+        .absolute()
+        .inset_0()
+    }
+
+    /// The detail, and the diff beside its file list, for the caller to place.
+    fn render_detail(
+        &self,
+        now: Instant,
+        navigator_sliding: bool,
+        files_sliding: bool,
+        window: &Window,
+        cx: &Context<Self>,
+    ) -> Div {
+        let theme = Theme::get(cx);
+        let store = self.store.read(cx);
+        let (areas, drawn_home) = (store.drawn_areas(), store.drawn_home());
+        let (dividers, lifted) = (store.drawn_dividers(), store.lifted_tile().cloned());
+        let home = drawn_home.unwrap_or(Area::WHOLE);
+        // Below the location bar, which runs across every tile: the room the tiles share. The
+        // detail draws the page in the home tile's area of it, under its bar while there are
+        // others, and the diff and the terminal selected go over that.
+        // A terminal there closes, a terminal pinned beside it taking its place, as terminals
+        // are alike. ⌘W closes it while it has the keys, as it does a pinned tile, and the
+        // window otherwise.
+        let close_home = self.close_home(cx);
+        let home_bar = drawn_home.and_then(|_| {
+            let store = self.store.read(cx);
+            let (kind, title) = tile_label(store, &store.row_key(store.selection.as_ref()?));
+            let focus = self.tile_focus(&Tile::Home, cx);
+            let close = close_home.clone().map(|close| {
+                icon_button("close-home", Icon::Cross)
+                    .small()
+                    .tooltip_for("Close", &CloseWindow)
+                    .on_click(move |_, window, cx| close(window, cx))
+            });
+            let grab = self.grab_tile(Tile::Home, cx);
+            let buttons = self.tile_buttons(&Tile::Home, cx).into_iter().chain(close);
+            // Over the detail, which would take the keys for its page rather than a terminal's.
+            Some(
+                tile_bar(kind, title, buttons, focus, grab, theme)
+                    .absolute()
+                    .top_0()
+                    .left_0()
+                    .right_0()
+                    .occlude(),
+            )
+        });
+        let inset = self.detail.read(cx).bar_inset(cx);
+        let page = div()
+            .absolute()
+            .top(dp(inset))
+            .bottom_0()
+            .left_0()
+            .right_0()
+            .when_some(
+                Self::diff_left(&self.detail, now, window, cx),
+                |el, (left, past)| {
+                    el.child(
+                        div()
+                            .absolute()
+                            .top(dp(self.detail.read(cx).view_header_height(cx)))
+                            .bottom_0()
+                            .right(dp(-past))
+                            .left(dp(left))
+                            // Over the files as they slide, edged as they are.
+                            .when(files_sliding, |el| {
+                                el.bg(theme.bg_1)
+                                    .occlude()
+                                    .child(edge(theme.border_3).left(fixed(-1.)))
+                            })
+                            .child(
+                                self.diff
+                                    .clone()
+                                    .cached(StyleRefinement::default().size_full()),
+                            ),
+                    )
+                },
+            )
+            .children(self.shown_terminal(cx).map(|terminal| {
+                div()
+                    .absolute()
+                    .inset_0()
+                    .child(terminal.cached(StyleRefinement::default().size_full()))
+            }));
+        // The detail draws the card under it; a terminal's edge is drawn over it here.
+        let home = placed(home)
+            .when_some(close_home, |el, close| {
+                el.on_action(move |_: &CloseWindow, window, cx| close(window, cx))
+            })
+            .child(tile_content().child(page).children(home_bar))
+            .children(self.tile_edge(&Tile::Home, window, theme, cx))
+            .when(self.shown_terminal(cx).is_some(), |el| {
+                el.child(self.paste_outline(theme))
+            });
+        // Dragged by its bar or zoomed, over the others, as the detail draws its card and page.
+        let home = match lifted == Some(Tile::Home) {
+            true => on_top(home).into_any_element(),
+            false => home.into_any_element(),
+        };
+        let resting = self.store.read(cx).resting_tiling().cloned();
+        let sliding = (self.tile_slide.as_ref().map(|slide| slide.tile.clone()))
+            .or_else(|| self.row_tile.as_ref().and_then(RowTile::opening));
+        let pinned = (areas.into_iter().flatten()).filter_map(|(tile, area)| {
+            let on_top_of_others = lifted.as_ref() == Some(&tile);
+            let el = match tile {
+                Tile::Home => return None,
+                Tile::Pinned(pinned) if self.going(&pinned).is_some_and(|going| going.listed) => {
+                    return None;
+                }
+                Tile::Pinned(pinned) if sliding.as_ref() == Some(&pinned) => {
+                    let rest = (resting.iter().flat_map(Tiling::areas))
+                        .find(|(tile, _)| *tile == Tile::Pinned(pinned.clone()))?;
+                    self.render_sliding(pinned, area, rest.1, now, window, theme, cx)?
+                }
+                Tile::Pinned(pinned) => self.render_pinned(pinned, area, now, window, theme, cx)?,
+            };
+            Some(match on_top_of_others {
+                true => on_top(el).into_any_element(),
+                false => el.into_any_element(),
+            })
+        });
+        let junctions = (crate::state::junctions(&dividers).into_iter())
+            .map(|junction| self.render_junction(junction, theme, cx));
+        let dividers =
+            (dividers.into_iter()).map(|divider| self.render_divider(divider, theme, cx));
+        let store = self.store.clone();
+        div()
+            .relative()
+            // Escape puts a tile dragged by its bar back, before the terminal with the keys,
+            // the dragged one's, would send it to its shell.
+            .capture_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+                if this.tile_dragged() && event.keystroke.key == "escape" {
+                    this.let_go_tile(true, cx);
+                    cx.stop_active_drag(window);
+                    cx.stop_propagation();
+                }
+            }))
+            // Over the navigator as it slides, taking the pointer from it.
+            .when(navigator_sliding, |el| el.bg(theme.bg_1).occlude())
+            .child(
+                self.detail
+                    .clone()
+                    .cached(StyleRefinement::default().size_full()),
+            )
+            .child(
+                // The cards' room, in from its edges as far as they are from each other.
+                div()
+                    .absolute()
+                    .top(dp(self.detail.read(cx).location_bar_height()
+                        + self.detail.read(cx).room_top()))
+                    .bottom(dp(TILE_MARGIN))
+                    .left(dp(self.detail.read(cx).room_left()))
+                    .right(dp(TILE_MARGIN))
+                    .on_drag_move({
+                        let store = store.clone();
+                        move |event: &DragMoveEvent<Divider>, _, cx| {
+                            let divider = event.drag(cx).clone();
+                            move_divider(&store, &divider, event.bounds, event.event.position, cx)
+                        }
+                    })
+                    .on_drag_move(move |event: &DragMoveEvent<Junction>, _, cx| {
+                        for divider in event.drag(cx).dividers.clone() {
+                            move_divider(&store, &divider, event.bounds, event.event.position, cx)
+                        }
+                    })
+                    .child(self.watch_tile_drag(cx))
+                    .child(home)
+                    .children(pinned)
+                    .children(dividers)
+                    .children(junctions)
+                    .children(self.render_drop_zones(theme, cx))
+                    .children(self.render_row_zones(theme, cx))
+                    .children(self.render_arranging_keys(cx))
+                    .children(self.render_swap_letters(theme, cx)),
+            )
+    }
+
+    /// What has the keys while a tile's moved with them: nothing to see. A text field to the
+    /// keys, as a terminal is, so that letters bound across the window do nothing here.
+    fn render_arranging_keys(&self, cx: &Context<Self>) -> Option<Div> {
+        let swapping = self.arranging.as_ref()?.swapping;
+        Some(
+            div()
+                .absolute()
+                .key_context(match swapping {
+                    true => "SwappingTiles TextInput",
+                    false => "ArrangingTiles TextInput",
+                })
+                .track_focus(&self.arranging_focus)
+                .when(swapping, |el| {
+                    el.on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+                        this.swap_by_letter(event, window, cx)
+                    }))
+                })
+                .on_action(
+                    cx.listener(|this, _: &MoveTileLeft, _, cx| this.step_tile(Side::Left, cx)),
+                )
+                .on_action(
+                    cx.listener(|this, _: &MoveTileRight, _, cx| this.step_tile(Side::Right, cx)),
+                )
+                .on_action(cx.listener(|this, _: &MoveTileUp, _, cx| this.step_tile(Side::Top, cx)))
+                .on_action(
+                    cx.listener(|this, _: &MoveTileDown, _, cx| this.step_tile(Side::Bottom, cx)),
+                )
+                .on_action(cx.listener(|this, _: &FinishArranging, window, cx| {
+                    this.finish_arranging(window, cx)
+                }))
+                .on_action(cx.listener(|this, _: &CancelArranging, window, cx| {
+                    this.cancel_arranging(window, cx)
+                })),
+        )
+    }
+
+    /// The letter that swaps each tile with the tile being swapped, over the middle of that tile.
+    fn render_swap_letters(&self, theme: &Theme, cx: &App) -> Option<OnTop> {
+        let letters = self.swap_letters();
+        let tiling = self
+            .store
+            .read(cx)
+            .tiling()
+            .filter(|_| !letters.is_empty())?;
+        let letters = (letters.into_iter()).filter_map(|(letter, tile)| {
+            let label = div()
+                .flex()
+                .items_center()
+                .justify_center()
+                .size(dp(72.))
+                .rounded(dp(theme.shape.popup))
+                .bg(theme.pop)
+                .text_size(dp(36.))
+                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .text_color(theme.bg_1)
+                .child(SharedString::from(letter.to_ascii_uppercase().to_string()));
+            Some(
+                placed(tiling.area_of(&tile)?)
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .child(label),
+            )
+        });
+        Some(on_top(div().absolute().inset_0().children(letters)).priority(1))
+    }
+
+    /// The line over the edge of `tile`'s card, if it has one: the tile being moved with the
+    /// keys', in pop, else the tile with the keys'.
+    fn tile_edge(&self, tile: &Tile, window: &Window, theme: &Theme, cx: &App) -> Option<Div> {
+        match self.arranging.as_ref() {
+            Some(arranging) if arranging.tile == *tile => Some(card_edge(theme.pop, theme.shape)),
+            Some(_) => None,
+            None => (self.has_keys(tile, window, cx) || self.overview_points_at(tile, window, cx))
+                .then(|| card_edge(theme.focus_edge(), theme.shape)),
+        }
+    }
+
+    /// Whether the terminal overview has the keys and `tile` shows the terminal it has
+    /// selected: the tile that takes them as Return gives them.
+    fn overview_points_at(&self, tile: &Tile, window: &Window, cx: &App) -> bool {
+        if !self.terminals.focus_handle(cx).contains_focused(window, cx) {
+            return false;
+        }
+        let store = self.store.read(cx);
+        let Some(shown) = store.terminal_shown() else {
+            return false;
+        };
+        (store.terminal_tile(shown)).is_some_and(|(_, shows)| shows == *tile)
+    }
+
+    /// A tile pinned beside the home tile, over `area` of the room below the header, edged
+    /// where it meets the tiles before it, with a button in its corner that closes it: a
+    /// terminal, or another row's page with its diff over it, as the home tile's has.
+    fn render_pinned(
+        &self,
+        pinned: RowKey,
+        area: Area,
+        now: Instant,
+        window: &Window,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> Option<Div> {
+        let terminal = matches!(pinned, RowKey::Row(Selection::Terminal(..)));
+        let edge = self.tile_edge(&Tile::Pinned(pinned.clone()), window, theme, cx);
+        let content = match &pinned {
+            RowKey::Row(Selection::Terminal(_, id)) => div().size_full().child(
+                (self.store.read(cx).terminals.get(*id).cloned())
+                    .or_else(|| self.going(&pinned)?.terminal.clone())?
+                    .cached(StyleRefinement::default().size_full()),
+            ),
+            row => {
+                let page = (self.pages.get(row)).or_else(|| self.going(row)?.page.as_ref())?;
+                let diff = Self::diff_left(&page.detail, now, window, cx).map(|(left, past)| {
+                    div()
+                        .absolute()
+                        .top(dp(page.detail.read(cx).view_header_height(cx)))
+                        .bottom_0()
+                        .right(dp(-past))
+                        .left(dp(left))
+                        .child((page.diff.clone()).cached(StyleRefinement::default().size_full()))
+                });
+                div()
+                    .relative()
+                    .size_full()
+                    .child((page.detail.clone()).cached(StyleRefinement::default().size_full()))
+                    .children(diff)
+            }
+        };
+        // A tile pinned on a project's tab says the one it's on now.
+        let (kind, title) = match (&pinned, self.pages.get(&pinned)) {
+            (RowKey::Tab(..), Some(page)) => tab_label(page.detail.read(cx).project_tab()),
+            _ => tile_label(self.store.read(cx), &pinned),
+        };
+        let focus = self.tile_focus(&Tile::Pinned(pinned.clone()), cx);
+        let grab = self.grab_tile(Tile::Pinned(pinned.clone()), cx);
+        let tile_buttons = self.tile_buttons(&Tile::Pinned(pinned.clone()), cx);
+        let tile = Tile::Pinned(pinned.clone());
+        let bar_id = SharedString::from(format!("bar-{pinned:?}"));
+        let id = SharedString::from(format!("close-{pinned:?}"));
+        let close = {
+            let app = cx.weak_entity();
+            move |window: &mut Window, cx: &mut App| {
+                app.update(cx, |app, cx| app.close_pinned_tile(&pinned, window, cx))
+                    .ok();
+            }
+        };
+        let (on_key, on_click) = (close.clone(), close);
+        let close = icon_button(id, Icon::Cross)
+            .small()
+            .tooltip_for("Close", &CloseWindow)
+            .on_click(move |_, window, cx| on_click(window, cx));
+        let buttons = tile_buttons.into_iter().chain(Some(close));
+        let bar = tile_bar(kind, title, buttons, focus, grab, theme)
+            .flex_none()
+            .id(bar_id);
+        // Dragged as its row is, so the navigator takes it in as it does a row. Not while
+        // something else moves, which that would end, or while a tile's zoomed, as nothing
+        // lifts it then.
+        let draggable = self.store.read(cx).moving.is_none() && self.tile_zoom.is_none();
+        let bar = match terminal_of(&tile).filter(|_| draggable) {
+            Some((project, id)) => {
+                let project = project.clone();
+                let preview = terminal_preview(self.store.clone(), true);
+                let left_zone_end = (self.store.read(cx).tiling())
+                    .filter(|_| self.navigator_open)
+                    .and_then(|tiling| left_zone_end(tiling, &tile, self.tile_room.get()));
+                let drag = TerminalDrag {
+                    project,
+                    id,
+                    left_zone_end,
+                };
+                bar.on_drag(drag, preview)
+            }
+            None => bar,
+        };
+        Some(
+            placed(area)
+                // Over the home tile's detail, which spans the room under it, gaps and all.
+                .occlude()
+                .key_context("PinnedTile")
+                .on_action(move |_: &CloseWindow, window, cx| on_key(window, cx))
+                .child(tile_card(theme))
+                .child(
+                    (tile_content().flex().flex_col())
+                        .child(bar)
+                        .child(div().flex_1().min_h_0().relative().child(content)),
+                )
+                .children(edge)
+                .when(terminal, |el| el.child(self.paste_outline(theme))),
+        )
+    }
+
+    /// A tile sliding open or shut, over `area` of the room in this frame, of `rest` it has at
+    /// rest: drawn at rest, from the edge of it that moves, the rest cut off, as the detail
+    /// slides in beside the navigator, so it lays out once. Shutting, it takes no pointer.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "render_pinned's, and the area at rest"
+    )]
+    fn render_sliding(
+        &self,
+        pinned: RowKey,
+        area: Area,
+        rest: Area,
+        now: Instant,
+        window: &Window,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> Option<Div> {
+        let going = self.going(&pinned).is_some();
+        let (width, height) = (
+            rest.width / area.width.max(1e-4),
+            rest.height / area.height.max(1e-4),
+        );
+        // Where its leading edge stays put, as the first part of a division's does, its trailing
+        // edge moves, and it's drawn from that one.
+        let trailing = (area.left - rest.left).abs() < 1e-4 && (area.top - rest.top).abs() < 1e-4;
+        let inner = Area {
+            left: if trailing { 1. - width } else { 0. },
+            top: if trailing { 1. - height } else { 0. },
+            width,
+            height,
+        };
+        let tile = self.render_pinned(pinned, inner, now, window, theme, cx)?;
+        Some(placed(area).overflow_hidden().child(inert(tile, going)))
+    }
+
+    /// Over the tiles, the one dragged by its bar too, where the pointer lands it where, once
+    /// the right button shows it: the landings that lay the tiles out alike in a colour of their
+    /// own and named together once, in their biggest box, those it's over stronger.
+    fn render_drop_zones(&self, theme: &Theme, cx: &App) -> Option<OnTop> {
+        let drag = (self.tile_drag.as_ref())
+            .filter(|drag| drag.lifted && !drag.released && !drag.zones.is_empty())?;
+        let store = self.store.read(cx);
+        let home = store.row_key(store.selection.as_ref()?);
+        let least = self.least_tile(cx);
+        // Each layout the landings make, the tiling as it is first, and the landings making it.
+        let mut layouts: Vec<(Tiling, Vec<&Landing>)> = vec![(drag.before.clone(), Vec::new())];
+        let mut layout_of: Vec<(&Landing, usize)> = Vec::new();
+        for landing in drag.zones.iter().filter_map(|zone| zone.landing.as_ref()) {
+            if layout_of.iter().any(|(other, _)| *other == landing) {
+                continue;
+            }
+            let landed = drag.before.landed(&drag.tile, landing, least);
+            let ix = match layouts.iter().position(|(layout, _)| *layout == landed) {
+                Some(ix) => ix,
+                None => {
+                    layouts.push((landed, Vec::new()));
+                    layouts.len() - 1
+                }
+            };
+            if let Some((_, landings)) = layouts.get_mut(ix) {
+                landings.push(landing);
+            }
+            layout_of.push((landing, ix));
+        }
+        let layout = |landing: &Landing| {
+            (layout_of.iter()).find_map(|(other, ix)| (*other == landing).then_some(*ix))
+        };
+        let over = match &drag.pending {
+            Some((landing, _)) => layout(landing),
+            None => layout(&drag.landing),
+        };
+        let hue = |ix: usize| zone_hue(ix);
+        let placed = |zone: &DropZone| {
+            div()
+                .absolute()
+                .left(fixed(zone.left))
+                .top(fixed(zone.top))
+                .w(fixed(zone.right - zone.left))
+                .h(fixed(zone.bottom - zone.top))
+        };
+        let boxes = drag.zones.iter().filter_map(|zone| {
+            let ix = layout(zone.landing.as_ref()?)?;
+            Some(placed(zone).bg(match Some(ix) == over {
+                true => theme.wash_strong(hue(ix)),
+                false => theme.wash(hue(ix)),
+            }))
+        });
+        let area = |zone: &DropZone| (zone.right - zone.left) * (zone.bottom - zone.top);
+        let labels = layouts
+            .iter()
+            .enumerate()
+            .filter_map(|(ix, (_, landings))| {
+                let biggest = (drag.zones.iter())
+                    .filter(|zone| zone.landing.as_ref().and_then(layout) == Some(ix))
+                    .max_by(|a, b| area(a).total_cmp(&area(b)))?;
+                let text = match ix {
+                    0 => "Stays".to_owned(),
+                    _ => (landings.iter())
+                        .map(|landing| landing_text(landing, store, &home))
+                        .collect::<Vec<_>>()
+                        .join(" = "),
+                };
+                let label = div()
+                    .px(dp(6.))
+                    .py(dp(2.))
+                    .rounded(dp(theme.shape.control))
+                    .bg(theme.bg_1)
+                    .border_1()
+                    .border_color(theme.hue(hue(ix)))
+                    .text_size(dp(11.))
+                    .text_color(theme.text_1)
+                    .child(text);
+                Some((placed(biggest).flex().items_center().justify_center()).child(label))
+            });
+        let zones = div().absolute().inset_0().children(boxes).children(labels);
+        // Over the tile dragged, drawn on top itself.
+        Some(on_top(zones).priority(1))
+    }
+
+    /// Over the tiles, the two strips a row dragged from the navigator lands as a tile in, once
+    /// the right button or ⌥ shows them, as [`Self::render_drop_zones`] shows a tile's.
+    fn render_row_zones(&self, theme: &Theme, cx: &App) -> Option<OnTop> {
+        let drag = self.row_drag.as_ref().filter(|drag| drag.zones)?;
+        let room = self.tile_room.get().size;
+        let feel = self.store.read(cx).tile_drag_feel;
+        let width = f32::from(Theme::get(cx).scaled(feel.row_zone));
+        let strips = [(Side::Left, zone_hue(0)), (Side::Right, zone_hue(1))].into_iter();
+        let strips = strips.filter_map(|(side, hue)| {
+            self.row_landed(side, cx)?;
+            let (left, text) = match side {
+                Side::Right => (f32::from(room.width) - width, "Right side"),
+                Side::Left | Side::Top | Side::Bottom => (0., "Left side"),
+            };
+            let color = theme.hue(hue);
+            let wash = match drag.over.is_some_and(|(over, _)| over == side) {
+                true => theme.wash_strong(hue),
+                false => theme.wash(hue),
+            };
+            let label = div()
+                .px(dp(6.))
+                .py(dp(2.))
+                .rounded(dp(theme.shape.control))
+                .bg(theme.bg_1)
+                .border_1()
+                .border_color(color)
+                .text_size(dp(11.))
+                .text_color(theme.text_1)
+                .child(text);
+            Some(
+                div()
+                    .absolute()
+                    .left(fixed(left))
+                    .top_0()
+                    .bottom_0()
+                    .w(fixed(width))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .bg(wash)
+                    .child(label),
+            )
+        });
+        let zones = div().absolute().inset_0().children(strips);
+        Some(on_top(zones).priority(1))
+    }
+
+    /// A strip over the gap between the cards of two parts of a division: drag it to move the
+    /// line between them, double-click it to share the division's room evenly again. A pill in
+    /// the middle of the gap shows it while the pointer's on it or it's dragged.
+    fn render_divider(&self, divider: Divider, theme: &Theme, cx: &Context<Self>) -> Div {
+        let id = SharedString::from(format!("divider-{:?}-{}", divider.path, divider.after));
+        let which = DividerDrag::Tiles(divider.path.clone(), divider.after);
+        let (this, path) = (cx.entity().downgrade(), divider.path.clone());
+        let strip = gap_divider(id, divider.axis, which.clone(), &self.store, theme, cx)
+            .on_click(move |event, _, cx| {
+                if event.click_count() == 2 {
+                    let paths = std::slice::from_ref(&path);
+                    (this.update(cx, |this, cx| this.even_out_tiles(paths, cx))).ok();
+                }
+            })
+            .on_drag(divider.clone(), mark_dragged(&self.store, which));
+        // A line with no breadth along the division, and the strip across it, the gap's width.
+        let room = divider.room;
+        match divider.axis {
+            Axis::Across => div()
+                .absolute()
+                .left(relative(divider.at))
+                .top(relative(room.top))
+                .h(relative(room.height))
+                .child(
+                    strip
+                        .top_0()
+                        .bottom_0()
+                        .left(dp(-TILE_MARGIN))
+                        .w(dp(2. * TILE_MARGIN)),
+                ),
+            Axis::Down => div()
+                .absolute()
+                .top(relative(divider.at))
+                .left(relative(room.left))
+                .w(relative(room.width))
+                .child(
+                    strip
+                        .left_0()
+                        .right_0()
+                        .top(dp(-TILE_MARGIN))
+                        .h(dp(2. * TILE_MARGIN)),
+                ),
+        }
+    }
+
+    /// A handle over where the lines between tiles meet: drag it to move them all at once,
+    /// double-click it to share each of their divisions' room evenly again.
+    fn render_junction(&self, junction: Junction, theme: &Theme, cx: &Context<Self>) -> Div {
+        let lines = (junction.dividers.iter())
+            .map(|divider| (divider.path.clone(), divider.after))
+            .collect::<Vec<_>>();
+        let id = SharedString::from(format!("junction-{lines:?}"));
+        let which = DividerDrag::Junction(lines);
+        let (this, at) = (cx.entity().downgrade(), junction.at);
+        let paths: Vec<Vec<usize>> = (junction.dividers.iter())
+            .map(|divider| divider.path.clone())
+            .collect();
+        let handle = gap_junction(id, &junction, &which, &self.store, theme, cx)
+            .on_click(move |event, _, cx| {
+                if event.click_count() == 2 {
+                    (this.update(cx, |this, cx| this.even_out_tiles(&paths, cx))).ok();
+                }
+            })
+            .on_drag(junction, mark_dragged(&self.store, which))
+            .left(dp(-JUNCTION_HANDLE / 2.))
+            .top(dp(-JUNCTION_HANDLE / 2.))
+            .size(dp(JUNCTION_HANDLE));
+        div()
+            .absolute()
+            .left(relative(at.0))
+            .top(relative(at.1))
+            .child(handle)
+    }
+
+    /// What takes the keys in `tile` of the selected row's tiling, if it's open: the home
+    /// tile's terminal or page, or a pinned one's.
+    fn tile_focus(&self, tile: &Tile, cx: &App) -> Option<FocusHandle> {
+        match tile {
+            Tile::Home => Some(match self.shown_terminal(cx) {
+                Some(terminal) => terminal.focus_handle(cx),
+                None => self.detail.focus_handle(cx),
+            }),
+            Tile::Pinned(RowKey::Row(Selection::Terminal(_, id))) => {
+                Some(self.store.read(cx).terminals.get(*id)?.focus_handle(cx))
+            }
+            Tile::Pinned(row) => Some(self.pages.get(row)?.detail.focus_handle(cx)),
+        }
+    }
+
+    /// Whether `tile` of the selected row has the keys, the home tile with no others too.
+    fn has_keys(&self, tile: &Tile, window: &Window, cx: &App) -> bool {
+        (self.tile_focus(tile, cx)).is_some_and(|focus| focus.contains_focused(window, cx))
+    }
+
+    /// The detail that has the keys, the home tile's or a pinned one's, if one does.
+    pub(crate) fn detail_with_keys(&self, window: &Window, cx: &App) -> Option<&Entity<Detail>> {
+        (std::iter::once(&self.detail))
+            .chain(self.pages.values().map(|page| &page.detail))
+            .find(|detail| detail.read(cx).is_focused(window, cx))
+    }
+
+    /// The tile of the selected row's tiling that has the keys, if one does.
+    fn tile_with_keys(&self, window: &Window, cx: &App) -> Option<Tile> {
+        let tiling = self.store.read(cx).tiling()?;
+        (tiling.areas().into_iter())
+            .map(|(tile, _)| tile)
+            .find(|tile| {
+                (self.tile_focus(tile, cx)).is_some_and(|focus| focus.contains_focused(window, cx))
+            })
+    }
+
+    /// Give the keys back to the tile of the selected row's tiling that had them last, or its
+    /// home tile, as when the row is gone into or the tile with them closes, or to the tile
+    /// zoomed, the only one in sight. Whether it has one.
+    pub(crate) fn focus_last_tile(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let store = self.store.read(cx);
+        if store.tiling().is_none() {
+            return false;
+        }
+        let last = (self.zoomed().cloned())
+            .or_else(|| store.last_tile_with_keys())
+            .unwrap_or(Tile::Home);
+        match self.tile_focus(&last, cx) {
+            Some(focus) => window.focus(&focus, cx),
+            None => self.focus_main(window, cx),
+        }
+        true
+    }
+
+    /// Give the keys to the tile after the one with them in the selected row's tiling, in the
+    /// order they're laid out, or the one before it going `back`, round past the ends, as
+    /// iTerm's ⌘] and ⌘[ go through its panes. From outside the tiles, the first or the last.
+    fn focus_next_tile(&mut self, back: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if self.covered() {
+            return;
+        }
+        self.zoom_out(cx);
+        let Some(tiling) = self.store.read(cx).tiling() else {
+            return;
+        };
+        let tiles: Vec<Tile> = tiling.areas().into_iter().map(|(tile, _)| tile).collect();
+        let at = (self.tile_with_keys(window, cx))
+            .and_then(|tile| tiles.iter().position(|other| *other == tile));
+        let count = tiles.len();
+        let next = match at {
+            Some(at) if back => (at + count - 1) % count,
+            Some(at) => (at + 1) % count,
+            None if back => count - 1,
+            None => 0,
+        };
+        if let Some(focus) = tiles.get(next).and_then(|tile| self.tile_focus(tile, cx)) {
+            window.focus(&focus, cx);
+        }
+    }
+
+    /// Copy how the selected row's tiles are laid out, drawn in text, each by its name.
+    fn copy_tile_diagram(&mut self, cx: &mut Context<Self>) {
+        if let Some(diagram) = self.tile_diagram(cx) {
+            clipboard::copy(&self.store, diagram, cx);
+        }
+    }
+
+    /// How the selected row's tiles are laid out, drawn in text, each by its name: `None` while
+    /// its page shows alone.
+    pub(crate) fn tile_diagram(&self, cx: &App) -> Option<String> {
+        let store = self.store.read(cx);
+        let (tiling, selection) = (store.tiling()?, store.selection.as_ref()?);
+        let home = store.row_key(selection);
+        let label = |tile: &Tile| {
+            let row = match tile {
+                Tile::Home => &home,
+                Tile::Pinned(pinned) => pinned,
+            };
+            tile_label(store, row).1.to_string()
+        };
+        Some(tiling.diagram(label, 60, 18))
+    }
+
+    /// Whether the tile of the selected row that had the keys last is gone, and they went to
+    /// the tile that had them before it.
+    fn tile_lost_keys(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.covered() {
+            return false;
+        }
+        if !(self.store).update(cx, |store, _| store.forget_gone_tile_with_keys()) {
+            return false;
+        }
+        // The last tile beside the home one takes the row's tiling with it, so the home tile,
+        // all that's left, has them.
+        if !self.focus_last_tile(window, cx)
+            && let Some(focus) = self.tile_focus(&Tile::Home, cx)
+        {
+            window.focus(&focus, cx);
+        }
+        true
+    }
+
+    /// Note which tile of the selected row has the keys, for [`Self::focus_last_tile`].
+    fn note_tile_with_keys(&mut self, window: &Window, cx: &mut App) {
+        let Some(tile) = self.tile_with_keys(window, cx) else {
+            return;
+        };
+        (self.store).update(cx, |store, _| store.note_tile_with_keys(&tile));
+    }
+
+    /// Zoom the tile with the keys, or the one that had them last, or zoom back out.
+    fn zoom_with_keys(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let last = self.store.read(cx).last_tile_with_keys();
+        let tile = self.tile_with_keys(window, cx).or(last);
+        self.toggle_zoom(tile.unwrap_or(Tile::Home), window, cx);
+    }
+
+    /// Have `tile` of the selected row's tiling grow over the others to take all their room, and
+    /// the keys, or go back to its place while a tile is zoomed.
+    fn toggle_zoom(&mut self, tile: Tile, window: &mut Window, cx: &mut Context<Self>) {
+        if self.zoomed().is_some() {
+            return self.zoom_out(cx);
+        }
+        let store = self.store.read(cx);
+        let (Some(tiling), Some(selection)) = (store.tiling().cloned(), &store.selection) else {
+            return;
+        };
+        let row = store.row_key(selection);
+        if self.tile_dragged() || self.row_tile.is_some() {
+            return;
+        }
+        match self.tile_zoom.as_mut().filter(|zoom| zoom.tile == tile) {
+            Some(zoom) => {
+                zoom.open = true;
+                zoom.slide.start(true, cx);
+            }
+            None => {
+                let reflow = self.store.read(cx).tile_drag_feel.reflow;
+                let mut slide = Slide::lasting(millis(reflow));
+                slide.start(true, cx);
+                self.tile_zoom = Some(TileZoom {
+                    row,
+                    tile: tile.clone(),
+                    tiling,
+                    open: true,
+                    slide,
+                });
+            }
+        }
+        self.tile_slide = None;
+        self.tile_glide = None;
+        if let Some(focus) = self.tile_focus(&tile, cx) {
+            window.focus(&focus, cx);
+        }
+        self.move_tiles(cx);
+    }
+
+    /// The tile zoomed, or growing to be, not one on its way back.
+    fn zoomed(&self) -> Option<&Tile> {
+        (self.tile_zoom.as_ref())
+            .filter(|zoom| zoom.open)
+            .map(|zoom| &zoom.tile)
+    }
+
+    /// What takes the keys of the pinned tile zoomed over the home one, if one is.
+    fn zoomed_over_home(&self, cx: &App) -> Option<FocusHandle> {
+        let tile = self.zoomed().filter(|tile| **tile != Tile::Home)?;
+        self.tile_focus(tile, cx)
+    }
+
+    fn zoom_out(&mut self, cx: &mut Context<Self>) {
+        if let Some(zoom) = self.tile_zoom.as_mut().filter(|zoom| zoom.open) {
+            zoom.open = false;
+            zoom.slide.start(false, cx);
+            self.move_tiles(cx);
+        }
+    }
+
+    /// Bring `row`'s home tile out from under a tile zoomed over it, now or for coming back to
+    /// the row, for what opens in it, as the composer, to show.
+    fn uncover_home(&mut self, row: &RowKey, cx: &mut Context<Self>) {
+        if (self.kept_zooms.get(row)).is_some_and(|tile| *tile != Tile::Home) {
+            self.kept_zooms.remove(row);
+        }
+        let on_row = (self.tile_zoom.as_ref()).is_some_and(|zoom| zoom.row == *row);
+        if on_row && self.zoomed_over_home(cx).is_some() {
+            self.zoom_out(cx);
+        }
+    }
+
+    /// Forget the zoom once the tiling changes under it, as with a tile split or the tile zoomed
+    /// closed. Another tile going, as when its shell exits, leaves it zoomed.
+    fn drop_stale_zoom(&mut self, cx: &App) {
+        let tiling = self.store.read(cx).tiling();
+        let Some(zoom) = self.tile_zoom.as_mut() else {
+            return;
+        };
+        if tiling == Some(&zoom.tiling) {
+            return;
+        }
+        match tiling.filter(|tiling| tiling.keeps_zoom(&zoom.tile, &zoom.tiling)) {
+            Some(tiling) => {
+                zoom.tiling = tiling.clone();
+                // Not drawn under the zoom, and holding what it shows, as a terminal's shell.
+                self.tile_slide = None;
+            }
+            None => self.tile_zoom = None,
+        }
+    }
+
+    /// Keep the zoom of the row just left, to come back to. One on its way back is over.
+    fn keep_zoom(&mut self) {
+        if let Some(zoom) = self.tile_zoom.take().filter(|zoom| zoom.open) {
+            self.kept_zooms.insert(zoom.row, zoom.tile);
+        }
+    }
+
+    /// Zoom the tile the selected row was left with zoomed, as it was, while it's still there.
+    fn restore_zoom(&mut self, cx: &App) {
+        let store = self.store.read(cx);
+        let Some(selection) = &store.selection else {
+            return;
+        };
+        let row = store.row_key(selection);
+        let Some(tile) = self.kept_zooms.remove(&row) else {
+            return;
+        };
+        let Some(tiling) = store.tiling().filter(|tiling| tiling.has(&tile)).cloned() else {
+            return;
+        };
+        self.tile_zoom = Some(TileZoom {
+            row,
+            tile,
+            tiling,
+            open: true,
+            slide: Slide::lasting(millis(store.tile_drag_feel.reflow)),
+        });
+    }
+
+    /// Where the selected row's tiles are drawn at `now` around the tile zoomed, and whether
+    /// it's moving. Once it's back in its place, the zoom's over.
+    fn zoomed_tiling(&mut self, now: Instant) -> Option<(Drawn, bool)> {
+        let zoom = self.tile_zoom.as_ref()?;
+        let moving = zoom.slide.openness(now).is_some();
+        if !zoom.open && !moving {
+            self.tile_zoom = None;
+            return None;
+        }
+        let at = zoom.slide.share(zoom.open, now);
+        let drawn = Drawn {
+            areas: zoom.tiling.zoomed(&zoom.tile, at),
+            dividers: Vec::new(),
+            rest: zoom.tiling.clone(),
+            lifted: Some(zoom.tile.clone()),
+            zoomed: true,
+        };
+        Some((drawn, moving))
+    }
+
+    /// Slide `tile` open out of its split, or shut into it while it's `going`.
+    fn slide_tile(&mut self, tile: RowKey, going: Option<Going>, cx: &mut Context<Self>) {
+        let mut slide = Slide::lasting(TILE_SLIDE);
+        slide.start(going.is_none(), cx);
+        self.tile_slide = Some(TileSlide { tile, slide, going });
+        self.move_tiles(cx);
+        cx.notify();
+    }
+
+    /// The selected row's tiling as it's drawn at `now` while a tile slides, and as it is at
+    /// rest with that tile in it. Once the slide's over, what it kept goes.
+    fn sliding_tiling(&mut self, now: Instant, cx: &App) -> Option<(Tiling, Tiling)> {
+        let slide = self.tile_slide.as_ref()?;
+        let rest = match &slide.going {
+            Some(going) => Some(going.before.clone()),
+            None => (self.store.read(cx).tiling())
+                .filter(|tiling| tiling.has(&Tile::Pinned(slide.tile.clone())))
+                .cloned(),
+        };
+        let sliding = (slide.slide.openness(now).zip(rest))
+            .map(|(open, rest)| (rest.opening(&slide.tile, open), rest));
+        if sliding.is_none() {
+            self.tile_slide = None;
+        }
+        sliding
+    }
+
+    /// Give each part of the divisions at `paths` of the selected row's tiling the same room,
+    /// the lines between them sliding there.
+    fn even_out_tiles(&mut self, paths: &[Vec<usize>], cx: &mut Context<Self>) {
+        let from = self.store.read(cx).tiling().cloned();
+        self.store.update(cx, |store, cx| {
+            for path in paths {
+                store.even_out_tiles(path, cx);
+            }
+        });
+        let to = self.store.read(cx).tiling().cloned();
+        if let (Some(from), Some(to)) = (from, to)
+            && from != to
+        {
+            let mut slide = Slide::lasting(TILE_SLIDE);
+            slide.start(true, cx);
+            self.tile_glide = Some(TileGlide { from, to, slide });
+            self.move_tiles(cx);
+        }
+    }
+
+    /// Give each part of every division of the selected row's tiling the same room.
+    fn equalize_tiles(&mut self, cx: &mut Context<Self>) {
+        let paths = self.store.read(cx).tiling().map(Tiling::divisions);
+        self.even_out_tiles(&paths.unwrap_or_default(), cx);
+    }
+
+    /// The selected row's tiling as it's drawn at `now` while its lines slide to where they're
+    /// even, and as it is, until that's over or it changes under them.
+    fn gliding_tiling(&mut self, now: Instant, cx: &App) -> Option<(Tiling, Tiling)> {
+        let glide = self.tile_glide.as_ref()?;
+        let still = self.store.read(cx).tiling() == Some(&glide.to);
+        let at = glide.slide.openness(now).filter(|_| still);
+        let gliding = at.map(|at| (glide.from.toward(&glide.to, at), glide.to.clone()));
+        if gliding.is_none() {
+            self.tile_glide = None;
+        }
+        gliding
+    }
+
+    /// What tile `pinned`, shutting, showed, kept to draw it going.
+    fn going(&self, pinned: &RowKey) -> Option<&Going> {
+        (self.tile_slide.as_ref())
+            .filter(|slide| slide.tile == *pinned)
+            .and_then(|slide| slide.going.as_ref())
+    }
+
+    /// Start moving the tile of the selected row's tiling with the keys, or that had them last,
+    /// with the keys: a step at a time, as [`Tiling::stepped`] takes it, or `swapping` it with
+    /// the tile whose letter is pressed.
+    fn arrange_tiles(&mut self, swapping: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if self.arranging.is_some()
+            || self.covered()
+            || self.tile_dragged()
+            || self.row_tile.is_some()
+        {
+            return;
+        }
+        self.zoom_out(cx);
+        let store = self.store.read(cx);
+        let Some(tiling) = store.tiling().cloned() else {
+            return;
+        };
+        let last = store.last_tile_with_keys();
+        let tile = self.tile_with_keys(window, cx).or(last);
+        self.arranging = Some(Arranging {
+            tile: tile.unwrap_or(Tile::Home),
+            before: tiling.clone(),
+            landed: tiling,
+            swapping,
+        });
+        window.focus(&self.arranging_focus, cx);
+        cx.notify();
+    }
+
+    pub(crate) fn arranging(&self) -> bool {
+        self.arranging.is_some()
+    }
+
+    /// Whether a tile's waiting for the letter of the tile to swap it with.
+    pub(crate) fn swapping(&self) -> bool {
+        (self.arranging.as_ref()).is_some_and(|arranging| arranging.swapping)
+    }
+
+    /// The tiles the tile being swapped can swap with, by the letter of each, in the order
+    /// they're laid out.
+    fn swap_letters(&self) -> Vec<(char, Tile)> {
+        let Some(arranging) = self.arranging.as_ref().filter(|it| it.swapping) else {
+            return Vec::new();
+        };
+        let tiles = (arranging.landed.areas().into_iter())
+            .map(|(tile, _)| tile)
+            .filter(|tile| *tile != arranging.tile);
+        SWAP_LETTERS.chars().zip(tiles).collect()
+    }
+
+    /// Swap the tile being swapped with the tile whose letter `event` pressed, keeping the keys
+    /// in it. Any other key goes on waiting for one.
+    fn swap_by_letter(
+        &mut self,
+        event: &KeyDownEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let modifiers = event.keystroke.modifiers;
+        if modifiers.platform || modifiers.control || modifiers.alt {
+            return;
+        }
+        let other = (self.swap_letters().into_iter())
+            .find(|(letter, _)| {
+                event
+                    .keystroke
+                    .key
+                    .eq_ignore_ascii_case(&letter.to_string())
+            })
+            .map(|(_, tile)| tile);
+        let Some(other) = other else {
+            return;
+        };
+        let Some(arranging) = self.arranging.take() else {
+            return;
+        };
+        if let Some(focus) = self.tile_focus(&arranging.tile, cx) {
+            window.focus(&focus, cx);
+        }
+        let swapped = arranging.landed.swapped(&arranging.tile, &other);
+        self.shift_tiles(arranging.tile, swapped, cx);
+        cx.notify();
+    }
+
+    fn step_tile(&mut self, side: Side, cx: &mut Context<Self>) {
+        let least = self.least_tile(cx);
+        let Some(arranging) = self.arranging.as_mut() else {
+            return;
+        };
+        let stepped = (arranging.landed).stepped(&arranging.tile, side, least);
+        if stepped != arranging.landed {
+            arranging.landed = stepped.clone();
+            let tile = arranging.tile.clone();
+            self.shift_tiles(tile, stepped, cx);
+        }
+    }
+
+    /// Leave the tile being moved with the keys where it's got to, and give it the keys.
+    fn finish_arranging(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(arranging) = self.arranging.take() else {
+            return;
+        };
+        if let Some(focus) = self.tile_focus(&arranging.tile, cx) {
+            window.focus(&focus, cx);
+        }
+        cx.notify();
+    }
+
+    /// Put the tiles back as they were before the keys moved one, and give it the keys.
+    fn cancel_arranging(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(arranging) = self.arranging.take() else {
+            return;
+        };
+        if let Some(focus) = self.tile_focus(&arranging.tile, cx) {
+            window.focus(&focus, cx);
+        }
+        if arranging.before != arranging.landed {
+            self.shift_tiles(arranging.tile, arranging.before, cx);
+        }
+        cx.notify();
+    }
+
+    /// Stop moving a tile with the keys once the tiling's not as they left it, as a tile closed
+    /// or a line dragged meanwhile leaves it: what Escape would put back is gone.
+    fn drop_stale_arranging(&mut self, cx: &App) {
+        let tiling = self.store.read(cx).tiling();
+        if (self.arranging.as_ref()).is_some_and(|arranging| tiling != Some(&arranging.landed)) {
+            self.arranging = None;
+        }
+    }
+
+    /// Lay the selected row's tiles out as `to`, from where they're drawn now, with `tile`, which
+    /// the keys moved, over the others.
+    fn shift_tiles(&mut self, tile: Tile, to: Tiling, cx: &mut Context<Self>) {
+        let store = self.store.read(cx);
+        let (from, reflow) = (store.drawn_areas(), store.tile_drag_feel.reflow);
+        self.store
+            .update(cx, |store, cx| store.land_tiling(to.clone(), cx));
+        self.tile_shift = Some(TileShift {
+            tile,
+            from: from.unwrap_or_default(),
+            to,
+            slide: moving_for(reflow, cx),
+        });
+        self.move_tiles(cx);
+    }
+
+    /// The selected row's tiling as it's drawn at `now` while its tiles slide to where the keys
+    /// moved one, until that's over or it changes under them.
+    fn shifted_tiling(&mut self, now: Instant, cx: &App) -> Option<(Drawn, bool)> {
+        let shift = self.tile_shift.as_ref()?;
+        let still = self.store.read(cx).tiling() == Some(&shift.to);
+        let Some(at) = shift.slide.openness(now).filter(|_| still) else {
+            self.tile_shift = None;
+            return None;
+        };
+        let areas = (shift.to.areas().into_iter())
+            .map(|(tile, area)| {
+                let was = (shift.from.iter()).find(|(other, _)| *other == tile);
+                let drawn = was.map_or(area, |(_, was)| was.toward(area, at));
+                (tile, drawn)
+            })
+            .collect();
+        let drawn = Drawn {
+            areas,
+            dividers: Vec::new(),
+            rest: shift.to.clone(),
+            lifted: Some(shift.tile.clone()),
+            zoomed: false,
+        };
+        Some((drawn, true))
+    }
+
+    /// Start dragging `tile` of the selected row's tiling by its bar, pressed `at` in the
+    /// window: it comes off once the pointer's moved far enough.
+    fn press_tile(&mut self, tile: Tile, at: Point<Pixels>, cx: &mut Context<Self>) {
+        let Some(before) = self.store.read(cx).tiling().cloned() else {
+            return;
+        };
+        if self.tile_zoom.is_some() {
+            return;
+        }
+        let room = self.tile_room.get();
+        let (width, height) = (f32::from(room.size.width), f32::from(room.size.height));
+        let Some(area) = before.area_of(&tile).filter(|_| width > 0. && height > 0.) else {
+            return;
+        };
+        let at = at - room.origin;
+        let grab = (
+            (f32::from(at.x) / width - area.left) / area.width.max(1e-4),
+            f32::from(at.y) - area.top * height,
+        );
+        self.tile_drag = Some(TileDrag {
+            from: before.areas(),
+            size_from: (area.width, area.height),
+            landed: before.clone(),
+            shown: before.clone(),
+            tile,
+            before,
+            pressed: at,
+            pointer: at,
+            grab,
+            lifted: false,
+            zones: Vec::new(),
+            option: false,
+            landing: Landing::Stay,
+            pending: None,
+            reflow: Slide::default(),
+            resize: Slide::default(),
+            released: false,
+            over_navigator: false,
+        });
+    }
+
+    /// Follow the pointer with the tile pressed by its bar, past the lift: what lands it
+    /// where, and the other tiles make room there once it's rested over it. Whether the move
+    /// was the drag's, so nothing under the pointer sees it. A terminal's bar drags it as its
+    /// row does too, so that once the navigator shows it where it'd go, past the zone along the
+    /// left of the room, a row takes the place of its tile; another tile over the navigator
+    /// lands along the left of the room.
+    fn drag_tile(&mut self, event: &MouseMoveEvent, cx: &mut Context<Self>) -> bool {
+        if self.tile_drag.as_ref().is_none_or(|drag| drag.released) {
+            return false;
+        }
+        // Let go where the app didn't see it, as over another window.
+        if !event.dragging() {
+            self.let_go_tile(false, cx);
+            return false;
+        }
+        let feel = self.store.read(cx).tile_drag_feel;
+        let theme = Theme::get(cx);
+        let lift = theme.scaled(feel.lift);
+        let room = self.tile_room.get();
+        let sizes = (
+            f32::from(theme.scaled(feel.edge)),
+            f32::from(theme.scaled(feel.right_edge)),
+            f32::from(theme.scaled(feel.bar)),
+        );
+        let moving = self.store.read(cx).moving.as_ref();
+        let Some(drag) = self.tile_drag.as_mut() else {
+            return false;
+        };
+        let terminal = terminal_of(&drag.tile).map(|(_, id)| id);
+        let at = event.position - room.origin;
+        if !drag.lifted {
+            let moved = at - drag.pressed;
+            if f32::from(moved.x).hypot(f32::from(moved.y)) < f32::from(lift) {
+                return false;
+            }
+            drag.lifted = true;
+            self.tile_slide = None;
+        }
+        drag.pointer = at;
+        drag.over_navigator =
+            terminal.is_some_and(|id| moving.is_some_and(|moving| moving.of_terminal(id)));
+        // Shown in the navigator, the tiles go back to how they were, as it's left them.
+        let over = match drag.over_navigator {
+            true => Some(Landing::Stay),
+            false => drag.landing_under((at.x.into(), at.y.into()), room.size, sizes),
+        };
+        match over {
+            None => drag.pending = None,
+            Some(landing) => {
+                if landing == drag.landing {
+                    drag.pending = None;
+                } else if (drag.pending.as_ref()).is_none_or(|(pending, _)| *pending != landing) {
+                    drag.pending = Some((landing, clock::now()));
+                }
+            }
+        }
+        self.move_tiles(cx);
+        // GPUI starts a terminal's drag from a move it sees.
+        terminal.is_none() || cx.has_active_drag()
+    }
+
+    /// Let go of the tile dragged by its bar, or put it back where it was `back`, as Escape
+    /// does: it settles into its place, and the row's tiling is as it lands. A terminal shown
+    /// in the navigator leaves the tiles for where it shows.
+    fn let_go_tile(&mut self, back: bool, cx: &mut Context<Self>) {
+        let reflow = self.store.read(cx).tile_drag_feel.reflow;
+        let room = self.tile_room.get().size;
+        let least = self.least_tile(cx);
+        let Some(drag) = self.tile_drag.as_mut().filter(|drag| !drag.released) else {
+            return;
+        };
+        if !drag.lifted {
+            self.tile_drag = None;
+            return;
+        }
+        if let (false, true, Tile::Pinned(pinned)) = (back, drag.over_navigator, &drag.tile) {
+            let pinned = pinned.clone();
+            drag.released = true;
+            self.store
+                .update(cx, |store, cx| store.list_tiled_terminal(&pinned, cx));
+            return;
+        }
+        if std::mem::take(&mut drag.over_navigator) {
+            (self.store).update(cx, |store, cx| store.set_moving(None, cx));
+        }
+        let now = clock::now();
+        drag.from = drag.areas(now, room);
+        drag.released = true;
+        // Where the pointer is, though the tiles haven't made room there yet.
+        if let Some((landing, _)) = drag.pending.take() {
+            drag.landed = drag.before.landed(&drag.tile, &landing, least);
+        }
+        if back {
+            drag.landed = drag.before.clone();
+        }
+        drag.reflow = moving_for(reflow, cx);
+        let landed = (drag.landed != drag.before).then(|| drag.landed.clone());
+        if let Some(landed) = landed {
+            self.store
+                .update(cx, |store, cx| store.land_tiling(landed, cx));
+        }
+        self.move_tiles(cx);
+    }
+
+    /// The selected row's tiling with the row dragged from the navigator along `side`, from
+    /// how it was before that row's tile was tried out in it.
+    fn row_landed(&self, side: Side, cx: &App) -> Option<Tiling> {
+        let store = self.store.read(cx);
+        let pinned = store.row_key(store.dragged_row.as_ref()?);
+        let tiling = match self
+            .row_tile
+            .as_ref()
+            .filter(|tile| tile.settling.is_none())
+        {
+            Some(tile) => tile.before.as_ref(),
+            None => store.tiling(),
+        };
+        store.tiling_with(tiling, &pinned, side)
+    }
+
+    /// The side of the tiles a row dragged from the navigator lands as a tile with the pointer
+    /// at `position`: only in a strip along the left or the right of them, the rest of them
+    /// being left to the drops they take, as a terminal's paste.
+    fn row_zone_at(&self, position: Point<Pixels>, window: &Window, cx: &App) -> Option<Side> {
+        // A tile zoomed has all the room.
+        if self.tile_zoom.is_some() {
+            return None;
+        }
+        let store = self.store.read(cx);
+        let room = self.tile_room.get();
+        let at = position - room.origin;
+        let (x, y) = (f32::from(at.x), f32::from(at.y));
+        let theme = Theme::get(cx);
+        let width = f32::from(theme.scaled(store.tile_drag_feel.row_zone));
+        let margin = f32::from(theme.scaled(TILE_MARGIN));
+        let (room_width, room_height) = (f32::from(room.size.width), f32::from(room.size.height));
+        // Out over the detail, the navigator covers the left of the tiles.
+        let covered = match self.peek.open {
+            true => {
+                let navigator = self
+                    .detail
+                    .read(cx)
+                    .navigator_width(clock::now(), window, cx);
+                f32::from(theme.scaled(PEEK_INSET + navigator + PEEK_SHADOW))
+            }
+            false => -margin,
+        };
+        let side = match () {
+            _ if y < 0. || y > room_height + margin => return None,
+            _ if x >= covered && x < width => Side::Left,
+            _ if x >= room_width - width && x <= room_width + margin => Side::Right,
+            _ => return None,
+        };
+        self.row_landed(side, cx).map(|_| side)
+    }
+
+    /// Follow the pointer with a row dragged from the navigator: what's in the zone it's over,
+    /// the row's tile starts to slide in once it's rested there.
+    fn drag_row(&mut self, event: &MouseMoveEvent, window: &Window, cx: &mut Context<Self>) {
+        if !cx.has_active_drag() || self.store.read(cx).dragged_row.is_none() {
+            return;
+        }
+        let side = self.row_zone_at(event.position, window, cx);
+        let drag = self.row_drag.get_or_insert_default();
+        if drag.over.map(|(over, _)| over) != side {
+            drag.over = side.map(|side| (side, clock::now()));
+            (self.store).update(cx, |store, cx| {
+                store.tile_zone = side;
+                cx.notify()
+            });
+            self.move_tiles(cx);
+        }
+    }
+
+    /// Let go of a row dragged from the navigator: in a zone, its tile lands there, sliding on
+    /// from as far as it's come, and nothing under the pointer takes the drop. Whether it did.
+    fn let_go_row(&mut self, cx: &mut Context<Self>) -> bool {
+        let Some((side, _)) = self.row_drag.as_ref().and_then(|drag| drag.over) else {
+            return false;
+        };
+        if self.row_tile.as_ref().is_some_and(|tile| tile.side != side) {
+            self.take_row_tile_back(cx);
+        }
+        if self.row_tile.is_none() {
+            self.bring_row_tile(side, cx);
+        }
+        let reflow = self.store.read(cx).tile_drag_feel.reflow;
+        let now = clock::now();
+        let Some(tile) = self.row_tile.as_mut() else {
+            return false;
+        };
+        tile.from = tile.areas(now);
+        tile.settling = Some(moving_for(reflow, cx));
+        let Tile::Pinned(pinned) = tile.tile.clone() else {
+            return false;
+        };
+        (self.store).update(cx, |store, cx| store.row_landed(pinned, cx));
+        self.move_tiles(cx);
+        true
+    }
+
+    /// Try the row dragged out as a tile along `side`, as it'd land there, drawn from where the
+    /// tiles are now.
+    fn bring_row_tile(&mut self, side: Side, cx: &mut Context<Self>) {
+        let store = self.store.read(cx);
+        let (Some(dragged), Some(selection)) = (&store.dragged_row, &store.selection) else {
+            return;
+        };
+        let (pinned, row) = (store.row_key(dragged), store.row_key(selection));
+        let Some(landed) = self.row_landed(side, cx) else {
+            return;
+        };
+        let before = store.tiling().cloned();
+        let tile = Tile::Pinned(pinned);
+        let mut from = before.clone().unwrap_or_default().areas();
+        // Nothing yet, at the side it comes in from.
+        let area = Area {
+            left: if side == Side::Right { 1. } else { 0. },
+            top: 0.,
+            width: 0.,
+            height: 1.,
+        };
+        from.push((tile.clone(), area));
+        let feel = store.tile_drag_feel;
+        let room = f32::from(self.tile_room.get().size.width).max(1.);
+        let peek = f32::from(Theme::get(cx).scaled(feel.row_peek)) / room;
+        let width = landed.area_of(&tile).map_or(1., |area| area.width);
+        let mut peeking = Slide::lasting(millis(feel.reflow));
+        peeking.start(true, cx);
+        self.tile_slide = None;
+        self.tile_glide = None;
+        self.row_tile = Some(RowTile {
+            tile,
+            side,
+            row: row.clone(),
+            before: before.filter(|tiling| !tiling.is_home_only()),
+            landed: landed.clone(),
+            from,
+            held: (peek / width.max(1e-4)).min(1.),
+            open: true,
+            peeking,
+            settling: None,
+        });
+        (self.store).update(cx, |store, cx| store.try_tiling(row, Some(landed), cx));
+    }
+
+    /// Take the tile a row was tried out as away again, its row's tiling as it was, unless
+    /// it's been let go there.
+    fn take_row_tile_back(&mut self, cx: &mut Context<Self>) {
+        let Some(tile) = self.row_tile.take() else {
+            return;
+        };
+        if tile.settling.is_none() {
+            (self.store).update(cx, |store, cx| store.try_tiling(tile.row, tile.before, cx));
+        }
+    }
+
+    /// Forget the tile a row was tried out as once the tiling changes under it, as when a
+    /// terminal's shell exits.
+    fn drop_stale_row_tile(&mut self, cx: &App) {
+        let tiling = self.store.read(cx).tiling();
+        if (self.row_tile.as_ref()).is_some_and(|tile| tiling != Some(&tile.landed)) {
+            self.row_tile = None;
+        }
+    }
+
+    /// Move the tile of a row dragged in on: it starts to slide in once the pointer's rested in
+    /// a zone, slides back as it leaves, and goes once it's back, or has settled where it was
+    /// let go.
+    fn move_row_tile(&mut self, now: Instant, cx: &mut Context<Self>) {
+        let feel = self.store.read(cx).tile_drag_feel;
+        let rested = (self.row_drag.as_ref())
+            .and_then(|drag| drag.over)
+            .filter(|(_, since)| now.saturating_duration_since(*since) >= millis(feel.row_wait))
+            .map(|(side, _)| side);
+        let Some(tile) = self.row_tile.as_mut() else {
+            if let Some(side) = rested {
+                self.bring_row_tile(side, cx);
+            }
+            return;
+        };
+        if let Some(settling) = &tile.settling {
+            if settling.openness(now).is_none() {
+                self.row_tile = None;
+            }
+            return;
+        }
+        let wanted = rested == Some(tile.side);
+        if tile.open != wanted {
+            tile.open = wanted;
+            tile.peeking.start(wanted, cx);
+        }
+        if !tile.open && tile.peeking.openness(now).is_none() {
+            self.take_row_tile_back(cx);
+        }
+    }
+
+    /// Where the selected row's tiles are drawn at `now` around a row dragged in, and whether
+    /// they're moving.
+    fn row_tiling(&self, now: Instant) -> Option<(Drawn, bool)> {
+        let tile = self.row_tile.as_ref()?;
+        let moving = match &tile.settling {
+            Some(settling) => settling.openness(now).is_some(),
+            None => tile.peeking.openness(now).is_some(),
+        };
+        let drawn = Drawn {
+            areas: tile.areas(now),
+            dividers: Vec::new(),
+            rest: tile.landed.clone(),
+            lifted: None,
+            zoomed: false,
+        };
+        Some((drawn, moving))
+    }
+
+    /// Forget the tile dragged once the tiling it's dragged in changes under it, as when a
+    /// terminal's shell exits.
+    fn drop_stale_tile_drag(&mut self, cx: &App) {
+        let tiling = self.store.read(cx).tiling();
+        let stale = (self.tile_drag.as_ref()).is_some_and(|drag| {
+            let was = if drag.released {
+                &drag.landed
+            } else {
+                &drag.before
+            };
+            tiling != Some(was)
+        });
+        if stale {
+            self.tile_drag = None;
+        }
+    }
+
+    /// Draw the selected row's tiles where they are now, while one slides open or shut or is
+    /// dragged, and as they are once they're still. Before the frame, from what moves them and
+    /// from the frame before while they move, as a view notified while the window draws draws
+    /// again only in the frame after: the detail, which places the home tile, would lag a frame
+    /// behind the tiles drawn here.
+    fn move_tiles(&mut self, cx: &mut Context<Self>) {
+        let now = clock::now();
+        self.move_row_tile(now, cx);
+        let dragged = (self.dragged_tiling(now, cx))
+            .or_else(|| self.row_tiling(now))
+            .or_else(|| self.zoomed_tiling(now))
+            .or_else(|| self.shifted_tiling(now, cx));
+        let (drawn, moving) = match dragged {
+            Some((drawn, moving)) => (Some(drawn), moving),
+            None => match (self.sliding_tiling(now, cx)).or_else(|| self.gliding_tiling(now, cx)) {
+                Some((drawn, rest)) => {
+                    let (areas, dividers) = (drawn.areas(), drawn.dividers());
+                    let (lifted, zoomed) = (None, false);
+                    (
+                        Some(Drawn {
+                            areas,
+                            dividers,
+                            rest,
+                            lifted,
+                            zoomed,
+                        }),
+                        true,
+                    )
+                }
+                None => (None, false),
+            },
+        };
+        // A row resting in a zone, before its tile starts to slide in, moves them next.
+        let waiting = (self.row_drag.as_ref()).is_some_and(|drag| drag.over.is_some())
+            && self.row_tile.is_none();
+        let moving = moving || waiting;
+        self.tiles_moving = moving;
+        let changed = (self.store).update(cx, |store, _| store.set_drawn(drawn));
+        if changed {
+            self.detail.update(cx, |_, cx| cx.notify());
+        }
+        // Drawn again while they move, if only to move on the frame after, as while the pointer
+        // rests before the tiles make room.
+        if changed || moving {
+            cx.notify();
+        }
+    }
+
+    /// The selected row's tiling as it's drawn at `now` while a tile's dragged by its bar,
+    /// once the pointer's rested long enough over where it would land, and whether it's moving.
+    /// Once it's settled where it was let go, it's forgotten.
+    fn dragged_tiling(&mut self, now: Instant, cx: &App) -> Option<(Drawn, bool)> {
+        let feel = self.store.read(cx).tile_drag_feel;
+        let room = self.tile_room.get().size;
+        let least = self.least_tile(cx);
+        let drag = self.tile_drag.as_mut().filter(|drag| drag.lifted)?;
+        let rested = (drag.pending.as_ref())
+            .filter(|(_, since)| now.saturating_duration_since(*since) >= millis(feel.wait))
+            .map(|(landing, _)| landing.clone());
+        if let Some(landing) = rested {
+            drag.from = drag.areas(now, room);
+            drag.size_from =
+                (drag.from.last()).map_or(drag.size_from, |(_, area)| (area.width, area.height));
+            drag.landed = drag.before.landed(&drag.tile, &landing, least);
+            drag.shown = drag.before.shown_landing(&drag.tile, &landing, least);
+            drag.landing = landing;
+            drag.pending = None;
+            drag.reflow = moving_for(feel.reflow, cx);
+            drag.resize = moving_for(feel.resize, cx);
+        }
+        let moving = drag.pending.is_some()
+            || drag.reflow.openness(now).is_some()
+            || drag.resize.openness(now).is_some();
+        if drag.released && !moving {
+            self.tile_drag = None;
+            return None;
+        }
+        let drawn = Drawn {
+            areas: drag.areas(now, room),
+            dividers: Vec::new(),
+            rest: drag.drawn_tiling().clone(),
+            lifted: Some(drag.tile.clone()),
+            zoomed: false,
+        };
+        Some((drawn, moving))
+    }
+
+    /// The least a tile is dragged down to, in shares of the room's width and height.
+    fn least_tile(&self, cx: &App) -> (f32, f32) {
+        let room = self.tile_room.get().size;
+        let least = f32::from(Theme::get(cx).scaled(MIN_TILE));
+        (
+            least / f32::from(room.width).max(1.),
+            least / f32::from(room.height).max(1.),
+        )
+    }
+
+    /// The buttons on `tile`'s bar that zoom it and split it, as Zoom tile, Split right and
+    /// Split below do with the keys in it. While it's zoomed only the one back out shows, filled
+    /// to say the tile's not where it was.
+    fn tile_buttons(&self, tile: &Tile, cx: &Context<Self>) -> Vec<Button> {
+        let button = |axis: Axis, icon: Icon, label: &'static str, action: &dyn gpui::Action| {
+            let (this, tile) = (cx.entity().downgrade(), tile.clone());
+            let id = SharedString::from(format!("{label}-{tile:?}"));
+            icon_button(id, icon)
+                .small()
+                .tooltip_for(label, action)
+                .on_click(move |_, window, cx| {
+                    let tile = tile.clone();
+                    (this.update(cx, |this, cx| this.split_tile(tile, axis, window, cx))).ok();
+                })
+        };
+        let zoomed = self.zoomed() == Some(tile);
+        let (icon, label, style) = match zoomed {
+            true => (Icon::TileUnzoom, "Zoom out", ButtonStyle::Pop),
+            false => (Icon::TileZoom, "Zoom", ButtonStyle::Ghost),
+        };
+        let (this, target) = (cx.entity().downgrade(), tile.clone());
+        let zoom = icon_button(SharedString::from(format!("zoom-{tile:?}")), icon)
+            .small()
+            .style(style)
+            .tooltip_for(label, &ZoomTile)
+            .on_click(move |_, window, cx| {
+                let tile = target.clone();
+                (this.update(cx, |this, cx| this.toggle_zoom(tile, window, cx))).ok();
+            });
+        if zoomed {
+            return vec![zoom];
+        }
+        vec![
+            zoom,
+            button(Axis::Across, Icon::SplitRight, "Split right", &SplitRight),
+            button(Axis::Down, Icon::SplitBelow, "Split below", &SplitBelow),
+        ]
+    }
+
+    /// What pressing `tile`'s bar does, besides giving it the keys: it can be dragged.
+    fn grab_tile(
+        &self,
+        tile: Tile,
+        cx: &Context<Self>,
+    ) -> impl Fn(&MouseDownEvent, &mut App) + 'static + use<> {
+        let this = cx.entity().downgrade();
+        move |event, cx| {
+            (this.update(cx, |this, cx| {
+                this.press_tile(tile.clone(), event.position, cx)
+            }))
+            .ok();
+        }
+    }
+
+    /// Over the room the tiles share: keeps where it is for a tile dragged by its bar, and
+    /// follows the pointer over the whole window while one is.
+    fn watch_tile_drag(&self, cx: &Context<Self>) -> impl IntoElement {
+        let (this, room) = (cx.entity().downgrade(), self.tile_room.clone());
+        gpui::canvas(
+            |_, _, _| {},
+            move |bounds, (), window, _| {
+                room.set(bounds);
+                let on_move = this.clone();
+                window.on_mouse_event(move |event: &MouseMoveEvent, phase, window, cx| {
+                    if phase != DispatchPhase::Capture {
+                        return;
+                    }
+                    let taken = on_move.update(cx, |this, cx| {
+                        this.drag_row(event, window, cx);
+                        this.drag_tile(event, cx)
+                    });
+                    if taken.unwrap_or(false) {
+                        cx.stop_propagation();
+                    }
+                });
+                let on_up = this.clone();
+                window.on_mouse_event(move |event: &MouseUpEvent, phase, _, cx| {
+                    if phase == DispatchPhase::Capture && event.button == MouseButton::Left {
+                        let landed = on_up.update(cx, |this, cx| {
+                            this.let_go_tile(false, cx);
+                            this.store.update(cx, |store, cx| {
+                                if store.dragged_divider.take().is_some() {
+                                    cx.notify();
+                                }
+                            });
+                            this.let_go_row(cx)
+                        });
+                        if landed.unwrap_or(false) {
+                            cx.stop_propagation();
+                        }
+                    }
+                });
+                // While one's dragged, in a build of its own, for testing how it lands: the
+                // right button shows where the pointer lands it where, or hides it, and the
+                // middle one saves a picture of the window.
+                if !backend::settings::dev_build() {
+                    return;
+                }
+                let on_down = this;
+                window.on_mouse_event(move |event: &MouseDownEvent, phase, window, cx| {
+                    let dragged = (on_down.upgrade()).is_some_and(|this| {
+                        this.read(cx).tile_dragged() || this.read(cx).row_dragged(cx)
+                    });
+                    if phase != DispatchPhase::Capture || !dragged {
+                        return;
+                    }
+                    let done = on_down.update(cx, |this, cx| match event.button {
+                        MouseButton::Right => this.toggle_drop_zones(cx),
+                        MouseButton::Middle => this.save_screenshot(window, cx),
+                        _ => false,
+                    });
+                    if done.unwrap_or(false) {
+                        cx.stop_propagation();
+                    }
+                });
+            },
+        )
+        .absolute()
+        .inset_0()
+    }
+
+    /// Show where the pointer lands the tile dragged by its bar where, or stop showing it, for
+    /// this drag alone. Whether it did, as one's dragged.
+    fn toggle_drop_zones(&mut self, cx: &mut Context<Self>) -> bool {
+        if self.row_dragged(cx) {
+            let drag = self.row_drag.get_or_insert_default();
+            drag.zones = !drag.zones;
+            cx.notify();
+            return true;
+        }
+        let feel = self.store.read(cx).tile_drag_feel;
+        let theme = Theme::get(cx);
+        let sizes = (
+            f32::from(theme.scaled(feel.edge)),
+            f32::from(theme.scaled(feel.right_edge)),
+            f32::from(theme.scaled(feel.bar)),
+        );
+        let room = self.tile_room.get().size;
+        let Some(drag) = self.tile_drag.as_mut() else {
+            return false;
+        };
+        drag.zones = match drag.zones.is_empty() {
+            true => drag.zones(room, sizes),
+            false => Vec::new(),
+        };
+        cx.notify();
+        true
+    }
+
+    /// Save a picture of the window where macOS saves screenshots, and copy it. Whether it
+    /// does, as only macOS does.
+    #[cfg(target_os = "macos")]
+    fn save_screenshot(&mut self, window: &Window, cx: &mut Context<Self>) -> bool {
+        let Some(number) = window_number(window) else {
+            return false;
+        };
+        let store = self.store.clone();
+        cx.spawn(async move |_, cx| {
+            let saved = backend::run(move || backend::screenshot::window(number)).await;
+            cx.update(|cx| match saved {
+                Ok((path, png)) => {
+                    let image = gpui::Image::from_bytes(gpui::ImageFormat::Png, png);
+                    let name = path
+                        .file_name()
+                        .map(|name| name.to_string_lossy().into_owned());
+                    let message = format!("Saved and copied {}", name.unwrap_or_default());
+                    clipboard::copy_image(&store, &image, message, cx);
+                }
+                Err(err) => store.update(cx, |store, cx| {
+                    store.failed("Couldn't take a screenshot", &err, cx)
+                }),
+            })
+        })
+        .detach();
+        true
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    fn save_screenshot(&mut self, _: &Window, _: &mut Context<Self>) -> bool {
+        false
+    }
+
+    /// Show or hide where the tile dragged lands where as ⌥ goes down, not as it comes up.
+    fn option_changed(&mut self, held: bool, cx: &mut Context<Self>) {
+        if self.row_dragged(cx) {
+            let drag = self.row_drag.get_or_insert_default();
+            let pressed = held && !drag.option;
+            drag.option = held;
+            if pressed {
+                self.toggle_drop_zones(cx);
+            }
+            return;
+        }
+        if !self.tile_dragged() {
+            return;
+        }
+        let Some(drag) = self.tile_drag.as_mut() else {
+            return;
+        };
+        let pressed = held && !drag.option;
+        drag.option = held;
+        if pressed {
+            self.toggle_drop_zones(cx);
+        }
+    }
+
+    fn row_dragged(&self, cx: &App) -> bool {
+        cx.has_active_drag() && self.store.read(cx).dragged_row.is_some()
+    }
+
+    /// Whether a tile's being dragged by its bar, come off and not let go yet.
+    fn tile_dragged(&self) -> bool {
+        (self.tile_drag.as_ref()).is_some_and(|drag| drag.lifted && !drag.released)
+    }
+
+    /// Close the selected terminal, the home tile, as its shell exiting does: a terminal pinned
+    /// beside it takes its place, and the last one takes the tiling with it.
+    fn close_home(
+        &self,
+        cx: &Context<AppView>,
+    ) -> Option<impl Fn(&mut Window, &mut App) + Clone + 'static> {
+        let Some(Selection::Terminal(project, id)) = self.store.read(cx).selection.clone() else {
+            return None;
+        };
+        let app = cx.weak_entity();
+        Some(move |window: &mut Window, cx: &mut App| {
+            let project = project.clone();
+            app.update(cx, |app, cx| app.close_terminal(project, id, window, cx))
+                .ok();
+        })
+    }
+
+    /// Close the tile showing `pinned`, as a terminal closing with it is closed any other way.
+    fn close_pinned_tile(
+        &mut self,
+        pinned: &RowKey,
+        window: &mut Window,
+        cx: &mut Context<AppView>,
+    ) {
+        match self.store.read(cx).terminal_closing_with(pinned) {
+            Some((project, id)) => self.close_terminal(project.clone(), id, window, cx),
+            None => (self.store).update(cx, |store, cx| store.close_tile(pinned, cx)),
+        }
+    }
+
+    /// The tile of the selected row's tiling that has the keys: a pinned one, else its home
+    /// tile.
+    pub(crate) fn focused_tile(&self, window: &Window, cx: &App) -> Tile {
+        self.tile_with_keys(window, cx).unwrap_or(Tile::Home)
+    }
+
+    /// Over a terminal's card, its edge in pop while what's held over it would paste there, a
+    /// row or files from the Finder, as a row that takes a drop has. It's drawn here, where
+    /// GPUI styles it again each frame of the drag: the terminal's own view draws only when it
+    /// changes, and the detail under the home tile is cached, so one there would stay up after
+    /// a drag let go elsewhere or stopped with Escape.
+    fn paste_outline(&self, theme: &Theme) -> Div {
+        let (store, color) = (self.store.clone(), theme.pop);
+        card_edge(gpui::transparent_black(), theme.shape)
+            .drag_over::<Dragged>(move |style, _, _, _| style.border_1().border_color(color))
+            .drag_over::<ProjectDrag>(move |style, _, _, _| style.border_1().border_color(color))
+            .drag_over::<ExternalPaths>(move |style, _, _, _| style.border_1().border_color(color))
+            // Not once a commit or worktree the drag holds is gone, which pastes nothing, nor
+            // where a row lands as a tile instead.
+            .can_drop(move |dragged, _, cx| {
+                let store = store.read(cx);
+                store.tile_zone.is_none() && (!dragged.is::<Dragged>() || store.pasted().is_some())
+            })
+    }
+
+    /// The navigator and the detail while the detail slides in from the window's right edge or
+    /// back off it, `shown` of it on screen, or is hidden. The detail keeps the width it has
+    /// beside as much of the navigator as shows, `navigator_share` of it, and moves, so it's
+    /// not laid out again as it goes, and the navigator reaches its edge, taking the window
+    /// once it's gone. As the window narrows to the navigator or widens back, the detail
+    /// slides under the navigator instead, along with the window's right edge.
+    fn render_detail_aside(
+        &self,
+        now: Instant,
+        shown: f32,
+        navigator_share: f32,
+        files_sliding: bool,
+        window: &Window,
+        cx: &Context<Self>,
+    ) -> Div {
+        let navigator_sliding = self.navigator_slide.openness(now).is_some();
+        let sliding = self.detail_slide.openness(now).is_some();
+        if let Some(narrowing) = self.narrowing.filter(|narrowing| !narrowing.settled) {
+            let beside = narrowing.navigator * navigator_share;
+            let navigator = div()
+                .w(dp(narrowing.navigator))
+                .h_full()
+                .child(self.render_side_column(Column::Alone, cx));
+            return div()
+                .absolute()
+                .inset_0()
+                .when(self.detail_open || sliding, |el| {
+                    el.child(
+                        self.render_detail(now, false, files_sliding, window, cx)
+                            .absolute()
+                            .top_0()
+                            .bottom_0()
+                            .right_0()
+                            .w(dp(narrowing.wide - beside)),
+                    )
+                })
+                // Over the detail, as much of it as shows while it slides open or shut.
+                .when(beside > 0., |el| {
+                    el.child(
+                        div()
+                            .absolute()
+                            .top_0()
+                            .bottom_0()
+                            .left_0()
+                            .w(dp(beside))
+                            .overflow_hidden()
+                            .occlude()
+                            .child(inert(navigator, !self.navigator_open)),
+                    )
+                });
+        }
+        let beside = navigator_share * self.detail.read(cx).navigator_width(now, window, cx);
+        // From where the detail's left edge is when it shows to the window's right edge, so
+        // its width, and how far along it is, are shares of this one's.
+        div()
+            .absolute()
+            .top_0()
+            .bottom_0()
+            .left(dp(beside))
+            .right_0()
+            .when(
+                self.navigator_open || self.navigator_slide.closing(now) || sliding,
+                |el| {
+                    let navigator = div()
+                        .size_full()
+                        .child(self.render_side_column(Column::Alone, cx));
+                    el.child(
+                        div()
+                            .absolute()
+                            .top_0()
+                            .bottom_0()
+                            .left(dp(-beside))
+                            .right(relative(shown))
+                            .child(inert(navigator, !self.navigator_open)),
+                    )
+                },
+            )
+            .when(self.detail_open || sliding, |el| {
+                el.child(
+                    self.render_detail(now, navigator_sliding, files_sliding, window, cx)
+                        .absolute()
+                        .top_0()
+                        .bottom_0()
+                        .left(relative(1. - shown))
+                        .w_full(),
+                )
+            })
+    }
+
+    /// The column the navigator takes beside the panes, the window with the details hidden, or
+    /// the card out over the detail: the navigator, and under it, while Settings shows it, the
+    /// terminal overview, as tall as its rows up to a share of the column. Beside the details,
+    /// its right edge is in by as much as the navigator's cards are, and out over them, it's
+    /// the foot of the card, its corners rounded.
+    fn render_side_column(&self, at: Column, cx: &App) -> Div {
+        let store = self.store.read(cx);
+        let shown = store.prefs.shows(Part::TerminalOverview);
+        let theme = Theme::get(cx);
+        let terminals = shown.then(|| {
+            // As tall as its rows until its line is dragged, then as dragged, but just its bar
+            // while it's folded. Put back, it slides from where it was dragged to its rows,
+            // under the limit it had dragged.
+            let overview = self.terminals.read(cx);
+            let shut = overview.is_shut();
+            let dragged = (store.dragged_width(Pane::Terminals)).filter(|_| !shut);
+            let glide = store.width_glide(Pane::Terminals);
+            let (height, most) = match (dragged, glide) {
+                (Some(height), _) => (height, TERMINALS_MOST_DRAGGED),
+                (None, Some(glide)) => (
+                    glide.at(overview.height(cx), clock::now()),
+                    TERMINALS_MOST_DRAGGED,
+                ),
+                (None, None) => (overview.height(cx), TERMINALS_MOST),
+            };
+            (height, most, shut)
+        });
+        let terminals = terminals.map(|(height, most, shut)| {
+            let which = DividerDrag::Terminals;
+            let reset = {
+                let store = self.store.clone();
+                move |event: &gpui::ClickEvent, _: &mut Window, cx: &mut App| {
+                    if event.click_count() == 2 {
+                        store.update(cx, |store, cx| {
+                            store.put_back_width(Pane::Terminals, height, cx)
+                        })
+                    }
+                }
+            };
+            // The gap over its card, to the navigator's, drags its height, as the one beside
+            // the navigator drags that's width.
+            let divider = gap_divider(
+                "resize-terminals",
+                Axis::Down,
+                which.clone(),
+                &self.store,
+                theme,
+                cx,
+            )
+            .left_0()
+            .right_0()
+            .top(dp(-TERMINALS_MARGIN - 2.))
+            .h(dp(TERMINALS_MARGIN + 4.))
+            .on_drag(Pane::Terminals, mark_dragged(&self.store, which))
+            .on_click(reset);
+            div()
+                .relative()
+                .flex_none()
+                .h(dp(height + TERMINALS_MARGIN))
+                .max_h(relative(most))
+                .pl(dp(TERMINALS_MARGIN))
+                .pr(dp(match at {
+                    Column::Beside => TERMINALS_MARGIN - 1.,
+                    Column::Alone | Column::Out => TERMINALS_MARGIN,
+                }))
+                .pb(dp(TERMINALS_MARGIN))
+                .bg(theme.bg_2)
+                .when(at == Column::Out, |el| el.rounded_b(dp(theme.shape.popup)))
+                .child((self.terminals.clone()).cached(StyleRefinement::default().size_full()))
+                // Folded to its bar, it has no height to drag.
+                .when(!shut, |el| el.child(divider))
+        });
+        // The gap to the detail's cards, the navigator's edge included, drags its width, its
+        // middle as far in as the edge is out. Along the overview too, so its pill is in the
+        // middle of the whole gap. Before the navigator, under its scrollbar's thumb, which
+        // shows in the gap while it scrolls.
+        let beside = at != Column::Out && self.navigator.read(cx).detail_shown.get() >= 1.;
+        let width_divider = beside.then(|| {
+            let which = DividerDrag::Navigator;
+            let store = self.store.clone();
+            gap_divider(
+                "resize-navigator",
+                Axis::Across,
+                which.clone(),
+                &self.store,
+                theme,
+                cx,
+            )
+            .top_0()
+            .bottom_0()
+            .right_0()
+            .w(dp(2. * TILE_MARGIN))
+            .on_drag(Pane::Navigator, mark_dragged(&self.store, which))
+            .on_click(move |event, _, cx| {
+                if event.click_count() == 2 {
+                    store.update(cx, |store, cx| {
+                        let from = store.width(Pane::Navigator);
+                        store.put_back_width(Pane::Navigator, from, cx)
+                    })
+                }
+            })
+        });
+        let store = self.store.clone();
+        v_flex()
+            .size_full()
+            .relative()
+            .bg(theme.bg_2)
+            .when(at == Column::Out, |el| el.rounded(dp(theme.shape.popup)))
+            .children(width_divider)
+            .on_drag_move(move |event: &DragMoveEvent<Pane>, _, cx| {
+                if *event.drag(cx) == Pane::Terminals {
+                    // From the column's bottom to the pointer, less the margin under the card.
+                    let height = f32::from(event.bounds.bottom() - event.event.position.y);
+                    let height = height / Theme::get(cx).scale - TERMINALS_MARGIN;
+                    store.update(cx, |store, cx| {
+                        store.set_width(Pane::Terminals, Some(height), cx)
+                    });
+                }
+            })
+            .child(div().flex_1().min_h_0().child(self.navigator_sized()))
+            .children(terminals)
+    }
+
+    /// The navigator, filling what it's in, told how tall that is before it draws. The drawer
+    /// at its foot fits the room the list has, which the list knows only from the frame
+    /// before, so without it the navigator would trail a frame behind the overview's line.
+    fn navigator_sized(&self) -> Div {
+        let navigator = self.navigator.clone();
+        // Laid out with the window and drawn just before the navigator, which, cached, draws
+        // only now that it knows its bounds.
+        let height = gpui::canvas(
+            move |bounds, _, cx| navigator.read(cx).drawn_height.set(bounds.size.height),
+            |_, _, _, _| {},
+        );
+        div()
+            .size_full()
+            .relative()
+            .child(height.absolute().size_full())
+            .child((self.navigator.clone()).cached(StyleRefinement::default().size_full()))
+    }
+
+    /// The navigator out over the detail, the terminal overview under it as beside the panes: a
+    /// card sliding in from past the window's edge, shadow and all, keeping its width as it
+    /// goes.
+    fn render_peek(&self, now: Instant, window: &Window, cx: &App) -> impl IntoElement {
+        let theme = Theme::get(cx);
+        let width = self.detail.read(cx).navigator_width(now, window, cx);
+        let away = PEEK_INSET + width + PEEK_SHADOW;
+        let left = PEEK_INSET - away * (1. - self.peek.slide.share(self.peek.open, now));
+        let navigator = div()
+            .size_full()
+            .child(self.render_side_column(Column::Out, cx));
+        div()
+            .absolute()
+            .top(dp(PEEK_INSET))
+            .bottom(dp(PEEK_INSET))
+            .left(dp(left))
+            .w(dp(width))
+            .bg(theme.bg_2)
+            .rounded(dp(theme.shape.popup))
+            .border_1()
+            .border_color(theme.border_2)
+            .shadow_lg()
+            // Over the detail, taking the pointer from it.
+            .occlude()
+            .child(inert(navigator, !self.peek.open))
+    }
+}
+
+/// Where [`AppView::render_side_column`] is drawn.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Column {
+    /// Beside the details.
+    Beside,
+    /// Taking the window, the details hidden, or sliding over them as they come and go.
+    Alone,
+    /// Out over the detail, as a card.
+    Out,
+}
+
+/// The project and id of the terminal `tile` shows, if it's a pinned terminal.
+fn terminal_of(tile: &Tile) -> Option<(&ProjectId, TerminalId)> {
+    match tile {
+        Tile::Pinned(RowKey::Row(Selection::Terminal(project, id))) => Some((project, *id)),
+        Tile::Pinned(_) | Tile::Home => None,
+    }
+}
+
+/// A line over the edge of a tile's card, in `color`: the tile with the keys', in gray, or one
+/// a drag would paste into or the keys are moving, in pop.
+fn card_edge(color: gpui::Hsla, shape: crate::theme::Shape) -> Div {
+    crate::ui::inset_by(div(), TILE_MARGIN)
+        .rounded(dp(shape.card))
+        .border_1()
+        .border_color(color)
+}
+
+/// A tile's bar, `TILE_BAR` tall: what it shows, by `kind`'s icon and `title`, and `buttons`, as
+/// its ×. A press anywhere else on it gives `focus` the keys, the tile's, and `grab`s the tile,
+/// to drag it.
+fn tile_bar(
+    kind: Icon,
+    title: SharedString,
+    buttons: impl IntoIterator<Item = Button>,
+    focus: Option<FocusHandle>,
+    grab: impl Fn(&MouseDownEvent, &mut App) + 'static,
+    theme: &Theme,
+) -> Div {
+    h_flex()
+        .h(dp(TILE_BAR))
+        .pl(dp(8.))
+        .pr(dp(2.))
+        .gap(dp(6.))
+        .text_size(dp(12.))
+        .text_color(theme.text_2)
+        .child(small_icon(kind).text_color(theme.text_3))
+        .child(div().flex_grow(1.).min_w_0().truncate().child(title))
+        .child(h_flex().flex_none().children(buttons))
+        .on_mouse_down(MouseButton::Left, move |event, window, cx| {
+            if let Some(focus) = &focus {
+                window.focus(focus, cx);
+            }
+            grab(event, cx);
+        })
+}
+
+/// Where a tile dragged by its bar lands, in a few words, the tiles by what they show.
+/// The hue the `ix`th layout a tile's drop makes is shown in, each its own, and round again.
+fn zone_hue(ix: usize) -> Hue {
+    const HUES: [Hue; 6] = [
+        Hue::Pop,
+        Hue::Purple,
+        Hue::Warn,
+        Hue::Blue,
+        Hue::Safe,
+        Hue::Danger,
+    ];
+    #[expect(clippy::indexing_slicing, reason = "taken modulo its length")]
+    HUES[ix % HUES.len()]
+}
+
+fn landing_text(landing: &Landing, store: &Store, home: &RowKey) -> String {
+    let name = |tile: &Tile| {
+        let row = match tile {
+            Tile::Home => home,
+            Tile::Pinned(pinned) => pinned,
+        };
+        tile_label(store, row).1
+    };
+    let edge = |side: &Side| match side {
+        Side::Left => "left",
+        Side::Right => "right",
+        Side::Top => "top",
+        Side::Bottom => "bottom",
+    };
+    match landing {
+        Landing::Stay => "Stays".to_owned(),
+        Landing::Beside(tile, Side::Left) => format!("Left of {}", name(tile)),
+        Landing::Beside(tile, Side::Right) => format!("Right of {}", name(tile)),
+        Landing::Beside(tile, Side::Top) => format!("Above {}", name(tile)),
+        Landing::Beside(tile, Side::Bottom) => format!("Below {}", name(tile)),
+        Landing::Edge(side) => format!("Along the {}", edge(side)),
+        Landing::BelowRow => "Below its row".to_owned(),
+    }
+}
+
+/// What a tile pinned to `row` shows, as Go to anything names it: its kind's icon, and its
+/// name.
+pub(crate) fn tile_label(store: &Store, row: &RowKey) -> (Icon, SharedString) {
+    if let RowKey::Tab(_, tab) = row {
+        return tab_label(*tab);
+    }
+    if let RowKey::Changes(selection) = row {
+        let (_, name) = tile_label(store, &RowKey::Row(selection.clone()));
+        return (Icon::Plus, format!("Changes of {name}").into());
+    }
+    let Some(selection) = store.selection_of(row) else {
+        return (Icon::Commit, "Gone".into());
+    };
+    let workspace = store.workspace(selection.project());
+    let worktree = |checkout: &Checkout| -> SharedString {
+        checkout
+            .linked()
+            .map_or("Main worktree".into(), |name| name.to_string().into())
+    };
+    match &selection {
+        Selection::Terminal(_, id) => {
+            let title = store.terminals.title(*id).cloned();
+            (Icon::TextCode, title.unwrap_or("Terminal".into()))
+        }
+        Selection::Commit(project, id) | Selection::Upstream(project, _, id) => {
+            let title = store
+                .find_commit(project, *id)
+                .map(|(_, c)| commit_title(&c.title));
+            (Icon::Commit, title.unwrap_or_else(|| id.short().into()))
+        }
+        Selection::Pending(project, op, _) => {
+            let title = store
+                .pending_commit(project, *op)
+                .map(|(t, _)| commit_title(&t));
+            (Icon::Commit, title.unwrap_or("New commit".into()))
+        }
+        Selection::Branch(project, ref_name) => {
+            let branch = workspace.and_then(|ws| ws.find_branch(ref_name.as_ref()));
+            let name = match (branch, ref_name) {
+                (Some(branch), _) => store.name_of(project, branch).to_owned(),
+                (None, Some(ref_name)) => short_ref(ref_name).into_owned(),
+                (None, None) => "Unnamed branch".to_owned(),
+            };
+            (Icon::Branch, name.into())
+        }
+        Selection::Stack(..) => (Icon::Branch, "Stack".into()),
+        Selection::Project(project) => {
+            let name = store.project(project).map(|e| e.project.name.clone());
+            (Icon::Repo, name.unwrap_or_default().into())
+        }
+        Selection::Checkout(_, checkout) => (Icon::FolderCopy, worktree(checkout)),
+        Selection::Uncommitted(..) => (Icon::FolderCopy, "Uncommitted changes".into()),
+        Selection::Section(..) | Selection::Mesh(..) => (Icon::FolderCopy, "Worktrees".into()),
+    }
+}
+
+/// What a tile on `tab` of a project's page says of itself.
+fn tab_label(tab: ProjectTab) -> (Icon, SharedString) {
+    match tab {
+        ProjectTab::Overview => (Icon::Repo, "Overview".into()),
+        ProjectTab::Branches => (Icon::Branch, "Branches".into()),
+        ProjectTab::History => (Icon::Clock, "Operations history".into()),
+        ProjectTab::Graph => (Icon::Fork, "Graph".into()),
+    }
+}
+
+/// A pinned tile's page: a detail of its own, and the diff drawn over it, for that tile of the
+/// row `tiling`.
+struct Page {
+    tiling: RowKey,
+    detail: Entity<Detail>,
+    diff: Entity<DiffPane>,
+}
+
+/// Somewhere the keys can be, of those [`AppView::move_keys`] goes between.
+#[derive(Debug, Clone, PartialEq)]
+enum KeyPlace {
+    Navigator,
+    /// The terminal overview, under the navigator.
+    Terminals,
+    /// A tile, at a pane of its page, or without one where it takes the keys whole: a terminal,
+    /// or a page with no panes.
+    Tile(Tile, Option<KeyPane>),
+}
+
+impl KeyPlace {
+    fn stop(&self) -> KeyStop {
+        match self {
+            KeyPlace::Navigator => KeyStop::Navigator,
+            KeyPlace::Terminals => KeyStop::Terminals,
+            KeyPlace::Tile(tile, _) => KeyStop::Tile(tile.clone()),
+        }
+    }
+}
+
+/// What the keys go to past the panes of a tile.
+#[derive(Debug, Clone, PartialEq)]
+enum KeyStop {
+    Navigator,
+    Terminals,
+    Tile(Tile),
+}
+
+/// Past the last of `from`'s panes going round: the next tile, in the order they're laid out,
+/// with the `navigator`, while it shows, between the last and the first.
+fn stop_round(
+    from: &KeyStop,
+    forward: bool,
+    tiles: &[(Tile, Area)],
+    navigator: bool,
+    terminals: bool,
+) -> Option<KeyStop> {
+    let tiles = (tiles.iter()).map(|(tile, _)| KeyStop::Tile(tile.clone()));
+    let navigator = navigator.then_some(KeyStop::Navigator);
+    let terminals = terminals.then_some(KeyStop::Terminals);
+    let stops: Vec<KeyStop> = (navigator.into_iter().chain(terminals))
+        .chain(tiles)
+        .collect();
+    let at = stops.iter().position(|stop| stop == from)?;
+    let count = stops.len();
+    let next = if forward { at + 1 } else { at + count - 1 };
+    stops.into_iter().nth(next % count)
+}
+
+/// Past the last of `from`'s panes on `side`: the tile beside it, `came_from` of those as near,
+/// left of the tiles the `navigator`, while it shows, and right of the navigator `came_from` if
+/// it's along it, else the first tile that is.
+fn stop_beside(
+    from: &KeyStop,
+    side: Side,
+    tiles: &[(Tile, Area)],
+    navigator: bool,
+    came_from: Option<&Tile>,
+) -> Option<KeyStop> {
+    match from {
+        KeyStop::Navigator | KeyStop::Terminals if side == Side::Right => {
+            let along = along_edge(tiles, Side::Left);
+            let back = (along.iter()).find(|tile| Some(**tile) == came_from);
+            (back.or(along.first())).map(|tile| KeyStop::Tile((*tile).clone()))
+        }
+        // The overview is under the navigator.
+        KeyStop::Terminals if side == Side::Top => Some(KeyStop::Navigator),
+        KeyStop::Navigator | KeyStop::Terminals => None,
+        KeyStop::Tile(tile) => match tile_beside(tiles, tile, side, came_from) {
+            Some(beside) => Some(KeyStop::Tile(beside)),
+            None if side == Side::Left && navigator => Some(KeyStop::Navigator),
+            None => None,
+        },
+    }
+}
+
+/// As [`stop_beside`], with the navigator's tabs across the top: above the tiles, and so only up
+/// reaches them. Down from the tabs, or from the terminal overview in the card under its tab, the
+/// tile `came_from` if it's along the top, else the first that is.
+fn stop_beside_strip(
+    from: &KeyStop,
+    side: Side,
+    tiles: &[(Tile, Area)],
+    came_from: Option<&Tile>,
+) -> Option<KeyStop> {
+    match from {
+        KeyStop::Navigator | KeyStop::Terminals if side == Side::Bottom => {
+            let along = along_edge(tiles, Side::Top);
+            let back = (along.iter()).find(|tile| Some(**tile) == came_from);
+            (back.or(along.first())).map(|tile| KeyStop::Tile((*tile).clone()))
+        }
+        KeyStop::Navigator | KeyStop::Terminals => None,
+        KeyStop::Tile(tile) => match tile_beside(tiles, tile, side, came_from) {
+            Some(beside) => Some(KeyStop::Tile(beside)),
+            None if side == Side::Top => Some(KeyStop::Navigator),
+            None => None,
+        },
+    }
+}
+
+/// A tile sliding open out of the split it's pinned at, or shut back into it as it closes, as
+/// the detail slides in beside the navigator.
+struct TileSlide {
+    tile: RowKey,
+    slide: Slide,
+    /// Shutting, what it goes from.
+    going: Option<Going>,
+}
+
+/// The lines of a tiling sliding from where they were to where they are now.
+struct TileGlide {
+    from: Tiling,
+    to: Tiling,
+    slide: Slide,
+}
+
+/// The tiles sliding from where they were drawn to where the keys moved `tile`.
+struct TileShift {
+    tile: Tile,
+    from: Vec<(Tile, Area)>,
+    to: Tiling,
+    slide: Slide,
+}
+
+/// A tile being moved with the keys.
+struct Arranging {
+    tile: Tile,
+    /// The row's tiling as it started, which Escape puts back.
+    before: Tiling,
+    /// The tiling as the keys last left it.
+    landed: Tiling,
+    /// Whether it's waiting for the letter of the tile to swap it with, rather than stepping.
+    swapping: bool,
+}
+
+/// The letters that pick a tile to swap with, the home row's first.
+const SWAP_LETTERS: &str = "asdfghjklqwertyuiopzxcvbnm";
+
+/// A tile shutting: the tiling as it was with it there, and what it showed, kept to draw it
+/// going: the terminal that closed with it, or its page.
+struct Going {
+    before: Tiling,
+    terminal: Option<Entity<crate::terminal::Terminal>>,
+    page: Option<Page>,
+    /// Whether it was let go over the navigator, which it's gone to: only the others move.
+    listed: bool,
+}
+
+/// A tile pressed by its bar, from then until it's let go and has settled where it lands.
+/// Positions are in the room the tiles share, in pixels.
+struct TileDrag {
+    tile: Tile,
+    /// The row's tiling as it was pressed.
+    before: Tiling,
+    pressed: Point<Pixels>,
+    pointer: Point<Pixels>,
+    /// Where the pointer holds the tile: the share of its width it's in from its left, and
+    /// how far down from its top, in pixels, as it's held by its bar.
+    grab: (f32, f32),
+    /// Whether the pointer's moved far enough for the tile to come off.
+    lifted: bool,
+    /// Where the pointer lands it where, in pixels in the room, while the right button or ⌥
+    /// has them shown in this drag.
+    zones: Vec<DropZone>,
+    /// Whether ⌥ was down as the modifiers last changed, so it shows them only as it goes down.
+    option: bool,
+    /// Where it lands, the tiling it makes there, and that tiling as it's drawn until it's let
+    /// go: see [`Tiling::shown_landing`].
+    landing: Landing,
+    landed: Tiling,
+    shown: Tiling,
+    /// Where the pointer is over, until it's rested there long enough for the tiles to make
+    /// room, and since when.
+    pending: Option<(Landing, Instant)>,
+    /// Where each tile was drawn as it last landed somewhere new, which they move on from,
+    /// and the dragged one's width and height then.
+    from: Vec<(Tile, Area)>,
+    size_from: (f32, f32),
+    /// The other tiles moving out of its way, and it growing or shrinking to its room there.
+    reflow: Slide,
+    resize: Slide,
+    /// Whether it's been let go, and settles into its place.
+    released: bool,
+    /// Whether it's a terminal the navigator shows as a row, where letting go lists it.
+    over_navigator: bool,
+}
+
+/// A tile of the selected row grown over the others to take all their room, or on its way
+/// there or back.
+struct TileZoom {
+    /// The row whose tile it is, kept for coming back to as the selection leaves it.
+    row: RowKey,
+    tile: Tile,
+    /// The tiling it's zoomed in, which the others stay as they are in.
+    tiling: Tiling,
+    /// Whether it's zoomed, not going back, and how far it's come.
+    open: bool,
+    slide: Slide,
+}
+
+/// A row of the navigator being dragged, as far as the tiles are concerned.
+#[derive(Default)]
+struct RowDrag {
+    /// The side whose zone the pointer's in, and since when.
+    over: Option<(Side, Instant)>,
+    /// Whether the right button or ⌥ has the zones shown in this drag.
+    zones: bool,
+    /// Whether ⌥ was down as the modifiers last changed, so it shows them only as it goes down.
+    option: bool,
+}
+
+/// The tile of a row dragged from the navigator, held in a zone or let go there: from the
+/// start it's in its row's tiling as it would land, and drawn in part of the way there.
+struct RowTile {
+    /// Drawn at its final size and cut off, as it comes in.
+    tile: Tile,
+    side: Side,
+    /// The row whose tiling it's in, and that tiling without it, with `None` the row alone.
+    row: RowKey,
+    before: Option<Tiling>,
+    landed: Tiling,
+    /// Where the tiles move on from.
+    from: Vec<(Tile, Area)>,
+    /// How much of the way there it comes while it's held.
+    held: f32,
+    /// Whether it's coming in or going back, and how far.
+    open: bool,
+    peeking: Slide,
+    /// Sliding the rest of the way, from `from`, once it's let go.
+    settling: Option<Slide>,
+}
+
+impl RowTile {
+    fn areas(&self, now: Instant) -> Vec<(Tile, Area)> {
+        let at = match &self.settling {
+            Some(settling) => settling.openness(now).unwrap_or(1.),
+            None => self.held * self.peeking.share(self.open, now),
+        };
+        (self.landed.areas().into_iter())
+            .map(|(tile, area)| {
+                let was = (self.from.iter()).find(|(other, _)| *other == tile);
+                let drawn = was.map_or(area, |(_, was)| was.toward(area, at));
+                (tile, drawn)
+            })
+            .collect()
+    }
+
+    /// The row whose tile is coming in, drawn at its final size.
+    fn opening(&self) -> Option<RowKey> {
+        match &self.tile {
+            Tile::Pinned(row) => Some(row.clone()),
+            Tile::Home => None,
+        }
+    }
+}
+
+/// A box of the room, in pixels, where the pointer lands a tile dragged by its bar at
+/// `landing`: nowhere, with `None`.
+#[derive(Debug, Clone, PartialEq)]
+struct DropZone {
+    landing: Option<Landing>,
+    left: f32,
+    top: f32,
+    right: f32,
+    bottom: f32,
+}
+
+/// Where a tile is drawn out of sight, in shares of the room from its left.
+const OUT_OF_SIGHT: f32 = -100.;
+
+/// How finely [`TileDrag::zones`] looks where the pointer lands the tile, in pixels.
+const ZONE_STEP: f32 = 6.;
+
+/// How far past the room [`TileDrag::zones`] looks, for the landings along its sides, and so
+/// how far over the navigator the zone along its left reaches.
+const ZONE_BEYOND: f32 = 48.;
+
+/// Where in the window the zone along the left of the tiles ends, in `room`, for `tile`: it has
+/// none along the left already, where landing there moves nothing.
+fn left_zone_end(tiling: &Tiling, tile: &Tile, room: Bounds<Pixels>) -> Option<Pixels> {
+    (tiling.moves(tile, &Landing::Edge(Side::Left))).then(|| room.left() - fixed(ZONE_BEYOND))
+}
+
+impl TileDrag {
+    /// Where it lands with the pointer `at`, in pixels in the room, `room` big. How far in a
+    /// side's zone reaches and how tall a tile's bar's row is are in pixels.
+    fn landing_under(
+        &self,
+        at: (f32, f32),
+        room: gpui::Size<Pixels>,
+        (edge, right, bar): (f32, f32, f32),
+    ) -> Option<Landing> {
+        let (room_width, room_height) = (
+            f32::from(room.width).max(1.),
+            f32::from(room.height).max(1.),
+        );
+        let pointer = (at.0 / room_width, at.1 / room_height);
+        let zones = Zones {
+            edge: (edge / room_width, edge / room_height),
+            right: right / room_width,
+            bar: bar / room_height,
+        };
+        (self.before).landing_at(&self.tile, pointer, zones)
+    }
+
+    /// Where the pointer lands it where, over the room and a little past it, by asking
+    /// [`Self::landing_under`] every [`ZONE_STEP`] pixels: boxes of the same landing, a row's
+    /// run at a time, run on down while the rows below match.
+    fn zones(&self, room: gpui::Size<Pixels>, sizes: (f32, f32, f32)) -> Vec<DropZone> {
+        let (width, height) = (f32::from(room.width), f32::from(room.height));
+        let steps = |length: f32| ((length + 2. * ZONE_BEYOND) / ZONE_STEP).ceil() as usize;
+        let mut zones: Vec<DropZone> = Vec::new();
+        // The zones still open at the row above, by their run's left and right.
+        let mut open: Vec<usize> = Vec::new();
+        for row in 0..steps(height) {
+            let top = row as f32 * ZONE_STEP - ZONE_BEYOND;
+            let mut runs: Vec<(Option<Landing>, f32, f32)> = Vec::new();
+            for column in 0..steps(width) {
+                let left = column as f32 * ZONE_STEP - ZONE_BEYOND;
+                let middle = (left + ZONE_STEP / 2., top + ZONE_STEP / 2.);
+                let landing = self.landing_under(middle, room, sizes);
+                match runs.last_mut() {
+                    Some((was, _, right)) if *was == landing => *right = left + ZONE_STEP,
+                    _ => runs.push((landing, left, left + ZONE_STEP)),
+                }
+            }
+            let mut still_open = Vec::new();
+            for (landing, left, right) in runs {
+                let above = (open.iter().copied()).find(|ix| {
+                    zones.get(*ix).is_some_and(|zone| {
+                        zone.landing == landing && zone.left == left && zone.right == right
+                    })
+                });
+                match above.and_then(|ix| Some((ix, zones.get_mut(ix)?))) {
+                    Some((ix, zone)) => {
+                        zone.bottom = top + ZONE_STEP;
+                        still_open.push(ix);
+                    }
+                    None => {
+                        still_open.push(zones.len());
+                        let bottom = top + ZONE_STEP;
+                        zones.push(DropZone {
+                            landing,
+                            left,
+                            top,
+                            right,
+                            bottom,
+                        });
+                    }
+                }
+            }
+            open = still_open;
+        }
+        zones
+    }
+
+    /// What the tiles move to: as it would land while it's held, as it lands once it's let go.
+    fn drawn_tiling(&self) -> &Tiling {
+        match self.released {
+            true => &self.landed,
+            false => &self.shown,
+        }
+    }
+
+    /// Where each tile is drawn at `now`, the dragged one last, over the others: under the
+    /// pointer, as big as its room where it lands, until it's let go.
+    fn areas(&self, now: Instant, room: gpui::Size<Pixels>) -> Vec<(Tile, Area)> {
+        let reflow = self.reflow.openness(now).unwrap_or(1.);
+        let to = self.drawn_tiling().areas();
+        let from = |tile: &Tile| (self.from.iter()).find(|(other, _)| other == tile);
+        let mut areas: Vec<(Tile, Area)> = (to.iter())
+            .filter(|(tile, _)| *tile != self.tile)
+            .map(|(tile, area)| {
+                let was = from(tile).map_or(*area, |(_, was)| *was);
+                (tile.clone(), was.toward(*area, reflow))
+            })
+            .collect();
+        let Some(slot) = (to.iter())
+            .find(|(tile, _)| *tile == self.tile)
+            .map(|(_, a)| *a)
+        else {
+            return areas;
+        };
+        let dragged = match self.released {
+            true => from(&self.tile)
+                .map_or(slot, |(_, was)| *was)
+                .toward(slot, reflow),
+            false => {
+                let resize = self.resize.openness(now).unwrap_or(1.);
+                let (width, height) = (
+                    self.size_from.0 + (slot.width - self.size_from.0) * resize,
+                    self.size_from.1 + (slot.height - self.size_from.1) * resize,
+                );
+                let (room_width, room_height) = (
+                    f32::from(room.width).max(1.),
+                    f32::from(room.height).max(1.),
+                );
+                let down = self.grab.1.clamp(0., height * room_height);
+                Area {
+                    // A row shows it, and it stays drawn, for the keys it has.
+                    left: match self.over_navigator {
+                        true => OUT_OF_SIGHT,
+                        false => f32::from(self.pointer.x) / room_width - self.grab.0 * width,
+                    },
+                    top: (f32::from(self.pointer.y) - down) / room_height,
+                    width,
+                    height,
+                }
+            }
+        };
+        areas.push((self.tile.clone(), dragged));
+        areas
+    }
+}
+
+/// The least a tile is dragged down to, in design pixels: room for its bar and a line of a
+/// terminal under it.
+const MIN_TILE: f32 = 66.;
+
+/// How long a tile takes to slide open out of its split or shut into it: quicker than a fold,
+/// as it's often a step on the way to typing in it.
+const TILE_SLIDE: std::time::Duration = std::time::Duration::from_millis(110);
+
+/// A motion `ms` long, set off now.
+fn moving_for(ms: f32, cx: &App) -> Slide {
+    let mut slide = Slide::lasting(millis(ms));
+    slide.start(true, cx);
+    slide
+}
+
+fn millis(ms: f32) -> Duration {
+    Duration::from_secs_f32(ms.max(0.) / 1000.)
+}
+
+/// How big the handle over a junction is, a little past the gaps that meet there.
+const JUNCTION_HANDLE: f32 = 16.;
+
+/// Move `divider` to `pointer`, in the room the tiles share, `bounds` big.
+fn move_divider(
+    store: &Entity<Store>,
+    divider: &Divider,
+    bounds: Bounds<Pixels>,
+    pointer: Point<Pixels>,
+    cx: &mut App,
+) {
+    let (along, length, start, share) = match divider.axis {
+        Axis::Across => (
+            pointer.x - bounds.left(),
+            bounds.size.width,
+            divider.room.left,
+            divider.room.width,
+        ),
+        Axis::Down => (
+            pointer.y - bounds.top(),
+            bounds.size.height,
+            divider.room.top,
+            divider.room.height,
+        ),
+    };
+    let room = f32::from(length) * share;
+    if room <= 0. {
+        return;
+    }
+    let at = (f32::from(along) / f32::from(length) - start) / share;
+    let min = f32::from(Theme::get(cx).scaled(MIN_TILE)) / room;
+    store.update(cx, |store, cx| {
+        store.move_divider(&divider.path, divider.after, at, min, cx)
+    });
 }
 
 impl Focusable for AppView {
@@ -1014,19 +5425,83 @@ impl Render for AppView {
         // Every `dp` size is in rems, so this scales the whole window.
         window.set_rem_size(Theme::get(cx).scaled(crate::ui::BASE_REM));
         crate::ui::Covered::note(self.covered(), window, cx);
+        // GPUI draws the window again whenever the keys move.
+        self.note_tile_with_keys(window, cx);
+        // The keys going elsewhere end moving a tile with them, where it's got to, but for what's
+        // over the window, which gives them back.
+        if !self.arranging_focus.is_focused(window) && !self.covered() {
+            self.arranging = None;
+        }
+        // After this frame, whose actions are the selection's now.
+        if self.pending_menu.is_some() {
+            let this = cx.entity().downgrade();
+            window.on_next_frame(move |window, cx| {
+                (this.update(cx, |this, cx| this.open_pending_menu(window, cx))).ok();
+            });
+        }
+        self.follow_navigator_place(window, cx);
         let theme = Theme::get(cx).clone();
         let ligatures = self.store.read(cx).prefs.ligatures;
         let show_fps = self.store.read(cx).prefs.show_fps;
         // The detail lays out its header and its file list beside as much of the navigator as
         // shows, so it's told before it draws in this frame.
-        let now = Instant::now();
+        let now = clock::now();
         let navigator_share = self.navigator_slide.share(self.navigator_open, now);
         let navigator_sliding = self.navigator_slide.openness(now).is_some();
+        let tabs_share = self.tabs_slide.share(self.navigator_on_top, now);
+        let tabs_sliding = self.tabs_slide.openness(now).is_some();
+        // Pinned pages fit their file lists to the same room.
+        for detail in std::iter::once(&self.detail).chain(self.pages.values().map(|p| &p.detail)) {
+            let view = detail.read(cx);
+            let was = view.navigator_shown.replace(navigator_share);
+            let tabs_were = view.tabs_shown.replace(tabs_share);
+            (view.window_width).set(self.narrowing.map(|narrowing| narrowing.wide));
+            // A slide's last frames can leave a cached detail's bounds as they were, so it's
+            // drawn once more where the slide ends.
+            let moved = was != navigator_share || tabs_were != tabs_share;
+            if moved && !navigator_sliding && !tabs_sliding {
+                let detail = detail.clone();
+                cx.defer(move |cx| detail.update(cx, |_, cx| cx.notify()));
+            }
+        }
+        // Tiles sliding open or shut, or dragged, move on before the next frame.
+        let tile_sliding = self.tiles_moving;
+        if tile_sliding {
+            let this = cx.entity().downgrade();
+            window.on_next_frame(move |_, cx| {
+                (this.update(cx, |this, cx| this.move_tiles(cx))).ok();
+            });
+        }
         let detail = self.detail.read(cx);
-        detail.navigator_shown.set(navigator_share);
         let files_sliding = detail.sliding(now);
-        if navigator_sliding || files_sliding {
+        let peek_sliding = self.peek.slide.openness(now).is_some();
+        // Likewise the navigator, beside as much of the detail as shows.
+        let detail_share = self.detail_slide.share(self.detail_open, now);
+        let detail_sliding = self.detail_slide.openness(now).is_some();
+        self.navigator.read(cx).detail_shown.set(detail_share);
+        // As the window narrows or widens, each resize draws it, and a frame drawn on the
+        // display's beat would be for the width before.
+        let resizing = self.narrowing.is_some_and(|narrowing| !narrowing.settled);
+        let widths_gliding = self.store.read(cx).widths_gliding();
+        let sliding = navigator_sliding
+            || files_sliding
+            || peek_sliding
+            || detail_sliding
+            || tabs_sliding
+            || widths_gliding;
+        if sliding && !resizing {
             window.request_animation_frame();
+        }
+        // The navigator out over the detail goes over where macOS's traffic lights are, and
+        // AppKit draws them over everything the app does, so they make way while it's drawn.
+        #[cfg(target_os = "macos")]
+        {
+            let peeking = self.peek.open || self.peek.slide.closing(now);
+            let away = peeking && !self.navigator_on_top;
+            if away != self.lights_away {
+                self.lights_away = away;
+                place_traffic_lights(away, window, cx);
+            }
         }
         let has_update_feed = cx
             .try_global::<crate::Embedded>()
@@ -1036,12 +5511,25 @@ impl Render for AppView {
             .role(Role::Application)
             .aria_label("GitButler")
             .key_context("Workspace")
-            // Drop targets read ⌥ to tell moving from squashing.
-            .on_modifiers_changed(cx.listener(|this, _, _, cx| {
-                if cx.has_active_drag() || this.store.read(cx).cut.is_some() {
-                    this.navigator.update(cx, |_, cx| cx.notify());
+            .on_modifiers_changed(cx.listener(|this, event: &ModifiersChangedEvent, _, cx| {
+                // In a build of its own, ⌥ shows where a tile dragged lands where, as the right
+                // button does.
+                if backend::settings::dev_build() {
+                    this.option_changed(event.modifiers.alt, cx);
                 }
             }))
+            // GPUI counts nothing as under the pointer while the last input was a key, and a
+            // drag in from another app, as files from the Finder onto a terminal, comes as moves
+            // it doesn't count as the mouse's: after typing, it would land nowhere. Sent again
+            // as the mouse's move, the drag counts.
+            .on_drag_move(|event: &DragMoveEvent<ExternalPaths>, window, cx| {
+                if window.last_input_was_keyboard() {
+                    let event = event.event.clone();
+                    window.defer(cx, move |window, cx| {
+                        window.dispatch_event(PlatformInput::MouseMove(event), cx);
+                    });
+                }
+            })
             .on_action(cx.listener(Self::quit))
             .on_action(|_: &Minimize, window, _| window.minimize_window())
             .on_action(|_: &Zoom, window, _| window.zoom_window())
@@ -1058,32 +5546,107 @@ impl Render for AppView {
                 el.on_action(cx.listener(Self::check_for_updates))
             })
             // Only in a build `cargo run` started, likewise.
-            .when(self.rebuild.is_some(), |el| {
+            .when(cx.has_global::<backend::rebuild::Rebuild>(), |el| {
                 el.on_action(cx.listener(Self::build_and_restart))
+                    .on_action(cx.listener(Self::build_and_restart_from_here))
             })
             .on_action(cx.listener(Self::open_settings))
             .on_action(cx.listener(Self::open_keyboard_shortcuts))
+            .on_action(cx.listener(Self::open_briefs_settings))
             .on_action(cx.listener(Self::open_whats_new))
             .on_action(cx.listener(Self::clone_repository))
+            // Only where there's a checkout to write the keys to.
+            .when(crate::keymap::source_dir().is_some(), |el| {
+                el.on_action(cx.listener(|this, _: &OpenCommandEditor, _, cx| {
+                    let store = this.store.clone();
+                    cx.defer(move |cx| crate::command_editor::open(store, cx))
+                }))
+            })
             // Here rather than around the navigator, so the details pane's buttons reach them.
             .map(|el| self.pr_actions(el, cx))
+            .map(|el| self.copy_actions(el, cx))
+            .map(|el| self.navigator_actions(el, cx))
+            .map(|el| self.discard_actions(el, window, cx))
+            .map(|el| self.project_list_actions(el, cx))
             .map(|el| self.resolve_actions(el, cx))
             .on_action(cx.listener(Self::go_to))
-            .on_action(cx.listener(Self::show_actions))
+            .on_action(cx.listener(Self::go_to_terminal))
+            .on_action(cx.listener(Self::show_context_menu))
+            .on_action(cx.listener(Self::open_menu_bar))
+            .on_action(cx.listener(Self::previous_menu))
+            .on_action(cx.listener(Self::next_menu))
             .on_action(cx.listener(Self::copy_more))
             .on_action(cx.listener(Self::open_selected_in_terminal))
+            .on_action(cx.listener(Self::new_terminal))
+            .on_action(cx.listener(Self::new_terminal_with))
+            .on_action(
+                cx.listener(|this, _: &SplitRight, window, cx| {
+                    this.split(Axis::Across, window, cx)
+                }),
+            )
+            .on_action(
+                cx.listener(|this, _: &SplitBelow, window, cx| this.split(Axis::Down, window, cx)),
+            )
+            .on_action(cx.listener(|this, _: &NewTerminalRight, window, cx| {
+                this.new_terminal_beside(Axis::Across, window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &NewTerminalBelow, window, cx| {
+                this.new_terminal_beside(Axis::Down, window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &NewTerminalWithRight, window, cx| {
+                this.new_terminal_with_beside(Axis::Across, window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &NewTerminalWithBelow, window, cx| {
+                this.new_terminal_with_beside(Axis::Down, window, cx)
+            }))
+            .when(self.store.read(cx).tiling().is_some(), |el| {
+                el.on_action(
+                    cx.listener(|this, _: &ZoomTile, window, cx| this.zoom_with_keys(window, cx)),
+                )
+                .on_action(cx.listener(|this, _: &EqualizeTiles, _, cx| this.equalize_tiles(cx)))
+                .on_action(cx.listener(|this, _: &ArrangeTiles, window, cx| {
+                    this.arrange_tiles(false, window, cx)
+                }))
+                .on_action(cx.listener(|this, _: &SwapTiles, window, cx| {
+                    this.arrange_tiles(true, window, cx)
+                }))
+                .on_action(cx.listener(|this, _: &NextTile, window, cx| {
+                    this.focus_next_tile(false, window, cx)
+                }))
+                .on_action(cx.listener(|this, _: &PreviousTile, window, cx| {
+                    this.focus_next_tile(true, window, cx)
+                }))
+                // Only in a build of its own, to show how tiles are laid out in a report.
+                .when(backend::settings::dev_build(), |el| {
+                    el.on_action(
+                        cx.listener(|this, _: &CopyTileDiagram, _, cx| this.copy_tile_diagram(cx)),
+                    )
+                })
+            })
             // The selection doesn't decide: an operation that finished in another project is
             // still the last thing done.
             .on_action(cx.listener(|this, _: &Undo, _, cx| this.store.update(cx, Store::undo_last)))
             .on_action(cx.listener(|this, _: &Redo, _, cx| this.store.update(cx, Store::redo_last)))
             .on_action(cx.listener(Self::fetch))
+            .on_action(cx.listener(Self::pull))
             .on_action(cx.listener(Self::new_branch))
+            .on_action(cx.listener(Self::new_worktree))
+            .on_action(cx.listener(Self::new_worktree_with_name))
+            .on_action(cx.listener(Self::recycle_worktree))
             .on_action(cx.listener(Self::push_selected))
-            .on_action(cx.listener(Self::cut_selection))
-            // Only while something is cut, so ⌘K doesn't offer it with nothing to paste.
-            .when(self.store.read(cx).cut.is_some(), |el| {
-                el.on_action(cx.listener(Self::paste_here))
-            })
+            // Where the diff shows what's selected, which can squash.
+            .when(
+                matches!(
+                    self.store.read(cx).selection,
+                    Some(
+                        Selection::Commit(..)
+                            | Selection::Branch(..)
+                            | Selection::Stack(..)
+                            | Selection::Uncommitted(..)
+                    )
+                ),
+                |el| el.on_action(cx.listener(Self::squash_from_detail)),
+            )
             .on_action(cx.listener(Self::copy_selection))
             .on_action(cx.listener(Self::open_pull_request))
             .on_action(cx.listener(|this, _: &ToggleRead, _, cx| {
@@ -1100,7 +5663,15 @@ impl Render for AppView {
             }))
             .on_action(cx.listener(|this, _: &ToggleFileTree, _, cx| {
                 (this.store).update(cx, |store, cx| {
-                    store.set_prefs(|prefs| prefs.file_tree = !prefs.file_tree, cx)
+                    store.set_prefs(
+                        |prefs| {
+                            prefs.file_view = match prefs.file_view {
+                                FileView::Tree => FileView::List,
+                                FileView::List => FileView::Tree,
+                            }
+                        },
+                        cx,
+                    )
                 })
             }))
             .on_action(cx.listener(Self::cancel))
@@ -1108,20 +5679,39 @@ impl Render for AppView {
             .on_action(cx.listener(Self::focus_changes))
             .on_action(cx.listener(Self::focus_diff))
             .on_action(cx.listener(|this, _: &FocusNextPane, window, cx| {
-                this.focus_pane(true, true, window, cx)
+                this.move_keys(KeyMove::Round { forward: true }, window, cx)
             }))
             .on_action(cx.listener(|this, _: &FocusPreviousPane, window, cx| {
-                this.focus_pane(false, true, window, cx)
+                this.move_keys(KeyMove::Round { forward: false }, window, cx)
             }))
             .on_action(cx.listener(|this, _: &FocusPaneLeft, window, cx| {
-                this.focus_pane(false, false, window, cx)
+                this.move_keys(KeyMove::Beside(Side::Left), window, cx)
             }))
             .on_action(cx.listener(|this, _: &FocusPaneRight, window, cx| {
-                this.focus_pane(true, false, window, cx)
+                this.move_keys(KeyMove::Beside(Side::Right), window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &FocusTileLeft, window, cx| {
+                this.move_keys(KeyMove::TileBeside(Side::Left), window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &FocusTileRight, window, cx| {
+                this.move_keys(KeyMove::TileBeside(Side::Right), window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &FocusTileUp, window, cx| {
+                this.move_keys(KeyMove::TileBeside(Side::Top), window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &FocusTileDown, window, cx| {
+                this.move_keys(KeyMove::TileBeside(Side::Bottom), window, cx)
             }))
             .on_action(cx.listener(Self::operations_history))
+            .on_action(cx.listener(|this, _: &NextNavigatorTab, window, cx| {
+                this.step_navigator_tab(true, window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &PreviousNavigatorTab, window, cx| {
+                this.step_navigator_tab(false, window, cx)
+            }))
             .on_action(cx.listener(Self::close_window))
             .on_action(cx.listener(Self::start_commit))
+            .on_action(cx.listener(Self::start_amend))
             .on_action(cx.listener(|this, _: &UpdateFromTarget, _, cx| {
                 this.update_selected_project(UpdateScope::All, cx)
             }))
@@ -1132,13 +5722,13 @@ impl Render for AppView {
                 this.update_selected_project(UpdateScope::Worktrees, cx)
             }))
             .on_action(cx.listener(Self::toggle_navigator))
+            .on_action(cx.listener(Self::toggle_terminal_overview))
+            .on_action(cx.listener(Self::focus_terminals))
+            .on_action(cx.listener(Self::toggle_navigator_place))
+            .on_action(cx.listener(Self::toggle_detail))
             .on_action(cx.listener(Self::command_palette))
+            .on_action(cx.listener(Self::change_theme))
             // The composer's keys, pressed with the focus elsewhere, like the navigator.
-            .on_action(
-                cx.listener(|this, _: &crate::detail::AmendTop, window, cx| {
-                    this.in_composer(window, cx, Detail::amend_top)
-                }),
-            )
             .on_action(
                 cx.listener(|this, _: &crate::detail::PickCommitTarget, window, cx| {
                     this.in_composer(window, cx, Detail::pick_commit_target)
@@ -1171,17 +5761,48 @@ impl Render for AppView {
                 }),
             )
             .on_action(
-                cx.listener(|this, _: &crate::detail::SwitchTab, window, cx| {
+                cx.listener(|this, _: &crate::detail::ShowBrief, window, cx| {
                     this.detail
-                        .update(cx, |detail, cx| detail.switch_tab(window, cx))
+                        .update(cx, |detail, cx| detail.show_brief(window, cx))
                 }),
             )
+            .on_action(cx.listener(Self::brief_command::<crate::detail::ChangesBeside>))
+            .on_action(cx.listener(Self::brief_command::<crate::detail::WriteNote>))
+            .on_action(cx.listener(Self::brief_command::<crate::detail::SendNotes>))
+            .on_action(cx.listener(Self::brief_command::<crate::detail::NextBrief>))
+            .on_action(cx.listener(Self::brief_command::<crate::detail::PreviousBrief>))
+            .on_action(cx.listener(
+                |this, _: &crate::detail::ShowBranchesWithBriefs, window, cx| {
+                    let project = this
+                        .store
+                        .read(cx)
+                        .selection
+                        .as_ref()
+                        .map(|s| s.project().clone());
+                    if let Some(project) = project {
+                        this.open_project_tab(
+                            project.clone(),
+                            crate::state::ProjectTab::Branches,
+                            window,
+                            cx,
+                        );
+                        this.detail
+                            .update(cx, |detail, cx| detail.filter_with_brief(Some(project), cx));
+                    }
+                },
+            ))
             .on_action(cx.listener(|this, _: &crate::detail::ToggleSplit, _, cx| {
                 this.detail.update(cx, |detail, cx| detail.toggle_split(cx))
             }))
             .on_action(cx.listener(|this, _: &crate::detail::ToggleWrap, _, cx| {
                 this.detail.update(cx, |detail, cx| detail.toggle_wrap(cx))
             }))
+            .on_action(
+                cx.listener(|this, _: &crate::detail::ToggleFiles, window, cx| {
+                    this.detail
+                        .update(cx, |detail, cx| detail.toggle_files(window, cx))
+                }),
+            )
             .on_action(
                 cx.listener(|this, _: &crate::detail::NextHunk, window, cx| {
                     this.detail
@@ -1206,128 +5827,171 @@ impl Render for AppView {
             .bg(theme.bg_1)
             .text_color(theme.text_1)
             .font_family(theme.ui_font)
-            // Only the code font has ligatures (`liga`), so this leaves the UI font as it is.
+            // Only a font the user picks has ligatures (`liga`), so this leaves ours as they are.
             .when(!ligatures, |el| {
                 el.font_features(FontFeatures(std::sync::Arc::new(vec![("liga".into(), 0)])))
             })
             .text_size(dp(13.))
             .line_height(dp(18.))
+            // Keeping its height as it slides, the bottom edge coming down over the panes.
+            .when(tabs_share > 0., |el| {
+                el.child(
+                    div()
+                        .flex_none()
+                        .relative()
+                        .h(dp(HEADER_HEIGHT * tabs_share))
+                        .overflow_hidden()
+                        // The keys on the tabs do to the selection what they do in the navigator.
+                        .map(|el| self.edit_actions(el, cx))
+                        .child(
+                            div()
+                                .absolute()
+                                .left_0()
+                                .right_0()
+                                .bottom_0()
+                                .h(dp(HEADER_HEIGHT))
+                                .child(self.tabs.clone()),
+                        ),
+                )
+            })
             .child(
                 div()
                     .flex()
                     .flex_row()
                     .flex_1()
                     .min_h_0()
+                    .relative()
                     // What the navigator's menus and keys, and the commit header's menu, do to
                     // the selection.
                     .map(|el| self.edit_actions(el, cx))
-                    .on_drag_move(resize_pane(Pane::Navigator, self.store.clone()))
-                    .when(
-                        self.navigator_open || self.navigator_slide.closing(now),
-                        |el| {
-                            let width = self.detail.read(cx).navigator_width(now, window, cx);
-                            // Sliding, it keeps its width and its place, so it's drawn again
-                            // only when it changes, not as it slides or the diff changes: the
-                            // detail beside it moves its edge across it.
-                            let navigator = div().w(dp(width)).h_full().child(
-                                self.navigator
-                                    .clone()
-                                    .cached(StyleRefinement::default().size_full()),
-                            );
-                            el.child(
-                                div()
-                                    .w(dp(width * navigator_share))
-                                    .flex_none()
-                                    .h_full()
-                                    .child(inert(navigator, !self.navigator_open)),
+                    .on_drag_move(resize_pane(
+                        Pane::Navigator,
+                        TILE_MARGIN,
+                        self.store.clone(),
+                    ))
+                    .map(|el| match detail_share < 1. {
+                        true => el.overflow_hidden().child(self.render_detail_aside(
+                            now,
+                            detail_share,
+                            navigator_share,
+                            files_sliding,
+                            window,
+                            cx,
+                        )),
+                        false => el
+                            .when(
+                                self.navigator_open || self.navigator_slide.closing(now),
+                                |el| {
+                                    let width =
+                                        self.detail.read(cx).navigator_width(now, window, cx);
+                                    // Sliding, it keeps its width and its place, so it's drawn
+                                    // again only when it changes, not as it slides or the diff
+                                    // changes: the detail beside it moves its edge across it.
+                                    let navigator = div()
+                                        .w(dp(width))
+                                        .h_full()
+                                        .child(self.render_side_column(Column::Beside, cx));
+                                    el.child(
+                                        div()
+                                            .w(dp(width * navigator_share))
+                                            .flex_none()
+                                            .h_full()
+                                            .child(inert(navigator, !self.navigator_open)),
+                                    )
+                                },
                             )
-                        },
-                    )
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w_0()
-                            .h_full()
-                            .relative()
-                            // Over the navigator as it slides, taking the pointer from it.
-                            .when(navigator_sliding, |el| el.bg(theme.bg_1).occlude())
                             .child(
-                                self.detail
-                                    .clone()
-                                    .cached(StyleRefinement::default().size_full()),
-                            )
-                            .when_some(self.diff_left(now, window, cx), |el, left| {
-                                el.child(
-                                    div()
-                                        .absolute()
-                                        .top(dp(HEADER_HEIGHT
-                                            + self.detail.read(cx).view_header_height(cx)))
-                                        .bottom_0()
-                                        .right_0()
-                                        .left(dp(left))
-                                        // Over the files as they slide, edged as they are.
-                                        .when(files_sliding, |el| {
-                                            el.bg(theme.bg_1)
-                                                .occlude()
-                                                .child(edge(theme.border_3).left(fixed(-1.)))
-                                        })
-                                        .child(
-                                            self.diff
-                                                .clone()
-                                                .cached(StyleRefinement::default().size_full()),
-                                        ),
+                                self.render_detail(
+                                    now,
+                                    navigator_sliding,
+                                    files_sliding,
+                                    window,
+                                    cx,
                                 )
-                            })
-                            .when(navigator_sliding, |el| {
-                                el.child(edge(theme.border_3).left(fixed(-1.)))
-                            }),
-                    ),
+                                .flex_1()
+                                .min_w_0()
+                                .h_full(),
+                            ),
+                    })
+                    // Closed, the navigator comes out over the detail as the pointer reaches
+                    // the window's left edge, as Arc's sidebar does.
+                    .when(!self.navigator_open, |el| el.child(self.watch_pointer(cx)))
+                    .when(self.peek.open || self.peek.slide.closing(now), |el| {
+                        el.child(self.render_peek(now, window, cx))
+                    }),
             )
-            .child(self.render_status_bar(window, cx))
-            .children(self.render_modal(cx))
+            .when(self.status_bar_shown(cx), |el| {
+                el.child(self.render_status_bar(window, cx))
+            })
+            .children(self.render_menu_bar(window, cx))
+            .children(self.render_modal(cx).map(overlay))
             // Above a modal: Git can ask for credentials while one is open.
-            .children(self.render_prompt(window, cx))
-            .children(self.render_palette(cx))
+            .children(self.render_prompt(window, cx).map(overlay))
+            .children(self.render_palette(cx).map(overlay))
             // Above what dims the window, so their buttons take clicks rather than close it.
-            .child(self.render_toasts(cx))
+            .child(overlay(self.render_toasts(cx)))
             .children(self.render_menu(window, cx))
             .children(self.render_icon_picker(window, cx))
             // Last, so the window can be closed while a modal or menu is open.
             .when(crate::ui::draws_window_controls(window), |el| {
-                el.child(crate::ui::window_controls::window_controls(window, cx))
+                el.child(overlay(crate::ui::window_controls::window_controls(
+                    window, cx,
+                )))
             })
             // Over everything, and it takes no clicks, as it has no hitbox.
-            .when(show_fps, |el| el.child(self.fps.clone()));
+            .when(show_fps, |el| el.child(self.fps.clone()))
+            .when(cfg!(target_os = "macos"), |el| {
+                el.child(crate::ui::holds_back_first_click())
+            })
+            .child(backend::metrics::pointer_listener());
         crate::ui::window_frame::window_frame(root, window, cx)
     }
 }
 
 /// Puts macOS's traffic lights, which keep their size at every interface scale, halfway down
-/// the header, however tall the scale draws it.
+/// the header, however tall the scale draws it. While `away`, they're past the window's left
+/// edge, where AppKit doesn't draw them.
 #[cfg(target_os = "macos")]
-fn place_traffic_lights(window: &Window, cx: &App) {
+pub(crate) fn place_traffic_lights(away: bool, window: &Window, cx: &App) {
     use crate::ui::fixed;
     use gpui::point;
 
     const LIGHTS: f32 = 14.;
+    // Further than the three of them reach.
+    const AWAY: f32 = -100.;
     let top = (Theme::get(cx).scaled(HEADER_HEIGHT) - fixed(LIGHTS)) / 2.;
-    window.set_traffic_light_position(point(fixed(14.), top));
+    let left = match away {
+        true => fixed(AWAY),
+        false => fixed(14.),
+    };
+    window.set_traffic_light_position(point(left, top));
 }
 
-/// The theme the appearance setting and the system call for.
-fn theme_for(store: &Store, window: &Window) -> Theme {
+/// The theme the appearance setting and the system call for, in `previewed` over the scheme
+/// in use.
+fn theme_for(store: &Store, previewed: Option<&ColorScheme>, window: &Window) -> Theme {
     let prefs = &store.prefs;
-    Theme::for_appearance(prefs.appearance, window.appearance(), prefs.code_size)
+    let (scheme, system) = (
+        previewed.unwrap_or(&prefs.color_scheme),
+        window.appearance(),
+    );
+    let ghostty = but_tty::Ghostty::load();
+    let digit = |family: &str| crate::ui::digit_advance(family, window.text_system());
+    let installed = |family: &str| digit(family).is_some();
+    // The look is set only in a dev build for now, so any other keeps GitButler's own.
+    let (ground, accent, corners, density) = match backend::settings::dev_build() {
+        true => (prefs.ground, prefs.accent, prefs.corners, prefs.density),
+        false => Default::default(),
+    };
+    Theme::new(prefs.appearance, scheme, system, prefs.code_size, &ghostty)
+        .with_ground(ground)
+        .with_accent(accent, &prefs.accent_color)
+        .with_corners(corners)
+        .with_density(density)
         .with_scale(prefs.ui_scale)
-}
-
-/// What the snackbar says after copying `text`: the text itself when it's short.
-fn copied(text: &str) -> String {
-    match text.lines().count() {
-        0 | 1 if text.chars().count() <= 64 => format!("Copied {text}"),
-        0 | 1 => "Copied the selection".to_owned(),
-        lines => format!("Copied {lines} lines"),
-    }
+        .with_diff_font(prefs.diff_font.as_deref(), digit)
+        .with_ligatures(prefs.ligatures)
+        .with_terminal_font(prefs.terminal_font.as_deref(), &ghostty, installed)
 }
 
 /// Have AppKit show the window's cursor again. GPUI tells it only when the cursor it wants
@@ -1355,10 +6019,420 @@ fn show_cursor_again(window: &Window) {
     }
 }
 
+/// Keep a drag going through a click of the right or middle button, as showing where a row
+/// lands and taking a picture of it are, in a build of its own: GPUI ends a drag as any button
+/// comes up, so AppKit keeps those releases from it while the left one's down.
+#[cfg(target_os = "macos")]
+fn keep_drags_through_other_buttons() {
+    use block2::RcBlock;
+    use objc2::{class, msg_send, runtime::AnyObject};
+
+    // `NSEventMaskRightMouseUp` and `NSEventMaskOtherMouseUp`.
+    const RELEASES: u64 = (1 << 4) | (1 << 26);
+    let keep = RcBlock::new(|event: *mut AnyObject| -> *mut AnyObject {
+        // SAFETY: `pressedMouseButtons` only reads which buttons are down.
+        let pressed: usize = unsafe { msg_send![class!(NSEvent), pressedMouseButtons] };
+        match pressed & 1 {
+            0 => event,
+            _ => std::ptr::null_mut(),
+        }
+    });
+    // SAFETY: AppKit copies the block, and calls it on the main thread with each event it's
+    // about to send, as this method's contract says; it keeps the monitor for the app's life.
+    unsafe {
+        let _: *mut AnyObject = msg_send![
+            class!(NSEvent),
+            addLocalMonitorForEventsMatchingMask: RELEASES,
+            handler: &*keep
+        ];
+    }
+}
+
+/// The number AppKit gives `window`, which `screencapture` takes.
+#[cfg(target_os = "macos")]
+fn window_number(window: &Window) -> Option<isize> {
+    use objc2::{msg_send, runtime::AnyObject};
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+
+    let handle = HasWindowHandle::window_handle(window).ok()?;
+    let RawWindowHandle::AppKit(handle) = handle.as_raw() else {
+        return None;
+    };
+    let view = handle.ns_view.as_ptr().cast::<AnyObject>();
+    // SAFETY: `view` is the window's live NSView, used on the main thread, and `windowNumber`
+    // only reads its window's number.
+    unsafe {
+        let ns_window: *mut AnyObject = msg_send![view, window];
+        (!ns_window.is_null()).then(|| msg_send![ns_window, windowNumber])
+    }
+}
+
+/// Let the window be made as narrow as `width`, in logical pixels, as GPUI only sets how small
+/// it can be made as it opens it.
+#[cfg(target_os = "macos")]
+fn set_least_width(width: f32, window: &Window) {
+    use objc2::{msg_send, runtime::AnyObject};
+    use objc2_foundation::NSSize;
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+
+    let Ok(handle) = HasWindowHandle::window_handle(window) else {
+        return;
+    };
+    let RawWindowHandle::AppKit(handle) = handle.as_raw() else {
+        return;
+    };
+    let view = handle.ns_view.as_ptr().cast::<AnyObject>();
+    let least = NSSize::new(width.into(), crate::LEAST_WINDOW_HEIGHT.into());
+    // SAFETY: `view` is the window's live NSView, used on the main thread, and
+    // `setContentMinSize:` only changes how small the window can be made.
+    unsafe {
+        let ns_window: *mut AnyObject = msg_send![view, window];
+        if !ns_window.is_null() {
+            let _: () = msg_send![ns_window, setContentMinSize: least];
+        }
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn set_least_width(_: f32, _: &Window) {}
+
 /// Whether a dev script drives the window, which then says when it's hidden.
 pub(crate) fn scripted() -> bool {
     #[cfg(feature = "dev-script")]
     return crate::dev::scripted();
     #[cfg(not(feature = "dev-script"))]
     false
+}
+
+#[cfg(test)]
+mod tests {
+    use gpui::{Bounds, point, size};
+
+    use super::{KeyStop, ZONE_BEYOND, left_zone_end, stop_beside, stop_beside_strip, stop_round};
+    use crate::state::{Area, Axis, Landing, ProjectTab, RowKey, Selection, Side, Tile, Tiling};
+    use crate::terminal::TerminalId;
+    use crate::ui::fixed;
+
+    fn pinned() -> Tile {
+        Tile::Pinned(RowKey::Tab("p".into(), ProjectTab::Branches))
+    }
+
+    fn side_by_side() -> [(Tile, Area); 2] {
+        let area = |left| Area {
+            left,
+            top: 0.,
+            width: 0.5,
+            height: 1.,
+        };
+        [(Tile::Home, area(0.)), (pinned(), area(0.5))]
+    }
+
+    fn stacked() -> [(Tile, Area); 2] {
+        let area = |top| Area {
+            left: 0.,
+            top,
+            width: 1.,
+            height: 0.5,
+        };
+        [(Tile::Home, area(0.)), (pinned(), area(0.5))]
+    }
+
+    fn at(tile: Tile) -> KeyStop {
+        KeyStop::Tile(tile)
+    }
+
+    #[test]
+    fn a_tile_has_a_zone_along_the_left_of_the_room_unless_it_is_there_already() {
+        let terminal = RowKey::Row(Selection::Terminal("p".into(), TerminalId(1)));
+        let tile = Tile::Pinned(terminal.clone());
+        let mut tiling = Tiling::default();
+        tiling.pin(&Tile::Home, Axis::Across, terminal);
+        let room = Bounds::new(
+            point(fixed(336.), fixed(36.)),
+            size(fixed(1020.), fixed(790.)),
+        );
+        assert_eq!(
+            left_zone_end(&tiling, &tile, room),
+            Some(fixed(336. - ZONE_BEYOND)),
+            "it reaches as far over the navigator as it's shown to"
+        );
+        let along_left = tiling.landed(&tile, &Landing::Edge(Side::Left), (0., 0.));
+        assert_eq!(
+            left_zone_end(&along_left, &tile, room),
+            None,
+            "there already, nothing keeps it from the navigator"
+        );
+    }
+
+    #[test]
+    fn the_tabs_across_the_top_are_above_the_tiles_and_not_left_of_them() {
+        assert_eq!(
+            stop_beside_strip(&at(Tile::Home), Side::Top, &side_by_side(), None),
+            Some(KeyStop::Navigator),
+            "up from a tile along the top"
+        );
+        assert_eq!(
+            stop_beside_strip(&at(Tile::Home), Side::Left, &side_by_side(), None),
+            None,
+            "⇧⌘H stops at the window's edge, as the tabs are above the tiles, not beside them"
+        );
+        assert_eq!(
+            stop_beside_strip(&at(pinned()), Side::Top, &stacked(), None),
+            Some(at(Tile::Home)),
+            "up from a lower tile goes to the one above it first"
+        );
+    }
+
+    #[test]
+    fn down_from_the_tabs_goes_back_to_the_tile_they_came_from() {
+        assert_eq!(
+            stop_beside_strip(&KeyStop::Navigator, Side::Bottom, &side_by_side(), None),
+            Some(at(Tile::Home)),
+            "the first along the top, with none to go back to"
+        );
+        assert_eq!(
+            stop_beside_strip(
+                &KeyStop::Navigator,
+                Side::Bottom,
+                &side_by_side(),
+                Some(&pinned())
+            ),
+            Some(at(pinned())),
+            "else the one the keys left"
+        );
+    }
+
+    #[test]
+    fn down_from_the_terminal_overview_under_its_tab_goes_to_the_tiles() {
+        assert_eq!(
+            stop_beside_strip(&KeyStop::Terminals, Side::Bottom, &side_by_side(), None),
+            Some(at(Tile::Home)),
+            "the overview is in the card under the tabs, so down from it is as down from them"
+        );
+        assert_eq!(
+            stop_beside_strip(&KeyStop::Terminals, Side::Top, &side_by_side(), None),
+            None,
+            "and nothing is above it"
+        );
+    }
+
+    #[test]
+    fn going_round_the_navigator_comes_before_the_first_tile() {
+        assert_eq!(
+            stop_round(&KeyStop::Navigator, true, &side_by_side(), true, false),
+            Some(at(Tile::Home)),
+            "Tab from the navigator goes to the first tile"
+        );
+    }
+
+    #[test]
+    fn going_round_goes_tile_by_tile() {
+        assert_eq!(
+            stop_round(&at(Tile::Home), true, &side_by_side(), true, false),
+            Some(at(pinned())),
+            "Tab past the home tile's last pane goes to the tile after it"
+        );
+    }
+
+    #[test]
+    fn going_round_past_the_last_tile_reaches_the_navigator() {
+        assert_eq!(
+            stop_round(&at(pinned()), true, &side_by_side(), true, false),
+            Some(KeyStop::Navigator),
+            "the navigator is between the last tile and the first"
+        );
+    }
+
+    #[test]
+    fn going_round_back_from_the_navigator_reaches_the_last_tile() {
+        assert_eq!(
+            stop_round(&KeyStop::Navigator, false, &side_by_side(), true, false),
+            Some(at(pinned())),
+            "⇧Tab from the navigator goes round to the last tile"
+        );
+    }
+
+    #[test]
+    fn going_round_without_the_navigator_goes_from_the_last_tile_to_the_first() {
+        assert_eq!(
+            stop_round(&at(pinned()), true, &side_by_side(), false, false),
+            Some(at(Tile::Home)),
+            "a hidden navigator isn't a stop"
+        );
+    }
+
+    #[test]
+    fn going_round_the_terminal_overview_comes_between_the_navigator_and_the_tiles() {
+        assert_eq!(
+            stop_round(&KeyStop::Navigator, true, &side_by_side(), true, true),
+            Some(KeyStop::Terminals),
+            "Tab from the navigator goes to the overview under it"
+        );
+        assert_eq!(
+            stop_round(&KeyStop::Terminals, true, &side_by_side(), true, true),
+            Some(at(Tile::Home)),
+            "and on from it to the first tile"
+        );
+    }
+
+    #[test]
+    fn above_the_terminal_overview_is_the_navigator_and_right_of_it_the_tiles() {
+        assert_eq!(
+            stop_beside(&KeyStop::Terminals, Side::Top, &side_by_side(), true, None),
+            Some(KeyStop::Navigator),
+            "the overview is under the navigator"
+        );
+        assert_eq!(
+            stop_beside(
+                &KeyStop::Terminals,
+                Side::Right,
+                &side_by_side(),
+                true,
+                Some(&pinned())
+            ),
+            Some(at(Tile::Home)),
+            "right of it is the tile along the left edge, as from the navigator"
+        );
+    }
+
+    #[test]
+    fn right_of_the_navigator_is_the_first_tile() {
+        assert_eq!(
+            stop_beside(
+                &KeyStop::Navigator,
+                Side::Right,
+                &side_by_side(),
+                true,
+                None
+            ),
+            Some(at(Tile::Home)),
+            "→ from the navigator goes to the tile beside it"
+        );
+    }
+
+    #[test]
+    fn right_of_the_navigator_is_the_tile_along_it_that_had_the_keys() {
+        assert_eq!(
+            stop_beside(
+                &KeyStop::Navigator,
+                Side::Right,
+                &stacked(),
+                true,
+                Some(&pinned())
+            ),
+            Some(at(pinned())),
+            "→ back from the navigator goes to the lower tile the keys left, not the first"
+        );
+    }
+
+    #[test]
+    fn right_of_the_navigator_is_never_a_tile_away_from_it() {
+        assert_eq!(
+            stop_beside(
+                &KeyStop::Navigator,
+                Side::Right,
+                &side_by_side(),
+                true,
+                Some(&pinned())
+            ),
+            Some(at(Tile::Home)),
+            "the tile with the keys last has another between it and the navigator"
+        );
+    }
+
+    #[test]
+    fn nothing_is_left_of_the_navigator() {
+        assert_eq!(
+            stop_beside(&KeyStop::Navigator, Side::Left, &side_by_side(), true, None),
+            None,
+            "← stops at the window's edge"
+        );
+    }
+
+    #[test]
+    fn left_of_a_pinned_tile_is_the_tile_beside_it() {
+        assert_eq!(
+            stop_beside(&at(pinned()), Side::Left, &side_by_side(), true, None),
+            Some(at(Tile::Home)),
+            "← out of a pinned tile goes on to the tile on its left"
+        );
+    }
+
+    #[test]
+    fn right_of_a_tile_is_the_tile_beside_it() {
+        assert_eq!(
+            stop_beside(&at(Tile::Home), Side::Right, &side_by_side(), true, None),
+            Some(at(pinned())),
+            "→ out of the home tile reaches the tile pinned on its right"
+        );
+    }
+
+    #[test]
+    fn left_of_the_tiles_is_the_navigator() {
+        assert_eq!(
+            stop_beside(&at(Tile::Home), Side::Left, &side_by_side(), true, None),
+            Some(KeyStop::Navigator),
+            "← out of the leftmost tile reaches the navigator"
+        );
+    }
+
+    #[test]
+    fn left_of_the_tiles_without_the_navigator_is_nothing() {
+        assert_eq!(
+            stop_beside(&at(Tile::Home), Side::Left, &side_by_side(), false, None),
+            None,
+            "a hidden navigator takes no keys"
+        );
+    }
+
+    #[test]
+    fn nothing_is_over_or_under_the_navigator() {
+        assert_eq!(
+            stop_beside(
+                &KeyStop::Navigator,
+                Side::Bottom,
+                &side_by_side(),
+                true,
+                None
+            ),
+            None,
+            "↓ on the navigator steps through its rows"
+        );
+    }
+
+    #[test]
+    fn over_a_tile_with_none_above_it_is_nothing() {
+        assert_eq!(
+            stop_beside(&at(Tile::Home), Side::Top, &side_by_side(), true, None),
+            None,
+            "the navigator is only left of the tiles"
+        );
+    }
+
+    #[test]
+    fn under_a_tile_is_the_tile_below_it() {
+        assert_eq!(
+            stop_beside(&at(Tile::Home), Side::Bottom, &stacked(), true, None),
+            Some(at(pinned())),
+            "⇧⌘J out of a tile reaches the one stacked under it"
+        );
+    }
+
+    #[test]
+    fn over_a_tile_is_the_tile_above_it() {
+        assert_eq!(
+            stop_beside(&at(pinned()), Side::Top, &stacked(), true, None),
+            Some(at(Tile::Home)),
+            "⇧⌘K out of a tile reaches the one stacked over it"
+        );
+    }
+
+    #[test]
+    fn right_of_the_last_tile_is_nothing() {
+        assert_eq!(
+            stop_beside(&at(pinned()), Side::Right, &side_by_side(), true, None),
+            None,
+            "→ stops at the window's edge rather than going round"
+        );
+    }
 }

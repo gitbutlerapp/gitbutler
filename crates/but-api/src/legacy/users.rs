@@ -17,8 +17,6 @@ mod json {
         pub locale: Option<String>,
         pub created_at: String,
         pub updated_at: String,
-        /// GitButler access token.
-        ///
         /// SECURITY: This is a secret credential. Do **not** log it, include it in telemetry,
         /// or expose it outside of a trusted/local API boundary. This struct is intended to be
         /// serialized only for trusted clients that need to perform authenticated GitButler
@@ -139,6 +137,20 @@ pub fn get_user() -> Result<Option<User>> {
         }
         None => Ok(None),
     }
+}
+
+/// The signed-in account's GitButler token, or `None`, for what asks GitButler's services
+/// about them from this process. Unlike [`get_user`], a keychain that can't answer signs no
+/// one out.
+pub fn access_token() -> Result<Option<but_secret::Sensitive<String>>> {
+    (gitbutler_user::get_user()?)
+        .map(|user| user.access_token())
+        .transpose()
+}
+
+/// Who's signed in to GitButler, by their id, or `None`. It reads no secret.
+pub fn account_id() -> Result<Option<u64>> {
+    Ok(gitbutler_user::get_user()?.map(|user| user.id))
 }
 
 #[but_api]

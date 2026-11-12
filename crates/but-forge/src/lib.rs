@@ -28,9 +28,9 @@ pub use review::{
     ReviewUpdatePayload, available_review_templates, cache_review, check_forge_account_is_valid,
     compute_review_target_updates, create_forge_review, get_forge_review, get_review_base_repo_url,
     get_review_merge_status, get_review_template_functions, list_forge_reviews_with_cache,
-    list_review_comments, list_review_submissions, list_review_threads, merge_review,
-    prepare_review_target_updates, restore_native_stacks, set_review_auto_merge_state,
-    set_review_draftiness, sync_reviews, update_review,
+    list_review_comments, list_review_reactions, list_review_submissions, list_review_threads,
+    merge_review, prepare_review_target_updates, restore_native_stacks,
+    set_review_auto_merge_state, set_review_draftiness, sync_reviews, update_review,
 };
 
 fn determine_forge_from_host(host: &str) -> Option<ForgeName> {
@@ -47,8 +47,6 @@ fn determine_forge_from_host(host: &str) -> Option<ForgeName> {
     }
 }
 
-/// Derive the forge repository information from a remote URL.
-///
 /// The forge type is resolved by `resolve_forge_name`: the URL host first,
 /// then a match against configured accounts' custom hosts, and finally the
 /// project's `override_forge` (from its stored `forge_override`) as a last
@@ -115,8 +113,6 @@ fn resolve_forge_name(
         .or(override_forge)
 }
 
-/// Look for the best matching account by comparing the repository host to the
-/// account custom host string.
 fn match_host_to_accounts_custom_host(host: &str, accounts: &[ForgeUser]) -> Option<ForgeName> {
     accounts.iter().find_map(|account| {
         let custom_host = account.custom_host()?;
@@ -124,8 +120,6 @@ fn match_host_to_accounts_custom_host(host: &str, accounts: &[ForgeUser]) -> Opt
     })
 }
 
-/// Compare a repository host to an account custom-host string.
-///
 /// Motivation:
 /// account custom hosts may be stored as full API endpoints (for example
 /// `https://api.repository.com/v1/api`), while repository remotes usually
@@ -191,13 +185,16 @@ fn api_host_matches_repository_host(repository_host: &str, api_host: &str) -> bo
 /// Other hosts are unchanged. This does not produce an API endpoint: the selected
 /// account's client configuration supplies that URL.
 fn canonical_repository_host<'a>(forge: &ForgeName, host: &'a str) -> &'a str {
-    let alias = match forge {
-        ForgeName::GitHub => "ssh.github.com",
-        ForgeName::GitLab => "altssh.gitlab.com",
-        ForgeName::Bitbucket => "altssh.bitbucket.org",
-        ForgeName::Azure => "ssh.dev.azure.com",
+    let aliases: &[&str] = match forge {
+        ForgeName::GitHub => &["ssh.github.com"],
+        ForgeName::GitLab => &["altssh.gitlab.com"],
+        ForgeName::Bitbucket => &["ssh.bitbucket.org", "altssh.bitbucket.org"],
+        ForgeName::Azure => &["ssh.dev.azure.com"],
     };
-    if repository_hosts_match(host, alias) {
+    if aliases
+        .iter()
+        .any(|alias| repository_hosts_match(host, alias))
+    {
         forge.public_host().unwrap_or(host)
     } else {
         host
@@ -282,7 +279,6 @@ pub(crate) fn resolve_account(
     })
 }
 
-/// Get all known forge accounts
 pub fn get_all_forge_accounts() -> anyhow::Result<Vec<ForgeUser>> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
     let gh_accounts = but_github::list_known_github_accounts(&storage)?;
@@ -547,11 +543,12 @@ mod tests {
     #[test]
     fn repository_identity_distinguishes_hosts_and_known_api_ports() {
         let (_tmp, storage, accounts) = accounts();
-        for (account, alias) in accounts.iter().zip([
-            "ssh.github.com",
-            "altssh.gitlab.com",
-            "altssh.bitbucket.org",
-        ]) {
+        for (account, alias) in [
+            (&accounts[0], "ssh.github.com"),
+            (&accounts[1], "altssh.gitlab.com"),
+            (&accounts[2], "altssh.bitbucket.org"),
+            (&accounts[2], "ssh.bitbucket.org"),
+        ] {
             let forge = account.forge_name();
             let public = repo(forge.clone(), forge.public_host().unwrap());
             let mut ssh = repo(account.forge_name(), &alias.to_ascii_uppercase());

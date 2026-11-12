@@ -15,9 +15,7 @@ use crate::graph_rebase::{
 };
 
 #[derive(Clone)]
-/// Options for the editor.
 pub struct GraphEditorOptions {
-    /// Determines how cherry-picked commits are signed.
     pub default_sign_commit: SignCommit,
     /// References whose segment should be forced mutable.
     ///
@@ -37,9 +35,7 @@ impl Default for GraphEditorOptions {
     }
 }
 
-/// Creates an editor out of the workspace graph.
 impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
-    /// Creates an editor out of the workspace graph with the default options.
     pub fn create(
         workspace: &'ws mut but_graph::Workspace,
         meta: &'meta mut M,
@@ -49,7 +45,6 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
         Self::create_with_opts(workspace, meta, repo, db, &GraphEditorOptions::default())
     }
 
-    /// Creates an editor out of the workspace graph with the specified options.
     pub fn create_with_opts(
         workspace: &'ws mut but_graph::Workspace,
         meta: &'meta mut M,
@@ -323,7 +318,6 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                 continue;
             }
 
-            // Resolve what the graph thinks are the parents of this pick
             let graph_parents =
                 util::collect_ordered_parents(&graph, pick_ix, OrderedParentKind::CommitOnly);
             let graph_parent_ids: Vec<gix::ObjectId> = graph_parents

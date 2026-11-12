@@ -20,7 +20,6 @@ pub fn format_commit_message(message: &str) -> String {
 
     let trailers = trailers_start(&lines);
     let mut fenced = false;
-    // Process the rest of the message
     let mut i = 1;
     while i < lines.len() {
         let line = lines[i];
@@ -35,7 +34,6 @@ pub fn format_commit_message(message: &str) -> String {
             continue;
         }
 
-        // Preserve blank lines
         if line.trim().is_empty() {
             result.push(String::new());
             i += 1;
@@ -60,7 +58,6 @@ pub fn format_commit_message(message: &str) -> String {
             i += 1;
         }
 
-        // Wrap the paragraph to 72 characters
         result.extend(wrap_paragraph(&paragraph, 72));
     }
 
@@ -116,7 +113,6 @@ fn wrap_paragraph(text: &str, width: usize) -> Vec<String> {
 
     for word in text.split_whitespace() {
         let word_width = word.chars().count();
-        // If adding this word would exceed the width
         if !current_line.is_empty() && current_width + 1 + word_width > width {
             lines.push(current_line);
             current_line = word.to_string();
@@ -131,7 +127,6 @@ fn wrap_paragraph(text: &str, width: usize) -> Vec<String> {
         }
     }
 
-    // Add the last line if there's anything left
     if !current_line.is_empty() {
         lines.push(current_line);
     }

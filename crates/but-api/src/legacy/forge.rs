@@ -1,4 +1,3 @@
-//! In place of commands.rs
 use anyhow::{Context as _, Result};
 use bstr::ByteSlice;
 use but_api_macros::but_api;
@@ -1107,6 +1106,18 @@ pub async fn list_review_comments(
         .await
 }
 
+/// List the reactions on a review's description, oldest first.
+#[but_api]
+#[instrument(err(Debug))]
+pub async fn list_review_reactions(
+    ctx: ThreadSafeContext,
+    review_id: usize,
+) -> Result<Vec<but_forge::ForgeReviewReaction>> {
+    let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
+    but_forge::list_review_reactions(&preferred_forge_user, &forge_repo_info, review_id, &storage)
+        .await
+}
+
 /// List the diff-anchored comment threads on a review, oldest first.
 #[but_api]
 #[instrument(err(Debug))]
@@ -1434,13 +1445,15 @@ pub async fn merge_review(
     .await
 }
 
-/// Enable or disable a review's auto-merge.
+/// Enable or disable a review's auto-merge, merging by `merge_method`, or with `None` the
+/// way the forge offers the user first.
 #[but_api(refreshes)]
 #[instrument(err(Debug))]
 pub async fn set_review_auto_merge(
     ctx: ThreadSafeContext,
     review_id: usize,
     enable: bool,
+    merge_method: Option<but_forge::ReviewMergeMethod>,
 ) -> Result<()> {
     let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
 
@@ -1449,6 +1462,7 @@ pub async fn set_review_auto_merge(
         &forge_repo_info,
         review_id,
         enable,
+        merge_method,
         &storage,
     )
     .await
@@ -2224,8 +2238,11 @@ fn lane_chain_for_branch<'a>(
     let chain = info.lane_chain(branch);
     if chain.is_empty() {
         anyhow::bail!(
-            "Branch `{}` is not part of the current workspace",
-            branch.shorten()
+            but_error::Context::new(format!(
+                "Branch `{}` is not part of the current workspace",
+                branch.shorten()
+            ))
+            .with_code(but_error::Code::PreconditionFailed)
         );
     }
     Ok(chain)
@@ -2332,14 +2349,11 @@ fn local_branch_for_review(ctx: &Context, wanted: i64) -> Result<gix::refs::Full
 #[but_api]
 #[instrument(err(Debug))]
 pub fn warm_ci_checks_cache(ctx: &Context) -> Result<()> {
-    // Get all applied stacks and their branches
     let workspace = crate::legacy::workspace::head_info(ctx)?;
 
-    // Collect branch references that have CI checks cached
     let mut current_refs = std::collections::HashSet::new();
     let reviews = but_forge::list_cached_forge_reviews(&*ctx.db.get_cache()?)?;
 
-    // Process each branch that has a PR
     for segment in workspace.lanes().flat_map(|lane| lane.segments) {
         let Some(number) = (segment.metadata.as_ref()).and_then(|meta| meta.review.pull_request)
         else {
@@ -2358,7 +2372,6 @@ pub fn warm_ci_checks_cache(ctx: &Context) -> Result<()> {
             .map(|review| review.sha.as_str())
             .filter(|sha| !sha.is_empty());
 
-        // Fetch CI checks with NoCache to force refresh
         let _ = ci_checks(
             ctx,
             &name,
@@ -2367,15 +2380,12 @@ pub fn warm_ci_checks_cache(ctx: &Context) -> Result<()> {
         );
         // Ignore errors for individual branches to ensure we process all branches
 
-        // Track this reference as having CI checks
         current_refs.insert(name);
     }
 
-    // Clean up stale CI check entries from the database
     let db = &mut *ctx.db.get_cache_mut()?;
     let all_cached_refs = db.ci_checks().list_all_references()?;
 
-    // Delete CI checks for references that are no longer in applied stacks
     for cached_ref in all_cached_refs {
         if !current_refs.contains(&cached_ref) {
             db.ci_checks_mut()?.delete_for_reference(&cached_ref)?;

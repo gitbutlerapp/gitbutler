@@ -27,6 +27,8 @@ mod discard;
 mod expand;
 #[cfg(unix)]
 mod external;
+#[cfg(feature = "legacy")]
+mod filters;
 mod format;
 mod gui;
 mod help;
@@ -40,6 +42,8 @@ mod onboarding;
 #[cfg(feature = "legacy")]
 #[cfg(feature = "nightly")]
 mod open;
+#[cfg(feature = "legacy")]
+mod path_spellings;
 #[cfg(feature = "legacy")]
 mod pick;
 #[cfg(feature = "legacy")]
@@ -67,6 +71,9 @@ mod status;
 mod switch;
 #[cfg(feature = "legacy")]
 mod teardown;
+#[cfg(feature = "nightly")]
+#[cfg(unix)]
+mod ui;
 #[cfg(feature = "legacy")]
 mod uncommit;
 #[cfg(feature = "legacy")]
@@ -266,6 +273,47 @@ mod util {
             &format!(
                 r#"
         git worktree add -q -b {name} "{wt}/{name}" {start_point}
+        (cd "{wt}/{name}" && echo dirty >note.txt)
+        "#,
+                wt = wt.display()
+            ),
+            env.projects_root(),
+        );
+        wt.join(name)
+    }
+
+    /// Like [`add_dirty_worktree()`], but with a detached `HEAD` at `start_point`, the way
+    /// Codex and Cursor create worktrees.
+    pub fn add_dirty_detached_worktree(
+        env: &Sandbox,
+        name: &str,
+        start_point: &str,
+    ) -> std::path::PathBuf {
+        let wt = env.app_data_dir().join("worktrees");
+        but_testsupport::invoke_bash_at_dir(
+            &format!(
+                r#"
+        git worktree add -q --detach "{wt}/{name}" {start_point}
+        (cd "{wt}/{name}" && echo dirty >note.txt)
+        "#,
+                wt = wt.display()
+            ),
+            env.projects_root(),
+        );
+        wt.join(name)
+    }
+
+    /// Add a linked worktree named `name` on an unborn branch of the same name, with
+    /// `note.txt` in it, then return the worktree's directory.
+    ///
+    /// With no commit checked out, the worktree has no lane in the workspace, so GitButler
+    /// can't manage it, archived or not.
+    pub fn add_unmanaged_worktree(env: &Sandbox, name: &str) -> std::path::PathBuf {
+        let wt = env.app_data_dir().join("worktrees");
+        but_testsupport::invoke_bash_at_dir(
+            &format!(
+                r#"
+        git worktree add -q --orphan -b {name} "{wt}/{name}"
         (cd "{wt}/{name}" && echo dirty >note.txt)
         "#,
                 wt = wt.display()

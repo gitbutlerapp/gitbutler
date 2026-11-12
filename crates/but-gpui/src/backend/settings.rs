@@ -83,7 +83,36 @@ pub fn opens_at_start() -> bool {
 }
 
 pub fn set_opens_at_start(on: bool) -> Result<()> {
-    app_settings()?.update_feature_flags(but_settings::api::FeatureFlagsUpdate { gpui: Some(on) })
+    app_settings()?.update_feature_flags(but_settings::api::FeatureFlagsUpdate {
+        gpui: Some(on),
+        ..Default::default()
+    })
+}
+
+/// Whether the single file diff is on, as the experimental `gpuiSingleFileDiff` says.
+pub fn single_file_diff() -> bool {
+    feature_flags().is_some_and(|flags| flags.gpui_single_file_diff)
+}
+
+pub fn set_single_file_diff(on: bool) -> Result<()> {
+    app_settings()?.update_feature_flags(but_settings::api::FeatureFlagsUpdate {
+        gpui_single_file_diff: Some(on),
+        ..Default::default()
+    })
+}
+
+/// Whether open projects ask Briefs about their branches, as the experimental `gpuiBriefs` says.
+/// Off by default, as asking tells GitButler's server a repository's address, its newest
+/// branches' names and its commits' ids.
+pub fn briefs() -> bool {
+    feature_flags().is_some_and(|flags| flags.gpui_briefs)
+}
+
+pub fn set_briefs(on: bool) -> Result<()> {
+    app_settings()?.update_feature_flags(but_settings::api::FeatureFlagsUpdate {
+        gpui_briefs: Some(on),
+        ..Default::default()
+    })
 }
 
 /// What the Project section of the settings shows.
@@ -137,7 +166,6 @@ pub fn set_forge_override(id: &str, forge: Option<Forge>) -> Result<()> {
     projects::update_project(request).map(|_| ())
 }
 
-/// Change the project's name.
 pub fn rename_project(id: &str, name: String) -> Result<()> {
     projects::update_project_settings(
         id.parse().context("Invalid project id")?,
@@ -463,21 +491,25 @@ mod tests {
                 &["remote", "add", "origin", "https://example.com/repo.git"],
             );
             git(path, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
-            git(path, &["update-ref", "refs/remotes/origin/release", "HEAD"]);
-            // As an older GitButler stored it, with main pushed without `-u`.
-            let legacy = |target: &str| {
-                git(path, &["config", "gitbutler.project.targetRef", target]);
-                git(path, &["config", "gitbutler.project.portedMeta", "true"]);
-                let err = crate::backend::load_workspace(path, Default::default()).unwrap_err();
-                assert_eq!(
-                    crate::backend::read_failure(&err),
-                    "Choose which branch is its target"
-                );
-                let target = crate::backend::unresolved_target(&err).unwrap();
-                crate::backend::target_choice(path, target).unwrap()
-            };
-
-            let choice = legacy("refs/remotes/origin/main");
+            git(path, &["update-ref", "refs/remotes/origin/trunk", "HEAD"]);
+            // As an older GitButler stored it, with main made to track another branch since.
+            git(path, &["branch", "--set-upstream-to=origin/trunk", "main"]);
+            git(
+                path,
+                &[
+                    "config",
+                    "gitbutler.project.targetRef",
+                    "refs/remotes/origin/main",
+                ],
+            );
+            git(path, &["config", "gitbutler.project.portedMeta", "true"]);
+            let err = crate::backend::load_workspace(path, Default::default()).unwrap_err();
+            assert_eq!(
+                crate::backend::read_failure(&err),
+                "Choose which branch is its target"
+            );
+            let target = crate::backend::unresolved_target(&err).unwrap();
+            let choice = crate::backend::target_choice(path, target).unwrap();
             assert_eq!(
                 choice.to_track,
                 Some((full("refs/heads/main"), false)),
@@ -494,23 +526,6 @@ mod tests {
                 workspace.target.map(|target| target.name).as_deref(),
                 Some("origin/main"),
                 "the project reads again, its target going by its upstream"
-            );
-
-            let choice = legacy("refs/remotes/origin/release");
-            assert_eq!(
-                choice.to_track,
-                Some((full("refs/heads/release"), true)),
-                "a branch the remote alone has is offered too"
-            );
-            super::set_target(path, &choice.remote).unwrap();
-            assert_eq!(
-                git(path, &["rev-parse", "--abbrev-ref", "release@{upstream}"]).trim(),
-                "origin/release",
-                "picking it creates it, tracking the old target"
-            );
-            assert_eq!(
-                git(path, &["config", "gitbutler.project.targetRef"]).trim(),
-                "refs/heads/release"
             );
         })
     }
@@ -568,22 +583,34 @@ mod tests {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\n");
             let path = dir.path();
-            // As `git push origin main` leaves it, without `-u`.
+            // As `git push origin main` leaves it, without `-u`, and the target as stored before
+            // setting it made main track origin/main.
             git(
                 path,
                 &["remote", "add", "origin", "https://example.com/r.git"],
             );
             git(path, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
-            super::set_target(path, &crate::backend::model::build::full("refs/heads/main"))
-                .unwrap();
-            let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+            git(
+                path,
+                &["config", "gitbutler.project.targetRef", "refs/heads/main"],
+            );
+            git(path, &["config", "gitbutler.project.portedMeta", "true"]);
+            let untracked = || {
+                let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+                workspace.target.and_then(|target| target.untracked)
+            };
             assert_eq!(
-                workspace
-                    .target
-                    .and_then(|target| target.untracked)
-                    .as_deref(),
+                untracked().as_deref(),
                 Some("origin/main"),
                 "what's pushed to origin/main doesn't count, so it's said why"
+            );
+
+            super::set_target(path, &crate::backend::model::build::full("refs/heads/main"))
+                .unwrap();
+            assert_eq!(
+                untracked(),
+                None,
+                "choosing main as the target again makes it track origin/main"
             );
         })
     }

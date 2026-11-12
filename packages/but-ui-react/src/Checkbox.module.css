@@ -1,0 +1,88 @@
+.checkbox {
+	--border-width: 1px;
+	--disabled-opacity: 50%;
+	/* Left undeclared so a consumer can set --checkbox-bg from the row or the
+	   checkbox itself without a same-specificity fight over the default. */
+	--resolved-bg: var(--checkbox-bg, var(--but-background));
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	inline-size: 14px;
+	block-size: 14px;
+	border-radius: var(--but-radius-xs);
+	background-color: var(--resolved-bg);
+	box-shadow: inset 0 0 0 var(--border-width) var(--but-border);
+	color: var(--but-muted-foreground);
+
+	&:not([data-checked], [data-indeterminate], :disabled, [data-disabled]) {
+		&:hover {
+			box-shadow: inset 0 0 0 var(--border-width) var(--but-border-hover);
+
+			& .checkboxIndicator {
+				opacity: 1;
+			}
+		}
+	}
+
+	/* Indeterminate reads as filled like a checked box: it stands for a folder
+	   with some of its files checked, so it belongs on the checked side. */
+	&:is([data-checked], [data-indeterminate]) {
+		background-color: var(--but-primary);
+		box-shadow: inset 0 0 0 var(--border-width) var(--but-primary);
+		color: var(--but-primary-foreground);
+
+		& .checkboxIndicator {
+			transform: scale(1);
+			opacity: 1;
+		}
+
+		&:not(:disabled, [data-disabled]):hover {
+			background-color: color-mix(in srgb, var(--but-primary) 86%, var(--but-foreground));
+			box-shadow: inset 0 0 0 var(--border-width)
+				color-mix(in srgb, var(--but-primary) 86%, var(--but-foreground));
+		}
+	}
+
+	&:disabled,
+	&[data-disabled] {
+		&:not([data-checked], [data-indeterminate]) {
+			background-color: color-mix(
+				in srgb,
+				var(--but-border) var(--disabled-opacity),
+				var(--resolved-bg)
+			);
+			box-shadow: inset 0 0 0 var(--border-width)
+				color-mix(in srgb, var(--but-border) var(--disabled-opacity), var(--resolved-bg));
+		}
+
+		&:is([data-checked], [data-indeterminate]) {
+			background-color: color-mix(
+				in srgb,
+				var(--but-primary) var(--disabled-opacity),
+				var(--resolved-bg)
+			);
+			box-shadow: inset 0 0 0 var(--border-width)
+				color-mix(in srgb, var(--but-primary) var(--disabled-opacity), var(--resolved-bg));
+
+			& .checkboxIndicator {
+				opacity: var(--disabled-opacity);
+			}
+		}
+	}
+}
+
+.checkboxIndicator {
+	display: flex;
+	transform: scale(0.8);
+	opacity: 0;
+	pointer-events: none;
+	transition:
+		opacity 0.08s ease,
+		transform 0.08s ease;
+}
+
+.checkbox:not([data-indeterminate]) .checkboxDash,
+.checkbox[data-indeterminate] .checkboxTick {
+	display: none;
+}

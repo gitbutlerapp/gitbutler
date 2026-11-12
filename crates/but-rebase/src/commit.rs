@@ -9,11 +9,9 @@ use gix::config::Source;
 /// What to do with the committer (actor) and the commit time when [creating a new commit](create()).
 #[derive(Debug, Copy, Clone)]
 pub enum DateMode {
-    /// Update both the committer and author time.
     CommitterUpdateAuthorUpdate,
     /// Obtain the current committer and the current local time and update it, keeping only the author time.
     CommitterUpdateAuthorKeep,
-    /// Keep the currently set committer-time and author-time.
     CommitterKeepAuthorKeep,
 }
 
@@ -92,7 +90,6 @@ pub fn create(
     but_core::commit::create(repo, commit, None, sign_commit)
 }
 
-/// Update the committer of `commit` to be the current one.
 pub(crate) fn update_committer(
     repo: &gix::Repository,
     commit: &mut gix::objs::Commit,
@@ -105,7 +102,6 @@ pub(crate) fn update_committer(
     Ok(())
 }
 
-/// Update only the author-time of `commit`.
 pub(crate) fn update_author_time(
     repo: &gix::Repository,
     commit: &mut gix::objs::Commit,

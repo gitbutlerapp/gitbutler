@@ -48,7 +48,6 @@ pub struct OtherBranch {
     pub description: Option<String>,
 }
 
-/// One of a branch's own commits.
 #[derive(Debug, Clone)]
 pub struct OwnCommit {
     /// The day it was written, as [`super::upstream::day_of`] numbers days: a rebase leaves
@@ -185,7 +184,7 @@ impl Intent for DescribeBranch {
             // written, where a branch made later by that name would take it up. Copying the
             // error keeps it.
             if repo.try_find_reference(branch.as_ref())?.is_none() {
-                anyhow::bail!(
+                but_error::bail_precondition!(
                     "{} was renamed or deleted meanwhile, so this wasn't saved:\n\n{}",
                     branch.shorten(),
                     description
@@ -197,13 +196,8 @@ impl Intent for DescribeBranch {
     }
 }
 
-/// Move branch `from`'s description to `to`, as `git branch -m` does, or drop it with no `to`,
-/// as `git branch -d` does.
-pub(super) fn move_description(
-    repo: &gix::Repository,
-    from: &BStr,
-    to: Option<&BStr>,
-) -> Result<()> {
+/// Move branch `from`'s description to `to`, as `git branch -m` does.
+pub(super) fn move_description(repo: &gix::Repository, from: &BStr, to: &BStr) -> Result<()> {
     let description = (but_core::git_config::open_repo_local_config_for_reading(repo)?)
         .section("branch", Some(from))
         .ok()
@@ -212,10 +206,7 @@ pub(super) fn move_description(
         return Ok(());
     }
     write_description(repo, from, None)?;
-    match to {
-        Some(to) => write_description(repo, to, description.as_ref().map(|d| d.as_bstr())),
-        None => Ok(()),
-    }
+    write_description(repo, to, description.as_ref().map(|d| d.as_bstr()))
 }
 
 fn write_description(

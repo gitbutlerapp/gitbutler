@@ -1,5 +1,3 @@
-//! Diagnostics archive support for `but-debug dump`.
-
 use std::{
     fs,
     io::{self, Write as _},
@@ -17,7 +15,6 @@ use crate::{
     command::dump::default_output_path,
 };
 
-/// Capture diagnostics by discovering a GitButler context at `current_dir`.
 pub(super) fn capture_from_current_dir(
     current_dir: &Path,
     dot_timeout: Option<Duration>,
@@ -33,7 +30,6 @@ pub(super) fn capture_from_current_dir(
     Diagnostics::capture(&ctx, dot_timeout, out, err)
 }
 
-/// Execute the `dump diagnostics` subcommand.
 pub(super) fn run(
     args: &Args,
     diagnostics_args: &DiagnosticsDumpArgs,
@@ -100,7 +96,6 @@ impl Diagnostics {
         Ok(Self { files })
     }
 
-    /// Write all diagnostics into `archive` below `archive_root`.
     pub(super) fn write_to_archive<W: io::Write + io::Seek>(
         &self,
         archive: &mut ZipWriter<W>,
@@ -124,7 +119,6 @@ impl Diagnostics {
             .map(|file| (file.relative_path, file.contents.as_slice()))
     }
 
-    /// Return the number of files that will be emitted.
     pub(super) fn file_count(&self) -> usize {
         self.files.len()
     }
@@ -137,7 +131,6 @@ pub(super) fn dot_timeout(seconds: u32) -> Option<Duration> {
 struct DiagnosticFile {
     /// Path below the diagnostics archive root, using zip `/` separators.
     relative_path: &'static str,
-    /// Complete bytes written to the archive entry at `relative_path`.
     contents: Vec<u8>,
 }
 

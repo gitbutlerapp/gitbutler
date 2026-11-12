@@ -1,5 +1,3 @@
-//! Cherry-pick commits into a workspace graph.
-
 use std::collections::HashSet;
 
 use anyhow::bail;

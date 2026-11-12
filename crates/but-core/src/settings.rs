@@ -20,7 +20,6 @@ pub mod git {
     const GPG_PROGRAM: &str = "gpg.program";
     const GPG_SSH_PROGRAM: &str = "gpg.ssh.program";
 
-    /// UI types
     pub mod ui {
         use but_serde::BStringForFrontend;
 
@@ -58,7 +57,6 @@ pub mod git {
         #[derive(Debug, PartialEq, Clone, Default, serde::Serialize, serde::Deserialize)]
         #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
         #[serde(rename_all = "camelCase")]
-        #[expect(missing_docs)]
         pub struct GitConfigSettings {
             #[serde(rename = "signCommits")]
             pub gitbutler_sign_commits: Option<bool>,
@@ -171,9 +169,7 @@ pub mod git {
             pub gitbutler_sign_commits: Option<bool>,
             /// If `true`, GitButler will create ChangeId trailers and will push references in the Gerrit way
             pub gitbutler_gerrit_mode: Option<bool>,
-            /// Controls where GitButler puts stack information in review descriptions.
             pub gitbutler_review_stacking_description: Option<ReviewStackingDescription>,
-            /// Controls whether GitHub pull requests are registered with the native stacks API.
             pub gitbutler_github_stacking_mode: Option<GitHubStackingMode>,
             /// The path to the review description template to be used for this repository.
             pub gitbutler_forge_review_template_path: Option<BString>,
@@ -196,7 +192,6 @@ pub mod git {
     use ui::{GitHubStackingMode, ReviewStackingDescription};
 
     impl GitConfigSettings {
-        /// Read all settings from the given snapshot.
         pub fn try_from_snapshot(config: &gix::config::Snapshot<'_>) -> anyhow::Result<Self> {
             fn string_or_ignore(v: BString) -> Option<String> {
                 Vec::from(v).into_string().ok()

@@ -16,7 +16,7 @@ use crate::help::OpenReleaseNotes;
 use crate::theme::Theme;
 use crate::ui::fold::Folds;
 use crate::ui::markdown::{self, Block, Kind, Style};
-use crate::ui::modal::{MODAL_RADIUS, ModalSize, modal};
+use crate::ui::modal::{ModalSize, modal};
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
@@ -96,6 +96,7 @@ fn sections(version: &str, notes: &str) -> Vec<Section> {
     let blocks = markdown::parse(notes);
     let names_version = |block: &Block| {
         matches!(block.kind, Kind::Paragraph | Kind::Heading(_))
+            && block.cell.is_none()
             && numbers(block.text.trim()).is_some_and(|n| n.len() == 3)
     };
     let split = (blocks.iter()).any(|block| names_version(block) && block.text.trim() == version);
@@ -150,7 +151,7 @@ fn still_picked(
 /// and the text is lowered the same way, which keeps every byte where it was.
 fn matches(release: &Release, query: &str) -> Vec<Block> {
     let mark = Style {
-        mark: true,
+        tint: Some(markdown::Tint::Found),
         ..Style::default()
     };
     (release.sections.iter().flat_map(|section| &section.blocks))
@@ -330,7 +331,7 @@ impl WhatsNew {
         let marker = div().flex_none().size(dp(6.)).rounded_full();
         let marker = match self.has(release) {
             Some(false) => marker.border_1().border_color(match selected {
-                true => theme.muted_on_solid(),
+                true => theme.muted_on_solid,
                 false => theme.text_3,
             }),
             _ => marker,
@@ -345,7 +346,7 @@ impl WhatsNew {
         .mx_0()
         .h(dp(28.))
         .gap(dp(8.))
-        .rounded(dp(6.))
+        .rounded(dp(theme.shape.card))
         .child(marker)
         .child(
             div()
@@ -357,14 +358,14 @@ impl WhatsNew {
             el.child(
                 div()
                     .px(dp(5.))
-                    .rounded(dp(4.))
+                    .rounded(dp(theme.shape.control))
                     // On a solid selection, in its own muted colour, as the row's other text.
                     .bg(match selected {
-                        true => theme.text_inverted.opacity(0.15),
-                        false => theme.pop.opacity(0.15),
+                        true => theme.inverse_soft,
+                        false => theme.pop_soft,
                     })
                     .text_color(match selected {
-                        true => theme.muted_on_solid(),
+                        true => theme.muted_on_solid,
                         false => theme.pop,
                     })
                     .text_size(dp(10.))
@@ -409,8 +410,8 @@ impl WhatsNew {
                 div()
                     .px(dp(12.))
                     .py(dp(8.))
-                    .rounded(dp(6.))
-                    .bg(theme.pop.opacity(0.1))
+                    .rounded(dp(theme.shape.card))
+                    .bg(theme.pop_soft)
                     .text_size(dp(13.))
                     .child("Not in your version yet")
                     .into_any_element(),
@@ -448,7 +449,7 @@ impl WhatsNew {
             // The space under the heading goes with what folds, so it opens from the heading.
             let notes = div()
                 .pt(dp(6.))
-                .child(markdown::render(&id, &section.blocks, theme));
+                .child(markdown::render(&id, &section.blocks, None, theme));
             parts.push(
                 v_flex()
                     .child(head)
@@ -541,6 +542,7 @@ impl WhatsNew {
                     .child(markdown::render(
                         &format!("found-{}", release.version),
                         blocks,
+                        None,
                         theme,
                     ))
                     .into_any_element(),
@@ -621,7 +623,7 @@ impl Render for WhatsNew {
             .h_full()
             .bg(theme.bg_2)
             // Its ground fills the modal's left corners, which it rounds as the modal does.
-            .rounded_l(dp(MODAL_RADIUS - 1.))
+            .rounded_l(dp(theme.shape.popup - 1.))
             .child(
                 div()
                     .px(dp(20.))
@@ -697,7 +699,7 @@ impl Render for WhatsNew {
                     .border_l_1()
                     .border_color(theme.border_3)
                     .bg(theme.bg_1)
-                    .rounded_r(dp(MODAL_RADIUS - 1.))
+                    .rounded_r(dp(theme.shape.popup - 1.))
                     .child(pane),
             )
     }
@@ -757,6 +759,14 @@ mod tests {
             [("Changes", 2)],
             "a heading that only names the version starts its notes"
         );
+        assert_eq!(
+            titles(&sections(
+                "0.22.3",
+                "**0.22.3**\n\n| Fixed in |\n|---|\n| 0.22.2 |\n\n- fix a\n- fix b\n"
+            )),
+            [("Changes", 2)],
+            "a version in a table doesn't start another release's notes"
+        );
     }
 
     #[test]
@@ -772,7 +782,7 @@ mod tests {
         };
         let found = matches(&release, "conflict");
         let marked: Vec<_> = (found.iter().flat_map(|block| &block.styles))
-            .filter(|(_, style)| style.mark)
+            .filter(|(_, style)| style.tint.is_some())
             .map(|(range, _)| range.clone())
             .collect();
         assert_eq!(found.len(), 1, "only the block that mentions it");

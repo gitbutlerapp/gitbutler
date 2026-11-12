@@ -54,10 +54,11 @@ export-schema = [
 ## build: never enable it in any crate's default features. Leaf crates
 ## (`gitbutler-tauri`, `but`) forward it so artifact builds can opt
 ## in on the command line.
-graph-workspace = []
+graph-workspace = ["but-transaction/graph-workspace"]
 ## Make legacy functionality available.
 legacy = [
     "but-ctx/legacy",
+    "but-transaction/legacy",
     "but-workspace/legacy",
     "dep:but-askpass",
     "dep:gitbutler-user",
@@ -87,6 +88,7 @@ but-workspace.workspace = true
 but-settings.workspace = true
 but-secret.workspace = true
 but-rebase.workspace = true
+but-transaction.workspace = true
 but-db.workspace = true
 but-forge.workspace = true
 but-forge-storage.workspace = true

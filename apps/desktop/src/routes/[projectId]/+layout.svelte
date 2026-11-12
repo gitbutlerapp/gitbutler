@@ -3,6 +3,7 @@
 	import ProjectSettingsShortcutHandler from "$components/settings/ProjectSettingsShortcutHandler.svelte";
 	import AnalyticsMonitor from "$components/shared/AnalyticsMonitor.svelte";
 	import FullviewLoading from "$components/shared/FullviewLoading.svelte";
+	import NativeAppModal from "$components/shared/NativeAppModal.svelte";
 	import NotOnGitButlerBranch from "$components/shared/NotOnGitButlerBranch.svelte";
 	import ProjectShortcutHandler from "$components/shared/ProjectShortcutHandler.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
@@ -30,6 +31,7 @@
 	import { invalidatesList, ReduxTag } from "$lib/state/tags";
 	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { debounce } from "$lib/utils/debounce";
+	import { worktreeChangesTag } from "$lib/worktree/worktreeEndpoints";
 	import { inject } from "@gitbutler/core/context";
 	import { mergeUnlisten } from "@gitbutler/ui-svelte/utils/mergeUnlisten";
 	import { onDestroy, untrack, type Snippet } from "svelte";
@@ -172,9 +174,6 @@
 	// FEED & UPDATES MANAGEMENT
 	// =============================================================================
 
-	const headResponse = $derived(modeService.head(projectId));
-	const head = $derived(headResponse.response);
-
 	function invalidateDiffs() {
 		clientState.dispatch(
 			clientState.backendApi.util.invalidateTags([invalidatesList(ReduxTag.Diff)]),
@@ -191,38 +190,42 @@
 			backend.listen(`project://${projectId}/git/head`, () => {
 				stackService.invalidateStacksAndDetails();
 			}),
+			backend.listen(`project://${projectId}/git/activity`, () => {
+				stackService.invalidateStacksAndDetails();
+			}),
 			backend.listen(`project://${projectId}/worktree_changes`, invalidateDiffs),
 			backend.listen(`project://${projectId}/linked_worktree_changes`, invalidateDiffs),
 			// Activity that requires re-reading workspace state — emitted on
 			// remote-ref updates (push, external fetch), on external
 			// writes to `virtual_branches.toml` (e.g. by the `but` CLI)
 			// and when linked worktrees are added or removed.
-			backend.listen(`project://${projectId}/workspace-activity`, () => {
+			backend.listen(`project://${projectId}/workspace-activity`, async () => {
+				const { backendApi } = clientState;
 				clientState.dispatch(
-					clientState.backendApi.util.invalidateTags([
+					backendApi.util.invalidateTags([
 						invalidatesList(ReduxTag.Stacks),
 						invalidatesList(ReduxTag.StackDetails),
-						invalidatesList(ReduxTag.WorktreeChanges),
+						worktreeChangesTag(),
 						invalidatesList(ReduxTag.Worktrees),
 						invalidatesList(ReduxTag.IntegrationSteps),
 						invalidatesList(ReduxTag.BranchListing),
 					]),
 				);
+				// A linked worktree's lane comes from the stacks re-read above, so one removed
+				// outside the app keeps its lane until they arrive. Re-read the changes of the
+				// worktrees still listed then, as reading a removed one's would fail.
+				const worktrees = await backendApi.endpoints.workspaceDetails
+					.fetch({ projectId }, { transform: (details) => details.worktrees })
+					// The workspace view reports a failed re-read; its lanes stay as they were.
+					.catch(() => undefined);
+				clientState.dispatch(
+					backendApi.util.invalidateTags(
+						(worktrees ?? []).map((worktree) => worktreeChangesTag(worktree.name)),
+					),
+				);
 			}),
 		),
 	);
-
-	// If the head changes, invalidate stacks and details
-	// We need to track the previous head value to avoid infinite loops
-	let previousHead = $state<string | undefined>(undefined);
-	$effect(() => {
-		if (head && head !== previousHead) {
-			untrack(() => {
-				previousHead = head;
-				stackService.invalidateStacksAndDetails();
-			});
-		}
-	});
 
 	// =============================================================================
 	// AUTO-REFRESH & SYNCHRONIZATION
@@ -352,6 +355,7 @@
 			<NoBaseBranch {projectId} />
 		{:else if baseBranch}
 			{#if mode.type === "OpenWorkspace" || mode.type === "Edit" || mode.subject.branchName}
+				<NativeAppModal />
 				<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
 					<AppLayout {projectId} sidebarDisabled={mode.type === "Edit"}>
 						{@render pageChildren()}

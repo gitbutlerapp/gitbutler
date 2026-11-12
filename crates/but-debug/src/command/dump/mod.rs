@@ -1,5 +1,3 @@
-//! Implementation of the `dump` debug command.
-//!
 //! ## QUALITY NOTICE
 //! NOTE: mostly vibed, what's properly reviewed is the tests. Also tested by hand of course.
 
@@ -23,7 +21,6 @@ mod progress;
 mod repo_installer;
 use progress::{DumpProgress, ProgressReader, ProgressWriter};
 
-/// Execute the `dump` subcommand.
 pub(crate) fn run(
     args: &Args,
     dump_args: &DumpArgs,
@@ -41,7 +38,6 @@ pub(crate) fn run(
     }
 }
 
-/// Execute the `dump repo` subcommand.
 fn run_repo(
     args: &Args,
     repo_args: &RepoDumpArgs,
@@ -163,7 +159,6 @@ fn persist_archive(mut lock: gix::lock::File) -> Result<PathBuf> {
         .with_context(|| format!("Could not persist archive '{}'", archive_path.display()))
 }
 
-/// Open the parent directory of `archive_path` unless disabled by the caller.
 fn open_archive_dir_unless_requested(archive_path: &Path, disabled: bool) -> Result<()> {
     if !disabled {
         let dir = archive_path.parent().unwrap_or_else(|| Path::new("."));
@@ -175,17 +170,13 @@ fn open_archive_dir_unless_requested(archive_path: &Path, disabled: bool) -> Res
 
 /// Keeps worktree files and Git files under the right top-level paths in the zip.
 ///
-/// Computes and stores the zip-internal root names for repository content.
-///
 /// These are owned `String` values because they are derived at runtime from the
 /// repository directory name and are reused while writing the archive. They are
 /// not `PathBuf`s because they are zip entry prefixes, not filesystem paths:
 /// zip entries always use `/` separators regardless of the host platform.
 #[derive(Clone)]
 struct ArchiveLayout {
-    /// Root directory for worktree files in the archive.
     worktree_root: String,
-    /// Root directory for Git repository files in the archive.
     git_root: String,
 }
 
@@ -259,7 +250,6 @@ struct ArchiveWriter<'progress, W: io::Write + io::Seek> {
 }
 
 impl<'progress, W: io::Write + io::Seek> ArchiveWriter<'progress, W> {
-    /// Create an archive writer around `writer`.
     fn new(writer: W, progress: &'progress DumpProgress) -> Self {
         Self {
             zip: ZipWriter::new(writer),
@@ -269,8 +259,6 @@ impl<'progress, W: io::Write + io::Seek> ArchiveWriter<'progress, W> {
         }
     }
 
-    /// Add all selected repository entries to `self`.
-    ///
     /// `repo` supplies the worktree, index, ignore rules, and Git directory
     /// locations to archive. `layout` defines the zip-internal roots used for
     /// worktree and Git state entries. `output_path` identifies the archive
@@ -301,7 +289,6 @@ impl<'progress, W: io::Write + io::Seek> ArchiveWriter<'progress, W> {
         result
     }
 
-    /// Add generated diagnostics files directly below `archive_root`.
     fn add_diagnostics(
         &mut self,
         diagnostics: &diagnostics::Diagnostics,
@@ -359,8 +346,6 @@ impl<'progress, W: io::Write + io::Seek> ArchiveWriter<'progress, W> {
         Ok(())
     }
 
-    /// Add `entry` to `self`.
-    ///
     /// The `written` set makes duplicate archive names a no-op. This matters
     /// for linked worktrees, where common Git state and per-worktree Git state
     /// are overlaid into one `.git` directory. Symlinks are stored as symlinks
@@ -401,7 +386,6 @@ impl<'progress, W: io::Write + io::Seek> ArchiveWriter<'progress, W> {
         Ok(())
     }
 
-    /// Finish writing `self` and return the wrapped writer.
     fn finish(self, err: &mut dyn io::Write) -> Result<W> {
         self.report_skipped_unarchivable_paths(err)?;
         Ok(self.zip.finish()?)
@@ -424,9 +408,7 @@ impl<'progress, W: io::Write + io::Seek> ArchiveWriter<'progress, W> {
     }
 }
 
-/// Filesystem entry selected for inclusion in the archive.
 struct ArchiveEntry {
-    /// Source filesystem path to read from.
     path: PathBuf,
     /// Zip entry name to write, using `/` separators and rooted in the archive layout.
     entry_name: String,
@@ -435,8 +417,6 @@ struct ArchiveEntry {
 }
 
 impl ArchiveEntry {
-    /// Return the maximum number of source bytes expected to be read for `self`.
-    ///
     /// Regular files are streamed into the zip, so their file length contributes
     /// to the progress upper bound. Directories and symlinks do not read file
     /// contents from `path`, so they contribute zero bytes.
@@ -457,7 +437,6 @@ impl ArchiveEntry {
         self.meta.is_file() || self.meta.file_type().is_symlink()
     }
 
-    /// Return the zip compression method to use for `self`.
     fn compression_method(&self) -> CompressionMethod {
         if is_git_object_entry(&self.entry_name) {
             CompressionMethod::Stored
@@ -636,8 +615,6 @@ fn visit_worktree_entries(
     Ok(())
 }
 
-/// Visit Git repository state from `repo`.
-///
 /// Entries are rooted under `archive_root` and skip `output_path`.
 ///
 /// A normal repository has the same `git_dir()` and `common_dir()`, so its
@@ -751,7 +728,6 @@ fn is_dot_git(relative: &Path) -> bool {
         .is_some_and(|component| matches!(component, Component::Normal(name) if name == ".git"))
 }
 
-/// Return true if `relative` is a linked-worktree layout file.
 fn is_link_layout_file(relative: &Path) -> bool {
     matches!(
         relative.components().next(),
@@ -767,8 +743,6 @@ fn is_worktree_registry(relative: &Path) -> bool {
     )
 }
 
-/// Return true if `relative` is tracked in `index`.
-///
 /// Directories use `is_dir` to switch to prefix matching so ignored directories
 /// containing tracked files are still archived.
 fn is_tracked(relative: &Path, is_dir: bool, index: &gix::index::State) -> gix::Result<bool> {
@@ -812,14 +786,12 @@ fn entry_name(root: &str, relative: &Path) -> Option<String> {
     Some(name)
 }
 
-/// Stores the output archive path and its normalized form.
 #[derive(Clone)]
 struct OutputPath {
     /// The path requested by the caller.
     path: PathBuf,
     /// The current directory used to resolve relative output paths.
     current_dir: PathBuf,
-    /// Lock file path used while writing the archive.
     lock_path: Option<PathBuf>,
     /// Realpath form of `path`, even when only parent directories exist.
     realpath: Option<PathBuf>,
@@ -828,7 +800,6 @@ struct OutputPath {
 }
 
 impl OutputPath {
-    /// Create an output path handle for `path`.
     fn new(path: PathBuf, current_dir: PathBuf) -> Self {
         let realpath = realpath(&path, &current_dir);
         Self {
@@ -887,7 +858,6 @@ fn is_git_object_entry(entry_name: &str) -> bool {
     false
 }
 
-/// Return zip directory options.
 fn directory_options() -> SimpleFileOptions {
     SimpleFileOptions::default()
         .compression_method(CompressionMethod::Stored)
@@ -901,7 +871,6 @@ fn generated_file_options() -> SimpleFileOptions {
         .unix_permissions(0o644)
 }
 
-/// Return zip file options for a generated executable.
 fn generated_executable_options() -> SimpleFileOptions {
     SimpleFileOptions::default()
         .compression_method(CompressionMethod::Deflated)
@@ -922,7 +891,6 @@ fn stored_file_options() -> SimpleFileOptions {
         .unix_permissions(0o644)
 }
 
-/// Return zip symlink options.
 fn symlink_options() -> SimpleFileOptions {
     SimpleFileOptions::default().unix_permissions(0o777)
 }

@@ -1174,7 +1174,6 @@ dependencies = [
  "but-installer",
  "but-llm",
  "but-meta",
- "but-oplog",
  "but-path",
  "but-project-handle",
  "but-rebase",
@@ -1182,7 +1181,9 @@ dependencies = [
  "but-settings",
  "but-testsupport",
  "but-transaction",
+ "but-ui-control",
  "but-update",
+ "but-utils",
  "but-workspace",
  "cfg-if",
  "chrono",
@@ -1331,6 +1332,7 @@ dependencies = [
  "but-serde",
  "but-settings",
  "but-testsupport",
+ "but-transaction",
  "but-workspace",
  "chrono",
  "futures",
@@ -1439,6 +1441,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-briefs"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-secret",
+ "reqwest",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tracing",
+]
+
+[[package]]
 name = "but-clap"
 version = "0.1.0"
 dependencies = [
@@ -1473,7 +1489,6 @@ dependencies = [
  "boolean-enums",
  "bstr",
  "but-error",
- "but-oxidize",
  "but-project-handle",
  "but-schemars",
  "but-serde",
@@ -1481,7 +1496,6 @@ dependencies = [
  "chardetng",
  "flume 0.11.1",
  "fslock",
- "git2",
  "gix",
  "nonempty",
  "parking_lot",
@@ -1491,6 +1505,7 @@ dependencies = [
  "serde_json",
  "smallvec",
  "snapbox",
+ "tempfile",
  "toml 0.9.12+spec-1.1.0",
  "tracing",
  "unicode-segmentation",
@@ -1548,6 +1563,7 @@ dependencies = [
  "but-ctx",
  "but-db",
  "but-graph",
+ "but-rebase",
  "but-testsupport",
  "but-workspace",
  "clap",
@@ -1574,6 +1590,19 @@ dependencies = [
  "anyhow",
  "but-schemars",
  "schemars 1.2.1",
+]
+
+[[package]]
+name = "but-evo"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bitflags 2.13.0",
+ "but-core",
+ "but-db",
+ "but-testsupport",
+ "gix",
+ "snapbox",
 ]
 
 [[package]]
@@ -1692,12 +1721,14 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "backtrace",
+ "block2 0.6.2",
  "bstr",
  "but-action",
  "but-api",
  "but-askpass",
  "but-bitbucket",
  "but-branches",
+ "but-briefs",
  "but-core",
  "but-ctx",
  "but-error",
@@ -1705,6 +1736,7 @@ dependencies = [
  "but-forge-storage",
  "but-github",
  "but-gitlab",
+ "but-hunk-dependency",
  "but-llm",
  "but-oplog",
  "but-path",
@@ -1713,6 +1745,8 @@ dependencies = [
  "but-settings",
  "but-testsupport",
  "but-transaction",
+ "but-tty",
+ "but-ui-control",
  "but-workspace",
  "chrono",
  "deltoids",
@@ -1740,7 +1774,9 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_json_lenient",
+ "shell-words",
  "snapbox",
+ "strum 0.27.2",
  "syntect",
  "tempfile",
  "tokio",
@@ -1751,6 +1787,7 @@ dependencies = [
  "two-face",
  "unicode-segmentation",
  "uuid",
+ "windows 0.62.2",
 ]
 
 [[package]]
@@ -1900,6 +1937,7 @@ name = "but-oxidize"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-error",
  "git2",
  "gix",
 ]
@@ -2069,7 +2107,6 @@ dependencies = [
  "async-openai",
  "but-core",
  "but-ctx",
- "but-workspace",
  "gix",
  "serde",
  "serde_json",
@@ -2084,11 +2121,15 @@ dependencies = [
  "but-api",
  "but-core",
  "but-ctx",
+ "but-db",
+ "but-error",
+ "but-forge",
  "but-graph",
  "but-oplog",
  "but-rebase",
  "but-testsupport",
  "but-workspace",
+ "gitbutler-branch-actions",
  "gix",
  "snapbox",
  "tracing",
@@ -2106,6 +2147,35 @@ dependencies = [
  "serde",
  "serde_json",
  "snapbox",
+]
+
+[[package]]
+name = "but-tty"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "futures",
+ "libc",
+ "libghostty-vt",
+ "nix 0.30.1",
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "signal-hook 0.3.18",
+ "tempfile",
+ "tracing",
+ "windows 0.62.2",
+]
+
+[[package]]
+name = "but-ui-control"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-path",
+ "serde",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]
@@ -4093,15 +4163,6 @@ dependencies = [
 [[package]]
 name = "file-id"
 version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1fc6a637b6dc58414714eddd9170ff187ecb0933d4c7024d1abbd23a3cc26e9"
-dependencies = [
- "windows-sys 0.60.2",
-]
-
-[[package]]
-name = "file-id"
-version = "0.2.3"
 source = "git+https://github.com/notify-rs/notify?rev=978fe719b066a8ce76b9a9d346546b1569eecfb6#978fe719b066a8ce76b9a9d346546b1569eecfb6"
 dependencies = [
  "windows-sys 0.60.2",
@@ -4833,7 +4894,7 @@ dependencies = [
  "but-ctx",
  "but-error",
  "but-testsupport",
- "file-id 0.2.3 (git+https://github.com/notify-rs/notify?rev=978fe719b066a8ce76b9a9d346546b1569eecfb6)",
+ "file-id",
  "futures",
  "gix",
  "nix 0.30.1",
@@ -4852,7 +4913,7 @@ name = "gitbutler-notify-debouncer"
 version = "0.0.0"
 dependencies = [
  "deser-hjson",
- "file-id 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "file-id",
  "gitbutler-notify-debouncer",
  "mock_instant",
  "notify",
@@ -4960,15 +5021,12 @@ dependencies = [
  "but-oxidize",
  "but-settings",
  "but-testsupport",
- "fuzzy-matcher",
  "git2",
  "git2-hooks",
  "gitbutler-project",
  "gitbutler-reference",
  "gix",
- "ignore",
  "infer",
- "itertools",
  "scopeguard",
  "serde",
  "snapbox",
@@ -6170,19 +6228,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0cc23270f6e1808e30a928bdc84dea0b9b4136a8bc82338574f23baf47bbd280"
 
 [[package]]
-name = "globset"
-version = "0.4.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52dfc19153a48bde0cbd630453615c8151bce3a5adfac7a0aebfbf0a1e1f57e3"
-dependencies = [
- "aho-corasick",
- "bstr",
- "log",
- "regex-automata",
- "regex-syntax",
-]
-
-[[package]]
 name = "glow"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7122,22 +7167,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ignore"
-version = "0.4.26"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b915661dd01db3f05050265b2477bcc6527b3792388e2749b41623cc592be67d"
-dependencies = [
- "crossbeam-deque",
- "globset",
- "log",
- "memchr",
- "regex-automata",
- "same-file",
- "walkdir",
- "winapi-util",
-]
-
-[[package]]
 name = "image"
 version = "0.25.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7273,6 +7302,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e0242819d153cba4b4b05a5a8f2a7e9bbf97b6055b2a002b395c96b5ff3c0222"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "int-enum"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "98e2fe9fba0e74e6b4cbc96a06d473ee6f2dd675f4b26ef6391a4973060c7ed1"
+dependencies = [
+ "proc-macro2",
+ "proc-macro2-diagnostics",
+ "quote",
+ "syn 3.0.9",
 ]
 
 [[package]]
@@ -7711,6 +7752,21 @@ dependencies = [
  "arbitrary",
  "cc",
 ]
+
+[[package]]
+name = "libghostty-vt"
+version = "0.2.1"
+source = "git+https://github.com/uzaaft/libghostty-rs?rev=9ede35b8ea94a55ed3608408d67e102883129f1e#9ede35b8ea94a55ed3608408d67e102883129f1e"
+dependencies = [
+ "bitflags 2.13.0",
+ "int-enum",
+ "libghostty-vt-sys",
+]
+
+[[package]]
+name = "libghostty-vt-sys"
+version = "0.2.1"
+source = "git+https://github.com/uzaaft/libghostty-rs?rev=9ede35b8ea94a55ed3608408d67e102883129f1e#9ede35b8ea94a55ed3608408d67e102883129f1e"
 
 [[package]]
 name = "libgit2-sys"
@@ -9803,6 +9859,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fd00f0bb2e90d81d1044c2b32617f68fcb9fa3bb7640c23e9c748e53fb30934"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "proc-macro2-diagnostics"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df921e1ef974ebc8dd9effdb0c037a96928ae8cbf871438e02d6fd67204b595e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.9",
 ]
 
 [[package]]

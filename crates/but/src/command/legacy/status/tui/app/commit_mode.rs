@@ -44,7 +44,6 @@ pub struct CommitMode {
     /// Used when committing changes staged to a specific stack
     // TODO: remove this when we no dont support assignments
     pub scope_to_stack: Option<StackId>,
-    /// How to compose the commit message.
     pub message_composer: CommitMessageComposer,
 }
 
@@ -55,7 +54,6 @@ pub enum CommitMessageComposer {
     Editor,
     /// Use an inline editor to compose the commit message.
     Inline,
-    /// Create the commit with an empty message.
     Empty,
 }
 
@@ -561,6 +559,7 @@ where
         commit_op,
         commit_selection,
         reword_op,
+        false,
     )?;
 
     drop(_suspend_guard);

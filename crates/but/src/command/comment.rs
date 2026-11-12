@@ -1,5 +1,3 @@
-//! Implementation of the `but _comment` command.
-
 use but_api::comments::{self, store};
 use but_comments::{DiffComment, DiffSide, NewComment, StoredComment};
 use but_core::sync::RepoShared;

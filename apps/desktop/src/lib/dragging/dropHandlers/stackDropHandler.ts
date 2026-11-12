@@ -83,7 +83,7 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 	async ondropChangeData(data: ChangeDropData) {
 		switch (data.selectionId.type) {
 			case "commit": {
-				const { stack, outcome, branchName } = await this.macros.createNewStackAndCommit();
+				const { stackId, outcome, branchName } = await this.macros.createNewStackAndCommit();
 
 				if (!outcome.newCommit) {
 					throw new Error("Failed to create a new commit");
@@ -94,7 +94,7 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 				if (sourceStackId) {
 					const diffSpec = changesToDiffSpec(await data.treeChanges());
 					await this.macros.moveChangesToNewCommit(
-						stack.id,
+						stackId,
 						outcome.newCommit,
 						sourceStackId,
 						sourceCommitId,
@@ -108,10 +108,18 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 				break;
 			}
 			case "worktree": {
-				const stack = await this.stackService.newStackMutation({
+				const created = await this.stackService.branchCreateMutation({
 					projectId: this.projectId,
-					branch: { name: undefined },
+					newRef: null,
+					placement: { type: "independent", subject: { order: null } },
 				});
+
+				const stackId = created.workspace.headInfo.stacks.find((stack) =>
+					stack.segments.some(
+						(segment) => segment.refName?.displayName === created.newRef.displayName,
+					),
+				)?.id;
+				if (!stackId) throw new Error("Created branch has no workspace stack");
 
 				const changes = await data.treeChanges();
 				const assignments = changes
@@ -121,7 +129,7 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 					.map((h) => ({
 						hunkHeader: h.hunkHeader,
 						pathBytes: h.pathBytes,
-						target: this.stackTarget(stack.id),
+						target: this.stackTarget(stackId),
 					}));
 				await this.diffService.assignHunk({
 					projectId: this.projectId,
@@ -138,7 +146,7 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 					throw new Error("Hunk drop data must specify the source stackId and commitId");
 				}
 
-				const { stack, outcome, branchName } = await this.macros.createNewStackAndCommit();
+				const { stackId, outcome, branchName } = await this.macros.createNewStackAndCommit();
 
 				if (!outcome.newCommit) {
 					throw new Error("Failed to create a new commit");
@@ -150,7 +158,7 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 						: null;
 
 				await this.macros.moveChangesToNewCommit(
-					stack.id,
+					stackId,
 					outcome.newCommit,
 					data.stackId,
 					data.commitId,
@@ -173,10 +181,18 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 				break;
 			}
 			case "worktree": {
-				const stack = await this.stackService.newStackMutation({
+				const created = await this.stackService.branchCreateMutation({
 					projectId: this.projectId,
-					branch: { name: undefined },
+					newRef: null,
+					placement: { type: "independent", subject: { order: null } },
 				});
+
+				const stackId = created.workspace.headInfo.stacks.find((stack) =>
+					stack.segments.some(
+						(segment) => segment.refName?.displayName === created.newRef.displayName,
+					),
+				)?.id;
+				if (!stackId) throw new Error("Created branch has no workspace stack");
 
 				const assignmentReactive = this.uncommittedService.getAssignmentByHeader(
 					data.stackId,
@@ -194,7 +210,7 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 						{
 							hunkHeader: assignment.hunkHeader,
 							pathBytes: assignment.pathBytes,
-							target: this.stackTarget(stack.id),
+							target: this.stackTarget(stackId),
 						},
 					],
 				});
@@ -213,15 +229,17 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 			this.uiState.lane(data.stackId).selection.set(undefined);
 		}
 
-		const stack = await this.stackService.newStackMutation({
+		const created = await this.stackService.branchCreateMutation({
 			projectId: this.projectId,
-			branch: { name: undefined },
+			newRef: null,
+			placement: { type: "independent", subject: { order: null } },
 		});
 
-		const stackId = stack.id;
-		// Freshly-created stacks always have at least one head per the
-		// StackEntryNoOpt invariant ("list is never empty").
-		const branchName = stack.heads[0]!.name;
+		const branchName = created.newRef.displayName;
+		const stackId = created.workspace.headInfo.stacks.find((stack) =>
+			stack.segments.some((segment) => segment.refName?.displayName === branchName),
+		)?.id;
+		if (!stackId) throw new Error("Created branch has no workspace stack");
 
 		const { relativeTo, side } = toCommitMovePlacement({
 			targetBranchName: branchName,

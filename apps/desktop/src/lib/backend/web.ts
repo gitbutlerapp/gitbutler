@@ -17,6 +17,7 @@ export default class Web implements IBackend {
 	invoke = webInvoke;
 	listen = webListen;
 	checkUpdate = webCheckUpdate;
+	manualInstall = webManualInstall;
 	currentVersion = webCurrentVersion;
 	readFile = webReadFile;
 	openExternalUrl = webOpenExternalUrl;
@@ -229,6 +230,10 @@ function webListen<T>(event: EventName, handle: EventCallback<T>) {
 async function webCheckUpdate(): Promise<null> {
 	// TODO: Implement this for the web version if needed
 	return null;
+}
+
+async function webManualInstall(): Promise<boolean> {
+	return false;
 }
 
 async function webCurrentVersion(): Promise<string> {

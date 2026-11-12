@@ -1,4 +1,3 @@
-//! A generic table for displaying aligned rows.
 use unicode_width::UnicodeWidthStr;
 
 use super::text::{strip_ansi_codes, terminal_width, truncate_text};
@@ -7,7 +6,6 @@ use super::text::{strip_ansi_codes, terminal_width, truncate_text};
 pub(super) mod types {
     use crate::tui::table::Cell;
 
-    /// A simple table formatter that can render tables with fixed-width columns
     pub struct Table {
         pub(super) headers: Vec<Cell>,
         pub(super) rows: Vec<Vec<Cell>>,
@@ -17,7 +15,6 @@ pub(super) mod types {
 }
 use types::Table;
 
-/// Represents a single cell in a table
 #[derive(Debug, Clone)]
 pub struct Cell {
     pub content: String,
@@ -80,14 +77,12 @@ impl Table {
             return Ok(());
         }
 
-        // Calculate column widths
         let column_widths = self.calculate_column_widths();
 
         // Render header (optional, can be commented out for no header)
         // self.render_row(writer, &self.headers, &column_widths)?;
         // writeln!(writer)?;
 
-        // Render rows
         for row in &self.rows {
             self.render_row(out, row, &column_widths)?;
             writeln!(out)?;
@@ -118,15 +113,12 @@ impl Table {
         let num_columns = self.headers.len();
         let mut widths = vec![0; num_columns];
 
-        // Get explicitly set widths or measure content
         for (i, header) in self.headers.iter().enumerate() {
             if let Some(w) = header.width {
                 widths[i] = w;
             } else {
-                // Measure header
                 widths[i] = strip_ansi_codes(&header.content).width();
 
-                // Measure all rows
                 for row in &self.rows {
                     if let Some(cell) = row.get(i) {
                         let content_width = strip_ansi_codes(&cell.content).width();
@@ -136,7 +128,6 @@ impl Table {
             }
         }
 
-        // Calculate total width needed
         let separator_width = num_columns.saturating_sub(1); // spaces between columns
         let total_fixed_width: usize = widths.iter().sum::<usize>() + separator_width;
 
@@ -206,7 +197,6 @@ fn format_cell(content: &str, width: usize, align: Alignment, allow_truncation: 
         return truncate_text(content, width).into_owned();
     }
 
-    // Calculate padding
     let padding_needed = width.saturating_sub(content_width);
 
     match align {

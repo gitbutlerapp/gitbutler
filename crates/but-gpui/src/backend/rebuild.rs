@@ -13,6 +13,9 @@ use parking_lot::Mutex;
 /// The binary `cargo build` makes, as `Cargo.toml` names it.
 const BIN: &str = "gitbutler-gpui";
 
+/// The stories' window, built again from its own Rebuild button.
+const STORIES_BIN: &str = "gitbutler-gpui-stories";
+
 /// The askpass helper that fetch and push run, which they look for beside [`BIN`].
 const ASKPASS_BIN: &str = "gitbutler-git-askpass";
 
@@ -20,18 +23,32 @@ const ASKPASS_BIN: &str = "gitbutler-git-askpass";
 /// modal showing it.
 const PROGRESS_WIDTH: u16 = 100;
 
-/// How this binary was built, to build it again.
+/// `pid:json`: the process handing the tilings over, and them. Unlike the terminals' they're
+/// small and hold nothing to take along, so they need no file, and a mismatch between two
+/// worktrees' builds costs only them. Shells inherit it, so only the process it names as its
+/// parent reads it.
+#[cfg(unix)]
+const TILINGS: &str = "GITBUTLER_GPUI_TILINGS";
+
+/// How this binary was built, to build it again. A global once the app starts, when `cargo
+/// run` started it.
 #[derive(Clone)]
 pub struct Rebuild {
     /// The `cargo` that ran it, of the toolchain that built it.
     cargo: PathBuf,
     /// The checkout it was built from: the worktree's root.
     checkout: PathBuf,
+    /// The repository's common Git folder, which outlives the checkout when that's deleted.
+    common_dir: PathBuf,
+    /// Which binary to build: the client's, or the stories' when they're what runs.
+    bin: &'static str,
     /// The crate's folder within a checkout, `crates/but-gpui`.
     crate_dir: PathBuf,
     /// The build's profile, by the folder its binary is in: `debug` for `dev`.
     profile: Option<String>,
 }
+
+impl gpui::Global for Rebuild {}
 
 /// A worktree of the repository to build from.
 pub struct Source {
@@ -52,7 +69,12 @@ impl Rebuild {
         }
         let checkout = manifest_dir.ancestors().nth(2)?.to_owned();
         let crate_dir = manifest_dir.strip_prefix(&checkout).ok()?.to_owned();
+        let common_dir = gix::open(&checkout).ok()?.common_dir().to_owned();
         let exe = std::env::current_exe().ok()?;
+        let bin = match exe.file_stem().and_then(|stem| stem.to_str()) {
+            Some(STORIES_BIN) => STORIES_BIN,
+            _ => BIN,
+        };
         let profile = match exe.parent()?.file_name()?.to_str()? {
             "debug" => None,
             profile => Some(profile.to_owned()),
@@ -60,6 +82,8 @@ impl Rebuild {
         Some(Self {
             cargo,
             checkout,
+            common_dir,
+            bin,
             crate_dir,
             profile,
         })
@@ -70,9 +94,15 @@ impl Rebuild {
         &self.checkout
     }
 
+    /// Whether checkout `dir` has the client to build: it may be deleted without Git, or on a
+    /// branch from before the client.
+    pub fn builds_in(&self, dir: &Path) -> bool {
+        dir.join(&self.crate_dir).join("Cargo.toml").is_file()
+    }
+
     /// The repository's worktrees that have the client to build, the main one first.
     pub fn sources(&self) -> Result<Vec<Source>> {
-        let repo = gix::open(&self.checkout)?;
+        let repo = gix::open(&self.common_dir)?;
         let main = repo.main_repo()?;
         let linked =
             (repo.worktrees()?.into_iter()).filter_map(|worktree| worktree.into_repo().ok());
@@ -81,41 +111,38 @@ impl Rebuild {
             .filter_map(|repo| {
                 let dir = repo.workdir()?.to_owned();
                 let branch = repo.head_name().ok().flatten();
-                // Deleted without Git, or on a branch from before the client.
-                dir.join(&self.crate_dir)
-                    .join("Cargo.toml")
-                    .is_file()
-                    .then(|| Source {
-                        dir,
-                        branch: branch.map(|name| name.shorten().to_string()),
-                    })
+                self.builds_in(&dir).then(|| Source {
+                    dir,
+                    branch: branch.map(|name| name.shorten().to_string()),
+                })
             })
             .collect())
     }
 
     /// What `cargo build` is given, after `cargo`: this binary with the profile it was built
     /// with, its features, and the shaders compiled at runtime rather than with Xcode's tools.
-    /// The askpass helper too, in the same build so it lands beside the binary, as cargo
-    /// doesn't build a dependency's binaries and each worktree has a target folder of its own.
+    /// The client's askpass helper too, in the same build so it lands beside the binary, as cargo
+    /// doesn't build a dependency's binaries and each worktree has a target folder of its own. The
+    /// stories fetch and push nothing, so they build alone.
     pub fn args(&self) -> Vec<String> {
+        let stories = self.bin == STORIES_BIN;
         let mut features = vec!["gpui_platform/runtime_shaders"];
         if cfg!(feature = "dev-script") {
             features.push("dev-script");
         }
-        let mut args = [
-            "build",
-            "-p",
-            "but-gpui",
-            "-p",
-            "gitbutler-git",
-            "--bin",
-            BIN,
-            "--bin",
-            ASKPASS_BIN,
-            "--features",
-        ]
-        .map(str::to_owned)
-        .to_vec();
+        if stories {
+            features.push("stories");
+        }
+        let mut args = vec!["build", "-p", "but-gpui"];
+        if !stories {
+            args.extend(["-p", "gitbutler-git"]);
+        }
+        args.extend(["--bin", self.bin]);
+        if !stories {
+            args.extend(["--bin", ASKPASS_BIN]);
+        }
+        args.push("--features");
+        let mut args: Vec<String> = args.into_iter().map(str::to_owned).collect();
         args.push(features.join(","));
         match self.profile.as_deref() {
             None => {}
@@ -154,6 +181,7 @@ impl Rebuild {
         let child = cargo.spawn().context("couldn't start cargo")?;
         Ok(Build {
             child: Arc::new(Mutex::new(child)),
+            bin: self.bin,
             crate_dir,
         })
     }
@@ -163,6 +191,7 @@ impl Rebuild {
 #[derive(Clone)]
 pub struct Build {
     child: Arc<Mutex<Child>>,
+    bin: &'static str,
     crate_dir: PathBuf,
 }
 
@@ -174,7 +203,9 @@ pub enum Printed {
 
 /// A binary a build made, to restart on.
 pub struct Built {
+    #[cfg_attr(not(unix), expect(dead_code))]
     exe: PathBuf,
+    #[cfg_attr(not(unix), expect(dead_code))]
     crate_dir: PathBuf,
 }
 
@@ -190,7 +221,8 @@ impl Build {
             bail!("the build's output was already read");
         };
         // Read beside the lines shown, or cargo would wait on a full pipe.
-        let exe = std::thread::spawn(move || built_binary(stdout));
+        let bin = self.bin;
+        let exe = std::thread::spawn(move || built_binary(stdout, bin));
         read_printed(BufReader::new(stderr), printed)?;
         let exe = exe.join().ok().flatten();
         let status = self.child.lock().wait()?;
@@ -265,8 +297,8 @@ fn read_printed(mut stderr: impl BufRead, mut printed: impl FnMut(Printed)) -> R
     Ok(())
 }
 
-/// The binary named in cargo's JSON messages on `stdout`.
-fn built_binary(stdout: impl Read) -> Option<PathBuf> {
+/// Binary `bin`, where cargo's JSON messages on `stdout` say it put it.
+fn built_binary(stdout: impl Read, bin: &str) -> Option<PathBuf> {
     #[derive(serde::Deserialize)]
     struct Message {
         reason: String,
@@ -283,7 +315,7 @@ fn built_binary(stdout: impl Read) -> Option<PathBuf> {
             continue;
         };
         if message.reason == "compiler-artifact"
-            && message.target.is_some_and(|target| target.name == BIN)
+            && message.target.is_some_and(|target| target.name == bin)
         {
             exe = message.executable.or(exe);
         }
@@ -291,27 +323,180 @@ fn built_binary(stdout: impl Read) -> Option<PathBuf> {
     exe
 }
 
+/// How long a new build has to take the terminals over, which it does before it opens its
+/// window. One from before builds started this way never says it did.
+#[cfg(unix)]
+const TAKEN_WITHIN: std::time::Duration = std::time::Duration::from_secs(10);
+
 impl Built {
-    /// Run the new binary in this process's place, with this one's arguments and environment,
-    /// so `cargo run` and its terminal keep it. The manifest's folder is the one it was built
-    /// from, as `cargo run` would have set it, so it offers Build and restart too. Returns only
-    /// when that fails.
-    pub fn restart(&self) -> anyhow::Error {
+    /// Start the new binary in this process's place, with this one's arguments and environment
+    /// and `env` on top, handing it `terminals` and `tilings`, and exit once it has them. The manifest's folder is the one it was
+    /// built from, as `cargo run` would have set it, so it offers Build and restart too. A process
+    /// of its own, not this one by exec: macOS goes on drawing a window a process opens after
+    /// exec and sending it clicks, but offers it no drags from other apps. `cargo run` ends with
+    /// this process, so its terminal is back at its prompt while the new build writes on there.
+    /// Returns only when starting it fails.
+    #[cfg(unix)]
+    pub fn restart<T: serde::Serialize, L: serde::Serialize>(
+        &self,
+        terminals: Vec<(T, but_tty::Detached)>,
+        tilings: &L,
+        env: &[(&str, &str)],
+    ) -> anyhow::Error {
         let mut new = Command::new(&self.exe);
         new.args(std::env::args_os().skip(1))
+            .envs(env.iter().copied())
             .env("CARGO_MANIFEST_DIR", &self.crate_dir)
-            .env("CARGO_MANIFEST_PATH", self.crate_dir.join("Cargo.toml"));
-        #[cfg(unix)]
-        let err: anyhow::Error = std::os::unix::process::CommandExt::exec(&mut new).into();
-        #[cfg(not(unix))]
-        let err = anyhow::anyhow!("restarting in place needs exec");
-        err.context(format!("couldn't start {}", self.exe.display()))
+            .env("CARGO_MANIFEST_PATH", self.crate_dir.join("Cargo.toml"))
+            .env_remove(TILINGS);
+        match serde_json::to_string(tilings) {
+            Ok(json) => {
+                new.env(TILINGS, format!("{}:{json}", std::process::id()));
+            }
+            Err(err) => tracing::error!("couldn't hand the tilings over: {err:#}"),
+        }
+        // With none to hand over, as from the stories, there's nothing for the new build to take
+        // and so nothing to wait for: this one exits as soon as that one starts.
+        let handing = (!terminals.is_empty())
+            .then(|| but_tty::hand_over(terminals, &mut new))
+            .transpose()
+            .inspect_err(|err| tracing::error!("couldn't hand the terminals over: {err:#}"))
+            .ok()
+            .flatten();
+        close_on_exec(handing.as_ref().map_or(&[], |handing| &handing.keep));
+        if let Err(err) = new.spawn() {
+            let err = anyhow::Error::from(err);
+            return err.context(format!("couldn't start {}", self.exe.display()));
+        }
+        if let Some(handing) = handing
+            && !handing.wait_taken(TAKEN_WITHIN)
+        {
+            tracing::error!("the new build didn't take the terminals over");
+        }
+        super::logs::flush();
+        std::process::exit(0)
+    }
+
+    #[cfg(not(unix))]
+    pub fn restart(&self) -> anyhow::Error {
+        anyhow::anyhow!("restarting in place needs exec")
+    }
+}
+
+/// The tilings the process this one takes over from handed over. Before [`but_tty::handed`],
+/// which lets that process exit, leaving this one with another parent.
+#[cfg(unix)]
+pub fn handed_tilings<L: serde::de::DeserializeOwned>() -> Option<L> {
+    let handed = std::env::var(TILINGS).ok()?;
+    tilings_from(&handed, std::os::unix::process::parent_id())
+}
+
+/// What `handed`, as [`TILINGS`] says it, lists for a process whose parent is `parent`: nothing
+/// when it's another's.
+#[cfg(unix)]
+fn tilings_from<L: serde::de::DeserializeOwned>(handed: &str, parent: u32) -> Option<L> {
+    let (pid, json) = handed.split_once(':')?;
+    if pid.parse() != Ok(parent) {
+        return None;
+    }
+    (serde_json::from_str(json))
+        .inspect_err(|err| tracing::error!("couldn't read the tilings handed over: {err:#}"))
+        .ok()
+}
+
+/// Mark the files this process has open, past stdin, stdout and stderr, to close in the new
+/// binary it starts, but for `keep`, which that takes along. Rust opens its own so, but not every framework does: Metal
+/// keeps its shader caches open without, so each restart carried four more into the next
+/// process, until a burst of reads hit the limit on open files and whatever opened one next
+/// failed.
+#[cfg(unix)]
+fn close_on_exec(keep: &[std::os::fd::RawFd]) {
+    let dir = match cfg!(target_os = "macos") {
+        true => "/dev/fd",
+        false => "/proc/self/fd",
+    };
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    // Listed first, as reading the folder holds a descriptor of its own.
+    let open: Vec<libc::c_int> = entries
+        .filter_map(|entry| entry.ok()?.file_name().to_str()?.parse().ok())
+        .filter(|fd| *fd > 2)
+        .collect();
+    for fd in open {
+        // SAFETY: `F_GETFD` and `F_SETFD` only read and set a descriptor's flags, and one
+        // closed since it was listed, as the folder's own, makes them fail and change nothing.
+        unsafe {
+            let flags = libc::fcntl(fd, libc::F_GETFD);
+            if flags >= 0 {
+                let flags = match keep.contains(&fd) {
+                    true => flags & !libc::FD_CLOEXEC,
+                    false => flags | libc::FD_CLOEXEC,
+                };
+                libc::fcntl(fd, libc::F_SETFD, flags);
+            }
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{Printed, built_binary, read_printed};
+
+    #[test]
+    #[cfg(unix)]
+    fn a_restart_takes_no_file_along_that_was_opened_to_stay_open() {
+        use std::os::fd::AsRawFd as _;
+        let file = tempfile::tempfile().unwrap();
+        let fd = file.as_raw_fd();
+        // SAFETY: only the flags of `file`'s descriptor change, which it keeps open throughout.
+        let flags = unsafe { libc::fcntl(fd, libc::F_GETFD) };
+        // SAFETY: as above, opened to stay open across an exec, as Metal opens its caches.
+        unsafe { libc::fcntl(fd, libc::F_SETFD, flags & !libc::FD_CLOEXEC) };
+        super::close_on_exec(&[]);
+        // SAFETY: as above.
+        let after = unsafe { libc::fcntl(fd, libc::F_GETFD) };
+        assert!(
+            after & libc::FD_CLOEXEC != 0,
+            "it closes as the new binary starts rather than staying open in it"
+        );
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn a_restart_takes_along_what_it_is_told_to_keep() {
+        use std::os::fd::AsRawFd as _;
+        let file = tempfile::tempfile().unwrap();
+        let fd = file.as_raw_fd();
+        super::close_on_exec(&[fd]);
+        // SAFETY: only reads the flags of `file`'s descriptor, which it keeps open throughout.
+        let after = unsafe { libc::fcntl(fd, libc::F_GETFD) };
+        assert!(
+            after & libc::FD_CLOEXEC == 0,
+            "it stays open in the new binary, though Rust opened it to close"
+        );
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn tilings_are_read_from_the_process_that_handed_them_over() {
+        let tilings: Option<Vec<u32>> = super::tilings_from("42:[1,2]", 42);
+        assert_eq!(tilings, Some(Vec::from([1, 2])));
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn a_process_started_from_a_shell_leaves_the_tilings_it_inherited() {
+        let tilings: Option<Vec<u32>> = super::tilings_from("42:[1,2]", 43);
+        assert_eq!(tilings, None, "they were for the build the app started");
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn tilings_a_build_cant_read_cost_only_them() {
+        let tilings: Option<Vec<u32>> = super::tilings_from("42:{\"other\":1}", 42);
+        assert_eq!(tilings, None, "it starts without them");
+    }
 
     /// Whether process `pid` is still running, as `kill -0` says.
     #[cfg(unix)]
@@ -340,6 +525,8 @@ mod tests {
         let rebuild = Rebuild {
             cargo,
             checkout: dir.path().to_owned(),
+            common_dir: dir.path().join(".git"),
+            bin: super::BIN,
             crate_dir: "crate".into(),
             profile: None,
         };
@@ -367,12 +554,56 @@ mod tests {
     }
 
     #[test]
+    fn a_deleted_checkout_still_lists_the_worktrees_left() {
+        use super::Rebuild;
+
+        let dir = tempfile::tempdir().unwrap();
+        let (main, linked) = (dir.path().join("main"), dir.path().join("linked"));
+        let git = |args: &[&str]| {
+            let status = std::process::Command::new("git")
+                .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+                .args(args)
+                .current_dir(dir.path())
+                .output()
+                .unwrap()
+                .status;
+            assert!(status.success(), "git {args:?}");
+        };
+        git(&["init", "-q", "main"]);
+        std::fs::create_dir_all(main.join("crate")).unwrap();
+        std::fs::write(main.join("crate/Cargo.toml"), "").unwrap();
+        git(&["-C", "main", "add", "."]);
+        git(&["-C", "main", "commit", "-qm", "client"]);
+        git(&["-C", "main", "worktree", "add", "-q", "../linked"]);
+        let rebuild = Rebuild {
+            cargo: "cargo".into(),
+            common_dir: gix::open(&linked).unwrap().common_dir().to_owned(),
+            checkout: linked.clone(),
+            bin: super::BIN,
+            crate_dir: "crate".into(),
+            profile: None,
+        };
+        std::fs::remove_dir_all(&linked).unwrap();
+
+        let sources: Vec<_> = (rebuild.sources().unwrap().into_iter())
+            .map(|source| source.dir.canonicalize().unwrap())
+            .collect();
+        assert_eq!(
+            sources,
+            [main.canonicalize().unwrap()],
+            "the main worktree is still there to build from, the deleted one isn't offered"
+        );
+    }
+
+    #[test]
     fn the_build_makes_the_askpass_helper_too() {
         use super::Rebuild;
 
         let rebuild = Rebuild {
             cargo: "cargo".into(),
             checkout: "/checkout".into(),
+            common_dir: "/checkout/.git".into(),
+            bin: super::BIN,
             crate_dir: "crates/but-gpui".into(),
             profile: None,
         };
@@ -390,6 +621,35 @@ mod tests {
                 "gitbutler-git-askpass",
             ],
             "fetch and push run the helper from beside the client, so the build puts it there too"
+        );
+    }
+
+    #[test]
+    fn the_stories_build_alone_with_their_feature() {
+        let rebuild = super::Rebuild {
+            cargo: "cargo".into(),
+            checkout: "/checkout".into(),
+            common_dir: "/checkout/.git".into(),
+            bin: super::STORIES_BIN,
+            crate_dir: "crates/but-gpui".into(),
+            profile: None,
+        };
+        let args = rebuild.args();
+        assert_eq!(
+            args[..6],
+            [
+                "build",
+                "-p",
+                "but-gpui",
+                "--bin",
+                "gitbutler-gpui-stories",
+                "--features"
+            ],
+            "the stories' binary alone, without the client's askpass helper"
+        );
+        assert!(
+            args[6].split(',').any(|feature| feature == "stories"),
+            "the stories' binary needs its feature to build"
         );
     }
 
@@ -427,7 +687,7 @@ mod tests {
         ]
         .join("\n");
         assert_eq!(
-            built_binary(messages.as_bytes()),
+            built_binary(messages.as_bytes(), super::BIN),
             Some("/t/debug/gitbutler-gpui".into()),
             "only the client's artifact names the binary, and other lines are skipped"
         );

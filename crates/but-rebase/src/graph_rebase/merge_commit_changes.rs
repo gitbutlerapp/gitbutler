@@ -21,17 +21,13 @@ use crate::graph_rebase::{
 /// parents.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PlannedCommitChange {
-    /// The selected commit whose change range should be merged.
     pub commit_id: gix::ObjectId,
     /// The tree that acts as the base for `commit_id`'s contribution.
     pub base_tree_id: gix::ObjectId,
 }
 
-/// The result of merging selected commit changes into one tree.
 #[derive(Debug, Clone, PartialEq)]
 pub struct MergeCommitChangesOutcome {
-    /// The resulting tree.
-    ///
     /// If [`Self::conflict`] is `Some`, this is the auto-resolved tree that
     /// should be presented as the conflicted commit's visible tree.
     pub tree_id: gix::ObjectId,
@@ -44,7 +40,6 @@ pub struct MergeCommitChangesOutcome {
 /// merged change-range result.
 #[derive(Debug, Clone, PartialEq)]
 pub struct MergeCommitChangesConflict {
-    /// The tree expression for the conflicted merge step.
     pub tree_expression: TreeExpression,
     /// The paths that remained conflicted after auto-resolution.
     pub conflict_entries: but_core::commit::ConflictEntries,
@@ -117,9 +112,6 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     /// from the commit objects stored in the in-memory repository.
     ///
     /// See the module docs for the planner semantics and invariants.
-    ///
-    ///
-    /// Returns a vector of [PlannedCommitChange].
     pub fn plan_commit_changes_for_merge(
         &self,
         target_commit_id: gix::ObjectId,
@@ -203,7 +195,6 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
 /// selected commit and its also-selected first parent.
 #[derive(Debug, Clone, Copy)]
 struct FirstParentMetadata {
-    /// The first parent ID of the commit, if one exists.
     first_parent_id: Option<gix::ObjectId>,
     /// Identical to `first_parent_id` if it is also selected; otherwise,
     /// `None`.
@@ -351,8 +342,6 @@ fn get_first_parent_metadata<M: RefMetadata>(
     }))
 }
 
-/// Get the base tree ID to use for the merger of the given commit.
-///
 /// The base tree ID is obtained by following the first parent link until a
 /// non-selected commit or a target ancestor is encountered; the base tree ID is
 /// thus the tree of that commit.
@@ -402,7 +391,6 @@ fn tree_id_for_commit<M: RefMetadata>(
         .detach())
 }
 
-/// Remove exact duplicate commit IDs.
 fn deduplicate_commit_ids(commit_ids: Vec<gix::ObjectId>) -> Vec<gix::ObjectId> {
     let mut seen = HashSet::with_capacity(commit_ids.len());
     let mut deduplicated = Vec::with_capacity(commit_ids.len());

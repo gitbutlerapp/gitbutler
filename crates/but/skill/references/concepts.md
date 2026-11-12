@@ -45,9 +45,11 @@ plain Git, and there is no `gitbutler/workspace` branch:
   branch while a feature branch is checked out) switches `HEAD` to `gitbutler/workspace`.
 - `but apply` while the target branch is checked out also switches to `gitbutler/workspace`,
   even for a single stack.
-- Unapplying, discarding, or deleting branches down to one stack checks that stack's branch out
-  again. Other ways of dropping to one stack, such as squashing a whole branch into `@`, can
-  leave `HEAD` on `gitbutler/workspace`.
+- Unapplying, discarding, deleting, uncommitting, or squashing away branches down to one stack
+  checks that stack's branch out again. Moving a branch onto another stack leaves `HEAD` on
+  `gitbutler/workspace`, even with one stack left.
+- When the last stack leaves, whether removed, landed by `but pull`, or moved onto a linked
+  worktree's branch, `HEAD` moves to the target's local branch.
 
 Commands, IDs, and recipes are the same in both modes, so you do not need to track which mode
 the repository is in. The exception is edit mode (`but resolve <commit-id>`), which needs `gitbutler/workspace`. `[HEAD]` in `but status` marks the checked-out branch in single-branch mode.
@@ -107,13 +109,13 @@ anonymous segment) and their commits. The top branch's ID and the worktree's nam
 worktree; `<worktree>:@` (that ID or the name) names its uncommitted area. `but discard` on that
 top branch removes the worktree when its checkout is clean; the branches below it discard and
 squash like stack branches. A worktree's branches count as applied: `but apply` on one changes
-nothing, and `but unapply` refuses it — remove the worktree instead. A bare path or `dir/`
-prefix names files in the checkout `but` runs from; `<worktree>:<path>` scopes a filename to that worktree
+nothing, and `but unapply` refuses it — remove the worktree instead. A path to a file or
+directory names changes in the checkout `but` runs from; `<worktree>:<path>` scopes a filename to that worktree
 from anywhere, and `@:<path>` to the main worktree. A worktree file ID or
 `<worktree>:@` works as a `but commit` change and a `but amend` or `but squash`
 source: the change lands on the target and leaves that worktree's uncommitted area. `but discard`
 on one discards it in that worktree, and isn't recorded in the oplog, so `but undo` can't bring
-it back. Without a target flag, worktree changes commit to the tip of the worktree's own branch; an explicit target
+it back. Without a target flag, worktree changes commit or amend to the tip of the worktree's own branch; an explicit target
 commit or branch does not have to be the worktree's own. One operation reads from one worktree
 at a time — a selection mixing worktrees is refused. A worktree's branches are also targets:
 `but commit`, `but move`, and `but pick` with `-b <branch>` place the commit on that branch's tip,
@@ -129,12 +131,11 @@ Uncommitting one lands in that worktree's uncommitted area, so `squash -t` names
 worktree's area ID (`<id>:@`), not `@`; `but uncommit` infers it.
 IDs are the same whichever checkout `but` runs in, and `@` always means the main worktree's
 area. Only what a command falls back to when no location is named depends on it: run from
-inside a linked worktree, a bare `but commit` and `but diff`, and `but amend`/`but squash`
+inside a linked worktree, a bare `but commit`, `but diff` and `but amend`, and `but squash`
 with `-t` but no sources, take that worktree's changes, while `but commit --empty` and `but pick`
 without a target go on its branch, and a bare `but discard` discards that worktree's changes.
 `but absorb` and `but branch new` without `--above`/`--below` refuse there instead of acting on
-the main worktree, and every such default is refused in a worktree GitButler doesn't manage (it is archived, or its `HEAD`
-is unusable).
+the main worktree, and every such default is refused in a worktree GitButler doesn't manage (its `HEAD` is unusable).
 
 ## Parallel vs Stacked Branches
 
@@ -295,7 +296,7 @@ Git commands that don't modify state are safe to use:
 **Safe (read-only):**
 
 - `git log` - View history
-- `git diff` - See changes (but prefer `but diff` — it supports CLI IDs)
+- `git diff` - See changes against Git revisions and ranges such as `HEAD~1` or `main...HEAD` (prefer `but diff` for CLI IDs; it doesn't take revisions)
 - `git show` - View commits
 - `git blame` - See line history
 - `git reflog` - View reference log

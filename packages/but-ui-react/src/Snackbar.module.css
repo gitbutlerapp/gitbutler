@@ -1,0 +1,96 @@
+.snackbar {
+	display: inline-flex;
+	column-gap: var(--but-gap-snackbar);
+	align-items: center;
+	max-width: 100%;
+
+	/* Every snackbar is 32px tall, with a close button or without: the floor is the height the
+	   button's 20px row gives, so a run of snackbars lines up whichever of them can be dismissed.
+	   Boxes here are border-box, so the floor includes the padding and the border. */
+	min-height: var(--but-size-snackbar);
+	/* More room after the sentence than before the glyph, so a snackbar with nothing to close
+	   doesn't end hard against its edge. The tokens measure from the outside edge, so each side
+	   gives a pixel to the border. */
+	padding: calc(var(--but-padding-snackbar-block) - 1px) calc(var(--but-padding-snackbar-end) - 1px)
+		calc(var(--but-padding-snackbar-block) - 1px) calc(var(--but-padding-snackbar-start) - 1px);
+	/* --but-snackbar is inverted in light, so a snackbar reads as a passing note over the page
+	   rather than a piece of it, and in dark a step above the popover's ground with its border. */
+	border: 1px solid var(--but-snackbar-border);
+	/* It floats over the page, so it wears the popup radius. */
+	border-radius: var(--but-radius-popup);
+	background-color: var(--but-snackbar);
+	box-shadow: var(--but-shadow-md);
+	color: var(--but-snackbar-foreground);
+	white-space: nowrap;
+	animation: enter 0.3s var(--but-easing-popup);
+
+	@media (prefers-reduced-motion: reduce) {
+		animation: none;
+	}
+}
+
+/* A snackbar rises into place as it appears, from just below where it settles. On `translate`, so
+   a host can still position it with `transform`. */
+@keyframes enter {
+	from {
+		translate: 0 50%;
+		opacity: 0;
+	}
+}
+
+/* The whole verdict: the surface, the border, and the sentence stay the same across variants, so
+   the glyph is the only thing saying how the news landed. */
+.icon {
+	color: var(--snackbar-icon);
+}
+
+.info {
+	--snackbar-icon: var(--but-snackbar-muted-foreground);
+}
+
+.warning {
+	--snackbar-icon: var(--but-warning);
+}
+
+.danger {
+	--snackbar-icon: var(--but-snackbar-danger);
+}
+
+.safe {
+	--snackbar-icon: var(--but-snackbar-success);
+}
+
+/* Takes the width it needs and gives it back before the snackbar grows past its container: a long
+   sentence ellipsises rather than pushing the way out off the end. Centring is on the cap band
+   rather than the line box, so the row reads evenly however the font hangs its ascent and descent
+   — and since the trimmed box ends at the baseline, the clip gets its descenders back by hand. */
+.message {
+	flex: 0 1 auto;
+	min-width: 0;
+	margin-block-end: -0.25em;
+	padding-block-end: 0.25em;
+	overflow: hidden;
+	text-box: trim-both cap alphabetic;
+	text-overflow: ellipsis;
+}
+
+/* Fences the button, Undo or close, off from the sentence. Its lane has room only on the
+   sentence's side, so the button sits nearer the line than the words do. */
+.divider {
+	align-self: stretch;
+	width: 1px;
+	min-height: 20px;
+	margin-inline: 3.5px -0.5px;
+	background-color: var(--but-snackbar-divider);
+}
+
+/* A button, Undo or close, spills into the snackbar's wider end padding: it sits as far from the
+   end as from the top and bottom, and a close button's cross 10px from it, as the glyph does at
+   the other end. */
+.action {
+	/* The ghost button's colours on whichever ground the snackbar has. */
+	--button-fg: var(--but-snackbar-foreground);
+	--button-hover-bg: var(--but-snackbar-hover);
+
+	margin-inline-end: calc(var(--but-padding-snackbar-block) - var(--but-padding-snackbar-end));
+}

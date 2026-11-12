@@ -1,5 +1,3 @@
-//! An action to perform a reword of a commit
-
 use anyhow::Result;
 use bstr::BStr;
 use but_core::RefMetadata;
@@ -9,9 +7,7 @@ use but_rebase::{
 };
 
 /// This action will rewrite a commit and any relevant history so it uses
-/// the new name.
-///
-/// Returns a selector to the rewritten commit
+/// `new_message`.
 pub fn reword<'ws, 'meta, M: RefMetadata>(
     mut editor: Editor<'ws, 'meta, M>,
     commit: impl ToCommitSelector,

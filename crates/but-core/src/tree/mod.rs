@@ -6,7 +6,6 @@ use gix::{merge::tree::TreatAsUnresolved, object::tree::EntryKind, prelude::Obje
 
 use crate::{DiffSpec, HunkHeader, HunkRange, RepositoryExt, UnifiedPatch, apply_hunks};
 
-/// Utility types for the [`create_tree()`] function
 pub mod create_tree {
 
     /// Provide a description of why a [`crate::DiffSpec`] was rejected for application to the tree of a commit.
@@ -55,7 +54,6 @@ use create_tree::RejectionReason;
 
 use crate::worktree::worktree_file_to_git_in_buf;
 
-/// Additional information about the outcome of a [`create_tree()`] call.
 #[derive(Debug)]
 pub struct CreateTreeOutcome {
     /// Changes that were removed from `new_tree` because they caused conflicts when rebasing dependent commits,
@@ -168,13 +166,11 @@ pub fn create_tree(
 
 fn into_err_spec(input: &mut PossibleChange, reason: RejectionReason) {
     *input = match std::mem::replace(input, Ok(Default::default())) {
-        // What we thought was a good change turned out to be a no-op, rejected.
         Ok(inner) => Err((reason, inner)),
         Err(inner) => Err(inner),
     };
 }
 
-/// A utility type to keep track of `Ok` specs to use, or `Err` specs that have been rejected.
 pub type PossibleChange = Result<DiffSpec, (RejectionReason, DiffSpec)>;
 
 /// Apply `changes` to `changes_base_tree` and return the newly written tree as `(new_tree, actual_base_tree)`.

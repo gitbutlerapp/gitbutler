@@ -299,7 +299,7 @@ pub struct CommitLineContent {
     pub suffix: Vec<Span<'static>>,
 }
 
-/// Consdering the example "dp [dp-branch-1] (no commits)" see the field docs for what exactly they
+/// Considering the example "dp [dp-branch-1] (no commits)" see the field docs for what exactly they
 /// correspond to.
 #[derive(Debug, Default, Clone)]
 pub struct BranchLineContent {
@@ -315,7 +315,7 @@ pub struct BranchLineContent {
     pub suffix: Vec<Span<'static>>,
 }
 
-/// Consdering the example "ae:sv A a/b/c.rs" see the field docs for what exactly they
+/// Considering the example "ae:sv A a/b/c.rs" see the field docs for what exactly they
 /// correspond to.
 #[derive(Debug, Default, Clone)]
 pub struct FileLineContent {
@@ -360,10 +360,7 @@ pub struct StatusOutputLine {
     /// ┊● 7cd07f6 (upstream: origin/main) 1 new commit (checked 34 seconds ago) | Some("┊● ")
     /// ├╯ 8678259 [origin/main] 2026-03-11 nix                                  | Some("├╯ ")
     pub connector: Option<Vec<Span<'static>>>,
-    /// The content of the line such as the commit, branch, or file.
     pub content: StatusOutputContent,
-    /// The backing data associated with this line.
-    ///
     /// This tells the TUI what data the actual line is showing. Used for performing operations on
     /// the line.
     pub data: StatusOutputLineData,

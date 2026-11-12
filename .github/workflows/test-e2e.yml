@@ -10,10 +10,23 @@ on:
         type: string
         required: false
         description: Target SHA
+  # publish.yaml runs every suite before a nightly or release build.
+  workflow_call:
+    inputs:
+      before_publish:
+        type: boolean
+        default: false
+    secrets:
+      TEST_RESULTS_TOKEN_BLACKBOX:
+        required: false
+      TEST_RESULTS_TOKEN_PLAYWRIGHT:
+        required: false
 
 jobs:
   changes:
     uses: ./.github/workflows/check-e2e-changes.yml
+    with:
+      force: ${{ inputs.before_publish == true }}
     permissions:
       contents: read
       pull-requests: read
@@ -23,6 +36,7 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.should_run == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: read
@@ -47,11 +61,11 @@ jobs:
         with:
           shared-key: e2e-blackbox-rust-binaries
           save-if: ${{ github.ref == 'refs/heads/master' }}
+      # Master builds everything pull requests build, without testing it, so the cache it
+      # saves holds all of it.
       - name: Setup node environment
         uses: ./.github/actions/init-env-node
-        if: ${{ github.ref != 'refs/heads/master' }}
       - name: Build CLI, SvelteKit, and tauri-driver
-        if: ${{ github.ref != 'refs/heads/master' }}
         run: |
           cargo build -p but &
           cargo_pid=$!
@@ -68,20 +82,16 @@ jobs:
           [ -n "$td_pid" ] && { wait "$td_pid" || status=1; }
           exit "$status"
       - name: Build Tauri
-        if: ${{ github.ref != 'refs/heads/master' }}
         run: pnpm build:test
-      - name: Build CLI (cache warming)
-        if: ${{ github.ref == 'refs/heads/master' }}
-        run: cargo build -p but
 
       # Run it through `xvfb-run` to have a fake display server which allows our
       # application to run headless without any changes to the code
       - name: WebdriverIO
-        if: ${{ github.ref != 'refs/heads/master' }}
+        if: ${{ github.ref != 'refs/heads/master' || inputs.before_publish == true }}
         run: xvfb-run pnpm test:e2e:blackbox
 
       - name: Upload results to tests.but.dev
-        if: ${{ github.ref != 'refs/heads/master' && always() && !cancelled() }}
+        if: ${{ (github.ref != 'refs/heads/master' || inputs.before_publish == true) && always() && !cancelled() }}
         continue-on-error: true
         env:
           BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.TEST_RESULTS_TOKEN_BLACKBOX }}
@@ -105,6 +115,13 @@ jobs:
             -F "tags[language]=typescript" \
             -F "tags[type]=e2e" \
             https://tests.but.dev/v1/uploads
+      # One run failed with "No space left on device" on a runner with 83 GB free on others.
+      - name: Disk usage
+        if: failure()
+        run: |
+          df -h
+          df -i /__w
+          du -sh target ~/.cargo 2>/dev/null || true
       - name: Flatten test results
         if: failure()
         run: |
@@ -132,7 +149,7 @@ jobs:
       packages: read
     container:
       image: ghcr.io/gitbutlerapp/ci-base-image@sha256:c0ab58bb5f1cd99beb36861f460895be77515f4dd252df736c27c117a8e04a92
-    timeout-minutes: 60
+    timeout-minutes: 30
     env:
       DESKTOP_PORT: 3000
       BUTLER_PORT: 6978
@@ -167,7 +184,7 @@ jobs:
           version=$(pnpm --filter @gitbutler/e2e --fail-if-no-match exec node -p 'require("@playwright/test/package.json").version')
           echo "playwright-version=v$version" >> "$GITHUB_OUTPUT"
       - name: Cache playwright binaries
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: playwright-cache
         with:
           path: |
@@ -215,6 +232,7 @@ jobs:
     needs: [changes, playwright_shards]
     if: ${{ always() }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions: {}
     steps:
       - name: Verify Playwright shards

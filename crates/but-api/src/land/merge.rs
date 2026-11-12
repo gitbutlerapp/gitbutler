@@ -4,12 +4,12 @@
 //! Lifted from the `but merge` CLI command. It only needs a repository and two refs, not a
 //! workspace, stacks or a `Context`.
 
-use anyhow::bail;
 use bstr::ByteSlice;
 use but_core::{
     RepositoryExt,
     commit::{SignCommit, TreeKind},
 };
+use but_error::bail_precondition;
 use gix::prelude::ObjectIdExt;
 
 /// Where the target should point after landing a branch, as worked out by
@@ -62,7 +62,7 @@ pub(super) fn merge_or_fast_forward(
         .into_fully_peeled_id()?
         .detach();
     if expected_tip.is_some_and(|tip| tip != feature_oid) {
-        bail!(
+        bail_precondition!(
             "Refusing to land `{branch_name}`: it changed after you confirmed landing it. Look at \
              its commits again first."
         );
@@ -77,7 +77,9 @@ pub(super) fn merge_or_fast_forward(
 
     // No common ancestor: refuse rather than merge two unrelated histories onto the target.
     let Some(merge_base) = super::merge_base_opt(repo, feature_oid, target_oid)? else {
-        bail!("Cannot merge {branch_name}: it shares no history with {target_display}");
+        bail_precondition!(
+            "Cannot merge {branch_name}: it shares no history with {target_display}"
+        );
     };
 
     if merge_base == feature_oid {
@@ -90,7 +92,7 @@ pub(super) fn merge_or_fast_forward(
         });
     }
     if ff_only {
-        bail!(
+        bail_precondition!(
             "Cannot fast-forward {target_display} to {branch_name}: the \
              branch has diverged from the target. Rebase {branch_name} onto the target (`but pull`), \
              or re-run without `--ff-only` to create a merge commit."
@@ -132,7 +134,7 @@ pub(super) fn merge_or_fast_forward(
         } else {
             format!(" Conflicting paths: {}.", paths.join(", "))
         };
-        bail!(
+        bail_precondition!(
             "Cannot merge {branch_name}: merging into {target_display} \
              resulted in conflicts.{detail} Rebase {branch_name} onto the target and resolve, then \
              re-run `but merge {branch_name}`."

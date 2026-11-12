@@ -1,0 +1,51 @@
+.tooltip {
+	display: flex;
+	align-items: center;
+	max-width: var(--but-size-tooltip-max);
+	padding: var(--but-padding-tooltip-block) var(--but-padding-tooltip-inline);
+	gap: var(--but-gap-tooltip);
+	transform-origin: var(--transform-origin);
+	border-radius: var(--but-radius-control);
+	background-color: var(--but-popover);
+	box-shadow: var(--but-shadow-tooltip);
+	color: var(--but-popover-foreground);
+	transition:
+		transform var(--but-transition-popup) var(--but-easing-popup),
+		opacity var(--but-transition-popup) var(--but-easing-popup);
+
+	&[data-starting-style],
+	&[data-ending-style] {
+		transform: scale(0.96);
+		opacity: 0;
+	}
+
+	/* Hovering along a row of buttons hands the tooltip from one to the next with no delay; Base UI
+	   marks that open as instant, and animating each hop would flicker. */
+	&[data-instant] {
+		transition: none;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		&[data-starting-style],
+		&[data-ending-style] {
+			transform: none;
+		}
+	}
+}
+
+/* Long content (branch or commit names) wraps instead of stretching the tooltip
+   past its max width, and breaks mid-word when a single token is wider than the
+   tooltip. */
+.content {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.withKbd {
+	padding-right: var(--but-padding-tooltip-block);
+
+	/* The shortcut keeps its intrinsic width; only the text wraps. */
+	& > :not(.content) {
+		flex-shrink: 0;
+	}
+}

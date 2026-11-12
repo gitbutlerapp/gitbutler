@@ -201,24 +201,28 @@ fn self_hosted_pat_validation_distinguishes_auth_transport_and_success() {
         );
         assert_no_credentials(&storage);
 
-        let (host, server) = mock_gitlab(vec![(200, ALICE)]);
-        let dir = tempfile::tempdir().expect("temporary storage should be created");
-        let storage = but_forge_storage::Controller::from_path(dir.path());
-        let response = store_selfhosted_pat(&host, &Sensitive("good-token".into()), &storage)
-            .await
-            .expect("valid PAT should be stored");
-        server.finish();
-        assert_eq!(
-            response.username, "alice",
-            "authenticated user should be returned"
-        );
-        assert_eq!(
-            list_known_gitlab_accounts(&storage)
-                .expect("stored accounts should be readable")
-                .len(),
-            1,
-            "successful validation should store credentials"
-        );
+        // Users enter either the instance URL or its API URL, with or without a trailing slash.
+        for suffix in ["", "/", "/api/v4", "/api/v4/"] {
+            let (host, server) = mock_gitlab(vec![(200, ALICE)]);
+            let host = format!("{host}{suffix}");
+            let dir = tempfile::tempdir().expect("temporary storage should be created");
+            let storage = but_forge_storage::Controller::from_path(dir.path());
+            let response = store_selfhosted_pat(&host, &Sensitive("good-token".into()), &storage)
+                .await
+                .unwrap_or_else(|err| panic!("valid PAT for '{host}' should be stored: {err:#}"));
+            server.finish();
+            assert_eq!(
+                response.username, "alice",
+                "authenticated user should be returned"
+            );
+            assert_eq!(
+                list_known_gitlab_accounts(&storage)
+                    .expect("stored accounts should be readable")
+                    .len(),
+                1,
+                "successful validation should store credentials"
+            );
+        }
     });
 }
 

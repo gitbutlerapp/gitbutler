@@ -1,5 +1,3 @@
-//! Environment variables used by but.
-
 /// Selects `human` or `json` output when `--json` is not passed.
 ///
 /// Unknown values are ignored. This is publicly documented in the CLI help via [`ALL_ENVS`].

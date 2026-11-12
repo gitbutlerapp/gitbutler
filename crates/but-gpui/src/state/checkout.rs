@@ -1,43 +1,67 @@
 use std::collections::HashSet;
+use std::path::PathBuf;
 
 use gpui::SharedString;
 
-use super::{ProjectId, Section, Selection, Store};
+use super::{NavigatorPlace, NewAt, ProjectId, Section, Selection, Store};
 use crate::backend::{Checkout, CommitId, Lane, Worktree};
 
 impl Store {
     /// The lane `selection` is in, and the place from the top of the branch it's on: a
-    /// branch's, a commit's, a remote commit's of a branch, or a stack's by its bottom branch.
+    /// branch's, a commit's, one on its way's, a remote commit's of a branch, or a stack's by its
+    /// bottom branch.
     pub fn lane_for(&self, selection: &Selection) -> Option<(&Lane, usize)> {
         let workspace = self.workspace(selection.project())?;
         match selection {
             Selection::Branch(_, ref_name) | Selection::Stack(_, ref_name) => {
                 workspace.lane_of(ref_name.as_ref())
             }
-            Selection::Upstream(_, Some(ref_name), _)
-            | Selection::Section(_, Section::Upstream(Some(ref_name))) => {
+            Selection::Upstream(_, ref_name, _)
+            | Selection::Section(_, Section::Upstream(ref_name)) => {
                 workspace.lane_of(Some(ref_name))
             }
             Selection::Commit(_, id) => workspace.lane_holding(*id),
+            // A commit on its way, where it goes.
+            Selection::Pending(.., NewAt::Top(ref_name)) => workspace.lane_of(Some(ref_name)),
+            Selection::Pending(.., NewAt::Above(key) | NewAt::Below(key)) => {
+                workspace.lane_holding(workspace.find_commit_by_key(key)?.id)
+            }
             Selection::Project(_)
-            | Selection::Uncommitted(_)
-            | Selection::Branches(_)
-            | Selection::History(_)
-            | Selection::Worktree(..)
+            | Selection::Checkout(..)
+            | Selection::Uncommitted(_, Checkout::Main)
+            | Selection::Uncommitted(_, Checkout::Linked(_))
             | Selection::Mesh(..)
-            | Selection::Upstream(_, None, _)
-            | Selection::Section(..) => None,
+            | Selection::Section(..)
+            | Selection::Terminal(..) => None,
         }
     }
 
-    /// The checkout of the lane `selection` is in.
+    /// The checkout `selection` is in: whose heading or uncommitted changes it is, the one a
+    /// terminal is open on, or that of the lane it's in.
     pub fn checkout_of(&self, selection: &Selection) -> Option<Checkout> {
-        Some(self.lane_for(selection)?.0.checkout.clone())
+        match selection {
+            Selection::Checkout(_, checkout) | Selection::Uncommitted(_, checkout) => {
+                Some(checkout.clone())
+            }
+            Selection::Terminal(..) => self.terminals.checkout_of(selection).cloned(),
+            _ => Some(self.lane_for(selection)?.0.checkout.clone()),
+        }
     }
 
-    /// Whether `selection` is in a linked worktree's lane.
     pub fn in_linked(&self, selection: &Selection) -> bool {
         (self.checkout_of(selection).as_ref()).is_some_and(Checkout::is_linked)
+    }
+
+    /// Whether `project`'s main checkout has a heading of its own in the navigator: beside a
+    /// linked worktree or one on another machine, to tell them apart, along the top, where a
+    /// card has no project row, and until its project's first read says otherwise. Alone at
+    /// the side, the project's row stands in for it.
+    pub fn main_headed(&self, project: &ProjectId) -> bool {
+        self.prefs.navigator_place == NavigatorPlace::Top
+            || !self.mesh_checkouts(project).is_empty()
+            || (self.workspace(project)).is_none_or(|ws| {
+                (ws.worktrees.iter()).any(|wt| !self.hides_worktree(project, wt.name.as_ref()))
+            })
     }
 
     /// The checkouts rewriting commits `ids` of `project` moves.
@@ -60,12 +84,36 @@ impl Store {
                 .all(|checkout| checkout == Checkout::Main)
     }
 
-    /// The linked worktree `selection` is in.
     pub fn worktree_for(&self, selection: &Selection) -> Option<&Worktree> {
         let checkout = self.checkout_of(selection)?;
         let name = checkout.linked()?;
         let workspace = self.workspace(selection.project())?;
         workspace.worktrees.iter().find(|wt| *wt.name == *name)
+    }
+
+    pub fn checkout_path(&self, project: &ProjectId, checkout: &Checkout) -> Option<PathBuf> {
+        let main = self.path(project)?;
+        match self.workspace(project) {
+            Some(workspace) => workspace.checkout_path(&main, checkout),
+            // Nothing's loaded of a project not watched, so only its main checkout is known.
+            None => (*checkout == Checkout::Main).then_some(main),
+        }
+    }
+
+    /// The folder of the checkout `selection` is in: a linked worktree's, or the main one's.
+    /// `None` for another machine's checkout.
+    pub fn checkout_dir(&self, selection: &Selection) -> Option<PathBuf> {
+        let project = selection.project();
+        match selection {
+            Selection::Checkout(_, checkout) | Selection::Uncommitted(_, checkout) => {
+                self.checkout_path(project, checkout)
+            }
+            Selection::Mesh(..) => None,
+            _ => match self.worktree_for(selection) {
+                Some(worktree) => Some(worktree.path.clone()),
+                None => self.path(project),
+            },
+        }
     }
 
     /// Where an action on `at` happens, for a prompt or a confirmation to say, named as the
@@ -77,7 +125,7 @@ impl Store {
             .project(project)
             .map_or("", |entry| &entry.project.name);
         let elsewhere = match at {
-            Selection::Worktree(_, worktree) => Some(worktree.to_string()),
+            Selection::Uncommitted(_, Checkout::Linked(worktree)) => Some(worktree.to_string()),
             Selection::Mesh(_, id, _) => self.mesh_checkout(project, id).map(|c| c.label()),
             _ => self
                 .worktree_for(at)
@@ -92,8 +140,9 @@ impl Store {
     /// Project `id`'s linked worktrees with nothing going on lately, but those on their way
     /// out.
     pub fn inactive_worktrees(&self, id: &ProjectId) -> Vec<&Worktree> {
+        let after = self.prefs.inactive_after;
         (self.workspace(id).into_iter().flat_map(|ws| &ws.worktrees))
-            .filter(|wt| !self.hides_worktree(id, wt.name.as_ref()) && wt.is_inactive())
+            .filter(|wt| !self.hides_worktree(id, wt.name.as_ref()) && wt.is_inactive(after))
             .collect()
     }
 }

@@ -1032,9 +1032,30 @@ mod project_meta {
         let err = ProjectMeta::try_from_config(&config, &repo()?).unwrap_err();
         assert_eq!(
             err.downcast_ref::<UnresolvedLegacyTargetRefError>()
-                .map(|err| err.reason),
-            Some(UnresolvedLegacyTargetReason::NoTrackingBranch),
-            "missing local counterparts require an explicit choice: {err:#}"
+                .map(|err| (err.reason, err.track_command.as_deref())),
+            Some((UnresolvedLegacyTargetReason::NoTrackingBranch, None)),
+            "missing local counterparts require an explicit choice, and with origin/missing gone \
+            no branch can track it: {err:#}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn legacy_remote_without_local_match_errors_even_without_a_command_to_track_it()
+    -> anyhow::Result<()> {
+        let mut repo = repo()?;
+        {
+            let mut config = repo.config_snapshot_mut();
+            config.set_raw_value("branch.main.merge", "refs/heads/elsewhere")?;
+            // two remotes fetching into origin/trunk leave no single branch name to suggest
+            config.set_raw_value("remote.fork.fetch", "+refs/heads/*:refs/remotes/origin/*")?;
+        }
+        let err = ProjectMeta::try_from_config(&legacy_config()?, &repo).unwrap_err();
+        assert_eq!(
+            err.downcast_ref::<UnresolvedLegacyTargetRefError>()
+                .map(|err| (err.reason, err.track_command.as_deref())),
+            Some((UnresolvedLegacyTargetReason::NoTrackingBranch, None)),
+            "failing to suggest a command still leaves the choice to the user: {err:#}"
         );
         Ok(())
     }
@@ -1120,10 +1141,6 @@ mod project_meta {
             None,
             "local-only targets are supported"
         );
-        assert!(
-            meta.remote_target_ref_or_err(&repo).is_err(),
-            "remote-required operations reject local-only targets"
-        );
         Ok(())
     }
 
@@ -1136,13 +1153,13 @@ mod project_meta {
             None,
             "no target means no upstream"
         );
-        let err = meta.remote_target_ref_or_err(&repo).unwrap_err();
+        let err = meta.target_remote_url(&repo).unwrap_err();
         assert!(
             matches!(
                 err.downcast_ref::<but_error::Code>(),
                 Some(but_error::Code::DefaultTargetNotFound)
             ),
-            "the required accessor preserves the missing-target error code"
+            "forge lookups report the missing-target error code"
         );
         Ok(())
     }
@@ -1176,6 +1193,23 @@ mod project_meta {
             meta.target_remote_url(&repo)?,
             "https://example.com/upstream.git",
             "target fetch URL ignores the publishing override"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn target_without_upstream_uses_push_remote_url() -> anyhow::Result<()> {
+        let repo = repo()?;
+        let mut meta = local_target("refs/heads/other")?;
+        assert!(
+            meta.target_remote_url(&repo).is_err(),
+            "a target without upstream or push remote has no remote to pick"
+        );
+        meta.push_remote = Some("fork".into());
+        assert_eq!(
+            meta.target_remote_url(&repo)?,
+            "https://example.com/fork.git",
+            "the push remote chosen at setup names the forge when the target has no upstream"
         );
         Ok(())
     }

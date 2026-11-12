@@ -8,8 +8,6 @@ use crate::WorktreeChanges;
 #[derive(Debug, Clone)]
 pub struct State {
     /// The result of a previous worktree changes call, but [the one **without** renames](crate::diff::worktree_changes_no_renames()).
-    ///
-    /// It contains detailed information about the complete set of possible changes to become part of the worktree.
     pub changes: WorktreeChanges,
     /// Repository-relative and slash-separated paths that match any change in the  [`changes`](State::changes) field
     /// to define which entry in `changes` is actually stored in the snapshot.
@@ -20,7 +18,6 @@ pub struct State {
     pub head: bool,
 }
 
-/// Contains all state that the snapshot contains.
 #[derive(Debug, Copy, Clone)]
 pub struct Outcome {
     /// The snapshot itself, with all the subtrees available that are also listed in this structure.

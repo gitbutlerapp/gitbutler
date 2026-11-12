@@ -1,5 +1,3 @@
-//! Serde utilities for JSON serialization and deserialization.
-//!
 //! Each helper in this crate is meant to be used from `#[serde(with = "...")]`
 //! or `#[serde(serialize_with = "...")]` on the field whose runtime type should
 //! be exported as a simpler JSON shape.

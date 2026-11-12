@@ -1,5 +1,3 @@
-//! An action to move changes between commits
-
 use anyhow::{Result, bail};
 use but_core::{DiffSpec, RefMetadata, RepositoryExt};
 use but_rebase::{
@@ -9,10 +7,8 @@ use but_rebase::{
 
 use crate::tree_manipulation::{ChangesSource, create_tree_without_diff};
 
-/// The result of a move_changes_between_commits operation.
 #[derive(Debug)]
 pub struct MoveChangesOutcome<'ws, 'meta, M: RefMetadata> {
-    /// The successful rebase result
     pub rebase: SuccessfulRebase<'ws, 'meta, M>,
     /// Selector pointing to the source commit (with changes removed)
     pub source_selector: Selector,
@@ -27,9 +23,6 @@ pub struct MoveChangesOutcome<'ws, 'meta, M: RefMetadata> {
 ///
 /// ## Parameters
 ///
-/// - `editor`: The rebase editor to use
-/// - `source_commit_id`: The commit to remove changes from
-/// - `destination_commit_id`: The commit to add changes to
 /// - `changes_to_move`: The changes to move (as "subtraction" specs)
 /// - `context_lines`: Number of context lines for hunk matching
 ///
@@ -49,7 +42,6 @@ pub fn move_changes_between_commits<'ws, 'meta, M: RefMetadata>(
     let (destination_selector, destination_commit) =
         editor.find_selectable_commit(destination_commit)?;
 
-    // Early return if source and destination are the same
     if source_commit.id == destination_commit.id {
         // Select the commit to get a valid selector, then just rebase (no-op)
         let outcome = editor.rebase()?;

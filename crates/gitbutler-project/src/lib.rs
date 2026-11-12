@@ -13,10 +13,6 @@ use project::ApiProject;
 pub use project::{AddProjectOutcome, FetchResult, Project};
 pub use storage::UpdateRequest;
 
-/// The maximum size of files to automatically start tracking, i.e. untracked files we pick up for tree-creation.
-/// **Inactive for now** while it's hard to tell if it's safe *not* to pick up everything.
-pub const AUTO_TRACK_LIMIT_BYTES: u64 = 0;
-
 pub fn get(id: ProjectHandleOrLegacyProjectId) -> anyhow::Result<Project> {
     let controller = Controller::from_path(but_path::app_data_dir()?);
     controller.get(id)

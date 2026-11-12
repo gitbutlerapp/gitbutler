@@ -1,5 +1,5 @@
-//! The design system's empty-state drawings, shared with Lite and but.dev and drawn as
-//! `@gitbutler/ui-react` draws them: each at the size it was drawn, never scaled, its outline
+//! The design system's empty-state drawings, shared with but.dev and drawn as
+//! `@gitbutler/but-ui-react` draws them: each at the size it was drawn, never scaled, its outline
 //! in `border-1` and its faces in the theme's own grounds.
 
 use std::cell::RefCell;
@@ -11,7 +11,7 @@ use gpui::{App, Hsla, ImageSource, Img, RenderImage, Rgba, SvgRenderer, img, pre
 use super::dp;
 use crate::theme::Theme;
 
-/// Which drawing, picked by what it means, as ui-react's empty states pick them.
+/// Which drawing, picked by what it means, as but-ui-react's empty states pick them.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Illustration {
     /// A list with nothing in it.
@@ -20,7 +20,6 @@ pub enum Illustration {
     Papers,
     /// All good with nothing to do, in a large view only.
     Waving,
-    /// The command line.
     Terminal,
 }
 
@@ -29,22 +28,22 @@ impl Illustration {
     fn source(self) -> (&'static str, f32, f32) {
         match self {
             Illustration::Cactus => (
-                include_str!("../../../../packages/ui-react/src/illustrations/cactus.svg"),
+                include_str!("../../../../packages/but-ui-react/src/illustrations/cactus.svg"),
                 96.,
                 82.,
             ),
             Illustration::Papers => (
-                include_str!("../../../../packages/ui-react/src/illustrations/papers.svg"),
+                include_str!("../../../../packages/but-ui-react/src/illustrations/papers.svg"),
                 98.,
                 86.,
             ),
             Illustration::Waving => (
-                include_str!("../../../../packages/ui-react/src/illustrations/waving.svg"),
+                include_str!("../../../../packages/but-ui-react/src/illustrations/waving.svg"),
                 186.,
                 215.,
             ),
             Illustration::Terminal => (
-                include_str!("../../../../packages/ui-react/src/illustrations/terminal.svg"),
+                include_str!("../../../../packages/but-ui-react/src/illustrations/terminal.svg"),
                 79.,
                 59.,
             ),
@@ -75,9 +74,10 @@ pub fn illustration(which: Illustration, theme: &Theme, cx: &App) -> Img {
         .max_w_full()
 }
 
-/// `which` in `theme`'s colours, for the roles ui-react's drawings are made of: the outline is
-/// `currentColor`, set to `border-1`; enclosed areas the paper, `bg-1`; shaded faces the ground,
-/// `bg-2`; a darker face `border-2`; and what stands for text `text-2`.
+/// `which` in `theme`'s colours, for the roles but-ui-react's drawings are made of: the outline is
+/// `currentColor`, set to `--but-border-hover`; enclosed areas the paper, `--but-background`;
+/// shaded faces the ground, `--but-muted`; a darker face `--but-border`; and what stands for text
+/// `--but-muted-foreground`.
 #[expect(
     clippy::expect_used,
     reason = "the drawings are compiled in, and a test draws each"
@@ -86,10 +86,10 @@ fn draw(renderer: &SvgRenderer, which: Illustration, theme: &Theme) -> Arc<Rende
     let (svg, ..) = which.source();
     let themed = [
         ("currentColor", theme.border_1),
-        ("var(--bg-1)", theme.bg_1),
-        ("var(--bg-2)", theme.bg_2),
-        ("var(--border-2)", theme.border_2),
-        ("var(--text-2)", theme.text_2),
+        ("var(--but-background)", theme.bg_1),
+        ("var(--but-muted)", theme.bg_2),
+        ("var(--but-border)", theme.border_2),
+        ("var(--but-muted-foreground)", theme.text_2),
     ]
     .into_iter()
     .fold(svg.to_owned(), |svg, (role, color)| {
@@ -110,12 +110,27 @@ mod tests {
     use super::{Illustration, draw};
 
     #[test]
-    fn every_drawing_draws_in_both_themes() {
-        use crate::theme::{Appearance, CodeSize, Theme};
+    fn every_drawing_draws_in_every_theme() {
+        use crate::theme::{Appearance, CodeSize, ColorScheme, Theme};
         let renderer = gpui::SvgRenderer::new(std::sync::Arc::new(crate::ui::Assets));
-        for choice in [Appearance::Light, Appearance::Dark] {
+        let rgb = |r, g, b| but_tty::RgbColor { r, g, b };
+        let dark_scheme = but_tty::Colors {
+            background: Some(rgb(0x1e, 0x1e, 0x2e)),
+            foreground: Some(rgb(0xcd, 0xd6, 0xf4)),
+            ..Default::default()
+        };
+        let ghostty = but_tty::Ghostty {
+            light: Default::default(),
+            dark: dark_scheme,
+            ..but_tty::Ghostty::default()
+        };
+        for (choice, scheme) in [
+            (Appearance::Light, ColorScheme::GitButler),
+            (Appearance::Dark, ColorScheme::GitButler),
+            (Appearance::Dark, ColorScheme::Ghostty),
+        ] {
             let system = gpui::WindowAppearance::Light;
-            let theme = Theme::for_appearance(choice, system, CodeSize::Medium);
+            let theme = Theme::new(choice, &scheme, system, CodeSize::Medium, &ghostty);
             for which in [
                 Illustration::Cactus,
                 Illustration::Papers,

@@ -731,7 +731,6 @@ fn render_status_list_item(
         };
     });
 
-    // Style the main content section when the line is queued for discard.
     if line_is_to_be_discarded {
         line.frame
             .buffer_mut()

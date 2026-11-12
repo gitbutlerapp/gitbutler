@@ -1,4 +1,3 @@
-use but_api::WorkspaceState;
 use but_core::{DiffSpec, DryRun, RefMetadata};
 use but_ctx::Context;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
@@ -6,11 +5,11 @@ use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use but_testsupport::Sandbox;
 use but_workspace::{
     branch::create_reference::{Anchor, Position},
-    commit::squash_commits::MessageCombinationStrategy,
+    commit::{UncommitChangesSource, squash_commits::MessageCombinationStrategy},
 };
 use gix::{ObjectId, refs::FullName};
 
-use crate::{DynamicOutcome, with_transaction, with_transaction_with_perm};
+use crate::{Commit, DynamicOutcome, WorkspaceState, with_transaction, with_transaction_with_perm};
 
 #[track_caller]
 fn ref_target(env: &Sandbox, ref_name: &gix::refs::FullNameRef) -> Option<ObjectId> {
@@ -1257,6 +1256,188 @@ fn discard_changes_from_commit() {
 }
 
 #[test]
+fn uncommit_changes_from_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["branch"]);
+
+    let [two] = find_commits(&env, ["9b3b3d5"]);
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let mut meta = ctx.meta().unwrap();
+
+    let (new_two, _workspace) = with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::DiscardChanges),
+        DryRun::No,
+        |mut tx| {
+            Ok(Commit(tx.uncommit_changes_from_commit(
+                two,
+                vec![diff_spec_for_file("file-two")],
+            )?))
+        },
+    )
+    .unwrap();
+
+    let repo = env.open_repo();
+    let new_two_tree = repo.find_commit(new_two.id).unwrap().tree().unwrap();
+    assert!(
+        new_two_tree
+            .lookup_entry_by_path("file-two")
+            .unwrap()
+            .is_none(),
+        "the uncommitted file is gone from the rewritten commit"
+    );
+    assert!(
+        env.projects_root().join("file-two").exists(),
+        "the uncommitted file stays in the worktree"
+    );
+    snapbox::assert_data_eq!(
+        env.invoke_git("status --porcelain"),
+        snapbox::str!["?? file-two"]
+    );
+}
+
+#[test]
+fn uncommit_changes_from_commits_reports_what_it_could_not_uncommit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["branch"]);
+
+    let [three, two] = find_commits(&env, ["1e25c58", "9b3b3d5"]);
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let mut meta = ctx.meta().unwrap();
+
+    let (failures, _workspace) = with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::DiscardChanges),
+        DryRun::No,
+        |mut tx| {
+            Ok(Commit(tx.uncommit_changes_from_commits([
+                UncommitChangesSource {
+                    commit_id: two,
+                    changes: vec![diff_spec_for_file("file-two")],
+                },
+                UncommitChangesSource {
+                    commit_id: three,
+                    changes: vec![diff_spec_for_file("file-missing")],
+                },
+            ])?))
+        },
+    )
+    .unwrap();
+
+    assert_eq!(
+        failures
+            .iter()
+            .map(|failure| failure.commit_id)
+            .collect::<Vec<_>>(),
+        [three],
+        "only the source naming a file its commit doesn't change fails"
+    );
+    snapbox::assert_data_eq!(
+        env.invoke_git("status --porcelain"),
+        snapbox::str!["?? file-two"]
+    );
+}
+
+#[test]
+fn leaving_the_workspace_removes_its_metadata() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let mut meta = ctx.meta().unwrap();
+
+    let a = FullName::try_from("refs/heads/A").unwrap();
+    let [a_tip] = find_commits(&env, ["A"]);
+
+    with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::SquashCommit),
+        DryRun::No,
+        |mut tx| {
+            tx.remove_reference(a.as_ref())?;
+            tx.discard_commits([a_tip])?;
+            Ok(())
+        },
+    )
+    .unwrap();
+    drop(meta);
+
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "B",
+        "the workspace was left for the remaining stack"
+    );
+    let workspace_ref = FullName::try_from(but_core::WORKSPACE_REF_NAME).unwrap();
+    let workspace = ctx
+        .meta()
+        .unwrap()
+        .workspace(workspace_ref.as_ref())
+        .unwrap();
+    assert!(
+        workspace.stacks.is_empty(),
+        "workspace metadata goes with the reference"
+    );
+    assert!(
+        ctx.project_meta().unwrap().target_ref.is_some(),
+        "the target isn't workspace metadata"
+    );
+}
+
+#[test]
+fn removing_the_last_two_stacks_together_leaves_the_workspace() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let mut meta = ctx.meta().unwrap();
+
+    let a = FullName::try_from("refs/heads/A").unwrap();
+    let b = FullName::try_from("refs/heads/B").unwrap();
+    let [a_tip, b_tip] = find_commits(&env, ["A", "B"]);
+
+    with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::SquashCommit),
+        DryRun::No,
+        |mut tx| {
+            tx.remove_reference(a.as_ref())?;
+            tx.remove_reference(b.as_ref())?;
+            tx.discard_commits([a_tip, b_tip])?;
+            Ok(())
+        },
+    )
+    .unwrap();
+
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "main",
+        "nothing is left to keep a workspace for"
+    );
+    assert!(
+        ref_target(&env, "refs/heads/gitbutler/workspace".try_into().unwrap()).is_none(),
+        "the workspace reference goes with the workspace"
+    );
+}
+
+#[test]
 fn remove_references() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["branch"]);
@@ -1305,8 +1486,7 @@ fn remove_references() {
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 8413d71 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 6674d4f (origin/main, origin/HEAD, main, gitbutler/target) add random-file
+* 6674d4f (HEAD -> main, origin/main, origin/HEAD, gitbutler/target) add random-file
 
 "#]]
     );

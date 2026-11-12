@@ -5,7 +5,7 @@
 
 use gpui::{
     AnyElement, App, BoxShadow, CursorStyle, Decorations, Div, MouseButton, Pixels, ResizeEdge,
-    Stateful, Tiling, Window, div, hsla, prelude::*,
+    Stateful, Tiling, Window, div, prelude::*,
 };
 
 use super::fixed;
@@ -29,7 +29,7 @@ pub fn window_frame(content: Stateful<Div>, window: &mut Window, cx: &App) -> An
         .border_color(Theme::get(cx).border_2)
         .when(!tiling.is_tiled(), |el| {
             el.shadow(vec![
-                BoxShadow::new(fixed(0.), fixed(0.), hsla(0., 0., 0., 0.4))
+                BoxShadow::new(fixed(0.), fixed(0.), Theme::get(cx).shadow)
                     .blur_radius(SHADOW / 2.),
             ])
         });
@@ -65,7 +65,6 @@ pub fn inside_frame(el: Div, window: &Window) -> Div {
         .when(!tiling.right, |el| el.pr(SHADOW))
 }
 
-/// Whether `edge` is on a side that's against the screen's edge.
 fn against_screen(edge: ResizeEdge, tiling: Tiling) -> bool {
     match edge {
         ResizeEdge::Top => tiling.top,

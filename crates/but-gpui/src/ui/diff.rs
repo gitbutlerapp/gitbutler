@@ -12,16 +12,27 @@ use gpui::{
 use super::conflict::{self, Part};
 use super::file_icons::file_icon;
 use super::fold::{self, MOVING_ROWS};
-use super::{Icon, blink_once, dp, faint, fixed, h_flex, plural, small_icon, v_flex};
+use super::{Icon, blink_once, dp, faint, fixed, h_flex, plural, small_icon, text_index, v_flex};
 use crate::backend::{
     ChangeKind, Conflict, DiffBody, DiffLine, FileDiff, Hunk, LineKind, Picture, scope_name,
 };
-use crate::theme::Theme;
+use crate::theme::{Highlight, Theme};
 
-pub const FILE_HEADER_HEIGHT: f32 = 38.;
+/// How tall a file's header is: a bar, as a popup's search row is, inside its card's edge, which
+/// follows the density; or as tall as the file list's heading beside it where it titles the
+/// pane, so the two read as one row.
+pub fn file_header_height(titled: bool, theme: &Theme) -> f32 {
+    match titled {
+        true => 44.,
+        false => theme.sizes.bar + 2.,
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DiffRow {
+    /// The messages, a commit's or a branch's commits', above the files, where they list in
+    /// place of the page's header.
+    Message,
     File(usize),
     Hunk {
         file: usize,
@@ -117,7 +128,7 @@ impl DiffRow {
             | DiffRow::Pair { file, .. }
             | DiffRow::Context { file, .. }
             | DiffRow::Conflict { file, .. } => Some(file),
-            DiffRow::Gap => None,
+            DiffRow::Message | DiffRow::Gap => None,
         }
     }
 }
@@ -388,17 +399,28 @@ pub fn widest_up_to(bound: (u32, u32)) -> [(u32, u32); 2] {
     [bound, (whole(bound.0), whole(bound.1))]
 }
 
-pub fn stats(added: u32, removed: u32, theme: &Theme) -> gpui::Div {
-    column_stats(added, removed, (0, 0), theme)
+/// A file's or a change's lines added and removed, `solid` when on a solid selection.
+pub fn stats(added: u32, removed: u32, solid: bool, theme: &Theme) -> gpui::Div {
+    column_stats(added, removed, (0, 0), solid, theme)
 }
 
 /// [`stats`], each count right-aligned in `columns` characters of the monospace font, so the
 /// rows of a list given the same `columns` line their additions up under each other's, and
 /// their removals.
-pub fn column_stats(added: u32, removed: u32, columns: (usize, usize), theme: &Theme) -> gpui::Div {
+pub fn column_stats(
+    added: u32,
+    removed: u32,
+    columns: (usize, usize),
+    solid: bool,
+    theme: &Theme,
+) -> gpui::Div {
     // One run of text, coloured in parts: a list draws this on every row.
     let (text, [added, removed]) = stats_text(added, removed, columns);
-    let colors = [(added, theme.safe), (removed, theme.danger)]
+    let [safe, danger] = match solid {
+        true => [theme.safe_on_solid, theme.danger_on_solid],
+        false => [theme.safe, theme.danger],
+    };
+    let colors = [(added, safe), (removed, danger)]
         .into_iter()
         .filter(|(range, _)| !range.is_empty())
         .map(|(range, color)| (range, HighlightStyle::from(color)));
@@ -446,12 +468,20 @@ pub struct HeaderDecor {
     /// The diff has the keys, so they act on the current one: it's marked solid, and faint
     /// while they're elsewhere, as a list's selection is.
     pub solid: bool,
-    /// The file shows only its header.
     pub folded: bool,
     /// The file is folding, its lines going up into its header.
     pub closing: bool,
     /// The current one was just copied, by which blink it is: see [`super::blink_once`].
     pub blink: Option<usize>,
+    /// Its file fills the pane alone, without a card around it.
+    pub flat: bool,
+    /// Leaves out the lines the file changed, with the diff's controls hidden.
+    pub uncounted: bool,
+    /// Its file fills the pane alone with the diff's controls hidden, and its header titles the pane as the file
+    /// list's heading does beside it: as tall, its name as large, on the pane's ground.
+    pub titled: bool,
+    /// Its file has edits not saved yet: a dot after its name, as an editor's tab has.
+    pub unsaved: bool,
 }
 
 /// What the diff's owner adds to a line.
@@ -463,12 +493,13 @@ pub struct LineDecor {
     pub toggle: Option<OnToggle>,
     /// Lets the pointer select the line's text.
     pub select: Option<LineSelect>,
-    /// The part of the line's text that's selected.
     pub selected: Option<Range<usize>>,
     /// What Find matched in the line's text, each with whether it's the current match.
     pub found: Vec<(Range<usize>, bool)>,
     /// What a changed line's numbers offer outside the composer.
     pub gutter: Option<Gutter>,
+    /// The field the line is being typed in, in place of its text.
+    pub editor: Option<AnyElement>,
 }
 
 /// What a changed line's numbers offer outside the composer: picking the line, and a grip
@@ -493,7 +524,6 @@ const LINE_GROUP: &str = "diff-line";
 /// How the rows of a file lay out, the same for each of them.
 #[derive(Default)]
 pub struct Layout {
-    /// A long line wraps onto more rows instead of running off the edge.
     pub wrap: bool,
     /// Changed lines on the card's ground, without their green and red.
     pub plain: bool,
@@ -504,6 +534,8 @@ pub struct Layout {
     /// How the lines' text scrolls sideways when it doesn't wrap, on the old side and the
     /// new; a unified row takes the new side's.
     pub sideways: [Sideways; 2],
+    /// The file fills the pane alone, without a card around it: one card holds nothing apart.
+    pub flat: bool,
 }
 
 /// How a line's text scrolls sideways when it doesn't wrap: through `scroll`, with the rest of
@@ -535,18 +567,24 @@ fn row_id((file, hunk, line): (usize, usize, usize)) -> usize {
     (file << 40) | (hunk << 20) | line
 }
 
-/// The sides and ground of a file's card, of which each of its rows draws a slice.
-pub(super) fn card(el: gpui::Div, theme: &Theme) -> gpui::Div {
+/// The sides and ground of a file's card, of which each of its rows draws a slice. A `flat`
+/// file has the ground alone.
+pub(super) fn card(el: gpui::Div, flat: bool, theme: &Theme) -> gpui::Div {
     el.w_full()
-        .border_l_1()
-        .border_r_1()
+        .when(!flat, |el| el.border_l_1().border_r_1())
         .border_color(theme.border_2)
         .bg(theme.bg_1)
 }
 
-/// Five squares split between green and red as a file's changed lines are, as ui-react's
+/// What blinks over a diff's rows and headers as they're copied: a light wash of pop, at most a
+/// fifth of it, which shows on green and red lines without drowning them out.
+pub fn copy_wash(theme: &Theme) -> gpui::Hsla {
+    theme.highlight(Highlight::Copy)
+}
+
+/// Five squares split between green and red as a file's changed lines are, as but-ui-react's
 /// ChangeScale does: a side that changed anything keeps a square.
-fn change_scale(added: u32, removed: u32, theme: &Theme) -> Option<gpui::Div> {
+pub fn change_scale(added: u32, removed: u32, theme: &Theme) -> Option<gpui::Div> {
     let total = added + removed;
     if total == 0 {
         return None;
@@ -565,7 +603,7 @@ fn change_scale(added: u32, removed: u32, theme: &Theme) -> Option<gpui::Div> {
     )
 }
 
-/// The header at the top of the card of file `ix`, as Lite and but.dev draw it: the fold
+/// The header at the top of the card of file `ix`, as but.dev draws it: the fold
 /// chevron, the file's mark, name and folder, and the lines it changed.
 pub fn file_header(
     ix: usize,
@@ -579,36 +617,44 @@ pub fn file_header(
     // Under the cursor, as a list's selected row: solid with its text inverted while the diff
     // has the keys, faint while they're elsewhere.
     let on = decor.current && decor.solid;
-    let soft = |color| if on { theme.muted_on_solid() } else { color };
-    card(h_flex(), theme)
+    let soft = |color| if on { theme.muted_on_solid } else { color };
+    let titled = decor.titled;
+    card(h_flex(), decor.flat, theme)
         .id(("diff-file", ix))
         .role(Role::Heading)
         .aria_label(SharedString::from(file.file.path.clone()))
-        .h(dp(FILE_HEADER_HEIGHT))
-        .pl(dp(10.))
+        .h(dp(file_header_height(titled, theme)))
+        .pl(dp(if titled { 16. } else { 10. }))
         .pr(dp(8.))
         .gap(dp(8.))
-        .border_t_1()
+        .when(!titled, |el| el.border_t_1())
         .border_b_1()
-        .rounded_t(dp(6.))
-        .when(decor.folded, |el| el.rounded_b(dp(6.)))
+        .when(titled, |el| el.border_color(theme.border_3))
+        .when(!decor.flat, |el| {
+            el.rounded_t(dp(theme.shape.card))
+                .when(decor.folded, |el| el.rounded_b(dp(theme.shape.card)))
+        })
         // On the card's ground, as the header's own is solid rather than over the card.
-        .when(decor.current, |el| {
+        // A title is marked only while the keys act on it.
+        .when(decor.current && (decor.solid || !titled), |el| {
             el.bg(match decor.solid {
                 true => theme.fill_gray,
-                false => theme.bg_1.blend(theme.selected_unfocused()),
+                false => theme.selected_on_card(),
             })
         })
         .when_some(decor.blink, |el, n| {
-            let shape = (div().absolute().inset_0().rounded_t(dp(6.)))
-                .when(decor.folded, |el| el.rounded_b(dp(6.)));
-            el.relative().child(blink_once(("blink", n), shape, theme))
+            let shape = (div().absolute().inset_0().rounded_t(dp(theme.shape.card)))
+                .when(decor.folded, |el| el.rounded_b(dp(theme.shape.card)));
+            el.relative()
+                .child(blink_once(("blink", n), shape, copy_wash(theme)))
         })
-        .child(fold::chevron(
-            "fold",
-            !(decor.folded || decor.closing),
-            soft(theme.text_2),
-        ))
+        .when(!titled, |el| {
+            el.child(fold::chevron(
+                "fold",
+                !(decor.folded || decor.closing),
+                soft(theme.text_2),
+            ))
+        })
         .child(
             h_flex()
                 .flex_1()
@@ -619,6 +665,10 @@ pub fn file_header(
                 .child(
                     div()
                         .flex_none()
+                        .when(titled, |el| {
+                            el.text_size(dp(14.))
+                                .font_weight(gpui::FontWeight::SEMIBOLD)
+                        })
                         .text_color(if on {
                             theme.text_inverted
                         } else {
@@ -626,6 +676,9 @@ pub fn file_header(
                         })
                         .child(name.to_owned()),
                 )
+                .when(decor.unsaved, |el| {
+                    el.child(unsaved_dot(soft(theme.text_2)))
+                })
                 // Cut in the middle, as the folder's end tells two files of one name apart.
                 .child(
                     div()
@@ -648,8 +701,10 @@ pub fn file_header(
                 })),
         )
         .when(file.file.conflicted, |el| el.child(conflicted_badge(theme)))
-        .child(stats(added, removed, theme))
-        .children(change_scale(added, removed, theme))
+        .when(!decor.uncounted, |el| {
+            el.child(stats(added, removed, on, theme))
+                .children(change_scale(added, removed, theme))
+        })
         // Parts what the file changed from what can be done to it.
         .when(decor.trailing.is_some(), |el| {
             el.child(
@@ -659,7 +714,7 @@ pub fn file_header(
                     .h(dp(20.))
                     .mx(dp(2.))
                     .bg(match on {
-                        true => theme.text_inverted.opacity(0.25),
+                        true => theme.inverse_soft,
                         false => theme.border_3,
                     }),
             )
@@ -728,13 +783,14 @@ pub fn hunk_header(
     // Under the cursor, as a list's selected row: solid with its text inverted while the diff
     // has the keys, faint while they're elsewhere.
     let on = decor.current && decor.solid;
-    let soft = |color| if on { theme.muted_on_solid() } else { color };
+    let soft = |color| if on { theme.muted_on_solid } else { color };
     let title = match (unmodified, scopes(named, on, theme)) {
         // Nothing hidden and no scope to name: the `@@` header says where the hunk is,
         // unless the lines around it name its scopes.
         (0, None) if hunk.scope.is_empty() => Some(
             div()
-                .font_family(theme.mono_font.clone())
+                .font_family(theme.diff_font.clone())
+                .font_features(theme.diff_features.clone())
                 .child(hunk.header.clone())
                 .into_any_element(),
         ),
@@ -755,31 +811,32 @@ pub fn hunk_header(
                 .into_any_element(),
         ),
     };
-    card(h_flex(), theme)
+    card(h_flex(), decor.flat, theme)
         .px(dp(8.))
         .py(dp(6.))
         .child(
             h_flex()
                 .flex_1()
                 .min_w_0()
-                .h(dp(28.))
-                .pl(dp(10.))
+                .h(dp(theme.sizes.control))
+                .pl(dp(10. + theme.sizes.padding))
                 .pr(dp(3.))
                 .gap(dp(8.))
-                .rounded(dp(6.))
+                .rounded(dp(theme.shape.card))
                 // The rest fainter than one under the cursor while the keys are elsewhere.
                 .bg(match (decor.current, decor.solid) {
                     (true, true) => theme.fill_gray,
-                    (true, false) => theme.selected_unfocused(),
-                    (false, _) => theme.fill_gray.opacity(0.05),
+                    (true, false) => theme.selected_unfocused,
+                    (false, _) => theme.hover,
                 })
                 .text_size(dp(12.))
                 .text_color(soft(theme.diff_muted))
                 .overflow_hidden()
                 .whitespace_nowrap()
                 .when_some(decor.blink, |el, n| {
-                    let shape = div().absolute().inset_0().rounded(dp(6.));
-                    el.relative().child(blink_once(("blink", n), shape, theme))
+                    let shape = div().absolute().inset_0().rounded(dp(theme.shape.card));
+                    el.relative()
+                        .child(blink_once(("blink", n), shape, copy_wash(theme)))
                 })
                 // The owner shows the hidden lines on a click.
                 .when(unmodified > 0, |el| {
@@ -806,30 +863,35 @@ pub fn hunk_header(
         .into_any_element()
 }
 
-/// What a conflicted file says before its actions, as ui-react's warn `Badge`.
+/// What a conflicted file says before its actions, as but-ui-react's warn `Badge`.
 fn conflicted_badge(theme: &Theme) -> gpui::Div {
     div()
         .flex_none()
         .px(dp(6.))
         .py(fixed(1.))
         .rounded(dp(9.))
-        .bg(theme.warn.opacity(0.12))
+        .bg(theme.warn_soft)
         .text_color(theme.warn)
         .text_size(dp(11.))
         .child("Conflicted")
 }
 
 /// An image's two sides, or an SVG's drawn, in the file's card.
-pub fn drawing(before: Option<Picture>, after: Option<Picture>, theme: &Theme) -> AnyElement {
-    card(image_row(before, after, theme), theme).into_any_element()
+pub fn drawing(
+    before: Option<Picture>,
+    after: Option<Picture>,
+    flat: bool,
+    theme: &Theme,
+) -> AnyElement {
+    card(image_row(before, after, theme), flat, theme).into_any_element()
 }
 
 /// In place of the lines of a file without any to show: an image's two sides, or why
 /// there's nothing.
-pub fn note(file: &FileDiff, theme: &Theme) -> AnyElement {
+pub fn note(file: &FileDiff, flat: bool, theme: &Theme) -> AnyElement {
     let text = match &file.body {
         DiffBody::Image { before, after } => {
-            return drawing(before.clone(), after.clone(), theme);
+            return drawing(before.clone(), after.clone(), flat, theme);
         }
         // How big, where it's known, as a server's limit on what it takes goes by it.
         DiffBody::Binary => match file.file.size {
@@ -853,13 +915,12 @@ pub fn note(file: &FileDiff, theme: &Theme) -> AnyElement {
         },
     };
     // Wrapped, as the reason a file can't be resolved here can run long.
-    card(h_flex(), theme)
+    card(h_flex(), flat, theme)
         .min_h(dp(36.))
         .px(dp(12.))
         .py(dp(9.))
         .gap(dp(6.))
-        .border_b_1()
-        .rounded_b(dp(6.))
+        .when(!flat, |el| el.border_b_1().rounded_b(dp(theme.shape.card)))
         .text_size(dp(12.))
         .text_color(theme.text_2)
         .child(small_icon(Icon::File).flex_none().text_color(theme.text_3))
@@ -902,20 +963,22 @@ pub(super) fn look(kind: LineKind, plain: bool, theme: &Theme) -> Look {
     }
 }
 
-/// The width of a digit of code: Geist Mono's are 0.6em wide.
 pub fn digit_width(theme: &Theme) -> f32 {
-    theme.code_text * 0.6
+    theme.code_text * theme.diff_digit
 }
 
 /// A line's number, in a column that fits `digits`, at least three, as on but.dev: with two
 /// digits' room on the left, where the bar goes, and one on the right. With `toggle`, a click
-/// on it puts the line in the next commit or takes it out.
+/// on it puts the line in the next commit or takes it out. In the `last` row of a card, its
+/// ground and bar round to the curve inside the card's border, as GPUI clips to the card's
+/// bounds, not its rounded corners.
 pub(super) fn number_cell(
     n: Option<u32>,
     digits: usize,
     look: &Look,
     toggle: Option<OnToggle>,
     gutter: Option<Gutter>,
+    last: bool,
     theme: &Theme,
 ) -> gpui::Div {
     let digit = digit_width(theme);
@@ -933,8 +996,9 @@ pub(super) fn number_cell(
         .items_start()
         .justify_end()
         .text_color(if picked { theme.pop } else { look.number })
+        .when(last, |el| el.rounded_bl(dp(theme.shape.card - 1.)))
         .when(picked, |el| {
-            el.bg(theme.pop.opacity(0.16))
+            el.bg(theme.highlight(Highlight::Picked))
                 .font_weight(gpui::FontWeight::SEMIBOLD)
         })
         .when_some(gutter, |el, Gutter { pick, grip, .. }| {
@@ -966,14 +1030,20 @@ pub(super) fn number_cell(
                 )
         })
         .when_some(bar, |el, bar| {
+            // GPUI rounds a corner by at most half the bar's width, short of the card's
+            // curve, so the last row's bar is cut from a wider shape that rounds in full.
+            let shape = div().absolute().left_0().top_0().bottom_0();
             el.child(
-                div()
-                    .absolute()
-                    .left_0()
-                    .top_0()
-                    .bottom_0()
+                (div().absolute().left_0().top_0().bottom_0())
                     .w(dp(4.))
-                    .bg(bar),
+                    .overflow_hidden()
+                    .child(match last {
+                        true => shape
+                            .w(dp(10.))
+                            .rounded_bl(dp(theme.shape.card - 1.))
+                            .bg(bar),
+                        false => shape.right_0().bg(bar),
+                    }),
             )
         })
         .when_some(toggle, |el, toggle| {
@@ -1014,17 +1084,32 @@ pub(super) fn line_text(
     };
     line.emph.iter().for_each(|range| paint(range, emph_bg));
     for (range, current) in &found {
-        paint(range, theme.warn.opacity(if *current { 0.6 } else { 0.28 }));
+        paint(
+            range,
+            theme.highlight(match current {
+                true => Highlight::FoundHere,
+                false => Highlight::Found,
+            }),
+        );
     }
     if let Some(range) = &selected {
-        paint(range, theme.blue.opacity(0.3));
+        paint(range, theme.highlight(Highlight::Words));
     }
     let mut runs = Vec::new();
     let mut start = 0;
+    let here = theme.highlight(Highlight::FoundHere);
     for run in grounds.chunk_by(|a, b| a == b) {
         let end = start + run.len();
         if let Some(Some(color)) = run.first() {
-            runs.push((start..end, ground(*color)));
+            // The match the keys are on is solid, its words in the ink that reads there.
+            let style = match *color == here {
+                true => HighlightStyle {
+                    color: Some(theme.on_warn),
+                    ..ground(*color)
+                },
+                false => ground(*color),
+            };
+            runs.push((start..end, style));
         }
         start = end;
     }
@@ -1067,10 +1152,11 @@ pub(super) fn text_cell(
 pub(super) fn line_card(
     id: ElementId,
     last: bool,
-    wrap: bool,
+    layout: &Layout,
     theme: &Theme,
 ) -> gpui::Stateful<gpui::Div> {
-    card(h_flex(), theme)
+    let wrap = layout.wrap;
+    card(h_flex(), layout.flat, theme)
         .id(id)
         .map(|el| {
             if wrap {
@@ -1080,28 +1166,50 @@ pub(super) fn line_card(
             }
         })
         .line_height(dp(theme.code_line))
-        .font_family(theme.mono_font.clone())
+        .font_family(theme.diff_font.clone())
+        .font_features(theme.diff_features.clone())
         .text_size(dp(theme.code_text))
-        .when(last, |el| el.border_b_1().rounded_b(dp(6.)))
+        .when(last, |el| el.border_b_1().rounded_b(dp(theme.shape.card)))
         .overflow_hidden()
+}
+
+/// The dot after the name of a file with edits not saved yet, as an editor's tab has.
+pub fn unsaved_dot(color: Hsla) -> gpui::Div {
+    div().flex_none().size(dp(7.)).rounded_full().bg(color)
 }
 
 /// A few lines of a diff quoted where they're talked about, as a pull request's thread quotes
 /// them: numbered and tinted as the diff draws them, long ones wrapping.
 pub fn excerpt(lines: &[DiffLine], theme: &Theme) -> gpui::Div {
+    excerpt_flat(lines, theme)
+        .rounded(dp(theme.shape.card))
+        .border_1()
+        .border_color(theme.border_3)
+        .overflow_hidden()
+}
+
+/// An [`excerpt`] with no edge of its own, for inside a card.
+pub fn excerpt_flat(lines: &[DiffLine], theme: &Theme) -> gpui::Div {
+    excerpt_found(lines, |_| Vec::new(), theme)
+}
+
+/// As [`excerpt_flat`], with what a search found on each line marked, each match with whether
+/// it's the current one.
+pub fn excerpt_found(
+    lines: &[DiffLine],
+    found: impl Fn(usize) -> Vec<(Range<usize>, bool)>,
+    theme: &Theme,
+) -> gpui::Div {
     let widest = (lines.iter())
         .filter_map(|line| line.new.or(line.old))
         .max();
     let digits = widest.map_or(1, |n| n.to_string().len());
     v_flex()
-        .rounded(dp(6.))
-        .border_1()
-        .border_color(theme.border_3)
-        .overflow_hidden()
-        .font_family(theme.mono_font.clone())
+        .font_family(theme.diff_font.clone())
+        .font_features(theme.diff_features.clone())
         .text_size(dp(theme.code_text))
         .line_height(dp(theme.code_line))
-        .children(lines.iter().map(|line| {
+        .children(lines.iter().enumerate().map(|(ix, line)| {
             let look = look(line.kind, false, theme);
             let number = match line.kind {
                 LineKind::Removed => line.old,
@@ -1111,14 +1219,22 @@ pub fn excerpt(lines: &[DiffLine], theme: &Theme) -> gpui::Div {
                 .items_stretch()
                 .min_h(dp(theme.code_line))
                 .when_some(look.bg, |el, bg| el.bg(bg))
-                .child(number_cell(number, digits, &look, None, None, theme))
+                .child(number_cell(
+                    number,
+                    digits,
+                    &look,
+                    None,
+                    None,
+                    ix + 1 == lines.len(),
+                    theme,
+                ))
                 .child(
                     div()
                         .flex_1()
                         .min_w_0()
                         .px(dp(8.))
                         .text_color(theme.text_1)
-                        .child(line_text(line, look.emph, Vec::new(), None, theme)),
+                        .child(line_text(line, look.emph, found(ix), None, theme)),
                 )
         }))
 }
@@ -1141,6 +1257,7 @@ pub fn line_row(
         selected,
         found,
         gutter,
+        editor,
     } = decor;
     let outline = gutter.as_ref().and_then(|gutter| gutter.outline);
     let id = row_id(place);
@@ -1150,30 +1267,10 @@ pub fn line_row(
         LineKind::Added | LineKind::Context => line.new,
     };
     let text = line_text(line, look.emph, found, selected, theme);
-    // Where in the text the pointer is, once the text has been laid out: the edge of
-    // the character under it nearer the pointer, as text selection goes everywhere.
-    let text_layout = text.layout().clone();
-    let chars = line.text.clone();
-    let at = move |position: Point<Pixels>| {
-        let ix = text_layout
-            .index_for_position(position)
-            .unwrap_or_else(|ix| ix);
-        let next = (chars.get(ix..))
-            .and_then(|rest| rest.chars().next())
-            .map(|c| ix + c.len_utf8());
-        let edges = next.and_then(|next| {
-            Some((
-                text_layout.position_for_index(ix)?,
-                text_layout.position_for_index(next)?,
-                next,
-            ))
-        });
-        match edges {
-            Some((start, end, next)) if position.x > (start.x + end.x) / 2. => next,
-            _ => ix,
-        }
-    };
-    line_card(("diff-line", id).into(), last, layout.wrap, theme)
+    // Where in the text the pointer is, once the text has been laid out.
+    let (text_layout, chars) = (text.layout().clone(), line.text.clone());
+    let at = move |position: Point<Pixels>| text_index(&text_layout, &chars, position);
+    line_card(("diff-line", id).into(), last, layout, theme)
         .role(Role::Label)
         .aria_label(SharedString::from(line.text.clone()))
         .aria_description(match line.kind {
@@ -1189,15 +1286,37 @@ pub fn line_row(
             &look,
             toggle,
             gutter,
+            last,
             theme,
         ))
-        .child(text_cell(
-            ("line-text", id).into(),
-            text,
-            layout.wrap,
-            &layout.sideways[1],
-            theme,
-        ))
+        .map(|el| match editor {
+            // Lined up with the text it stands in for, scrolling sideways with the other lines
+            // as theirs does: the field doesn't slide on its own.
+            Some(editor) => {
+                let cell = div().flex_1().min_w_0().pl(dp(8.)).text_color(theme.text_1);
+                let sideways = &layout.sideways[1];
+                // The line's text laid out unseen under the field, which draws it alike, so a
+                // press finds its place in it as on any other line.
+                let unseen = div().absolute().top_0().left_0().opacity(0.).child(text);
+                let field = div().relative().child(editor).child(unseen);
+                el.child(match layout.wrap {
+                    true => cell.child(field).into_any_element(),
+                    false => (cell.id(("line-text", id)))
+                        .overflow_x_scroll()
+                        .restrict_scroll_to_axis()
+                        .track_scroll(&sideways.scroll)
+                        .child(field.min_w(dp((sideways.columns + 1) as f32 * digit_width(theme))))
+                        .into_any_element(),
+                })
+            }
+            None => el.child(text_cell(
+                ("line-text", id).into(),
+                text,
+                layout.wrap,
+                &layout.sideways[1],
+                theme,
+            )),
+        })
         .when_some(outline, |el, edges| {
             el.relative().child(outline_box(edges, theme))
         })
@@ -1276,7 +1395,8 @@ pub fn pair_row(
     let side = |line: Option<(&DiffLine, Option<u32>)>,
                 half: LineDecor,
                 sideways: &Sideways,
-                name: &'static str| {
+                name: &'static str,
+                corner: bool| {
         let Some((line, number)) = line else {
             // Nothing on this side: a hatched gap the other side's lines line up against.
             // It stretches rather than taking `h_full`: a wrapped row sets only a minimum
@@ -1303,6 +1423,7 @@ pub fn pair_row(
                 &look,
                 half.toggle,
                 half.gutter,
+                corner,
                 theme,
             ))
             .child(text_cell((name, id).into(), text, wrap, sideways, theme))
@@ -1313,11 +1434,11 @@ pub fn pair_row(
     // GPUI clips to the card's bounds, not its rounded corners, so the sides of its last row
     // round their ground to the curve inside its border.
     let (left, right) = (
-        side(left, left_half, old_side, "pair-left-text"),
-        side(right, right_half, new_side, "pair-right-text"),
+        side(left, left_half, old_side, "pair-left-text", last),
+        side(right, right_half, new_side, "pair-right-text", false),
     );
-    line_card(("diff-pair", id).into(), last, wrap, theme)
-        .child(left.when(last, |el| el.rounded_bl(dp(5.))))
+    line_card(("diff-pair", id).into(), last, layout, theme)
+        .child(left.when(last, |el| el.rounded_bl(dp(theme.shape.card - 1.))))
         .child(
             div()
                 .flex_none()
@@ -1325,7 +1446,7 @@ pub fn pair_row(
                 .self_stretch()
                 .bg(theme.border_3),
         )
-        .child(right.when(last, |el| el.rounded_br(dp(5.))))
+        .child(right.when(last, |el| el.rounded_br(dp(theme.shape.card - 1.))))
         .into_any_element()
 }
 
@@ -1352,14 +1473,15 @@ fn scopes(scope: &[String], on: bool, theme: &Theme) -> Option<AnyElement> {
         .min_w_0()
         .gap(dp(6.))
         .overflow_hidden()
-        .font_family(theme.mono_font.clone())
+        .font_family(theme.diff_font.clone())
+        .font_features(theme.diff_features.clone())
         .children(outer.iter().map(|scope| {
             h_flex()
                 .flex_shrink(1.)
                 .min_w_0()
                 .gap(dp(6.))
                 .text_color(if on {
-                    theme.muted_on_solid()
+                    theme.muted_on_solid
                 } else {
                     theme.text_3
                 })
@@ -1415,7 +1537,7 @@ fn image_row(before: Option<Picture>, after: Option<Picture>, theme: &Theme) -> 
                             .w_full()
                             .max_w(dp(width + AROUND))
                             .p(dp(6.))
-                            .rounded(dp(4.))
+                            .rounded(dp(theme.shape.control))
                             .border_1()
                             .border_color(tint)
                             .child(
@@ -1441,14 +1563,9 @@ fn image_row(before: Option<Picture>, after: Option<Picture>, theme: &Theme) -> 
         .gap(dp(16.))
         .p(dp(12.))
         .border_b_1()
-        .rounded_b(dp(6.))
-        .child(side(
-            "Before",
-            "New file",
-            before,
-            theme.danger.opacity(0.5),
-        ))
-        .child(side("After", "Deleted", after, theme.safe.opacity(0.6)))
+        .rounded_b(dp(theme.shape.card))
+        .child(side("Before", "New file", before, theme.diff_removed))
+        .child(side("After", "Deleted", after, theme.diff_added))
 }
 
 #[cfg(test)]

@@ -5,7 +5,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use gpui::{AnyElement, App, Context, Div, SharedString, div, prelude::*};
+use gpui::{AnyElement, App, Context, Div, SharedString, Window, div, prelude::*};
 
 use super::Detail;
 use super::panes::{
@@ -34,12 +34,10 @@ const SHOWN: usize = 8;
 pub(super) enum Fetch {
     /// Waiting its turn, or under way.
     Running,
-    /// Fetched, and what it fetched.
     Done(CommitId),
     Failed(SharedString),
 }
 
-/// What's fetched of other machines' branches, and what's still to fetch.
 #[derive(Default)]
 pub(super) struct MeshFetches {
     /// Each branch's fetch, with the tip that machine reported when it started: a new one
@@ -66,7 +64,7 @@ impl Detail {
         let Some(path) = store.path(project) else {
             return;
         };
-        let picked = match &store.selection {
+        let picked = match &self.selection() {
             Some(Selection::Mesh(p, id, pick)) if p == project => {
                 pick.branch().map(|name| (id.clone(), name.to_owned()))
             }
@@ -114,7 +112,7 @@ impl Detail {
             return;
         }
         // The project shown first, as it may have changed since these were queued.
-        let shown = match self.selection(cx) {
+        let shown = match self.selection() {
             Some(Selection::Mesh(project, ..)) => Some(project),
             None | Some(_) => None,
         };
@@ -133,7 +131,7 @@ impl Detail {
                         Err(err) => Fetch::Failed(format!("{err:#}").into()),
                     };
                 }
-                if matches!(this.selection(cx), Some(Selection::Mesh(p, ..)) if p == key.0) {
+                if matches!(this.selection(), Some(Selection::Mesh(p, ..)) if p == key.0) {
                     this.refresh_diff(false, cx);
                 }
                 this.fetch_next(cx);
@@ -222,12 +220,13 @@ impl Detail {
         id: &Arc<str>,
         pick: &MeshPick,
         theme: &Theme,
+        window: &Window,
         cx: &Context<Self>,
     ) -> AnyElement {
         let store = self.store.read(cx);
         match (pick, store.mesh_checkout(project, id)) {
             (MeshPick::Checkout, Some(checkout)) => uncommitted_list(checkout, theme, cx),
-            _ => self.render_diff_file_list(theme, cx),
+            _ => self.render_diff_file_list(theme, window, cx),
         }
     }
 
@@ -360,6 +359,7 @@ impl Detail {
                 .child(diff::stats(
                     file.additions as u32,
                     file.deletions as u32,
+                    false,
                     theme,
                 ))
         });
@@ -459,6 +459,7 @@ fn uncommitted_list(checkout: &Checkout, theme: &Theme, cx: &App) -> AnyElement 
             .child(diff::stats(
                 file.additions as u32,
                 file.deletions as u32,
+                false,
                 theme,
             ))
     });

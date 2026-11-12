@@ -17,7 +17,7 @@ pub fn editor_label(store: &Store) -> String {
     (store.prefs.editor.as_ref())
         .and_then(|id| settings::editors().into_iter().find(|(e, _)| e == id))
         .map_or_else(
-            || "Open in editor…".to_owned(),
+            || "Open in editor".to_owned(),
             |(_, name)| format!("Open in {name}"),
         )
 }
@@ -109,7 +109,6 @@ impl AppView {
         self.open_with("Couldn't open the terminal", open, cx);
     }
 
-    /// The selected project in the terminal.
     pub fn open_selected_in_terminal(
         &mut self,
         _: &OpenInTerminal,

@@ -17,7 +17,6 @@ use crate::theme::Theme;
 /// The width of the strip that takes the pointer.
 const TRACK: Pixels = fixed(14.);
 
-/// The scroll state a scrollbar reads and moves.
 #[derive(Clone)]
 pub enum Scroll {
     List(ListState),
@@ -79,6 +78,57 @@ struct BarState {
     held: Option<Pixels>,
     /// Whether the bar was last drawn showing, and with the pointer on its track.
     drawn: (bool, bool),
+    /// How far the content was scrolled as last drawn, and when it last moved: what shows a
+    /// bar shown only while scrolling.
+    offset: Option<Pixels>,
+    scrolled_at: Option<std::time::Instant>,
+}
+
+/// When a bar shows its thumb.
+#[derive(Clone, Copy, PartialEq)]
+enum Shows {
+    /// While the pointer's over the list.
+    OnHover,
+    /// Always, beside marks that say where the content is.
+    Always,
+    /// Only while the content scrolls, and a moment after, as macOS shows its scrollbars, or
+    /// while the pointer's on it then or holds it: `middle` in from the list's right, in a
+    /// gap there, which the rest of takes the pointer for itself.
+    WhileScrolling { middle: Pixels },
+}
+
+/// How long a thumb shown only while scrolling stays once the content stops, and how long it
+/// takes to fade then.
+const STAYS: std::time::Duration = std::time::Duration::from_millis(1000);
+const FADES: std::time::Duration = std::time::Duration::from_millis(200);
+
+/// How much of a thumb shown only while scrolling shows at `now`, from 1 down to 0.
+fn left_showing(scrolled_at: Option<std::time::Instant>, now: std::time::Instant) -> f32 {
+    let Some(at) = scrolled_at else {
+        return 0.;
+    };
+    let since = now.saturating_duration_since(at);
+    match since.checked_sub(STAYS) {
+        None => 1.,
+        Some(fading) => 1. - (fading.as_secs_f32() / FADES.as_secs_f32()).min(1.),
+    }
+}
+
+/// `list` filling the height left for it, with a thumb shown only while it scrolls, `middle`
+/// in from its right, in the gap there: the navigator's, between its cards and the detail's.
+pub fn scrolled_in_gap(
+    list: impl IntoElement,
+    id: &'static str,
+    scroll: Scroll,
+    middle: Pixels,
+    theme: &Theme,
+) -> Div {
+    div()
+        .relative()
+        .flex_1()
+        .min_h_0()
+        .child(list)
+        .children(bar(id, scroll, Shows::WhileScrolling { middle }, theme))
 }
 
 /// `list` filling the height left for it, with its scrollbar over its right edge.
@@ -105,53 +155,148 @@ pub fn scrollbar(
     scroll: Scroll,
     theme: &Theme,
 ) -> Option<impl IntoElement + use<>> {
+    bar(id, scroll, Shows::OnHover, theme)
+}
+
+/// [`scrollbar`] with its thumb shown with the pointer elsewhere too, as beside marks that
+/// say where the content is.
+pub fn shown_scrollbar(
+    id: &'static str,
+    scroll: Scroll,
+    theme: &Theme,
+) -> Option<impl IntoElement + use<>> {
+    bar(id, scroll, Shows::Always, theme)
+}
+
+/// The thumb's length on a track `height` long, and how far down it sits at `offset` of
+/// `max`. None while the track's too short for the shortest thumb to travel, as an opening
+/// drawer's is.
+fn thumb_on(height: Pixels, offset: Pixels, max: Pixels) -> Option<(Pixels, Pixels)> {
+    const SHORTEST: Pixels = fixed(24.);
+    if max <= Pixels::ZERO || height <= SHORTEST {
+        return None;
+    }
+    let thumb = (height * (height / (height + max))).clamp(SHORTEST, height);
+    Some((thumb, (height - thumb) * (offset / max).clamp(0., 1.)))
+}
+
+fn bar(
+    id: &'static str,
+    scroll: Scroll,
+    shows: Shows,
+    theme: &Theme,
+) -> Option<impl IntoElement + use<>> {
     let (_, max) = scroll.offsets();
     if max <= Pixels::ZERO {
         return None;
     }
-    let (rest, active) = (theme.text_3.opacity(0.5), theme.text_3.opacity(0.8));
+    let (rest, active) = (theme.scrollbar, theme.scrollbar_hover);
+    let gap = match shows {
+        Shows::WhileScrolling { middle } => Some(middle),
+        Shows::OnHover | Shows::Always => None,
+    };
+    let measured = scroll.clone();
     let element = canvas(
         move |bounds, window, cx| {
             // Changing this state redraws the view the list belongs to.
             let state =
                 window.use_keyed_state(ElementId::Name(id.into()), cx, |_, _| BarState::default());
             let area = window.insert_hitbox(bounds, HitboxBehavior::Normal);
-            let track_bounds = Bounds::new(
-                point(bounds.right() - TRACK, bounds.top()),
-                size(TRACK, bounds.size.height),
-            );
-            let track = window.insert_hitbox(track_bounds, HitboxBehavior::BlockMouseExceptScroll);
-            (state, area, track)
+            let (offset, max) = measured.offsets();
+            let thumb = thumb_on(bounds.size.height, offset, max);
+            // Only while scrolling: it shows from when the content last moved, and while held.
+            let now = crate::clock::now();
+            let showing = gap.map(|_| {
+                state.update(cx, |state, _| {
+                    if state.offset.is_some_and(|was| was != offset) {
+                        state.scrolled_at = Some(now);
+                    }
+                    state.offset = Some(offset);
+                    match state.held {
+                        Some(_) => 1.,
+                        None => left_showing(state.scrolled_at, now),
+                    }
+                })
+            });
+            let track_bounds = match (gap, thumb) {
+                (_, None) => None,
+                // The gap's width over the thumb alone, the rest of the gap left to what else
+                // it's for, and only while it shows.
+                (Some(middle), Some((thumb, down))) => Some(Bounds::new(
+                    point(bounds.right() - middle - fixed(4.), bounds.top() + down),
+                    size(fixed(8.), thumb),
+                )),
+                (None, Some(_)) => Some(Bounds::new(
+                    point(bounds.right() - TRACK, bounds.top()),
+                    size(TRACK, bounds.size.height),
+                )),
+            };
+            let track = (track_bounds.filter(|_| showing.is_none_or(|showing| showing > 0.)))
+                .map(|track| window.insert_hitbox(track, HitboxBehavior::BlockMouseExceptScroll));
+            (state, area, track, showing, now)
         },
-        move |bounds, (state, area, track), window, cx| {
+        move |bounds, (state, area, track, showing, now), window, cx| {
             let (offset, max) = scroll.offsets();
-            let height = bounds.size.height;
-            // Too short for the shortest thumb, it has no room to travel.
-            if max <= Pixels::ZERO || height <= fixed(24.) {
+            let Some((thumb, down)) = thumb_on(bounds.size.height, offset, max) else {
                 return;
-            }
-            let thumb = (height * (height / (height + max))).clamp(fixed(24.), height);
-            let travel = height - thumb;
-            let top = bounds.top() + travel * (offset / max).clamp(0., 1.);
+            };
+            let travel = bounds.size.height - thumb;
+            let top = bounds.top() + down;
             // The offset that puts the thumb's top at `y`, less where in it the pointer holds it.
             let offset_at = move |y: Pixels, held: Pixels| {
                 max * ((y - bounds.top() - held) / travel).clamp(0., 1.)
             };
 
             let held = state.read(cx).held;
-            let on_track = track.is_hovered(window);
-            let shown = held.is_some() || on_track || area.is_hovered(window);
+            let on_track = track.as_ref().is_some_and(|track| track.is_hovered(window));
+            // On it while it shows, it stays.
+            if on_track && showing.is_some() {
+                state.update(cx, |state, _| state.scrolled_at = Some(now));
+            }
+            let shown = match shows {
+                Shows::Always => true,
+                Shows::OnHover => held.is_some() || on_track || area.is_hovered(window),
+                Shows::WhileScrolling { .. } => showing.is_some_and(|showing| showing > 0.),
+            };
             state.update(cx, |state, _| state.drawn = (shown, on_track));
             if shown {
                 let wide = held.is_some() || on_track;
-                let width = if wide { fixed(7.) } else { fixed(5.) };
-                let thumb_bounds = Bounds::new(
-                    point(bounds.right() - fixed(2.) - width, top),
-                    size(width, thumb),
-                );
+                let (width, x) = match gap {
+                    Some(middle) => {
+                        let width = if wide { fixed(6.) } else { fixed(4.) };
+                        (width, bounds.right() - middle - width / 2.)
+                    }
+                    None => {
+                        let width = if wide { fixed(7.) } else { fixed(5.) };
+                        (width, bounds.right() - fixed(2.) - width)
+                    }
+                };
+                let thumb_bounds = Bounds::new(point(x, top), size(width, thumb));
                 let color = if wide { active } else { rest };
+                #[expect(clippy::disallowed_methods, reason = "fades a Theme colour as it goes")]
+                let color = color.opacity(color.a * showing.unwrap_or(1.));
                 window.paint_quad(fill(thumb_bounds, color).corner_radii(width / 2.));
             }
+            // Shown only while scrolling, it wakes its view to fade, and no more once gone.
+            if let Some(showing) = showing.filter(|&showing| showing > 0. && held.is_none()) {
+                let since = state
+                    .read(cx)
+                    .scrolled_at
+                    .map(|at| now.saturating_duration_since(at));
+                let due = match since.and_then(|since| STAYS.checked_sub(since)) {
+                    Some(stays) if showing >= 1. => stays,
+                    _ => std::time::Duration::from_millis(16),
+                };
+                let view = window.current_view();
+                (cx.spawn(async move |cx| {
+                    cx.background_executor().timer(due).await;
+                    cx.update(|cx| cx.notify(view));
+                }))
+                .detach();
+            }
+            let Some(track) = track else {
+                return;
+            };
             window.set_cursor_style(CursorStyle::Arrow, &track);
 
             window.on_mouse_event({
@@ -190,7 +335,11 @@ pub fn scrollbar(
                         }
                         None if phase == DispatchPhase::Bubble => {
                             let on_track = track.is_hovered(window);
-                            let shown = on_track || area.is_hovered(window);
+                            let shown = match shows {
+                                Shows::OnHover => on_track || area.is_hovered(window),
+                                // Showing, as it has a track, it widens under the pointer.
+                                Shows::Always | Shows::WhileScrolling { .. } => true,
+                            };
                             if state.read(cx).drawn != (shown, on_track) {
                                 state.update(cx, |_, cx| cx.notify());
                             }
@@ -215,4 +364,23 @@ pub fn scrollbar(
     .left_0()
     .size_full();
     Some(element)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_track_shorter_than_the_shortest_thumb_has_none() {
+        assert_eq!(
+            thumb_on(fixed(10.), fixed(0.), fixed(100.)),
+            None,
+            "an opening drawer's track, a few pixels tall, has no room for a thumb"
+        );
+        assert_eq!(
+            thumb_on(fixed(100.), fixed(50.), fixed(100.)),
+            Some((fixed(50.), fixed(25.))),
+            "half the content shows, so the thumb's half the track, halfway down its travel"
+        );
+    }
 }

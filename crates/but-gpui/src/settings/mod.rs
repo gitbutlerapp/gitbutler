@@ -1,4 +1,4 @@
-//! Settings: one large modal laid out as Lite's, its pages down the left, the app's and then
+//! Settings: one large modal, its pages down the left, the app's and then
 //! the project's, each a column of cards, with a search across all of them. Changes apply
 //! as they're made. What only this app uses is kept with its other
 //! state; fetching is GitButler's shared setting; a project's settings are its own.
@@ -14,17 +14,23 @@ mod accounts;
 mod ai;
 mod cli;
 mod keyboard;
+mod launchers;
 mod mesh;
 mod metrics;
 mod project;
 
 use crate::app::{AppHandle, AppView, SelectNext, SelectPrevious};
 use crate::backend::settings::{self as backend, Program, ProjectSettings};
+use crate::backend::{InactiveAfter, MergedWorktrees};
 use crate::overlays::MenuItem;
-use crate::state::{Prefs, ProjectEntry, ProjectId, ScopeLines, Store};
-use crate::theme::{Appearance, CodeSize, Theme, UiScale};
+use crate::state::{
+    NavigatorPlace, Prefs, ProjectEntry, ProjectId, ScopeLines, Store, TerminalRuns, TileDragFeel,
+};
+use crate::theme::{
+    Accent, Appearance, CodeSize, ColorScheme, Corners, Density, Ground, Theme, UiScale,
+};
 use crate::ui::fold::{self, Folds};
-use crate::ui::modal::{MODAL_RADIUS, ModalSize, modal};
+use crate::ui::modal::{ModalSize, modal};
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
@@ -34,7 +40,15 @@ use crate::ui::{
 
 pub use cli::welcome_card;
 
-actions!(settings, [OpenSettings, OpenKeyboardShortcuts]);
+actions!(
+    settings,
+    [
+        OpenSettings,
+        OpenKeyboardShortcuts,
+        OpenBriefsSettings,
+        FocusSearch
+    ]
+);
 
 /// " ⌥Z in a diff turns it on and off.", with the keys bound to `action`, or nothing when no key
 /// is, as the user's keymap can leave it.
@@ -43,8 +57,11 @@ fn keys_in_diff(action: &dyn gpui::Action, does: &str, cx: &App) -> String {
         .map_or_else(String::new, |keys| format!(" {keys} in a diff {does}."))
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum AppPage {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::IntoStaticStr, strum::EnumString)]
+// As a `but://open` link names the page (`page=`), so renaming one renames its links: see
+// `crate::links`.
+#[strum(serialize_all = "kebab-case")]
+pub(crate) enum AppPage {
     General,
     Appearance,
     Keyboard,
@@ -56,7 +73,7 @@ enum AppPage {
 }
 
 impl AppPage {
-    const ALL: [AppPage; 8] = [
+    pub(crate) const ALL: [AppPage; 8] = [
         AppPage::General,
         AppPage::Appearance,
         AppPage::Keyboard,
@@ -69,25 +86,28 @@ impl AppPage {
 
     /// The pages this build has: Developer only in a build of its own, not a nightly or a
     /// release.
-    fn shown() -> impl Iterator<Item = AppPage> {
+    pub(crate) fn shown() -> impl Iterator<Item = AppPage> + use<> {
         let dev = backend::dev_build();
         (AppPage::ALL.into_iter()).filter(move |page| dev || *page != AppPage::Developer)
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ProjectPage {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::IntoStaticStr, strum::EnumString)]
+// As a `but://open` link names the page (`page=`), so renaming one renames its links: see
+// `crate::links`.
+#[strum(serialize_all = "kebab-case")]
+pub(crate) enum ProjectPage {
     Project,
     Git,
 }
 
 impl ProjectPage {
-    const ALL: [ProjectPage; 2] = [ProjectPage::Project, ProjectPage::Git];
+    pub(crate) const ALL: [ProjectPage; 2] = [ProjectPage::Project, ProjectPage::Git];
 }
 
 /// A page of settings, in the sidebar's order: the app's, then each project's.
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum Page {
+pub(crate) enum Page {
     App(AppPage),
     Project(ProjectId, ProjectPage),
 }
@@ -247,6 +267,12 @@ pub struct SettingsView {
     name: Entity<TextInput>,
     editors: Vec<Program>,
     terminals: Vec<Program>,
+    /// The command terminals opened here run, as typed until saved.
+    terminal_command: Entity<TextInput>,
+    /// A custom accent, as typed.
+    accent_color: Entity<TextInput>,
+    /// The commands "New terminal with command" offers, as typed until saved.
+    launchers: launchers::Launchers,
     fetch_interval: Option<u64>,
     /// The desktop app opens this client at start: GitButler's `featureFlags.gpui`. `None`
     /// while first read, as the metrics are, and their switches aren't drawn until then: one
@@ -257,6 +283,7 @@ pub struct SettingsView {
     error_reporting: Option<bool>,
     accounts: accounts::Accounts,
     ai: ai::Ai,
+    keyboard: keyboard::Keyboard,
     /// How the last signing test went, while it applies to the project shown.
     signing: Option<Result<(), SharedString>>,
     /// How fetching and then pushing went in the last credentials test of the project shown,
@@ -299,6 +326,19 @@ impl SettingsView {
     ) -> Self {
         let search = cx.new(|cx| TextInput::new("Search settings", false, cx));
         let name = cx.new(|cx| TextInput::new("Project name", false, cx));
+        let command = store.read(cx).prefs.terminal_command.clone();
+        let terminal_command = cx.new(|cx| {
+            let mut input = TextInput::new("Command", false, cx);
+            input.load(command, cx);
+            input
+        });
+        let accent = store.read(cx).prefs.accent_color.clone();
+        let accent_color = cx.new(|cx| {
+            let mut input = TextInput::new("A colour, as #3b82f6", false, cx);
+            input.load(accent, cx);
+            input
+        });
+        let launchers = Self::launchers(&store, window, cx);
         let ai = ai::Ai::new(window, cx);
         let subscriptions = vec![
             cx.subscribe_in(&search, window, |this, search, event, _, cx| match event {
@@ -323,6 +363,40 @@ impl SettingsView {
                     this.back_to_search(window, cx);
                 }
             }),
+            cx.subscribe_in(
+                &terminal_command,
+                window,
+                |this, _, event, window, cx| match event {
+                    InputEvent::Submit => {
+                        this.save_terminal_command(cx);
+                        this.back_to_search(window, cx);
+                    }
+                    InputEvent::Changed => {}
+                    InputEvent::Cancel => {
+                        this.reset_terminal_command(cx);
+                        this.back_to_search(window, cx);
+                    }
+                },
+            ),
+            // The app takes on a custom accent as soon as the field holds a colour.
+            cx.subscribe_in(
+                &accent_color,
+                window,
+                |this, _, event, window, cx| match event {
+                    InputEvent::Changed => this.save_accent_color(window, cx),
+                    InputEvent::Submit => this.back_to_search(window, cx),
+                    InputEvent::Cancel => {
+                        this.reset_accent_color(cx);
+                        this.back_to_search(window, cx);
+                    }
+                },
+            ),
+            // The command saves as the field's left, and as Settings closes with it focused.
+            cx.on_blur(&terminal_command.focus_handle(cx), window, |this, _, cx| {
+                this.save_terminal_command(cx)
+            }),
+            cx.on_release(|this, cx| this.save_terminal_command(cx)),
+            cx.on_release(|this, cx| this.save_terminal_launchers(cx)),
         ];
         let unwatched = (page
             .project()
@@ -338,12 +412,16 @@ impl SettingsView {
             name,
             editors: Vec::new(),
             terminals: Vec::new(),
+            terminal_command,
+            accent_color,
+            launchers,
             fetch_interval: None,
             open_at_start: None,
             usage_metrics: None,
             error_reporting: None,
             accounts: Default::default(),
             ai,
+            keyboard: Default::default(),
             signing: None,
             credentials: None,
             _credentials_test: Task::ready(()),
@@ -511,6 +589,256 @@ impl SettingsView {
         ]
     }
 
+    /// What terminals opened here start, with the command they run under it while it's picked.
+    fn terminal_run_row(&self, window: &Window, cx: &Context<Self>) -> Row {
+        let prefs = &self.store.read(cx).prefs;
+        let store = self.store.clone();
+        let runs = segmented(
+            "terminal-runs",
+            [
+                (TerminalRuns::LoginShell, "Login shell"),
+                (TerminalRuns::Command, "Custom command"),
+            ],
+            prefs.terminal_runs,
+            move |runs, _, cx| {
+                store.update(cx, |store, cx| {
+                    store.set_prefs(|p| p.terminal_runs = runs, cx)
+                });
+            },
+            Theme::get(cx),
+        );
+        let row = Row::new(
+            "New terminals run",
+            "What terminals opened here start. A command runs through your shell, and its \
+             terminal closes when it exits.",
+            runs,
+        )
+        .with_keywords("shell command");
+        if prefs.terminal_runs != TerminalRuns::Command {
+            return row;
+        }
+        let focused = self.terminal_command.focus_handle(cx).is_focused(window);
+        row.with_below(field(&self.terminal_command, focused, Theme::get(cx)))
+    }
+
+    /// Whether closing a terminal asks first.
+    fn terminal_close_row(&self, cx: &Context<Self>) -> Row {
+        Row::new(
+            "Confirm closing terminals",
+            "",
+            self.pref_switch(
+                "confirm-terminal-close",
+                self.store.read(cx).prefs.confirm_terminal_close,
+                |p| p.confirm_terminal_close ^= true,
+                cx,
+            ),
+        )
+        .with_keywords("ask prompt warning shell tile")
+    }
+
+    fn screen_reader_row(&self, cx: &Context<Self>) -> Row {
+        Row::new(
+            "Screen reader support",
+            "Lets VoiceOver and other screen readers read the app. Takes effect when the app next \
+             starts. On a Mac with a Touch Bar, closing a window with this on can crash the app.",
+            self.pref_switch(
+                "screen-reader",
+                self.store.read(cx).prefs.screen_reader,
+                |p| p.screen_reader ^= true,
+                cx,
+            ),
+        )
+        .with_keywords("accessibility a11y voiceover")
+    }
+
+    /// The look: a preset, then the accent, ground, corners and density it's made of or set
+    /// apart.
+    fn look_rows(&self, window: &Window, cx: &Context<Self>) -> Vec<Row> {
+        let theme = Theme::get(cx);
+        let prefs = &self.store.read(cx).prefs;
+        let own_colours = matches!(prefs.color_scheme, ColorScheme::GitButler);
+        let colours_note = "Only in GitButler's colours: a colour scheme brings its own.";
+        let (store, app) = (self.store.clone(), self.app.clone());
+        let presets: Vec<_> = crate::theme::presets()
+            .map(|(name, corners, density)| (Some((corners, density)), name))
+            .collect();
+        let current = (crate::theme::presets())
+            .any(|(_, c, d)| (c, d) == (prefs.corners, prefs.density))
+            .then_some((prefs.corners, prefs.density));
+        let preset = segmented(
+            "preset",
+            presets,
+            current,
+            {
+                let (store, app) = (store.clone(), app.clone());
+                move |picked: Option<(Corners, Density)>, window, cx| {
+                    let Some((corners, density)) = picked else {
+                        return;
+                    };
+                    store.update(cx, |store, cx| {
+                        store.set_prefs(
+                            |p| {
+                                p.corners = corners;
+                                p.density = density;
+                            },
+                            cx,
+                        )
+                    });
+                    app_look(&app, window, cx);
+                }
+            },
+            theme,
+        );
+        let accent = segmented(
+            "accent",
+            [
+                (Accent::Teal, "Teal"),
+                (Accent::Blue, "Blue"),
+                (Accent::Purple, "Purple"),
+                (Accent::Custom, "Custom"),
+            ],
+            prefs.accent,
+            {
+                let (store, app) = (store.clone(), app.clone());
+                move |accent, window, cx| {
+                    store.update(cx, |store, cx| store.set_prefs(|p| p.accent = accent, cx));
+                    app_look(&app, window, cx);
+                }
+            },
+            theme,
+        );
+        let ground = segmented(
+            "ground",
+            [
+                (Ground::Gray, "Gray"),
+                (Ground::Slate, "Slate"),
+                (Ground::Sage, "Sage"),
+                (Ground::Sand, "Sand"),
+            ],
+            prefs.ground,
+            {
+                let (store, app) = (store.clone(), app.clone());
+                move |ground, window, cx| {
+                    store.update(cx, |store, cx| store.set_prefs(|p| p.ground = ground, cx));
+                    app_look(&app, window, cx);
+                }
+            },
+            theme,
+        );
+        let corners = segmented(
+            "corners",
+            [
+                (Corners::Sharp, "Sharp"),
+                (Corners::Soft, "Soft"),
+                (Corners::Round, "Round"),
+            ],
+            prefs.corners,
+            {
+                let (store, app) = (store.clone(), app.clone());
+                move |corners, window, cx| {
+                    store.update(cx, |store, cx| store.set_prefs(|p| p.corners = corners, cx));
+                    app_look(&app, window, cx);
+                }
+            },
+            theme,
+        );
+        let density = segmented(
+            "density",
+            [
+                (Density::Compact, "Compact"),
+                (Density::Balanced, "Balanced"),
+                (Density::Spacious, "Spacious"),
+            ],
+            prefs.density,
+            move |density, window, cx| {
+                store.update(cx, |store, cx| store.set_prefs(|p| p.density = density, cx));
+                app_look(&app, window, cx);
+            },
+            theme,
+        );
+        let mut accent = Row::new(
+            "Accent",
+            match own_colours {
+                true => {
+                    "The colour of primary buttons, ticks and what's picked out. Custom takes any \
+                     colour, set so text on it still reads."
+                }
+                false => colours_note,
+            },
+            accent,
+        )
+        .with_keywords("color colour theme primary");
+        if prefs.accent == Accent::Custom {
+            let focused = self.accent_color.focus_handle(cx).is_focused(window);
+            accent = accent.with_below(field(&self.accent_color, focused, theme));
+        }
+        vec![
+            Row::new(
+                "Preset",
+                "Corners and density together. Changing either makes the look your own.",
+                preset,
+            )
+            .with_keywords("style theme look"),
+            accent,
+            Row::new(
+                "Ground",
+                match own_colours {
+                    true => "The gray everything sits on: neutral, or a touch cool, green or warm.",
+                    false => colours_note,
+                },
+                ground,
+            )
+            .with_keywords("background gray grey neutral tint theme"),
+            Row::new(
+                "Corners",
+                "How round buttons, cards and popovers are.",
+                corners,
+            )
+            .with_keywords("radius rounded"),
+            Row::new(
+                "Density",
+                "How tall buttons and controls are, and the room beside their labels.",
+                density,
+            )
+            .with_keywords("compact spacious size height"),
+        ]
+    }
+
+    /// Keep the custom accent as typed once it's a colour, and draw the app in it.
+    fn save_accent_color(&self, window: &mut Window, cx: &mut Context<Self>) {
+        let color = self.accent_color.read(cx).text().trim().to_owned();
+        if crate::theme::parse_hex(&color).is_none()
+            || color == self.store.read(cx).prefs.accent_color
+        {
+            return;
+        }
+        (self.store).update(cx, |store, cx| {
+            store.set_prefs(|p| p.accent_color = color, cx)
+        });
+        app_look(&self.app, window, cx);
+    }
+
+    fn reset_accent_color(&mut self, cx: &mut Context<Self>) {
+        let color = self.store.read(cx).prefs.accent_color.clone();
+        (self.accent_color).update(cx, |input, cx| input.set_text(color, cx));
+    }
+
+    /// Save the command as typed, unless it's what's saved already.
+    fn save_terminal_command(&self, cx: &mut App) {
+        let command = self.terminal_command.read(cx).text().trim().to_owned();
+        if command == self.store.read(cx).prefs.terminal_command {
+            return;
+        }
+        (self.store).update(cx, |store, cx| {
+            store.set_prefs(|p| p.terminal_command = command, cx)
+        });
+    }
+
+    fn reset_terminal_command(&mut self, cx: &mut Context<Self>) {
+        let command = self.store.read(cx).prefs.terminal_command.clone();
+        (self.terminal_command).update(cx, |input, cx| input.set_text(command, cx));
+    }
+
     /// The theme, then how diffs show.
     fn appearance_cards(&self, cx: &Context<Self>) -> Vec<Card> {
         let theme = Theme::get(cx);
@@ -550,9 +878,27 @@ impl SettingsView {
         );
         let appearance = Row::new(
             "Appearance",
-            "Light, dark, or whichever macOS is set to.",
+            match &prefs.color_scheme {
+                ColorScheme::Named(_) => "Your colour scheme is light or dark itself.",
+                ColorScheme::GitButler | ColorScheme::Ghostty => {
+                    "Light, dark, or whichever macOS is set to."
+                }
+            },
             appearance,
         );
+        let app = self.app.clone();
+        let scheme = dropdown("color-scheme", prefs.color_scheme.label().to_owned(), theme)
+            .on_click(move |_, window, cx| {
+                app.update_later(window, cx, |app, window, cx| {
+                    app.pick_color_scheme(window, cx)
+                })
+            });
+        let scheme = Row::new(
+            "Colour scheme",
+            "GitButler's colours, or a Ghostty theme for the app and its terminals alike.",
+            scheme,
+        )
+        .with_keywords("color theme ghostty");
         let percent = |scale: UiScale| format!("{}%", scale.percent());
         let size = self.choice(
             "ui-scale",
@@ -570,14 +916,27 @@ impl SettingsView {
             ),
             size,
         );
+        let app = self.app.clone();
+        let diff_font = (prefs.diff_font.clone()).unwrap_or_else(|| theme.mono_font.to_string());
+        let diff_font = dropdown("diff-font", diff_font, theme).on_click(move |_, window, cx| {
+            app.update_later(window, cx, |app, window, cx| app.pick_diff_font(window, cx))
+        });
+        let status_bar = self.status_bar_row(cx);
+        let terminal_overview = self.terminal_overview_row(cx);
+        let navigator_place = self.navigator_place_row(cx);
+        let app = self.app.clone();
         let mut diff = vec![
             Row::new("Code size", "How large code shows in diffs.", code),
+            Row::new("Font", "The font of code in diffs.", diff_font),
             Row::new(
                 "Font ligatures",
-                "Code joins pairs of characters like != and == into one symbol.",
+                "Code joins pairs of characters like != and == into one symbol, if the font has them.",
                 self.pref_switch("ligatures", prefs.ligatures, |p| p.ligatures ^= true, cx)
-                    // The diff is a cached view, which only a refresh draws again.
-                    .on_click(|_, _, cx| cx.refresh_windows()),
+                    .on_click(move |_, window, cx| {
+                        app.update_later(window, cx, |app, window, cx| {
+                            app.apply_appearance(window, cx)
+                        })
+                    }),
             ),
             Row::new(
                 "Wrap long lines",
@@ -615,6 +974,12 @@ impl SettingsView {
                 )),
             ),
         ];
+        diff.splice(
+            5..5,
+            [self.single_file_row(cx)]
+                .into_iter()
+                .chain(self.diff_layout_rows(cx)),
+        );
         if !prefs.no_semantic_context {
             let detail = self.detail.clone();
             let scope = segmented(
@@ -673,11 +1038,95 @@ impl SettingsView {
                     cx,
                 ),
             ),
+            Row::new(
+                "Worktrees go inactive after",
+                "A linked worktree with nothing uncommitted moves under Inactive worktrees once \
+                 it's gone this long without a commit or checkout.",
+                self.choice(
+                    "inactive-after",
+                    prefs.inactive_after.label(),
+                    InactiveAfter::ALL.map(|after| (after, after.label().to_owned())),
+                    |this, after, _, cx| {
+                        this.store
+                            .update(cx, |store, cx| store.set_inactive_after(after, cx))
+                    },
+                    cx,
+                ),
+            )
+            .with_keywords("stale"),
         ];
+        let folder_counts = Row::new(
+            "Show folders' line counts",
+            "Folders in a file tree always show the lines their files add and remove. Off, they \
+             show them only under the pointer.",
+            self.pref_switch(
+                "folder-line-counts",
+                prefs.folder_line_counts,
+                |p| p.folder_line_counts ^= true,
+                cx,
+            ),
+        );
+        let folder_stops = Row::new(
+            "Step through folders",
+            crate::ui::keys_text(
+                "↑ and ↓, or j and k, stop on a file tree's folders too, showing what changed in \
+                 each, and the fold keys fold and unfold them. Off, they go from file to file.",
+            ),
+            self.pref_switch(
+                "folder-stops",
+                prefs.folder_stops,
+                |p| p.folder_stops ^= true,
+                cx,
+            ),
+        );
+        let text_label = |size: Option<u8>| match size {
+            Some(size) => format!("{size} pt"),
+            None => "As Ghostty's".to_owned(),
+        };
+        let sizes = std::iter::once(None).chain((9..=28).map(Some));
+        let terminal_text = self.choice(
+            "terminal-text",
+            text_label(prefs.terminal_text),
+            sizes.map(|size| (size, text_label(size))),
+            |this, size, _, cx| {
+                (this.store).update(cx, |store, cx| store.set_terminal_text(size, cx))
+            },
+            cx,
+        );
+        let terminal_text = Row::new(
+            "Text size",
+            "How large text shows in terminals opened here. Their colours follow the colour scheme.",
+            terminal_text,
+        );
+        let app = self.app.clone();
+        let terminal_font = (prefs.terminal_font.clone()).unwrap_or_else(|| "As Ghostty's".into());
+        let terminal_font =
+            dropdown("terminal-font", terminal_font, theme).on_click(move |_, window, cx| {
+                app.update_later(window, cx, |app, window, cx| {
+                    app.pick_terminal_font(window, cx)
+                })
+            });
+        let terminal_font = Row::new(
+            "Font",
+            "The font of terminals opened here. As Ghostty's follows your Ghostty config.",
+            terminal_font,
+        );
         vec![
-            Card::new(None, vec![appearance, size]),
+            Card::new(
+                None,
+                vec![
+                    scheme,
+                    appearance,
+                    size,
+                    navigator_place,
+                    status_bar,
+                    terminal_overview,
+                ],
+            ),
             Card::new(Some("Navigator"), navigator),
+            Card::new(Some("File list"), vec![folder_counts, folder_stops]),
             Card::new(Some("Diff"), diff),
+            Card::new(Some("Terminal"), vec![terminal_font, terminal_text]),
         ]
     }
 
@@ -704,6 +1153,41 @@ impl SettingsView {
              GitButler's other apps share this.",
             control,
         )
+    }
+
+    fn merged_worktrees_row(&self, cx: &Context<Self>) -> Row {
+        Row::new(
+            "Merged worktrees",
+            "When an update finds a linked worktree's branch merged, archive the worktree or \
+             delete its folder, closing its terminals. One with uncommitted files is left alone.",
+            self.choice(
+                "merged-worktrees",
+                self.store.read(cx).prefs.merged_worktrees.label(),
+                MergedWorktrees::ALL.map(|merged| (merged, merged.label().to_owned())),
+                |this, merged, _, cx| {
+                    this.store.update(cx, |store, cx| {
+                        store.set_prefs(|prefs| prefs.merged_worktrees = merged, cx)
+                    })
+                },
+                cx,
+            ),
+        )
+        .with_keywords("archive delete clean up")
+    }
+
+    fn composer_row(&self, cx: &Context<Self>) -> Row {
+        Row::new(
+            "Start commits with nothing checked",
+            "The commit box opens with every file unchecked, and you check the ones that go \
+             in. Off, they all start checked.",
+            self.pref_switch(
+                "composer-starts-unchecked",
+                self.store.read(cx).prefs.composer_starts_unchecked,
+                |p| p.composer_starts_unchecked ^= true,
+                cx,
+            ),
+        )
+        .with_keywords("selected unselected staging auto-select default files")
     }
 
     /// A switch for one of this app's own preferences, which a click turns over with `flip`.
@@ -758,6 +1242,159 @@ impl SettingsView {
         ))
     }
 
+    fn briefs_row(&self, cx: &Context<Self>) -> Row {
+        let on = self.store.read(cx).briefs;
+        let flip = cx.listener(move |this, _, _, cx| {
+            this.store.update(cx, |store, cx| {
+                store.briefs = !on;
+                cx.notify();
+            });
+            this.apply(
+                "Couldn't change briefs",
+                move || backend::set_briefs(!on),
+                // What was saved, which a failure leaves as it was.
+                |this, cx| {
+                    let on = backend::briefs();
+                    this.store.update(cx, |store, cx| {
+                        store.briefs = on;
+                        cx.notify();
+                    });
+                },
+                cx,
+            );
+        });
+        Row::new(
+            "Briefs",
+            "Show the brief about a branch on a tab of its page. Every few minutes, open projects \
+             ask GitButler's server about their newest branches, by the repository's address and \
+             the branches' names and commits.",
+            switch("briefs", on, Theme::get(cx)).on_click(flip),
+        )
+    }
+
+    fn single_file_row(&self, cx: &Context<Self>) -> Row {
+        let on = self.store.read(cx).single_file_diff;
+        let flip = cx.listener(move |this, _, _, cx| {
+            this.store.update(cx, |store, cx| {
+                store.single_file_diff = !on;
+                cx.notify();
+            });
+            this.apply(
+                "Couldn't change the single file diff",
+                move || backend::set_single_file_diff(!on),
+                // What was saved, which a failure leaves as it was.
+                |this, cx| {
+                    let on = backend::single_file_diff();
+                    this.store.update(cx, |store, cx| {
+                        store.single_file_diff = on;
+                        cx.notify();
+                    });
+                },
+                cx,
+            );
+        });
+        Row::new(
+            "Single file diff",
+            "The diff shows only the file selected in the file list, filling the pane, with \
+             its changed lines marked beside the scrollbar. The file list stays beside it.",
+            switch("single-file-diff", on, Theme::get(cx)).on_click(flip),
+        )
+        .with_keywords("all-in-one one file at a time per screen")
+    }
+
+    /// Whether the navigator goes beside the panes or across the window's top.
+    fn navigator_place_row(&self, cx: &Context<Self>) -> Row {
+        let store = self.store.clone();
+        let place = self.store.read(cx).prefs.navigator_place;
+        let pick = move |place, _: &mut Window, cx: &mut App| {
+            store.update(cx, |store, cx| {
+                store.set_prefs(|prefs| prefs.navigator_place = place, cx)
+            })
+        };
+        Row::new(
+            "Navigator position",
+            "Across the top, each project is a tab, and pointing at one shows what's in it.",
+            segmented(
+                "navigator-place",
+                [(NavigatorPlace::Side, "Side"), (NavigatorPlace::Top, "Top")],
+                place,
+                pick,
+                Theme::get(cx),
+            ),
+        )
+        .with_keywords("sidebar tabs horizontal layout")
+    }
+
+    /// The terminal overview's switch, on while it shows.
+    fn terminal_overview_row(&self, cx: &Context<Self>) -> Row {
+        let shown = !self.store.read(cx).prefs.hide_terminal_overview;
+        Row::new(
+            "Show terminal overview",
+            "Every terminal open, on every project, under the navigator.",
+            self.pref_switch(
+                "terminal-overview",
+                shown,
+                |p| p.hide_terminal_overview ^= true,
+                cx,
+            ),
+        )
+        .with_keywords("agents status sidebar panel")
+    }
+
+    /// The status bar's switch, on while it shows.
+    fn status_bar_row(&self, cx: &Context<Self>) -> Row {
+        let shown = !self.store.read(cx).prefs.hide_status_bar;
+        Row::new(
+            "Show status bar",
+            "The bar along the window's bottom, with what's under way and the keys for it.",
+            self.pref_switch("status-bar", shown, |p| p.hide_status_bar ^= true, cx),
+        )
+        .with_keywords("minimal compact footer hide")
+    }
+
+    /// Where the messages go and which controls the diff draws.
+    fn diff_layout_rows(&self, cx: &Context<Self>) -> [Row; 3] {
+        let prefs = &self.store.read(cx).prefs;
+        [
+            Row::new(
+                "Commit messages in the diff",
+                "Commit and branch pages list their messages above the files in place of \
+                 their headers, and uncommitted changes go without theirs.",
+                self.pref_switch(
+                    "messages-in-diff",
+                    prefs.messages_in_diff,
+                    |p| p.messages_in_diff ^= true,
+                    cx,
+                ),
+            )
+            .with_keywords("minimal compact header"),
+            Row::new(
+                "Show full commit messages",
+                "Commit pages start with the whole message open under its title. Off, they show \
+                 the title, and the button beside it opens the rest.",
+                self.pref_switch(
+                    "full-messages",
+                    prefs.full_messages,
+                    |p| p.full_messages ^= true,
+                    cx,
+                ),
+            )
+            .with_keywords("body description expand"),
+            Row::new(
+                "Show diff controls",
+                "The bar over the diff, and the line counts and buttons in file headers. Off, \
+                 keys and menus still have them.",
+                self.pref_switch(
+                    "diff-controls",
+                    !prefs.hide_diff_controls,
+                    |p| p.hide_diff_controls ^= true,
+                    cx,
+                ),
+            )
+            .with_keywords("minimal compact toolbar hide"),
+        ]
+    }
+
     fn fps_row(&self, cx: &Context<Self>) -> Row {
         let on = self.store.read(cx).prefs.show_fps;
         Row::new(
@@ -770,6 +1407,188 @@ impl SettingsView {
             self.pref_switch("show-fps", on, |p| p.show_fps ^= true, cx),
         )
         .with_keywords("frames per second performance")
+    }
+
+    fn menu_bar_row(&self, cx: &Context<Self>) -> Row {
+        let on = self.store.read(cx).prefs.menu_bar_everywhere;
+        Row::new(
+            "Draw the menu bar",
+            "The menu bar the app draws on Windows and Linux, a button in the window's top left \
+             corner that opens the menus, drawn here too, to try it.",
+            self.pref_switch(
+                "menu-bar-everywhere",
+                on,
+                |p| p.menu_bar_everywhere ^= true,
+                cx,
+            ),
+        )
+        .with_keywords("menus windows linux")
+    }
+
+    /// How dragging a tile by its bar feels, each a few values to try, for this run of the
+    /// app.
+    fn tile_drag_rows(&self, cx: &Context<Self>) -> Vec<Row> {
+        vec![
+            self.tile_drag_row(
+                ("tile-lift", "Lift"),
+                "How far the pointer moves before the tile comes off.",
+                |f| &mut f.lift,
+                [
+                    (2., "2px"),
+                    (4., "4px"),
+                    (8., "8px"),
+                    (12., "12px"),
+                    (20., "20px"),
+                ],
+                cx,
+            ),
+            self.tile_drag_row(
+                ("tile-wait", "Wait"),
+                "How long the pointer rests over a place before the other tiles make room.",
+                |f| &mut f.wait,
+                [
+                    (0., "0ms"),
+                    (50., "50ms"),
+                    (100., "100ms"),
+                    (200., "200ms"),
+                    (350., "350ms"),
+                ],
+                cx,
+            ),
+            self.tile_drag_row(
+                ("tile-bar", "Bar zone"),
+                "How far down a tile its bar's row reaches, where a tile dragged onto it lands \
+                 beside it or in its place, rather than above or below it.",
+                |f| &mut f.bar,
+                [
+                    (32., "32px"),
+                    (48., "48px"),
+                    (64., "64px"),
+                    (96., "96px"),
+                    (128., "128px"),
+                ],
+                cx,
+            ),
+            self.tile_drag_row(
+                ("tile-edge", "Edge zone"),
+                "How far in from the left and bottom of all the tiles the pointer lands one along \
+                 that side.",
+                |f| &mut f.edge,
+                [
+                    (16., "16px"),
+                    (24., "24px"),
+                    (32., "32px"),
+                    (48., "48px"),
+                    (64., "64px"),
+                ],
+                cx,
+            ),
+            self.tile_drag_row(
+                ("tile-right-edge", "Right edge zone"),
+                "How far in from the right of all the tiles the pointer lands one along it.",
+                |f| &mut f.right_edge,
+                [
+                    (32., "32px"),
+                    (64., "64px"),
+                    (96., "96px"),
+                    (128., "128px"),
+                    (192., "192px"),
+                ],
+                cx,
+            ),
+            self.tile_drag_row(
+                ("tile-reflow", "Reflow"),
+                "How long the other tiles take to move out of the way.",
+                |f| &mut f.reflow,
+                [
+                    (80., "80ms"),
+                    (110., "110ms"),
+                    (150., "150ms"),
+                    (220., "220ms"),
+                    (400., "400ms"),
+                ],
+                cx,
+            ),
+            self.tile_drag_row(
+                ("tile-resize", "Resize"),
+                "How long the dragged tile takes to grow or shrink to the room it'd land in.",
+                |f| &mut f.resize,
+                [
+                    (0., "0ms"),
+                    (80., "80ms"),
+                    (110., "110ms"),
+                    (150., "150ms"),
+                    (250., "250ms"),
+                ],
+                cx,
+            ),
+            self.tile_drag_row(
+                ("tile-row-zone", "Row zone"),
+                "How far in from the left and right of all the tiles a row dragged from the \
+                 navigator lands as a tile.",
+                |f| &mut f.row_zone,
+                [
+                    (48., "48px"),
+                    (64., "64px"),
+                    (96., "96px"),
+                    (128., "128px"),
+                    (192., "192px"),
+                ],
+                cx,
+            ),
+            self.tile_drag_row(
+                ("tile-row-wait", "Row wait"),
+                "How long a row rests in one of those zones before its tile starts to slide in.",
+                |f| &mut f.row_wait,
+                [
+                    (0., "0ms"),
+                    (80., "80ms"),
+                    (150., "150ms"),
+                    (250., "250ms"),
+                    (400., "400ms"),
+                ],
+                cx,
+            ),
+            self.tile_drag_row(
+                ("tile-row-peek", "Row peek"),
+                "How far a row's tile slides in while it's held there.",
+                |f| &mut f.row_peek,
+                [
+                    (32., "32px"),
+                    (48., "48px"),
+                    (64., "64px"),
+                    (96., "96px"),
+                    (128., "128px"),
+                ],
+                cx,
+            ),
+        ]
+    }
+
+    /// A row picking one of `choices` for the `field` of how dragging a tile feels.
+    fn tile_drag_row(
+        &self,
+        (id, title): (&str, &'static str),
+        about: &'static str,
+        field: fn(&mut TileDragFeel) -> &mut f32,
+        choices: [(f32, &'static str); 5],
+        cx: &Context<Self>,
+    ) -> Row {
+        let mut feel = self.store.read(cx).tile_drag_feel;
+        let current = *field(&mut feel);
+        let store = self.store.clone();
+        let pick = move |value, _: &mut Window, cx: &mut App| {
+            store.update(cx, |store, cx| {
+                *field(&mut store.tile_drag_feel) = value;
+                cx.notify();
+            })
+        };
+        Row::new(
+            title,
+            about,
+            segmented(id, choices, current, pick, Theme::get(cx)),
+        )
+        .with_keywords("tile drag split")
     }
 
     /// Escape in a field puts it back and goes to the search box, where Escape closes.
@@ -785,15 +1604,28 @@ impl SettingsView {
                     vec![self.gitbutler_row(window, cx), self.mesh_row(cx)],
                 ),
                 Card::new(None, self.program_rows(cx)),
+                Card::new(
+                    None,
+                    vec![
+                        self.terminal_run_row(window, cx),
+                        self.terminal_launchers_row(window, cx),
+                        self.terminal_close_row(cx),
+                    ],
+                ),
                 // Only once it's been looked for, which only macOS does.
                 Card::new(None, self.cli_row(cx).into_iter().collect()),
+                Card::new(Some("Accessibility"), vec![self.screen_reader_row(cx)]),
                 // Last, out of the way, as the desktop app keeps it on a page of its own.
                 Card::new(Some("Metrics"), self.metrics_rows(cx)),
             ],
             Page::App(AppPage::Appearance) => self.appearance_cards(cx),
             Page::App(AppPage::Keyboard) => self.keyboard_cards(cx),
             Page::App(AppPage::Ai) => vec![Card::new(None, self.ai_rows(window, cx))],
-            Page::App(AppPage::Git) => vec![Card::new(None, vec![self.fetch_row(cx)])],
+            Page::App(AppPage::Git) => vec![
+                Card::new(None, vec![self.fetch_row(cx)]),
+                Card::new(Some("Commits"), vec![self.composer_row(cx)]),
+                Card::new(Some("Worktrees"), vec![self.merged_worktrees_row(cx)]),
+            ],
             Page::App(AppPage::Integrations) => self.integration_cards(window, cx),
             Page::App(AppPage::Experimental) => {
                 // Only where the desktop app's binary has this client built in.
@@ -801,9 +1633,17 @@ impl SettingsView {
                     .has_global::<crate::Embedded>()
                     .then(|| self.start_row(cx))
                     .flatten();
-                vec![Card::new(None, start.into_iter().collect())]
+                vec![Card::new(
+                    None,
+                    start.into_iter().chain([self.briefs_row(cx)]).collect(),
+                )]
             }
-            Page::App(AppPage::Developer) => vec![Card::new(None, vec![self.fps_row(cx)])],
+            Page::App(AppPage::Developer) => vec![
+                Card::new(None, vec![self.fps_row(cx), self.menu_bar_row(cx)]),
+                // Here while it's worked out; other builds draw the default look (`theme_for`).
+                Card::new(Some("Look"), self.look_rows(window, cx)),
+                Card::new(Some("Tile dragging"), self.tile_drag_rows(cx)),
+            ],
             Page::Project(project, page) => self.project_cards(project, *page, window, cx),
         };
         // Nothing for a card with no rows yet, as before what it shows has loaded.
@@ -859,7 +1699,8 @@ impl SettingsView {
         let project = (self.page.project().cloned())
             .into_iter()
             .flat_map(|project| ProjectPage::ALL.map(|page| Page::Project(project.clone(), page)));
-        AppPage::shown().map(Page::App).chain(project).collect()
+        let app = self.app_links.iter().map(|link| link.page.clone());
+        app.chain(project).collect()
     }
 
     /// What a page is called where it isn't under its group's heading: a project's by the
@@ -909,7 +1750,7 @@ impl SettingsView {
             .collect()
     }
 
-    /// A card as Lite's settings draw one: its heading outside it, then its rows divided by
+    /// A card: its heading outside it, then its rows divided by
     /// hairlines.
     fn render_card(card: Card, theme: &Theme) -> AnyElement {
         v_flex()
@@ -924,7 +1765,7 @@ impl SettingsView {
             }))
             .child(
                 v_flex()
-                    .rounded(dp(8.))
+                    .rounded(dp(theme.shape.popup))
                     .border_1()
                     .border_color(theme.border_3)
                     .bg(theme.bg_1)
@@ -1004,7 +1845,7 @@ impl SettingsView {
         .mx_0()
         .track_focus(&link.focus)
         .child(icon(page.icon()).text_color(match selected {
-            true => theme.muted_on_solid(),
+            true => theme.muted_on_solid,
             false => theme.text_2,
         }))
         .child(page.title())
@@ -1038,12 +1879,12 @@ impl SettingsView {
                 "fold",
                 open,
                 match selected {
-                    true => theme.muted_on_solid(),
+                    true => theme.muted_on_solid,
                     false => theme.text_3,
                 },
             ))
             .child(icon(Icon::Folder).text_color(match selected {
-                true => theme.muted_on_solid(),
+                true => theme.muted_on_solid,
                 false => theme.text_2,
             }))
             .child(div().flex_1().min_w_0().truncate().child(name))
@@ -1116,10 +1957,17 @@ impl Render for SettingsView {
         if self.folds.any() {
             window.request_animation_frame();
         }
+        self.launchers_frame(window);
         let theme = Theme::get(cx).clone();
         let query = self.search.read(cx).text().trim().to_lowercase();
         let searching = !query.is_empty();
-        let cards = self.cards(&query, window, cx);
+        // Keyboard's commands as a list, as laying out each of its rows takes too long.
+        let keyboard = (!searching && self.page == Page::App(AppPage::Keyboard))
+            .then(|| self.keyboard_list(cx).size_full());
+        let cards = match keyboard {
+            Some(_) => Vec::new(),
+            None => self.cards(&query, window, cx),
+        };
         let search_focused = self.search.focus_handle(cx).is_focused(window);
         let listed = self.listed_projects(cx);
         for project in listed.iter() {
@@ -1194,7 +2042,7 @@ impl Render for SettingsView {
                 .children(moving)
                 .children(more)
         });
-        let empty = cards.is_empty();
+        let empty = cards.is_empty() && keyboard.is_none();
         let height = (f32::from(window.viewport_size().height) / theme.scale * 0.76).min(1000.);
         let links = v_flex()
             .id("settings-pages")
@@ -1219,7 +2067,7 @@ impl Render for SettingsView {
             )
             .child(v_flex().px(dp(12.)).children(app_links))
             .children(projects);
-        let content = v_flex()
+        let cards = v_flex()
             .id("settings-cards")
             .size_full()
             .overflow_y_scroll()
@@ -1244,8 +2092,24 @@ impl Render for SettingsView {
                             .map(|card| Self::render_card(card, &theme)),
                     ),
             );
+        let (content, scroll) = match keyboard {
+            Some(list) => (
+                list.into_any_element(),
+                Scroll::List(self.keyboard.list.clone()),
+            ),
+            None => (
+                cards.into_any_element(),
+                Scroll::Div(self.cards_scroll.clone()),
+            ),
+        };
         modal(ModalSize::Large, &theme)
             .id("settings")
+            .key_context("Settings")
+            // From a page link or a control, as / goes to the navigator's filter.
+            .on_action(cx.listener(|this, _: &FocusSearch, window, cx| {
+                (this.search).update(cx, |search, cx| search.select_all_text(cx));
+                this.back_to_search(window, cx);
+            }))
             .h(dp(height))
             .flex_row()
             .child(
@@ -1255,7 +2119,7 @@ impl Render for SettingsView {
                     .h_full()
                     .bg(theme.bg_2)
                     // Its ground fills the modal's left corners, which it rounds as the modal does.
-                    .rounded_l(dp(MODAL_RADIUS - 1.))
+                    .rounded_l(dp(theme.shape.popup - 1.))
                     .key_context("SettingsPages")
                     .on_action(
                         cx.listener(|this, _: &SelectNext, window, cx| {
@@ -1280,11 +2144,11 @@ impl Render for SettingsView {
                     .border_l_1()
                     .border_color(theme.border_3)
                     .bg(theme.bg_1)
-                    .rounded_r(dp(MODAL_RADIUS - 1.))
+                    .rounded_r(dp(theme.shape.popup - 1.))
                     .child(scrolled(
                         content,
                         "settings-cards-scrollbar",
-                        Scroll::Div(self.cards_scroll.clone()),
+                        scroll,
                         &theme,
                     )),
             )
@@ -1303,7 +2167,6 @@ impl AppView {
         self.open_settings_at(Page::App(AppPage::Integrations), window, cx);
     }
 
-    /// Settings, at Project, for `project`.
     pub fn open_project_settings(
         &mut self,
         project: ProjectId,
@@ -1313,11 +2176,22 @@ impl AppView {
         self.open_settings_at(Page::Project(project, ProjectPage::Project), window, cx);
     }
 
-    /// Settings, at General; already open, it stays on the page it shows.
+    /// Settings, where it was left as it closed, else at General; already open, it stays on
+    /// the page it shows.
     pub fn open_settings(&mut self, _: &OpenSettings, window: &mut Window, cx: &mut Context<Self>) {
-        if self.open_settings_view().is_none() {
-            self.open_settings_at(Page::App(AppPage::General), window, cx);
+        if self.open_settings_view().is_some() {
+            return;
         }
+        // A project since removed leaves nothing to go back to.
+        let left = (self.settings_left.clone()).filter(|(page, _)| {
+            (page.project()).is_none_or(|project| self.store.read(cx).project(project).is_some())
+        });
+        let Some((page, offset)) = left else {
+            self.open_settings_at(Page::App(AppPage::General), window, cx);
+            return;
+        };
+        let view = self.open_settings_at(page, window, cx);
+        view.read(cx).cards_scroll.set_offset(offset);
     }
 
     pub fn open_keyboard_shortcuts(
@@ -1329,9 +2203,19 @@ impl AppView {
         self.open_settings_at(Page::App(AppPage::Keyboard), window, cx);
     }
 
+    /// Experimental, where briefs are turned on.
+    pub fn open_briefs_settings(
+        &mut self,
+        _: &OpenBriefsSettings,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.open_settings_at(Page::App(AppPage::Experimental), window, cx);
+    }
+
     /// Settings, at `page`. Already open, it shows `page` there: built again, it would draw
     /// without what it reads until that's read, and forget what had the keys before it opened.
-    fn open_settings_at(
+    pub(crate) fn open_settings_at(
         &mut self,
         page: Page,
         window: &mut Window,
@@ -1343,6 +2227,10 @@ impl AppView {
         }
         let (store, app, detail) = (self.store.clone(), AppHandle::of(cx), self.detail.clone());
         let view = cx.new(|cx| SettingsView::new(store, app, detail, page, window, cx));
+        cx.observe_release(&view, |this, view, _| {
+            this.settings_left = Some((view.page.clone(), view.cards_scroll.offset()));
+        })
+        .detach();
         self.open_modal(view.clone(), window, cx);
         view
     }
@@ -1393,6 +2281,11 @@ fn read_failed(
         .small()
         .on_click(cx.listener(move |this, _, _, cx| retry(this, cx)));
     Row::new(title, error_summary(err), again)
+}
+
+/// Draw the app in the look just picked, once the update picking it is over.
+fn app_look(app: &AppHandle, window: &mut Window, cx: &mut App) {
+    app.update_later(window, cx, |app, window, cx| app.apply_look(window, cx));
 }
 
 /// A segmented control for a setting with a few values, `current` picked. Unlike a dropdown's

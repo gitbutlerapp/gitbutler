@@ -1,0 +1,63 @@
+---
+name: gitbutler-ui
+description: "Use when changing what users see in an app built on `@gitbutler/but-ui-react`, such as the but.dev web app: adding or restyling a component, modal, form, list, empty state or toast, or writing the words on screen. Not for logic, data or backend work, even inside a UI file."
+---
+
+# Building GitButler UI
+
+Work as you would in any codebase: find the closest thing that already
+exists and copy it. These notes say where to look and what to check. They are
+not a gate to clear before starting.
+
+## Scope
+
+Change what the task needs. Older screens may not follow these notes; leave
+them alone unless the task is to fix them.
+
+## Start from the library
+
+`@gitbutler/but-ui-react` has the controls: `Button`, `Popup` (modals, dropdowns),
+`Select`, `Field`, `Checkbox`, `Switch`, `Tooltip`, `EmptyState`, `Snackbar`
+(raised through the `Snackbars` stack), `Toasts`, `Banner` and more. Use them
+rather than a control styled in a feature's CSS. Find a surface that already
+uses the ones you need and follow its structure.
+
+The source is the reference, because it is the version you build with:
+
+- In the gitbutler repository: `packages/but-ui-react/src/`
+- In but.dev: `web/node_modules/@gitbutler/but-ui-react/src/`
+
+Each component's JSDoc says what its props do, and its `*.stories.tsx` beside
+it shows it at work.
+
+Each component's stories open with `Default`, its simplest use and its props;
+the ones after it are examples, the component put to work the way an app
+writes it. For a whole surface, find the closest example under its outermost
+component (a confirmation is Modal's, a picker Popup's or PickerDialog's),
+copy it and change what differs.
+
+When nothing fits, build the smallest thing that works and say so in the PR
+description: what was needed, which components you tried.
+
+## Read the design pages you need
+
+The shared design language is `@gitbutler/but-ui`'s `DESIGN.md`, in
+`packages/but-ui/` here and in `node_modules/@gitbutler/but-ui/` elsewhere: an
+index of one page per topic, in `design/` beside it, each saying when to read
+it. Read the pages for what you are building, not all of them. How to build
+with this library is the one page in the library's own `design/`.
+
+Each app keeps its own choices in its own `DESIGN.md`; but.dev's is at its
+repository root.
+
+## Words
+
+Short and plain. A label is one to three words; a hint is one sentence. Call
+things what the rest of the app calls them. Say what the user can't already see
+on screen, once, without parentheses.
+
+## Check it
+
+Look at the result in light and dark, and keep one screenshot. In the
+gitbutler repository the docs site runs with `pnpm -F @gitbutler/but-ui-react
+demos`; `packages/but-ui-react/AGENTS.md` has how to reach a single story.

@@ -456,7 +456,11 @@ fn missing_upstream_reference_uses_the_rewritten_tip() -> Result<()> {
     editor.amend_pick(cutoff, replacement)?;
     let rebase = editor.rebase()?;
     assert!(
-        rebase.history.commit_mappings().contains_key(&cutoff),
+        rebase
+            .history
+            .commit_mappings()
+            .sole_successors()
+            .contains_key(&cutoff),
         "the upstream tip was rewritten"
     );
     // Resolving the same upstream's repository tip must follow its rewrite mapping.
@@ -559,7 +563,11 @@ fn rewritten_stored_cutoff_uses_its_commit_mapping() -> Result<()> {
     editor.amend_pick(cutoff, replacement)?;
     let rebase = editor.rebase()?;
     assert!(
-        rebase.history.commit_mappings().contains_key(&cutoff),
+        rebase
+            .history
+            .commit_mappings()
+            .sole_successors()
+            .contains_key(&cutoff),
         "the stored cutoff was rewritten, not excluded"
     );
     // The boundary reference is on a separate lane, while main reaches the rewritten cutoff.
@@ -614,7 +622,11 @@ fn excluded_stored_cutoff_does_not_fall_back_to_a_target_tip() -> Result<()> {
     );
     let rebase = editor.rebase()?;
     assert!(
-        !rebase.history.commit_mappings().contains_key(&cutoff),
+        !rebase
+            .history
+            .commit_mappings()
+            .sole_successors()
+            .contains_key(&cutoff),
         "an excluded cutoff has no rewrite mapping"
     );
     // No encountered commit is the cutoff; neither target tip may replace it.

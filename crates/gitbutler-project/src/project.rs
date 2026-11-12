@@ -120,7 +120,6 @@ pub struct Project {
 }
 
 impl Project {
-    /// Return a new instance with `id` and all other fields defaulted.
     pub fn default_with_id(id: ProjectHandleOrLegacyProjectId) -> Self {
         Project {
             id,
@@ -175,7 +174,6 @@ impl Project {
     }
 }
 
-/// Instantiation
 impl Project {
     /// Search upwards from `path` to discover a Git worktree.
     pub fn from_path(path: &Path) -> anyhow::Result<Project> {
@@ -193,38 +191,25 @@ impl Project {
         }
         .migrated()
     }
-    /// Finds an existing project by its path. Errors out if not found.
     pub fn find_by_worktree_dir(worktree_dir: &Path) -> anyhow::Result<Project> {
         Self::find_by_worktree_dir_opt(worktree_dir)?
             .context("No project found with the given path")
     }
 
-    /// Finds an existing project by its path or return `None` if there was none. Errors out if not found.
+    /// Finds the project whose worktree is exactly `worktree_dir`, or return `None` if there was none.
+    ///
+    /// `worktree_dir` must be the root of the worktree. A project registered for a parent
+    /// directory never matches, as its repository may be gone.
     // TODO: find by git-dir instead!
     pub fn find_by_worktree_dir_opt(worktree_dir: &Path) -> anyhow::Result<Option<Project>> {
-        let mut projects = crate::dangerously_list_projects_without_migration()?;
-        // Sort projects by longest pathname to shortest.
-        // We need to do this because users might have one gitbutler project
-        // nested inside another via a gitignored folder.
-        // We want to match on the longest project path.
-        projects.sort_by(|a, b| {
-            a.worktree_dir
-                .as_os_str()
-                .len()
-                .cmp(&b.worktree_dir.as_os_str().len())
-                // longest first
-                .reverse()
-        });
-
+        let projects = crate::dangerously_list_projects_without_migration()?;
         let resolved_path = worktree_dir
             .canonicalize()
             .with_context(|| format!("Failed to canonicalize path '{}'", worktree_dir.display()))?;
         let Some(project) = projects.into_iter().find(|p| {
-            // Canonicalize project path for comparison
-            match p.worktree_dir.canonicalize() {
-                Ok(proj_canon) => resolved_path.starts_with(proj_canon),
-                Err(_) => false,
-            }
+            p.worktree_dir
+                .canonicalize()
+                .is_ok_and(|dir| dir == resolved_path)
         }) else {
             return Ok(None);
         };
@@ -232,7 +217,6 @@ impl Project {
     }
 }
 
-/// Repository helpers.
 impl Project {
     /// Open an isolated repository, one that didn't read options beyond `.git/config` and
     /// knows no environment variables.
@@ -311,7 +295,6 @@ impl AddProjectOutcome {
         }
     }
 
-    /// Try to get the `Project`, returning an error if it was not added.
     pub fn try_project(self) -> anyhow::Result<Project> {
         match self {
             AddProjectOutcome::Added(p) => Ok(p),

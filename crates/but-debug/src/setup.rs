@@ -1,12 +1,9 @@
-//! Repository setup helpers for debug commands.
-
 use std::path::Path;
 
 use anyhow::Result;
 
 use crate::args::Args;
 
-/// Discover the repository for the provided CLI arguments.
 pub(crate) fn repo_from_args(args: &Args) -> Result<gix::Repository> {
     repo_from_path(&args.current_dir)
 }

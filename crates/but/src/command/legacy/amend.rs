@@ -2,18 +2,24 @@ use but_api::WorkspaceState;
 use but_ctx::Context;
 use but_graph::Workspace;
 use but_workspace::RefInfo;
+use nonempty::NonEmpty;
 
 use crate::{
     CliResult, CliResultExt, IdMap,
     args::{
-        amend::Platform,
+        amend::{ERROR_EXAMPLES, Platform},
         atoms::{CliIdArg, Priority, Purpose, ResolvedCliIdArg},
     },
     bad_input,
     command::legacy::squash::{
         self, HowToRewordTarget, ResolveTargetError, ResolvedSquashArgsRef, SquashOperation,
     },
-    utils::{IntermediateChannel, change_source::InvokedFrom, merged_upstream::MergedUpstream},
+    id::CommitId,
+    utils::{
+        IntermediateChannel,
+        change_source::{ChangeSourceId, InvokedFrom, UncommittedSelection},
+        merged_upstream::MergedUpstream,
+    },
 };
 
 pub fn amend(
@@ -39,12 +45,7 @@ pub fn amend(
     drop(repo);
     drop(ws);
 
-    Ok(squash::run(
-        ctx,
-        &mut meta,
-        guard.write_permission(),
-        operation,
-    )?)
+    squash::run(ctx, &mut meta, guard.write_permission(), operation)
 }
 
 fn resolve(
@@ -62,44 +63,46 @@ fn resolve(
         allow_merged: _,
     } = args;
 
-    let resolved_sources = if sources.is_empty() {
-        Vec::from([ResolvedCliIdArg::Uncommitted(
-            invoked_from.managed_source(id_map)?,
-        )])
+    let changes = if sources.is_empty() {
+        id_map.uncommitted_files_in(&invoked_from.managed_source(id_map)?)
     } else {
-        let mut resolved_sources = Vec::new();
+        let mut changes = Vec::new();
         for source in sources {
-            resolved_sources.extend(
-                source
-                    .resolve_uncommitted(repo, id_map)?
-                    .into_iter()
-                    .map(|source| ResolvedCliIdArg::UncommittedHunkOrFile(Box::new(source))),
-            );
-        }
-        // A source can expand to nothing, e.g. a worktree without changes, and
-        // squash classification requires at least one source.
-        if resolved_sources.is_empty() {
-            return Err(crate::bad_input("No changes to amend")
-                .hint("Run `but status` to show applicable targets")
+            if target.is_none() && names_target_instead_of_change(&source, repo, id_map)? {
+                return Err(bad_input(format!(
+                    "Could not find uncommitted change: '{source}'"
+                ))
+                .hint(format!(
+                    "That is a commit or branch. To amend into it, name it with `--target`:\n  but amend -t {source} <file-or-hunk>..."
+                ))
                 .into());
+            }
+            changes.extend(source.resolve_uncommitted(repo, id_map)?);
         }
-        resolved_sources
+        changes
     };
-    let sources = resolved_sources
-        .iter()
-        .map(ResolvedCliIdArg::as_ref)
-        .collect();
+    // The checkout can be clean or a source can expand to nothing, e.g. a worktree without
+    // changes, and squash classification requires at least one source.
+    let Some(changes) = NonEmpty::from_vec(changes) else {
+        return Err(crate::bad_input("No changes to amend")
+            .hint("Run `but status` to show applicable targets")
+            .into());
+    };
+    let selection = UncommittedSelection::new(changes)?;
 
     let target_hint = "--target must be an applied commit or branch";
     let hint = format!("{}. {}", target_hint, CliIdArg::TARGET_MISSING_HINT);
-    let target = target
-        .resolve_in_workspace(
-            repo,
-            id_map,
-            Purpose::Target,
-            Some(Priority::BranchAndCommit),
-        )
-        .with_hint(|| hint.clone())?;
+    let target = match target {
+        Some(target) => target
+            .resolve_in_workspace(
+                repo,
+                id_map,
+                Purpose::Target,
+                Some(Priority::BranchAndCommit),
+            )
+            .with_hint(|| hint.clone())?,
+        None => ResolvedCliIdArg::Commit(default_target(ws, id_map, selection.source())?),
+    };
     let target = match squash::resolve_target(
         target.as_ref(),
         &[],
@@ -130,6 +133,76 @@ fn resolve(
         }
     };
 
+    let resolved_sources = selection
+        .into_changes()
+        .into_iter()
+        .map(|change| ResolvedCliIdArg::UncommittedHunkOrFile(Box::new(change)))
+        .collect::<Vec<_>>();
+    let sources = resolved_sources
+        .iter()
+        .map(ResolvedCliIdArg::as_ref)
+        .collect();
+
     let args = ResolvedSquashArgsRef::Normal { sources, target };
     Ok(squash::resolve(args, ws, repo, merged)?.into_fully_owned())
+}
+
+/// Whether `source` is no uncommitted change, but a commit or branch: what `--target` takes.
+fn names_target_instead_of_change(
+    source: &CliIdArg,
+    repo: &gix::Repository,
+    id_map: &IdMap,
+) -> CliResult<bool> {
+    Ok(source.try_resolve_uncommitted(repo, id_map)?.is_none()
+        && matches!(
+            source.try_resolve(
+                repo,
+                id_map,
+                Purpose::Target,
+                Some(Priority::BranchAndCommit)
+            )?,
+            Some(ResolvedCliIdArg::Commit(_) | ResolvedCliIdArg::Branch(_))
+        ))
+}
+
+/// The commit to amend into when no target is named: the newest commit of the only branch the
+/// changes of `checkout` can be meant for. That's the branch checked out in a linked worktree or
+/// in single-branch mode, whose stack also lists the branches below it, or a workspace's only
+/// branch.
+///
+/// A branch `but status` shows without commits is refused, as the commit at its tip belongs to
+/// another branch or to the target.
+fn default_target(
+    ws: &Workspace,
+    id_map: &IdMap,
+    checkout: &ChangeSourceId,
+) -> CliResult<CommitId> {
+    let lane = match checkout {
+        ChangeSourceId::Worktree(name) => id_map.worktree_lane(name.as_ref()),
+        ChangeSourceId::Head => match id_map.stacks() {
+            [] => {
+                return Err(bad_input("There is no branch to amend into")
+                    .hint("Run `but commit` to make a first commit")
+                    .into());
+            }
+            [stack] if stack.segments.len() == 1 || ws.kind.has_adhoc_ref() => Some(stack),
+            _ => None,
+        },
+    };
+    let Some((branch, segment)) = lane
+        .and_then(|lane| lane.segments.first())
+        .and_then(|segment| Some((segment.branch_name()?, segment)))
+    else {
+        return Err(bad_input("Unclear which commit to amend into")
+            .hint(format!("Name it with `--target`.\n{ERROR_EXAMPLES}"))
+            .into());
+    };
+    match segment.workspace_commits.first() {
+        Some(tip) => Ok(tip.id()),
+        None => Err(
+            bad_input(format!("Branch {branch} has no commits to amend"))
+                .hint("Run `but commit` to make its first commit")
+                .into(),
+        ),
+    }
 }

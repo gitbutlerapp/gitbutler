@@ -6,13 +6,13 @@ pub(crate) mod build;
 mod lanes;
 mod push;
 
-pub use lanes::{Checkout, Lane};
+pub use lanes::{Checkout, Lane, in_place_of};
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 /// A commit's object id, opaque to the UI.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct CommitId(pub(crate) gix::ObjectId);
 
 impl CommitId {
@@ -109,6 +109,18 @@ pub struct Workspace {
     /// forge cache knows and of the branches linked worktrees shown have checked out, which
     /// the Branches page lists again when it changes.
     pub refs: u64,
+    /// A fingerprint of the pull requests the forge cache knew as this was read. A forge refresh
+    /// compares it with what the cache knows now, as `but` writes the cache too.
+    pub reviews: u64,
+    /// The same of the CI checks the forge cache knew as this was read.
+    pub checks: u64,
+    /// The newest entries of the project's operation log, newest first, each with whether a
+    /// person recorded it rather than an agent.
+    pub oplog: Vec<(SnapshotId, bool)>,
+    /// The newest entry of the operation log when the load started. An operation records its
+    /// entry after its changes, so the workspace has all of this one's; one recorded during the
+    /// load may have landed partway.
+    pub oplog_at_start: Option<SnapshotId>,
 }
 
 /// A forge: where a project's pull requests live, and what a forge account signs in to.
@@ -158,17 +170,93 @@ impl Worktree {
             .chain(self.updated_at)
     }
 
-    /// Nothing uncommitted, so not active either, and it hasn't moved in
-    /// [`INACTIVE_AFTER`]. One with no reflog to date it stays active.
-    pub fn is_inactive(&self) -> bool {
+    /// Nothing uncommitted, so not active either, and it hasn't moved for `after`. One with no
+    /// reflog to date it stays active.
+    pub fn is_inactive(&self, after: InactiveAfter) -> bool {
         self.uncommitted.is_empty()
-            && (self.updated_at)
-                .is_some_and(|at| crate::ui::now() - at > INACTIVE_AFTER.as_secs() as i64)
+            && (after.seconds().zip(self.updated_at))
+                .is_some_and(|(after, at)| crate::ui::now() - at > after)
     }
 }
 
 /// How long a worktree with nothing uncommitted counts as active after it last moved.
-const INACTIVE_AFTER: std::time::Duration = std::time::Duration::from_secs(12 * 60 * 60);
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum InactiveAfter {
+    TwelveHours,
+    OneDay,
+    #[default]
+    TwoDays,
+    FourDays,
+    OneWeek,
+    TwoWeeks,
+    Never,
+}
+
+impl InactiveAfter {
+    pub const ALL: [Self; 7] = [
+        Self::TwelveHours,
+        Self::OneDay,
+        Self::TwoDays,
+        Self::FourDays,
+        Self::OneWeek,
+        Self::TwoWeeks,
+        Self::Never,
+    ];
+
+    fn seconds(self) -> Option<i64> {
+        const HOUR: i64 = 60 * 60;
+        const DAY: i64 = 24 * HOUR;
+        match self {
+            Self::TwelveHours => Some(12 * HOUR),
+            Self::OneDay => Some(DAY),
+            Self::TwoDays => Some(2 * DAY),
+            Self::FourDays => Some(4 * DAY),
+            Self::OneWeek => Some(7 * DAY),
+            Self::TwoWeeks => Some(14 * DAY),
+            Self::Never => None,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::TwelveHours => "12 hours",
+            Self::OneDay => "1 day",
+            Self::TwoDays => "2 days",
+            Self::FourDays => "4 days",
+            Self::OneWeek => "1 week",
+            Self::TwoWeeks => "2 weeks",
+            Self::Never => "Never",
+        }
+    }
+
+    /// What makes a worktree inactive, for where inactive worktrees show, so never with
+    /// [`InactiveAfter::Never`].
+    pub fn rule(self) -> String {
+        let label = self.label();
+        format!("Nothing uncommitted, and no commits or checkouts in {label}")
+    }
+}
+
+/// What happens to a linked worktree once an update finds its branch merged.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum MergedWorktrees {
+    #[default]
+    Keep,
+    Archive,
+    Delete,
+}
+
+impl MergedWorktrees {
+    pub const ALL: [Self; 3] = [Self::Keep, Self::Archive, Self::Delete];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Keep => "Keep",
+            Self::Archive => "Archive",
+            Self::Delete => "Delete",
+        }
+    }
+}
 
 impl Workspace {
     /// Every commit shown, its linked worktrees' too.
@@ -186,6 +274,17 @@ impl Workspace {
         })
     }
 
+    /// The commit with change id `key`, which amending or rebasing it keeps.
+    pub fn find_commit_by_key(&self, key: &str) -> Option<&Commit> {
+        self.commits().find(|commit| commit.key == key)
+    }
+
+    /// What commit `id` is shown by: see [`Commit::short_reference`]. Its short sha if it's not
+    /// in the workspace.
+    pub fn short_reference(&self, id: CommitId) -> String {
+        (self.find_commit(id)).map_or_else(|| id.short(), |(_, commit)| commit.short_reference())
+    }
+
     /// The commits only shown branches' remotes have.
     pub fn remote_commits(&self) -> impl Iterator<Item = &RemoteCommit> {
         self.all_branches().flat_map(|branch| &branch.incoming)
@@ -200,15 +299,9 @@ impl Workspace {
         }
     }
 
-    /// The commits only a remote has: branch `ref_name`'s remote, or with `None` the
-    /// target's that the workspace doesn't have yet, newest first.
-    pub fn upstream(&self, ref_name: Option<&FullName>) -> &[RemoteCommit] {
-        match ref_name {
-            Some(ref_name) => self
-                .find_branch(Some(ref_name))
-                .map_or(&[], |b| &b.incoming),
-            None => self.target.as_ref().map_or(&[], |t| &t.incoming),
-        }
+    /// The commits only branch `ref_name`'s remote has, newest first.
+    pub fn upstream(&self, ref_name: &FullName) -> &[RemoteCommit] {
+        (self.find_branch(Some(ref_name))).map_or(&[], |b| &b.incoming)
     }
 
     pub fn find_branch(&self, ref_name: Option<&FullName>) -> Option<&Branch> {
@@ -220,11 +313,18 @@ impl Workspace {
         self.worktrees.iter().find(|worktree| worktree.name == name)
     }
 
+    /// The folder of `checkout`, the main one being `main`.
+    pub fn checkout_path(&self, main: &Path, checkout: &Checkout) -> Option<PathBuf> {
+        match checkout {
+            Checkout::Main => Some(main.to_owned()),
+            Checkout::Linked(name) => Some(self.find_worktree(name.as_ref())?.path.clone()),
+        }
+    }
+
     pub fn checked_out_in(&self, ref_name: &FullName) -> Option<&Worktree> {
         (self.worktrees.iter()).find(|worktree| worktree.branch.as_ref() == Some(ref_name))
     }
 
-    /// The uncommitted files of `checkout`.
     pub fn uncommitted_in(&self, checkout: &Checkout) -> Option<&[FileChange]> {
         match checkout {
             Checkout::Main => Some(&self.uncommitted),
@@ -252,9 +352,7 @@ impl Workspace {
     }
 
     pub fn unpushed_commits(&self) -> usize {
-        self.commits()
-            .filter(|commit| commit.state == CommitState::Local)
-            .count()
+        self.all_branches().map(Branch::unpushed_commits).sum()
     }
 }
 
@@ -266,7 +364,7 @@ pub struct Target {
     /// into.
     pub branch: String,
     /// It's the local target branch itself, like `main`, as it has no upstream, as in a
-    /// repository with no remote: a land moves it rather than pushing it.
+    /// repository with no remote: merging into it moves it rather than pushing it.
     pub local: bool,
     /// The remote branch of its name a `local` one doesn't track, like `origin/main` after
     /// `git push origin main` without `-u`: what others push there doesn't count here.
@@ -327,7 +425,7 @@ pub struct Review {
     pub auto_merge: bool,
     /// The CI checks on the branch, once any have been seen.
     pub checks: Option<Checks>,
-    /// Each check, failed ones first, then those still running.
+    /// Each check, in the order of [`CheckState`].
     pub check_runs: Vec<CheckRun>,
     pub labels: Vec<ReviewLabel>,
     /// Who's been asked to review it, bots left out. GitHub lists only those who haven't
@@ -362,18 +460,47 @@ pub struct ForgeUser {
     pub avatar_url: Option<String>,
 }
 
-/// A CI check on a pull request's branch.
 #[derive(Debug, Clone)]
 pub struct CheckRun {
     pub name: String,
     /// Where to read its log.
     pub url: String,
-    /// Whether it failed, once it finished.
-    pub failed: Option<bool>,
-    /// How it finished or how far it got, as the forge says: "Succeeded", "In progress".
-    pub status: String,
+    pub state: CheckState,
+    /// What became of it when its state doesn't say: "timed out", "queued".
+    pub note: Option<&'static str>,
     pub started_at: Option<i64>,
     pub completed_at: Option<i64>,
+}
+
+/// How a CI check stands, in the order GitHub lists them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum CheckState {
+    /// It failed, timed out or wants someone to act.
+    Failed,
+    Cancelled,
+    Running,
+    Queued,
+    Passed,
+    /// It ran nothing: skipped, or neutral.
+    Skipped,
+}
+
+/// What's been said on a pull request: who reacted to its description, and its remarks,
+/// newest first.
+#[derive(Debug, Clone)]
+pub struct Conversation {
+    pub reactions: Vec<Reaction>,
+    pub remarks: Vec<Remark>,
+}
+
+/// One kind of reaction to a pull request's description and who left it, as an agent
+/// reviewer's 👀 while it reads and 👍 once it found nothing.
+#[derive(Debug, Clone)]
+pub struct Reaction {
+    pub emoji: String,
+    /// How many left it, counting those the forge no longer names.
+    pub count: usize,
+    pub people: Vec<ForgeUser>,
 }
 
 /// One part of what's been said on a pull request, as its conversation shows it.
@@ -399,7 +526,6 @@ pub struct Note {
     pub body: Vec<crate::ui::markdown::Block>,
     /// When it was written, in seconds since the epoch.
     pub at: Option<i64>,
-    /// Changed since it was written.
     pub edited: bool,
     /// Where it shows on the forge.
     pub url: String,
@@ -431,7 +557,6 @@ pub enum ReviewState {
     Closed,
 }
 
-/// How a branch's CI checks stand.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Checks {
     pub passed: usize,
@@ -463,6 +588,19 @@ impl Branch {
         (self.commits.iter()).any(|c| c.state == CommitState::Local)
             || (self.push == PushState::NeverPushed
                 && (self.commits.iter()).any(|c| c.state == CommitState::Pushed))
+    }
+
+    /// How many commits pushing it sends, some exactly when it [can push](Self::can_push).
+    pub fn unpushed_commits(&self) -> usize {
+        (self.commits.iter())
+            .filter(|c| match c.state {
+                CommitState::Local => true,
+                // With no remote branch, as after a rename, the remote has them under another
+                // name only.
+                CommitState::Pushed => self.push == PushState::NeverPushed,
+                CommitState::Integrated => false,
+            })
+            .count()
     }
 
     /// What its header says of it against its remote, short of being in the target: what's
@@ -506,7 +644,7 @@ pub struct RemoteCommit {
     pub time: i64,
     /// It has more than one parent, bringing in the commits of the others.
     pub merge: bool,
-    /// The pull request a target's commit landed, as the project's page names it.
+    /// The pull request a target's commit merged, as the project's page names it.
     pub review: Option<Review>,
 }
 
@@ -578,6 +716,11 @@ pub struct Commit {
     pub tree: gix::ObjectId,
 }
 
+/// The start of change ID `key`, as a commit's sha is cut short.
+pub(super) fn short_change_id(key: &str) -> String {
+    key.get(..7).unwrap_or(key).to_owned()
+}
+
 /// What [`Commit::authored`] is made of.
 pub(super) fn authored(author: &gix::actor::Signature, message: &[u8]) -> String {
     let time = author.time.seconds.to_string();
@@ -590,6 +733,22 @@ impl Commit {
     pub fn has_change_id(&self) -> bool {
         let made = but_core::commit::Headers::synthetic_change_id_from_commit_id(self.id.0);
         self.key != made.to_string()
+    }
+
+    /// What names it to other tools: its change ID, or its sha when it carries none.
+    pub fn reference(&self) -> String {
+        match self.has_change_id() {
+            true => self.key.clone(),
+            false => self.id.0.to_string(),
+        }
+    }
+
+    /// [`Commit::reference`] as it's shown: cut short, as the sha's own is.
+    pub fn short_reference(&self) -> String {
+        match self.has_change_id() {
+            true => short_change_id(&self.key),
+            false => self.id.short(),
+        }
     }
 
     /// A local commit `id` with nothing else to it, its tree `id` too.
@@ -736,6 +895,61 @@ impl FileChange {
     pub fn base(&self) -> Option<gix::ObjectId> {
         (self.change.status.previous_state_and_path()).map(|(state, _)| state.id)
     }
+
+    /// Whether it became another kind of thing, as a file a link, which git says as a deletion
+    /// and an addition, not as the lines that changed.
+    fn retyped(&self) -> bool {
+        use but_core::TreeStatus as S;
+        matches!(&self.change.status,
+            S::Modification { flags, .. } | S::Rename { flags, .. }
+                if flags.is_some_and(|flags| flags.is_typechange()))
+    }
+
+    /// The lines git starts its diff of the file with: its paths either side, and what else
+    /// changed, as that it's new or gone, renamed or has another mode, which `git apply` needs.
+    fn git_header(&self) -> String {
+        use but_core::TreeStatus as S;
+        let new = self.path.as_str();
+        let old = self.previous_path.as_deref().unwrap_or(new);
+        let mode = |state: &but_core::ChangeState| state.kind.as_octal_str();
+        let mut header = format!("diff --git a/{old} b/{new}\n");
+        let (before, after) = match &self.change.status {
+            S::Addition { state, .. } => {
+                header.push_str(&format!("new file mode {}\n", mode(state)));
+                (None, Some(new))
+            }
+            S::Deletion { previous_state } => {
+                header.push_str(&format!("deleted file mode {}\n", mode(previous_state)));
+                (Some(old), None)
+            }
+            S::Modification {
+                previous_state,
+                state,
+                ..
+            }
+            | S::Rename {
+                previous_state,
+                state,
+                ..
+            } => {
+                if previous_state.kind != state.kind {
+                    let (from, to) = (mode(previous_state), mode(state));
+                    header.push_str(&format!("old mode {from}\nnew mode {to}\n"));
+                }
+                if old != new {
+                    header.push_str(&format!("rename from {old}\nrename to {new}\n"));
+                }
+                (Some(old), Some(new))
+            }
+        };
+        let side = |prefix: &str, path: Option<&str>| match path {
+            Some(path) => format!("{prefix}{path}"),
+            None => "/dev/null".to_owned(),
+        };
+        let (before, after) = (side("a/", before), side("b/", after));
+        header.push_str(&format!("--- {before}\n+++ {after}\n"));
+        header
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -781,9 +995,12 @@ pub struct FileDiff {
     pub scope_lines: Option<usize>,
     /// An SVG's two sides drawn, shown in place of its lines unless those are asked for.
     pub drawing: Option<Drawing>,
-    /// Which of several commits shown one after another it's from, as for commits picked
-    /// with others between them.
-    pub commit: Option<CommitId>,
+    /// The commits that made it, oldest first, in a diff of several commits. Of commits shown
+    /// one after another, as for commits picked with others between them, it's the one it's
+    /// shown under. Of a range, as a branch's, they're the commits whose changes to the file
+    /// add up to this one, which is taken from them. A range leaves it empty for a file it
+    /// can't say that of, as one renamed on the way.
+    pub made_by: Vec<CommitId>,
 }
 
 /// An SVG file's sides drawn as images are shown; a side is missing for an added or
@@ -810,6 +1027,7 @@ impl FileDiff {
         Selected {
             file: self.file.clone(),
             hunks: hunks.filter(|keys| !(self.file.whole_only() && all(keys))),
+            made_by: self.made_by.clone(),
         }
     }
 
@@ -830,6 +1048,51 @@ impl FileDiff {
             DiffBody::Hunks { added, removed, .. } => (*added, *removed),
             _ => (0, 0),
         }
+    }
+
+    /// Whether [`Self::patch`] has the file's diff to give.
+    pub fn has_patch(&self) -> bool {
+        !self.file.converted && !self.file.retyped() && !self.hunks().is_empty()
+    }
+
+    /// Its diff as git prints it, to copy or apply: the file's header, then every hunk, or
+    /// only the one `hunk` names. `None` when that's gone, or the file has no lines of its own
+    /// to give: a binary one, one whose diff a `textconv` filter made, or one that became a
+    /// link or the like.
+    pub fn patch(&self, hunk: Option<HunkKey>) -> Option<String> {
+        self.part_patch(hunk.as_ref().map(std::slice::from_ref))
+    }
+
+    /// Its diff as [`Self::patch`] gives it, of only what `keys` take, as [`Selected::hunks`]
+    /// names it, or all of it with `None`: a hunk a key names whole as it is, and of the
+    /// others the lines keys take, as [`Hunk::part_patch`] gives them.
+    pub fn part_patch(&self, keys: Option<&[HunkKey]>) -> Option<String> {
+        if !self.has_patch() {
+            return None;
+        }
+        let mut patch = self.file.git_header();
+        let header = patch.len();
+        let mut shift = 0;
+        for hunk in self.hunks() {
+            match keys {
+                Some(keys) if !keys.contains(&hunk.key) => {
+                    let takes = |line: &DiffLine| keys.iter().any(|key| key.takes(hunk, line));
+                    let Some(part) = hunk.part_patch(takes, &mut shift) else {
+                        continue;
+                    };
+                    patch.push_str(&part);
+                }
+                _ => {
+                    let whole = hunk.key.0;
+                    shift += i64::from(whole.new_lines) - i64::from(whole.old_lines);
+                    patch.push_str(&hunk.patch);
+                }
+            }
+            if !patch.ends_with('\n') {
+                patch.push('\n');
+            }
+        }
+        (patch.len() > header).then_some(patch)
     }
 
     /// Its hunks, or none when its body has no lines, like a binary file's.
@@ -914,6 +1177,11 @@ pub struct Hunk {
     pub key: HunkKey,
     pub header: String,
     pub lines: Vec<DiffLine>,
+    /// The hunk as git prints it, its header first and each line as the file has it, unlike
+    /// `lines`, which swap tabs and cut long lines: what copying it takes. A hunk with lines
+    /// that aren't UTF-8 has the diff's own text, converted as the diff shows it: readable,
+    /// though it won't apply, as no text on the clipboard could.
+    pub patch: Arc<str>,
     /// The scopes the hunk changes, outermost first, each as [`scope_name`] gives its first
     /// source line.
     pub scope: Vec<String>,
@@ -958,6 +1226,74 @@ impl Hunk {
             previous = kind;
         }
         runs.into_iter().map(HunkKey).collect()
+    }
+
+    /// The lines `takes` takes of it as a hunk of their own, as `git add -p` edits one: from
+    /// the first taken to the last, where a line taken out but not taken stays as it was and
+    /// one put in but not taken is left out, with no unchanged lines around them. Each line is
+    /// as [`Self::patch`] has it. Its new side is numbered as if only the hunks before it in
+    /// the patch changed the file, which put in `shift` more lines than they take out, as
+    /// git places a hunk without unchanged lines by it; it adds its own to `shift`. `None`
+    /// when it takes none, or `patch` lacks a line it has.
+    fn part_patch(&self, takes: impl Fn(&DiffLine) -> bool, shift: &mut i64) -> Option<String> {
+        let first = self.lines.iter().position(&takes)?;
+        let last = self.lines.iter().rposition(&takes)?;
+        // The patch's lines past its header, each without its sign and with the marker of a
+        // missing newline after it, by the sides they're on, in order: an unchanged line's
+        // ending that changed shows as a line on each side, apart.
+        let mut patched: Vec<(char, std::ops::Range<usize>)> = Vec::new();
+        let mut at = 0;
+        for line in self.patch.split_inclusive('\n') {
+            let range = at..at + line.len();
+            at = range.end;
+            match line.chars().next() {
+                Some(sign @ (' ' | '-' | '+')) => patched.push((sign, range.start + 1..range.end)),
+                Some('\\') => {
+                    if let Some((_, previous)) = patched.last_mut() {
+                        previous.end = range.end;
+                    }
+                }
+                _ => {}
+            }
+        }
+        let side = |sign: char| {
+            (patched.iter())
+                .filter(move |(s, _)| *s == ' ' || *s == sign)
+                .map(|(_, range)| self.patch.get(range.clone()))
+        };
+        let (mut old, mut new) = (side('-'), side('+'));
+        let mut old_start = self.key.0.old_start;
+        let (mut old_lines, mut new_lines) = (0, 0);
+        let mut body = String::new();
+        for (ix, line) in self.lines.iter().enumerate().take(last + 1) {
+            let before = match line.kind {
+                LineKind::Added => None,
+                _ => Some(old.next()??),
+            };
+            let after = match line.kind {
+                LineKind::Removed => None,
+                _ => Some(new.next()??),
+            };
+            if ix < first {
+                old_start += u32::from(before.is_some());
+                continue;
+            }
+            let (sign, text) = match (before, after) {
+                (Some(before), None) if takes(line) => ('-', before),
+                (None, Some(after)) if takes(line) => ('+', after),
+                (Some(before), _) => (' ', before),
+                (None, _) => continue,
+            };
+            old_lines += u32::from(sign != '+');
+            new_lines += u32::from(sign != '-');
+            body.push(sign);
+            body.push_str(text);
+        }
+        let new_start = i64::from(old_start) + *shift;
+        *shift += i64::from(new_lines) - i64::from(old_lines);
+        Some(format!(
+            "@@ -{old_start},{old_lines} +{new_start},{new_lines} @@\n{body}"
+        ))
     }
 
     /// The runs `picked` gives, each against this hunk's other side: what taking those lines
@@ -1012,14 +1348,13 @@ impl HunkKey {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct DiffLine {
     pub kind: LineKind,
     pub old: Option<u32>,
     pub new: Option<u32>,
     /// Shared, so drawing the line doesn't copy it.
     pub text: Arc<str>,
-    /// Syntax token spans within `text`.
     pub spans: Vec<(std::ops::Range<usize>, Token)>,
     /// The words that changed, when the line pairs up with one on the other side.
     pub emph: Vec<std::ops::Range<usize>>,
@@ -1047,15 +1382,25 @@ pub struct Selected {
     pub file: FileChange,
     /// `None` takes the whole file.
     pub hunks: Option<Vec<HunkKey>>,
+    /// The commits it's taken from, oldest first, when a range of commits made it
+    /// ([`FileDiff::made_by`]): the first is the one the operation names, and what the later
+    /// ones change of the file is gathered into it first. Empty anywhere else.
+    pub made_by: Vec<CommitId>,
 }
 
 impl Selected {
-    /// All of `file`.
     pub fn whole(file: &FileChange) -> Self {
         Self {
             file: file.clone(),
             hunks: None,
+            made_by: Vec::new(),
         }
+    }
+
+    /// Whether a commit takes it: not a conflicted file, refused until it's resolved, nor a
+    /// repository cloned inside, which isn't a submodule yet.
+    pub fn movable(&self) -> bool {
+        !self.file.conflicted && !self.file.nested_repository()
     }
 }
 
@@ -1074,9 +1419,40 @@ mod tests {
     use but_core::HunkHeader;
 
     use super::{
-        Branch, Commit, CommitId, CommitState, DiffLine, Hunk, HunkKey, LineKind, PushState,
-        RemoteCommit,
+        Branch, Commit, CommitId, CommitState, DiffLine, Hunk, HunkKey, InactiveAfter, LineKind,
+        PushState, RemoteCommit, Worktree,
     };
+
+    #[test]
+    fn a_worktree_goes_inactive_only_past_the_time_picked() {
+        const DAY: i64 = 24 * 60 * 60;
+        let moved_days_ago = |days: i64| Worktree {
+            name: "agent".into(),
+            path: "/work/agent".into(),
+            branch: None,
+            uncommitted: Vec::new(),
+            git_operation: None,
+            tree: None,
+            updated_at: Some(crate::ui::now() - days * DAY),
+        };
+        let default = InactiveAfter::default();
+        assert!(
+            !moved_days_ago(1).is_inactive(default),
+            "a day is within the default"
+        );
+        assert!(
+            moved_days_ago(3).is_inactive(default),
+            "three days is past the default"
+        );
+        assert!(
+            moved_days_ago(1).is_inactive(InactiveAfter::TwelveHours),
+            "a shorter pick catches what the default keeps"
+        );
+        assert!(
+            !moved_days_ago(365).is_inactive(InactiveAfter::Never),
+            "never means never"
+        );
+    }
 
     #[test]
     fn a_symbolic_link_says_so_where_its_target_reads_like_content() {
@@ -1137,6 +1513,7 @@ mod tests {
         let hunk = Hunk {
             key: HunkKey(header(1, 3, 1, 3)),
             header: String::new(),
+            patch: "".into(),
             lines: vec![
                 line(LineKind::Context, Some(1), Some(1)),
                 line(LineKind::Removed, Some(2), None),
@@ -1177,6 +1554,7 @@ mod tests {
         let hunk = Hunk {
             key: HunkKey(header(1, 4, 1, 4)),
             header: String::new(),
+            patch: "".into(),
             lines: vec![
                 line(LineKind::Context, Some(1), Some(1)),
                 line(LineKind::Removed, Some(2), None),
@@ -1236,13 +1614,14 @@ mod tests {
             review: None,
         };
         use CommitState::{Integrated, Local, Pushed};
-        for (push, states, incoming, said, can_push, why) in [
+        for (push, states, incoming, said, can_push, unpushed, why) in [
             (
                 PushState::NothingToPush,
                 &[Pushed][..],
                 0,
                 "on the remote",
                 false,
+                0,
                 "in step",
             ),
             (
@@ -1251,6 +1630,7 @@ mod tests {
                 0,
                 "1 to push",
                 true,
+                1,
                 "ahead",
             ),
             (
@@ -1259,6 +1639,7 @@ mod tests {
                 2,
                 "2 to pull",
                 false,
+                0,
                 "only behind",
             ),
             (
@@ -1267,6 +1648,7 @@ mod tests {
                 2,
                 "2 to pull, 1 to push",
                 true,
+                1,
                 "diverged",
             ),
             (
@@ -1275,6 +1657,7 @@ mod tests {
                 0,
                 "rewritten, needs a force push",
                 true,
+                1,
                 "rewritten",
             ),
             (
@@ -1283,6 +1666,7 @@ mod tests {
                 0,
                 "never pushed",
                 true,
+                1,
                 "renamed since it was pushed, its commits there under the old name",
             ),
             (
@@ -1291,7 +1675,17 @@ mod tests {
                 0,
                 "never pushed",
                 false,
+                0,
                 "merged, its remote branch deleted",
+            ),
+            (
+                PushState::NeverPushed,
+                &[Local, Local],
+                0,
+                "never pushed",
+                true,
+                2,
+                "never pushed, all its commits to send",
             ),
         ] {
             let branch = branch(push, states, incoming);
@@ -1300,6 +1694,11 @@ mod tests {
                 branch.can_push(),
                 can_push,
                 "{why}: whether it has commits to send"
+            );
+            assert_eq!(
+                branch.unpushed_commits(),
+                unpushed,
+                "{why}: how many commits pushing it sends"
             );
         }
     }
@@ -1335,6 +1734,35 @@ mod tests {
     }
 
     #[test]
+    fn a_commit_is_shown_by_the_start_of_its_change_id() {
+        let id = gix::ObjectId::from_hex(b"99a9648a9b2cf5a631d8ef586f97005604afaabc").unwrap();
+        let commit = Commit {
+            key: "vtlrvnlmsxrmrsnrkvqlwrzqokpsoxzk".into(),
+            ..Commit::bare(id)
+        };
+        assert_eq!(
+            commit.short_reference(),
+            "vtlrvnl",
+            "its change ID outlives its sha, so it's what names it"
+        );
+    }
+
+    #[test]
+    fn a_commit_without_a_change_id_is_shown_by_its_short_sha() {
+        let id = gix::ObjectId::from_hex(b"99a9648a9b2cf5a631d8ef586f97005604afaabc").unwrap();
+        let made = but_core::commit::Headers::synthetic_change_id_from_commit_id(id);
+        let commit = Commit {
+            key: made.to_string(),
+            ..Commit::bare(id)
+        };
+        assert_eq!(
+            commit.short_reference(),
+            "99a9648",
+            "the key made from its sha names it to nothing else"
+        );
+    }
+
+    #[test]
     fn a_commit_made_by_plain_git_has_no_change_id_of_its_own() {
         let id = gix::ObjectId::from_hex(b"99a9648a9b2cf5a631d8ef586f97005604afaabc").unwrap();
         let made = but_core::commit::Headers::synthetic_change_id_from_commit_id(id);
@@ -1349,6 +1777,16 @@ mod tests {
         assert!(
             commit("vtlrvnlmsxrmrsnrkvqlwrzqokpsoxzk".into()).has_change_id(),
             "it carries one"
+        );
+        assert_eq!(
+            commit(made.to_string()).reference(),
+            "99a9648a9b2cf5a631d8ef586f97005604afaabc",
+            "without a change ID of its own, other tools know it by its sha"
+        );
+        assert_eq!(
+            commit("vtlrvnlmsxrmrsnrkvqlwrzqokpsoxzk".into()).reference(),
+            "vtlrvnlmsxrmrsnrkvqlwrzqokpsoxzk",
+            "with one, by that"
         );
     }
 

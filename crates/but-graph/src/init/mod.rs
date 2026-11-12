@@ -73,16 +73,10 @@ pub(crate) type Entrypoint = Option<(gix::ObjectId, Option<gix::refs::FullName>)
 /// - *TS* or *AS* with *more than one* outgoing connection have *at least one* commit.
 #[derive(Debug, Clone)]
 pub struct Tip {
-    /// The commit id to start walking from.
     pub id: gix::ObjectId,
-    /// The ref name to assign to the tip segment, if it should be named.
     pub ref_name: Option<gix::refs::FullName>,
-    /// How this tip participates in traversal.
     pub role: TipRole,
-    /// Metadata to attach to the initial segment.
     pub metadata: Option<SegmentMetadata>,
-    /// Whether this tip is the user-facing traversal entrypoint.
-    ///
     /// There may only be *one such tip*.
     /// Other tips try to connect to any commit reachable from this one.
     pub is_entrypoint: bool,
@@ -91,7 +85,6 @@ pub struct Tip {
     pub is_detached: bool,
 }
 
-/// Lifecycle
 impl Tip {
     /// A traversal tip with default reachable semantics.
     ///
@@ -147,21 +140,17 @@ impl Tip {
     }
 }
 
-/// Builder
 impl Tip {
-    /// Set the ref name used to enforce the name this tip segment.
     pub fn with_ref_name(mut self, ref_name: Option<gix::refs::FullName>) -> Self {
         self.ref_name = ref_name;
         self
     }
 
-    /// Set the traversal role for this tip.
     pub fn with_role(mut self, role: TipRole) -> Self {
         self.role = role;
         self
     }
 
-    /// Set whether this tip is the traversal entrypoint.
     pub fn with_is_entrypoint(mut self, is_entrypoint: bool) -> Self {
         self.is_entrypoint = is_entrypoint;
         self
@@ -174,25 +163,21 @@ impl Tip {
         self
     }
 
-    /// Mark this tip as the traversal entrypoint.
     pub fn with_entrypoint(self) -> Self {
         self.with_is_entrypoint(true)
     }
 
-    /// Mark this entrypoint as detached for segment presentation.
     pub fn with_detached_entrypoint(mut self) -> Self {
         self = self.with_is_entrypoint(true).with_is_detached(true);
         self
     }
 
-    /// Attach metadata to the initial segment created for this tip.
     pub fn with_metadata(mut self, metadata: SegmentMetadata) -> Self {
         self.metadata = Some(metadata);
         self
     }
 }
 
-/// Utilities
 impl Tip {
     /// Return whether this tip is anonymous integrated target context.
     ///
@@ -315,9 +300,7 @@ pub enum TipRole {
     },
 }
 
-/// Access
 impl TipRole {
-    /// Whether this role represents integrated history.
     pub fn is_integrated(&self) -> bool {
         matches!(self, TipRole::TargetRemote)
     }
@@ -384,12 +367,9 @@ struct InitialTips {
     target_local_links: TargetLocalLinks,
 }
 
-/// Bidirectional lookup between target remote refs and their local tracking refs.
 #[derive(Default)]
 struct TargetLocalLinks {
-    /// Local tracking ref by target remote ref.
     local_by_target: BTreeMap<gix::refs::FullName, gix::refs::FullName>,
-    /// Target remote ref by local tracking ref.
     target_by_local: BTreeMap<gix::refs::FullName, gix::refs::FullName>,
 }
 
@@ -400,9 +380,7 @@ struct TargetLocalLinks {
 /// the local side exists, the pending target can be queued with the correct
 /// sibling relationship and goal.
 struct PendingIntegratedTip {
-    /// Commit id of the integrated target.
     id: gix::ObjectId,
-    /// Segment created for the integrated target before it is queued.
     segment: SegmentIndex,
     /// Whether to insert the target before existing initial queue work once it
     /// is released.
@@ -431,12 +409,8 @@ pub struct Overlay {
 
 pub(super) type PetGraph = petgraph::stable_graph::StableGraph<Segment, Edge>;
 
-/// Options for use in [`Graph::from_head()`] and [`Graph::from_commit_traversal()`].
 #[derive(Default, Debug, Clone)]
 pub struct Options {
-    /// Associate tag references with commits.
-    ///
-    /// If `false`, tags are not collected.
     pub collect_tags: bool,
     /// The (soft) maximum number of commits we should traverse.
     /// Workspaces with a target branch automatically have unlimited traversals as they rely on the target
@@ -496,7 +470,6 @@ pub struct WorktreeTip {
     pub id: gix::ObjectId,
 }
 
-/// Presets
 impl Options {
     /// Return options that won't traverse the whole graph if there is no workspace, but will show
     /// more than enough commits by default.
@@ -509,7 +482,6 @@ impl Options {
     }
 }
 
-/// Builder
 impl Options {
     /// Set the maximum amount of commits that each lane in a tip may traverse, but that's less important
     /// than building consistent, connected graphs.
@@ -573,7 +545,6 @@ fn discover_worktree_tips(
     Ok(tips)
 }
 
-/// Lifecycle
 impl Graph {
     /// Read the `HEAD` of `repo` and represent whatever is visible as a graph.
     ///

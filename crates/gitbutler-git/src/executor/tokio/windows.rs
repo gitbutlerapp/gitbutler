@@ -43,7 +43,6 @@ impl Socket for BufStream<NamedPipeServer> {
     }
 }
 
-/// A server for the `askpass` protocol using Tokio.
 pub struct TokioAskpassServer {
     server: Mutex<NamedPipeServer>,
     connection_string: String,

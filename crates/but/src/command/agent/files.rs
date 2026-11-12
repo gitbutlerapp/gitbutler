@@ -5,18 +5,51 @@ use anyhow::{Context as _, Result};
 use super::{MANAGED_BLOCK_END, MANAGED_BLOCK_START};
 
 pub(super) fn upsert_managed_block_file(path: &Path, block: &str) -> Result<()> {
-    let original = match std::fs::read_to_string(path) {
-        Ok(content) => content,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => String::new(),
-        Err(err) => return Err(err).with_context(|| format!("Failed to read {}", path.display())),
-    };
-    let updated = upsert_managed_block(&original, block)?;
+    let updated = upsert_managed_block(&read_or_empty(path)?, block)?;
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)
             .with_context(|| format!("Failed to create {}", parent.display()))?;
     }
     std::fs::write(path, updated).with_context(|| format!("Failed to write {}", path.display()))?;
     Ok(())
+}
+
+/// Whether the file at `path` has a managed block; a missing file has none.
+pub(super) fn has_managed_block(path: &Path) -> Result<bool> {
+    let spans = managed_block_spans(&read_or_empty(path)?)
+        .with_context(|| format!("Could not read the GitButler section in {}", path.display()))?;
+    Ok(!spans.is_empty())
+}
+
+/// Remove the managed blocks from the file at `path`, deleting a file left
+/// empty. A file without a block is left alone.
+pub(super) fn remove_managed_block_file(path: &Path) -> Result<()> {
+    let Some(updated) = remove_managed_blocks(&read_or_empty(path)?).with_context(|| {
+        format!(
+            "Could not remove the GitButler section from {}",
+            path.display()
+        )
+    })?
+    else {
+        return Ok(());
+    };
+    // Deleting a symlink would leave the block in its target, so an emptied
+    // symlink gets an empty target instead.
+    if updated.is_empty() && !path.is_symlink() {
+        std::fs::remove_file(path)
+    } else {
+        std::fs::write(path, updated)
+    }
+    .with_context(|| format!("Failed to update {}", path.display()))?;
+    Ok(())
+}
+
+fn read_or_empty(path: &Path) -> Result<String> {
+    match std::fs::read_to_string(path) {
+        Ok(content) => Ok(content),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
+        Err(err) => Err(err).with_context(|| format!("Failed to read {}", path.display())),
+    }
 }
 
 /// Find the byte offset of the next occurrence of `needle` in `haystack` at or
@@ -81,6 +114,35 @@ pub(super) fn managed_block_spans(existing: &str) -> Result<Vec<std::ops::Range<
         pos = span_end;
     }
     Ok(spans)
+}
+
+/// `existing` with every managed block removed, together with the blank lines
+/// after each block. Trailing whitespace is trimmed to a single line ending, or
+/// to nothing when only the blocks were there. `None` when there is no block.
+pub(super) fn remove_managed_blocks(existing: &str) -> Result<Option<String>> {
+    let spans = managed_block_spans(existing)?;
+    if spans.is_empty() {
+        return Ok(None);
+    }
+    let mut updated = String::with_capacity(existing.len());
+    let mut copied = 0;
+    for span in spans {
+        updated.push_str(&existing[copied..span.start]);
+        let rest = &existing[span.end..];
+        copied = span.end + rest.len() - rest.trim_start_matches(['\r', '\n']).len();
+    }
+    updated.push_str(&existing[copied..]);
+
+    let trimmed = updated.trim_end();
+    if trimmed.is_empty() {
+        return Ok(Some(String::new()));
+    }
+    let eol = if existing.contains("\r\n") {
+        "\r\n"
+    } else {
+        "\n"
+    };
+    Ok(Some(format!("{trimmed}{eol}")))
 }
 
 /// Rewrite `block` to use CRLF line endings when `existing` already does, so a

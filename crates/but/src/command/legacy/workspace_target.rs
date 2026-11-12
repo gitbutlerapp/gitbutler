@@ -9,7 +9,6 @@ use anyhow::{Context as _, Result};
 use but_core::sync::RepoShared;
 use but_ctx::Context;
 
-/// The resolved target commit and its associated reference metadata.
 #[derive(Debug, Clone)]
 pub(crate) struct ResolvedTarget {
     /// The effective target commit ID.
@@ -20,7 +19,6 @@ pub(crate) struct ResolvedTarget {
     push_remote_name: Option<String>,
 }
 
-/// Target information formatted for the `but status` command.
 #[derive(Debug, Clone)]
 pub(crate) struct StatusTarget {
     /// The commit ID shown as the workspace base in status output.
@@ -30,7 +28,6 @@ pub(crate) struct StatusTarget {
 }
 
 impl ResolvedTarget {
-    /// Build a resolved target from workspace projection data.
     pub(crate) fn from_workspace(
         workspace: &but_graph::Workspace,
         repo: &gix::Repository,
@@ -42,18 +39,15 @@ impl ResolvedTarget {
         })
     }
 
-    /// Resolve the effective workspace target while reusing an existing repository permission.
     pub(crate) fn resolve_with_perm(ctx: &Context, perm: &RepoShared) -> Result<Self> {
         let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm)?;
         Self::from_workspace(&ws, &repo)
     }
 
-    /// Return the effective target commit ID.
     pub(crate) fn oid(&self) -> gix::ObjectId {
         self.oid
     }
 
-    /// Return the effective target reference name when one is available.
     pub(crate) fn ref_name(&self) -> Option<&gix::refs::FullNameRef> {
         self.ref_name.as_ref().map(|name| name.as_ref())
     }
@@ -63,12 +57,10 @@ impl ResolvedTarget {
         self.ref_name().map(|name| name.shorten().to_string())
     }
 
-    /// Return the effective push remote name when one is available.
     pub(crate) fn push_remote_name(&self) -> Option<&str> {
         self.push_remote_name.as_deref()
     }
 
-    /// Build the status-facing target information for display in `but status`.
     /// Prefer the graph's shared lower bound over the selected cutoff for the common-base row.
     pub(crate) fn for_status(
         &self,
@@ -91,7 +83,6 @@ impl ResolvedTarget {
     }
 }
 
-/// Build the display name `but status` should show for a legacy base branch.
 fn display_name_from_base_branch(base_branch: &gitbutler_branch_actions::BaseBranch) -> String {
     match (
         base_branch
@@ -107,7 +98,6 @@ fn display_name_from_base_branch(base_branch: &gitbutler_branch_actions::BaseBra
     }
 }
 
-/// Resolve the target commit OID the workspace projection is based on.
 fn target_oid_from_workspace(workspace: &but_graph::Workspace) -> Result<gix::ObjectId> {
     workspace
         .target_commit
@@ -118,7 +108,6 @@ fn target_oid_from_workspace(workspace: &but_graph::Workspace) -> Result<gix::Ob
         )
 }
 
-/// Return the configured local target reference name.
 fn target_ref_name_from_workspace(workspace: &but_graph::Workspace) -> Option<gix::refs::FullName> {
     workspace
         .graph
@@ -128,8 +117,6 @@ fn target_ref_name_from_workspace(workspace: &but_graph::Workspace) -> Option<gi
         .map(|name| name.as_local_full_name_ref().to_owned())
 }
 
-/// Find the merge base between `branch_oid` and the effective workspace target.
-///
 /// Returns the merge-base commit ID together with the resolved target information.
 pub(crate) fn merge_base_with_target_with_perm(
     ctx: &Context,
@@ -176,6 +163,8 @@ mod tests {
             base_sha,
             current_sha: Some(base_sha),
             behind: 0,
+            workspace_behind: false,
+            worktrees_behind: vec![],
             upstream_commits: vec![],
             recent_commits: vec![],
             last_fetched_ms: None,

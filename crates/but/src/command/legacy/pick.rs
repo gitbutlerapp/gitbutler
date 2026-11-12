@@ -9,10 +9,10 @@ use but_core::{
 };
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
-use but_transaction::Transaction;
+use but_transaction::{Transaction, single_branch_mode::SingleBranchMode};
 use but_workspace::RefInfo;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
-use gix::ObjectId;
+use gix::{ObjectId, refs::FullNameRef};
 use itertools::Itertools as _;
 use serde::Serialize;
 
@@ -31,7 +31,7 @@ use crate::{
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils, change_source::InvokedFrom,
-        merged_upstream::MergedUpstream, single_branch_mode::SingleBranchMode,
+        merged_upstream::MergedUpstream,
     },
 };
 
@@ -240,6 +240,7 @@ fn resolve(
                     .hint("You can specify where to pick to with `--branch [<BRANCH>]`")
                     .into()
             }
+            RouteCommitOperationError::BranchlessWorktree(err) => err.into(),
             RouteCommitOperationError::Other(cli_error) => cli_error,
         })?
     };
@@ -266,10 +267,13 @@ pub fn run(
 ) -> anyhow::Result<(PickOutcome, WorkspaceState)> {
     let PickOperation {
         sources,
-        commit_op,
+        mut commit_op,
         order_commits_by_parentage,
     } = pick_op;
 
+    let new_branch = commit_op.name_new_branch(&*ctx.repo.get()?)?;
+    // Named so undo deletes the new branch again.
+    let snapshot_refs: Vec<&FullNameRef> = new_branch.iter().map(AsRef::as_ref).collect();
     let sbm = (commit_op.will_create_reference() || commit_op.switch())
         .then(|| SingleBranchMode::new(ctx, perm.read_permission(), commit_op.switch()))
         .transpose()?;
@@ -280,6 +284,7 @@ pub fn run(
             ctx,
             meta,
             snapshot_details,
+            &snapshot_refs,
             perm,
             commit_op.will_create_unstacked_reference(),
             |tx| {
@@ -298,7 +303,7 @@ pub fn run(
             meta,
             perm,
             snapshot_details,
-            &[],
+            &snapshot_refs,
             DryRun::No,
             |tx| pick_with_transaction(tx, commit_op, &sources, order_commits_by_parentage, None),
         )

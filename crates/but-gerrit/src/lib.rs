@@ -167,9 +167,7 @@ pub fn record_push_metadata_with_context(
 
         match existing {
             Some(existing_meta) => {
-                // Check if commit_id has changed
                 if existing_meta.commit_id != commit_id_str {
-                    // Update the entry with new commit_id and updated_at
                     let updated_meta = but_db::GerritMeta {
                         change_id: mapping.change_id,
                         commit_id: commit_id_str,
@@ -182,7 +180,6 @@ pub fn record_push_metadata_with_context(
                 // If commit_id matches, do nothing
             }
             None => {
-                // Create new entry
                 let new_meta = but_db::GerritMeta {
                     change_id: mapping.change_id,
                     commit_id: commit_id_str,
@@ -215,9 +212,7 @@ pub fn record_push_metadata(
 
         match existing {
             Some(existing_meta) => {
-                // Check if commit_id has changed
                 if existing_meta.commit_id != commit_id_str {
-                    // Update the entry with new commit_id and updated_at
                     let updated_meta = but_db::GerritMeta {
                         change_id: mapping.change_id,
                         commit_id: commit_id_str,
@@ -230,7 +225,6 @@ pub fn record_push_metadata(
                 // If commit_id matches, do nothing
             }
             None => {
-                // Create new entry
                 let new_meta = but_db::GerritMeta {
                     change_id: mapping.change_id,
                     commit_id: commit_id_str,

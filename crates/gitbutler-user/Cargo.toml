@@ -22,7 +22,7 @@ but-path.workspace = true
 
 anyhow.workspace = true
 base64.workspace = true
-reqwest.workspace = true
+reqwest = { workspace = true, features = ["multipart"] }
 serde.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }

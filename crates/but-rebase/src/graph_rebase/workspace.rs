@@ -34,7 +34,6 @@ use crate::graph_rebase::{
 pub struct Subgraph {
     /// Nodes in the subgraph that only have incoming edges
     pub heads: Vec<Selector>,
-    /// All the nodes in the specified subgraph
     pub nodes: HashSet<Selector>,
 }
 
@@ -47,8 +46,6 @@ impl Subgraph {
     }
 }
 
-/// Provides a frame of reference for the standardized view of the world.
-///
 /// This is intended to be used only inside the but-workspace crate.
 pub struct GraphWorkspace {
     /// If we're on the workspace branch, any commits in the rev-set
@@ -104,7 +101,6 @@ pub struct GraphWorkspace {
     pub commit_state: HashMap<Selector, CommitState>,
 }
 
-/// The status of a single reference in the workspace projection.
 #[derive(Clone)]
 pub struct ReferenceStatus {
     /// The remote-tracking branch this reference was compared against, if one
@@ -165,7 +161,6 @@ impl NodeSet {
 }
 
 impl<M: RefMetadata> Editor<'_, '_, M> {
-    /// Build a graph-based workspace projection framed from this editor.
     pub fn graph_workspace(&self) -> Result<GraphWorkspace> {
         let mut ws = self.graph_workspace_topology()?;
         // Every selector in the projection, so the status walks stay scoped to
@@ -301,7 +296,6 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         self.history.normalize_selector(selector).ok()
     }
 
-    /// The target ref.
     pub fn target_ref(&self) -> Option<&FullNameRef> {
         self.workspace
             .graph
@@ -629,7 +623,6 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     }
 }
 
-/// Map a reference's divergence from its remote into a [`PushStatus`].
 fn push_status_from_ahead_behind(ahead_behind: AheadBehind) -> PushStatus {
     if ahead_behind.behind > 0 {
         // The remote has commits we don't, so pushing rewrites its history.

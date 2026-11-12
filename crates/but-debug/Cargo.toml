@@ -20,6 +20,7 @@ but-core.workspace = true
 but-ctx.workspace = true
 but-graph.workspace = true
 but-db.workspace = true
+but-rebase.workspace = true
 but-workspace.workspace = true
 
 anyhow.workspace = true

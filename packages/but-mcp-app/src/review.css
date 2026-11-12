@@ -29,9 +29,9 @@
 	position: relative;
 	padding: 12px;
 	gap: 10px;
-	border-radius: var(--radius-card);
+	border-radius: var(--but-radius-card);
 	background: var(--gb-bg-1);
-	box-shadow: var(--shadow-card);
+	box-shadow: var(--gb-shadow-card);
 }
 
 .review-card-header {
@@ -47,7 +47,7 @@
 	min-width: 0;
 	gap: 6px;
 	color: var(--gb-text-2);
-	font-weight: var(--font-weight-semibold);
+	font-weight: var(--but-font-weight-semibold);
 	font-size: 12px;
 }
 
@@ -71,10 +71,10 @@
 	height: 18px;
 	padding-inline: 5px;
 	gap: 4px;
-	border-radius: var(--radius-full);
+	border-radius: var(--but-radius-full);
 	background: light-dark(hsl(0 0% 83.9% / 0.45), hsl(0 0% 0% / 0.5));
-	color: var(--text-1);
-	font-weight: var(--font-weight-semibold);
+	color: var(--but-foreground);
+	font-weight: var(--but-font-weight-semibold);
 	font-size: 10px;
 	white-space: nowrap;
 }
@@ -85,20 +85,18 @@
 }
 
 .ci-status[data-state="success"] {
-	--_bg: light-dark(var(--clr-safe-50), var(--clr-safe-30));
-	background: color-mix(in srgb, var(--_bg) 25%, var(--bg-1));
-	color: light-dark(var(--text-safe), var(--clr-safe-60));
+	background: color-mix(in srgb, var(--but-success) 25%, var(--but-background));
+	color: var(--but-success-text);
 }
 
 .ci-status[data-state="failure"] {
-	--_bg: light-dark(var(--clr-danger-50), var(--clr-danger-30));
-	background: color-mix(in srgb, var(--_bg) 22%, var(--bg-1));
-	color: light-dark(var(--text-danger), var(--clr-danger-60));
+	background: color-mix(in srgb, var(--but-danger) 22%, var(--but-background));
+	color: var(--but-danger-text);
 }
 
 .ci-status[data-state="actionRequired"] {
-	background: color-mix(in srgb, var(--fill-warn-bg) 18%, transparent);
-	color: var(--clr-warn-40);
+	background: color-mix(in srgb, var(--but-warning) 18%, transparent);
+	color: var(--but-warning-text);
 }
 
 .ci-status[data-state="inProgress"] svg {
@@ -110,32 +108,30 @@
 	align-items: center;
 	height: 18px;
 	padding-inline: 6px;
-	border-radius: var(--radius-full);
+	border-radius: var(--but-radius-full);
 	color: var(--gb-text-2);
-	font-weight: var(--font-weight-semibold);
+	font-weight: var(--but-font-weight-semibold);
 	font-size: 10px;
 }
 
 .review-status[data-state="draft"] {
 	background: light-dark(hsl(0 0% 83.9% / 0.45), hsl(0 0% 0% / 0.5));
-	color: var(--text-1);
+	color: var(--but-foreground);
 }
 
 .review-status[data-state="open"] {
-	--_bg: light-dark(var(--clr-safe-50), var(--clr-safe-30));
-	background: color-mix(in srgb, var(--_bg) 25%, var(--bg-1));
-	color: light-dark(var(--text-safe), var(--clr-safe-60));
+	background: color-mix(in srgb, var(--but-success) 25%, var(--but-background));
+	color: var(--but-success-text);
 }
 
 .review-status[data-state="merged"] {
-	background: color-mix(in srgb, var(--fill-purple-bg) 18%, transparent);
-	color: var(--text-purple);
+	background: color-mix(in srgb, var(--but-done) 18%, transparent);
+	color: var(--but-done-text);
 }
 
 .review-status[data-state="closed"] {
-	--_bg: light-dark(var(--clr-danger-50), var(--clr-danger-30));
-	background: color-mix(in srgb, var(--_bg) 22%, var(--bg-1));
-	color: light-dark(var(--text-danger), var(--clr-danger-60));
+	background: color-mix(in srgb, var(--but-danger) 22%, var(--but-background));
+	color: var(--but-danger-text);
 }
 
 .icon-button {
@@ -145,10 +141,10 @@
 	width: 24px;
 	height: 24px;
 	padding: 4px;
-	border: 1px solid color-mix(in srgb, var(--fill-gray-bg) 30%, transparent);
-	border-radius: var(--radius-control);
+	border: 1px solid color-mix(in srgb, var(--but-inverse) 30%, transparent);
+	border-radius: var(--but-radius-control);
 	background: transparent;
-	color: color-mix(in srgb, var(--text-1) 90%, transparent);
+	color: color-mix(in srgb, var(--but-foreground) 90%, transparent);
 	cursor: pointer;
 	transition:
 		background-color 80ms ease,
@@ -156,13 +152,13 @@
 }
 
 .icon-button:hover:not(:disabled) {
-	background: color-mix(in srgb, var(--scale-gray-0) 5%, transparent);
-	color: var(--text-1);
+	background: color-mix(in srgb, var(--but-foreground) 5%, transparent);
+	color: var(--but-foreground);
 }
 
 .icon-button:disabled {
 	cursor: default;
-	opacity: var(--opacity-disabled);
+	opacity: var(--but-opacity-disabled);
 }
 
 .icon-button svg {
@@ -177,7 +173,7 @@
 
 .review-card h2 {
 	margin: 0;
-	font-weight: var(--font-weight-semibold);
+	font-weight: var(--but-font-weight-semibold);
 	font-size: 14px;
 	line-height: 1.35;
 	overflow-wrap: anywhere;
@@ -194,7 +190,7 @@
 .branch-flow code {
 	padding: 3px 6px;
 	overflow: hidden;
-	border-radius: var(--radius-control);
+	border-radius: var(--but-radius-control);
 	background: var(--gb-bg-2);
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -234,7 +230,7 @@
 .review-labels span {
 	padding: 2px 6px;
 	border: 1px solid var(--gb-border-3);
-	border-radius: var(--radius-full);
+	border-radius: var(--but-radius-full);
 	color: var(--gb-text-2);
 	font-size: 10px;
 }
@@ -259,11 +255,11 @@
 	min-height: 28px;
 	padding: 4px 8px;
 	gap: 6px;
-	border: 1px solid color-mix(in srgb, var(--fill-gray-bg) 30%, transparent);
-	border-radius: var(--radius-control);
+	border: 1px solid color-mix(in srgb, var(--but-inverse) 30%, transparent);
+	border-radius: var(--but-radius-control);
 	background: transparent;
-	color: color-mix(in srgb, var(--text-1) 90%, transparent);
-	font-weight: var(--font-weight-semibold);
+	color: color-mix(in srgb, var(--but-foreground) 90%, transparent);
+	font-weight: var(--but-font-weight-semibold);
 	font-size: 12px;
 	cursor: pointer;
 	transition:
@@ -272,30 +268,30 @@
 }
 
 .review-button:hover:not(:disabled) {
-	background: color-mix(in srgb, var(--scale-gray-0) 5%, transparent);
-	color: var(--text-1);
+	background: color-mix(in srgb, var(--but-foreground) 5%, transparent);
+	color: var(--but-foreground);
 }
 
 .review-button.primary {
 	border: 0;
-	background: var(--scale-pop-70);
-	color: var(--scale-pop-10);
+	background: var(--but-primary);
+	color: var(--but-primary-foreground);
 }
 
 .review-button.primary:hover:not(:disabled) {
-	background: color-mix(in srgb, var(--scale-pop-70), var(--scale-pop-50) 13%);
-	color: var(--scale-pop-10);
+	background: var(--but-primary-hover);
+	color: var(--but-primary-foreground);
 }
 
 .review-button:disabled {
 	cursor: default;
-	opacity: var(--opacity-disabled);
+	opacity: var(--but-opacity-disabled);
 }
 
 .action-error {
 	padding: 8px 10px;
 	border: 1px solid color-mix(in srgb, var(--gb-danger) 30%, transparent);
-	border-radius: var(--radius-card);
+	border-radius: var(--but-radius-card);
 	background: color-mix(in srgb, var(--gb-danger) 9%, transparent);
 	color: var(--gb-danger);
 	font-size: 10px;
@@ -304,9 +300,9 @@
 
 .polling-error {
 	padding: 7px 9px;
-	border-radius: var(--radius-card);
-	background: color-mix(in srgb, var(--fill-warn-bg) 12%, transparent);
-	color: var(--text-2);
+	border-radius: var(--but-radius-card);
+	background: color-mix(in srgb, var(--but-warning) 12%, transparent);
+	color: var(--but-muted-foreground);
 	font-size: 10px;
 	line-height: 1.4;
 }

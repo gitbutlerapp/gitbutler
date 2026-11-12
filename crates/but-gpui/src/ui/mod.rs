@@ -2,6 +2,7 @@
 
 #[cfg(target_os = "linux")]
 pub mod alert;
+pub mod change_marks;
 pub mod conflict;
 pub mod diff;
 pub mod emoji;
@@ -10,6 +11,7 @@ pub mod fold;
 mod format;
 pub mod illustration;
 pub mod markdown;
+pub mod message_editor;
 pub mod modal;
 pub mod person;
 pub mod review;
@@ -22,14 +24,14 @@ use std::borrow::Cow;
 use std::ops::Range;
 
 use gpui::{
-    Action, AnyElement, App, AssetSource, ClickEvent, Context, CursorStyle, Div, DragMoveEvent,
-    ElementId, EmptyView, Entity, HighlightStyle, Hsla, MouseButton, MouseDownEvent, Pixels, Point,
-    Rems, Role, SharedString, Stateful, StyledText, Svg, Toggled, UnderlineStyle, Window, div,
-    prelude::*, rems, svg,
+    Action, AnyElement, App, AssetSource, ClickEvent, Context, CursorStyle, DispatchPhase, Div,
+    DragMoveEvent, ElementId, EmptyView, Entity, FocusHandle, HighlightStyle, Hsla, MouseButton,
+    MouseDownEvent, Pixels, Point, Rems, Role, SharedString, Stateful, StyledText, Svg, TextLayout,
+    Toggled, UnderlineStyle, Window, div, prelude::*, relative, rems, svg,
 };
 
-use crate::state::{Pane, Store};
-use crate::theme::Theme;
+use crate::state::{Area, Pane, Store};
+use crate::theme::{Hue, Theme, tokens};
 pub use format::*;
 use illustration::{Illustration, illustration};
 
@@ -37,7 +39,7 @@ use illustration::{Illustration, illustration};
 pub const BASE_REM: f32 = 16.;
 
 /// `n` pixels as designed, at 100%, which the interface scale grows or shrinks: sizes from
-/// ui-react's pixels go in as they are. Only what must stay put, as a hairline or the room
+/// but-ui-react's pixels go in as they are. Only what must stay put, as a hairline or the room
 /// for macOS's traffic lights, is in plain pixels.
 pub fn dp(n: f32) -> Rems {
     rems(n / BASE_REM)
@@ -58,6 +60,14 @@ pub const fn fixed(n: f32) -> Pixels {
 /// menu, as GNOME's title bars do.
 pub fn drags_window(el: Div) -> Div {
     let el = el.window_control_area(gpui::WindowControlArea::Drag);
+    // `holds_back_first_click` lets this one through, so the window drags from here straight
+    // away, as from a title bar.
+    #[cfg(target_os = "macos")]
+    let el = el.capture_any_mouse_down(|event, _, _| {
+        if event.first_mouse {
+            FIRST_CLICK_ON_HEADER.set(true);
+        }
+    });
     #[cfg(not(windows))]
     let el = {
         use std::cell::Cell;
@@ -87,6 +97,76 @@ pub fn drags_window(el: Div) -> Div {
     el
 }
 
+thread_local! {
+    /// The click that brought the window in front landed on a header (`drags_window`).
+    static FIRST_CLICK_ON_HEADER: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    /// The window that was active when last drawn (`holds_back_first_click`).
+    static DRAWN_ACTIVE: std::cell::Cell<Option<gpui::WindowId>> =
+        const { std::cell::Cell::new(None) };
+}
+
+/// Whether `window` is active. A dev script's never are, so it says which counts as active.
+fn is_active(window: &Window) -> bool {
+    #[cfg(feature = "dev-script")]
+    if crate::dev::scripted() {
+        return crate::dev::is_active(window);
+    }
+    window.is_window_active()
+}
+
+/// Bring `window` in front, but for a dev script's, which AppKit would show.
+pub fn activate(window: &mut Window) {
+    #[cfg(feature = "dev-script")]
+    if crate::dev::scripted() {
+        return crate::dev::activate(window);
+    }
+    window.activate_window();
+}
+
+/// Whether `event` is the press that brings the window in front, on macOS, which
+/// `holds_back_first_click` holds back unless it's on a header. GPUI marks it `first_mouse`, but
+/// leaves that on a later press too when a ctrl-click brought the window in front, so it counts
+/// only while the window was last drawn inactive: GPUI hears that the window is active only after
+/// handling the press that made it so.
+pub fn brings_window_in_front(event: &MouseDownEvent, window: &Window) -> bool {
+    cfg!(target_os = "macos")
+        && event.first_mouse
+        && DRAWN_ACTIVE.get() != Some(window.window_handle().window_id())
+}
+
+/// Holds back the click that brings the window in front, as macOS apps do, so it doesn't also
+/// press what's under it: GPUI passes it on (`acceptsFirstMouse`). A header still takes it, to
+/// drag the window. Drawn after everything else, as listeners run in the order they're drawn
+/// while an event is captured, so the headers' run first, as does a menu's that closes it on a
+/// press outside. Other capture listeners see it too, so one that acts checks
+/// `brings_window_in_front`.
+pub fn holds_back_first_click() -> impl IntoElement {
+    gpui::deferred(
+        gpui::canvas(
+            |_, _, _| {},
+            |_, (), window, _| {
+                let id = window.window_handle().window_id();
+                if is_active(window) {
+                    DRAWN_ACTIVE.set(Some(id));
+                } else if DRAWN_ACTIVE.get() == Some(id) {
+                    DRAWN_ACTIVE.set(None);
+                }
+                window.on_mouse_event(|event: &MouseDownEvent, phase, window, cx| {
+                    if phase == DispatchPhase::Capture && event.first_mouse {
+                        let on_header = FIRST_CLICK_ON_HEADER.take();
+                        if brings_window_in_front(event, window) && !on_header {
+                            cx.stop_propagation();
+                        }
+                    }
+                });
+            },
+        )
+        .absolute()
+        .inset_0(),
+    )
+    .with_priority(usize::MAX)
+}
+
 /// `el`, in a header the window is dragged by, still taking its own clicks: the drag area under
 /// it would take them, and a double click there would zoom the window.
 pub fn above_drag<E: InteractiveElement>(el: E) -> E {
@@ -96,11 +176,26 @@ pub fn above_drag<E: InteractiveElement>(el: E) -> E {
 /// Whether the app draws the window's minimize, maximize and close buttons: on Windows, and on
 /// Linux where the desktop leaves the window's frame to the app, as GNOME does on Wayland.
 pub fn draws_window_controls(window: &Window) -> bool {
+    #[cfg(feature = "dev-script")]
+    if crate::dev::linux_controls() {
+        return true;
+    }
     cfg!(target_os = "windows")
         || matches!(
             window.window_decorations(),
             gpui::Decorations::Client { .. }
         )
+}
+
+/// Whether macOS's traffic lights are at the window's top left, where the headers leave room for
+/// them: not in full screen, where they come down with the menu bar, over the app.
+pub fn has_traffic_lights(window: &Window) -> bool {
+    // A dev script trying Linux's window buttons has the header laid out as Linux's.
+    #[cfg(feature = "dev-script")]
+    if crate::dev::linux_controls() {
+        return false;
+    }
+    cfg!(target_os = "macos") && !window.is_fullscreen()
 }
 
 /// What "Reveal in Finder" is called where the file manager isn't Finder.
@@ -113,13 +208,15 @@ pub const REVEAL: &str = if cfg!(target_os = "macos") {
 };
 
 pub use window_controls::WINDOW_CONTROLS_WIDTH;
+/// How tall a list row is at Balanced density. Rows are drawn at `theme.sizes.control`, which
+/// the density moves; this stays for minimums and for tests, which count at Balanced.
 pub const ROW_HEIGHT: f32 = 28.;
-pub const HEADER_HEIGHT: f32 = 44.;
-pub const STATUS_BAR_HEIGHT: f32 = 28.;
+pub const HEADER_HEIGHT: f32 = 40.;
+pub const STATUS_BAR_HEIGHT: f32 = 30.;
 
-/// Every icon: the design system's, compiled in from `packages/ui-react` so they're the ones
-/// Lite and but.dev draw, and a build fails if one goes; then this app's own, under
-/// `assets/icons`, for what ui-react draws in code rather than from a file, or doesn't have.
+/// Every icon: the design system's, compiled in from `packages/but-ui-react` so they're the ones
+/// but.dev draws, and a build fails if one goes; then this app's own, under
+/// `assets/icons`, for what but-ui-react draws in code rather than from a file, or doesn't have.
 macro_rules! icons {
     (
         $($variant:ident => $name:literal),* $(,)?;
@@ -132,6 +229,9 @@ macro_rules! icons {
         }
 
         impl Icon {
+            #[cfg(feature = "stories")]
+            pub const ALL: &[Icon] = &[$(Icon::$variant,)* $(Icon::$own,)*];
+
             pub fn path(self) -> &'static str {
                 match self {
                     $(Icon::$variant => concat!("icons/", $name, ".svg"),)*
@@ -143,7 +243,7 @@ macro_rules! icons {
         fn icon_bytes(path: &str) -> Option<&'static [u8]> {
             match path {
                 $(concat!("icons/", $name, ".svg") => Some(include_bytes!(concat!(
-                    "../../../../packages/ui-react/src/icons/", $name, ".svg"
+                    "../../../../packages/but-ui-react/src/icons/", $name, ".svg"
                 ))),)*
                 $(concat!("icons/", $own_name, ".svg") => Some(include_bytes!(concat!(
                     "../../assets/icons/", $own_name, ".svg"
@@ -192,12 +292,14 @@ icons! {
     FilesSidebar => "files-sidebar",
     Folder => "folder",
     FolderCopy => "folder-copy",
+    Fork => "fork",
     Globe => "globe",
     Hash => "hash",
     Kebab => "kebab",
     Lab => "lab",
     Link => "link",
     Lock => "lock",
+    Minus => "minus",
     Mixer => "mixer",
     Plug => "plug",
     Plus => "plus",
@@ -208,7 +310,6 @@ icons! {
     Repo => "repo",
     Search => "search",
     Settings => "settings",
-    Sidebar => "sidebar",
     SidebarNarrow => "sidebar-narrow",
     Stack => "stack",
     Tag => "tag",
@@ -218,19 +319,28 @@ icons! {
     Tick => "tick",
     Undo => "undo",
     Warning => "warning";
-    // ui-react's FolderIcon, a component with its gradient in CSS.
+    // but-ui-react's FolderIcon, a component with its gradient in CSS.
     own: FolderFill => "folder-fill",
-    // ui-svelte's keyboard, which ui-react doesn't have.
+    // ui-svelte's keyboard, which but-ui-react doesn't have.
     Keyboard => "keyboard",
-    // ui-react's eye, struck through, for a project not watched.
+    // but-ui-react's sidebar-narrow, with the part a split makes filled in.
+    SplitRight => "split-right",
+    SplitBelow => "split-below",
+    TileZoom => "tile-zoom",
+    TileUnzoom => "tile-unzoom",
+    // A window coming off another, for what opens in a window of its own.
+    PopOutWindow => "pop-out-window",
+    // Three lines, for the menu bar folded into a button, as Windows and Linux apps draw it.
+    Menu => "menu",
+    // but-ui-react's eye, struck through, for a project not watched.
     EyeOff => "eye-off",
-    // ui-react's folders with their top right corner cut away, for a dot there while a
+    // but-ui-react's folders with their top right corner cut away, for a dot there while a
     // worktree has uncommitted changes.
     FolderDot => "folder-dot",
     FolderCopyDot => "folder-copy-dot",
-    // Another machine, which ui-react has no glyph for, in the style of its folder.
+    // Another machine, which but-ui-react has no glyph for, in the style of its folder.
     Computer => "computer",
-    // The repo glyph filled as ui-react's `EntityGlyph` fills it, its gradient baked in, for a
+    // The repo glyph filled as but-ui-react's `EntityGlyph` fills it, its gradient baked in, for a
     // project's icon: one for each colour but the outline, which is `Repo`.
     RepoPop => "repo-pop",
     RepoSafe => "repo-safe",
@@ -241,21 +351,29 @@ icons! {
 }
 
 /// GitButler's fonts, compiled into the binary so the client looks the same everywhere.
-/// Embedded fonts are as fast as system ones; a user-installed variable font isn't, as
-/// CoreText asks the font daemon about it for every line it lays out.
 pub fn fonts() -> Vec<Cow<'static, [u8]>> {
     macro_rules! fonts {
         ($($name:literal),* $(,)?) => {
-            vec![$(Cow::Borrowed(include_bytes!(concat!("../../assets/fonts/", $name, ".ttf")).as_slice()),)*]
+            vec![$(Cow::Borrowed(include_bytes!(concat!("../../assets/fonts/", $name)).as_slice()),)*]
         };
     }
     fonts!(
-        "Inter-Regular",
-        "Inter-Medium",
-        "Inter-SemiBold",
-        "GeistMono-Regular",
-        "GeistMono-SemiBold",
+        "Inter-Regular.ttf",
+        "Inter-Medium.ttf",
+        "Inter-SemiBold.ttf",
+        "GeistMonoNerdFontMono-Regular.otf",
+        "GeistMonoNerdFontMono-SemiBold.otf",
     )
+}
+
+/// How wide a digit of `family` is in ems, or `None` when the machine hasn't got it, as GPUI
+/// would quietly draw it in its own fallback.
+pub fn digit_advance(family: &str, text_system: &gpui::TextSystem) -> Option<f32> {
+    let id = text_system.resolve_font(&gpui::font(family.to_owned()));
+    (text_system.get_font_for_id(id)?.family == family).then_some(())?;
+    let size = fixed(100.);
+    let advance = text_system.advance(id, size, '0').ok()?;
+    Some(advance.width / size)
 }
 
 /// Match each of `fonts`' faces against the installed fonts in the background, as Zed does.
@@ -269,8 +387,8 @@ pub fn prewarm_fonts(cx: &gpui::App) {
         ("Inter", FontWeight::NORMAL),
         ("Inter", FontWeight::MEDIUM),
         ("Inter", FontWeight::SEMIBOLD),
-        ("Geist Mono", FontWeight::NORMAL),
-        ("Geist Mono", FontWeight::SEMIBOLD),
+        ("GeistMono Nerd Font Mono", FontWeight::NORMAL),
+        ("GeistMono Nerd Font Mono", FontWeight::SEMIBOLD),
     ]
     .map(|(family, weight)| gpui::Font {
         weight,
@@ -286,7 +404,7 @@ pub struct Assets;
 
 impl AssetSource for Assets {
     fn load(&self, path: &str) -> anyhow::Result<Option<Cow<'static, [u8]>>> {
-        Ok((icon_bytes(path).map(Cow::Borrowed)).or_else(|| person::load(path).map(Cow::Owned)))
+        Ok(icon_bytes(path).map(Cow::Borrowed))
     }
 
     fn list(&self, _path: &str) -> anyhow::Result<Vec<SharedString>> {
@@ -302,23 +420,23 @@ pub fn small_icon(icon: Icon) -> Svg {
     svg().path(icon.path()).size(dp(12.)).flex_none()
 }
 
-/// Icon toggles joined in a row, as ui-react's `ToggleGroupStyles` of outline toggles: one
+/// Icon toggles joined in a row, as but-ui-react's `ToggleGroupStyles` of outline toggles: one
 /// border round them and a rule between.
 pub fn toggle_group(theme: &Theme, toggles: impl IntoIterator<Item = Stateful<Div>>) -> Div {
-    let line = theme.control_border();
+    let line = theme.control_border;
     let toggles: Vec<_> = toggles.into_iter().collect();
     let last = toggles.len().saturating_sub(1);
     h_flex()
         .flex_none()
-        .h(dp(28.))
-        .rounded(dp(4.))
+        .h(dp(theme.sizes.control))
+        .rounded(dp(theme.shape.control))
         .border_1()
         .border_color(line)
         .children(toggles.into_iter().enumerate().map(|(ix, toggle)| {
             // Rounded inside the border, so a pressed one's ground keeps to it.
             toggle
-                .when(ix == 0, |el| el.rounded_l(dp(3.)))
-                .when(ix == last, |el| el.rounded_r(dp(3.)))
+                .when(ix == 0, |el| el.rounded_l(dp(theme.shape.xs)))
+                .when(ix == last, |el| el.rounded_r(dp(theme.shape.xs)))
                 .when(ix > 0, |el| el.border_l_1().border_color(line))
         }))
 }
@@ -332,7 +450,7 @@ pub fn icon_toggle(
     pressed: bool,
     theme: &Theme,
 ) -> Stateful<Div> {
-    let hover = theme.hover();
+    let hover = theme.hover;
     div()
         .id(id)
         .role(Role::Button)
@@ -344,11 +462,19 @@ pub fn icon_toggle(
         .justify_center()
         .when(pressed, |el| el.bg(theme.bg_2))
         .when(!pressed, |el| el.hover(move |el| el.bg(hover)))
-        .child(icon(glyph).text_color(theme.text_1.opacity(0.7)))
+        .child(icon(glyph).text_color(theme.text_1).opacity(0.7))
         .tooltip(Tooltip::keyed(tip, key))
 }
 
-/// A choice of one, as ui-react's `SegmentedControl`: `segments` with whether each is the
+/// Which of `len` tabs comes after the one at `at`, going round, if there's another.
+pub fn tab_after(len: usize, at: usize, forward: bool) -> Option<usize> {
+    (len > 1).then(|| match forward {
+        true => (at + 1) % len,
+        false => (at + len - 1) % len,
+    })
+}
+
+/// A choice of one, as but-ui-react's `SegmentedControl`: `segments` with whether each is the
 /// picked one, on a recessed track. The picked one is raised on the content ground, and a short
 /// rule parts two that aren't.
 pub fn segmented(
@@ -356,13 +482,16 @@ pub fn segmented(
     theme: &Theme,
     segments: impl IntoIterator<Item = (Stateful<Div>, bool)>,
 ) -> Div {
-    let (text, hover, line) = (theme.text_1, theme.hover(), theme.control_border());
+    let (text, hover, line) = (theme.text_1, theme.hover, theme.control_border);
     let segments: Vec<_> = segments.into_iter().collect();
     let picked: Vec<bool> = segments.iter().map(|(_, picked)| *picked).collect();
     h_flex()
         .flex_none()
-        .h(dp(if small { 24. } else { 28. }))
-        .rounded(dp(4.))
+        .h(dp(match small {
+            true => theme.sizes.control_sm + 4.,
+            false => theme.sizes.control,
+        }))
+        .rounded(dp(theme.shape.control))
         .bg(theme.bg_2)
         .text_size(dp(if small { 12. } else { 13. }))
         .font_weight(gpui::FontWeight::SEMIBOLD)
@@ -382,18 +511,62 @@ pub fn segmented(
                     });
                     let segment = tab_stop(segment, theme).role(Role::Button);
                     let segment = (segment.h_full().flex().items_center())
-                        .px(dp(if small { 7. } else { 9. }))
-                        .rounded(dp(4.))
+                        .px(dp(if small { 7. } else { 9. } + theme.sizes.padding))
+                        .rounded(dp(theme.shape.control))
                         .border_1()
                         .border_color(if on { line } else { gpui::transparent_black() })
-                        .text_color(text.opacity(if on { 0.9 } else { 0.7 }))
+                        .text_color(if on { text } else { theme.text_2 })
                         .when(on, |el| el.bg(theme.bg_1))
-                        .when(!on, |el| {
-                            el.hover(move |el| el.bg(hover).text_color(text.opacity(0.9)))
-                        });
+                        .when(!on, |el| el.hover(move |el| el.bg(hover).text_color(text)));
                     rule.into_iter().chain([segment.into_any_element()])
                 }),
         )
+}
+
+/// How tall a tile's bar is, which says what it shows, while its row has more than one.
+pub const TILE_BAR: f32 = 30.;
+
+/// How far a tile's card sits in from its area: half the gap between two, as the navigator's
+/// cards are apart.
+pub const TILE_MARGIN: f32 = 4.;
+
+/// How far a tile's content sits in from its card's edge, its border included: as the
+/// navigator's cards hold their rows, and clear of the rounded corners, as GPUI cuts what's
+/// inside to a rectangle.
+pub const TILE_PAD: f32 = 4.;
+
+/// `el` absolutely over the room it's in, `by` in from every side.
+pub fn inset_by(el: Div, by: f32) -> Div {
+    el.absolute()
+        .top(dp(by))
+        .bottom(dp(by))
+        .left(dp(by))
+        .right(dp(by))
+}
+
+/// A tile's card over its area, as the navigator's cards are drawn.
+pub fn tile_card(theme: &Theme) -> Div {
+    inset_by(div(), TILE_MARGIN)
+        .bg(theme.bg_1)
+        .border_1()
+        .border_color(theme.border_3)
+        .rounded(dp(theme.shape.card))
+}
+
+/// Where a tile's content goes in its area: inside its card, and cut to it, as a header wider
+/// than the tile is.
+pub fn tile_content() -> Div {
+    inset_by(div(), TILE_MARGIN + TILE_PAD).overflow_hidden()
+}
+
+/// A box over `area` of the room it's in, which is `relative`: where a tile goes.
+pub fn placed(area: Area) -> Div {
+    div()
+        .absolute()
+        .left(relative(area.left))
+        .top(relative(area.top))
+        .w(relative(area.width))
+        .h(relative(area.height))
 }
 
 pub fn h_flex() -> Div {
@@ -404,7 +577,6 @@ pub fn v_flex() -> Div {
     div().flex().flex_col()
 }
 
-/// Secondary text, like a setting's description.
 pub fn muted(text: impl IntoElement, theme: &Theme) -> Div {
     div()
         .text_size(dp(12.))
@@ -436,7 +608,50 @@ pub fn matched(
     StyledText::new(text).with_highlights(found.into_iter().map(|range| (range, underline)))
 }
 
-/// The heading over a group of rows.
+/// A place in text drawn as rows, as the diff's lines or a description's blocks: the row, and
+/// a byte of its text.
+pub type TextPoint = (usize, usize);
+
+/// Where in `text`, laid out as `layout`, the pointer at `position` is: over a character, the
+/// edge of it nearer the pointer, as text selection goes everywhere; off the text, where the
+/// text stops, as its start above it and a line's end beside or below it.
+pub fn text_index(layout: &TextLayout, text: &str, position: Point<Pixels>) -> usize {
+    let ix = match layout.index_for_position(position) {
+        Ok(ix) => ix,
+        Err(ix) => return ix,
+    };
+    let next = (text.get(ix..))
+        .and_then(|rest| rest.chars().next())
+        .map(|c| ix + c.len_utf8());
+    let edges = next.and_then(|next| {
+        Some((
+            layout.position_for_index(ix)?,
+            layout.position_for_index(next)?,
+            next,
+        ))
+    });
+    match edges {
+        Some((start, end, next)) if position.x > (start.x + end.x) / 2. => next,
+        _ => ix,
+    }
+}
+
+/// What a selection from `start` to `end`, in order, takes of `text`, row `row`'s. Nothing
+/// when the text changed under it so its ends no longer fall in the text, as after an edit.
+pub fn selected_part(
+    text: &str,
+    row: usize,
+    (start, end): (TextPoint, TextPoint),
+) -> Option<Range<usize>> {
+    if row < start.0 || row > end.0 {
+        return None;
+    }
+    let from = if row == start.0 { start.1 } else { 0 };
+    let to = if row == end.0 { end.1 } else { text.len() };
+    let fits = text.is_char_boundary(from) && text.is_char_boundary(to);
+    (from < to && fits).then_some(from..to)
+}
+
 pub fn section_label(text: impl IntoElement, theme: &Theme) -> Div {
     faint(text, theme).font_weight(gpui::FontWeight::SEMIBOLD)
 }
@@ -450,12 +665,12 @@ pub fn guide(at: f32, theme: &Theme) -> Div {
         .bottom_0()
         .left(dp(at))
         .w(fixed(1.))
-        .bg(theme.text_2.opacity(0.2))
+        .bg(theme.border_3)
 }
 
 /// A fold's glyph in a step as wide as a branch's chevron: a chevron, down while `open` and
 /// turning as that changes (see [`fold::chevron`]), or with nothing to fold (`None`) a dot at
-/// half strength, as ui-react's.
+/// half strength, as but-ui-react's.
 pub fn fold_glyph(id: impl Into<ElementId>, open: Option<bool>, color: Hsla) -> Div {
     let step = div()
         .flex_none()
@@ -465,12 +680,12 @@ pub fn fold_glyph(id: impl Into<ElementId>, open: Option<bool>, color: Hsla) -> 
         .items_center()
         .justify_center();
     match open {
-        None => step.child(small_icon(Icon::BulletDisc).text_color(color.opacity(0.5))),
+        None => step.child(small_icon(Icon::BulletDisc).text_color(color).opacity(0.5)),
         Some(open) => step.child(fold::chevron(id, open, color)),
     }
 }
 
-/// A row that unfolds a list, "N more", or folds it again, "Show fewer", as ui-react's
+/// A row that unfolds a list, "N more", or folds it again, "Show fewer", as but-ui-react's
 /// MoreItem: `glyph` at `icon_at` under the list's glyphs, the words at `text_at` under its
 /// titles.
 pub fn fold_row(
@@ -498,23 +713,37 @@ pub fn keep_focus_on_press(_: &MouseDownEvent, window: &mut Window, _: &mut App)
     window.prevent_default()
 }
 
+/// For a press on part of a row that acts on its own, without selecting or dragging the row:
+/// stopped there, it never reaches `pane`, the focusable parent that would take the keys.
+pub fn press_in_pane(
+    pane: &FocusHandle,
+) -> impl Fn(&MouseDownEvent, &mut Window, &mut App) + 'static {
+    let pane = pane.clone();
+    move |_, window, cx| {
+        window.focus(&pane, cx);
+        cx.stop_propagation();
+    }
+}
+
 /// A row's fold: [`fold_glyph`] that runs `toggle` on a click without selecting the row,
-/// or just the dot when there's nothing to fold (`None`).
+/// or just the dot when there's nothing to fold (`None`). A press gives `pane` the keys.
 pub fn fold_button<V: 'static>(
     id: impl Into<ElementId>,
     open: Option<bool>,
     color: Hsla,
+    pane: &FocusHandle,
     cx: &Context<V>,
     toggle: impl Fn(&mut V, &mut Window, &mut Context<V>) + 'static,
 ) -> Stateful<Div> {
     let id = id.into();
+    let theme = Theme::get(cx);
     let el = div().id(id.clone()).child(fold_glyph(id, open, color));
     match open {
         None => el,
         Some(_) => el
-            .rounded(dp(3.))
-            .hover(|el| el.bg(Theme::get(cx).hover()))
-            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .rounded(dp(theme.shape.xs))
+            .hover(|el| el.bg(Theme::get(cx).hover))
+            .on_mouse_down(MouseButton::Left, press_in_pane(pane))
             .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
                 cx.stop_propagation();
                 toggle(this, window, cx)
@@ -538,7 +767,14 @@ pub fn side_row(
 /// `el`, a row's secondary text, softened against a solid selection `on` it.
 pub fn quiet(el: Div, on: bool, theme: &Theme) -> Div {
     el.flex_none()
-        .when(on, |el| el.text_color(theme.muted_on_solid()))
+        .when(on, |el| el.text_color(theme.muted_on_solid))
+}
+
+/// Where row `ix` of `list` was last drawn, while some of it shows: where ⇧F10 opens the menu
+/// of the row selected.
+pub fn shown_row(list: &gpui::ListState, ix: usize) -> Option<gpui::Bounds<Pixels>> {
+    let (row, view) = (list.bounds_for_item(ix)?, list.viewport_bounds());
+    (row.bottom() > view.top() && row.top() < view.bottom()).then_some(row)
 }
 
 /// A row of a list or menu, shaded when `selected` and otherwise under the pointer.
@@ -548,13 +784,13 @@ pub fn list_row(id: impl Into<ElementId>, selected: bool, theme: &Theme) -> Stat
         .role(Role::ListItem)
         .aria_selected(selected)
         .flex_none()
-        .h(dp(ROW_HEIGHT))
+        .h(dp(theme.sizes.control))
         .mx(dp(6.))
         .px(dp(8.))
         .gap(dp(8.))
-        .rounded(dp(4.))
-        .when(selected, |el| el.bg(theme.selected_unfocused()))
-        .when(!selected, |el| el.hover(|el| el.bg(theme.hover())))
+        .rounded(dp(theme.shape.control))
+        .when(selected, |el| el.bg(theme.selected_unfocused))
+        .when(!selected, |el| el.hover(|el| el.bg(theme.hover)))
 }
 
 /// A selected `row` whose neighbours are selected too, `above` and `below`: a run of them
@@ -568,8 +804,8 @@ pub fn joined(
     theme: &Theme,
 ) -> Stateful<Div> {
     let line = match solid {
-        true => theme.text_inverted.opacity(0.1),
-        false => theme.bg_1.opacity(0.4),
+        true => theme.inverse_soft,
+        false => theme.bg_1,
     };
     row.when(above, |el| {
         el.relative().rounded_t_none().child(
@@ -590,7 +826,7 @@ pub fn joined(
 /// so a list keeps its arrows and Return doesn't press it again.
 pub fn tab_stop(el: Stateful<Div>, theme: &Theme) -> Stateful<Div> {
     // Inside its edge: a shadow spread outside it fills a control without a ground of its own.
-    let ring = gpui::BoxShadow::new(fixed(0.), fixed(0.), theme.focus_border())
+    let ring = gpui::BoxShadow::new(fixed(0.), fixed(0.), theme.focus_border)
         .spread_radius(fixed(2.))
         .inset();
     shown_when_focused(el.tab_index(0))
@@ -634,7 +870,7 @@ pub fn shown_when_focused(el: Stateful<Div>) -> Stateful<Div> {
 }
 
 /// How a switch's knob slides and its ground fades when it's turned: critically damped, most of
-/// the way in about 0.1s, as ui-react's Switch moves in `--transition-medium`. A spring, unlike
+/// the way in about 0.1s, as but-ui-react's Switch moves in `--but-transition-medium`. A spring, unlike
 /// `with_animation`, starts where it's going when first drawn, so opening a page moves nothing,
 /// and a second click mid-slide turns it back from where it is.
 const SWITCH_SPRING: gpui::SpringConfig = gpui::SpringConfig::new(1600., 80., 1.);
@@ -649,7 +885,7 @@ pub fn switch_spring(on: bool) -> gpui::SpringAnimation<bool> {
 /// A switch's ground off and on, to mix in sRGB as CSS does: mixing `Hsla` would sweep the
 /// gray's hue round to pop's and tint the middle.
 pub fn switch_grounds(theme: &Theme) -> [gpui::Rgba; 2] {
-    [theme.fill_gray.opacity(0.22).into(), theme.pop_bg.into()]
+    [theme.border_2.into(), theme.pop_bg.into()]
 }
 
 /// A [`switch`], which takes clicks as the `Stateful<Div>` it wraps does.
@@ -658,12 +894,27 @@ pub struct Switch {
     on: bool,
     el: Stateful<Div>,
     grounds: [gpui::Rgba; 2],
+    knob: Hsla,
+    disabled: bool,
 }
 
 /// An on/off switch, for a setting that applies at once.
 pub fn switch(id: impl Into<ElementId>, on: bool, theme: &Theme) -> Switch {
     let id = id.into();
-    let el = tab_stop(h_flex().id(id.clone()), theme)
+    Switch {
+        el: tab_stop(switch_track(id.clone(), on), theme).hover(|el| el.opacity(0.9)),
+        id,
+        on,
+        grounds: switch_grounds(theme),
+        knob: theme.bg_1,
+        disabled: false,
+    }
+}
+
+/// A switch's track, before it takes the keys or the pointer.
+fn switch_track(id: ElementId, on: bool) -> Stateful<Div> {
+    h_flex()
+        .id(id)
         .role(Role::Switch)
         .aria_toggled(if on { Toggled::True } else { Toggled::False })
         .flex_none()
@@ -671,21 +922,28 @@ pub fn switch(id: impl Into<ElementId>, on: bool, theme: &Theme) -> Switch {
         .h(dp(18.))
         .p(dp(2.))
         .rounded_full()
-        .hover(|el| el.opacity(0.9));
-    Switch {
-        id,
-        on,
-        el,
-        grounds: switch_grounds(theme),
-    }
 }
 
 impl Switch {
+    /// Dimmed, out of the tab order and taking no clicks, with `why` in its tooltip, as a
+    /// disabled [`button`] is.
+    pub fn disabled_because(mut self, why: Option<impl Into<SharedString>>) -> Self {
+        if let Some(why) = why {
+            self.el = switch_track(self.id.clone(), self.on)
+                .opacity(0.5)
+                .tooltip(Tooltip::text(why));
+            self.disabled = true;
+        }
+        self
+    }
+
     pub fn on_click(
         mut self,
         handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
     ) -> Self {
-        self.el = self.el.on_click(handler);
+        if !self.disabled {
+            self.el = self.el.on_click(handler);
+        }
         self
     }
 }
@@ -696,6 +954,7 @@ impl IntoElement for Switch {
     fn into_element(self) -> Self::Element {
         use gpui::AnimationExt as _;
         let [off, on] = self.grounds;
+        let knob = self.knob;
         // The spring wraps the whole switch, not a child: the track is the tab stop, whose
         // focus ring is drawn over its ground and under its children.
         self.el
@@ -706,7 +965,7 @@ impl IntoElement for Switch {
                         .ml(phase.interpolate_clamped(dp(0.), dp(12.)))
                         .size(dp(14.))
                         .rounded_full()
-                        .bg(gpui::white()),
+                        .bg(knob),
                 )
             })
     }
@@ -721,7 +980,7 @@ pub fn checkbox(id: impl Into<ElementId>, check: Toggled, theme: &Theme) -> Stat
         .aria_toggled(check)
         .flex_none()
         .size(dp(14.))
-        .rounded(dp(3.))
+        .rounded(dp(theme.shape.xs))
         .border_1()
         .border_color(if on { theme.pop_bg } else { theme.border_2 })
         .when(on, |el| el.bg(theme.pop_bg))
@@ -732,14 +991,13 @@ pub fn checkbox(id: impl Into<ElementId>, check: Toggled, theme: &Theme) -> Stat
             Toggled::True => el.child(
                 small_icon(Icon::Tick)
                     .size(dp(10.))
-                    .text_color(gpui::white()),
+                    .text_color(theme.on_pop),
             ),
-            Toggled::Mixed => el.child(div().w(dp(8.)).h(dp(2.)).rounded(dp(1.)).bg(gpui::white())),
+            Toggled::Mixed => el.child(div().w(dp(8.)).h(dp(2.)).rounded(dp(1.)).bg(theme.on_pop)),
             Toggled::False => el,
         })
 }
 
-/// A button showing a choice, which opens a menu of the others when clicked.
 pub fn dropdown(
     id: impl Into<ElementId>,
     label: impl Into<SharedString>,
@@ -748,15 +1006,15 @@ pub fn dropdown(
     tab_stop(h_flex().id(id), theme)
         .role(Role::ComboBox)
         .flex_none()
-        .h(dp(28.))
-        .pl(dp(10.))
-        .pr(dp(6.))
+        .h(dp(theme.sizes.control))
+        .pl(dp(10. + theme.sizes.padding))
+        .pr(dp(6. + theme.sizes.padding))
         .gap(dp(6.))
-        .rounded(dp(4.))
+        .rounded(dp(theme.shape.control))
         .border_1()
         .border_color(theme.border_2)
         .text_size(dp(13.))
-        .hover(|el| el.bg(theme.hover()))
+        .hover(|el| el.bg(theme.hover))
         .child(div().min_w_0().truncate().child(label.into()))
         .child(small_icon(Icon::ChevronDown).text_color(theme.text_2))
 }
@@ -765,16 +1023,18 @@ pub fn dropdown(
 pub fn field(input: &Entity<text_input::TextInput>, focused: bool, theme: &Theme) -> Div {
     let clicked = input.clone();
     div()
-        // Its padding is part of the field to click.
+        // Its padding is part of the field to click, and keeps the keys from a focusable
+        // parent, which would take them as the press goes on to it.
         .on_mouse_down(gpui::MouseButton::Left, move |_, window, cx| {
-            window.focus(&gpui::Focusable::focus_handle(&clicked, cx), cx)
+            window.focus(&gpui::Focusable::focus_handle(&clicked, cx), cx);
+            window.prevent_default();
         })
         .px(dp(8.))
         .py(dp(5.))
-        .rounded(dp(4.))
+        .rounded(dp(theme.shape.control))
         .border_1()
         .border_color(if focused {
-            theme.focus_border()
+            theme.focus_border
         } else {
             theme.border_2
         })
@@ -783,13 +1043,81 @@ pub fn field(input: &Entity<text_input::TextInput>, focused: bool, theme: &Theme
         .child(input.clone())
 }
 
-/// How round a popover's corners are.
-pub const POPOVER_RADIUS: f32 = 8.;
+/// A snackbar: a sentence on the inverse ground, led by a warning glyph when it went but not
+/// quite as asked, with at most one button, `action`, behind a line: Undo, from
+/// [`snackbar_undo`]. Figma's has a close button instead for one that waits to be dismissed, never
+/// both, but this app's all leave on their own.
+pub fn snackbar(
+    id: impl Into<ElementId>,
+    message: SharedString,
+    warning: bool,
+    action: Option<AnyElement>,
+    theme: &Theme,
+) -> Stateful<Div> {
+    h_flex()
+        .id(id)
+        .role(Role::Alert)
+        .aria_label(message.clone())
+        // As but-ui's: the start padding before a glyph and the end padding before bare words;
+        // the end padding after the words, or after a button the block padding, as above and
+        // below it. Each a pixel less here, for the border.
+        .h(dp(tokens::SIZE_SNACKBAR))
+        .pl(dp(match warning {
+            true => tokens::PADDING_SNACKBAR_START,
+            false => tokens::PADDING_SNACKBAR_END,
+        } - 1.))
+        .pr(dp(match action.is_some() {
+            true => tokens::PADDING_SNACKBAR_BLOCK,
+            false => tokens::PADDING_SNACKBAR_END,
+        } - 1.))
+        .gap(dp(tokens::GAP_SNACKBAR))
+        .rounded(dp(theme.shape.popup))
+        .border_1()
+        .border_color(theme.snackbar_border)
+        .bg(theme.snackbar_bg)
+        .text_color(theme.snackbar_text)
+        .text_size(dp(12.))
+        .shadow_lg()
+        .when(warning, |el| {
+            el.child(snackbar_icon(Icon::Warning).text_color(theme.snackbar_warn))
+        })
+        .child(message)
+        .when_some(action, |el, action| {
+            // The line sits 12px after the words and 8px before the button, whose own padding
+            // puts its glyph 14px past the line.
+            el.child(
+                div()
+                    .flex_none()
+                    .pl(dp(4.))
+                    .child(div().w(fixed(1.)).h(dp(20.)).bg(theme.snackbar_divider)),
+            )
+            .child(action)
+        })
+}
+
+/// A snackbar's Undo, which takes back what it says happened.
+pub fn snackbar_undo(id: impl Into<ElementId>, theme: &Theme) -> Stateful<Div> {
+    h_flex()
+        .id(id)
+        .h(dp(20.))
+        .px(dp(6.))
+        .gap(dp(4.))
+        .rounded(dp(theme.shape.control))
+        .font_weight(gpui::FontWeight::SEMIBOLD)
+        .hover(|el| el.bg(theme.snackbar_hover))
+        .child(snackbar_icon(Icon::Undo).text_color(theme.snackbar_text))
+        .child("Undo")
+}
+
+/// A glyph in a snackbar, 14px as Figma's.
+fn snackbar_icon(icon: Icon) -> Svg {
+    svg().path(icon.path()).size(dp(14.)).flex_none()
+}
 
 /// The card that menus, dialogs, toasts and tooltips float on.
 pub fn popover(theme: &Theme) -> Div {
     v_flex()
-        .rounded(dp(POPOVER_RADIUS))
+        .rounded(dp(theme.shape.popup))
         .bg(theme.bg_1)
         .border_1()
         .border_color(theme.border_2)
@@ -815,14 +1143,18 @@ pub struct Button {
     id: ElementId,
     label: Option<SharedString>,
     icon: Option<Icon>,
+    /// Sized by the caller, as a person's picture, in place of an icon. It shows no hover.
+    picture: Option<AnyElement>,
     style: ButtonStyle,
     /// Why it can't be pressed now, shown in place of its tooltip.
     disabled: Option<SharedString>,
     small: bool,
+    /// At least this wide, its label centred.
+    min_width: Option<Rems>,
     /// On an inverted ground, like a selected row.
     inverted: bool,
     /// The colour of the ground it sits on, as a banner's action takes its banner's.
-    tint: Option<Hsla>,
+    tint: Option<Hue>,
     on_click: Option<ClickHandler>,
     tooltip: Option<SharedString>,
     tooltip_key: Option<SharedString>,
@@ -830,6 +1162,8 @@ pub struct Button {
     tooltip_action: Option<Box<dyn Action>>,
     /// Which half of a [`dropdown_button`] it is, squared where the halves meet.
     half: Option<Half>,
+    /// Narrower than its label when its row has no room to spare: see [`Button::shrinks`].
+    shrinks: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -845,9 +1179,11 @@ pub fn button(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Butto
         id: id.into(),
         label: Some(label.into()),
         icon: None,
+        picture: None,
         style: ButtonStyle::Outline,
         disabled: None,
         small: false,
+        min_width: None,
         inverted: false,
         tint: None,
         on_click: None,
@@ -855,6 +1191,7 @@ pub fn button(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Butto
         tooltip_key: None,
         tooltip_action: None,
         half: None,
+        shrinks: false,
     }
 }
 
@@ -862,6 +1199,16 @@ pub fn icon_button(id: impl Into<ElementId>, icon: Icon) -> Button {
     Button {
         label: None,
         icon: Some(icon),
+        style: ButtonStyle::Ghost,
+        ..button(id, "")
+    }
+}
+
+/// A button showing `picture` alone. As with an icon, its tooltip names it.
+pub fn picture_button(id: impl Into<ElementId>, picture: impl IntoElement) -> Button {
+    Button {
+        label: None,
+        picture: Some(picture.into_any_element()),
         style: ButtonStyle::Ghost,
         ..button(id, "")
     }
@@ -899,7 +1246,21 @@ impl Button {
         self
     }
 
-    pub fn tint(mut self, tint: Hsla) -> Self {
+    /// Narrower than its label when its row has no room to spare, which it then cuts short with
+    /// an ellipsis, as a long branch name in it would otherwise push its row past its edge.
+    /// Buttons that shrink share what the row lacks; the rest keep their width.
+    pub fn shrinks(mut self) -> Self {
+        self.shrinks = true;
+        self
+    }
+
+    /// At least `width` wide, so buttons that stand in for each other cover the same place.
+    pub fn min_width(mut self, width: Rems) -> Self {
+        self.min_width = Some(width);
+        self
+    }
+
+    pub fn tint(mut self, tint: Hue) -> Self {
         self.tint = Some(tint);
         self
     }
@@ -952,58 +1313,65 @@ impl RenderOnce for Button {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = Theme::get(cx);
         let (fg, bg, border, hover): (Hsla, Option<Hsla>, Option<Hsla>, Hsla) = match self.style {
-            ButtonStyle::Ghost => (theme.text_1, None, None, theme.hover()),
-            ButtonStyle::Outline => (
-                theme.text_1,
-                None,
-                Some(theme.control_border()),
-                theme.hover(),
-            ),
-            ButtonStyle::Gray => (
-                theme.text_1,
-                Some(theme.fill_gray.opacity(0.1)),
-                None,
-                theme.fill_gray.opacity(0.16),
-            ),
-            ButtonStyle::Pop => (
-                gpui::white(),
-                Some(theme.pop_button),
-                None,
-                theme.pop_button.opacity(0.9),
-            ),
+            ButtonStyle::Ghost => (theme.text_1, None, None, theme.hover),
+            ButtonStyle::Outline => (theme.text_1, None, Some(theme.control_border), theme.hover),
+            ButtonStyle::Gray => (theme.text_1, Some(theme.muted), None, theme.muted_hover),
+            ButtonStyle::Pop => (theme.on_pop, Some(theme.pop_button), None, theme.pop_hover),
             ButtonStyle::Danger => (
                 theme.danger,
-                Some(theme.danger.opacity(0.1)),
+                Some(theme.danger_soft),
                 None,
-                theme.danger.opacity(0.16),
+                theme.danger_soft_hover,
             ),
         };
+        // A filled button keeps its fill under the pointer, a step stronger; one without
+        // takes the fill there.
         let (fg, bg, hover) = match self.tint {
-            Some(tint) => (tint, bg.map(|_| tint.opacity(0.12)), tint.opacity(0.16)),
+            Some(tint) => (
+                theme.hue(tint),
+                bg.map(|_| theme.soft(tint)),
+                match bg {
+                    Some(_) => theme.soft_hover(tint),
+                    None => theme.soft(tint),
+                },
+            ),
             None if self.inverted && self.style != ButtonStyle::Pop => (
                 theme.text_inverted,
-                bg.map(|_| theme.text_inverted.opacity(0.14)),
-                theme.text_inverted.opacity(0.22),
+                bg.map(|_| theme.inverse_soft),
+                match bg {
+                    Some(_) => theme.inverse_soft_hover,
+                    None => theme.hover_on_solid,
+                },
             ),
             None => (fg, bg, hover),
         };
-        // As ui-react's: small is 20 tall with a 14 icon, an icon alone 22 wide; regular 28.
+        // As but-ui-react's: small is control-sm tall with a 14 icon, an icon alone 2px wider;
+        // regular is control, square alone. Density moves both, and the padding beside a label.
+        let sizes = theme.sizes;
         let (height, width, icon_size) = match self.small {
-            true => (dp(20.), dp(22.), dp(14.)),
-            false => (dp(28.), dp(28.), dp(16.)),
+            true => (dp(sizes.control_sm), dp(sizes.control_sm + 2.), dp(14.)),
+            false => (dp(sizes.control), dp(sizes.control), dp(16.)),
         };
         let has_label = self.label.is_some();
+        let pictured = self.picture.is_some();
+        let shrinks = self.shrinks;
         // What a screen reader calls it: its text, or for an icon its tooltip.
         let name = self.label.clone().or_else(|| self.tooltip.clone());
         h_flex()
             .id(self.id)
             .role(Role::Button)
             .when_some(name, |el, name| el.aria_label(name))
-            .flex_none()
+            .map(|el| match shrinks {
+                true => el.min_w_0(),
+                false => el.flex_none(),
+            })
             .h(height)
             .gap(dp(if self.small { 4. } else { 6. }))
-            .when(has_label, |el| el.px(dp(if self.small { 6. } else { 10. })))
+            .when(has_label, |el| {
+                el.px(dp(if self.small { 6. } else { 10. } + sizes.padding))
+            })
             .when(!has_label, |el| el.w(width).justify_center())
+            .when_some(self.min_width, |el, width| el.min_w(width).justify_center())
             .text_size(dp(if self.small { 12. } else { 13. }))
             .font_weight(gpui::FontWeight::SEMIBOLD)
             .whitespace_nowrap()
@@ -1013,22 +1381,26 @@ impl RenderOnce for Button {
             // The halves meet square, split by a seam: an outline's border, or a faint rule
             // across a fill.
             .map(|el| match self.half {
-                None => el.rounded(dp(4.)),
-                Some(Half::Action) => el.rounded_l(dp(4.)).border_r_0(),
-                Some(Half::Menu) => (el.rounded_r(dp(4.)).border_l_1())
-                    .border_color(border.unwrap_or(fg.opacity(0.3))),
+                None => el.rounded(dp(theme.shape.control)),
+                Some(Half::Action) => el.rounded_l(dp(theme.shape.control)).border_r_0(),
+                Some(Half::Menu) => (el.rounded_r(dp(theme.shape.control)).border_l_1())
+                    .border_color(border.unwrap_or(theme.bg_1)),
             })
             .when(self.disabled.is_none(), |el| {
-                el.hover(move |el| el.bg(hover))
-                    // Gives under the pointer while pressed.
+                // A round picture in a square of hover would show the square's corners.
+                el.when(!pictured, |el| el.hover(move |el| el.bg(hover)))
                     .active(|el| el.opacity(0.8))
             })
             .when(self.disabled.is_some(), |el| el.opacity(0.5))
             .when_some(self.icon, |el, kind| {
                 let opacity = if has_label { 0.7 } else { 0.8 };
-                el.child(icon(kind).size(icon_size).text_color(fg.opacity(opacity)))
+                el.child((icon(kind).size(icon_size).text_color(fg)).opacity(opacity))
             })
-            .when_some(self.label, |el, label| el.child(label))
+            .children(self.picture)
+            .when_some(self.label, |el, label| match shrinks {
+                true => el.child(div().min_w_0().truncate().child(label)),
+                false => el.child(label),
+            })
             .when_some(self.disabled.clone().or(self.tooltip), |el, tooltip| {
                 let enabled = self.disabled.is_none();
                 let key = self.tooltip_key.filter(|_| enabled);
@@ -1050,7 +1422,7 @@ impl RenderOnce for Button {
     }
 }
 
-/// `action` joined to a chevron that opens its menu, as ui-react's `DropdownButton`: one
+/// `action` joined to a chevron that opens its menu, as but-ui-react's `DropdownButton`: one
 /// control split by a seam. The chevron, called `menu_label`, is disabled with the action.
 pub fn dropdown_button(
     action: Button,
@@ -1101,7 +1473,6 @@ pub struct Covered {
 impl gpui::Global for Covered {}
 
 impl Covered {
-    /// Note whether something covers the window now.
     pub fn note(covered: bool, window: &Window, cx: &mut App) {
         let state = cx.default_global::<Covered>();
         match (covered, state.at) {
@@ -1116,7 +1487,6 @@ impl Covered {
 }
 
 impl Tooltip {
-    /// A tooltip of `text` with the shortcut `key`, for an element's `tooltip`.
     pub fn keyed(
         text: impl Into<SharedString>,
         key: Option<SharedString>,
@@ -1133,7 +1503,6 @@ impl Tooltip {
         }
     }
 
-    /// A tooltip of just `text`, for an element's `tooltip`.
     pub fn text(
         text: impl Into<SharedString>,
     ) -> impl Fn(&mut Window, &mut App) -> gpui::AnyView + 'static {
@@ -1156,14 +1525,19 @@ impl Render for Tooltip {
             .flex_row()
             .items_center()
             .mt(dp(4.))
-            .max_w(dp(240.))
-            .rounded(dp(4.))
-            .px(dp(8.))
-            .py(dp(6.))
+            .max_w(dp(tokens::SIZE_TOOLTIP_MAX))
+            .rounded(dp(theme.shape.control))
+            .pl(dp(tokens::PADDING_TOOLTIP_INLINE))
+            // After a shortcut, the block padding, as but-ui's does.
+            .pr(dp(match self.key.is_some() {
+                true => tokens::PADDING_TOOLTIP_BLOCK,
+                false => tokens::PADDING_TOOLTIP_INLINE,
+            }))
+            .py(dp(tokens::PADDING_TOOLTIP_BLOCK))
             .text_size(dp(12.))
             .text_color(theme.text_1)
             .font_family(theme.ui_font.clone())
-            .gap(dp(7.))
+            .gap(dp(tokens::GAP_TOOLTIP))
             // Within the cap, a long one wraps, a path between its characters.
             .child(div().min_w_0().child(self.text.clone()))
             .when_some(self.key.clone(), |el, key| {
@@ -1190,55 +1564,77 @@ pub fn bindings_of(action: &dyn gpui::Action, cx: &App) -> Vec<(SharedString, Op
 }
 
 /// The keys that run `action` where the keys go now, unless the same keys do something else
-/// there, as [`shortcut`] writes them.
+/// there, as [`shortcut`] writes them. Keys bound to several actions there run the first one
+/// handled, so one with no handler here doesn't take them: r is Reword's on a commit and Rename
+/// branch's on a branch.
 pub fn shortcut_here(action: &dyn gpui::Action, window: &Window, cx: &App) -> Option<SharedString> {
-    let focused = window.focused(cx)?;
-    Some(keys_of(&window.highest_precedence_binding_for_action_in(
-        action, &focused,
-    )?))
+    window.focused(cx)?;
+    let context = window.context_stack();
+    let keymap = cx.key_bindings();
+    let keymap = keymap.borrow();
+    let runs = |binding: &gpui::KeyBinding| {
+        let (bound, _) = keymap.bindings_for_input(binding.keystrokes(), &context);
+        (bound.iter())
+            .find(|b| b.action().partial_eq(action) || window.is_action_available(b.action(), cx))
+            .is_some_and(|b| b.action().partial_eq(action))
+    };
+    let binding = keymap.bindings_for_action(action).rev().find(|b| runs(b))?;
+    Some(keys_of(binding))
 }
 
-fn keys_of(binding: &gpui::KeyBinding) -> SharedString {
+pub fn keys_of(binding: &gpui::KeyBinding) -> SharedString {
     let keys: Vec<String> = binding
         .keystrokes()
         .iter()
-        .map(|keystroke| {
-            let m = keystroke.modifiers();
-            let mut text = String::new();
-            for (on, symbol) in [
-                (m.control, "⌃"),
-                (m.alt, "⌥"),
-                (m.shift, "⇧"),
-                (m.platform, "⌘"),
-            ] {
-                if on {
-                    text.push_str(symbol);
-                }
-            }
-            text.push_str(match keystroke.key() {
-                "enter" => "↩",
-                "backspace" => "⌫",
-                "delete" => "⌦",
-                "escape" => "esc",
-                "space" => "space",
-                "tab" => "⇥",
-                "up" => "↑",
-                "down" => "↓",
-                "left" => "←",
-                "right" => "→",
-                key if key.len() == 1
-                    || key
-                        .strip_prefix('f')
-                        .is_some_and(|n| n.parse::<u8>().is_ok()) =>
-                {
-                    return text + &key.to_uppercase();
-                }
-                key => key,
-            });
-            text
-        })
+        .map(|keystroke| key_text(keystroke.modifiers(), keystroke.key()))
         .collect();
     keys.join(" ").into()
+}
+
+/// `keys`, as a keymap writes them, as [`shortcut`] writes keys.
+pub fn keys_written(keys: &str) -> SharedString {
+    let strokes: Vec<String> = (keys.split_whitespace())
+        .map(|stroke| match gpui::Keystroke::parse(stroke) {
+            Ok(keystroke) => key_text(&keystroke.modifiers, &keystroke.key),
+            Err(_) => stroke.to_owned(),
+        })
+        .collect();
+    strokes.join(" ").into()
+}
+
+fn key_text(m: &gpui::Modifiers, key: &str) -> String {
+    let mut text = String::new();
+    for (on, symbol) in [
+        (m.control, "⌃"),
+        (m.alt, "⌥"),
+        (m.shift, "⇧"),
+        (m.platform, "⌘"),
+    ] {
+        if on {
+            text.push_str(symbol);
+        }
+    }
+    text.push_str(match key {
+        "enter" => "↩",
+        "backspace" => "⌫",
+        "delete" => "⌦",
+        "escape" => "esc",
+        "space" => "space",
+        "tab" => "⇥",
+        "up" => "↑",
+        "down" => "↓",
+        "left" => "←",
+        "right" => "→",
+        key if key.len() == 1
+            || key
+                .strip_prefix('f')
+                .is_some_and(|n| n.parse::<u8>().is_ok()) =>
+        {
+            return text + &key.to_uppercase();
+        }
+        key => key,
+    });
+    text
 }
 
 /// What Windows calls the keys macOS writes as symbols. The app's ⌘ keys are ctrl there, and a
@@ -1271,9 +1667,18 @@ pub fn keys_text(text: &str) -> String {
         .collect()
 }
 
-/// Keys as Lite's `Kbd` draws them: a small box per key, like `⌘` `⇧` `P`, or `Ctrl` `Shift`
+/// Keys as but-ui-react's `Kbd` draws them: a small box per key, like `⌘` `⇧` `P`, or `Ctrl` `Shift`
 /// `P` on Windows. `text` writes them as macOS does.
 pub fn keycap(text: &str, theme: &Theme) -> Div {
+    keycaps(text, 16., 11., theme.text_2, theme)
+}
+
+/// `keycap` for a table of keys, where they're what's being read.
+pub fn keycap_large(text: &str, theme: &Theme) -> Div {
+    keycaps(text, 20., 13., theme.text_1, theme)
+}
+
+fn keycaps(text: &str, height: f32, size: f32, color: Hsla, theme: &Theme) -> Div {
     let mut keys: Vec<String> = Vec::new();
     for token in text.split(' ') {
         let mut rest = token;
@@ -1295,19 +1700,19 @@ pub fn keycap(text: &str, theme: &Theme) -> Div {
         .children(keys.into_iter().map(|key| {
             div()
                 .flex_none()
-                .min_w(dp(16.))
-                .h(dp(16.))
+                .min_w(dp(height))
+                .h(dp(height))
                 .px(dp(3.))
                 .flex()
                 .items_center()
                 .justify_center()
-                .rounded(dp(3.))
-                .bg(theme.fill_gray.opacity(0.05))
+                .rounded(dp(theme.shape.xs))
+                .bg(theme.hover)
                 .border_1()
-                .border_color(theme.text_1.opacity(0.16))
-                .text_size(dp(11.))
+                .border_color(theme.border_3)
+                .text_size(dp(size))
                 .font_weight(gpui::FontWeight::SEMIBOLD)
-                .text_color(theme.text_1.opacity(0.6))
+                .text_color(color)
                 .child(key)
         }))
 }
@@ -1315,6 +1720,19 @@ pub fn keycap(text: &str, theme: &Theme) -> Div {
 /// A small round marker: new work, or something running.
 pub fn dot(color: Hsla) -> Div {
     div().flex_none().size(dp(6.)).rounded_full().bg(color)
+}
+
+/// An unread row's mark: a hairline in `color` in the row's left padding, out of its flow so
+/// nothing moves when it's read. The row must be `relative`.
+pub fn unread_line(color: Hsla) -> Div {
+    div()
+        .absolute()
+        .left(dp(2.))
+        .top_0()
+        .bottom_0()
+        .flex()
+        .items_center()
+        .child(div().w(fixed(1.)).h(dp(14.)).bg(color))
 }
 
 /// How long ago `seconds` (since the epoch) was, faint, in a slot as wide as the longest
@@ -1340,6 +1758,7 @@ pub fn meta_count(glyph: Icon, n: usize, color: Hsla, tip: String) -> Option<Sta
             .text_color(color)
             .child(small_icon(glyph).text_color(color))
             .child(n.to_string())
+            .aria_label(tip.clone())
             .tooltip(Tooltip::text(tip))
     })
 }
@@ -1373,6 +1792,68 @@ pub fn pulsing<E: IntoElement + Styled + 'static>(el: E) -> impl IntoElement {
     )
 }
 
+const SPIN_STEP: std::time::Duration = std::time::Duration::from_millis(100);
+/// The dots each step of [`spinning`] shows, as braille's: the low three bits are the left
+/// column's, top down, the next three the right's. The terminal's dots spinner, ⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏.
+const SPIN_FRAMES: [u8; 10] = [0x0b, 0x19, 0x39, 0x38, 0x3c, 0x34, 0x26, 0x27, 0x07, 0x0f];
+/// A dot of [`spinning`], and how far apart their centres are, in a `small_icon`'s box.
+const SPIN_DOT: f32 = 2.;
+const SPIN_PITCH: f32 = 3.5;
+
+/// Dots running round, as a terminal's spinner does, while what it stands for is under way,
+/// `turning` only while it shows. It steps 10 times a second, each step drawing the view it's
+/// in, and with it the whole window, again: an agent's spinner turns for minutes, and drawing
+/// the window any more often kept it from going idle and WindowServer busy all that while.
+/// Dots read as stepping on purpose at that rate, where a turning glyph would look choppy.
+pub fn spinning(color: Hsla, turning: bool) -> impl IntoElement {
+    use gpui::canvas;
+    static START: std::sync::LazyLock<std::time::Instant> =
+        std::sync::LazyLock::new(crate::clock::now);
+    let since = crate::clock::now().saturating_duration_since(*START);
+    let steps = since.as_nanos() / SPIN_STEP.as_nanos();
+    #[expect(clippy::indexing_slicing, reason = "taken modulo the length")]
+    let frame = SPIN_FRAMES[(steps % SPIN_FRAMES.len() as u128) as usize];
+    let due = SPIN_STEP
+        - std::time::Duration::from_nanos((since.as_nanos() % SPIN_STEP.as_nanos()) as u64);
+    let left = (12. - SPIN_PITCH - SPIN_DOT) / 2.;
+    let top = (12. - 2. * SPIN_PITCH - SPIN_DOT) / 2.;
+    let dots = (0..6)
+        .filter(|bit| frame & (1 << bit) != 0)
+        .map(move |bit| {
+            let (column, row) = ((bit / 3) as f32, (bit % 3) as f32);
+            div()
+                .absolute()
+                .left(dp(left + column * SPIN_PITCH))
+                .top(dp(top + row * SPIN_PITCH))
+                .size(dp(SPIN_DOT))
+                .rounded_full()
+                .bg(color)
+        });
+    div()
+        .relative()
+        .flex_none()
+        .size(dp(12.))
+        .children(dots)
+        // The next step asked for as this one is drawn, so a spinner that's gone, or one in a
+        // view that isn't drawn, asks for no more.
+        .when(turning, |el| {
+            el.child(
+                canvas(
+                    |_, _, _| {},
+                    move |_, _, window, cx| {
+                        let view = window.current_view();
+                        (cx.spawn(async move |cx| {
+                            cx.background_executor().timer(due).await;
+                            cx.update(|cx| cx.notify(view));
+                        }))
+                        .detach();
+                    },
+                )
+                .absolute(),
+            )
+        })
+}
+
 /// A faint pop wash over a `list_row`'s ground that fades out once, as for a commit that just
 /// showed up (`Store::glows`), so an agent's commit is noticed where it lands rather than in a
 /// card. Make it the row's first child, of a `relative` row, so the row's text draws over it.
@@ -1381,31 +1862,34 @@ pub fn pulsing<E: IntoElement + Styled + 'static>(el: E) -> impl IntoElement {
 pub fn glow_once(id: impl Into<ElementId>, theme: &Theme) -> impl IntoElement {
     use gpui::{Animation, AnimationExt as _};
     let wash = theme.pop;
-    div().absolute().inset_0().rounded(dp(4.)).with_animation(
-        id,
-        Animation::new(crate::state::GLOW).with_easing(gpui::ease_in_out),
-        move |el, delta| el.bg(wash.opacity(0.08 * (1. - delta))),
-    )
+    div()
+        .absolute()
+        .inset_0()
+        .rounded(dp(theme.shape.control))
+        .with_animation(
+            id,
+            Animation::new(crate::state::GLOW).with_easing(gpui::ease_in_out),
+            move |el, delta| el.bg(wash).opacity(0.08 * (1. - delta)),
+        )
 }
 
-/// How long a row blinks once: see [`blink_once`].
 pub const BLINK: std::time::Duration = std::time::Duration::from_millis(300);
 
-/// A pop wash over what y copied that holds a moment and goes, as the TUI highlights it:
-/// `shape`, an absolute div over the selected row or box, shaped as its ground is. Its first
-/// child, as [`glow_once`] is, where it has a ground of its own for the text to draw over. Give
-/// each blink an `id` of its own, so one right after another starts again.
-pub fn blink_once(id: impl Into<ElementId>, shape: Div, theme: &Theme) -> impl IntoElement {
+/// A `wash` over what y copied that holds a moment and goes, as the TUI highlights it, or over
+/// where a mode would put what it takes, as a click it can't use reminds the user of it:
+/// `shape`, an absolute div over the row or box, shaped as its ground is. Its first child, as
+/// [`glow_once`] is, where it has a ground of its own for the text to draw over. Give each
+/// blink an `id` of its own, so one right after another starts again.
+pub fn blink_once(id: impl Into<ElementId>, shape: Div, wash: Hsla) -> impl IntoElement {
     use gpui::{Animation, AnimationExt as _};
-    let wash = theme.pop;
     shape.with_animation(
         id,
         Animation::new(BLINK).with_easing(gpui::quadratic),
-        move |el, delta| el.bg(wash.opacity(0.5 * (1. - delta))),
+        move |el, delta| el.bg(wash).opacity(0.5 * (1. - delta)),
     )
 }
 
-/// A surface with nothing in it, as ui-react's EmptyState: a drawing picked by what the state
+/// A surface with nothing in it, as but-ui-react's EmptyState: a drawing picked by what the state
 /// means, a title naming it, and a line saying what happens next, each left out when there's
 /// none. Its foot is padded so the block sits a little above the middle, where it reads as
 /// centred, and it caps its width so it stays a block in a wide pane. In a pane too short for
@@ -1453,7 +1937,7 @@ pub fn empty_state(
         .into_any_element()
 }
 
-/// How many, in a small grey pill, as ui-react's light grey `Badge`.
+/// How many, in a small grey pill, as but-ui-react's light grey `Badge`.
 pub fn count_badge(count: usize, theme: &Theme) -> Div {
     div()
         .flex_none()
@@ -1464,7 +1948,7 @@ pub fn count_badge(count: usize, theme: &Theme) -> Div {
         .items_center()
         .justify_center()
         .rounded_full()
-        .bg(theme.fill_gray.opacity(0.15))
+        .bg(theme.muted)
         .text_size(dp(11.))
         .font_weight(gpui::FontWeight::SEMIBOLD)
         .text_color(theme.text_1)
@@ -1504,17 +1988,154 @@ pub fn resize_handle(pane: Pane, store: Entity<Store>, theme: &Theme) -> impl In
         })
 }
 
+/// A strip over the gap between two cards, `axis` saying which way they're beside each other:
+/// drag it to move what's between them. A pill in its middle shows it while the pointer's on
+/// it or, as the store keeps, it's being dragged, `which` it is. Its drag goes on with the
+/// payload the caller gives it and [`mark_dragged`].
+pub fn gap_divider(
+    id: impl Into<ElementId>,
+    axis: crate::state::Axis,
+    which: crate::state::DividerDrag,
+    store: &Entity<Store>,
+    theme: &Theme,
+    cx: &App,
+) -> Stateful<Div> {
+    use crate::state::Axis;
+    let dragged = store.read(cx).dragged_divider.as_ref() == Some(&which);
+    let (cursor, pill) = match axis {
+        Axis::Across => (CursorStyle::ResizeLeftRight, div().w(dp(4.)).h(dp(32.))),
+        Axis::Down => (CursorStyle::ResizeUpDown, div().w(dp(32.)).h(dp(4.))),
+    };
+    let pill = pill
+        .rounded_full()
+        .when(dragged, |el| el.bg(theme.border_1))
+        .group_hover("gap-divider", |el| el.bg(theme.border_1));
+    let let_go = {
+        let store = store.clone();
+        move |_: &gpui::MouseUpEvent, _: &mut Window, cx: &mut App| {
+            store.update(cx, |store, cx| {
+                if store.dragged_divider.take().is_some() {
+                    cx.notify();
+                }
+            })
+        }
+    };
+    div()
+        .id(id)
+        .absolute()
+        .flex()
+        .when(axis == Axis::Down, |el| el.flex_col())
+        .items_center()
+        .justify_center()
+        .group("gap-divider")
+        .cursor(cursor)
+        // Over the cards' own pointer handling, as a terminal's selecting.
+        .block_mouse_except_scroll()
+        .child(pill)
+        .when(dragged, |el| {
+            el.on_mouse_up(MouseButton::Left, let_go.clone())
+                .on_mouse_up_out(MouseButton::Left, let_go)
+        })
+}
+
+/// A handle over where [`gap_divider`]s meet, 16 across, shown by their pills along each line
+/// of `junction` while the pointer's on it or it's dragged, as `which`. The caller places it.
+/// What lets go of it is the room's, as a junction can join another as it's dragged, and so
+/// stop being drawn.
+pub fn gap_junction(
+    id: impl Into<ElementId>,
+    junction: &crate::state::Junction,
+    which: &crate::state::DividerDrag,
+    store: &Entity<Store>,
+    theme: &Theme,
+    cx: &App,
+) -> Stateful<Div> {
+    use crate::state::Side;
+    let dragged = store.read(cx).dragged_divider.as_ref() == Some(which);
+    // From the handle's middle, as long as half a divider's pill.
+    let pill = |side: Side| {
+        let pill = div().absolute().rounded_full();
+        let pill = match side {
+            Side::Top => pill.left(dp(6.)).top(dp(-8.)).w(dp(4.)).h(dp(18.)),
+            Side::Bottom => pill.left(dp(6.)).top(dp(6.)).w(dp(4.)).h(dp(18.)),
+            Side::Left => pill.top(dp(6.)).left(dp(-8.)).h(dp(4.)).w(dp(18.)),
+            Side::Right => pill.top(dp(6.)).left(dp(6.)).h(dp(4.)).w(dp(18.)),
+        };
+        pill.when(dragged, |el| el.bg(theme.border_1))
+            .group_hover("gap-junction", |el| el.bg(theme.border_1))
+    };
+    let pills = [Side::Top, Side::Right, Side::Bottom, Side::Left]
+        .into_iter()
+        .filter(|side| junction.reaches(*side))
+        .map(pill);
+    div()
+        .id(id)
+        .absolute()
+        .group("gap-junction")
+        .cursor(CursorStyle::ResizeUpLeftDownRight)
+        // Over the cards' own pointer handling, as a terminal's selecting.
+        .block_mouse_except_scroll()
+        .children(pills)
+}
+
+/// What starts a [`gap_divider`]'s drag: the store keeps that `which` is dragged, as its pill
+/// shows, and GPUI draws nothing under the pointer for it.
+pub fn mark_dragged<T>(
+    store: &Entity<Store>,
+    which: crate::state::DividerDrag,
+) -> impl Fn(&T, Point<Pixels>, &mut Window, &mut App) -> Entity<EmptyView> + 'static {
+    let store = store.clone();
+    move |_, _, _, cx| {
+        store.update(cx, |store, cx| {
+            store.dragged_divider = Some(which.clone());
+            cx.notify();
+        });
+        cx.new(|_| EmptyView)
+    }
+}
+
 /// Resize `pane` while its handle is dragged, measuring from the left of the element this
-/// listens on.
+/// listens on, the handle's middle `beyond` short of the pane's edge.
 pub fn resize_pane(
     pane: Pane,
+    beyond: f32,
     store: Entity<Store>,
 ) -> impl Fn(&DragMoveEvent<Pane>, &mut Window, &mut App) + 'static {
     move |event, _, cx| {
         if *event.drag(cx) == pane {
             let width = f32::from(event.event.position.x - event.bounds.left());
-            let width = width / Theme::get(cx).scale;
+            let width = width / Theme::get(cx).scale + beyond;
             store.update(cx, |store, cx| store.set_width(pane, Some(width), cx));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::tab_after;
+
+    #[test]
+    fn the_next_tab_is_the_one_after() {
+        assert_eq!(tab_after(3, 0, true), Some(1));
+    }
+
+    #[test]
+    fn the_next_tab_goes_round_to_the_first() {
+        assert_eq!(tab_after(3, 2, true), Some(0));
+    }
+
+    #[test]
+    fn the_previous_tab_is_the_one_before() {
+        assert_eq!(tab_after(3, 2, false), Some(1));
+    }
+
+    #[test]
+    fn the_previous_tab_goes_round_to_the_last() {
+        assert_eq!(tab_after(3, 0, false), Some(2));
+    }
+
+    #[test]
+    fn a_page_with_one_tab_has_no_other() {
+        assert_eq!(tab_after(1, 0, true), None);
     }
 }

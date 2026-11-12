@@ -1,5 +1,3 @@
-#![deny(missing_docs)]
-
 //! ## Module Guidelines
 //!
 //! ### Data for consumption by UI
@@ -137,12 +135,12 @@ use tracing::instrument;
 
 use crate::ui::HunkLockTarget;
 
-/// Types and conversions for use in `tauri`.
 pub mod ui;
+
+pub mod rejection;
 
 mod utils;
 
-/// Produce one [`InputStack`] instance for each [`but_graph::workspace::Stack`] for use in [`WorkspaceRanges::try_from_stacks`].
 #[instrument(skip_all, err(Debug))]
 pub fn new_stacks_to_input_stacks(
     repo: &gix::Repository,
@@ -183,7 +181,6 @@ pub fn new_stacks_to_input_stacks(
         .collect()
 }
 
-/// Turn `changes` with [`TreeChange`] instances into [`InputFile`], one for each input.
 pub fn tree_changes_to_input_files(
     repo: &gix::Repository,
     changes: Vec<TreeChange>,

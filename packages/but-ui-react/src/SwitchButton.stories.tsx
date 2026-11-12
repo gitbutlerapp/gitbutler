@@ -1,0 +1,70 @@
+import { stories } from "../docs/stories.ts";
+import { SwitchButton, type SwitchButtonVariant } from "./SwitchButton.tsx";
+import { useState } from "react";
+
+const meta = stories({
+	title: "Actions/SwitchButton",
+	id: "components-switchbutton",
+	component: SwitchButton,
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=1594-4357",
+		},
+	},
+});
+
+const Toggleable = ({
+	label,
+	variant,
+	initial = false,
+}: {
+	label: string;
+	variant?: SwitchButtonVariant;
+	initial?: boolean;
+}) => {
+	const [checked, setChecked] = useState(initial);
+	return (
+		<SwitchButton label={label} variant={variant} checked={checked} onCheckedChange={setChecked} />
+	);
+};
+
+export const Default = meta.story({
+	args: {
+		label: "Draft",
+		variant: "ghost",
+		disabled: false,
+	},
+	render: ({ label, variant, disabled }) => (
+		<SwitchButton label={label} variant={variant} disabled={disabled} defaultChecked />
+	),
+});
+
+/** Ghost sits inside a surface that already has chrome; outline stands alone. */
+export const Variants = meta.story({
+	render: () => (
+		<div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+			<Toggleable label="Draft" variant="ghost" />
+			<Toggleable label="Auto-merge" variant="outline" initial />
+		</div>
+	),
+});
+
+/** The pill fades as a whole rather than compounding the switch's own fade. */
+export const Disabled = meta.story({
+	render: () => (
+		<div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+			<SwitchButton label="Draft" disabled />
+			<SwitchButton label="Draft" disabled defaultChecked />
+			<SwitchButton label="Auto-merge" variant="outline" disabled defaultChecked />
+		</div>
+	),
+});
+
+/**
+ * The label shares the switch's hit area, so a click anywhere in the pill —
+ * including on the switch itself — toggles exactly once.
+ */
+export const LongLabel = meta.story({
+	render: () => <Toggleable label="Delete the branch after merging" variant="outline" />,
+});

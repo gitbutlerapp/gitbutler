@@ -1,0 +1,152 @@
+.bar {
+	display: flex;
+	column-gap: 10px;
+	align-items: center;
+	padding: 8px 12px;
+	background-color: var(--but-canvas);
+}
+
+/* The notes wrap onto a second line the start clips, so one that doesn't fit drops whole rather
+   than in half. `clip`, not `hidden`, so focusing a dropped note can't scroll the line into view;
+   the clip margin leaves room for the focus ring without reaching the second line. */
+.start {
+	display: flex;
+	flex: 1;
+	flex-wrap: wrap;
+	align-items: center;
+	min-width: 0;
+	height: var(--but-size-control-sm);
+	overflow: clip;
+	overflow-clip-margin: 2px;
+	gap: 12px;
+
+	> * {
+		flex-shrink: 0;
+	}
+
+	> .operation {
+		flex-shrink: 1;
+	}
+}
+
+.end {
+	display: flex;
+	column-gap: 12px;
+	flex-shrink: 0;
+	align-items: center;
+}
+
+.note {
+	display: inline-flex;
+	column-gap: 4px;
+	align-items: center;
+	height: var(--but-size-control-sm);
+	padding-inline: 6px;
+	border: none;
+	border-radius: var(--but-radius-control);
+	background-color: transparent;
+	color: var(--but-muted-foreground);
+	white-space: nowrap;
+	cursor: var(--control-cursor);
+	transition: var(--transition-button);
+
+	&:hover {
+		background-color: var(--but-hover);
+	}
+
+	&:focus-visible {
+		outline: var(--but-focus-ring);
+	}
+}
+
+.warning {
+	background-color: color-mix(in srgb, var(--but-warning) 10%, transparent);
+	color: var(--but-warning-text);
+
+	&:hover {
+		background-color: color-mix(in srgb, var(--but-warning) 18%, transparent);
+	}
+}
+
+.danger {
+	background-color: color-mix(in srgb, var(--but-danger) 10%, transparent);
+	color: var(--but-danger-text);
+
+	&:hover {
+		background-color: color-mix(in srgb, var(--but-danger) 18%, transparent);
+	}
+}
+
+.alert {
+	display: inline-flex;
+	column-gap: 2px;
+	align-items: center;
+}
+
+.badge {
+	display: inline-flex;
+	align-items: center;
+	height: var(--but-size-control-sm);
+	padding-inline: 4px;
+	border-radius: var(--but-radius-control);
+	background-color: var(--but-danger);
+	color: var(--but-danger-foreground);
+}
+
+.location {
+	display: inline-flex;
+	column-gap: 4px;
+	align-items: center;
+	height: var(--but-size-control-sm);
+	padding-inline: 6px;
+	color: var(--but-muted-foreground);
+	white-space: nowrap;
+}
+
+.text {
+	color: var(--but-muted-foreground);
+	white-space: nowrap;
+}
+
+.hint {
+	display: inline-flex;
+	column-gap: 8px;
+	align-items: center;
+	color: var(--but-muted-foreground);
+	white-space: nowrap;
+}
+
+.operation {
+	display: inline-flex;
+	column-gap: 6px;
+	align-items: center;
+	min-width: 0;
+	color: var(--but-muted-foreground);
+	white-space: nowrap;
+
+	> * {
+		flex-shrink: 0;
+	}
+
+	/* The subject and the place give way when the line runs out of room. */
+	> .name {
+		flex-shrink: 1;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+}
+
+.op {
+	color: var(--but-primary-text);
+
+	.running > & {
+		color: var(--but-muted-foreground);
+	}
+}
+
+/* The seconds tick, so each digit keeps its width and the line doesn't shift. */
+.elapsed {
+	color: var(--but-subtle-foreground);
+	font-variant-numeric: tabular-nums;
+}

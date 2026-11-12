@@ -6,14 +6,11 @@ use crate::{Graph, SegmentIndex};
 pub(super) mod api;
 pub(crate) mod init;
 
-/// A workspace reference is a list of [Stacks](Stack), with a reference to the underlying [`Graph`].
 #[derive(Clone)]
 pub struct Workspace {
-    /// The underlying graph for providing simplified access to data.
     pub graph: Graph,
     /// An ID which uniquely identifies the [graph segment](crate::Segment) that represents the tip of the workspace.
     pub id: SegmentIndex,
-    /// Specify what kind of workspace this is.
     pub kind: WorkspaceKind,
     /// One or more stacks that live in the workspace, in order of parents of the workspace commit if there are more than one.
     pub stacks: Vec<Stack>,
@@ -46,7 +43,6 @@ pub struct Workspace {
     /// It is also valid to have this field point to the same Segment as [Self::target_ref]. Both have different purposes,
     /// semantically.
     pub target_commit: Option<TargetCommit>,
-    /// Read-only workspace metadata with additional information, or `None` if nothing was present.
     /// If this is `Some()` the `kind` is always [`WorkspaceKind::Managed`]
     ///
     /// # WARNING
@@ -60,7 +56,6 @@ pub struct Workspace {
     pub worktrees: Vec<WorktreeStack>,
 }
 
-/// A copy of all workspace state, to pass it around internally.
 pub(crate) struct WorkspaceState {
     pub id: SegmentIndex,
     pub kind: WorkspaceKind,
@@ -73,7 +68,6 @@ pub(crate) struct WorkspaceState {
     pub worktrees: Vec<WorktreeStack>,
 }
 
-/// A classifier for the workspace.
 #[derive(Debug, Clone)]
 pub enum WorkspaceKind {
     /// The `HEAD` is pointing to a dedicated workspace reference, like `refs/heads/gitbutler/workspace`.
@@ -116,7 +110,6 @@ impl WorkspaceKind {
         }
     }
 
-    /// Return `true` if this workspace is adhoc.
     pub fn has_adhoc_ref(&self) -> bool {
         match self {
             WorkspaceKind::Managed { .. } | WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => {

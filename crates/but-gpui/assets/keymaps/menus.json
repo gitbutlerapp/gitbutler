@@ -1,0 +1,217 @@
+// The menu bar, menu by menu. macOS names the first after the app. An item is an action, titled
+// as the palette titles it, in title case, or {"action", "title"} to word it otherwise, "-" a
+// divider, and {"system": "services"} the menu macOS fills with what other apps offer. The
+// Menu bar tab of Edit commands writes this file.
+[
+  {
+    "name": "GitButler",
+    "items": [
+      "help::About",
+      "app::CheckForUpdates",
+      "-",
+      {
+        "action": "settings::OpenSettings",
+        "title": "Settings…"
+      },
+      "-",
+      {
+        "system": "services"
+      },
+      "-",
+      {
+        "action": "app::Hide",
+        "title": "Hide GitButler"
+      },
+      "app::HideOthers",
+      "app::ShowAll",
+      "-",
+      {
+        "action": "app::Quit",
+        "title": "Quit GitButler"
+      }
+    ]
+  },
+  {
+    "name": "File",
+    "items": [
+      {
+        "action": "app::AddProject",
+        "title": "Add Project…"
+      },
+      {
+        "action": "projects::CloneRepository",
+        "title": "Clone Repository…"
+      },
+      "terminal::NewTerminal",
+      "terminal::NewTerminalWith",
+      "-",
+      "app::CloseWindow"
+    ]
+  },
+  {
+    "name": "Edit",
+    "items": [
+      {
+        "action": "app::Undo",
+        "title": "Undo Operation"
+      },
+      {
+        "action": "app::Redo",
+        "title": "Redo Operation"
+      },
+      "-",
+      "text_input::Cut",
+      "text_input::Copy",
+      "text_input::Paste",
+      "text_input::SelectAll",
+      "-",
+      {
+        "action": "navigator::CopySelection",
+        "title": "Copy Selection"
+      },
+      {
+        "action": "palette::CopyMore",
+        "title": "Copy More…"
+      }
+    ]
+  },
+  {
+    "name": "Repository",
+    "items": [
+      {
+        "action": "app::StartCommit",
+        "title": "Commit…"
+      },
+      {
+        "action": "app::StartAmend",
+        "title": "Amend…"
+      },
+      "-",
+      "edits::Reword",
+      "edits::Discard",
+      {
+        "action": "navigator::SquashSelection",
+        "title": "Squash…"
+      },
+      {
+        "action": "navigator::MoveSelection",
+        "title": "Move…"
+      },
+      "-",
+      "navigator::NewBranch",
+      "navigator::NewBranchOnTop",
+      "edits::NewBranchBelow",
+      "branches::NewWorktreeFromBranch",
+      "-",
+      "edits::AddEmptyCommitAbove",
+      "edits::AddEmptyCommitBelow",
+      "-",
+      "branches::ApplyBranch",
+      "edits::UnapplyStack",
+      "-",
+      "navigator::NewWorktree",
+      {
+        "action": "navigator::NewWorktreeWithName",
+        "title": "New Worktree With Name…"
+      },
+      "navigator::RecycleWorktree",
+      "navigator::ArchiveWorktree",
+      {
+        "action": "navigator::UnarchiveWorktree",
+        "title": "Unarchive Worktree…"
+      }
+    ]
+  },
+  {
+    "name": "Remote",
+    "items": [
+      "remote::Push",
+      "remote::Fetch",
+      "remote::Pull",
+      "-",
+      {
+        "action": "pr::CreatePullRequest",
+        "title": "Create Pull Request…"
+      },
+      "pr::OpenPullRequest",
+      "copy::CopyPullRequestLink",
+      "-",
+      "remote::UpdateFromTarget",
+      "remote::UpdateWorkspace",
+      "remote::UpdateWorktrees"
+    ]
+  },
+  {
+    "name": "Go",
+    "items": [
+      {
+        "action": "app::CommandPalette",
+        "title": "Command Palette…"
+      },
+      "-",
+      {
+        "action": "palette::GoTo",
+        "title": "Go to Anything…"
+      },
+      "app::FocusNavigator",
+      "app::FocusChanges",
+      "app::FocusDiff",
+      "app::FocusTerminals"
+    ]
+  },
+  {
+    "name": "View",
+    "items": [
+      "app::ActualSize",
+      "app::ZoomIn",
+      "app::ZoomOut",
+      "-",
+      "app::ToggleNavigator",
+      "app::ToggleDetail",
+      "app::ToggleTerminalOverview",
+      "-",
+      "app::ToggleNavigatorPlace",
+      "-",
+      "diff::ToggleFiles",
+      "diff::ToggleWrap",
+      "diff::FoldFile",
+      "diff::UnfoldFile",
+      "diff::ToggleSplit",
+      "-",
+      {
+        "action": "app::ChangeTheme",
+        "title": "Change Theme…"
+      }
+    ]
+  },
+  {
+    "name": "Window",
+    "items": [
+      "app::Minimize",
+      "app::Zoom",
+      "-",
+      "tiling::SplitRight",
+      "tiling::SplitBelow",
+      "-",
+      "tiling::ZoomTile",
+      "tiling::ArrangeTiles",
+      "tiling::EqualizeTiles",
+      "tiling::SwapTiles"
+    ]
+  },
+  {
+    "name": "Help",
+    "items": [
+      "help::OpenDocs",
+      {
+        "action": "help::OpenReleaseNotes",
+        "title": "What's New"
+      },
+      "settings::OpenKeyboardShortcuts",
+      "-",
+      "help::ReportIssue",
+      "help::ShowConfigFolder",
+      "help::ShowLogsFolder"
+    ]
+  }
+]

@@ -14,11 +14,9 @@ pub use hunk::HunkRange;
 mod paths;
 use paths::PathRanges;
 
-/// All hunk-dependencies for the entire workspace.
 #[derive(Debug)]
 pub struct WorkspaceRanges {
     paths: HashMap<BString, Vec<HunkRange>>,
-    /// Errors that occurred while computing the fields in this instance.
     pub errors: Vec<CalculationError>,
 }
 
@@ -26,7 +24,6 @@ pub struct WorkspaceRanges {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-#[expect(missing_docs)]
 pub struct CalculationError {
     pub error_message: String,
     pub target: HunkLockTarget,
@@ -89,8 +86,6 @@ impl StackRanges {
 /// match the workspace commit. These per branch changes are assumed and required to be
 /// independent without overlap.
 impl WorkspaceRanges {
-    /// Calculates all ranges for the workspace, which is identified by `input_stacks`,
-    /// i.e. all stacks that make up that workspace.
     pub fn try_from_stacks(input_stacks: Vec<InputStack>) -> anyhow::Result<WorkspaceRanges> {
         let mut stacks = vec![];
         let mut errors = vec![];
@@ -140,8 +135,6 @@ impl WorkspaceRanges {
         })
     }
 
-    /// Finds commits that intersect with a given path and hunk.
-    ///
     /// For `Modification`-type commit ranges that only *touch* (are adjacent to, but don't
     /// overlap) the worktree hunk, the adjacency is only counted as an intersection when the
     /// hunk's diff content suggests the change is a reorder or block-move — the class of
@@ -214,7 +207,6 @@ impl WorkspaceRanges {
         None
     }
 
-    /// Return a reference to the internal mapping that is used for [`Self::intersection()`]
     pub fn ranges_by_path_map(&self) -> &HashMap<BString, Vec<HunkRange>> {
         &self.paths
     }
@@ -264,7 +256,6 @@ fn hunk_suggests_boundary_insertion(diff: &gix::bstr::BString) -> bool {
 fn combine_path_ranges(path: &BString, stacks: &[StackRanges]) -> Vec<HunkRange> {
     let mut result: Vec<HunkRange> = vec![];
 
-    // Only process stacks that contain the path.
     let filtered_paths = stacks
         .iter()
         .filter_map(|stack| stack.paths.get(path))
@@ -301,7 +292,6 @@ fn combine_path_ranges(path: &BString, stacks: &[StackRanges]) -> Vec<HunkRange>
         let next_index = next_index.unwrap();
         let hunk_index = hunk_indexes[next_index];
 
-        // Get the path with the lowest next start line.
         let path_dep = &filtered_paths[next_index];
         let hunk_dep = &path_dep.hunk_ranges[hunk_index];
 
@@ -312,10 +302,8 @@ fn combine_path_ranges(path: &BString, stacks: &[StackRanges]) -> Vec<HunkRange>
             ..*hunk_dep
         });
 
-        // Advance the path specific hunk pointer.
         hunk_indexes[next_index] += 1;
 
-        // Increment shift for all stacks except the one this hunk belongs to.
         for (i, shift) in line_shifts.iter_mut().enumerate() {
             if i != next_index {
                 *shift += hunk_dep.line_shift;

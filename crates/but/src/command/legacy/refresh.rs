@@ -10,7 +10,7 @@ pub fn handle(
     ci: bool,
     updates: bool,
     app_settings: &but_settings::AppSettings,
-) -> anyhow::Result<()> {
+) -> crate::CliResult<()> {
     // Obtain a lock to prevent concurrent background refreshes of remote data
     // Only acquire this lock if we're actually performing remote data operations
     let _exclusive_access = if fetch || prs || ci {

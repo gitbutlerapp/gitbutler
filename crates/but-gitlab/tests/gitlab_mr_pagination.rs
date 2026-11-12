@@ -97,6 +97,17 @@ fn mr_with_sha(iid: i64, source_branch: &str, sha: Option<&str>) -> String {
     )
 }
 
+/// A merge request as GitLab before 15.4 reports it: `work_in_progress`
+/// instead of `draft`, and neither key when the MR is not a draft.
+fn mr_before_draft_field(iid: i64, work_in_progress: Option<bool>) -> String {
+    let work_in_progress = work_in_progress
+        .map(|value| format!(r#","work_in_progress":{value}"#))
+        .unwrap_or_default();
+    format!(
+        r#"{{"web_url":"https://gitlab.example/mr/{iid}","iid":{iid},"title":"MR {iid}","description":null,"author":null,"labels":[],"source_branch":"old-{iid}","target_branch":"main","sha":"0123456789abcdef0123456789abcdef01234567","merge_commit_sha":null,"squash_commit_sha":null,"created_at":null,"updated_at":null,"merged_at":null,"closed_at":null,"project_id":7,"source_project_id":7,"target_project_id":7,"assignees":[],"reviewers":[],"merge_when_pipeline_succeeds":false{work_in_progress}}}"#
+    )
+}
+
 fn page(mrs: &[String]) -> String {
     format!("[{}]", mrs.join(","))
 }
@@ -312,6 +323,40 @@ fn list_open_mrs_stops_after_a_normal_first_page() {
             .await
             .expect("a normal first page should be listed");
         assert_eq!(mrs.len(), 1, "the first page should be returned unchanged");
+        assert_requests(
+            &server.finish(),
+            "/api/v4/projects/group%2Frepo/merge_requests",
+            &[("state", "opened"), ("order_by", "created_at")],
+            &["1"],
+        );
+    });
+}
+
+#[test]
+fn list_open_mrs_tolerates_instances_that_predate_the_draft_field() {
+    run(async {
+        let (client, server) = mock_client(vec![MockResponse {
+            body: page(&[
+                mr_before_draft_field(1, Some(true)),
+                mr_before_draft_field(2, None),
+            ]),
+            next_page: None,
+        }]);
+
+        let mrs = client
+            .list_open_mrs(GitLabProjectId::new("group", "repo"))
+            .await
+            .expect("a missing `draft` key, legal before GitLab 15.4, must not abort the listing");
+        assert!(
+            mrs.iter().find(|mr| mr.iid == 1).is_some_and(|mr| mr.draft),
+            "`work_in_progress: true` is the pre-15.4 way of marking a draft"
+        );
+        assert!(
+            mrs.iter()
+                .find(|mr| mr.iid == 2)
+                .is_some_and(|mr| !mr.draft),
+            "an MR with neither key is not a draft"
+        );
         assert_requests(
             &server.finish(),
             "/api/v4/projects/group%2Frepo/merge_requests",

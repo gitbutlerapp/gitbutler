@@ -1,5 +1,3 @@
-//! In place of commands.rs
-
 use anyhow::Result;
 #[cfg(target_os = "macos")]
 use but_action::cli::InstallMode;

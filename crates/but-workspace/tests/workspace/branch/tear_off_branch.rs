@@ -49,7 +49,7 @@ fn tear_off_top_most_branch() -> anyhow::Result<()> {
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Tear off C from the stack.
-    let rebase = but_workspace::branch::tear_off_branch(editor, "refs/heads/C".try_into()?)?;
+    let rebase = but_workspace::branch::tear_off_branch(editor, "refs/heads/C".try_into()?, None)?;
 
     // Materialize the operation
     rebase.materialize(Default::default())?;
@@ -85,6 +85,63 @@ fn tear_off_top_most_branch() -> anyhow::Result<()> {
 └── ≡📙:C on 85efbe4 {[..]}
     └── 📙:C
         └── ·8e00332 (🏘️)
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn tear_off_branch_into_the_first_stack() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description, mut db) =
+        named_writable_scenario_with_description_and_graph(
+            "ws-ref-ws-commit-single-stack-double-stack",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+                add_stack_with_segments(meta, 2, "C", StackState::InWorkspace, &["B"]);
+            },
+        )?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    // Tear off C from the stack, before the other stacks rather than after them.
+    let rebase = but_workspace::branch::tear_off_branch(editor, "refs/heads/C".try_into()?, 0)?;
+
+    // Materialize the operation
+    rebase.materialize(Default::default())?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+
+    // C is the workspace commit's first parent now, and so the first stack.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*-.   7e46497 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\ \  
+| | * c813d8d (B) B
+| * | 09d8e52 (A) A
+| |/  
+* / 8e00332 (C) C
+|/  
+* 85efbe4 (origin/main, main) M
+
+"#]]
+        .raw()
+    );
+
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 85efbe4
+├── ≡📙:C on 85efbe4 {2}
+│   └── 📙:C
+│       └── ·8e00332 (🏘️)
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
+│       └── ·09d8e52 (🏘️)
+└── ≡📙:B on 85efbe4 {[..]}
+    └── 📙:B
+        └── ·c813d8d (🏘️)
 
 "#]]
     );
@@ -135,7 +192,7 @@ fn tear_off_bottom_most_branch() -> anyhow::Result<()> {
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Tear off B from the stack.
-    let rebase = but_workspace::branch::tear_off_branch(editor, "refs/heads/B".try_into()?)?;
+    let rebase = but_workspace::branch::tear_off_branch(editor, "refs/heads/B".try_into()?, None)?;
 
     // Materialize the operation
     rebase.materialize(Default::default())?;
@@ -221,7 +278,7 @@ fn tear_off_only_branch_in_stack() -> anyhow::Result<()> {
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Tear off A from the stack. Should be a no-op.
-    let rebase = but_workspace::branch::tear_off_branch(editor, "refs/heads/A".try_into()?)?;
+    let rebase = but_workspace::branch::tear_off_branch(editor, "refs/heads/A".try_into()?, None)?;
 
     // Materialize the operation
     rebase.materialize(Default::default())?;
@@ -295,7 +352,7 @@ fn tear_off_from_single_stack_in_ws_top() -> anyhow::Result<()> {
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Tear off B from the stack.
-    let rebase = but_workspace::branch::tear_off_branch(editor, "refs/heads/B".try_into()?)?;
+    let rebase = but_workspace::branch::tear_off_branch(editor, "refs/heads/B".try_into()?, None)?;
 
     // Materialize the operation
     rebase.materialize(Default::default())?;
@@ -366,7 +423,7 @@ fn tear_off_from_single_stack_in_ws_bottom() -> anyhow::Result<()> {
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Tear off A from the stack.
-    let rebase = but_workspace::branch::tear_off_branch(editor, "refs/heads/A".try_into()?)?;
+    let rebase = but_workspace::branch::tear_off_branch(editor, "refs/heads/A".try_into()?, None)?;
 
     // Materialize the operation
     rebase.materialize(Default::default())?;
@@ -437,7 +494,7 @@ fn tear_off_empty_branch() -> anyhow::Result<()> {
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Tear off B from the stack.
-    let rebase = but_workspace::branch::tear_off_branch(editor, "refs/heads/B".try_into()?)?;
+    let rebase = but_workspace::branch::tear_off_branch(editor, "refs/heads/B".try_into()?, None)?;
 
     // Materialize the operation
     rebase.materialize(Default::default())?;
@@ -506,7 +563,7 @@ fn tear_off_non_empty_branch() -> anyhow::Result<()> {
     );
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     // Tear off A from the stack.
-    let rebase = but_workspace::branch::tear_off_branch(editor, "refs/heads/A".try_into()?)?;
+    let rebase = but_workspace::branch::tear_off_branch(editor, "refs/heads/A".try_into()?, None)?;
 
     // Materialize the operation
     rebase.materialize(Default::default())?;

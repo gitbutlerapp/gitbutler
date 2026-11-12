@@ -780,8 +780,8 @@ Outcome {
             graph_workspace(&out.workspace).to_string(),
             snapbox::str![[r#"
 ⌂:B[🌳] <> ✓refs/heads/main on 85efbe4
-└── ≡📙:B[🌳] on 85efbe4 {1}
-    └── 📙:B[🌳]
+└── ≡:B[🌳] on 85efbe4 {1}
+    └── :B[🌳]
         └── ·c813d8d
 
 "#]]
@@ -3057,11 +3057,9 @@ fn unapply_dirty_worktree_abort_keeps_refs_and_metadata() -> anyhow::Result<()> 
     snapbox::assert_data_eq!(
         err.to_debug(),
         snapbox::str![[r#"
-Context {
-    code: PreconditionFailed,
-    message: Some(
-        "Uncommitted files would be overwritten by checkout: \"B\"",
-    ),
+Error {
+    context: "Uncommitted files would be overwritten by checkout: \"B\"",
+    source: UncommittedChangesInTheWay,
 }
 
 "#]]
@@ -3549,7 +3547,7 @@ fn unapply_workspace_ref_refuses_conflicted_named_stack_checkout() -> anyhow::Re
         but_workspace::branch::dissolve_unnecessary_workspace(
             &ws,
             &repo,
-            &meta,
+            &mut meta,
             Default::default()
         )?
         .is_none(),
@@ -4937,8 +4935,7 @@ Outcome {
 }
 
 #[test]
-fn apply_from_single_branch_mode_does_not_report_already_applied_head_branch() -> anyhow::Result<()>
-{
+fn apply_after_unapplying_down_to_one_branch_reports_that_branch() -> anyhow::Result<()> {
     let (_tmp, repo, mut meta, mut db) = named_writable_scenario("ws-ref-ws-commit-two-stacks")?;
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &[]);
@@ -4951,7 +4948,7 @@ fn apply_from_single_branch_mode_does_not_report_already_applied_head_branch() -
         &mut meta,
         unapply_options_with(WorkspaceDisposition::PreventUnnecessaryWorkspaceReferences),
     )?;
-    // HEAD is on B directly, while metadata still records B as applied.
+    // HEAD is on B directly, with the workspace and its metadata gone.
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -4970,13 +4967,13 @@ fn apply_from_single_branch_mode_does_not_report_already_applied_head_branch() -
         &mut meta,
         apply_options(),
     )?;
-    // B was applied before, so only A is reported.
+    // B joins the new workspace just like any checked-out branch, so it's reported too.
     snapbox::assert_data_eq!(
         out.to_debug(),
         snapbox::str![[r#"
 Outcome {
     workspace_changed: true,
-    applied_branches: "[refs/heads/A]",
+    applied_branches: "[refs/heads/B, refs/heads/A]",
 }
 
 "#]]

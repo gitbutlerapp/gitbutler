@@ -31,7 +31,6 @@ const STALE_LOCK_AGE: std::time::Duration = std::time::Duration::from_secs(5 * 6
 /// stays a no-op, and purged eventually.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[allow(missing_docs)]
 pub struct StoredComment {
     pub id: String,
     pub path: String,
@@ -53,7 +52,6 @@ struct CommentsFile {
     comments: Vec<StoredComment>,
 }
 
-/// Handle on a project's comments file.
 #[derive(Debug, Clone)]
 pub struct CommentStore {
     file_path: PathBuf,

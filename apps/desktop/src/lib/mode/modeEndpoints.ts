@@ -1,7 +1,7 @@
 import { hasBackendExtra } from "$lib/state/backendQuery";
 import { invalidatesList, providesList, ReduxTag } from "$lib/state/tags";
 import type { BackendEndpointBuilder } from "$lib/state/backendApi";
-import type { ConflictEntryPresence, HeadAndMode, HeadSha, TreeChange } from "@gitbutler/but-sdk";
+import type { ConflictEntryPresence, HeadAndMode, TreeChange } from "@gitbutler/but-sdk";
 
 export function buildModeEndpoints(build: BackendEndpointBuilder) {
 	return {
@@ -71,25 +71,6 @@ export function buildModeEndpoints(build: BackendEndpointBuilder) {
 				await lifecycleApi.cacheDataLoaded;
 				const unsubscribe = lifecycleApi.extra.backend.listen<HeadAndMode>(
 					`project://${arg.projectId}/git/head`,
-					(event) => {
-						lifecycleApi.updateCachedData(() => event.payload);
-					},
-				);
-				await lifecycleApi.cacheEntryRemoved;
-				unsubscribe();
-			},
-		}),
-		headSha: build.query<HeadSha, { projectId: string }>({
-			extraOptions: { command: "head_sha" },
-			query: (args) => args,
-			providesTags: [providesList(ReduxTag.HeadSha)],
-			async onCacheEntryAdded(arg, lifecycleApi) {
-				if (!hasBackendExtra(lifecycleApi.extra)) {
-					throw new Error("Redux dependency Backend not found!");
-				}
-				await lifecycleApi.cacheDataLoaded;
-				const unsubscribe = lifecycleApi.extra.backend.listen<HeadSha>(
-					`project://${arg.projectId}/git/activity`,
 					(event) => {
 						lifecycleApi.updateCachedData(() => event.payload);
 					},

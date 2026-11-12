@@ -1,0 +1,63 @@
+.list {
+	margin: 0;
+}
+
+/* A one-line row is the minimum height, size/row; the block padding, what is left of it around
+   the 20px line, is for a name that wraps. */
+.item {
+	display: flex;
+	align-items: center;
+	min-height: var(--but-size-row);
+	padding: calc((var(--but-size-row) - 20px) / 2) var(--but-padding-row);
+	gap: var(--but-space-2xl);
+}
+
+/* A fixed column, so the values line up down the card; a long name wraps within it. */
+.label {
+	flex: 0 0 116px;
+	color: var(--but-muted-foreground);
+}
+
+/* A flag or a key reads as the text it is, like the values. Its Code is a box 20 tall, as the
+   copied value's is, so it sits as far from the top as from the side; a long one wraps within the
+   column rather than running under its value. */
+.codeLabel {
+	display: flex;
+	color: var(--but-foreground);
+	line-height: 18px;
+	overflow-wrap: anywhere;
+}
+
+.value {
+	display: flex;
+	flex: 1;
+	align-items: center;
+	min-width: 0;
+	margin: 0;
+	gap: 4px;
+	color: var(--but-foreground);
+	line-height: 20px;
+}
+
+/* Holds the Code as a box of its own, as tall as the copy button beside it, so mono beside the
+   row's text doesn't stretch the line. A long value wraps anywhere inside it rather than running
+   out of the card. */
+.literal {
+	display: flex;
+	flex: 1;
+	min-width: 0;
+	line-height: 18px;
+	overflow-wrap: anywhere;
+}
+
+/* 4px over the small button, 24 at the default density, with a 16 icon, reaching past the 20px
+   line into the row's padding at each end so a copy row is as tall as any other, and its own 4px
+   inset into the right padding so the icon sits as far from the edge as the text does. */
+.copy {
+	--button-height: calc(var(--but-size-control-sm) + 4px);
+	--button-width: var(--button-height);
+	--button-padding-inline: 4px;
+	--icon-size: 16px;
+	margin-inline-end: -4px;
+	margin-block: calc((20px - var(--button-height)) / 2);
+}

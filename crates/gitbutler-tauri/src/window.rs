@@ -13,7 +13,6 @@ pub(crate) mod state {
         use gitbutler_watcher::Change;
         use tauri::Emitter;
 
-        /// A change we want to inform the frontend about.
         #[derive(Debug, Clone, PartialEq, Eq)]
         pub struct ChangeForFrontend {
             name: String,
@@ -112,7 +111,6 @@ pub(crate) mod state {
     type WindowLabel = String;
     pub(super) type WindowLabelRef = str;
 
-    /// State associated to windows
     /// Note that this type is managed in Tauri and thus needs to be `Send` and `Sync`.
     #[derive(Clone)]
     pub struct WindowState {
@@ -131,9 +129,7 @@ pub(crate) mod state {
 
     #[derive(Debug)]
     pub enum ProjectAccessMode {
-        // This is the first window to look at a project.
         First,
-        // This is not the first Window to look at the project.
         Shared,
     }
 
@@ -215,7 +211,6 @@ pub(crate) mod state {
             state_by_label.remove(window);
         }
 
-        /// Return the list of project ids that are currently open.
         pub fn open_projects(&self) -> Vec<ProjectHandleOrLegacyProjectId> {
             let state_by_label = self.state.lock();
             state_by_label

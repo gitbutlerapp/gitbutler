@@ -1,6 +1,12 @@
 use but_core::RefMetadata;
 
-use crate::{command::undo::run_mutate_undo_roundtrip_test, utils::Sandbox};
+use crate::{
+    command::{
+        undo::run_mutate_undo_roundtrip_test,
+        util::{add_dirty_detached_worktree, add_worktree_with_commit},
+    },
+    utils::Sandbox,
+};
 
 #[test]
 fn can_undo_single_branch_commit_on_new_branch() {
@@ -659,4 +665,198 @@ fn can_undo_but_commit_empty_dash_dash_after() {
             .assert()
             .success();
     });
+}
+
+/// The oplog is shared, so a commit made in a linked worktree is what `but undo` targets from
+/// every checkout, and it restores only the main checkout.
+#[test]
+fn undo_in_the_worktree_that_made_a_commit_names_the_commit_to_uncommit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    undo_in_worktree_hints_uncommit(&env, "main");
+}
+
+#[test]
+fn undo_in_the_single_branch_worktree_that_made_a_commit_names_the_commit_to_uncommit() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.invoke_git("checkout -q -b feature");
+    env.but("status").assert().success();
+    undo_in_worktree_hints_uncommit(&env, "feature");
+}
+
+#[track_caller]
+fn undo_in_worktree_hints_uncommit(env: &Sandbox, start_point: &str) {
+    let wt_dir = add_worktree_with_commit(env, "wt-feature", start_point);
+    let tip_before = env.invoke_git("rev-parse wt-feature");
+    std::fs::write(wt_dir.join("new.txt"), "content\n").unwrap();
+    env.but("commit -m 'from wt' new.txt")
+        .current_dir(&wt_dir)
+        .assert()
+        .success();
+    let commit = env.invoke_git("rev-parse --short wt-feature");
+
+    env.but("undo")
+        .current_dir(&wt_dir)
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(format!(
+            "Error: Cannot restore branch 'wt-feature' because it is checked out in this linked \
+            worktree, and `but undo` only restores the main checkout\n\n\
+            Hint: Run `but uncommit {commit}` to take the commit off 'wt-feature' and keep its \
+            changes uncommitted\n"
+        ));
+
+    // From another checkout it may be another agent's commit, so nothing asks to reverse it.
+    env.but("undo")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot restore branch 'wt-feature' because it is checked out in worktrees: [..]
+
+Hint: Reverse the operation with its inverse instead, such as `but move <commit> --branch <branch>`, `but reword <commit>` or `but uncommit <commit>`
+
+"#]]);
+
+    env.but(format!("uncommit {commit}"))
+        .current_dir(&wt_dir)
+        .assert()
+        .success();
+    assert_eq!(
+        env.invoke_git("rev-parse wt-feature"),
+        tip_before,
+        "the hinted command takes only that commit off the branch"
+    );
+    assert!(
+        wt_dir.join("new.txt").exists(),
+        "the hinted command keeps the change in the worktree, uncommitted"
+    );
+}
+
+/// A commit that makes the worktree's branch has no earlier tip to compare with.
+#[test]
+fn undo_in_a_detached_worktree_names_the_commit_that_made_its_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    let wt_dir = add_dirty_detached_worktree(&env, "wt-detached", "B");
+    env.but("commit -b fresh -m 'from wt'")
+        .current_dir(&wt_dir)
+        .assert()
+        .success();
+    let commit = env.invoke_git("rev-parse --short fresh");
+
+    env.but("undo")
+        .current_dir(&wt_dir)
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(format!(
+            "Error: Cannot restore branch 'fresh' because it is checked out in this linked \
+            worktree, and `but undo` only restores the main checkout\n\n\
+            Hint: Run `but uncommit {commit}` to take the commit off 'fresh' and keep its \
+            changes uncommitted\n"
+        ));
+
+    env.but(format!("uncommit {commit}"))
+        .current_dir(&wt_dir)
+        .assert()
+        .success();
+    assert_eq!(
+        env.invoke_git("rev-parse fresh"),
+        env.invoke_git("rev-parse B"),
+        "the hinted command takes the commit off the branch"
+    );
+}
+
+/// `but uncommit` only reverses the last operation if that made the commit at the branch's tip.
+#[test]
+fn undo_in_a_worktree_names_no_commit_unless_the_last_operation_made_the_tip() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    let wt_dir = add_worktree_with_commit(&env, "wt-feature", "main");
+
+    // A move adds one commit to the branch as well, but it's reversed with another move.
+    let commit = env.invoke_git("rev-parse A");
+    env.but(format!("move {commit} --branch wt-feature"))
+        .current_dir(&wt_dir)
+        .assert()
+        .success();
+    undo_is_refused_without_naming_a_commit(&env, &wt_dir);
+
+    // The new commit went below the tip, which the operation only rewrote.
+    let tip = env.invoke_git("rev-parse wt-feature");
+    env.but(format!("commit --empty --no-message --below {tip}"))
+        .current_dir(&wt_dir)
+        .assert()
+        .success();
+    undo_is_refused_without_naming_a_commit(&env, &wt_dir);
+}
+
+/// Single-branch snapshots record every branch, so a commit made elsewhere holds the worktree's
+/// tip, and the one commit the worktree's branch gained since isn't the one that operation made.
+#[test]
+fn undo_in_a_single_branch_worktree_names_no_commit_the_last_operation_made_elsewhere() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.invoke_git("checkout -q -b feature");
+    env.but("status").assert().success();
+    let wt_dir = add_worktree_with_commit(&env, "wt-feature", "feature");
+    env.file("one.txt", "content\n");
+    env.but("commit -m one one.txt").assert().success();
+    but_testsupport::invoke_bash_at_dir(
+        "echo later >later.txt && git add later.txt && git commit -q -m 'later'",
+        &wt_dir,
+    );
+
+    undo_is_refused_without_naming_a_commit(&env, &wt_dir);
+}
+
+#[track_caller]
+fn undo_is_refused_without_naming_a_commit(env: &Sandbox, wt_dir: &std::path::Path) {
+    env.but("undo")
+        .current_dir(wt_dir)
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot restore branch 'wt-feature' because it is checked out in this linked worktree, and `but undo` only restores the main checkout
+
+Hint: Reverse the operation with its inverse instead, such as `but move <commit> --branch <branch>`, `but reword <commit>` or `but uncommit <commit>`
+
+"#]]);
+}
+
+#[test]
+fn redo_in_a_worktree_names_no_commit() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.invoke_git("checkout -q -b feature");
+    env.but("status").assert().success();
+    let wt_dir = add_worktree_with_commit(&env, "wt-feature", "feature");
+    // Single-branch snapshots record every branch, so these two also hold the worktree's tip.
+    for file in ["one.txt", "two.txt"] {
+        env.file(file, "content\n");
+        env.but(format!("commit -m {file} {file}"))
+            .assert()
+            .success();
+    }
+    env.but("undo").assert().success();
+    but_testsupport::invoke_bash_at_dir(
+        "echo later >later.txt && git add later.txt && git commit -q -m 'later'",
+        &wt_dir,
+    );
+
+    env.but("redo")
+        .current_dir(&wt_dir)
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot restore branch 'wt-feature' because it is checked out in this linked worktree, and `but redo` only restores the main checkout
+
+Hint: Reverse the operation with its inverse instead, such as `but move <commit> --branch <branch>`, `but reword <commit>` or `but uncommit <commit>`
+
+"#]]);
 }

@@ -219,6 +219,20 @@ fn feature_push_to_fork_is_visible_to_review_creation() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn branch_outside_the_workspace_is_refused_not_failed() -> anyhow::Result<()> {
+    use but_error::AnyhowContextExt as _;
+    let (ctx, _tmp) = context_with_remote_branch()?;
+    let err = but_api::legacy::forge::new_review_target(&ctx, "refs/heads/elsewhere".into())
+        .expect_err("a branch outside the workspace has no review target");
+    assert_eq!(
+        err.custom_context().map(|said| said.code),
+        Some(but_error::Code::PreconditionFailed),
+        "the branch left the workspace, as when it was unapplied, which isn't a fault of ours"
+    );
+    Ok(())
+}
+
 fn context_with_remote_branch() -> anyhow::Result<(
     but_ctx::Context,
     but_testsupport::gix_testtools::tempfile::TempDir,

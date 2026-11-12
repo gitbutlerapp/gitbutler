@@ -646,7 +646,8 @@ impl App {
             .then(|| terminal_guard.suspend())
             .transpose()?;
 
-        let (outcome, _ws) = squash::run(ctx, &mut meta, guard.write_permission(), squash_op)?;
+        let (outcome, _ws) = squash::run(ctx, &mut meta, guard.write_permission(), squash_op)
+            .into_internal_error()?;
 
         let what_to_select = match outcome {
             SquashOutcome::Branch { new_commit, .. }

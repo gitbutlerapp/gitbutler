@@ -7,16 +7,11 @@ use but_rebase::graph_rebase::{
     mutate::{InsertSide, RelativeTo},
 };
 
-/// Move multiple commits.
-///
 /// The commits are ordered by parentage before moving so callers do not need to
 /// provide them in graph order.
 ///
-/// Each subject is plucked from its old slot
-/// and inserted relative to `relative_to`. Leaving a placeholder behind means the source
-/// topology is never rewritten, so every reference anchored in it keeps its position and
-/// resolves through the placeholder to the commit below, which is exactly what a branch
-/// a commit was moved out of should do.
+/// Each subject hands its children to its first parent, so a branch a commit was moved out
+/// of rests on the commit below, and is then placed relative to `relative_to`.
 pub fn move_commits<'ws, 'meta, M: RefMetadata>(
     editor: Editor<'ws, 'meta, M>,
     subject_commit_ids: impl IntoIterator<Item = gix::ObjectId>,
@@ -37,23 +32,8 @@ pub fn move_commits<'ws, 'meta, M: RefMetadata>(
     }
 
     let mut editor = editor;
-    let mut plucked = Vec::with_capacity(ordered_selectors.len());
     for selector in ordered_selectors {
-        // The first-parent edge is the slot the commit sat in and stays with the
-        // placeholder; a merge commit's remaining parents are part of the commit itself
-        // and travel with it.
-        let mut parents = editor.direct_parents(selector)?;
-        parents.sort_by_key(|(_, order)| *order);
-        let merge_parents = parents.split_off(1.min(parents.len()));
-        let step = editor.replace_with_none(selector)?;
-        plucked.push((step, selector, merge_parents));
-    }
-    for (step, placeholder, merge_parents) in plucked {
-        let inserted = editor.insert(relative_to.clone(), step, side)?;
-        for (parent, order) in merge_parents {
-            editor.remove_edges(placeholder, parent)?;
-            editor.add_edge(inserted, parent, order)?;
-        }
+        editor.move_pick(selector, relative_to.clone(), side)?;
     }
 
     editor.rebase()

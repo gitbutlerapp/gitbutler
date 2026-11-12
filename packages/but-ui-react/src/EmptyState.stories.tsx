@@ -1,0 +1,114 @@
+import { stories } from "../docs/stories.ts";
+import { Button } from "./Button.tsx";
+import { EmptyState } from "./EmptyState.tsx";
+import { Icon } from "./Icon.tsx";
+
+const meta = stories({
+	title: "Content & status/EmptyState",
+	id: "components-emptystate",
+	component: EmptyState,
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=3454-84769",
+		},
+	},
+	args: {
+		illustration: "cactus",
+		title: "Your workspace is empty",
+		description: "You have 5 branches to pick from",
+	},
+	decorators: [
+		// A plain box with a height, as a pane gives it: the block centres itself
+		// in it, a little above the middle.
+		(Story) => (
+			<div
+				style={{
+					width: 360,
+					height: 520,
+					backgroundColor: "var(--but-muted)",
+					borderRadius: 6,
+				}}
+			>
+				<Story />
+			</div>
+		),
+	],
+});
+
+export const Default = meta.story({
+	args: {
+		title: "Your workspace is empty",
+		description: "You have 5 branches to pick from",
+		children: (
+			<>
+				<Button variant="gray">
+					See all
+					<Icon name="list" />
+				</Button>
+				<Button variant="outline">
+					New branch
+					<Icon name="plus" />
+				</Button>
+			</>
+		),
+	},
+});
+
+/** One action stays quiet: there is no second button for it to rank above. */
+export const OneAction = meta.story({
+	args: {
+		title: "No branches yet",
+		description: "Your first commit will start one",
+		children: (
+			<Button variant="outline">
+				New branch
+				<Icon name="plus" />
+			</Button>
+		),
+	},
+});
+
+/** Nothing to do about it, so nothing to press. */
+export const NoActions = meta.story({
+	args: {
+		title: "Nothing to review",
+		description: "Pull requests you are asked to look at will show up here",
+	},
+});
+
+/** Dropped where a panel is too short to hold one. */
+export const WithoutIllustration = meta.story({
+	args: {
+		title: "Your workspace is empty",
+		description: "You have 5 branches to pick from",
+		illustration: undefined,
+		children: (
+			<Button variant="outline">
+				New branch
+				<Icon name="plus" />
+			</Button>
+		),
+	},
+});
+
+/** A popup's search that found nothing: the line and a way back to the full list. */
+export const Tidy = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=3454-84770",
+		},
+	},
+	args: {
+		variant: "tidy",
+		illustration: undefined,
+		title: undefined,
+		description: "No matching files found",
+		children: (
+			<Button variant="outline" size="small">
+				Clear search
+			</Button>
+		),
+	},
+});

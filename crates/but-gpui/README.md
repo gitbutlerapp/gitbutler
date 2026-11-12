@@ -23,7 +23,7 @@ The app is built for watching what coding agents change. Reading their changes c
 
 - one navigator for every project, with its worktrees, stacks, branches and commits, kept current while agents work
 - diffs of uncommitted changes, commits, branches and stacks
-- committing, amending and moving commits, files, hunks and lines, by drag and drop or cut and paste
+- committing, amending and moving commits, files, hunks and lines, by drag and drop or with the keys
 - the branches not applied, and pull requests with their checks
 - conflict resolution for conflicted commits
 - linked worktrees, and the checkouts on your other machines through the mesh
@@ -31,8 +31,10 @@ The app is built for watching what coding agents change. Reading their changes c
 
 ## Development
 
-- Started with `cargo run` on macOS or Linux, the status bar has a Build and restart button, which rebuilds the client and restarts it in place.
+- Started with `cargo run` on macOS or Linux, the status bar has a Build and restart button, which rebuilds the client and restarts it in place. Right-clicking a worktree in the navigator offers Build and restart from here, to build from that one, and so does the palette, from the checkout of whatever is selected.
+- `cargo run -p but-gpui --features stories --bin gitbutler-gpui-stories` opens the stories: the shared controls in each of their states, in light or dark and at a few scales, as but-ui-react's docs site shows its components. Without Xcode's Metal Toolchain, add `gpui_platform/runtime_shaders` to the features. `GITBUTLER_GPUI_STORY=<name>` opens it on one, and `scripts/drive.sh --stories` drives it. To rebuild and reopen it on every save, run it under [watchexec](https://github.com/watchexec/watchexec): `watchexec -r -w crates/but-gpui/src -e rs -- cargo run …`.
 - `GITBUTLER_GPUI_APPEARANCE=dark` (or `light`) overrides the system appearance.
 - `E2E_TEST_APP_DATA_DIR=<dir>` points GitButler's app data and settings at a sandbox.
 - `GITBUTLER_API_URL` signs in to another GitButler server than production, as staging.
 - `scripts/drive.sh run <file>` runs the app from a script of clicks, drags and keystrokes, saving screenshots, against app data of its own and in a window that never shows. `src/dev.rs` documents the commands.
+- Built with `--features dev-script`, the app takes layout commands on a socket, which `scripts/control.sh` sends, so an agent can set up the window you're looking at. `src/dev/control.rs` documents them.

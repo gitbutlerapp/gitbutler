@@ -1,11 +1,9 @@
 use but_api_macros::but_api;
 use but_core::{DryRun, sync::RepoExclusive};
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::{Editor, LookupStep as _};
-use but_workspace::commit::{SquashCommitsOutcome, squash_commits::MessageCombinationStrategy};
+use but_transaction::{Commit, with_transaction_with_perm_only};
+use but_workspace::commit::squash_commits::MessageCombinationStrategy;
 use tracing::instrument;
-
-use crate::WorkspaceState;
 
 use super::types::CommitSquashResult;
 
@@ -54,19 +52,15 @@ pub fn commit_squash_only_with_perm(
         anyhow::bail!("No commits were provided to squash")
     }
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-    let SquashCommitsOutcome {
-        rebase,
-        commit_selector,
-    } = but_workspace::commit::squash_commits(
-        editor,
-        subject_commit_ids,
-        target_commit_id,
-        how_to_combine_messages,
-    )?;
-    let new_commit = rebase.lookup_pick(commit_selector)?;
-    let workspace = WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?;
+    let (_, (new_commit, workspace)) =
+        with_transaction_with_perm_only(ctx, &mut meta, perm, dry_run, |mut tx| {
+            let squashed = tx.squash_commits(
+                subject_commit_ids,
+                target_commit_id,
+                how_to_combine_messages,
+            )?;
+            Ok(Commit(squashed.id))
+        })?;
 
     Ok(CommitSquashResult {
         new_commit,

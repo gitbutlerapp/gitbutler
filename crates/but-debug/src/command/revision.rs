@@ -1,5 +1,3 @@
-//! Implementation of the `revision` debug commands.
-
 use std::io::{self, Write as _};
 
 use anyhow::{Context as _, Result, bail, ensure};
@@ -13,7 +11,6 @@ use crate::{
     setup,
 };
 
-/// Execute the `revision` subcommand.
 pub(crate) fn run(
     args: &Args,
     revision_args: &RevisionArgs,

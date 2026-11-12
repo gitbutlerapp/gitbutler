@@ -477,7 +477,9 @@ status=exit status: 1
 stdout:
 
 stderr:
-Error: GitButler mode exit required: please run `but teardown` to preserve your work.
+Error: The tip of gitbutler/workspace is not a workspace commit, most likely because `git commit` added a commit on top of it.
+
+Hint: Run `but teardown`. It undoes commits on top of the workspace commit and keeps their changes as uncommitted. It then leaves workspace mode on one applied branch; the others stay unapplied until you run `but apply <branch>`.
 
 "#]]
     );
@@ -508,7 +510,9 @@ status=exit status: 1
 stdout:
 
 stderr:
-Error: GitButler mode exit required: please run `but teardown` to preserve your work.
+Error: The tip of gitbutler/workspace is not a workspace commit, most likely because `git commit` added a commit on top of it.
+
+Hint: Run `but teardown`. It undoes commits on top of the workspace commit and keeps their changes as uncommitted. It then leaves workspace mode on one applied branch; the others stay unapplied until you run `but apply <branch>`.
 
 "#]]
     );

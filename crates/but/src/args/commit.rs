@@ -23,6 +23,9 @@ use crate::args::atoms::{AllowMergedArg, CliIdArg, MessageFileArg};
 /// `--no-message`, `--message` or `--file` is provided, the user's preferred editor is opened to
 /// input a message.
 ///
+/// The repository's pre-commit, commit-msg and post-commit hooks run unless `--no-hooks` is
+/// provided. A failing pre-commit or commit-msg hook aborts the commit.
+///
 /// For more details about CLI IDs, see `but help cli-ids`.
 #[derive(Debug, clap::Parser)]
 #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
@@ -54,6 +57,9 @@ pub struct Platform {
     ///
     /// If `BRANCH` is a worktree or a branch checked out in one, the commit is placed
     /// on the tip of that worktree's branch.
+    ///
+    /// Run from a linked worktree with a detached HEAD, a new `BRANCH` starts at that HEAD
+    /// and is checked out there before the commit is placed on it.
     ///
     /// Attempting to place a commit on a branch that exists but is not applied is an error.
     #[clap(short, long, value_name = "BRANCH")]
@@ -102,11 +108,18 @@ pub struct Platform {
     #[clap(short, long, group = "changes_to_commit", help_heading = "Interactive")]
     pub interactive: bool,
 
-    /// The files or hunks to commit, by CLI ID from `but diff`.
+    /// The files or hunks to commit, by CLI ID from `but diff` or by path.
     ///
     /// If omitted, everything uncommitted in the checkout `but` runs in is committed.
     #[clap(group = "changes_to_commit")]
     pub changes: Vec<CliIdArg>,
+
+    /// Skip the pre-commit, commit-msg and post-commit hooks.
+    ///
+    /// Without this flag the hooks run for changes from the main worktree, but not for changes
+    /// from a linked worktree. A hook's output shows only when it fails.
+    #[clap(short = 'n', long = "no-hooks", visible_alias = "no-verify")]
+    pub no_hooks: bool,
 
     #[clap(flatten)]
     #[allow(missing_docs)]

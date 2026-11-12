@@ -14,9 +14,7 @@ pub struct TelemetrySettings {
     pub migrated_from_legacy: bool,
 }
 
-/// Access utilities
 impl TelemetrySettings {
-    /// Return the distinct ID if reporting is enabled, and if it is set.
     pub fn distinct_id_if_enabled(&self) -> Option<String> {
         self.app_metrics_enabled
             .then(|| self.app_distinct_id.clone())
@@ -68,6 +66,13 @@ pub struct FeatureFlags {
     /// Open the experimental native client (GPUI) instead of the web app when GitButler
     /// starts, on macOS builds that include it.
     pub gpui: bool,
+    /// In the native client (GPUI), the single file diff: show only the selected file of a
+    /// diff, filling the pane, rather than every file one after another.
+    pub gpui_single_file_diff: bool,
+    /// In the native client (GPUI), show the brief about a branch on a tab of its page. Every few
+    /// minutes, open projects tell GitButler's server their addresses and their newest branches'
+    /// names and commits' ids.
+    pub gpui_briefs: bool,
 }
 but_schemars::register_sdk_type!(FeatureFlags);
 

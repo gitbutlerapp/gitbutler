@@ -5,24 +5,43 @@ use gpui::Hsla;
 
 use super::Icon;
 use crate::backend::{Checks, ReviewState};
-use crate::theme::Theme;
+use crate::theme::{Hue, Theme};
 
 pub fn state_glyph(state: ReviewState, theme: &Theme) -> (Icon, Hsla) {
+    let glyph = match state {
+        ReviewState::Open => Icon::Pr,
+        ReviewState::Draft => Icon::PrDraft,
+        ReviewState::Merged => Icon::BranchMerge,
+        ReviewState::Closed => Icon::PrClose,
+    };
+    (glyph, theme.hue(state_hue(state)))
+}
+
+/// The colour a pull request's state is tinted in.
+pub fn state_hue(state: ReviewState) -> Hue {
     match state {
-        ReviewState::Open => (Icon::Pr, theme.safe),
-        ReviewState::Draft => (Icon::PrDraft, theme.text_2),
-        ReviewState::Merged => (Icon::BranchMerge, theme.purple),
-        ReviewState::Closed => (Icon::PrClose, theme.danger),
+        ReviewState::Open => Hue::Safe,
+        ReviewState::Draft => Hue::Gray,
+        ReviewState::Merged => Hue::Purple,
+        ReviewState::Closed => Hue::Danger,
     }
 }
 
-/// A pull request's title where it names its branch: muted while a draft, fainter once merged
-/// or closed.
+/// A pull request's title where it names its branch: plain while open or a draft, fainter once
+/// merged or closed.
 pub fn title_color(state: ReviewState, theme: &Theme) -> Hsla {
     match state {
-        ReviewState::Open => theme.text_1,
-        ReviewState::Draft => theme.text_2,
+        ReviewState::Open | ReviewState::Draft => theme.text_1,
         ReviewState::Merged | ReviewState::Closed => theme.text_3,
+    }
+}
+
+/// The purple of a merged branch's glyph, which stays when its row is the `solid` selection, so
+/// the row still says it merged.
+pub fn merged_color(solid: bool, theme: &Theme) -> Hsla {
+    match solid {
+        true => theme.purple_on_solid,
+        false => theme.purple,
     }
 }
 

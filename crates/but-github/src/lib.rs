@@ -11,9 +11,9 @@ mod graphql;
 pub mod pr;
 pub mod stacks;
 pub use client::{
-    AutoMergeEnableParams, AutoMergeState, CheckRun, CommentReactions, CreatePullRequestParams,
-    GitHubClient, GitHubPrLabel, GitHubRepoPermissions, GitHubRepository, GitHubUser, MergeMethod,
-    MergePullRequestParams, PullRequest, PullRequestComment, PullRequestMergeStatus,
+    AutoMergeState, CheckRun, CommentReactions, CreatePullRequestParams, GitHubClient,
+    GitHubPrLabel, GitHubRepoPermissions, GitHubRepository, GitHubUser, HttpStatusError,
+    MergeMethod, MergePullRequestParams, PullRequest, PullRequestComment, PullRequestMergeStatus,
     PullRequestReview, PullRequestReviewThread, PullRequestReviewThreadComment, Reaction,
     SetPullRequestAutoMergeParams, SetPullRequestDraftStateParams, UpdatePullRequestParams,
 };
@@ -52,7 +52,7 @@ fn parse_github_oauth_response<T: serde::de::DeserializeOwned>(body: &str) -> Re
 
 /// A static, code-bearing context for terminal device-flow statuses, so the API serializes
 /// guidance instead of GitHub's description. Pending statuses stay as they are: callers poll
-/// through them, and the provider text remains the inner error for the CLI and Lite.
+/// through them, and the provider text remains the inner error for the CLI.
 fn device_flow_context(status: &str) -> Option<but_error::Context> {
     use but_error::{Code, Context};
     match status {
@@ -101,7 +101,6 @@ pub async fn init_github_device_oauth() -> Result<Verification> {
 
 #[derive(Debug, Clone)]
 pub struct AuthStatusResponse {
-    /// The access token.
     /// This is only shared with the FrontEnd temporarily as we undergo the migration to having all API calls
     /// made to the forges from the Rustend.
     pub access_token: Sensitive<String>,
@@ -179,7 +178,6 @@ fn cache_user_profile(
     }
 }
 
-/// Fetch the authenticated user data from GitHub and persist the access token. (OAuth)
 async fn fetch_and_persist_oauth_user_data(
     access_token: &Sensitive<String>,
     storage: &but_forge_storage::Controller,
@@ -211,7 +209,6 @@ pub async fn store_pat(
     })
 }
 
-/// Fetch the authenticated user data from GitHub and persist the access token. (PAT)
 async fn fetch_and_persist_pat_user_data(
     access_token: &Sensitive<String>,
     storage: &but_forge_storage::Controller,
@@ -244,7 +241,6 @@ pub async fn store_enterprise_pat(
     })
 }
 
-/// Fetch the authenticated user data from GitHub and persist the access token. (Enterprise)
 async fn fetch_and_persist_enterprise_user_data(
     host: &str,
     access_token: &Sensitive<String>,
@@ -342,8 +338,6 @@ pub async fn get_gh_user(
     }
 }
 
-/// Check if an error is a network connectivity error.
-///
 /// This includes DNS resolution failures, connection timeouts, connection
 /// refused, and connections dropped while the response body was being read.
 /// reqwest wraps both body I/O failures and malformed payloads as the same
@@ -373,7 +367,6 @@ pub enum CredentialCheckResult {
     NoCredentials,
 }
 
-/// Check the validity of the stored credentials for the given GitHub account.
 pub async fn check_credentials(
     account: &GithubAccountIdentifier,
     storage: &but_forge_storage::Controller,
@@ -401,10 +394,6 @@ pub fn clear_all_github_tokens(storage: &but_forge_storage::Controller) -> Resul
     token::clear_all_github_accounts(storage).context("Failed to clear all GitHub tokens")
 }
 
-/// JSON serialization types for GitHub API responses.
-///
-/// This module contains serializable versions of GitHub authentication types
-/// that expose sensitive data (like access tokens) as plain strings for API responses.
 pub mod json {
     use serde::Serialize;
 
@@ -518,7 +507,6 @@ mod tests {
 
     #[test]
     fn test_is_network_error_with_connection_error() {
-        // Create a reqwest error
         let client = reqwest::blocking::Client::builder()
             .timeout(std::time::Duration::from_millis(1))
             .build()
@@ -595,7 +583,7 @@ mod tests {
                     "{status}: pending statuses keep today's message"
                 );
             }
-            // Alternate display (Lite, CLI) keeps the provider status as the inner error.
+            // Alternate display (the CLI's) keeps the provider status as the inner error.
             let display = format!("{err:#}");
             assert!(
                 display.contains(&format!("GitHub returned an error: {status} (")),

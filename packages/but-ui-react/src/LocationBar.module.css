@@ -1,0 +1,52 @@
+/* On the window's ground, with its own bottom edge: the header under it starts on the background.
+   size/row tall, its edge included, with everything centred in what is left. */
+.bar {
+	box-sizing: border-box;
+	display: flex;
+	column-gap: var(--but-space-2xl);
+	align-items: center;
+	min-width: 0;
+	height: var(--but-size-row);
+	padding: 0 var(--but-padding-panel);
+	border-bottom: 1px solid var(--but-border-subtle);
+	background-color: var(--but-canvas);
+}
+
+/* Its gaps are the bar's, so a divider inside it sits as far from its buttons as the one after it. */
+.leading {
+	display: flex;
+	column-gap: var(--but-space-2xl);
+	flex-shrink: 0;
+	align-items: center;
+}
+
+/* The bar's buttons are regular icon-only ghosts, their 16px glyph on a ground squared down to
+   24×22 at Balanced: the size the bar's line is drawn around, which no Button size gives. They
+   follow the density as a small button does, from control-sm. */
+:is(.leading, .state) > button {
+	--button-width: calc(var(--but-size-control-sm) + 4px);
+	--button-height: calc(var(--but-size-control-sm) + 2px);
+	--button-padding-inline: 4px;
+}
+
+.divider {
+	flex-shrink: 0;
+	width: 1px;
+	height: 16px;
+	background-color: var(--but-border-subtle);
+}
+
+/* The trail takes what is left, so it is the part that folds when the bar narrows. */
+.trail {
+	flex: 1;
+	min-width: 0;
+}
+
+.state {
+	display: flex;
+	column-gap: var(--but-space-2xl);
+	flex-shrink: 0;
+	align-items: center;
+	color: var(--but-muted-foreground);
+	white-space: nowrap;
+}

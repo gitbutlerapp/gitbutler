@@ -1,5 +1,5 @@
-//! A branch's pull request: opening one (pushing the branch first when it needs it), and
-//! merging one that's open, at once or by auto-merge once it can.
+//! A branch's pull request: opening one (pushing the branch first when it needs it), merging
+//! one that's open, at once or by auto-merge once it can, and turning one into a draft and back.
 
 use gpui::{
     Action, App, Context, DismissEvent, Div, Entity, EventEmitter, FocusHandle, Focusable,
@@ -10,6 +10,7 @@ use crate::app::AppView;
 use crate::backend::ai;
 use crate::backend::reviews::{self, MergeMethod, MergeStatus};
 use crate::backend::{self, Forge, FullName, Review, ReviewState, short_ref};
+use crate::overlays::branch_went;
 use crate::state::{Overlay, ProjectId, Selection, Store, StoreEvent, snack};
 use crate::theme::Theme;
 use crate::ui::modal::{ModalSize, modal};
@@ -22,14 +23,15 @@ actions!(
         CreatePullRequest,
         MergePullRequest,
         EnableAutoMerge,
-        DisableAutoMerge
+        DisableAutoMerge,
+        ConvertToDraft,
+        MarkReadyForReview
     ]
 );
 
 pub struct ReviewView {
     store: Entity<Store>,
     project: ProjectId,
-    /// The branch, by full ref.
     branch: FullName,
     title: Entity<TextInput>,
     body: Entity<TextInput>,
@@ -38,6 +40,9 @@ pub struct ReviewView {
     /// The branch it would merge into, once known.
     target: Option<String>,
     draft: bool,
+    /// Turn its auto-merge on once it's created. A draft can't, so turning `draft` on turns
+    /// this off.
+    auto_merge: bool,
     /// The title and description being written with AI, streaming into the fields.
     writing: Option<Task<()>>,
 }
@@ -71,13 +76,20 @@ impl ReviewView {
             })
             .detach();
         }
-        // What's written stays for the branch under its new name, as an agent renamed it.
-        cx.subscribe(&store, |this, _, event, cx| match event {
+        // What's written stays for the branch under its new name, as an agent renamed it, and
+        // the form closes once the branch leaves the workspace, as an agent unapplied it.
+        cx.subscribe(&store, |this, store, event, cx| match event {
             StoreEvent::Renamed(project, from, to)
                 if *project == this.project && from.as_ref() == Some(&this.branch) =>
             {
                 this.branch = to.clone();
                 cx.notify();
+            }
+            StoreEvent::Loaded(project) if *project == this.project => {
+                if let Some(why) = branch_went(store.read(cx), project, Some(&this.branch)) {
+                    snack(&store, why, cx);
+                    cx.emit(DismissEvent);
+                }
             }
             _ => {}
         })
@@ -114,9 +126,15 @@ impl ReviewView {
                         }
                         cx.notify();
                     }
-                    Err(err) => this.store.update(cx, |store, cx| {
-                        store.failed("Can't open a pull request", &err, cx)
-                    }),
+                    Err(err) => {
+                        this.store.update(cx, |store, cx| {
+                            store.failed("Can't open a pull request", &err, cx)
+                        });
+                        // Gone before the reload that would close the form landed.
+                        if reviews::branch_left(&err) {
+                            cx.emit(DismissEvent);
+                        }
+                    }
                 })
                 .ok();
             })
@@ -131,8 +149,20 @@ impl ReviewView {
             body_scroll,
             target: None,
             draft: false,
+            auto_merge: false,
             writing: None,
         }
+    }
+
+    /// Whether its auto-merge can be turned on as it's created: on a forge that has auto-merge,
+    /// into the workspace's target, as one stacked on another merges only from the bottom.
+    fn offers_auto_merge(&self, cx: &App) -> bool {
+        let Some(ws) = self.store.read(cx).workspace(&self.project) else {
+            return false;
+        };
+        matches!(ws.forge, Some(Forge::GitHub | Forge::GitLab))
+            && (self.target.as_deref())
+                .is_some_and(|into| (ws.target.as_ref()).is_none_or(|target| target.branch == into))
     }
 
     /// Write the title and description with AI from the branch's commit messages, streaming
@@ -200,8 +230,9 @@ impl ReviewView {
         }
         let body = self.body.read(cx).text().trim().to_owned();
         let (project, branch, draft) = (self.project.clone(), self.branch.clone(), self.draft);
+        let auto_merge = self.auto_merge && self.offers_auto_merge(cx);
         (self.store).update(cx, |store, cx| {
-            store.publish(&project, branch, title, body, draft, cx)
+            store.publish(&project, branch, title, body, draft, auto_merge, cx)
         });
         cx.emit(DismissEvent);
     }
@@ -244,6 +275,7 @@ impl Render for ReviewView {
             "Create pull request"
         };
         let empty_title = self.title.read(cx).text().trim().is_empty();
+        let no_auto_merge = self.draft.then_some("A draft can't auto-merge");
         modal(ModalSize::Medium, &theme)
             .id("pull-request")
             .child(
@@ -315,6 +347,7 @@ impl Render for ReviewView {
                             .child(switch("pr-draft", self.draft, &theme).on_click(cx.listener(
                                 |this, _, _, cx| {
                                     this.draft = !this.draft;
+                                    this.auto_merge &= !this.draft;
                                     cx.notify();
                                 },
                             )))
@@ -323,7 +356,31 @@ impl Render for ReviewView {
                                     .child(div().text_size(dp(13.)).child("Draft"))
                                     .child(muted("Not ready for review yet", &theme)),
                             ),
-                    ),
+                    )
+                    .when(self.offers_auto_merge(cx), |el| {
+                        el.child(
+                            h_flex()
+                                .gap(dp(10.))
+                                .child(
+                                    switch("pr-auto-merge", self.auto_merge, &theme)
+                                        .disabled_because(no_auto_merge)
+                                        .on_click(cx.listener(|this, _, _, cx| {
+                                            this.auto_merge = !this.auto_merge;
+                                            cx.notify();
+                                        })),
+                                )
+                                .child(
+                                    v_flex()
+                                        .child(div().text_size(dp(13.)).child("Auto-merge"))
+                                        .child(muted(
+                                            no_auto_merge.unwrap_or(
+                                                "Merges once its required checks and reviews pass",
+                                            ),
+                                            &theme,
+                                        )),
+                                ),
+                        )
+                    }),
             )
             .child(
                 h_flex()
@@ -369,20 +426,32 @@ impl AppView {
             return el;
         };
         let project = selection.project();
+        let drafts = has_drafts(store, project);
         match (branch.review.as_ref()).map(|r| (r, store.review_state(project, r))) {
             None => el.when(!branch.commits.is_empty(), |el| {
                 el.on_action(cx.listener(Self::create_pull_request))
             }),
-            Some((review, ReviewState::Open)) => match mergeability(store, project, review).offer()
-            {
-                Some(Offer::Merge) => el.on_action(cx.listener(Self::merge_pull_request)),
-                Some(Offer::EnableAutoMerge) => el.on_action(cx.listener(Self::enable_auto_merge)),
-                Some(Offer::DisableAutoMerge) => {
-                    el.on_action(cx.listener(Self::disable_auto_merge))
+            // Not read from the forge yet, so its state is a guess.
+            Some((review, _)) if review.title.is_empty() => el,
+            Some((review, ReviewState::Open)) => {
+                let el = el.when(drafts, |el| {
+                    el.on_action(cx.listener(Self::convert_to_draft))
+                });
+                match mergeability(store, project, review).offer() {
+                    Some(Offer::Merge) => el.on_action(cx.listener(Self::merge_pull_request)),
+                    Some(Offer::EnableAutoMerge) => {
+                        el.on_action(cx.listener(Self::enable_auto_merge))
+                    }
+                    Some(Offer::DisableAutoMerge) => {
+                        el.on_action(cx.listener(Self::disable_auto_merge))
+                    }
+                    None => el,
                 }
-                None => el,
-            },
-            Some((_, ReviewState::Draft | ReviewState::Closed | ReviewState::Merged)) => el,
+            }
+            Some((_, ReviewState::Draft)) => el.when(drafts, |el| {
+                el.on_action(cx.listener(Self::mark_ready_for_review))
+            }),
+            Some((_, ReviewState::Closed | ReviewState::Merged)) => el,
         }
     }
 
@@ -513,6 +582,7 @@ impl AppView {
             ),
             false => ("Disable auto-merge", "Auto-merge is off"),
         };
+        let method = self.store.read(cx).picked_merge_method(&project);
         self.store.update(cx, |store, cx| {
             store.apply(
                 &project,
@@ -521,7 +591,51 @@ impl AppView {
                     auto_merges: Some((number, on)),
                     ..Overlay::default()
                 },
-                reviews::SetAutoMerge { number, on },
+                reviews::SetAutoMerge { number, on, method },
+                move |store, (), cx| store.snack(done, cx),
+                cx,
+            )
+        });
+    }
+
+    pub fn convert_to_draft(&mut self, _: &ConvertToDraft, _: &mut Window, cx: &mut Context<Self>) {
+        self.set_draft(true, cx);
+    }
+
+    pub fn mark_ready_for_review(
+        &mut self,
+        _: &MarkReadyForReview,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.set_draft(false, cx);
+    }
+
+    /// Make the pull request a draft, or ready for review. It's shown at once as it'll be.
+    fn set_draft(&mut self, draft: bool, cx: &mut Context<Self>) {
+        let Some((project, _, Some(Review { number, state, .. }))) = self.review_target(cx) else {
+            return;
+        };
+        let (from, label, done) = match draft {
+            true => (ReviewState::Open, "Convert to draft", "Converted to draft"),
+            false => (
+                ReviewState::Draft,
+                "Ready for review",
+                "Marked ready for review",
+            ),
+        };
+        if state != from {
+            return;
+        }
+        self.store.update(cx, |store, cx| {
+            store.apply(
+                &project,
+                label,
+                Overlay {
+                    sets_draft: Some((number, draft)),
+                    ..Overlay::default()
+                },
+                reviews::SetDraft { number, draft },
                 move |store, (), cx| store.snack(done, cx),
                 cx,
             )
@@ -655,8 +769,18 @@ pub fn mergeability(store: &Store, project: &ProjectId, review: &Review) -> Merg
 pub fn merge_method(store: &Store, project: &ProjectId) -> Option<MergeMethod> {
     let forge = store.workspace(project).and_then(|ws| ws.forge);
     (forge != Some(Forge::GitLab)).then(|| {
-        (store.prefs.merge_methods.get(project.as_ref()).copied()).unwrap_or(MergeMethod::Merge)
+        store
+            .picked_merge_method(project)
+            .unwrap_or(MergeMethod::Merge)
     })
+}
+
+/// Whether pull requests in `project` can turn into drafts and back: Azure's can't here.
+pub fn has_drafts(store: &Store, project: &ProjectId) -> bool {
+    match store.workspace(project).and_then(|ws| ws.forge) {
+        Some(Forge::GitHub | Forge::GitLab | Forge::Bitbucket) => true,
+        Some(Forge::Azure) | None => false,
+    }
 }
 
 /// Whether `selection`'s project is on a forge, so pull requests apply.

@@ -9,7 +9,7 @@ use gpui::{Context, Task};
 
 use super::{ProjectId, Reload, Store};
 use crate::backend::reviews::{self, MergeStatus};
-use crate::backend::{self, Checks, Remark, Review};
+use crate::backend::{self, Checks, Conversation, Review};
 
 /// How long Later puts the update card off. It comes back after, as updates shouldn't wait
 /// for good.
@@ -30,7 +30,7 @@ pub(super) struct ConversationRead {
     asked_for: (Option<i64>, Option<i64>),
     /// `None` until it answers. A failure shows only until a read works: after that, what
     /// was read last stays while the forge can't be asked, which the tab's banner says.
-    said: Option<Result<Vec<Remark>, String>>,
+    said: Option<Result<Conversation, String>>,
 }
 
 impl Store {
@@ -129,7 +129,6 @@ impl Store {
         cx.notify();
     }
 
-    /// Show the update card again, now.
     pub fn show_update(&mut self, cx: &mut Context<Self>) {
         self.update_put_off = None;
         cx.notify();
@@ -144,7 +143,6 @@ impl Store {
         })
     }
 
-    /// When the app last fetched `id`.
     pub fn fetched_at(&self, id: &ProjectId) -> Option<SystemTime> {
         self.fetched.get(id).copied()
     }
@@ -211,14 +209,14 @@ impl Store {
 
     /// Ask the forges that failed again, as once an account to read them with is added.
     pub fn retry_forges(&mut self) {
-        for id in std::mem::take(&mut self.forge_failed) {
+        for id in std::mem::take(&mut self.forge_failed).into_keys() {
             self.refresh_forge(&id);
         }
     }
 
     /// Whether asking `id`'s forge failed last time, so what shows of it may be old.
     pub fn forge_failed(&self, id: &ProjectId) -> bool {
-        self.forge_failed.contains(id)
+        self.forge_failed.contains_key(id)
     }
 
     /// When asking `id`'s forge last worked in this run, in seconds since the epoch.
@@ -351,7 +349,7 @@ impl Store {
         &self,
         project: &ProjectId,
         number: u64,
-    ) -> Option<&Result<Vec<Remark>, String>> {
+    ) -> Option<&Result<Conversation, String>> {
         (self.conversation_reads.get(&(project.clone(), number)))?
             .said
             .as_ref()
@@ -368,9 +366,6 @@ impl Store {
                 cx.background_executor()
                     .timer(Duration::from_secs(60))
                     .await;
-                // Not the projects that failed last time: that's a missing account or a
-                // keychain prompt the user turned down, and asking again every minute
-                // would only nag. Opening a project or pushing asks again.
                 let Ok(()) = this.update(cx, |store, cx| {
                     match store.hidden && store.forge_skipped + 1 < HIDDEN_EVERY {
                         true => store.forge_skipped += 1,
@@ -388,7 +383,10 @@ impl Store {
         tracing::debug!(hidden = self.hidden, "asking the forges");
         self.forge_skipped = 0;
         for id in self.expanded_ids() {
-            if !self.forge_failed.contains(&id) {
+            // Not after a failure that stays, as a missing account or a keychain prompt the
+            // user turned down: asking again every minute would only nag. Opening a project or
+            // pushing asks again.
+            if self.forge_failed.get(&id) != Some(&false) {
                 self.refresh_forge(&id);
             }
         }
@@ -433,12 +431,16 @@ impl Store {
                             store.fetch_soon.insert(id.clone());
                         }
                         // The forge's answers are in the commits and branches, not the files.
-                        if refreshed.changed {
+                        // Other processes write the cache too, so what counts is what the
+                        // project read last, not what this refresh changed.
+                        if store.workspace(&id).map(|ws| ws.reviews) != Some(refreshed.reviews) {
                             store.load(&id, Reload::commits(), cx);
                         }
                     }
-                    Err(_) => {
-                        store.forge_failed.insert(id.clone());
+                    Err(err) => {
+                        store
+                            .forge_failed
+                            .insert(id.clone(), reviews::may_pass(err));
                     }
                 }) else {
                     return;
@@ -452,8 +454,13 @@ impl Store {
                 };
                 let reloaded = this.update(cx, |store, cx| {
                     match checked {
-                        Some(Ok(true)) => store.load(&id, Reload::commits(), cx),
-                        Some(Ok(false)) | None => {}
+                        // Against what the project read last, as with the pull requests.
+                        Some(Ok(checks)) => {
+                            if store.workspace(&id).map(|ws| ws.checks) != Some(checks) {
+                                store.load(&id, Reload::commits(), cx);
+                            }
+                        }
+                        None => {}
                         Some(Err(err)) => tracing::debug!(%id, "CI refresh failed: {err:#}"),
                     }
                     store.forge_checking = None;

@@ -5,19 +5,16 @@ use but_api::json::Error;
 use but_path::AppChannel;
 use tracing::instrument;
 
-/// Opens the logs folder in the system file manager
 #[instrument(err(Debug))]
 pub fn open_logs_folder() -> Result<(), Error> {
     open_existing(but_path::app_log_dir()?)
 }
 
-/// Opens the config/settings folder in the system file manager
 #[instrument(err(Debug))]
 pub fn open_config_folder() -> Result<(), Error> {
     open_existing(but_path::app_config_dir()?)
 }
 
-/// Opens the cache folder in the system file manager
 #[instrument(err(Debug))]
 pub fn open_cache_folder() -> Result<(), Error> {
     open_existing(but_path::app_cache_dir()?)

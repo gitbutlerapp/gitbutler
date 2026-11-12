@@ -216,6 +216,28 @@ fn single_branch_mode_lazily_initializes_an_unregistered_repository() {
     );
 }
 
+#[cfg(feature = "legacy")]
+#[test]
+fn nested_repository_ignores_a_registered_parent_without_git_dir() {
+    let env = Sandbox::empty();
+    env.but("init --commit").assert().success();
+    env.but("status").assert().success();
+    std::fs::remove_dir_all(env.projects_root().join(".git")).unwrap();
+    std::fs::create_dir(env.projects_root().join("nested")).unwrap();
+    env.but("-C nested init --commit").assert().success();
+
+    env.but("-C nested status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ [..] (common base, main, HEAD) 2000-01-02 Initial commit
+...
+"#]])
+        .stderr_eq(snapbox::str![]);
+}
+
 #[test]
 fn single_branch_status_hides_branches_above_head() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
@@ -1170,7 +1192,7 @@ Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove 
 |\  
 | | * 07e525c (origin/gitbutler/workspace) GitButler Workspace Commit
 | |/  
-| * 141de4f (origin/top, origin/bottom) add bottom
+| * 141de4f (origin/top) add bottom
 |/  
 * 563a7fc add base
 

@@ -3,33 +3,40 @@
 //! Only what can't reach outside the app is kept. Links open only to the web and to mail,
 //! with where they go shown on hover, as a link's words can say anything. Images are drawn
 //! only from GitHub, and any other shows its words, as fetching it would tell its host who
-//! read the description (see [`crate::backend::images`]). A table with images lays its
-//! cells side by side, as a before and after needs. HTML is read only as far as a
-//! description lays itself out with it: headings, paragraphs and centring, bold, emphasis
-//! and code, links, images and line breaks; other tags leave only their text. What's past
-//! [`MAX_BYTES`] isn't parsed, and nesting past [`MAX_DEPTH`] steps in no further.
+//! read the description (see [`crate::backend::images`]). A table lays its cells out in
+//! columns. HTML is read only as far as a description lays itself out with it: headings,
+//! paragraphs and centring, bold, emphasis and code, links, images and line breaks; other tags
+//! leave only their text. What's past [`MAX_BYTES`] isn't parsed, and nesting past
+//! [`MAX_DEPTH`] steps in no further.
 //!
 //! Emphasis shows in the medium weight, not slanted: the app embeds no italic face, and
-//! asking for one could pick a variable font installed on the machine, which is slow to
-//! draw (see the crate's AGENTS.md).
+//! asking for one would draw whatever the machine has installed (see the crate's AGENTS.md).
+//!
+//! Where the caller keeps a selection ([`Select`]), the pointer selects the text as in a
+//! browser, from block to block, and [`selected_text`] is what copying it takes.
 
 use std::cell::Cell;
 use std::ops::Range;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, App, Font, FontWeight, Hsla, InteractiveText, IntoElement, ParentElement,
-    SharedString, StrikethroughStyle, Styled, StyledText, TextRun, UnderlineStyle, div,
-    prelude::FluentBuilder,
+    AnyElement, App, AppContext as _, CursorStyle, DispatchPhase, Font, FontWeight, Hsla,
+    InteractiveElement, InteractiveText, IntoElement, MouseButton, MouseDownEvent, MouseMoveEvent,
+    ParentElement, Pixels, Point, SharedString, StrikethroughStyle, Styled, StyledText, TextLayout,
+    TextRun, UnderlineStyle, Window, canvas, div, prelude::FluentBuilder,
 };
-use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
+use pulldown_cmark::{BlockQuoteKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 
-use super::{Tooltip, dp, fixed, h_flex, v_flex};
-use crate::backend::images;
-use crate::theme::Theme;
+use super::{
+    TextPoint, Tooltip, diff, dp, fixed, h_flex, popover, selected_part, text_index, v_flex,
+};
+use crate::backend::{DiffLine, images};
+use crate::theme::{Highlight, Theme};
 
 mod figure;
 mod preview;
+mod table;
 
 /// How much of a description is read; the rest is left out, and said to be.
 const MAX_BYTES: usize = 64 * 1024;
@@ -41,7 +48,10 @@ const MAX_DEPTH: usize = 6;
 /// their words, so a description can't have the app fetch thousands at once.
 const MAX_IMAGES: usize = 24;
 
-/// The HTML tags that make a block of their own.
+/// The most cells a table lays out, far more than any written by hand has; a bigger one shows
+/// a row a line, so a description can't have the app draw every empty cell of thousands of rows.
+const MAX_CELLS: usize = 4096;
+
 const HTML_BLOCKS: &[&str] = &[
     "h1", "h2", "h3", "h4", "h5", "h6", "p", "div", "center", "details", "summary",
 ];
@@ -53,7 +63,6 @@ pub struct Block {
     pub kind: Kind,
     /// Lists and quotes it's in.
     pub depth: usize,
-    /// Inside a quote.
     pub quoted: bool,
     /// The outermost list it's in, counted from 1, or 0 outside lists: a list's items sit
     /// together, and another list stands apart from it.
@@ -62,10 +71,18 @@ pub struct Block {
     pub styles: Vec<(Range<usize>, Style)>,
     /// Where each link goes, by the text it covers; only addresses that are safe to open.
     pub links: Vec<(Range<usize>, String)>,
+    /// What links show on hover in place of where they go, by the text they cover.
+    pub peeks: Vec<(Range<usize>, Peek)>,
     /// Inside HTML that centres it.
     pub centered: bool,
-    /// Its place in a table with images, which lays its cells side by side.
+    /// Its place in a table, which lays out its cells in columns.
     pub cell: Option<TableCell>,
+}
+
+impl Block {
+    pub fn has_tint(&self, tint: Tint) -> bool {
+        (self.styles.iter()).any(|(_, style)| style.tint == Some(tint))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -81,7 +98,6 @@ pub enum Kind {
     Images(Vec<Image>),
 }
 
-/// An image a description draws.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Image {
     pub src: String,
@@ -104,13 +120,13 @@ impl Image {
     }
 }
 
-/// Where a cell is in a table with images: its row, counted from 1 through the description,
-/// its column, and how many columns the table has.
+/// Where a cell is: its table, counted from 1 through the description, its row, counted from
+/// the header as 1, and its column.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TableCell {
+    pub table: usize,
     pub row: usize,
     pub column: usize,
-    pub columns: usize,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
@@ -119,8 +135,124 @@ pub struct Style {
     pub italic: bool,
     pub strike: bool,
     pub code: bool,
-    /// Matches a search, tinted as the diff's find tints its matches.
-    pub mark: bool,
+    pub tint: Option<Tint>,
+}
+
+/// What the ground behind some words says, the later over the earlier where they overlap.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Tint {
+    /// New since what was read before.
+    Fresh,
+    /// Someone's comment is about it.
+    Said,
+    /// A comment not sent yet is about it.
+    Draft,
+    /// The comment pointed at is about it.
+    Saying,
+    /// The comment not sent yet that's pointed at or being written is about it.
+    SayingDraft,
+    /// Matches a search, as the diff's find tints its matches.
+    Found,
+    /// The match a search is on.
+    FoundHere,
+}
+
+impl Tint {
+    fn ground(self, theme: &Theme) -> Hsla {
+        match self {
+            Tint::Fresh => theme.highlight(Highlight::Fresh),
+            Tint::Said => theme.highlight(Highlight::Said),
+            Tint::Draft => theme.highlight(Highlight::Draft),
+            Tint::Saying => theme.highlight(Highlight::Saying),
+            Tint::SayingDraft => theme.highlight(Highlight::SayingDraft),
+            Tint::Found => theme.highlight(Highlight::Found),
+            Tint::FoundHere => theme.highlight(Highlight::FoundHere),
+        }
+    }
+}
+
+/// What the pointer does to a description's text, and what of it is selected, at points by
+/// block and byte.
+pub struct Select {
+    /// The selection, in order. None when it's empty.
+    pub range: Option<(TextPoint, TextPoint)>,
+    /// The button went down on this text and is still down, so the pointer anywhere in the
+    /// window moves the selection's end.
+    pub held: bool,
+    /// A press at a point, with its block's text for the word or block more clicks take.
+    pub down: OnTextDown,
+    /// A drag moved the selection's end to the point nearest the pointer.
+    pub drag: OnTextDrag,
+}
+
+pub type OnTextDown = Rc<dyn Fn(TextPoint, &str, &MouseDownEvent, &mut Window, &mut App)>;
+pub type OnTextDrag = Rc<dyn Fn(TextPoint, &mut Window, &mut App)>;
+/// What goes around a block as it's drawn, given which of the blocks it draws. It sets the text
+/// cursor on the block.
+pub type Beside<'a> = &'a dyn Fn(std::ops::Range<usize>, AnyElement) -> AnyElement;
+
+/// A block's text as it's laid out, by the block's index.
+type Laid = (usize, TextLayout, SharedString);
+
+/// Items of one list, which sit a line apart; other blocks stand further apart.
+fn together(before: &Block, block: &Block) -> bool {
+    let item = |block: &Block| matches!(block.kind, Kind::Item(_));
+    item(before) && item(block) && before.list == block.list
+}
+
+/// The point of the text nearest `position`, with its block's text: in the block under it,
+/// else the last block whose top is above it, else the first. Between blocks or below them
+/// that's the end of the one above, and above them all the first one's start.
+fn nearest(texts: &[Laid], position: Point<Pixels>) -> Option<(TextPoint, &str)> {
+    // Laid out in the frame that registered the listener asking.
+    let (ix, layout, text) = (texts.iter())
+        .find(|(_, layout, _)| layout.bounds().contains(&position))
+        .or_else(|| (texts.iter().rev()).find(|(_, layout, _)| layout.bounds().top() <= position.y))
+        .or(texts.first())?;
+    Some(((*ix, text_index(layout, text, position)), text))
+}
+
+/// What goes between `before` and `block` as text. An empty cell has no block, so a row's cells
+/// are set apart by the columns between them, which keeps a value under its heading.
+fn apart(before: &Block, block: &Block) -> String {
+    let cells = |count: usize| " · ".repeat(count);
+    match (before.cell, block.cell) {
+        (Some(a), Some(b)) if (a.table, a.row) == (b.table, b.row) => {
+            match b.column.saturating_sub(a.column) {
+                // Blocks of one cell, as words around an image.
+                0 => " ".to_owned(),
+                columns => cells(columns),
+            }
+        }
+        (Some(a), Some(b)) if a.table == b.table => format!("\n{}", cells(b.column)),
+        (_, Some(b)) => format!("\n\n{}", cells(b.column)),
+        _ if together(before, block) => "\n".to_owned(),
+        _ => "\n\n".to_owned(),
+    }
+}
+
+/// The text `range` selects in `blocks`: a list's items and a table's rows a line apart, a
+/// row's cells on its line, and other blocks a blank line apart, as Markdown sets them, without
+/// list markers. Images and rules have no text to select.
+pub fn selected_text(blocks: &[Block], range: (TextPoint, TextPoint)) -> String {
+    let mut text = String::new();
+    let mut before: Option<&Block> = None;
+    for (ix, block) in blocks.iter().enumerate() {
+        if matches!(block.kind, Kind::Images(_) | Kind::Rule) {
+            continue;
+        }
+        let Some(part) =
+            selected_part(&block.text, ix, range).and_then(|part| block.text.get(part))
+        else {
+            continue;
+        };
+        if let Some(before) = before {
+            text.push_str(&apart(before, block));
+        }
+        text.push_str(part);
+        before = Some(block);
+    }
+    text
 }
 
 /// Where a link may go when clicked: the web, or mail. Anything else, as a file, another
@@ -163,7 +295,6 @@ fn push_decoded(text: &mut String, html: &str) {
     text.push_str(rest);
 }
 
-/// A piece of HTML.
 #[derive(Debug, PartialEq)]
 enum Html {
     Text(String),
@@ -268,20 +399,6 @@ fn pixels(value: &str) -> Option<f32> {
     (pixels.is_finite() && pixels > 0.).then_some(pixels)
 }
 
-/// Whether `markdown` draws an image, as a table of screenshots does.
-fn draws_images(markdown: &str, options: Options) -> bool {
-    let mut in_comment = false;
-    Parser::new_ext(markdown, options).any(|event| match event {
-        Event::Start(Tag::Image { dest_url, .. }) => images::on_github(&dest_url),
-        Event::Html(html) | Event::InlineHtml(html) => (html_pieces(&html, &mut in_comment).iter())
-            .any(|piece| {
-                matches!(piece, Html::Open(tag, attributes)
-                    if tag == "img" && attribute(attributes, "src").is_some_and(images::on_github))
-            }),
-        _ => false,
-    })
-}
-
 /// HTML runs its spaces and line breaks together.
 fn collapse_spaces(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
@@ -300,11 +417,22 @@ fn collapse_spaces(text: &str) -> String {
     out
 }
 
-/// `markdown` as blocks to draw.
 pub fn parse(markdown: &str) -> Vec<Block> {
+    parse_links(markdown, false)
+}
+
+/// [`parse`], for a document of parts: its `#part` links go to them, which whatever shows it
+/// follows by [`FollowAnchor`].
+pub fn parse_with_anchors(markdown: &str) -> Vec<Block> {
+    parse_links(markdown, true)
+}
+
+fn parse_links(markdown: &str, anchors: bool) -> Vec<Block> {
     let end = markdown.floor_char_boundary(MAX_BYTES);
-    let options =
-        Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TASKLISTS | Options::ENABLE_TABLES;
+    let options = Options::ENABLE_STRIKETHROUGH
+        | Options::ENABLE_TASKLISTS
+        | Options::ENABLE_TABLES
+        | Options::ENABLE_GFM;
     let mut blocks = Vec::new();
     let mut current: Option<Block> = None;
     let mut style = Style::default();
@@ -325,10 +453,9 @@ pub fn parse(markdown: &str) -> Vec<Block> {
     let mut html_gap = false;
     // In a table row: whether it's the header, and how many of its cells came before.
     let (mut in_head, mut cells) = (false, 0);
-    // How many images are drawn so far.
     let mut drawn = 0;
-    // In a table with images, how many columns it has, and the rows read so far.
-    let (mut grid, mut rows): (Option<usize>, usize) = (None, 0);
+    // In a table that lays out its cells; the tables so far, and the rows read of this one.
+    let (mut grid, mut tables, mut rows) = (false, 0, 0);
     let in_cell: Cell<Option<TableCell>> = Cell::new(None);
     let depth = |lists: &Vec<Option<u64>>, quotes: usize| (lists.len() + quotes).min(MAX_DEPTH);
 
@@ -340,6 +467,7 @@ pub fn parse(markdown: &str) -> Vec<Block> {
         text: String::new(),
         styles: Vec::new(),
         links: Vec::new(),
+        peeks: Vec::new(),
         centered: centered.get(),
         cell: in_cell.get(),
     };
@@ -409,13 +537,18 @@ pub fn parse(markdown: &str) -> Vec<Block> {
         }
     }
     /// A link from where `current` has got to, to `url` if that's safe to open.
-    fn open_link(current: &Option<Block>, url: &str) -> (usize, Option<String>) {
+    fn open_link(current: &Option<Block>, url: &str, anchors: bool) -> (usize, Option<String>) {
         // After images, its words start a block of their own.
         let words = current
             .as_ref()
             .filter(|block| !matches!(block.kind, Kind::Images(_)));
         let at = words.map_or(0, |block| block.text.len());
-        (at, safe_link(url).then(|| url.trim().to_owned()))
+        let url = url.trim();
+        let goes = match url.strip_prefix('#').filter(|_| anchors) {
+            Some(part) => Some(format!("{ANCHOR}{part}")),
+            None => safe_link(url).then(|| url.to_owned()),
+        };
+        (at, goes)
     }
     /// Mark the text `link` covers, up to where `current` has got to.
     fn close_link(link: Option<(usize, Option<String>)>, current: &mut Option<Block>) {
@@ -552,9 +685,29 @@ pub fn parse(markdown: &str) -> Vec<Block> {
                 close(&mut blocks, &mut current);
                 current = Some(open(Kind::Code, &lists, quotes, outermost));
             }
-            Event::Start(Tag::BlockQuote(_)) => {
+            Event::Start(Tag::BlockQuote(alert)) => {
                 close(&mut blocks, &mut current);
                 quotes += 1;
+                // An alert says what kind it is above its words, as GitHub draws it.
+                if let Some(alert) = alert {
+                    let word = match alert {
+                        BlockQuoteKind::Note => "Note",
+                        BlockQuoteKind::Tip => "Tip",
+                        BlockQuoteKind::Important => "Important",
+                        BlockQuoteKind::Warning => "Warning",
+                        BlockQuoteKind::Caution => "Caution",
+                    };
+                    let mut label = open(Kind::Paragraph, &lists, quotes, outermost);
+                    label.text.push_str(word);
+                    label.styles.push((
+                        0..word.len(),
+                        Style {
+                            bold: true,
+                            ..Default::default()
+                        },
+                    ));
+                    blocks.push(label);
+                }
             }
             Event::End(TagEnd::BlockQuote(_)) => {
                 close(&mut blocks, &mut current);
@@ -611,18 +764,21 @@ pub fn parse(markdown: &str) -> Vec<Block> {
             }
             Event::Start(Tag::Table(alignments)) => {
                 close(&mut blocks, &mut current);
+                // Markdown also ends a line at a lone `\r`. Counting `\r\n` twice costs nothing,
+                // as no table written by hand comes near the limit.
                 let table = read.get(range).unwrap_or_default();
-                grid = draws_images(table, options).then_some(alignments.len());
+                let lines = table.split(['\r', '\n']).count();
+                grid = alignments.len() * lines <= MAX_CELLS;
+                (tables, rows) = (tables + 1, 0);
             }
-            Event::End(TagEnd::Table) => grid = None,
-            // Each table row is one line, its cells apart and the header bold, because
-            // columns can't line up in wrapped text. A table with images lays out its
-            // cells instead, each block of them in its place.
+            Event::End(TagEnd::Table) => grid = false,
+            // A table lays out its cells, each block of them in its place. A table too big for
+            // that shows a line a row, its cells apart and the header bold.
             Event::Start(row @ (Tag::TableHead | Tag::TableRow)) => {
                 close(&mut blocks, &mut current);
                 link = None;
                 rows += 1;
-                if grid.is_none() {
+                if !grid {
                     current = Some(open(Kind::Paragraph, &lists, quotes, outermost));
                 }
                 (in_head, cells) = (matches!(row, Tag::TableHead), 0);
@@ -630,22 +786,20 @@ pub fn parse(markdown: &str) -> Vec<Block> {
             }
             // Every cell after the first, empty ones too, so the columns still line up.
             Event::Start(Tag::TableCell) => {
-                match grid {
-                    Some(columns) => in_cell.set(Some(TableCell {
+                if grid {
+                    in_cell.set(Some(TableCell {
+                        table: tables,
                         row: rows,
                         column: cells,
-                        columns,
-                    })),
-                    None if cells > 0 => {
-                        if let Some(block) = &mut current {
-                            push(block, " · ", style);
-                        }
-                    }
-                    None => {}
+                    }));
+                } else if cells > 0
+                    && let Some(block) = &mut current
+                {
+                    push(block, " · ", style);
                 }
                 cells += 1;
             }
-            Event::End(TagEnd::TableCell) if grid.is_some() => {
+            Event::End(TagEnd::TableCell) if grid => {
                 close(&mut blocks, &mut current);
                 link = None;
                 in_cell.set(None);
@@ -665,7 +819,7 @@ pub fn parse(markdown: &str) -> Vec<Block> {
             Event::Start(Tag::Strikethrough) => style.strike = true,
             Event::End(TagEnd::Strikethrough) => style.strike = false,
             Event::Start(Tag::Link { dest_url, .. }) => {
-                link = Some(open_link(&current, &dest_url));
+                link = Some(open_link(&current, &dest_url, anchors));
             }
             Event::End(TagEnd::Link) => close_link(link.take(), &mut current),
             Event::Start(Tag::Image { dest_url, .. }) => {
@@ -763,7 +917,7 @@ pub fn parse(markdown: &str) -> Vec<Block> {
                             "s" | "del" | "strike" => style.strike = true,
                             "a" => {
                                 let href = attribute(&attributes, "href").unwrap_or("");
-                                link = Some(open_link(&current, href));
+                                link = Some(open_link(&current, href, anchors));
                             }
                             "img" => {
                                 let src = attribute(&attributes, "src").unwrap_or("").trim();
@@ -846,6 +1000,53 @@ pub fn parse(markdown: &str) -> Vec<Block> {
     blocks
 }
 
+/// How a link to a part of the same document starts, which whatever shows the document follows
+/// by [`FollowAnchor`], as nothing outside it could.
+pub const ANCHOR: &str = "anchor:";
+
+/// How a link to code on the branch starts, which is quieter than a link that leaves the page.
+pub const CODE_ANCHOR: &str = "anchor:code:";
+
+/// The lines a link to code shows on hover, and the file they're from.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Peek {
+    pub path: String,
+    pub lines: Arc<[DiffLine]>,
+}
+
+impl gpui::Render for Peek {
+    fn render(&mut self, _: &mut Window, cx: &mut gpui::Context<Self>) -> impl IntoElement {
+        let theme = Theme::get(cx);
+        popover(theme)
+            .mt(dp(4.))
+            .w(dp(620.))
+            .overflow_hidden()
+            .child(
+                div()
+                    .px(dp(10.))
+                    .py(dp(5.))
+                    .border_b_1()
+                    .border_color(theme.border_3)
+                    .text_size(dp(11.))
+                    .text_color(theme.text_2)
+                    .font_family(theme.ui_font.clone())
+                    .child(self.path.clone()),
+            )
+            .child(diff::excerpt_flat(&self.lines, theme))
+    }
+}
+
+/// A link to part of the document was clicked, naming the part.
+#[derive(Clone, PartialEq, gpui::Action)]
+#[action(namespace = markdown, no_json)]
+pub struct FollowAnchor(pub String);
+
+/// Image `at` of `gallery`, filling the width of what it's in, which a click previews with the
+/// rest a key away.
+pub fn figure(id: impl Into<SharedString>, gallery: Arc<[Image]>, at: usize) -> impl IntoElement {
+    figure::Figure::new(id, gallery, at).fill()
+}
+
 /// The images a description draws, in order, and where each block's first is among them, so a
 /// preview pages through all of them.
 struct Gallery {
@@ -869,47 +1070,112 @@ impl Gallery {
     }
 }
 
-/// `blocks` drawn as text, `id` telling apart the links of one description from another's.
-pub fn render(id: &str, blocks: &[Block], theme: &Theme) -> AnyElement {
+/// `blocks` drawn as text, `id` telling apart the links of one description from another's,
+/// its text selectable as `select` says.
+pub fn render(id: &str, blocks: &[Block], select: Option<Select>, theme: &Theme) -> AnyElement {
+    render_beside(id, blocks, select, None, theme)
+}
+
+/// [`render`], with `beside` drawing around each block, while a selection still runs across them.
+pub fn render_beside(
+    id: &str,
+    blocks: &[Block],
+    select: Option<Select>,
+    beside: Option<Beside<'_>>,
+    theme: &Theme,
+) -> AnyElement {
     let gallery = Gallery::of(blocks);
+    let range = select.as_ref().and_then(|select| select.range);
+    let mut texts = Vec::new();
     let mut column = v_flex();
     let mut ix = 0;
     while let Some(block) = blocks.get(ix) {
         // A list's items sit together; other blocks, and other lists, stand apart, and
-        // images, which have an edge where text has its leading, a little further.
-        let item = |block: &Block| matches!(block.kind, Kind::Item(_));
-        let image = |block: &Block| matches!(block.kind, Kind::Images(_)) && block.cell.is_none();
+        // images and tables, which have an edge where text has its leading, a little further.
+        let edged = |block: &Block| matches!(block.kind, Kind::Images(_)) || block.cell.is_some();
         let space = match ix.checked_sub(1).and_then(|before| blocks.get(before)) {
             None => 0.,
-            Some(before) if item(before) && item(block) && before.list == block.list => 2.,
-            Some(before) if image(before) || image(block) => 12.,
+            Some(before) if together(before, block) => 2.,
+            Some(before) if edged(before) || edged(block) => 12.,
             Some(_) => 8.,
         };
-        // A table row with images is its cells, which come one after another, side by side.
-        let row = |cell: TableCell| {
+        // A table is its cells, which come one after another.
+        let cells = |cell: TableCell| {
             let rest = blocks.get(ix..).unwrap_or_default();
-            let same = |other: &&Block| other.cell.is_some_and(|other| other.row == cell.row);
+            let same = |other: &&Block| other.cell.is_some_and(|other| other.table == cell.table);
             rest.get(..rest.iter().take_while(same).count())
                 .unwrap_or_default()
         };
         let (el, drawn) = match block.cell {
             Some(cell) => {
-                let row = row(cell);
-                (
-                    table_row(id, ix, row, cell.columns, &gallery, theme),
-                    row.len(),
-                )
+                let cells = cells(cell);
+                let el = table::draw(id, ix, cells, &gallery, range, &mut texts, theme);
+                (el, cells.len())
             }
-            None => (element(id, ix, block, &gallery, theme), 1),
+            None => (
+                element(id, ix, block, &gallery, range, &mut texts, theme),
+                1,
+            ),
         };
-        column = column.child(placed(block, space, el, theme));
-        ix += drawn.max(1);
+        let drawn = drawn.max(1);
+        column = column.child(match beside {
+            // The space goes outside, so what's beside it starts level with its text.
+            Some(beside) => div()
+                .mt(dp(space))
+                .child(beside(ix..ix + drawn, placed(block, 0., el, theme)))
+                .into_any_element(),
+            None => placed(block, space, el, theme),
+        });
+        ix += drawn;
     }
-    column.into_any_element()
+    let Some(select) = select else {
+        return column.into_any_element();
+    };
+    let texts: Rc<[Laid]> = texts.into();
+    let (pressed, down) = (texts.clone(), select.down);
+    column
+        // What's drawn around the blocks can be more than text, so it says where the text is.
+        .when(beside.is_none(), |el| el.cursor(CursorStyle::IBeam))
+        // Only a press on text selects: one on an image, a centred block or between blocks
+        // doesn't reach into the text beside it.
+        .on_mouse_down(MouseButton::Left, move |event, window, cx| {
+            let on_text =
+                (pressed.iter()).any(|(_, layout, _)| layout.bounds().contains(&event.position));
+            if let Some((at, text)) = nearest(&pressed, event.position).filter(|_| on_text) {
+                down(at, text, event, window, cx)
+            }
+        })
+        // While held, the pointer anywhere moves the selection's end to the text nearest it,
+        // as the column's own listeners miss it once it's off the column.
+        .when(select.held, |el| {
+            let drag = select.drag;
+            el.child(canvas(
+                |_, _, _| {},
+                move |_, _, window, _| {
+                    window.on_mouse_event(move |event: &MouseMoveEvent, phase, window, cx| {
+                        if phase == DispatchPhase::Bubble
+                            && event.pressed_button == Some(MouseButton::Left)
+                            && let Some((at, _)) = nearest(&texts, event.position)
+                        {
+                            drag(at, window, cx)
+                        }
+                    })
+                },
+            ))
+        })
+        .into_any_element()
 }
 
 /// `block` drawn, without where it sits.
-fn element(id: &str, ix: usize, block: &Block, gallery: &Gallery, theme: &Theme) -> AnyElement {
+fn element(
+    id: &str,
+    ix: usize,
+    block: &Block,
+    gallery: &Gallery,
+    range: Option<(TextPoint, TextPoint)>,
+    texts: &mut Vec<Laid>,
+    theme: &Theme,
+) -> AnyElement {
     match &block.kind {
         Kind::Rule => div()
             .h(fixed(1.))
@@ -919,11 +1185,11 @@ fn element(id: &str, ix: usize, block: &Block, gallery: &Gallery, theme: &Theme)
         Kind::Code => div()
             .px(dp(10.))
             .py(dp(8.))
-            .rounded(dp(6.))
-            .bg(theme.fill_gray.opacity(0.08))
+            .rounded(dp(theme.shape.card))
+            .bg(theme.muted)
             .text_size(dp(12.))
             .line_height(dp(18.))
-            .child(text(id, ix, block, theme))
+            .child(text(id, ix, block, range, texts, theme))
             .into_any_element(),
         // As GitHub draws them, the top two over a rule.
         Kind::Heading(level) => div()
@@ -942,7 +1208,7 @@ fn element(id: &str, ix: usize, block: &Block, gallery: &Gallery, theme: &Theme)
             .when(*level <= 2 && !block.centered, |el| {
                 el.pb(dp(6.)).border_b_1().border_color(theme.border_3)
             })
-            .child(text(id, ix, block, theme))
+            .child(text(id, ix, block, range, texts, theme))
             .into_any_element(),
         Kind::Item(marker) => h_flex()
             .items_start()
@@ -954,9 +1220,14 @@ fn element(id: &str, ix: usize, block: &Block, gallery: &Gallery, theme: &Theme)
                     .text_color(theme.text_2)
                     .child(SharedString::from(marker.clone())),
             )
-            .child(div().flex_1().min_w_0().child(text(id, ix, block, theme)))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .child(text(id, ix, block, range, texts, theme)),
+            )
             .into_any_element(),
-        Kind::Paragraph => text(id, ix, block, theme),
+        Kind::Paragraph => text(id, ix, block, range, texts, theme),
         Kind::Images(images) => {
             let Some(&first) = gallery.firsts.get(ix) else {
                 return div().into_any_element();
@@ -996,32 +1267,6 @@ fn placed(block: &Block, space: f32, el: AnyElement, theme: &Theme) -> AnyElemen
     }
 }
 
-/// A row of a table with images, `first` the index of its first block: its cells side by
-/// side, each a column's share of the width, so a before and after sit as GitHub shows them.
-fn table_row(
-    id: &str,
-    first: usize,
-    row: &[Block],
-    columns: usize,
-    gallery: &Gallery,
-    theme: &Theme,
-) -> AnyElement {
-    let cell = |column: usize| {
-        let blocks = (row.iter().enumerate())
-            .filter(move |(_, block)| block.cell.is_some_and(|cell| cell.column == column));
-        v_flex()
-            .flex_1()
-            .min_w_0()
-            .gap(dp(8.))
-            .children(blocks.map(|(n, block)| element(id, first + n, block, gallery, theme)))
-    };
-    h_flex()
-        .items_start()
-        .gap(dp(12.))
-        .children((0..columns.max(1)).map(cell))
-        .into_any_element()
-}
-
 /// `image`'s words, opening where a click on it would go, where it can't be drawn.
 fn words(id: &str, image: &Image, theme: &Theme) -> AnyElement {
     let words = image.words();
@@ -1032,17 +1277,26 @@ fn words(id: &str, image: &Image, theme: &Theme) -> AnyElement {
         list: 0,
         styles: Vec::new(),
         links: vec![(0..words.len(), image.opens.clone())],
+        peeks: Vec::new(),
         text: words,
         centered: false,
         cell: None,
     };
-    text(id, 0, &block, theme)
+    text(id, 0, &block, None, &mut Vec::new(), theme)
 }
 
-/// A block's text in its styles, its links clickable and naming where they go on hover.
-/// Each run sets its font and colour, so what the block's element sets wouldn't reach it:
-/// code is monospaced, a heading bold, and a quote quieter.
-fn text(id: &str, ix: usize, block: &Block, theme: &Theme) -> AnyElement {
+/// A block's text in its styles, its links clickable and naming where they go on hover,
+/// with what `range` selects of it marked. Laid out, it goes in `texts`, where a press or a
+/// drag finds it. Each run sets its font and colour, so what the block's element sets
+/// wouldn't reach it: code is monospaced, a heading bold, and a quote quieter.
+fn text(
+    id: &str,
+    ix: usize,
+    block: &Block,
+    range: Option<(TextPoint, TextPoint)>,
+    texts: &mut Vec<Laid>,
+    theme: &Theme,
+) -> AnyElement {
     let heading = matches!(block.kind, Kind::Heading(_));
     let font = |code: bool| match code || block.kind == Kind::Code {
         true => gpui::font(theme.mono_font.clone()),
@@ -1058,6 +1312,10 @@ fn text(id: &str, ix: usize, block: &Block, theme: &Theme) -> AnyElement {
         cuts.extend([range.start, range.end]);
     }
     for (range, _) in &block.links {
+        cuts.extend([range.start, range.end]);
+    }
+    let selected = range.and_then(|range| selected_part(&block.text, ix, range));
+    if let Some(range) = &selected {
         cuts.extend([range.start, range.end]);
     }
     cuts.sort_unstable();
@@ -1076,9 +1334,12 @@ fn text(id: &str, ix: usize, block: &Block, theme: &Theme) -> AnyElement {
                     italic: all.italic || style.italic,
                     strike: all.strike || style.strike,
                     code: all.code || style.code,
-                    mark: all.mark || style.mark,
+                    tint: all.tint.max(style.tint),
                 });
-            let linked = block.links.iter().any(|(range, _)| range.contains(&at));
+            let picked = selected.as_ref().is_some_and(|range| range.contains(&at));
+            let link = (block.links.iter()).find(|(range, _)| range.contains(&at));
+            let linked = link.is_some();
+            let to_code = link.is_some_and(|(_, url)| url.starts_with(CODE_ANCHOR));
             let weight = match (style.bold || heading, style.italic) {
                 (true, _) => FontWeight::SEMIBOLD,
                 (false, true) => FontWeight::MEDIUM,
@@ -1090,18 +1351,25 @@ fn text(id: &str, ix: usize, block: &Block, theme: &Theme) -> AnyElement {
                     weight,
                     ..font(style.code)
                 },
-                color: match linked {
+                // The search match the keys are on is solid, its words in the ink that reads there.
+                color: match linked && !to_code {
+                    _ if style.tint == Some(Tint::FoundHere) && !picked => theme.on_warn,
                     true => theme.blue,
                     false => color,
                 },
-                background_color: match (style.mark, style.code) {
-                    (true, _) => Some(theme.warn.opacity(0.28)),
-                    (false, true) => Some(theme.fill_gray.opacity(0.12)),
-                    (false, false) => None,
+                // The selection blue like the diff's, over a search's tint and code's grey.
+                background_color: match style.tint {
+                    _ if picked => Some(theme.highlight(Highlight::Words)),
+                    Some(tint) => Some(tint.ground(theme)),
+                    None if style.code => Some(theme.muted),
+                    None => None,
                 },
                 underline: linked.then(|| UnderlineStyle {
                     thickness: fixed(1.),
-                    color: Some(theme.blue.opacity(0.4)),
+                    color: Some(match to_code {
+                        true => theme.text_3,
+                        false => theme.blue_edge,
+                    }),
                     wavy: false,
                 }),
                 strikethrough: style.strike.then(|| StrikethroughStyle {
@@ -1111,29 +1379,88 @@ fn text(id: &str, ix: usize, block: &Block, theme: &Theme) -> AnyElement {
             }
         })
         .collect();
-    let styled = StyledText::new(SharedString::from(block.text.clone())).with_runs(runs);
-    if block.links.is_empty() {
-        return styled.into_any_element();
+    let chars = SharedString::from(block.text.clone());
+    let styled = StyledText::new(chars.clone()).with_runs(runs);
+    // GPUI finds the character under the pointer in centred text as if its lines were
+    // left-aligned, so a press doesn't look in a centred block: a selection across it takes it
+    // whole.
+    if !block.centered {
+        texts.push((ix, styled.layout().clone(), chars));
     }
-    let ranges: Vec<_> = block.links.iter().map(|(range, _)| range.clone()).collect();
-    let urls: Vec<_> = block.links.iter().map(|(_, url)| url.clone()).collect();
-    let tips = block.links.clone();
-    InteractiveText::new(SharedString::from(format!("{id}-md-{ix}")), styled)
-        .on_click(ranges, move |link, _, cx: &mut App| {
-            if let Some(url) = urls.get(link) {
-                cx.open_url(url)
-            }
-        })
-        .tooltip(move |at, window, cx| {
-            let (_, url) = tips.iter().find(|(range, _)| range.contains(&at))?;
-            Some(Tooltip::text(url.clone())(window, cx))
-        })
-        .into_any_element()
+    match block.links.is_empty() {
+        true => styled.into_any_element(),
+        false => {
+            let ranges: Vec<_> = block.links.iter().map(|(range, _)| range.clone()).collect();
+            let urls: Vec<_> = block.links.iter().map(|(_, url)| url.clone()).collect();
+            let tips = block.links.clone();
+            let peeks = block.peeks.clone();
+            // A drag that selected text doesn't open the link it lets go on.
+            let selected_any = range.is_some();
+            InteractiveText::new(SharedString::from(format!("{id}-md-{ix}")), styled)
+                .on_click(ranges, move |link, window, cx: &mut App| {
+                    let Some(url) = urls.get(link).filter(|_| !selected_any) else {
+                        return;
+                    };
+                    match url.strip_prefix(ANCHOR) {
+                        Some(part) => {
+                            window.dispatch_action(Box::new(FollowAnchor(part.to_owned())), cx)
+                        }
+                        None => cx.open_url(url),
+                    }
+                })
+                .tooltip(move |at, window, cx| {
+                    if let Some((_, peek)) = peeks.iter().find(|(range, _)| range.contains(&at)) {
+                        return Some(cx.new(|_| peek.clone()).into());
+                    }
+                    let (_, url) = tips.iter().find(|(range, _)| range.contains(&at))?;
+                    let words = match url.starts_with(ANCHOR) {
+                        true => "Go to that part".to_owned(),
+                        false => url.clone(),
+                    };
+                    Some(Tooltip::text(words)(window, cx))
+                })
+                .into_any_element()
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_a_document_of_parts_takes_links_to_its_parts() {
+        let links = |blocks: Vec<Block>| -> Vec<String> {
+            let block = blocks.into_iter().next().expect("there are words");
+            block.links.into_iter().map(|(_, url)| url).collect()
+        };
+        let words = "[a](#p2) [b](anchor:code:0:0:x) `[c](#p3)`";
+        assert!(
+            links(parse(words)).is_empty(),
+            "a pull request's body can't send a click anywhere in the app"
+        );
+        assert_eq!(
+            links(parse_with_anchors(words)),
+            ["anchor:p2"],
+            "only a link to a part, and not one spelled like the app's own or in code"
+        );
+    }
+
+    #[test]
+    fn an_alert_says_what_kind_it_is() {
+        let blocks = parse("> [!IMPORTANT]\n> Teams decide.");
+        assert_eq!(
+            texts(&blocks),
+            [
+                (&Kind::Paragraph, "Important"),
+                (&Kind::Paragraph, "Teams decide.")
+            ]
+        );
+        assert!(
+            blocks.iter().all(|block| block.quoted),
+            "both are in the quote"
+        );
+    }
 
     fn texts(blocks: &[Block]) -> Vec<(&Kind, &str)> {
         blocks
@@ -1142,7 +1469,6 @@ mod tests {
             .collect()
     }
 
-    /// Where `block`'s links go.
     fn urls(block: &Block) -> Vec<&str> {
         block.links.iter().map(|(_, url)| url.as_str()).collect()
     }
@@ -1421,21 +1747,15 @@ mod tests {
                 .map(|block| {
                     let cell = block.cell.expect("every block is in a cell");
                     let image = matches!(block.kind, Kind::Images(_));
-                    (
-                        cell.row,
-                        cell.column,
-                        cell.columns,
-                        image,
-                        block.text.as_str(),
-                    )
+                    (cell.row, cell.column, image, block.text.as_str())
                 })
                 .collect::<Vec<_>>(),
             [
-                (1, 1, 3, false, "Before"),
-                (1, 2, 3, false, "After"),
-                (2, 0, 3, false, "Hover"),
-                (2, 1, 3, true, "Image"),
-                (2, 2, 3, true, "Image: after"),
+                (1, 1, false, "Before"),
+                (1, 2, false, "After"),
+                (2, 0, false, "Hover"),
+                (2, 1, true, "Image"),
+                (2, 2, true, "Image: after"),
             ],
             "each cell in its column, an empty one leaving its place, so a before and after \
              sit side by side under their headings"
@@ -1526,35 +1846,60 @@ mod tests {
     }
 
     #[test]
-    fn a_table_shows_a_row_a_line() {
-        let blocks = parse("| Step | Result |\n|---|---|\n| build | ok |\n| test | **failed** |\n");
+    fn a_table_lays_out_its_cells() {
+        let blocks = parse(
+            "| Step | Result |\n|---|---|\n| build | ok |\n| test | **failed** |\n\n\
+             | Next |\n|---|\n| table |\n",
+        );
         assert_eq!(
-            texts(&blocks),
+            (blocks.iter())
+                .map(|block| {
+                    let cell = block.cell.expect("every block is in a cell");
+                    (cell.table, cell.row, cell.column, block.text.as_str())
+                })
+                .collect::<Vec<_>>(),
             [
-                (&Kind::Paragraph, "Step · Result"),
-                (&Kind::Paragraph, "build · ok"),
-                (&Kind::Paragraph, "test · failed"),
+                (1, 1, 0, "Step"),
+                (1, 1, 1, "Result"),
+                (1, 2, 0, "build"),
+                (1, 2, 1, "ok"),
+                (1, 3, 0, "test"),
+                (1, 3, 1, "failed"),
+                (2, 1, 0, "Next"),
+                (2, 2, 0, "table"),
             ],
-            "each row on its own line, its cells apart, without the pipes"
+            "each cell in its place, without the pipes, and two tables in a row stay two"
         );
         assert!(
             blocks[0].styles.iter().all(|(_, style)| style.bold),
             "the header row stands out"
         );
-        let blocks = parse("|  | **Before** | After |\n|---|---|---|\n| Speed | 1s | 2s |\n");
-        assert_eq!(
-            texts(&blocks),
-            [
-                (&Kind::Paragraph, " · Before · After"),
-                (&Kind::Paragraph, "Speed · 1s · 2s"),
-            ],
-            "an empty cell keeps its place, so the columns still line up"
-        );
-        let after = blocks[0].text.find("After").expect("in the header");
+        let bold_first = parse("| **Before** | After |\n|---|---|\n");
         assert!(
-            (blocks[0].styles.iter()).any(|(range, style)| range.contains(&after) && style.bold),
+            (bold_first[1].styles.iter()).any(|(_, style)| style.bold),
             "bold text in the header leaves the rest of it bold"
         );
+    }
+
+    #[test]
+    fn a_table_too_big_to_lay_out_shows_a_row_a_line() {
+        for end in ["\n", "\r"] {
+            let body = format!("| c | d |{end}").repeat(MAX_CELLS);
+            let blocks = parse(&format!("| a | b |{end}|---|---|{end}{body}"));
+            assert_eq!(
+                texts(&blocks[..2]),
+                [(&Kind::Paragraph, "a · b"), (&Kind::Paragraph, "c · d")],
+                "each row on its own line, its cells apart, without the pipes"
+            );
+            assert!(
+                blocks.iter().all(|block| block.cell.is_none()),
+                "thousands of rows don't each draw their cells, whichever way their lines end"
+            );
+            assert!(
+                blocks[0].styles.iter().all(|(_, style)| style.bold),
+                "the header row stands out"
+            );
+        }
     }
 
     #[test]
@@ -1573,6 +1918,46 @@ mod tests {
                 .last()
                 .is_some_and(|block| block.text.contains("too long")),
             "what's past the limit isn't parsed, and says so"
+        );
+    }
+
+    #[test]
+    fn copying_a_selection_takes_its_text_as_markdown_sets_it_apart() {
+        let blocks = parse(
+            "Intro **bold** text\n\n- one\n- two\n\n![shot](https://github.com/a.png)\n\n```\ncode\n```\n",
+        );
+        let code = blocks.iter().position(|b| b.kind == Kind::Code).unwrap();
+        for (range, copied, why) in [
+            (
+                ((0, 6), (code, 2)),
+                "bold text\n\none\ntwo\n\nco",
+                "items a line apart, other blocks a blank line, without markers or image words",
+            ),
+            (
+                ((1, 1), (1, 3)),
+                "ne",
+                "within one block, only what's selected",
+            ),
+        ] {
+            assert_eq!(selected_text(&blocks, range), copied, "{why}");
+        }
+        let table = parse("Intro\n\n| | b | c |\n|---|---|---|\n| d | | f |\n| | h | |\n\nAfter\n");
+        assert_eq!(
+            selected_text(&table, ((0, 0), (table.len(), 0))),
+            "Intro\n\n · b · c\nd ·  · f\n · h\n\nAfter",
+            "a table's rows a line apart, and an empty cell keeps its place, so a value stays \
+             under its heading"
+        );
+        let around_image = parse("| a ![i](https://github.com/x.png) b | c |\n|---|---|\n");
+        assert_eq!(
+            selected_text(&around_image, ((0, 0), (around_image.len(), 0))),
+            "a b · c",
+            "only a new column sets a cell's text apart"
+        );
+        assert_eq!(
+            selected_text(&parse("é"), ((0, 0), (0, 1))),
+            "",
+            "a range ending inside a character, as after an edit, takes nothing"
         );
     }
 }

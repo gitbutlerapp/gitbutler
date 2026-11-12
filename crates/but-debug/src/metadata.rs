@@ -18,9 +18,7 @@ pub(crate) struct EmptyRefMetadata;
 pub(crate) struct EmptyRefMetadataHandle<T> {
     /// Whether the value was synthesized because no metadata existed.
     pub(crate) is_default: bool,
-    /// The reference name the metadata is associated with.
     pub(crate) ref_name: gix::refs::FullName,
-    /// The metadata value itself.
     pub(crate) value: T,
 }
 

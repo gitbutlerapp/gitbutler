@@ -4,7 +4,6 @@ use std::{env, path::PathBuf};
 
 use anyhow::{Result, anyhow, bail};
 
-/// Channel type for the installation
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Channel {
     Release,
@@ -31,18 +30,12 @@ impl Channel {
 pub struct Version(String);
 
 impl Version {
-    /// Create a new Version from a string, validating the format.
-    ///
-    /// # Errors
-    /// Returns an error if the version string is invalid.
     pub fn new(version: String) -> Result<Self> {
         Self::validate(&version)?;
         Ok(Version(version))
     }
 
-    /// Validate a version string format
     fn validate(version: &str) -> Result<()> {
-        // Reject empty strings
         if version.is_empty() {
             bail!("Invalid version: empty string. Usage: but-installer [version|nightly]");
         }
@@ -62,7 +55,6 @@ impl Version {
             );
         }
 
-        // Must contain at least one alphanumeric character
         if !version.chars().any(|c| c.is_alphanumeric()) {
             bail!(
                 "Invalid version format: {version}. Version must contain at least one alphanumeric character."
@@ -72,7 +64,6 @@ impl Version {
         Ok(())
     }
 
-    /// Get the version string as a &str
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -90,7 +81,6 @@ impl std::fmt::Display for Version {
     }
 }
 
-/// Version request for the installer
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VersionRequest {
     /// Install the latest release version
@@ -102,7 +92,6 @@ pub enum VersionRequest {
 }
 
 impl VersionRequest {
-    /// Parse a version string into a VersionRequest
     pub fn from_string(version: Option<String>) -> Result<Self> {
         match version.as_deref() {
             None => Ok(VersionRequest::Release),
@@ -115,7 +104,6 @@ impl VersionRequest {
     }
 }
 
-/// Configuration for the installer
 pub struct InstallerConfig {
     pub version_request: VersionRequest,
     pub home_dir: PathBuf,
@@ -143,12 +131,10 @@ impl InstallerConfig {
         Self::new_with_version(version_request)
     }
 
-    /// Create a new installer config with an explicit version request
     pub(crate) fn new_with_version(version_request: VersionRequest) -> Result<Self> {
         let home_dir =
             dirs::home_dir().ok_or_else(|| anyhow!("Failed to determine home directory"))?;
 
-        // Detect platform
         let os = env::consts::OS;
         let arch = env::consts::ARCH;
 
