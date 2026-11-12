@@ -17,7 +17,7 @@ use std::time::{Duration, Instant};
 use but_tty::Status;
 use gpui::{
     AnyElement, App, ClickEvent, Context, DispatchPhase, Div, DragMoveEvent, ElementId, Entity,
-    FocusHandle, Focusable, MouseExitEvent, MouseMoveEvent, Pixels, Point, Render, Role,
+    FocusHandle, Focusable, Hsla, MouseExitEvent, MouseMoveEvent, Pixels, Point, Render, Role,
     ScrollHandle, SharedString, Stateful, StyleRefinement, Task, TextRun, Window, deferred, div,
     font, linear_color_stop, linear_gradient, point, prelude::*, relative,
 };
@@ -853,6 +853,15 @@ impl NavigatorTabs {
         (self.marks).retain(|_, mark| mark.shown || mark.slide.openness(now).is_some());
     }
 
+    /// The line around the selected tab and the card down from it: the focused tile's while the
+    /// keys are along the tabs, else a resting tile's.
+    fn edge(&self, theme: &Theme) -> Hsla {
+        match self.keyed.is_some() {
+            true => theme.focus_edge(),
+            false => theme.border_3,
+        }
+    }
+
     fn mark_share(&self, key: &TabKey, now: Instant) -> f32 {
         (self.marks.get(key)).map_or(0., |mark| mark.slide.share(mark.shown, now))
     }
@@ -1623,6 +1632,7 @@ impl NavigatorTabs {
             .rounded_tl(dp(left_corner))
             .rounded_tr(dp(right_corner))
             .shadow(Vec::new())
+            .border_color(self.edge(&theme))
             .opacity(fade)
             .overflow_hidden()
             .occlude()
@@ -2107,6 +2117,7 @@ impl Render for NavigatorTabs {
                 false => outlines.0.push(outline),
             }
         }
+        let edge = self.edge(&theme);
         let ground = ground.map(|(left, width)| {
             div()
                 .absolute()
@@ -2117,7 +2128,7 @@ impl Render for NavigatorTabs {
                 .rounded(dp(theme.shape.card))
                 .bg(theme.bg_1)
                 .border_1()
-                .border_color(theme.border_2)
+                .border_color(edge)
         });
         let neck = |left: f32, card: &DrawnCard| {
             div()
@@ -2131,7 +2142,7 @@ impl Render for NavigatorTabs {
                 .border_t_1()
                 .border_l_1()
                 .border_r_1()
-                .border_color(theme.border_2)
+                .border_color(edge)
                 .opacity(card.fade)
         };
         // The terminals' tab isn't in the strip, so the tab reaching down into its card goes under
