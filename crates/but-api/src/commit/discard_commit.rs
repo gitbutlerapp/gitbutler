@@ -20,13 +20,10 @@ fn unique_subject_commit_ids(
     Ok(subject_commit_ids)
 }
 
-/// Discard `subject_commit_ids`, removing them from branch history.
+/// Discard `subject_commit_ids` and their changes.
 ///
-/// Unlike [`super::uncommit::commit_uncommit()`], the commits' changes are **not**
-/// reassigned to the workspace — they are permanently removed from their branches.
-///
-/// When `dry_run` is enabled, the returned workspace previews the discard and
-/// no oplog entry is persisted. See [`commit_discard_with_perm()`] for details.
+/// Unlike [`super::uncommit::commit_uncommit()`], the changes don't stay in the
+/// workspace.
 #[but_api(try_from = crate::commit::json::CommitDiscardResult)]
 #[instrument(err(Debug))]
 pub fn commit_discard(
@@ -38,13 +35,6 @@ pub fn commit_discard(
     commit_discard_with_perm(ctx, subject_commit_ids, dry_run, guard.write_permission())
 }
 
-/// Discard `subject_commit_ids` under caller-held exclusive repository access
-/// and record an oplog snapshot on success.
-///
-/// The commits are removed from branch history and their changes are **lost**
-/// (not reassigned to the workspace). An oplog snapshot is recorded so the
-/// operation can be reverted from the timeline. When `dry_run` is enabled,
-/// it returns the projected workspace state and skips oplog persistence.
 pub fn commit_discard_with_perm(
     ctx: &mut but_ctx::Context,
     subject_commit_ids: Vec<gix::ObjectId>,
@@ -67,13 +57,10 @@ pub fn commit_discard_with_perm(
     })
 }
 
-/// Discard specific changes from `commit_id`, removing them from the commit
-/// and the workspace.
+/// Discard `changes` from `commit_id` and from the worktree.
 ///
-/// Unlike [`super::uncommit::commit_uncommit_changes()`], the selected changes
-/// are not surfaced as uncommitted workspace modifications. When `dry_run` is
-/// enabled, the returned workspace previews the discard and no oplog entry is
-/// persisted. See [`commit_discard_changes_with_perm()`] for details.
+/// Unlike [`super::uncommit::commit_uncommit_changes()`], the changes don't stay
+/// in the workspace.
 #[but_api(try_from = crate::commit::json::MoveChangesResult)]
 #[instrument(err(Debug))]
 pub fn commit_discard_changes(
@@ -86,14 +73,6 @@ pub fn commit_discard_changes(
     commit_discard_changes_with_perm(ctx, commit_id, changes, dry_run, guard.write_permission())
 }
 
-/// Discard specific changes from `commit_id` under caller-held exclusive
-/// repository access and record an oplog snapshot on success.
-///
-/// The selected changes are removed from the commit tree and, when
-/// materialized, from the worktree. This records a best-effort
-/// `DiscardChanges` oplog snapshot when the rewrite is materialized. When
-/// `dry_run` is enabled, it returns a preview of the resulting workspace state
-/// and skips oplog persistence.
 pub fn commit_discard_changes_with_perm(
     ctx: &mut but_ctx::Context,
     commit_id: gix::ObjectId,
