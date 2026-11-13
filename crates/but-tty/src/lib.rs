@@ -30,10 +30,11 @@ pub use pty::Size;
 use pty::{Output, Pty};
 pub use vt::{Cursor, Frame, Row, Run, Status, Style};
 
+pub use libghostty_vt::color::Rgb as RgbColor;
 pub use libghostty_vt::key::{Key, Mods};
 pub use libghostty_vt::mouse;
 pub use libghostty_vt::render::CursorVisualStyle;
-pub use libghostty_vt::style::{RgbColor, Underline};
+pub use libghostty_vt::style::Underline;
 
 /// A shell just started, with nothing emulating it yet, so it can start off the UI thread.
 pub struct Shell {
