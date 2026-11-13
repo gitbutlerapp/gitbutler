@@ -128,7 +128,7 @@ fn watch_glyph(watched: bool) -> gpui::Svg {
         true => Icon::Eye,
         false => Icon::EyeOff,
     };
-    gpui::svg().path(eye.path()).size(dp(14.)).flex_none()
+    crate::ui::icon_at(eye, 14.)
 }
 
 actions!(
