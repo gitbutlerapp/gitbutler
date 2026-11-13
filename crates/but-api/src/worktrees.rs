@@ -452,19 +452,23 @@ pub fn worktree_recycle_with_perm(
     }))
 }
 
-/// The tip of where the target's new commits come from: its upstream, or with none configured,
-/// the local target branch.
+/// The newest tip of the target: the local target branch if it has all its upstream has, as
+/// when it was committed to or pulled into, else the upstream, so diverged local commits are
+/// left out. Either one stands in for the other that isn't there.
 fn target_tip(ctx: &but_ctx::Context, perm: &RepoShared) -> Result<Option<gix::ObjectId>> {
     let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
     let meta = &ws.graph.project_meta;
-    let source = match meta.remote_target_ref(&repo)? {
-        Some(upstream) => upstream,
-        None => match meta.target_ref.as_ref() {
-            Some(target) => target.as_local_full_name_ref().to_owned(),
-            None => return Ok(None),
-        },
+    let Some(target) = meta.target_ref.as_ref() else {
+        return Ok(None);
     };
-    Ok(ref_tip(&repo, source.as_ref()))
+    let local = ref_tip(&repo, target.as_local_full_name_ref());
+    let upstream = meta
+        .remote_target_ref(&repo)?
+        .and_then(|upstream| ref_tip(&repo, upstream.as_ref()));
+    Ok(match (local, upstream) {
+        (Some(local), Some(upstream)) if is_ancestor(&repo, upstream, local) => Some(local),
+        (local, upstream) => upstream.or(local),
+    })
 }
 
 /// The archived worktree [`worktree_recycle_with_perm()`] shows again at `tip`, with its
@@ -481,10 +485,7 @@ fn recyclable(
         let Some(branch) = listed.ref_name.as_ref() else {
             continue;
         };
-        let behind = ref_tip(&repo, branch.as_ref()).is_some_and(|at| {
-            repo.merge_base(at, tip)
-                .is_ok_and(|base| base.is_some_and(|base| base == at))
-        });
+        let behind = ref_tip(&repo, branch.as_ref()).is_some_and(|at| is_ancestor(&repo, at, tip));
         if !behind || ws.refname_is_segment(branch.as_ref()) {
             continue;
         }
@@ -506,6 +507,12 @@ fn is_clean(checkout: &gix::Repository) -> bool {
         .is_none_or(|state| state == gix::state::InProgress::Bisect);
     idle && but_core::diff::worktree_changes(checkout)
         .is_ok_and(|changes| changes.changes.is_empty() && changes.index_conflicts.is_empty())
+}
+
+/// Whether `of` has `ancestor` in its history, or is it. One that can't be told isn't.
+fn is_ancestor(repo: &gix::Repository, ancestor: gix::ObjectId, of: gix::ObjectId) -> bool {
+    repo.merge_base(ancestor, of)
+        .is_ok_and(|base| base.is_some_and(|base| base == ancestor))
 }
 
 /// The commit `name` points at, if it's there.
