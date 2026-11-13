@@ -638,6 +638,6 @@ pub mod integrate_branch_upstream;
 pub use integrate_branch_upstream::{
     BranchIntegrationStrategy, InitialBranchIntegration, IntegrationDivergenceCommit,
     IntegrationDivergenceDisplay, IntegrationDivergenceTargetRelation, InteractiveIntegrationStep,
-    get_initial_integration_steps_for_branch, integrate_branch_with_steps,
+    get_initial_integration_steps_for_branch, integrate_branch_in_editor,
     parse_integration_steps_script, render_integration_steps_script,
 };

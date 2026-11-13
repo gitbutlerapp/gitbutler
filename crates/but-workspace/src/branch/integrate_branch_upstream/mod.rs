@@ -99,24 +99,11 @@ pub struct InitialBranchIntegration {
 ///
 /// `ref_name` - The full reference name of the local branch we're integrating the upstream changes into.
 ///
-/// `steps` - The vector of steps in the application order (parent to child) that describe the actions to perform
+/// `integration` - The steps in the application order (parent to child) that describe the actions to perform
 ///   for the integration of the changes.
-pub fn integrate_branch_with_steps<'ws, 'meta, M: RefMetadata>(
-    ref_name: &gix::refs::FullNameRef,
-    integration: InteractiveIntegration,
-    workspace: &'ws mut but_graph::Workspace,
-    meta: &'meta mut M,
-    repo: &gix::Repository,
-    db: &'meta mut but_db::DbHandle,
-) -> Result<SuccessfulRebase<'ws, 'meta, M>> {
-    // The editor maps every segment in the graph, including the remote
-    // reference of the branch we're integrating.
-    let editor = Editor::create(workspace, meta, repo, db)?;
-    integrate_branch_in_editor(editor, ref_name, integration)
-}
-
-/// Like [`integrate_branch_with_steps()`], but in `editor`, which must map the remote reference
-/// of the branch, as an editor created for the whole graph does.
+///
+/// `editor` must map the remote reference of the branch, as an editor created for the whole graph
+/// does.
 pub fn integrate_branch_in_editor<'ws, 'meta, M: RefMetadata>(
     mut editor: Editor<'ws, 'meta, M>,
     ref_name: &gix::refs::FullNameRef,
