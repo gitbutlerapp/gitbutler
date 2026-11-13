@@ -803,7 +803,10 @@ mod tests {
     use bstr::BString;
     use gpui::{Bounds, point, size};
 
-    use super::{CardSlot, Row, cards, nearest_slot, takes_terminal, terminal_slot, worktree_slot};
+    use super::{
+        CardSlot, HEADING_MIDDLE, Row, cards, nearest_slot, takes_terminal, terminal_slot,
+        worktree_slot,
+    };
     use crate::backend::Checkout;
     use crate::state::{ProjectCheckout, ProjectId, Selection};
     use crate::terminal::TerminalId;
@@ -930,28 +933,32 @@ mod tests {
     fn a_dragged_card_goes_where_its_heading_would_be_nearest_the_pointer() {
         let (a, b) = (ProjectId::from("a"), ProjectId::from("b"));
         let c = ProjectId::from("c");
-        // Without b, a's card starts at 0, c's at 116 and the end at 172, the gap after each 16
-        // with the cards' edges, so the middles of their headings are 20, 136 and 192 down.
+        // Without b, a's card starts at 0, c's a gap past a's 100 and the end a gap past c's 40;
+        // the gap follows but-ui's `gap/stack`, so the places are worked out from it.
         let listed = [(&a, 100.), (&b, 400.), (&c, 40.)];
+        let gap = Row::Gap.height(ROW_HEIGHT);
+        let [a_heading, c_heading, end] =
+            [0., 100. + gap, 140. + 2. * gap].map(|top| top + HEADING_MIDDLE);
+        let (a_or_c, c_or_end) = ((a_heading + c_heading) / 2., (c_heading + end) / 2.);
         let goes = |depth| nearest_slot(&listed, &b, depth);
         assert!(
             goes(-50.) == CardSlot::Before(a.clone()),
             "above the cards, it goes first"
         );
         assert!(
-            goes(77.) == CardSlot::Before(a.clone()),
+            goes(a_or_c - 1.) == CardSlot::Before(a.clone()),
             "nearer a's heading than c's"
         );
         assert!(
-            goes(79.) == CardSlot::Before(c.clone()),
+            goes(a_or_c + 1.) == CardSlot::Before(c.clone()),
             "past halfway to c's"
         );
         assert!(
-            goes(163.) == CardSlot::Before(c.clone()),
+            goes(c_or_end - 1.) == CardSlot::Before(c.clone()),
             "nearer c's heading than the end"
         );
         assert!(
-            goes(165.) == CardSlot::End,
+            goes(c_or_end + 1.) == CardSlot::End,
             "past halfway to the end, it goes last"
         );
     }

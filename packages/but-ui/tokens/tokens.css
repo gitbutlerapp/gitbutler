@@ -190,8 +190,8 @@
   --but-gap-label-field: var(--but-space-md);
   /* Between a snackbar's glyph, words, divider and button. */
   --but-gap-snackbar: 0.5rem;
-  /* Between blocks stacked in a modal or panel: a title, a paragraph, a form, a group of settings. */
-  --but-gap-stack: var(--but-space-2xl);
+  /* Between cards or blocks stacked in a column: the sidebar's cards, one machine or repository after another, the details view's cards, and the blocks of a modal or panel, such as a form and a group of settings. A title over its paragraph is spaced by its type, not by this. */
+  --but-gap-stack: var(--but-space-lg);
   /* Between icon-only buttons packed into a toolbar or a header's actions. */
   --but-gap-toolbar: var(--but-space-xs);
   /* Between a tooltip's text and its shortcut. */

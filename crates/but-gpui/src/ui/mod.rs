@@ -527,8 +527,8 @@ pub fn segmented(
 pub const TILE_BAR: f32 = 30.;
 
 /// How far a tile's card sits in from its area: half the gap between two, as the navigator's
-/// cards are apart.
-pub const TILE_MARGIN: f32 = 4.;
+/// cards are apart, but-ui's `gap/stack`.
+pub const TILE_MARGIN: f32 = tokens::GAP_STACK / 2.;
 
 /// How far a tile's content sits in from its card's edge, its border included: as the
 /// navigator's cards hold their rows, and clear of the rounded corners, as GPUI cuts what's

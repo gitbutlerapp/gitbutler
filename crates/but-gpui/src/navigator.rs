@@ -32,7 +32,7 @@ use crate::detail::{ChecksChanged, Detail, PageTab, oldest_conflict};
 use crate::overlays::{MenuItem, keys_at};
 use crate::state::{Prefs, ProjectId, Section, Selection, Store, StoreEvent, Tile, WatchedOrder};
 use crate::terminal::TerminalId;
-use crate::theme::{Hue, Theme};
+use crate::theme::{Hue, Theme, tokens};
 use crate::transfer::{
     Changes, Dragged, Move, Op, PageDrag, ProjectDrag, Stop, TerminalDrag, drag_preview,
     page_preview, row_preview,
@@ -80,8 +80,9 @@ use rows::{
 /// to keep it in place would wrap it off a project's summary.
 const MARK_PAD: f32 = 3.;
 
-/// How far apart the cards are, as the detail's are.
-pub(super) const CARD_GAP: f32 = 8.;
+/// How far apart the cards are, as the detail's are: but-ui's `gap/stack`, the one gap between
+/// cards stacked in a column on every surface.
+pub(super) const CARD_GAP: f32 = tokens::GAP_STACK;
 
 /// How wide and tall the map of a row's tiles is, and the gap between them there.
 const TILE_MAP: (f32, f32) = (20., 14.);
@@ -89,12 +90,12 @@ const TILE_MAP_GAP: f32 = 1.5;
 
 /// How far the cards sit in from the list's sides, as far as the detail's cards are from the
 /// window's edges.
-const CARD_MARGIN: f32 = 8.;
+const CARD_MARGIN: f32 = CARD_GAP;
 
 /// How far they sit in from its side beside the detail: with the navigator's edge, the whole
 /// gap to the detail's cards, as wide as the gaps between those, which the detail's cards sit
 /// right against, so the gap's divider and the list's scrollbar are the navigator's own.
-const CARD_MARGIN_BESIDE: f32 = 7.;
+const CARD_MARGIN_BESIDE: f32 = CARD_GAP - 1.;
 
 const LIST_TOP: f32 = 0.;
 

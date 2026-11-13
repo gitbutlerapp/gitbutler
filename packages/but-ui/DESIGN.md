@@ -29,6 +29,7 @@ for what you are building, not all of them; each stands on its own.
 | [Cursors](design/foundations/cursors.md)         | Anything clickable, or a drag                        |
 | [Minimums](design/foundations/minimums.md)       | A small control or small text                        |
 | [Radius](design/foundations/radius.md)           | A corner, especially one inside another              |
+| [Spacing](design/foundations/spacing.md)         | Room between cards, blocks or controls               |
 | [Line breaks](design/foundations/line-breaks.md) | Copy that wraps                                      |
 | [Motion](design/foundations/motion.md)           | A transition or an animation                         |
 | [Icons](design/foundations/icons.md)             | An icon, a file glyph, or a person's picture         |
