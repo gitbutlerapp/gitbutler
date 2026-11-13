@@ -932,14 +932,36 @@ pub fn push_refusal(err: &anyhow::Error) -> Option<String> {
 }
 
 /// `err` marked as not a fault here when Git couldn't reach the remote or the remote turned it
-/// down, as when the network is out, the repository moved or a server's hook refused. One that
-/// already says what it is keeps that.
+/// down, as when the network is out, the repository moved or a server's hook refused, or when
+/// the user can fix what stopped it, which it then says how. One that already says what it is
+/// keeps that.
 pub(super) fn remote_failure(err: anyhow::Error) -> anyhow::Error {
     use but_error::AnyhowContextExt as _;
     if (err.custom_context()).is_some_and(|said| said.code != but_error::Code::Unknown) {
         return err;
     }
     let text = format!("{err:#}");
+    let fix = if text.contains("already exists and is not an empty directory") {
+        Some(
+            "There's a folder with that name there already. Pick another place, or add the \
+             repository in it with Add project.",
+        )
+    } else if text.contains("requires authorization credentials but none were provided") {
+        Some(
+            "The remote asked for a username and password, which GitButler can't ask you for \
+             yet. Use an SSH URL, or set up a Git credential helper.",
+        )
+    } else if text.contains("failed to execute git command") {
+        Some("GitButler couldn't run Git. Install Git, then try again.")
+    } else {
+        None
+    };
+    if let Some(fix) = fix {
+        return err.context(but_error::Context::new_static(
+            but_error::Code::PreconditionFailed,
+            fix,
+        ));
+    }
     let remote = (text.lines().map(str::trim))
         .any(|line| line.starts_with("remote:") || line.starts_with("! [remote rejected]"))
         || text.contains("Could not read from remote repository")
@@ -2051,6 +2073,51 @@ refs/heads/wt
                 "one person with a work and a personal email counts once, as `git shortlog` does"
             );
         })
+    }
+
+    #[test]
+    fn what_the_user_fixes_is_a_refusal_that_says_how() {
+        use but_error::{AnyhowContextExt as _, Code};
+        let git_said = |stderr: &str| {
+            anyhow::anyhow!("git command exited with non-zero exit code 128:\n\nSTDERR:\n{stderr}")
+        };
+        for (err, says) in [
+            (
+                git_said(
+                    "fatal: destination path 'repo' already exists and is not an empty directory.",
+                ),
+                "There's a folder with that name there already",
+            ),
+            (
+                anyhow::anyhow!(
+                    "git requires authorization credentials but none were provided: prompt was \
+                     \"Username for 'https://github.com': \""
+                ),
+                "The remote asked for a username and password",
+            ),
+            (
+                anyhow::anyhow!("failed to execute git command: No such file or directory")
+                    .context("backend error"),
+                "GitButler couldn't run Git",
+            ),
+        ] {
+            let err = remote_failure(err);
+            assert_eq!(
+                err.custom_context().map(|said| said.code),
+                Some(Code::PreconditionFailed),
+                "not a fault to report: {err:#}"
+            );
+            let shown = crate::backend::failure_detail(&err);
+            assert!(shown.starts_with(says), "the card says what to do: {shown}");
+        }
+        let own = remote_failure(git_said(
+            "error: cannot lock ref 'refs/remotes/origin/main'",
+        ));
+        assert_eq!(
+            own.custom_context().map(|said| said.code),
+            None,
+            "a failure nothing here explains stays one to report"
+        );
     }
 
     #[test]

@@ -78,7 +78,8 @@ pub fn add_token(forge: Forge, token: String, email: String) -> Result<String> {
     Ok(match forge {
         Forge::GitHub => {
             handle
-                .block_on(but_api::github::store_github_pat(token))?
+                .block_on(but_api::github::store_github_pat(token))
+                .map_err(rejected_by_github)?
                 .login
         }
         Forge::GitLab => {
@@ -106,7 +107,8 @@ pub fn add_self_hosted_token(forge: Forge, url: String, token: String) -> Result
     Ok(match forge {
         Forge::GitHub => {
             handle
-                .block_on(but_api::github::store_github_enterprise_pat(token, url))?
+                .block_on(but_api::github::store_github_enterprise_pat(token, url))
+                .map_err(rejected_by_github)?
                 .login
         }
         Forge::GitLab => {
@@ -121,6 +123,19 @@ pub fn add_self_hosted_token(forge: Forge, url: String, token: String) -> Result
             )
         }
     })
+}
+
+/// `err` as a refusal when GitHub turned the token down, which pasting the right one fixes.
+fn rejected_by_github(err: anyhow::Error) -> anyhow::Error {
+    let rejected = (err.downcast_ref::<but_github::HttpStatusError>())
+        .is_some_and(|said| said.status == reqwest::StatusCode::UNAUTHORIZED);
+    match rejected {
+        true => err.context(but_error::Context::new_static(
+            but_error::Code::PreconditionFailed,
+            "GitHub didn't accept that token. Check it's copied whole and hasn't expired.",
+        )),
+        false => err,
+    }
 }
 
 /// Start signing in to GitHub in the browser. Returns the code to enter there, and the

@@ -1248,12 +1248,12 @@ impl Intent for UnapplyStack {
     fn apply(self, run: &mut Run) -> Result<()> {
         run.locked(|ctx, perm| {
             let info = but_api::legacy::workspace::head_info(ctx)?;
-            let stack_id = info
-                .stacks
-                .iter()
+            let Some(stack_id) = (info.stacks.iter())
                 .find(|stack| stack.segments.iter().any(|s| holds(s, &self.branch)))
                 .and_then(|stack| stack.id)
-                .context("That branch isn't in the workspace any more")?;
+            else {
+                but_error::bail_precondition!("That branch isn't in the workspace any more");
+            };
             but_api::legacy::virtual_branches::unapply_stack_with_perm(ctx, stack_id, perm)
         })
     }

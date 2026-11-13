@@ -241,7 +241,7 @@ pub(super) mod function {
         let ((Lane::Stack(source_stack), subject_segment), Lane::Stack(destination_stack)) =
             (source, anchor.lane)
         else {
-            bail!(
+            but_error::bail_precondition!(
                 "Moving a branch between a worktree and the workspace in single-branch mode is not yet supported"
             );
         };
@@ -249,7 +249,9 @@ pub(super) mod function {
         // single-branch mode. Moving it across stacks would change commit ownership and needs a
         // real rebase.
         if !subject_segment.commits.is_empty() && !same_stack(source_stack, destination_stack) {
-            bail!("Moving a non-empty branch in single-branch mode is not yet supported");
+            but_error::bail_precondition!(
+                "Moving a non-empty branch in single-branch mode is not yet supported"
+            );
         }
         let (_repo, meta) = successful_rebase.repo_and_meta_mut();
         if !meta.can_persist_branch_stack_order() {

@@ -26,9 +26,8 @@ pub fn install() -> Result<bool> {
     let home_apps = std::env::var_os("HOME").map(|home| Path::new(&home).join("Applications"));
     let in_applications = Path::new(&path).starts_with("/Applications")
         || home_apps.is_some_and(|apps| Path::new(&path).starts_with(apps));
-    anyhow::ensure!(
-        in_applications,
-        "Move GitButler to Applications before installing the CLI"
-    );
+    if !in_applications {
+        but_error::bail_precondition!("Move GitButler to Applications before installing the CLI");
+    }
     cli::install_cli_v2(path, ExistingSymlinkPolicy::Replace)
 }

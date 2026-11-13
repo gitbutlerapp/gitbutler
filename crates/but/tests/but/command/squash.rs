@@ -1346,7 +1346,7 @@ Hint: run `but help` for all commands
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Failed to apply changes to destination commit - merge conflict
+Error: The changes conflict with the destination commit, so they can't move into it
 
 "#]]);
 }
