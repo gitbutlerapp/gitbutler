@@ -27,7 +27,9 @@ pub(super) mod function {
     /// `order` - Where the new stack goes among the others: it becomes a parent of the workspace
     ///     commit at `order`, or its last parent if `order` is `None`, as
     ///     [`create_reference()`](crate::branch::create_reference()) places an independent branch.
-    ///     Without a workspace commit there's no order to keep, and it's ignored.
+    ///     Without a workspace commit there's no order to keep, and it's ignored. A branch that's
+    ///     already a stack of its own only moves to `order` among the others, and with `None`
+    ///     stays where it is.
     pub fn tear_off_branch<'ws, 'meta, M: RefMetadata>(
         editor: Editor<'ws, 'meta, M>,
         subject_branch_name: &FullNameRef,
@@ -54,7 +56,23 @@ pub(super) mod function {
         let (source_stack, subject_segment) = source;
 
         if source_stack.segments.len() == 1 {
-            // There's only one branch in the source stack. Nothing to do.
+            // There's only one branch in the source stack, which is a stack of its own already:
+            // at most its place among the others changes.
+            if let (true, Some(order)) = (managed, order) {
+                let head = workspace
+                    .tip_commit()
+                    .context("Couldn't find workspace head.")?
+                    .id;
+                let head = editor.select_commit(head)?;
+                let tip = subject_segment
+                    .ref_name()
+                    .context("Subject segment doesn't have a ref name.")?;
+                let tip = editor.select_reference(tip)?;
+                if editor.remove_edges(head, tip)?.is_empty() {
+                    bail!("The workspace commit doesn't have {subject_branch_name} as a parent");
+                }
+                editor.insert_parent(head, tip, Some(order))?;
+            }
             return editor.rebase();
         }
 
