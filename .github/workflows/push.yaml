@@ -92,6 +92,65 @@ jobs:
             but_ui_react:
               - 'packages/but-ui-react/**'
 
+  deploy-web:
+    name: Deploy web frontend to ECS
+    needs: changes
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' && needs.changes.outputs.node == 'true' }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: ecs-${{ vars.DEPLOY_ENVIRONMENT || 'preview' }}-web-frontend
+      queue: max
+      cancel-in-progress: false
+    env:
+      AWS_REGION: us-east-1
+      ENVIRONMENT: ${{ vars.DEPLOY_ENVIRONMENT || 'preview' }}
+      SERVICE: ${{ vars.DEPLOY_ENVIRONMENT || 'preview' }}-web-frontend
+      REGISTRY: 221886364861.dkr.ecr.us-east-1.amazonaws.com
+      TOOLING_BUCKET: gitbutler-deploy-tooling-221886364861
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build ARM64 frontend image
+        run: |
+          docker build --platform linux/arm64 -f apps/web/Dockerfile \
+            -t "$REGISTRY/$ENVIRONMENT-apps/$SERVICE:$GITHUB_SHA" .
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::221886364861:role/${{ env.ENVIRONMENT }}-github-deploy
+          aws-region: us-east-1
+          role-session-name: frontend-${{ github.run_id }}
+      - name: Publish frontend image
+        run: |
+          aws ecr get-login-password | docker login --username AWS --password-stdin "$REGISTRY"
+          docker push "$REGISTRY/$ENVIRONMENT-apps/$SERVICE:$GITHUB_SHA"
+      - name: Check no newer frontend inputs are on master
+        id: current
+        run: |
+          git fetch --no-tags --depth=1 origin master
+          # Match the existing changes.node filter; unrelated Rust changes need not block release.
+          if git diff --quiet "$GITHUB_SHA" FETCH_HEAD -- \
+            .github/workflows .github/actions apps packages e2e package.json pnpm-lock.yaml; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Skipping superseded frontend deployment." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Download deployment tooling
+        if: steps.current.outputs.deploy == 'true'
+        run: |
+          aws s3 cp "s3://$TOOLING_BUCKET/scripts/deploy-ecs-service.sh" \
+            "$RUNNER_TEMP/deploy-ecs-service.sh" --only-show-errors
+      - name: Deploy frontend
+        if: steps.current.outputs.deploy == 'true'
+        run: |
+          bash "$RUNNER_TEMP/deploy-ecs-service.sh" \
+            --environment "$ENVIRONMENT" --service "$SERVICE" \
+            --image-tag "$GITHUB_SHA" --region "$AWS_REGION"
+
   prettier:
     needs: changes
     if: ${{ needs.changes.outputs.tauri_gui == 'true' && (needs.changes.outputs.node == 'true' || needs.changes.outputs.docs == 'true') }}

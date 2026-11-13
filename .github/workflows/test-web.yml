@@ -16,7 +16,7 @@ on:
 jobs:
   test:
     name: web-tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Playwright 1.58 does not support Ubuntu 26.04
     timeout-minutes: 15
     permissions:
       contents: read
