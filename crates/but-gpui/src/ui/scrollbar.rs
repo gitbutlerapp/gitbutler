@@ -274,7 +274,7 @@ fn bar(
                 let thumb_bounds = Bounds::new(point(x, top), size(width, thumb));
                 let color = if wide { active } else { rest };
                 #[expect(clippy::disallowed_methods, reason = "fades a Theme colour as it goes")]
-                let color = color.opacity(color.a * showing.unwrap_or(1.));
+                let color = color.opacity(showing.unwrap_or(1.));
                 window.paint_quad(fill(thumb_bounds, color).corner_radii(width / 2.));
             }
             // Shown only while scrolling, it wakes its view to fade, and no more once gone.
