@@ -741,7 +741,7 @@ fn unapply_checked_out_branch_preserves_other_remembered_applied_branches() {
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   8a4d731 (gitbutler/workspace) GitButler Workspace Commit
+*   a308ca0 (gitbutler/workspace) GitButler Workspace Commit
 |\  
 | * 9939bf0 (HEAD -> one) one
 * | 2c9e5ce (two) two

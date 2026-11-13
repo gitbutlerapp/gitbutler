@@ -2341,6 +2341,39 @@ pub(super) mod tests {
         String::from_utf8(out.stdout).unwrap()
     }
 
+    /// Every commit by its title, with its parents' titles in their order and the references on
+    /// it, sorted by title so that when the commits were made doesn't change the order.
+    fn commits_by_title(dir: &Path) -> String {
+        let log = git(dir, &["log", "--all", "--format=%H%x00%s%x00%P%x00%D"]);
+        let commits: Vec<(&str, &str, &str, &str)> = (log.lines())
+            .filter_map(|line| {
+                let mut fields = line.split('\0');
+                Some((
+                    fields.next()?,
+                    fields.next()?,
+                    fields.next()?,
+                    fields.next()?,
+                ))
+            })
+            .collect();
+        let title = |id: &str| {
+            (commits.iter())
+                .find(|(commit, ..)| *commit == id)
+                .map_or("?", |(_, title, ..)| *title)
+        };
+        let mut lines: Vec<String> = (commits.iter())
+            .map(|(_, subject, parents, refs)| {
+                let parents: Vec<&str> = parents.split_whitespace().map(title).collect();
+                format!("{subject} <- [{}] {refs}", parents.join(", "))
+            })
+            .collect();
+        lines.sort();
+        lines
+            .iter()
+            .map(|line| format!("{}\n", line.trim_end()))
+            .collect()
+    }
+
     fn commit_to_main(changes: Vec<Selected>, message: &str, run_hooks: bool) -> CommitChanges {
         CommitChanges {
             to: CommitTo::Branch(full("refs/heads/main")),
@@ -5769,6 +5802,60 @@ managed true, below true: agent [one], <new> [two], agent checked out
 unstack top: lower [Lower] | top [Top] on gitbutler/workspace; undone: as before
 unstack lower: lower [Lower] | top [Top] on gitbutler/workspace; undone: as before
 move Top to a new stack: <new> [Top] | top [] on lower [Lower] on gitbutler/workspace; undone: as before
+
+"#]]
+        );
+    }
+
+    #[test]
+    fn going_apart_outside_the_workspace_keeps_where_the_stack_leaves_a_moved_target() {
+        let mut said = String::new();
+        for what in ["top", "lower"] {
+            but_testsupport::isolated_app_data_dir(|| {
+                // `top` checked out on its own, stacked on `lower`, which changes the line the
+                // target changed since.
+                let dir = repo_with("one\n");
+                let path = dir.path();
+                git(path, &["checkout", "-q", "-b", "lower"]);
+                std::fs::write(path.join("file"), "lower\n").unwrap();
+                git(path, &["commit", "-q", "-am", "Lower"]);
+                git(path, &["checkout", "-q", "-b", "top"]);
+                std::fs::write(path.join("other"), "top\n").unwrap();
+                git(path, &["add", "other"]);
+                git(path, &["commit", "-q", "-m", "Top"]);
+                git(path, &["checkout", "-q", "main"]);
+                std::fs::write(path.join("file"), "target\n").unwrap();
+                git(path, &["commit", "-q", "-am", "target work"]);
+                target_origin_main(path);
+                git(path, &["checkout", "-q", "top"]);
+
+                let branch = full(&format!("refs/heads/{what}"));
+                crate::backend::apply(
+                    path,
+                    TearOffBranch {
+                        branch,
+                        before: None,
+                    },
+                )
+                .unwrap();
+                said += &format!("unstack {what}:\n{}", commits_by_title(path));
+            });
+        }
+        snapbox::assert_data_eq!(
+            said,
+            snapbox::str![[r#"
+unstack top:
+GitButler Workspace Commit <- [Lower, Top] HEAD -> gitbutler/workspace
+Lower <- [first] lower
+Top <- [first] top
+first <- []
+target work <- [first] origin/main, main, gitbutler/target
+unstack lower:
+GitButler Workspace Commit <- [Top, Lower] HEAD -> gitbutler/workspace
+Lower <- [first] lower
+Top <- [first] top
+first <- []
+target work <- [first] origin/main, main, gitbutler/target
 
 "#]]
         );

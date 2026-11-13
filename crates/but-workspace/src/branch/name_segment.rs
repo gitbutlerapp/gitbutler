@@ -24,7 +24,8 @@ pub fn name_segment<'ws, 'meta, M: RefMetadata>(
     let Some(head) =
         checkout_head(&editor, checkout).filter(|head| is_pick_of(&editor, *head, top))
     else {
-        return create_reference(editor, ref_name, Anchor::at_id(top, Position::Above), None);
+        return create_reference(editor, ref_name, Anchor::at_id(top, Position::Above), None)?
+            .into_rebase_in_workspace();
     };
     let reference = editor.add_step(Step::new_reference(ref_name.to_owned()))?;
     editor.add_edge(reference, head, 0)?;

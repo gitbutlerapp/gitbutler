@@ -91,6 +91,7 @@ pub fn create_reference<'a>(
 ) -> anyhow::Result<but_graph::Workspace> {
     let editor = but_rebase::graph_rebase::Editor::create(ws, meta, repo, db)?;
     but_workspace::branch::create_reference(editor, ref_name.borrow(), anchor, order)?
+        .into_rebase_in_workspace()?
         .materialize(Default::default())?;
     Ok(ws.clone())
 }

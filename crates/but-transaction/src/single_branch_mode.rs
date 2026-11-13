@@ -1,15 +1,11 @@
 //! Running operations while a branch is checked out on its own rather than GitButler's
 //! workspace, which the CLI calls single-branch mode.
-//!
-//! An operation that makes a branch of its own sets up the workspace first, as there's no
-//! workspace commit to hold two stacks otherwise, and one that can check out another branch
-//! rolls back whole if that fails.
 
 use std::borrow::Cow;
 
 use but_core::{
     DryRun, RefMetadata,
-    ref_metadata::{LocalRefName, ProjectMeta},
+    ref_metadata::ProjectMeta,
     sync::{RepoExclusive, RepoShared},
 };
 use but_ctx::Context;
@@ -42,14 +38,13 @@ pub struct SingleBranchMode {
     switch: bool,
     /// The branch checked out, if one is rather than a detached `HEAD`.
     head_reference: Option<FullName>,
-    /// The project's target, which the workspace is set up on and the oplog records against.
+    /// The project's target, which a new branch of its own starts at and the oplog records against.
     target: Option<Target>,
 }
 
 /// The project's target, as [`SingleBranchMode`] reads it.
 #[derive(Debug)]
 struct Target {
-    ref_name: LocalRefName,
     commit_id: ObjectId,
     checked_out: bool,
     head_at_commit: bool,
@@ -59,8 +54,8 @@ impl SingleBranchMode {
     /// Read what's checked out using `ctx` with shared `perm`ission, for an operation that
     /// checks out the branch it makes or moves to with `switch`.
     ///
-    /// Without a target there's no workspace to set up, so a new branch of its own goes on top
-    /// of the branch checked out instead. With `HEAD` detached there's no branch to set it up
+    /// Without a target there's no workspace to enter, so a new branch of its own goes on top
+    /// of the branch checked out instead. With `HEAD` detached there's no branch to enter it
     /// with either. Fails if it would `switch` with `HEAD` detached: that runs without the
     /// checkpoint that takes back a checkout that fails after the changes went in.
     pub fn new(ctx: &Context, perm: &RepoShared, switch: bool) -> anyhow::Result<Self> {
@@ -84,7 +79,6 @@ impl SingleBranchMode {
                     checked_out: (head_reference.as_ref())
                         .is_some_and(|head| head.as_ref() == target_ref),
                     head_at_commit: repo.head_id()?.detach() == commit_id,
-                    ref_name: ref_name.clone(),
                     commit_id,
                 })
             }
@@ -103,11 +97,14 @@ impl SingleBranchMode {
     /// `snapshot_refs` so undo deletes those it creates, using `ctx`, `meta` and exclusive
     /// `perm`ission.
     ///
-    /// When it `will_create_independent_branch` in single-branch mode, GitButler's workspace
-    /// is set up first, with the branch checked out applied. When it may check out a branch,
-    /// a failure partway restores the checkpoint taken before it began. Without a target,
-    /// which the workspace is set up on and a checkpoint records against, or a branch checked
-    /// out to set it up with, it does neither.
+    /// In single-branch mode, or when it may check out a branch, a failure partway restores the
+    /// checkpoint taken before it began, which is also the undo entry. Without a target, which a
+    /// checkpoint records against, or a branch checked out, it doesn't take one.
+    ///
+    /// `_will_create_independent_branch` is ignored: the transaction enters GitButler's
+    /// workspace itself at the end when an operation makes a stack of its own beside the
+    /// branch checked out, see [`Transaction::create_reference()`] and
+    /// [`Transaction::tear_off_branch()`].
     #[expect(
         clippy::too_many_arguments,
         reason = "a transaction's own arguments, and what single-branch mode adds"
@@ -119,7 +116,7 @@ impl SingleBranchMode {
         snapshot_details: SnapshotDetails,
         snapshot_refs: &[&FullNameRef],
         perm: &mut RepoExclusive,
-        will_create_independent_branch: bool,
+        _will_create_independent_branch: bool,
         callback: F,
     ) -> anyhow::Result<T::Outcome>
     where
@@ -127,7 +124,7 @@ impl SingleBranchMode {
         F: FnOnce(Transaction<'_, '_, Meta>) -> anyhow::Result<T>,
         T: TransactionOutcome,
     {
-        let (Some(target), Some(head)) = (&self.target, &self.head_reference) else {
+        let (Some(target), Some(_)) = (&self.target, &self.head_reference) else {
             return crate::with_transaction_with_perm(
                 ctx,
                 meta,
@@ -138,14 +135,11 @@ impl SingleBranchMode {
                 callback,
             );
         };
-        let needs_workspace_setup = self.in_single_branch_mode
-            && !target.checked_out
-            && will_create_independent_branch
-            && !self.switch;
         // Single-branch operations can schedule an implicit checkout (for example when
-        // creating above HEAD or moving the top branch). Protect those just like --switch.
+        // creating above HEAD or moving the top branch), or enter the workspace. Protect those
+        // just like --switch.
         let may_checkout = self.switch || self.in_single_branch_mode || target.checked_out;
-        if !needs_workspace_setup && !may_checkout {
+        if !may_checkout {
             return crate::with_transaction_with_perm(
                 ctx,
                 meta,
@@ -167,21 +161,9 @@ impl SingleBranchMode {
             perm.read_permission(),
         )?;
 
-        let setup = if needs_workspace_setup {
-            Self::setup_workspace(ctx, meta, perm, &target.ref_name, head)
-        } else {
-            Ok(())
-        };
-        let outcome = setup.and_then(|()| {
-            crate::with_transaction_with_perm_only(ctx, meta, perm, DryRun::No, callback)
-        });
+        let outcome = crate::with_transaction_with_perm_only(ctx, meta, perm, DryRun::No, callback);
         if let Ok((false, value)) = outcome {
-            let snapshot_result = checkpoint.commit(ctx, perm);
-            // Workspace setup already used best-effort recording; switching must
-            // retain the regular transaction wrapper's snapshot error propagation.
-            if !needs_workspace_setup {
-                snapshot_result?;
-            }
+            checkpoint.commit(ctx, perm)?;
             return Ok(value);
         }
 
@@ -206,50 +188,14 @@ impl SingleBranchMode {
         }
     }
 
-    /// Set up GitButler's workspace on `target_ref` using `ctx`, `meta` and exclusive
-    /// `perm`ission, with `head`, the branch checked out on its own, applied.
-    fn setup_workspace(
-        ctx: &mut Context,
-        meta: &mut impl RefMetadata,
-        perm: &mut RepoExclusive,
-        target_ref: &LocalRefName,
-        head: &FullName,
-    ) -> anyhow::Result<()> {
-        let needs_workspace = ctx
-            .repo
-            .get()?
-            .try_find_reference(but_core::WORKSPACE_REF_NAME)?
-            .is_none();
-        if needs_workspace {
-            let target_ref = target_ref.to_string().parse()?;
-            gitbutler_branch_actions::set_base_branch_only(ctx, &target_ref, perm)?;
-            // Base setup writes metadata through its own handle. Keep the caller's handle in
-            // sync so creating the destination doesn't overwrite the newly applied source stack.
-            let workspace_ref = but_core::WORKSPACE_REF_NAME.try_into()?;
-            let updated = ctx.meta()?.workspace(workspace_ref)?;
-            let mut workspace = meta.workspace(workspace_ref)?;
-            *workspace = (*updated).clone();
-            meta.set_workspace(&workspace)?;
-        }
-
-        let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-        // Also apply an empty branch, which set_base_branch doesn't apply itself.
-        // Non-empty branches may already have been applied by set_base_branch.
-        let editor = but_rebase::graph_rebase::Editor::create(&mut ws, meta, &repo, &mut db)?;
-        let outcome = but_workspace::branch::apply_stack(editor, head.as_ref(), None)?;
-        outcome.rebase.materialize(Default::default())?;
-        if let Some(tracking) = outcome.tracking {
-            tracking.write(&repo)?;
-        }
-        Ok(())
-    }
-
     /// Create `new_ref` in `tx` as a branch of its own: in the workspace beside the other
     /// stacks, at `order` among them. With the target checked out on its own, or no target,
     /// it goes on top of the branch checked out and is checked out, as `git checkout -b` would,
     /// and at the target's commit when that's where `HEAD` is, as the target isn't a stack
-    /// member. When the operation switches to it, it starts at the target's commit. With
-    /// `HEAD` detached and no switch, it's independent, which only the workspace takes.
+    /// member. When the operation switches to it, it starts at the target's commit. Beside
+    /// another branch checked out on its own, it starts where that branch leaves the target,
+    /// and the transaction enters the workspace at the end to hold both. With `HEAD` detached
+    /// and no switch, it's independent, which only the workspace takes.
     pub fn create_unstacked_reference<M: RefMetadata>(
         &self,
         tx: &mut Transaction<'_, '_, M>,
