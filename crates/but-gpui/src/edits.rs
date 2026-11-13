@@ -170,9 +170,19 @@ fn merge_scope(workspace: &Workspace, ref_name: &FullName) -> Option<bool> {
         (0, false) => true,
         _ => return None,
     };
-    let merging: Vec<_> = (stack.branches.get(at..)?.iter())
-        .flat_map(|branch| &branch.commits)
-        .collect();
+    let branches = stack.branches.get(at..)?;
+    // Not past an open pull request, draft or not: it merges there, where its checks and
+    // reviews apply.
+    let open = |branch: &Branch| {
+        (branch.review.as_ref()).is_some_and(|review| match review.state {
+            backend::ReviewState::Open | backend::ReviewState::Draft => true,
+            backend::ReviewState::Merged | backend::ReviewState::Closed => false,
+        })
+    };
+    if branches.iter().any(open) {
+        return None;
+    }
+    let merging: Vec<_> = branches.iter().flat_map(|branch| &branch.commits).collect();
     // Not when all of it is in the target already, as a branch merged there is.
     let new = merging
         .iter()
@@ -1588,6 +1598,64 @@ impl AppView {
             window,
             cx,
             run,
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::merge_scope;
+    use crate::backend::model::build::{branch, full, workspace};
+    use crate::backend::{Branch, Review, ReviewState};
+
+    fn reviewed(name: &str, commits: &[u8], state: ReviewState) -> Branch {
+        Branch {
+            review: Some(Review {
+                state,
+                ..Review::default()
+            }),
+            ..branch(name, commits)
+        }
+    }
+
+    fn scope(stack: Vec<Branch>, name: &str) -> Option<bool> {
+        merge_scope(
+            &workspace(vec![stack], Vec::new()),
+            &full(&format!("refs/heads/{name}")),
+        )
+    }
+
+    #[test]
+    fn merges_locally_only_without_an_open_pull_request() {
+        assert_eq!(scope(vec![branch("a", &[1])], "a"), Some(false));
+        assert_eq!(
+            scope(vec![reviewed("a", &[1], ReviewState::Closed)], "a"),
+            Some(false),
+            "a closed one leaves merging here as the way in"
+        );
+        for state in [ReviewState::Open, ReviewState::Draft] {
+            assert_eq!(
+                scope(vec![reviewed("a", &[1], state)], "a"),
+                None,
+                "{state:?}: it merges through its pull request"
+            );
+        }
+    }
+
+    #[test]
+    fn a_stack_merges_locally_only_when_none_of_it_has_one() {
+        let top = || branch("top", &[2]);
+        assert_eq!(
+            scope(vec![top(), branch("bottom", &[1])], "top"),
+            Some(true)
+        );
+        assert_eq!(
+            scope(
+                vec![top(), reviewed("bottom", &[1], ReviewState::Open)],
+                "top"
+            ),
+            None,
+            "the bottom one goes along, so its pull request counts too"
         );
     }
 }
