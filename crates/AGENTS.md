@@ -15,7 +15,11 @@ vendored, or fixture data unless the task is specifically about that code.
   `but_ctx::Context` workspace helpers and newer `but-*` APIs.
 - `but-api` is the API surface for Tauri, CLI, and TUI callers.
   Outer callers should prefer existing `but-api` functions when they fit, but
-  lower-level crates should not depend on `but-api`.
+  lower-level crates should not depend on `but-api`. New workspace mutations
+  are `but_transaction::Transaction` methods: callers that group several into
+  one undo step compose them with `but_transaction::with_transaction_with_perm`,
+  and `but-api` wraps one only when a JSON client or a single-action caller
+  needs it.
 - Preserve existing `but-api` macro, transport, serialization, and conversion
   patterns instead of hand-rolling parallel wrappers.
 - Keep transport DTOs at the API boundary, commonly in a local `json` module,
