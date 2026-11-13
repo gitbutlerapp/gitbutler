@@ -2436,7 +2436,7 @@ impl Navigator {
                     el.child(div().text_size(dp(11.)).text_color(theme.text_2).child("…"))
                 })
                 .into_any_element(),
-            Some(Row::NewBranch(_)) => self.new_branch_zone(ix, theme, cx),
+            Some(Row::NewBranch(_)) => self.new_branch_zone(ix, theme),
             Some(Row::Ghost(item)) => {
                 // Copies of commits moving together are outlined as one.
                 let ghost = |ix: usize| matches!(self.rows.get(ix), Some(Row::Ghost(_)));
@@ -2841,8 +2841,11 @@ impl Navigator {
             Some(outline) => {
                 let blink = self.blinking(Blink::Move);
                 let hue = moving::mark_of(store, item.project());
+                // Around the stack a dragged branch goes in, it says it makes one or joins it.
+                let label = (moving::stack_label(store, item))
+                    .map(|label| moving::outline_label(label, self.row, hue, theme));
                 let outline = moving::squash_outline(outline.edges(slid), blink, hue, theme);
-                let outline = self.over_rows(outline, 2);
+                let outline = self.over_rows(outline.children(label), 2);
                 div().relative().child(el).child(outline).into_any_element()
             }
             None => el,

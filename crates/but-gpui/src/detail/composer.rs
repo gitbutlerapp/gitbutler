@@ -737,7 +737,7 @@ impl Detail {
         let Some(moving) = self.committing(cx) else {
             return false;
         };
-        let at = Stop::NewStack { first: false };
+        let at = Stop::NewStack { before: None };
         let placed = Move {
             at: at.clone(),
             ..moving
@@ -1174,9 +1174,9 @@ impl Detail {
         let to = match &committing {
             Some(moving) => match moving.commit_to(self.store.read(cx)) {
                 // In a new branch named as typed when it was picked.
-                Some(CommitTo::NewBranchAt { beside, first, .. }) => CommitTo::NewBranchAt {
+                Some(CommitTo::NewBranchAt { beside, before, .. }) => CommitTo::NewBranchAt {
                     beside,
-                    first,
+                    before,
                     name: self.new_branch_name.take(),
                 },
                 Some(to) => to,
@@ -1186,7 +1186,7 @@ impl Detail {
             None => target.clone().map_or(
                 CommitTo::NewBranchAt {
                     beside: None,
-                    first: false,
+                    before: None,
                     name: None,
                 },
                 CommitTo::Branch,

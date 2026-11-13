@@ -150,6 +150,60 @@ fn tear_off_branch_into_the_first_stack() -> anyhow::Result<()> {
 }
 
 #[test]
+fn tear_off_branch_alone_in_its_stack_moves_it_among_the_stacks() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description, mut db) =
+        named_writable_scenario_with_description_and_graph(
+            "ws-ref-ws-commit-single-stack-double-stack",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+                add_stack_with_segments(meta, 2, "C", StackState::InWorkspace, &["B"]);
+            },
+        )?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    // A is a stack of its own already, first of the two: put it after the other.
+    let rebase = but_workspace::branch::tear_off_branch(editor, "refs/heads/A".try_into()?, 1)?;
+
+    rebase.materialize(Default::default())?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+
+    // Nothing is rebased, only the workspace commit's parents swap places.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*   79fe609 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 09d8e52 (A) A
+* | 09bc93e (C) C
+* | c813d8d (B) B
+|/  
+* 85efbe4 (origin/main, main) M
+
+"#]]
+        .raw()
+    );
+
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 85efbe4
+├── ≡📙:C on 85efbe4 {2}
+│   ├── 📙:C
+│   │   └── ·09bc93e (🏘️)
+│   └── 📙:B
+│       └── ·c813d8d (🏘️)
+└── ≡📙:A on 85efbe4 {1}
+    └── 📙:A
+        └── ·09d8e52 (🏘️)
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
 fn tear_off_bottom_most_branch() -> anyhow::Result<()> {
     let (_tmp, graph, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description_and_graph(
