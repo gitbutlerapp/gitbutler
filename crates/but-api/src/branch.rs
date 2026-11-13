@@ -5,13 +5,11 @@ use anyhow::{Context as _, bail};
 use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_core::{
-    DryRun, WORKSPACE_REF_NAME,
+    DryRun,
     branch::unique_canned_refname,
     ref_metadata::{ProjectMeta, UnresolvedLegacyTargetRefError},
     sync::{RepoExclusive, RepoShared},
     ui::TreeChanges,
-    update_head_reference,
-    worktree::{checkout, safe_checkout_from_head},
 };
 use but_ctx::Context;
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
@@ -1225,111 +1223,39 @@ pub fn branch_checkout(
     branch_checkout_with_perm(ctx, branch, guard.write_permission())
 }
 
-pub fn workspace_checkout_with_perm_only(
-    ctx: &mut but_ctx::Context,
-    perm: &mut RepoExclusive,
-) -> anyhow::Result<BranchCheckoutResult> {
-    let workspace_ref: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
-    branch_checkout_with_perm_only(ctx, workspace_ref, perm)
-}
-
 /// See [`branch_checkout()`] for the accepted branch names.
 pub fn branch_checkout_with_perm(
     ctx: &mut but_ctx::Context,
     branch: gix::refs::FullName,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<BranchCheckoutResult> {
-    let snapshot_details = SnapshotDetails::new(OperationKind::SwitchBranch);
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
-        ctx,
-        snapshot_details,
-        perm.read_permission(),
-        but_core::DryRun::No,
-    );
-
-    let result = branch_checkout_with_perm_only(ctx, branch, perm)?;
-
-    if let Some(snapshot) = maybe_oplog_entry {
-        _ = snapshot.commit(ctx, perm);
-    }
-
-    Ok(result)
-}
-
-/// Checks out a branch under caller-held exclusive repository access without
-/// creating an oplog entry.
-///
-/// See [`branch_checkout()`] for the accepted branch names.
-pub fn branch_checkout_with_perm_only(
-    ctx: &mut but_ctx::Context,
-    reference_name: gix::refs::FullName,
-    perm: &mut RepoExclusive,
-) -> anyhow::Result<BranchCheckoutResult> {
-    {
+    let branch = {
         let repo = ctx.repo.get()?;
-        let reference_name = match reference_name.category() {
-            Some(gix::refs::Category::LocalBranch) => reference_name,
+        match branch.category() {
+            Some(gix::refs::Category::LocalBranch) => branch,
             Some(gix::refs::Category::RemoteBranch) => {
-                but_workspace::branch::local_tracking_branch(&repo, reference_name.as_ref())?
+                but_workspace::branch::local_tracking_branch(&repo, branch.as_ref())?
             }
             _ => bail!(
                 "Can only check out local branches under refs/heads or remote-tracking branches under refs/remotes, got '{}'",
-                reference_name.as_bstr()
+                branch.as_bstr()
             ),
-        };
-        let current_head = repo
-            .head_id()
-            .context("Cannot check out a branch while HEAD is unborn")?
-            .detach();
-        let mut reference = repo
-            .find_reference(reference_name.as_ref())
-            .with_context(|| format!("Could not find ref '{}'", reference_name.as_bstr()))?;
-        let target = reference
-            .peel_to_id()
-            .with_context(|| format!("Could not resolve ref '{}'", reference_name.as_bstr()))?
-            .detach();
-        let target_commit = repo.find_commit(target).with_context(|| {
-            format!(
-                "Ref '{}' does not point to a commit",
-                reference_name.as_bstr()
-            )
-        })?;
-
-        safe_checkout_from_head(
-            target,
-            &repo,
-            checkout::Options {
-                skip_head_update: true,
-                ..Default::default()
-            },
-        )
-        .with_context(|| {
-            format!(
-                "Could not safely check out '{}' from {current_head} to {target}",
-                reference_name.as_bstr()
-            )
-        })?;
-        update_head_reference(
-            &repo,
-            gix::refs::Target::Symbolic(reference_name.clone()),
-            false,
-            "checkout",
-            reference_name.as_bstr(),
-            target_commit.parent_ids().count(),
-        )
-        .with_context(|| format!("Could not update HEAD to '{}'", reference_name.as_bstr()))?;
-    }
-
+        }
+    };
+    // Making the local tracking branch writes its configuration, which the repository read before.
     ctx.reload_repo_and_invalidate_workspace(perm)?;
     let mut meta = ctx.meta()?;
-    let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let workspace = WorkspaceState::from_workspace_with_db(
-        &ws,
+    let (_, workspace) = but_transaction::with_transaction_with_perm(
+        ctx,
         &mut meta,
-        &repo,
-        BTreeMap::new(),
-        Vec::new(),
-        &mut db,
+        perm,
+        SnapshotDetails::new(OperationKind::SwitchBranch),
+        &[],
+        DryRun::No,
+        |mut tx| {
+            tx.checkout(branch.as_ref())?;
+            Ok(but_transaction::Commit(()))
+        },
     )?;
     Ok(BranchCheckoutResult { workspace })
 }
