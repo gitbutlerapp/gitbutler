@@ -415,8 +415,8 @@
       },
       "stack": {
         "$type": "dimension",
-        "$value": "{core.space.2xl}",
-        "$description": "Between blocks stacked in a modal or panel: a title, a paragraph, a form, a group of settings.",
+        "$value": "{core.space.lg}",
+        "$description": "Between cards or blocks stacked in a column: the sidebar's cards, one machine or repository after another, the details view's cards, and the blocks of a modal or panel, such as a form and a group of settings. A title over its paragraph is spaced by its type, not by this.",
         "$extensions": {
           "mode": {}
         }
@@ -774,7 +774,7 @@
           "semantic",
           "ramps"
         ],
-        "createdAt": "2026-11-12T23:38:55.288Z"
+        "createdAt": "2026-11-13T11:17:47.713Z"
       }
     }
   }

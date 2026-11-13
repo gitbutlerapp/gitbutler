@@ -37,7 +37,7 @@ body[data-layout="centered"] {
 	flex-direction: column;
 	height: 100%;
 	padding-block: var(--but-space-xl);
-	gap: var(--but-space-lg);
+	gap: var(--but-gap-stack);
 	color: var(--but-foreground);
 	font-family: var(--but-font-family-base);
 
@@ -130,7 +130,7 @@ body[data-layout="centered"] {
 	animation-range: exit-crossing calc(100% - 2 * var(--but-radius-card)) exit-crossing 100%;
 
 	& + & {
-		margin-top: var(--but-space-lg);
+		margin-top: var(--but-gap-stack);
 	}
 }
 
