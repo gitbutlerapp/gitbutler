@@ -52,7 +52,7 @@ pub mod create_tree {
 }
 use create_tree::RejectionReason;
 
-use crate::worktree::worktree_file_to_git_in_buf;
+use crate::worktree::{symlink_target_in_git_form, worktree_file_to_git_in_buf};
 
 #[derive(Debug)]
 pub struct CreateTreeOutcome {
@@ -241,6 +241,12 @@ pub fn apply_worktree_changes<'repo>(
         };
         if change_request.hunk_headers.is_empty() {
             let rela_path = change_request.path.as_bstr();
+            if md.is_symlink() {
+                // Unlike Git, gix keeps the `\` separators that Windows reports in link targets.
+                let id = repo.write_blob(symlink_target_in_git_form(&path)?)?;
+                base_tree_editor.upsert(rela_path, EntryKind::Link, id)?;
+                continue;
+            }
             match pipeline.worktree_file_to_object(rela_path, &index)? {
                 Some((id, kind, _fs_metadata)) => {
                     base_tree_editor.upsert(rela_path, entry_kind(rela_path, kind), id)?;
