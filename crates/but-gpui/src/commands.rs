@@ -15,7 +15,7 @@ use crate::detail::{FoldFile, NextFile, NextHunk, PreviousFile, PreviousHunk, Un
 use crate::edits::{
     AddEmptyCommitAbove, AddEmptyCommitBelow, BranchEdits, CherryPick, CopyChangeId, CopyMessage,
     Discard, NameBranch, NewBranchBelow, NewBranchHere, RenameBranch, RenameTerminal, Reword,
-    RewrapMessage, SquashAll, UnapplyStack, Uncommit, Unstack,
+    RewrapMessage, SquashAll, StackOn, UnapplyStack, Uncommit, Unstack,
 };
 use crate::palette::{CopyMore, GoTo, GoToTerminal};
 use crate::state::Selection;
@@ -217,6 +217,7 @@ commands! {
     crate::edits::TakeRemote => "Replace with the remote's version" risky,
     NewBranchBelow => "New branch below",
     NewBranchHere => "New branch ending here",
+    StackOn => "Stack on",
     Unstack => "Unstack",
     UnapplyStack => "Unapply stack" risky { phrase: unapply_phrase },
     crate::edits::MergeBranch => "Merge into target" risky { phrase: merge_phrase },

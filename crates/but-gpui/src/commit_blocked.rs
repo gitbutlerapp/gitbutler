@@ -97,7 +97,7 @@ fn offers(blocked: &BlockedCommit) -> Vec<Offer> {
                 label: format!("New branch above {}", short_ref(branch)).into(),
                 to: CommitTo::NewBranchAt {
                     beside: Some((branch.clone(), false)),
-                    first: false,
+                    before: None,
                     name: name.clone(),
                 },
                 leave_out: false,
@@ -133,7 +133,7 @@ fn offers(blocked: &BlockedCommit) -> Vec<Offer> {
             label: "Stack and commit to a new branch".into(),
             to: CommitTo::NewBranchAt {
                 beside: Some((stacking.top.clone(), false)),
-                first: false,
+                before: None,
                 name,
             },
             leave_out: false,

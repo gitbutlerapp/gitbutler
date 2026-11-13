@@ -9,7 +9,7 @@ use gpui::{
 };
 
 use crate::backend::{
-    self, Checkout, CommitId, CommitTo, Destination, FullName, Messages, Selected, Workspace,
+    self, Checkout, CommitId, CommitTo, Destination, FullName, Lane, Messages, Selected, Workspace,
     short_ref,
 };
 use crate::state::{
@@ -396,9 +396,10 @@ pub enum Stop {
         beside: FullName,
         below: bool,
     },
-    /// In a new branch in a stack of its own, after the others, or before them with `first`.
+    /// In a new branch in a stack of its own, right before the stack holding `before`, or after
+    /// them all. A branch alone in its stack moves there as it is.
     NewStack {
-        first: bool,
+        before: Option<FullName>,
     },
     Card(CardSlot),
     /// Among the linked worktrees listed with the one moving.
@@ -567,8 +568,8 @@ impl Move {
     }
 
     /// Whether landing moves anything, as it doesn't where it already is: a branch alone in
-    /// its stack is a stack of its own, and a card or a worktree is where it was. A squash lands where it
-    /// squashes anything into anything.
+    /// its stack is a stack of its own where it is, and a card or a worktree is where it was. A
+    /// squash lands where it squashes anything into anything.
     pub fn lands(&self, store: &Store) -> bool {
         match self.op {
             Op::Squash(_) => return self.squashed(store).is_some(),
@@ -576,9 +577,9 @@ impl Move {
             Op::CherryPick => return self.copies(),
             Op::Move => {}
         }
-        if let (Moving::Branch(branch), Stop::NewStack { .. }) = (&self.what, &self.at) {
+        if let (Moving::Branch(branch), Stop::NewStack { before }) = (&self.what, &self.at) {
             let workspace = store.workspace(&self.project);
-            return workspace.is_some_and(|ws| crate::edits::BranchEdits::of(ws, branch).unstack);
+            return workspace.is_some_and(|ws| apart_moves(ws, branch, before.as_ref()));
         }
         match &self.what {
             Moving::Project(order) => {
@@ -595,6 +596,18 @@ impl Move {
         self.drop().is_none_or(|(target, place)| {
             Transfer::resolve(&self.what, &target, place, store).is_some()
         })
+    }
+
+    /// The branch a dragged branch is stacked on, in a stack it isn't in yet: a new one with
+    /// that branch, or the one that branch is in.
+    pub fn stacks_with<'a>(&'a self, store: &Store) -> Option<&'a FullName> {
+        let (Moving::Branch(branch), Stop::NewBranch { beside, .. }) = (&self.what, &self.at)
+        else {
+            return None;
+        };
+        let (lane, _) = store.workspace(&self.project)?.lane_of(Some(beside))?;
+        let joins = !(lane.branches.iter()).any(|b| b.ref_name.as_ref() == Some(branch));
+        (self.dragged(store) && joins).then_some(beside)
     }
 
     /// Whether cherry-picking puts copies where it's at: anywhere commits can be moved to,
@@ -768,14 +781,14 @@ impl Move {
             }
             Stop::NewBranch { beside, below } => takes(beside).then(|| CommitTo::NewBranchAt {
                 beside: Some((beside.clone(), *below)),
-                first: false,
+                before: None,
                 name: None,
             }),
-            Stop::NewStack { first } => match worktree {
+            Stop::NewStack { before } => match worktree {
                 Checkout::Main if workspace.target_branch.is_none() => None,
                 Checkout::Main => Some(CommitTo::NewBranchAt {
                     beside: None,
-                    first: *first,
+                    before: before.clone(),
                     name: None,
                 }),
                 Checkout::Linked(_) => None,
@@ -865,12 +878,28 @@ impl Move {
             Stop::NewBranch { beside, below } => {
                 let side = if *below { "below" } else { "above" };
                 match moves_branch {
-                    true => format!("{side} {}", short_ref(beside)),
+                    true => format!("stacked {side} {}", short_ref(beside)),
                     false => format!("to a new branch {side} {}", short_ref(beside)),
                 }
             }
-            Stop::NewStack { first: false } => "to a new stack".into(),
-            Stop::NewStack { first: true } => "to a new stack at the top".into(),
+            Stop::NewStack { before } => {
+                let alone = match &self.what {
+                    Moving::Branch(branch) => (store.workspace(&self.project))
+                        .and_then(|ws| ws.lane_of(Some(branch)))
+                        .is_some_and(|(lane, _)| lane.branches.len() == 1),
+                    _ => false,
+                };
+                let stack = match (moves_branch, alone) {
+                    (true, true) => "",
+                    (true, false) => "to its own stack ",
+                    (false, _) => "to a new stack ",
+                };
+                match before {
+                    Some(before) => format!("{stack}above {}", short_ref(before)),
+                    None if alone => "to the bottom".into(),
+                    None => stack.trim_end().into(),
+                }
+            }
             Stop::Card(Slot::Before(before)) => format!("above {}", project_name(store, before)),
             Stop::Card(Slot::End) => {
                 let last = match &self.what {
@@ -1463,6 +1492,26 @@ impl From<SharedString> for Chip {
     }
 }
 
+/// Whether `branch` of `workspace` moves at all into a stack of its own right before the stack
+/// holding `before`, or after them all: out of the stack it shares, or alone in one of the
+/// workspace's to anywhere but where it is, right before the next.
+fn apart_moves(workspace: &Workspace, branch: &FullName, before: Option<&FullName>) -> bool {
+    let stacks: Vec<_> = workspace.lanes_in(&Checkout::Main).collect();
+    let holds = |lane: &&Lane, name: &FullName| {
+        (lane.branches.iter()).any(|b| b.ref_name.as_ref() == Some(name))
+    };
+    let alone = (stacks.iter()).position(|lane| holds(lane, branch) && lane.branches.len() == 1);
+    let Some(at) = alone else {
+        return crate::edits::BranchEdits::of(workspace, branch).unstack;
+    };
+    let next = stacks.get(at + 1);
+    let here = match before {
+        Some(before) => before == branch || next.is_some_and(|lane| holds(lane, before)),
+        None => next.is_none(),
+    };
+    workspace.managed && workspace.target_branch.is_some() && !here
+}
+
 /// Start a drag shown as `chip`, letting the store know what's in flight so the
 /// rows can say what a drop would do.
 pub fn drag_preview(
@@ -1542,11 +1591,16 @@ impl Render for DragPreview {
                 (_, Some(transfer)) => transfer.verb(),
                 (Op::Move | Op::Squash(_) | Op::CherryPick, None) => "Move",
             });
-        let hint = match moved {
-            Some((_, lands)) => lands.then_some("Move"),
-            None => held,
+        // A branch dropped on another is stacked on it, which says so, as a move doesn't.
+        let stacks_with = (store.moving.as_ref())
+            .filter(|moving| moving.dragged(store) && moving.lands(store))
+            .and_then(|moving| moving.stacks_with(store));
+        let hint = match (moved, stacks_with) {
+            (Some((_, lands)), _) => lands.then_some("Move".into()),
+            (None, Some(on)) => Some(format!("Stack on {}", short_ref(on)).into()),
+            (None, None) => held.map(SharedString::from),
         };
-        let hint = tile_hint(store).or(hint);
+        let hint = tile_hint(store).map(SharedString::from).or(hint);
         let glyph = |icon| small_icon(icon).text_color(theme.pop).into_any_element();
         let named = |name: SharedString| pill_label(name).into_any_element();
         let (mark, label) = match (moved, &self.chip, &self.payload.what) {
@@ -1567,7 +1621,10 @@ impl Render for DragPreview {
                     .when(label.is_empty(), |el| el.text_color(theme.text_2))
                     .into_any_element(),
             ),
-            (_, Chip::Row(label), Moving::Branch(_)) => (glyph(Icon::Branch), named(label.clone())),
+            (_, Chip::Row(label), Moving::Branch(_)) => match stacks_with {
+                Some(_) => (glyph(Icon::Stack), named(label.clone())),
+                None => (glyph(Icon::Branch), named(label.clone())),
+            },
             (_, Chip::Row(label), Moving::Files(changes)) => match &*changes.files {
                 // All of a file goes by its name, as its folder says little while dragging.
                 [file] => (
@@ -1669,7 +1726,7 @@ impl Render for PagePreview {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx);
         let mark = small_icon(self.kind).text_color(theme.pop);
-        let hint = tile_hint(self.store.read(cx));
+        let hint = tile_hint(self.store.read(cx)).map(SharedString::from);
         let label = pill_label(self.label.clone());
         drag_pill(self.offset, mark, label, hint, 1, theme)
     }
@@ -1713,7 +1770,7 @@ impl Render for ProjectPreview {
         let theme = Theme::get(cx);
         // A project carries no files to count.
         let label = folder_label(self.label.clone(), 0, theme);
-        let hint = tile_hint(self.store.read(cx));
+        let hint = tile_hint(self.store.read(cx)).map(SharedString::from);
         drag_pill(self.offset, folder_icon(), label, hint, 1, theme)
     }
 }
@@ -1769,7 +1826,14 @@ impl Render for TerminalPreview {
         let mark = small_icon(Icon::TextCode).text_color(theme.pop);
         let label = pill_label(SharedString::from(terminal_title(store, self.id)));
         let hint = tile_hint(store).or(lands.then_some("Move"));
-        drag_pill(self.offset, mark, label, hint, 1, theme)
+        drag_pill(
+            self.offset,
+            mark,
+            label,
+            hint.map(SharedString::from),
+            1,
+            theme,
+        )
     }
 }
 
@@ -1782,7 +1846,7 @@ pub fn drag_pill(
     offset: Point<Pixels>,
     mark: impl IntoElement,
     label: impl IntoElement,
-    hint: Option<&'static str>,
+    hint: Option<SharedString>,
     carried: usize,
     theme: &Theme,
 ) -> Div {
@@ -1885,6 +1949,53 @@ mod tests {
     }
 
     #[test]
+    fn a_branch_apart_moves_out_of_its_stack_or_alone_to_another_place() {
+        use crate::backend::model::build::{branch, full, workspace};
+        let ws = Workspace {
+            managed: true,
+            target_branch: Some(full("refs/heads/main")),
+            ..workspace(
+                vec![
+                    vec![branch("ui", &[3]), branch("api", &[2])],
+                    vec![branch("typo", &[4])],
+                    vec![branch("docs", &[5])],
+                ],
+                vec![],
+            )
+        };
+        let name = |name: &str| full(&format!("refs/heads/{name}"));
+        let moves = |branch: &str, before: Option<&str>| {
+            apart_moves(&ws, &name(branch), before.map(name).as_ref())
+        };
+        assert!(
+            moves("api", Some("typo")),
+            "out of the stack it shares, right where its own was too"
+        );
+        assert!(
+            !moves("typo", Some("docs")),
+            "right before the next is where it is"
+        );
+        assert!(
+            !moves("typo", Some("typo")),
+            "and so is right before itself"
+        );
+        assert!(!moves("docs", None), "and after them all for the last");
+        assert!(
+            moves("typo", Some("ui")),
+            "before the stack above, it moves up"
+        );
+        assert!(moves("typo", None), "after them all, down");
+        let unmanaged = Workspace {
+            managed: false,
+            ..ws.clone()
+        };
+        assert!(
+            !apart_moves(&unmanaged, &name("typo"), None),
+            "checked out on its own, it has no other stacks to move among"
+        );
+    }
+
+    #[test]
     fn commits_are_already_where_they_go_only_as_that_run() {
         use crate::backend::model::build::{branch, full, id, workspace};
         // ui's commits newest first: 5, 4, 3, 2; then api's, 1.
@@ -1939,7 +2050,7 @@ mod tests {
             "below 3, a copy goes right under it"
         );
         assert!(
-            picking(three(), Stop::NewStack { first: false }).copies(),
+            picking(three(), Stop::NewStack { before: None }).copies(),
             "a new stack takes a copy"
         );
         let outside = || Moving::Copies(Arc::from([(id(9), SharedString::from("fix"))]));
@@ -2008,14 +2119,14 @@ mod tests {
         use crate::backend::model::build::id;
         let project = ProjectId::from("p");
         assert_eq!(
-            squashing_files(Some(id(1)), Stop::NewStack { first: false })
+            squashing_files(Some(id(1)), Stop::NewStack { before: None })
                 .what
                 .home(&project, None),
             Some(Target::Commit(id(1))),
             "a commit's files are listed under it"
         );
         assert_eq!(
-            squashing_files(None, Stop::NewStack { first: false })
+            squashing_files(None, Stop::NewStack { before: None })
                 .what
                 .home(&project, None),
             Some(Target::Uncommitted(Checkout::Main)),
@@ -2067,7 +2178,7 @@ mod tests {
     fn a_commit_being_placed_isnt_amending() {
         let moving = Move {
             op: Op::Commit,
-            ..squashing_files(None, Stop::NewStack { first: false })
+            ..squashing_files(None, Stop::NewStack { before: None })
         };
         assert!(!moving.amending(), "it's a new commit");
         assert_eq!(moving.doing(), "Committing", "and says so");
@@ -2123,7 +2234,7 @@ mod tests {
             "and in a new branch beside one of them"
         );
         assert!(
-            committing(wt(), Stop::NewStack { first: false }).is_none(),
+            committing(wt(), Stop::NewStack { before: None }).is_none(),
             "a worktree's changes make no stack of their own, which the backend refuses"
         );
     }

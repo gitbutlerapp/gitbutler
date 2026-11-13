@@ -8,6 +8,7 @@ use std::time::Instant;
 
 use gpui::{AnyElement, App, Context, Div, Hsla, SharedString, Window, div, prelude::*};
 
+use super::drop::{stack_end, stack_start};
 use super::order::moving_terminal;
 use super::rows::{
     COMMIT_INDENT, Fold, Row, RowKey, Rows, heads, listed_with, lists_changes, span_height,
@@ -165,6 +166,14 @@ impl SquashOutline {
     pub(super) fn of(rows: &[Row], store: &Store, home: bool, row: f32) -> Option<SquashOutline> {
         let squashed = |ix: &usize| matches!(rows.get(*ix), Some(Row::Item(item)) if matches!(mark(store, item), Some(Mark::Taken(_))));
         let (ix, first, last) = (rows.iter().enumerate()).find_map(|(ix, row)| match row {
+            // A branch a branch is stacked with, around all of its stack.
+            Row::Item(item)
+                if lands_on(store, item)
+                    && shown(store, item.project())
+                        .is_some_and(|moving| stacks_with(moving, store, item)) =>
+            {
+                Some((ix, stack_start(rows, ix), stack_end(rows, ix) - 1))
+            }
             Row::Item(item) if lands_on(store, item) => Some((ix, ix, ix)),
             Row::Item(item) if home && store.selection.as_ref() == Some(item) => {
                 let first = (0..ix).rev().take_while(squashed).last().unwrap_or(ix);
@@ -205,14 +214,57 @@ impl SquashOutline {
 }
 
 /// Whether what's moving lands on `item`'s row, which [`squash_outline`] outlines: what a squash
-/// goes into, elsewhere than where it started, or the branch dragged files start a commit in.
+/// goes into, elsewhere than where it started, the branch dragged files start a commit in, or the
+/// branch a dragged branch is stacked beside, from another stack, whose stack it's around.
 pub(super) fn lands_on(store: &Store, item: &Selection) -> bool {
     shown(store, item.project()).is_some_and(|moving| {
         (moving.squashes_into(item)
             || heading_takes(moving, store, item)
-            || starts_commit_in(moving, store, item))
+            || starts_commit_in(moving, store, item)
+            || stacks_with(moving, store, item))
             && moving.shows_landing(store)
     })
+}
+
+/// Whether `item` is the branch a dragged branch is stacked beside, so in a stack with it that
+/// it isn't in yet: a new one, or the one `item`'s in.
+fn stacks_with(moving: &Move, store: &Store, item: &Selection) -> bool {
+    matches!(item, Selection::Branch(project, Some(name))
+        if *project == moving.project && moving.stacks_with(store) == Some(name))
+}
+
+/// What the outline around the stack a dragged branch is dropped into says, drawn with `item`,
+/// the branch it's dropped on: "New stack" for one on its own, else "Join stack".
+pub(super) fn stack_label(store: &Store, item: &Selection) -> Option<&'static str> {
+    let Selection::Branch(project, Some(name)) = item else {
+        return None;
+    };
+    let stacks = lands_on(store, item)
+        && shown(store, project).is_some_and(|moving| stacks_with(moving, store, item));
+    let (lane, _) = store.workspace(project)?.lane_of(Some(name))?;
+    stacks.then_some(match lane.branches.len() {
+        1 => "New stack",
+        _ => "Join stack",
+    })
+}
+
+/// The outline's `label`, at the right of its top row, `row` tall, in `hue`: on the card's
+/// ground, over what that row shows there.
+pub(super) fn outline_label(label: &'static str, row: f32, hue: Hue, theme: &Theme) -> Div {
+    let colour = theme.hue(hue);
+    h_flex()
+        .absolute()
+        .top_0()
+        .right(dp(4.))
+        .h(dp(row - 2.))
+        .px(dp(6.))
+        .gap(dp(4.))
+        .rounded(dp(theme.shape.control))
+        .bg(theme.bg_1)
+        .text_size(dp(12.))
+        .text_color(colour)
+        .child(small_icon(Icon::Stack).text_color(colour))
+        .child(label)
 }
 
 /// Whether `item` is the branch that files dragged onto it start a commit in. Its row is
@@ -363,14 +415,15 @@ impl Rows {
 /// its top, where they show under its row, its commits stepped over and it staying folded.
 /// `open` says whether a heading shows what it holds: the main checkout's stacks show only
 /// while its heading's open, as a new stack goes before and after them, which starts from the
-/// target, so not without one. A linked worktree's lane takes new branches as a stack does,
-/// and so does the stack checked out without the workspace, where a new stack sets the
-/// workspace up.
+/// target, so not without one, and with `between`, as a branch goes, between every two of
+/// them too. A linked worktree's lane takes new branches as a stack does, and so does the stack
+/// checked out without the workspace, where a new stack sets the workspace up.
 pub(super) fn stops<'a>(
     rows: impl IntoIterator<Item = &'a Row>,
     project: &ProjectId,
     commits: &[CommitId],
     copied: bool,
+    between: bool,
     workspace: &Workspace,
     open: impl Fn(&Selection) -> bool,
 ) -> (Vec<Stop>, usize) {
@@ -389,16 +442,22 @@ pub(super) fn stops<'a>(
     let mut bottom = None;
     // The commits listed now are in a branch they can land in.
     let mut in_branch = false;
-    // The main checkout's stacks are listed now, which a new stack goes after, and before
-    // the first of them, until that's listed.
-    let (mut in_main, mut before_first) = (false, false);
+    // The main checkout's stacks are listed now, which a new stack goes after, and before the
+    // next of them, until that's listed: the first, and with `between` any other.
+    let (mut in_main, mut stack_next, mut first) = (false, false, false);
     let mut rows = rows.into_iter().peekable();
     while let Some(row) = rows.next() {
-        if before_first
-            && matches!(row, Row::Item(Selection::Branch(p, _) | Selection::Stack(p, _)) if p == project)
+        if stack_next
+            && let Row::Item(Selection::Branch(p, name) | Selection::Stack(p, name)) = row
+            && p == project
         {
-            before_first = false;
-            stops.push(Stop::NewStack { first: true });
+            stack_next = false;
+            if let Some(name) = name.as_ref().filter(|_| first || between) {
+                stops.push(Stop::NewStack {
+                    before: Some(name.clone()),
+                });
+            }
+            first = false;
         }
         match row {
             // The main checkout's heading, or the project's row standing in for it.
@@ -409,7 +468,7 @@ pub(super) fn stops<'a>(
                 end_stack(&mut stops, &mut bottom);
                 in_branch = false;
                 in_main = open(heading);
-                before_first = in_main && new_stacks;
+                (stack_next, first) = (in_main && new_stacks, true);
             }
             // Not an unnamed branch, which has no ref to land on, nor the default branch,
             // which work stays off.
@@ -457,23 +516,29 @@ pub(super) fn stops<'a>(
             | Row::Pending(..)
             | Row::Ghost(..)
             | Row::GhostBranch(..)
-            | Row::NewCommit(_)
-            | Row::Between(_) => {}
+            | Row::NewCommit(_) => {}
+            // The next stack starts: what's listed above it ends.
+            Row::Between(p) if p == project => {
+                end_stack(&mut stops, &mut bottom);
+                in_branch = false;
+                stack_next = in_main && new_stacks;
+            }
+            Row::Between(_) => {}
             // A checkout's terminals, listed above its branches.
             Row::Item(Selection::Terminal(..)) => {}
             _ => {
                 end_stack(&mut stops, &mut bottom);
                 in_branch = false;
-                before_first = false;
+                stack_next = false;
                 if std::mem::take(&mut in_main) && new_stacks {
-                    stops.push(Stop::NewStack { first: false });
+                    stops.push(Stop::NewStack { before: None });
                 }
             }
         }
     }
     end_stack(&mut stops, &mut bottom);
     if in_main && new_stacks {
-        stops.push(Stop::NewStack { first: false });
+        stops.push(Stop::NewStack { before: None });
     }
     (stops, start.unwrap_or_default())
 }
@@ -726,7 +791,16 @@ impl Navigator {
                     | Moving::Files(_)
                     | Moving::Copies(_) => &[],
                 };
-                let all = stops(self.shown_rows(), project, commits, false, workspace, open);
+                let between = matches!(what, Moving::Branch(_));
+                let all = stops(
+                    self.shown_rows(),
+                    project,
+                    commits,
+                    false,
+                    between,
+                    workspace,
+                    open,
+                );
                 let Moving::Branch(branch) = what else {
                     return Some(all);
                 };
@@ -737,7 +811,15 @@ impl Navigator {
             // nowhere here, start on top of the topmost branch, as a new commit does.
             Op::CherryPick => {
                 let Moving::Commits(commits) = what else {
-                    let (all, _) = stops(self.shown_rows(), project, &[], false, workspace, open);
+                    let (all, _) = stops(
+                        self.shown_rows(),
+                        project,
+                        &[],
+                        false,
+                        false,
+                        workspace,
+                        open,
+                    );
                     let topmost = (all.iter())
                         .position(|stop| matches!(stop, Stop::In(Destination::Branch(_))))
                         .unwrap_or_default();
@@ -748,6 +830,7 @@ impl Navigator {
                     project,
                     commits,
                     true,
+                    false,
                     workspace,
                     open,
                 ))
@@ -759,11 +842,19 @@ impl Navigator {
             // Where commits moved can land. It starts where it's started from
             // ([`Self::start_committing`]), not where anything is.
             Op::Commit => {
-                let (all, _) = stops(self.shown_rows(), project, &[], false, workspace, open);
+                let (all, _) = stops(
+                    self.shown_rows(),
+                    project,
+                    &[],
+                    false,
+                    false,
+                    workspace,
+                    open,
+                );
                 let mut stops: Vec<Stop> = all.into_iter().filter(|stop| lands(stop)).collect();
                 // The main checkout's changes can always go in a new branch of their own, after
                 // the rest, even with its heading folded and none of its branches listed.
-                let new_stack = Stop::NewStack { first: false };
+                let new_stack = Stop::NewStack { before: None };
                 if !stops.contains(&new_stack) && lands(&new_stack) {
                     stops.push(new_stack);
                 }
@@ -1513,10 +1604,10 @@ impl Navigator {
                 }
                 Stop::NewBranch { beside, below } => {
                     let beside = Some((beside, below));
-                    store.cherry_pick_to_new_branch(&project, ids, beside, false, lands, cx)
+                    store.cherry_pick_to_new_branch(&project, ids, beside, None, lands, cx)
                 }
-                Stop::NewStack { first } => {
-                    store.cherry_pick_to_new_branch(&project, ids, None, first, lands, cx)
+                Stop::NewStack { before } => {
+                    store.cherry_pick_to_new_branch(&project, ids, None, before, lands, cx)
                 }
                 Stop::Into(_) | Stop::Card(_) | Stop::Worktree(_) | Stop::Terminal { .. } => {}
             });
@@ -1550,14 +1641,14 @@ impl Navigator {
             (Moving::Commits(commits), Stop::NewBranch { beside, below }) => {
                 select(store, &commits, cx);
                 let beside = Some((beside, below));
-                store.move_to_new_branch(&project, commits, beside, false, overlay, cx)
+                store.move_to_new_branch(&project, commits, beside, None, overlay, cx)
             }
-            (Moving::Commits(commits), Stop::NewStack { first }) => {
+            (Moving::Commits(commits), Stop::NewStack { before }) => {
                 select(store, &commits, cx);
-                store.move_to_new_branch(&project, commits, None, first, overlay, cx)
+                store.move_to_new_branch(&project, commits, None, before, overlay, cx)
             }
-            (Moving::Branch(branch), Stop::NewStack { first }) => {
-                store.unstack(&project, branch, first, lands, cx)
+            (Moving::Branch(branch), Stop::NewStack { before }) => {
+                store.unstack(&project, branch, before, lands, cx)
             }
             // Those land as drops do, cards in their order, and squashes, above.
             (
@@ -2018,8 +2109,10 @@ mod tests {
                     Stop::In(Destination::Branch(name)) => format!("top of {}", short(name)),
                     Stop::In(Destination::BelowCommit(c)) => format!("below {}", commit(c)),
                     Stop::In(Destination::AboveCommit(c)) => format!("above {}", commit(c)),
-                    Stop::NewStack { first: false } => "new stack".into(),
-                    Stop::NewStack { first: true } => "new stack first".into(),
+                    Stop::NewStack { before: None } => "new stack".into(),
+                    Stop::NewStack {
+                        before: Some(before),
+                    } => format!("new stack before {}", short(before)),
                     Stop::Card(Slot::Before(project)) => format!("before {project}"),
                     Stop::Worktree(Slot::Before(name)) => format!("before worktree {name}"),
                     Stop::Worktree(Slot::End) => "last worktree".into(),
@@ -2097,7 +2190,7 @@ mod tests {
     fn a_commit_stops_between_every_branch_and_commit_but_in_what_is_folded() {
         let project = ProjectId::from("p");
         let (ws, rows) = listed(&project);
-        let (stops, start) = stops(&rows, &project, &[id(2)], false, &ws, open);
+        let (stops, start) = stops(&rows, &project, &[id(2)], false, false, &ws, open);
         // A new stack before the main checkout's stacks, a new branch above every branch of a
         // stack and below its last, each branch's top and the place below each of its commits
         // but the one moving, which starts below 3 at the top of api; then a new stack once the
@@ -2106,7 +2199,7 @@ mod tests {
         snapbox::assert_data_eq!(
             describe(&stops, start),
             snapbox::str![[r#"
-new stack first
+new stack before api
 new branch above ui
 top of ui
 below 3
@@ -2131,13 +2224,13 @@ new branch below agent
     fn a_cherry_pick_stops_right_above_and_right_below_the_commit() {
         let project = ProjectId::from("p");
         let (ws, rows) = listed(&project);
-        let (stops, start) = stops(&rows, &project, &[id(2)], true, &ws, open);
+        let (stops, start) = stops(&rows, &project, &[id(2)], true, false, &ws, open);
         // As a move's, but the copy also goes below 2, and starts right above it, at the top
         // of api, as the original stays.
         snapbox::assert_data_eq!(
             describe(&stops, start),
             snapbox::str![[r#"
-new stack first
+new stack before api
 new branch above ui
 top of ui
 below 3
@@ -2164,7 +2257,15 @@ new branch below agent
         let project = ProjectId::from("p");
         let (ws, rows) = listed(&project);
         let shut = |_: &Selection| false;
-        let (folded, _) = stops(rows.iter().take(2), &project, &[id(2)], false, &ws, shut);
+        let (folded, _) = stops(
+            rows.iter().take(2),
+            &project,
+            &[id(2)],
+            false,
+            false,
+            &ws,
+            shut,
+        );
         assert!(
             folded.is_empty(),
             "nothing shows under the folded heading, and no new stack goes after it"
@@ -2174,7 +2275,7 @@ new branch below agent
             target_branch: None,
             ..ws
         };
-        let (stops, start) = stops(&rows, &project, &[id(1)], false, &untargeted, open);
+        let (stops, start) = stops(&rows, &project, &[id(1)], false, false, &untargeted, open);
         // A stack of its own starts from the target, so without one there's no new stack,
         // only new branches beside the others, in every lane.
         snapbox::assert_data_eq!(
@@ -2362,12 +2463,14 @@ into uncommitted on wt
                 Row::Item(Selection::Checkout(..) | Selection::Uncommitted(..))
             )
         });
-        let (stops, _) = stops(&rows, &project, &[id(2)], false, &ws, open);
-        assert_eq!(
-            (stops.first(), stops.last()),
-            (
-                Some(&Stop::NewStack { first: true }),
-                Some(&Stop::NewStack { first: false })
+        let (stops, _) = stops(&rows, &project, &[id(2)], false, false, &ws, open);
+        assert!(
+            matches!(
+                (stops.first(), stops.last()),
+                (
+                    Some(Stop::NewStack { before: Some(_) }),
+                    Some(Stop::NewStack { before: None })
+                )
             ),
             "the main checkout's stacks are listed under it, so new ones go around them"
         );
@@ -2388,7 +2491,7 @@ into uncommitted on wt
                 Some(full("refs/heads/agent")),
             )),
         ];
-        let (stops, _) = super::stops(&filtered, &project, &[id(5)], false, &ws, open);
+        let (stops, _) = super::stops(&filtered, &project, &[id(5)], false, false, &ws, open);
         assert!(
             !stops
                 .iter()
@@ -2476,7 +2579,7 @@ into 1
     fn a_branch_stops_only_between_branches_and_where_it_is() {
         let project = ProjectId::from("p");
         let (ws, rows) = listed(&project);
-        let (all, _) = stops(&rows, &project, &[], false, &ws, open);
+        let (all, _) = stops(&rows, &project, &[], false, true, &ws, open);
         let api = full("refs/heads/api");
         // Below itself it doesn't move, and a branch keeps to its own side, out of wt.
         let lands = |stop: &Stop| match stop {
@@ -2493,14 +2596,15 @@ into 1
             | Stop::Into(_) => true,
         };
         let (stops, start) = branch_stops(all, &api, lands).unwrap();
-        // The places between branches it lands at, where a new branch would go, and where it
-        // is, the place right above it.
+        // The places between branches it lands at, where a new branch would go, a stack of its
+        // own before each stack and after them, and where it is, the place right above it.
         snapbox::assert_data_eq!(
             describe(&stops, start),
             snapbox::str![[r#"
-new stack first
+new stack before api
 new branch above ui
 new branch above api <
+new stack before typo
 new branch above typo
 new branch below typo
 new stack
@@ -2528,7 +2632,7 @@ new stack
             Row::Item(Selection::Branch(p(), named("low"))),
             Row::Item(Selection::Commit(p(), id(1))),
         ];
-        let (all, _) = stops(&rows, &project, &[], false, &ws, open);
+        let (all, _) = stops(&rows, &project, &[], false, true, &ws, open);
         // It's already right above low.
         let above_low = Stop::NewBranch {
             beside: full("refs/heads/low"),
@@ -2542,7 +2646,7 @@ new stack
         snapbox::assert_data_eq!(
             describe(&stops, start),
             snapbox::str![[r#"
-new stack first
+new stack before top
 new branch above top <
 new branch below low
 new stack
@@ -2611,7 +2715,7 @@ last on p/empty
     /// Commit 2 of `listed`'s being moved as `op`, with the stops a move of it has.
     fn moving_commit(project: &ProjectId, op: Op) -> (Move, Vec<Stop>, usize) {
         let (ws, rows) = listed(project);
-        let (stops, start) = stops(&rows, project, &[id(2)], false, &ws, open);
+        let (stops, start) = stops(&rows, project, &[id(2)], false, false, &ws, open);
         let moving = Move {
             project: project.clone(),
             what: Moving::Commits(Arc::from([id(2)])),
@@ -2676,7 +2780,7 @@ last on p/empty
     fn a_click_on_a_folded_branch_puts_a_branch_above_it() {
         let project = ProjectId::from("p");
         let (ws, rows) = listed(&project);
-        let (all, _) = stops(&rows, &project, &[], false, &ws, open);
+        let (all, _) = stops(&rows, &project, &[], false, true, &ws, open);
         let api = full("refs/heads/api");
         let (stops, start) = branch_stops(all, &api, |_| true).unwrap();
         let moving = Move {
@@ -2792,7 +2896,7 @@ last on p/empty
 
     #[test]
     fn a_commit_placed_in_a_new_stack_has_nothing_under_it() {
-        let at = Stop::NewStack { first: false };
+        let at = Stop::NewStack { before: None };
         assert_eq!(
             under_commit_at(&at, &branch_of_three()),
             None,

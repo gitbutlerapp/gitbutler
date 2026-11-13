@@ -13,7 +13,6 @@ use super::{BranchKey, ClickOpened, MERGE_GUIDE, Navigator, STEP, UPSTREAM_GUIDE
 use crate::backend::{
     Branch, Checkout, Commit, CommitId, Destination, FullName, Lane, Workspace, Worktree,
 };
-use crate::edits::BranchEdits;
 use crate::state::{NewAt, NewCommit, ProjectEntry, ProjectId, Section, Selection, Store};
 use crate::terminal::TerminalId;
 use crate::transfer::{self, Dragged, Stop};
@@ -505,7 +504,7 @@ impl Navigator {
             rows.close();
         }
         // Under the workspace it adds to, not past the worktrees.
-        if lands_apart(store.dragging.as_ref(), id, workspace) {
+        if lands_apart(store.dragging.as_ref(), id) {
             rows.push(Row::NewBranch(id.clone()));
         }
         let worktrees = worktrees_listed(store, id, workspace);
@@ -559,17 +558,23 @@ impl Navigator {
         // Whether a branch is checked out on its own or several share the workspace,
         // they're listed alike, a mark between each stack and the next; with none, as on
         // the default branch, there's nothing to list, and the next commit starts one.
-        // Commits being moved to a new stack show where it goes, first or last.
-        if let Some(moving) = landing_at(store, id, |at| *at == Stop::NewStack { first: true }) {
-            rows.push_ghosts(moving, true);
-        }
+        // What's being moved to a new stack shows where it goes, before a stack or last.
         for (ix, stack) in stacks.enumerate() {
             if ix > 0 {
                 rows.push(Row::Between(id.clone()));
             }
+            let before = |at: &Stop| match at {
+                Stop::NewStack {
+                    before: Some(before),
+                } => (stack.branches.iter()).any(|b| b.ref_name.as_ref() == Some(before)),
+                _ => false,
+            };
+            if let Some(moving) = landing_at(store, id, before) {
+                rows.push_ghosts(moving, true);
+            }
             self.lane_rows(store, id, &stack.branches, rows);
         }
-        if let Some(moving) = landing_at(store, id, |at| *at == Stop::NewStack { first: false }) {
+        if let Some(moving) = landing_at(store, id, |at| *at == Stop::NewStack { before: None }) {
             rows.push_ghosts(moving, true);
         }
     }
@@ -1190,17 +1195,17 @@ pub(super) fn within<'a>(
     })
 }
 
-/// Whether what's `dragging` can land apart from the rest of `project`'s `workspace`:
-/// commits in a new branch, and a branch that shares its stack in one of its own. Outside the
-/// workspace, landing there sets it up, as `but move` does.
-fn lands_apart(dragging: Option<&Dragged>, project: &ProjectId, workspace: &Workspace) -> bool {
+/// Whether what's `dragging` lands in the zone under `project`'s stacks: commits, in a new
+/// branch of their own. Outside the workspace, landing there sets it up, as `but move` does. A
+/// branch goes between the stacks instead, where it would be one of its own.
+fn lands_apart(dragging: Option<&Dragged>, project: &ProjectId) -> bool {
     let Some(dragged) = dragging.filter(|dragged| dragged.project == *project) else {
         return false;
     };
     match &dragged.what {
         transfer::Moving::Commits(_) => true,
-        transfer::Moving::Branch(branch) => BranchEdits::of(workspace, branch).unstack,
-        transfer::Moving::Project(_)
+        transfer::Moving::Branch(_)
+        | transfer::Moving::Project(_)
         | transfer::Moving::Worktree { .. }
         | transfer::Moving::Terminal { .. }
         | transfer::Moving::Files(_)
@@ -1301,72 +1306,32 @@ mod within_tests {
 #[cfg(test)]
 mod lands_apart_tests {
     use super::lands_apart;
-    use crate::backend::Workspace;
-    use crate::backend::model::build::{branch, full, id, workspace, worktree};
+    use crate::backend::model::build::{full, id};
     use crate::state::ProjectId;
     use crate::transfer::{Dragged, Moving};
 
     #[test]
-    fn a_stacked_branch_lands_apart_and_a_lone_one_does_not() {
+    fn commits_land_in_the_zone_and_a_branch_between_the_stacks() {
         let project = ProjectId::from("p");
-        // Outside the workspace, with a target to set it up on.
-        let ws = Workspace {
-            target_branch: Some(full("refs/heads/main")),
-            ..workspace(
-                vec![
-                    vec![branch("ui", &[3]), branch("api", &[2, 1])],
-                    vec![branch("typo", &[4])],
-                ],
-                vec![worktree(
-                    "wt",
-                    None,
-                    vec![branch("top", &[6]), branch("low", &[5])],
-                )],
-            )
-        };
-        let dragged = |name: &str| Dragged {
-            project: project.clone(),
-            what: Moving::Branch(full(&format!("refs/heads/{name}"))),
-        };
-        assert!(
-            lands_apart(Some(&dragged("ui")), &project, &ws),
-            "the top of a stack can leave it"
-        );
-        assert!(
-            lands_apart(Some(&dragged("api")), &project, &ws),
-            "and so can the bottom, the one above then resting on the base"
-        );
-        assert!(
-            !lands_apart(Some(&dragged("typo")), &project, &ws),
-            "a branch alone in its stack is apart already"
-        );
-        assert!(
-            !lands_apart(Some(&dragged("top")), &project, &ws),
-            "a linked worktree's lane can't come apart"
-        );
-        assert!(
-            !lands_apart(Some(&dragged("ui")), &ProjectId::from("other"), &ws),
-            "it lands only in its own project"
-        );
         let commit = Dragged {
             project: project.clone(),
             what: Moving::Commits([id(3)].into()),
         };
         assert!(
-            lands_apart(Some(&commit), &project, &ws),
-            "commits go in a branch of their own outside the workspace too, which sets it up"
+            lands_apart(Some(&commit), &project),
+            "commits go in a branch of their own there"
         );
-        let untargeted = Workspace {
-            target_branch: None,
-            ..ws
+        assert!(
+            !lands_apart(Some(&commit), &ProjectId::from("other")),
+            "they land only in their own project"
+        );
+        let branch = Dragged {
+            project: project.clone(),
+            what: Moving::Branch(full("refs/heads/ui")),
         };
         assert!(
-            !lands_apart(Some(&dragged("ui")), &project, &untargeted),
-            "without a target a branch can't be torn off, as a stack of its own starts from it"
-        );
-        assert!(
-            lands_apart(Some(&commit), &project, &untargeted),
-            "but commits still go in a new branch, on top of the one checked out"
+            !lands_apart(Some(&branch), &project),
+            "a branch is a stack of its own between the others, where it lands"
         );
     }
 }

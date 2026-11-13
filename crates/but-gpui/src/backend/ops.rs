@@ -361,11 +361,11 @@ pub enum CommitTo {
     BelowCommit { commit: CommitId, branch: FullName },
     /// A new one named `name`, or with a made-up name, made in the commit's own oplog entry, so
     /// one undo takes back both, and placed as [`MoveToNewBranch`] places one: `beside` a branch
-    /// in its stack, below it with the flag, or with `None` in a stack of its own, before the
-    /// others with `first`.
+    /// in its stack, below it with the flag, or with `None` in a stack of its own, right before
+    /// the stack holding `before`, or after them all.
     NewBranchAt {
         beside: Option<(FullName, bool)>,
-        first: bool,
+        before: Option<FullName>,
         name: Option<String>,
     },
 }
@@ -835,7 +835,7 @@ fn commit_locked(
     restack: Option<Stacking>,
 ) -> Result<(FullName, Made, Rejected)> {
     let unborn = ctx.repo.get()?.head()?.is_unborn();
-    // A new branch, beside one or with `None` of its own, and with `true` first.
+    // A new branch, beside one or with `None` of its own, before the stack holding `before`.
     let (branch, new_at, below) = match to {
         CommitTo::Branch(branch) if unborn => {
             return commit_first(ctx, branch, specs, message, leave_out);
@@ -844,7 +844,7 @@ fn commit_locked(
         CommitTo::BelowCommit { commit, branch } => (branch, None, Some(commit)),
         CommitTo::NewBranchAt {
             beside,
-            first,
+            before,
             name,
         } => {
             refuse_unborn(ctx)?;
@@ -852,7 +852,7 @@ fn commit_locked(
                 Some(name) => branch_ref(&name)?,
                 None => but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?,
             };
-            (name, Some((beside, first)), None)
+            (name, Some((beside, before)), None)
         }
     };
     let linked = (worktree.map(|name| super::checkout(ctx, Some(name)))).transpose()?;
@@ -875,9 +875,10 @@ fn commit_locked(
     let at = (&branch, below);
     let outcome = match new_at {
         // A branch made for it runs as `but commit` makes one.
-        Some((beside, first)) => {
+        Some((beside, before)) => {
             let sbm = SingleBranchMode::new(ctx, perm.read_permission(), false)?;
             let independent = beside.is_none();
+            let order = stack_order(ctx, before.as_ref(), None)?;
             sbm.transaction_with_workspace_setup(
                 ctx,
                 &mut meta,
@@ -896,11 +897,7 @@ fn commit_locked(
                         )?,
                         // A stack's place is its tip's among the workspace commit's
                         // parents.
-                        None => sbm.create_unstacked_reference(
-                            &mut tx,
-                            branch.as_ref(),
-                            first.then_some(0),
-                        )?,
+                        None => sbm.create_unstacked_reference(&mut tx, branch.as_ref(), order)?,
                     }
                     commit_in(&mut tx, at, specs, message, source, leave_out)
                 },
@@ -1150,27 +1147,26 @@ impl Intent for MoveBranchBelow {
     }
 }
 
-/// Take `branch` out of its stack into a stack of its own, after the others, or with `first`
-/// before them.
+/// Take `branch` out of its stack into a stack of its own, right before the stack holding
+/// `before`, or after them all. A branch alone in its stack already only moves among them.
 pub struct TearOffBranch {
     pub branch: FullName,
-    pub first: bool,
+    pub before: Option<FullName>,
 }
 
 impl Intent for TearOffBranch {
     type Done = Vec<(Option<FullName>, usize)>;
 
     fn apply(self, run: &mut Run) -> Result<Self::Done> {
-        let first = self.first;
-        move_branch(run, &self.branch, BranchTo::Apart { first })
+        move_branch(run, &self.branch, BranchTo::Apart(self.before))
     }
 }
 
 enum BranchTo {
     /// To that side of a branch or commit.
     Beside(RelativeTo, InsertSide),
-    /// Into a stack of its own, after the others, or with `first` before them.
-    Apart { first: bool },
+    /// Into a stack of its own, right before the stack holding this branch, or after them all.
+    Apart(Option<FullName>),
 }
 
 /// Move `branch` where `to` says, saying which branches it left with conflicted commits they
@@ -1182,13 +1178,17 @@ fn move_branch(
 ) -> Result<Vec<(Option<FullName>, usize)>> {
     let kind = match to {
         BranchTo::Beside(..) => OperationKind::MoveBranch,
-        BranchTo::Apart { .. } => OperationKind::TearOffBranch,
+        BranchTo::Apart(_) => OperationKind::TearOffBranch,
     };
     // Out of a stack, it's a branch of its own, which a branch checked out on its own only has
     // beside it in GitButler's workspace, as `but move` sets it up.
-    let independent = matches!(to, BranchTo::Apart { .. });
+    let independent = matches!(to, BranchTo::Apart(_));
     run.locked(|ctx, perm| {
-        let before = but_api::legacy::workspace::head_info(ctx)?;
+        let was = but_api::legacy::workspace::head_info(ctx)?;
+        let order = match &to {
+            BranchTo::Apart(before) => stack_order(ctx, before.as_ref(), Some(branch))?,
+            BranchTo::Beside(..) => None,
+        };
         let sbm = SingleBranchMode::new(ctx, perm.read_permission(), false)?;
         let mut meta = ctx.meta()?;
         let moved = sbm.transaction_with_workspace_setup(
@@ -1202,17 +1202,39 @@ fn move_branch(
                 BranchTo::Beside(relative_to, side) => {
                     tx.move_branch(branch.as_ref(), relative_to, side)
                 }
-                // A stack's place is its tip's among the workspace commit's parents.
-                BranchTo::Apart { first } => {
-                    tx.tear_off_branch(branch.as_ref(), first.then_some(0))
-                }
+                BranchTo::Apart(_) => tx.tear_off_branch(branch.as_ref(), order),
             },
         )?;
         Ok(super::upstream::newly_conflicted(
-            &before,
+            &was,
             &moved.conflicted_commits,
         ))
     })
+}
+
+/// Where a new stack goes among the workspace's to be right before the one holding `before`, or
+/// with `None` after them all: its tip's place among the workspace commit's parents. `moving`, a
+/// branch alone in its stack, leaves its own place, which doesn't count, and it's given the place
+/// after them all, as `None` would leave it where it is. Checked out on its own, a branch is the
+/// workspace's one stack, as it will be once the workspace is set up around it.
+fn stack_order(
+    ctx: &but_ctx::Context,
+    before: Option<&FullName>,
+    moving: Option<&FullName>,
+) -> Result<Option<usize>> {
+    if before.is_none() && moving.is_none() {
+        return Ok(None);
+    }
+    let info = but_api::legacy::workspace::head_info(ctx)?;
+    let alone = |segments: &[but_workspace::ref_info::Segment]| matches!(segments, [only] if moving.is_some_and(|moving| holds(only, moving)));
+    let mut others = (info.stacks.iter()).filter(|stack| !alone(&stack.segments));
+    let order = match before {
+        Some(before) => others
+            .position(|stack| stack.segments.iter().any(|s| holds(s, before)))
+            .context("That stack isn't in the workspace any more")?,
+        None => others.count(),
+    };
+    Ok(Some(order))
 }
 
 /// Take the stack holding `branch` out of the workspace. Its branches stay in the repository.
@@ -1902,15 +1924,15 @@ impl Intent for SplitOff {
     }
 }
 
-/// Move `commits` into a new branch of their own: beside the other stacks, after them or with
-/// `first` before them, or in the stack of branch `beside`, right above it, or right below it
+/// Move `commits` into a new branch of their own: in a stack of its own, right before the stack
+/// holding `before` or after them all, or in the stack of branch `beside`, right above it, or right below it
 /// with `true`. With `copy`, copies of them go there instead, as [`CherryPick`] puts them, and
 /// they stay where they are.
 /// Done is what moved, and the new branch's full name.
 pub struct MoveToNewBranch {
     pub commits: Arc<[CommitId]>,
     pub beside: Option<(FullName, bool)>,
-    pub first: bool,
+    pub before: Option<FullName>,
     pub copy: bool,
 }
 
@@ -1921,7 +1943,7 @@ impl Intent for MoveToNewBranch {
         let Self {
             commits,
             beside,
-            first,
+            before,
             copy,
         } = self;
         let details = match copy {
@@ -1930,6 +1952,7 @@ impl Intent for MoveToNewBranch {
         };
         run.locked(|ctx, perm| {
             let name = but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?;
+            let order = stack_order(ctx, before.as_ref(), None)?;
             let sbm = SingleBranchMode::new(ctx, perm.read_permission(), false)?;
             let mut meta = ctx.meta()?;
             let workspace = sbm.transaction_with_workspace_setup(
@@ -1947,12 +1970,7 @@ impl Intent for MoveToNewBranch {
                             branch.as_ref(),
                             position(*below),
                         )?,
-                        // A stack's place is its tip's among the workspace commit's parents.
-                        None => sbm.create_unstacked_reference(
-                            &mut tx,
-                            name.as_ref(),
-                            first.then_some(0),
-                        )?,
+                        None => sbm.create_unstacked_reference(&mut tx, name.as_ref(), order)?,
                     }
                     let to = RelativeTo::Reference(name.clone());
                     let ids = commits.iter().map(|commit| commit.0);
@@ -3311,7 +3329,7 @@ pub(super) mod tests {
                 let commit = CommitChanges {
                     to: CommitTo::NewBranchAt {
                         beside: None,
-                        first: false,
+                        before: None,
                         name: None,
                     },
                     ..commit_to_main(vec![Selected::whole(&uncommitted(path)[0])], "Two", false)
@@ -3374,7 +3392,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let commit = CommitChanges {
                 to: CommitTo::NewBranchAt {
                     beside: None,
-                    first: false,
+                    before: None,
                     name: None,
                 },
                 ..commit_to_main(vec![changed], "Two", false)
@@ -3411,7 +3429,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let commit = CommitChanges {
                 to: CommitTo::NewBranchAt {
                     beside: None,
-                    first: false,
+                    before: None,
                     name: None,
                 },
                 checkout: Checkout::Linked("feature".into()),
@@ -3647,7 +3665,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
 
             let unstack = TearOffBranch {
                 branch: full("refs/heads/lower"),
-                first: false,
+                before: None,
             };
             let err = crate::backend::apply(path, unstack).unwrap_err();
             assert!(
@@ -4017,7 +4035,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let moving = MoveToNewBranch {
                 commits: [commit].into(),
                 beside: None,
-                first: false,
+                before: None,
                 copy: false,
             };
             let ((_, name), _) = crate::backend::apply(path, moving).unwrap();
@@ -4100,7 +4118,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
         CommitChanges {
             to: CommitTo::NewBranchAt {
                 beside: None,
-                first: false,
+                before: None,
                 name: Some("apart".into()),
             },
             ..commit_to_main(files, "Apart", false)
@@ -4190,7 +4208,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
         let beta = CommitChanges {
             to: CommitTo::NewBranchAt {
                 beside: None,
-                first: false,
+                before: None,
                 name: Some("beta".into()),
             },
             ..commit_to_main(vec![Selected::whole(&uncommitted(path)[0])], "Beta", false)
@@ -4215,7 +4233,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                 let commit = CommitChanges {
                     to: CommitTo::NewBranchAt {
                         beside: None,
-                        first: false,
+                        before: None,
                         name: Some(name.into()),
                     },
                     ..commit_to_main(vec![Selected::whole(&uncommitted(path)[0])], name, false)
@@ -4232,7 +4250,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let new_stack = CommitChanges {
                 to: CommitTo::NewBranchAt {
                     beside: None,
-                    first: false,
+                    before: None,
                     name: None,
                 },
                 ..all()
@@ -4296,7 +4314,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let commit = CommitChanges {
                 to: CommitTo::NewBranchAt {
                     beside: None,
-                    first: false,
+                    before: None,
                     name: None,
                 },
                 ..commit_to_main(vec![Selected::whole(&uncommitted(path)[0])], "Both", false)
@@ -4362,7 +4380,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let stacked = CommitChanges {
                 to: CommitTo::NewBranchAt {
                     beside: Some((stacking.top.clone(), false)),
-                    first: false,
+                    before: None,
                     name: Some("both".into()),
                 },
                 restack: Some(stacking.clone()),
@@ -4459,7 +4477,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let commit = CommitChanges {
                 to: CommitTo::NewBranchAt {
                     beside: Some((full("refs/heads/feature"), false)),
-                    first: false,
+                    before: None,
                     name: None,
                 },
                 ..commit_to_main(
@@ -4491,7 +4509,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let commit = CommitChanges {
                 to: CommitTo::NewBranchAt {
                     beside: Some((full("refs/heads/feature"), true)),
-                    first: false,
+                    before: None,
                     name: None,
                 },
                 ..commit_to_main(vec![Selected::whole(&uncommitted(path)[0])], "Under", false)
@@ -4519,7 +4537,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let commit = CommitChanges {
                 to: CommitTo::NewBranchAt {
                     beside: None,
-                    first: false,
+                    before: None,
                     name: Some("my feature".into()),
                 },
                 ..commit_to_main(vec![Selected::whole(&uncommitted(path)[0])], "Named", false)
@@ -4543,7 +4561,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let commit = CommitChanges {
                 to: CommitTo::NewBranchAt {
                     beside: None,
-                    first: true,
+                    before: Some("refs/heads/feature".try_into().unwrap()),
                     name: None,
                 },
                 ..commit_to_main(vec![Selected::whole(&uncommitted(path)[0])], "Apart", false)
@@ -4628,7 +4646,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
 
             let to = CommitTo::NewBranchAt {
                 beside: Some((agent.clone(), false)),
-                first: false,
+                before: None,
                 name: None,
             };
             let committed = commit_agents(path, to, "On top");
@@ -4701,7 +4719,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let path = dir.path();
             let to = CommitTo::NewBranchAt {
                 beside: Some((full("refs/heads/agent"), false)),
-                first: false,
+                before: None,
                 name: None,
             };
             let committed = commit_agents(path, to, "On top");
@@ -4732,7 +4750,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let path = dir.path();
             let to = CommitTo::NewBranchAt {
                 beside: Some((full("refs/heads/agent"), true)),
-                first: false,
+                before: None,
                 name: None,
             };
             let committed = commit_agents(path, to, "Under");
@@ -4779,7 +4797,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                 let moving = MoveToNewBranch {
                     commits: [moved].into(),
                     beside: Some((full("refs/heads/feature"), below)),
-                    first: false,
+                    before: None,
                     copy: false,
                 };
                 let ((_, new), _) = crate::backend::apply(path, moving).unwrap();
@@ -4818,7 +4836,7 @@ below true: feature [edit, second], <new> [second]
             let copying = MoveToNewBranch {
                 commits: [second, edit].into(),
                 beside: None,
-                first: false,
+                before: None,
                 copy: true,
             };
             let ((_, new), _) = crate::backend::apply(path, copying).unwrap();
@@ -4863,9 +4881,9 @@ below true: feature [edit, second], <new> [second]
     }
 
     #[test]
-    fn a_move_to_a_new_stack_puts_it_after_the_others_or_first() {
+    fn a_move_to_a_new_stack_puts_it_after_the_others_or_before_one() {
         let mut said = String::new();
-        for first in [false, true] {
+        for before in [None, Some("feature")] {
             but_testsupport::isolated_app_data_dir(|| {
                 let (dir, ..) = workspace_with_an_edit();
                 let path = dir.path();
@@ -4875,7 +4893,7 @@ below true: feature [edit, second], <new> [second]
                 let moving = MoveToNewBranch {
                     commits: [second].into(),
                     beside: None,
-                    first,
+                    before: before.map(|name| format!("refs/heads/{name}").try_into().unwrap()),
                     copy: false,
                 };
                 let ((_, new), _) = crate::backend::apply(path, moving).unwrap();
@@ -4887,15 +4905,15 @@ below true: feature [edit, second], <new> [second]
                         false => short_ref(name).into_owned(),
                     })
                     .collect();
-                said += &format!("first {first}: {}\n", stacks.join(", "));
+                said += &format!("before {before:?}: {}\n", stacks.join(", "));
             });
         }
         // The stacks top first, as the navigator lists them.
         snapbox::assert_data_eq!(
             said,
             snapbox::str![[r#"
-first false: feature, <new>
-first true: <new>, feature
+before None: feature, <new>
+before Some("feature"): <new>, feature
 
 "#]]
         );
@@ -4942,7 +4960,7 @@ first true: <new>, feature
                     let moving = MoveToNewBranch {
                         commits: [moved].into(),
                         beside: Some((full("refs/heads/agent"), below)),
-                        first: false,
+                        before: None,
                         copy: false,
                     };
                     let ((_, new), _) = crate::backend::apply(path, moving).unwrap();
@@ -5717,7 +5735,7 @@ managed true, below true: agent [one], <new> [two], agent checked out
                         let moving = MoveToNewBranch {
                             commits: [head(path)].into(),
                             beside: None,
-                            first: false,
+                            before: None,
                             copy: false,
                         };
                         crate::backend::apply(path, moving).unwrap();
@@ -5726,7 +5744,7 @@ managed true, below true: agent [one], <new> [two], agent checked out
                         let branch = full(&format!("refs/heads/{}", &what[8..]));
                         let unstack = TearOffBranch {
                             branch,
-                            first: false,
+                            before: None,
                         };
                         crate::backend::apply(path, unstack).unwrap();
                     }
@@ -5757,6 +5775,46 @@ move Top to a new stack: <new> [Top] | top [] on lower [Lower] on gitbutler/work
     }
 
     #[test]
+    fn a_branch_alone_in_its_stack_moves_among_the_stacks() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("base\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["checkout", "-q", "-b", "top"]);
+            git(path, &["commit", "-q", "--allow-empty", "-m", "Top"]);
+            crate::backend::apply(path, branch_named("beside")).unwrap();
+            let stacks = || {
+                let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+                (workspace.lanes_in(&Checkout::Main))
+                    .filter_map(|lane| lane.branches.first()?.ref_name.as_ref())
+                    .map(|name| short_ref(name).into_owned())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            };
+            let mut said = format!("made: {}\n", stacks());
+            for before in [Some("top"), None] {
+                let moving = TearOffBranch {
+                    branch: full("refs/heads/beside"),
+                    before: before.map(|name| full(&format!("refs/heads/{name}"))),
+                };
+                crate::backend::apply(path, moving).unwrap();
+                said += &format!("before {before:?}: {}\n", stacks());
+            }
+            // The stacks top first, as the navigator lists them: beside goes up above top, then
+            // back after it, each stack keeping its branch.
+            snapbox::assert_data_eq!(
+                said,
+                snapbox::str![[r#"
+made: top, beside
+before Some("top"): beside, top
+before None: top, beside
+
+"#]]
+            );
+        })
+    }
+
+    #[test]
     fn unstacking_says_which_branches_it_left_conflicted() {
         but_testsupport::isolated_app_data_dir(|| {
             // `top`, stacked on a branch that adds api.txt, with a commit writing `file`.
@@ -5783,7 +5841,7 @@ move Top to a new stack: <new> [Top] | top [] on lower [Lower] on gitbutler/work
                     path,
                     TearOffBranch {
                         branch: top,
-                        first: false,
+                        before: None,
                     },
                 )
                 .unwrap()
@@ -5995,7 +6053,7 @@ third
             let moving = MoveToNewBranch {
                 commits: [edit].into(),
                 beside: None,
-                first: false,
+                before: None,
                 copy: false,
             };
             let ((rewritten, _), _) = crate::backend::apply(path, moving).unwrap();

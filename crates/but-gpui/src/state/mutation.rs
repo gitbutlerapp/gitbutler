@@ -1303,8 +1303,8 @@ impl Store {
         }
     }
 
-    /// Move commits `ids` into a new branch of their own, in a stack of its own, before the
-    /// others with `first`, or `beside` a branch in its stack, as [`backend::MoveToNewBranch`]
+    /// Move commits `ids` into a new branch of their own, in a stack of its own right before the
+    /// stack holding `before` or after them all, or `beside` a branch in its stack, as [`backend::MoveToNewBranch`]
     /// says, showing them as `overlay` does until the reload shows where they went. The selected
     /// one stays selected there, as a move to a branch already there keeps it.
     pub fn move_to_new_branch(
@@ -1312,7 +1312,7 @@ impl Store {
         project: &ProjectId,
         ids: Arc<[CommitId]>,
         beside: Option<(FullName, bool)>,
-        first: bool,
+        before: Option<FullName>,
         overlay: Overlay,
         cx: &mut Context<Self>,
     ) {
@@ -1323,7 +1323,7 @@ impl Store {
             backend::MoveToNewBranch {
                 commits: ids,
                 beside,
-                first,
+                before,
                 copy: false,
             },
             move |store, (rewritten, _), cx| {
@@ -1341,7 +1341,7 @@ impl Store {
         project: &ProjectId,
         ids: Arc<[CommitId]>,
         beside: Option<(FullName, bool)>,
-        first: bool,
+        before: Option<FullName>,
         lands: crate::transfer::Move,
         cx: &mut Context<Self>,
     ) {
@@ -1356,7 +1356,7 @@ impl Store {
             backend::MoveToNewBranch {
                 commits: ids,
                 beside,
-                first,
+                before,
                 copy: true,
             },
             move |store, (rewritten, name), cx| {
@@ -1373,27 +1373,33 @@ impl Store {
         );
     }
 
-    /// Take `branch` out of the stack it shares into a stack of its own, after the others, or
-    /// with `first` before them, landing the move with the keys `lands` if it's that.
+    /// Take `branch` out of the stack it shares into a stack of its own, right before the stack
+    /// holding `before` or after them all, or move it there if it's alone in its stack already,
+    /// landing the move with the keys `lands` if it's that.
     pub fn unstack(
         &mut self,
         project: &ProjectId,
         branch: FullName,
-        first: bool,
+        before: Option<FullName>,
         lands: Option<crate::transfer::Move>,
         cx: &mut Context<Self>,
     ) {
+        let alone = (self.workspace(project))
+            .and_then(|ws| ws.lane_of(Some(&branch)))
+            .is_some_and(|(lane, _)| lane.branches.len() == 1);
+        let (label, done) = match alone {
+            true => ("Move branch", "Branch moved"),
+            false => ("Unstack", "Moved to its own stack"),
+        };
         self.apply(
             project,
-            "Unstack",
+            label,
             Overlay {
                 lands,
                 ..Overlay::default()
             },
-            backend::TearOffBranch { branch, first },
-            |store, conflicted, cx| {
-                store.snack_undoable(branch_moved("Moved to its own stack", &conflicted), cx)
-            },
+            backend::TearOffBranch { branch, before },
+            move |store, conflicted, cx| store.snack_undoable(branch_moved(done, &conflicted), cx),
             cx,
         );
     }

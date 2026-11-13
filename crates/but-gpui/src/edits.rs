@@ -18,6 +18,7 @@ use crate::clipboard;
 use crate::overlays::run_named;
 use crate::state::{Label, Overlay, ProjectId, Rereads, Selection, Store, snack};
 use crate::terminal::TerminalId;
+use crate::transfer::{Moving, Place, Transfer};
 use crate::ui::quoted;
 
 actions!(
@@ -30,6 +31,7 @@ actions!(
         SquashPicked,
         NewBranchBelow,
         NewBranchHere,
+        StackOn,
         Unstack,
         UnapplyStack,
         RewrapMessage,
@@ -202,6 +204,8 @@ pub struct BranchEdits {
     pub stacked: bool,
     /// It shares its stack and can go in one of its own, which starts from the target.
     pub unstack: bool,
+    /// There's a branch of the workspace's it can be stacked on, other than where it is.
+    pub stack_on: bool,
     /// It can merge into the target, and whether with the branches below it.
     pub merge: Option<bool>,
 }
@@ -222,9 +226,26 @@ impl BranchEdits {
             squash_all: commits > 1 && !conflicted,
             stacked,
             unstack: stacked && workspace.target_branch.is_some(),
+            stack_on: !stack_on_targets(workspace, ref_name).is_empty(),
             merge: merge_scope(workspace, ref_name).filter(|_| workspace.target.is_some()),
         }
     }
+}
+
+/// The branches of `workspace`'s stacks that `branch` can be stacked on, right above them, in
+/// the order they're listed: any but itself, the one it's right above already and the target.
+pub fn stack_on_targets(workspace: &Workspace, branch: &FullName) -> Vec<FullName> {
+    let under = (workspace.lane_of(Some(branch)))
+        .and_then(|(lane, at)| lane.branches.get(at + 1)?.ref_name.clone());
+    (workspace.lanes_in(&Checkout::Main))
+        .flat_map(|lane| lane.branches.iter())
+        .filter_map(|b| b.ref_name.clone())
+        .filter(|name| {
+            name != branch
+                && Some(name) != under.as_ref()
+                && Some(name) != workspace.target_branch.as_ref()
+        })
+        .collect()
 }
 
 /// Which edits of a commit have something to do, so its menu and the palette offer the
@@ -289,7 +310,7 @@ impl AppView {
                             let ids = store.with_picks(&project, id);
                             let keys = ids.iter().filter_map(|id| store.key_of(&project, *id));
                             let overlay = Overlay::commits(keys.collect::<Vec<_>>());
-                            store.move_to_new_branch(&project, ids, None, false, overlay, cx)
+                            store.move_to_new_branch(&project, ids, None, None, overlay, cx)
                         });
                     }))
                     .when(picked, |el| el.on_action(cx.listener(Self::squash_picked)))
@@ -348,6 +369,9 @@ impl AppView {
                     })
                     .when(edits.new_below, |el| {
                         el.on_action(cx.listener(Self::new_branch_below))
+                    })
+                    .when(edits.stack_on, |el| {
+                        el.on_action(cx.listener(Self::stack_on))
                     })
                     .when(edits.unstack, |el| el.on_action(cx.listener(Self::unstack)))
                     // Outside the workspace there are no stacks to take out of it.
@@ -1311,12 +1335,48 @@ impl AppView {
         self.new_branch_at(project, false, None, checkout, window, cx, create);
     }
 
+    /// Offer the branches the selected one can be stacked on, to put it right above the one
+    /// picked, as dropping it on that branch does.
+    fn stack_on(&mut self, _: &StackOn, window: &mut Window, cx: &mut Context<Self>) {
+        let Some((project, ref_name)) = self.selected_named_branch(cx) else {
+            return;
+        };
+        let store = self.store.read(cx);
+        let Some(workspace) = store.workspace(&project) else {
+            return;
+        };
+        let what = Moving::Branch(ref_name.clone());
+        let choices = (stack_on_targets(workspace, &ref_name).into_iter())
+            .map(|target| Selection::Branch(project.clone(), Some(target)))
+            .filter(|target| Transfer::resolve(&what, target, Place::Into, store).is_some())
+            .map(|target| {
+                let label = match &target {
+                    Selection::Branch(_, Some(name)) => short_ref(name).into_owned(),
+                    _ => String::new(),
+                };
+                let what = what.clone();
+                crate::palette::Choice::new(label, move |this, window, cx| {
+                    this.land(&what, &target, Place::Into, None, window, cx)
+                })
+            })
+            .collect();
+        let place = store.place(&Selection::Branch(project, Some(ref_name)));
+        self.open_picker(
+            Some(place),
+            "Search branches",
+            "Stack on",
+            choices,
+            window,
+            cx,
+        );
+    }
+
     fn unstack(&mut self, _: &Unstack, _: &mut Window, cx: &mut Context<Self>) {
         let Some((project, ref_name)) = self.selected_named_branch(cx) else {
             return;
         };
         self.store.update(cx, |store, cx| {
-            store.unstack(&project, ref_name, false, None, cx)
+            store.unstack(&project, ref_name, None, None, cx)
         });
     }
 
@@ -1606,7 +1666,7 @@ impl AppView {
 mod tests {
     use super::merge_scope;
     use crate::backend::model::build::{branch, full, workspace};
-    use crate::backend::{Branch, Review, ReviewState};
+    use crate::backend::{Branch, Review, ReviewState, Workspace, short_ref};
 
     fn reviewed(name: &str, commits: &[u8], state: ReviewState) -> Branch {
         Branch {
@@ -1623,6 +1683,37 @@ mod tests {
             &workspace(vec![stack], Vec::new()),
             &full(&format!("refs/heads/{name}")),
         )
+    }
+
+    #[test]
+    fn a_branch_stacks_on_any_other_but_the_one_it_is_on_and_the_target() {
+        let ws = Workspace {
+            target_branch: Some(full("refs/heads/main")),
+            ..workspace(
+                vec![
+                    vec![branch("ui", &[3]), branch("api", &[2])],
+                    vec![branch("typo", &[4])],
+                ],
+                vec![],
+            )
+        };
+        let names = |branch: &str| -> Vec<String> {
+            super::stack_on_targets(&ws, &full(&format!("refs/heads/{branch}")))
+                .iter()
+                .map(|name| short_ref(name).into_owned())
+                .collect()
+        };
+        assert_eq!(names("ui"), ["typo"], "it's on api already");
+        assert_eq!(
+            names("api"),
+            ["ui", "typo"],
+            "above ui would move it up its own stack"
+        );
+        assert_eq!(
+            names("typo"),
+            ["ui", "api"],
+            "any branch of the other stack"
+        );
     }
 
     #[test]

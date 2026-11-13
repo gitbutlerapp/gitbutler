@@ -18,8 +18,8 @@ use crate::commands::Command;
 use crate::edits::{
     AddEmptyCommitAbove, AddEmptyCommitBelow, CherryPick, CommitEdits, CopyChangeId, CopyMessage,
     MoveToNewBranch, NameBranch, NewBranchBelow, NewBranchHere, PullRemote, RenameBranch,
-    RenameTerminal, Reword, RewrapMessage, SquashAll, SquashIntoSelected, SquashPicked, TakeRemote,
-    UnapplyStack, Uncommit, Unstack,
+    RenameTerminal, Reword, RewrapMessage, SquashAll, SquashIntoSelected, SquashPicked, StackOn,
+    TakeRemote, UnapplyStack, Uncommit, Unstack,
 };
 use crate::overlays::MenuItem;
 use crate::state::{ProjectId, Seeable, Selection, Store};
@@ -416,6 +416,7 @@ impl Navigator {
                     command(&SquashAll),
                     command(&MoveSelection).separated(),
                     command(&SquashSelection),
+                    command(&StackOn),
                     command(&Unstack),
                     command(&crate::edits::MergeBranch),
                     command(&UnapplyStack),

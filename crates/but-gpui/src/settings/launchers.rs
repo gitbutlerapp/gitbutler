@@ -52,7 +52,7 @@ impl Render for LauncherPreview {
         let theme = Theme::get(cx);
         let mark = small_icon(Icon::TextCode).text_color(theme.pop);
         let command = pill_label(self.command.clone()).font_family(theme.mono_font.clone());
-        drag_pill(self.offset, mark, command, Some("Move"), 1, theme)
+        drag_pill(self.offset, mark, command, Some("Move".into()), 1, theme)
     }
 }
 
