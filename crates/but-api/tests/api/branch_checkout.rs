@@ -306,3 +306,25 @@ RefInfo {
 
     Ok(())
 }
+
+#[test]
+fn checking_out_a_branch_from_a_detached_head() -> anyhow::Result<()> {
+    let (repo, tmp) = repo_with_feature_branch()?;
+    crate::support::persist_default_target(&repo)?;
+    git_at_dir(tmp.path()).args(["checkout", "--detach"]).run();
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+
+    let branch = gix::refs::FullName::try_from("refs/heads/feature")?;
+    but_api::branch::branch_checkout(&mut ctx, branch)?;
+
+    let repo = ctx.repo.get()?;
+    let head_name = repo.head_name()?.expect("HEAD is symbolic after checkout");
+    assert_eq!(head_name, "refs/heads/feature");
+    let recorded: Vec<_> = but_api::legacy::oplog::list_snapshots(&ctx, 10, None, None, None)?
+        .into_iter()
+        .filter_map(|snapshot| snapshot.details.map(|details| details.operation))
+        .collect();
+    assert_eq!(recorded, [but_oplog::legacy::OperationKind::SwitchBranch]);
+
+    Ok(())
+}
