@@ -1494,6 +1494,37 @@ fn remove_references() {
     assert_num_snapshots(&ctx, 1);
 }
 
+#[test]
+fn a_new_stack_checked_out_in_the_same_transaction_doesnt_enter_the_workspace() {
+    let (env, mut ctx) = single_branch_beside_target();
+    let mut meta = ctx.meta().unwrap();
+    let new_branch = FullName::try_from("refs/heads/new").unwrap();
+
+    with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::CreateBranch),
+        DryRun::No,
+        |mut tx| {
+            tx.create_unstacked_reference(new_branch.as_ref(), None)?;
+            tx.checkout(new_branch.as_ref())?;
+            Ok(())
+        },
+    )
+    .unwrap();
+
+    assert_eq!(
+        head_name(&ctx),
+        Some(new_branch),
+        "the new branch is checked out"
+    );
+    assert_eq!(
+        ref_target(&env, "refs/heads/gitbutler/workspace".try_into().unwrap()),
+        None,
+        "a branch checked out on its own needs no workspace"
+    );
+}
+
 fn single_branch_beside_target() -> (Sandbox, Context) {
     let env = Sandbox::open_scenario_with_target_and_default_settings("one-stack");
     env.invoke_git("checkout branch");
