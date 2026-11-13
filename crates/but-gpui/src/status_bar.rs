@@ -556,12 +556,15 @@ impl AppView {
                 tab: Some(ProjectTab::History),
             });
         }
-        // Each a whole line's height, so what wraps to a second line is out of sight. Pulled
-        // left by its hover's padding, so its words start where the other states' do.
+        // Each a whole line's height, so what wraps to a second line is out of sight. A plain
+        // first note is pulled left by its hover's padding, so its words start where the other
+        // states' do. A coloured one's fill is its edge, which pulled left would be clipped and
+        // crowd what's before it.
+        let plain_first = notes.first().is_some_and(|note| note.tone.is_none());
         h_flex()
             .w_full()
             .h(dp(22.))
-            .ml(dp(-6.))
+            .when(plain_first, |el| el.ml(dp(-6.)))
             .flex_wrap()
             .overflow_hidden()
             .children(notes.into_iter().map(|note| {
