@@ -13,8 +13,9 @@ use but_core::{
 };
 use but_ctx::Context;
 use but_oplog::legacy::SnapshotDetails;
-use but_rebase::graph_rebase::{
-    CommitMappings, Editor, LookupStep as _, Step, SuccessfulRebase,
+use but_rebase::graph_rebase::{CommitMappings, Editor, LookupStep as _, Step, SuccessfulRebase};
+pub use but_rebase::graph_rebase::{
+    ConflictedCheckout,
     mutate::{InsertSide, RelativeTo},
 };
 #[cfg(not(feature = "graph-workspace"))]
@@ -61,7 +62,7 @@ pub struct WorkspaceState {
     #[cfg(feature = "graph-workspace")]
     pub graph_workspace: but_workspace::ui::workspace::DetailedGraphWorkspace,
     /// The checkouts whose uncommitted changes now carry conflict markers.
-    pub conflicted_checkouts: Vec<but_rebase::graph_rebase::ConflictedCheckout>,
+    pub conflicted_checkouts: Vec<ConflictedCheckout>,
 }
 
 /// This allows chaining multiple operations and having them all succeed or fail together.

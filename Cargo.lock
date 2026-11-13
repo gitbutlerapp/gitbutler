@@ -1739,7 +1739,6 @@ dependencies = [
  "but-llm",
  "but-oplog",
  "but-path",
- "but-rebase",
  "but-secret",
  "but-settings",
  "but-testsupport",

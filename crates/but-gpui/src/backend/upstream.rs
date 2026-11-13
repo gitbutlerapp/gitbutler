@@ -1365,11 +1365,11 @@ pub struct MergedIntoTarget {
     pub marked: Vec<super::Checkout>,
 }
 
-fn marked(checkouts: &[but_rebase::graph_rebase::ConflictedCheckout]) -> Vec<super::Checkout> {
+fn marked(checkouts: &[but_transaction::ConflictedCheckout]) -> Vec<super::Checkout> {
     (checkouts.iter())
         .map(|checkout| match checkout {
-            but_rebase::graph_rebase::ConflictedCheckout::Head => super::Checkout::Main,
-            but_rebase::graph_rebase::ConflictedCheckout::Worktree { name, .. } => {
+            but_transaction::ConflictedCheckout::Head => super::Checkout::Main,
+            but_transaction::ConflictedCheckout::Worktree { name, .. } => {
                 super::Checkout::Linked(name.clone())
             }
         })

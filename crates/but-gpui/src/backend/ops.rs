@@ -16,8 +16,8 @@ use but_core::commit::CommitIdentifiers;
 use but_core::tree::create_tree::RejectionReason;
 use but_core::{DiffSpec, DryRun, RefMetadata};
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
-use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use but_transaction::{DynamicOutcome, Transaction};
+use but_transaction::{InsertSide, RelativeTo};
 use but_workspace::commit::ChangeSource;
 
 use super::intent::Run;

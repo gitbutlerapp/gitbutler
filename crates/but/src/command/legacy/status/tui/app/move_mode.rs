@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use but_core::DiffSpec;
 use but_ctx::Context;
-use but_rebase::graph_rebase::mutate::InsertSide;
+use but_transaction::InsertSide;
 use gix::refs::Category;
 use nonempty::NonEmpty;
 use ratatui::prelude::Span;
