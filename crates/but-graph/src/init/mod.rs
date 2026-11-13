@@ -80,9 +80,6 @@ pub struct Tip {
     /// There may only be *one such tip*.
     /// Other tips try to connect to any commit reachable from this one.
     pub is_entrypoint: bool,
-    /// Whether the entrypoint segment should remain anonymous even if refs
-    /// point at the same commit.
-    pub is_detached: bool,
 }
 
 impl Tip {
@@ -98,7 +95,6 @@ impl Tip {
             role: TipRole::default(),
             metadata: None,
             is_entrypoint: false,
-            is_detached: false,
         }
     }
 
@@ -109,14 +105,6 @@ impl Tip {
     /// for it.
     pub fn entrypoint(id: gix::ObjectId, ref_name: Option<gix::refs::FullName>) -> Self {
         Tip::new(id).with_ref_name(ref_name).with_entrypoint()
-    }
-
-    /// An entrypoint whose segment should remain detached even if refs point to
-    /// its commit.
-    ///
-    /// `id` is the commit where graph traversal starts.
-    pub fn detached_entrypoint(id: gix::ObjectId) -> Self {
-        Tip::new(id).with_detached_entrypoint()
     }
 
     /// A non-remote tip that should be included in the traversal.
@@ -156,20 +144,8 @@ impl Tip {
         self
     }
 
-    /// Set whether this tip should use detached entrypoint presentation, which makes it anonymous even
-    /// if it could receive a name/unambiguous ref otherwise.
-    pub fn with_is_detached(mut self, is_detached: bool) -> Self {
-        self.is_detached = is_detached;
-        self
-    }
-
     pub fn with_entrypoint(self) -> Self {
         self.with_is_entrypoint(true)
-    }
-
-    pub fn with_detached_entrypoint(mut self) -> Self {
-        self = self.with_is_entrypoint(true).with_is_detached(true);
-        self
     }
 
     pub fn with_metadata(mut self, metadata: SegmentMetadata) -> Self {
@@ -316,8 +292,8 @@ type WorkspaceTargetTip = (
     Option<RemoteTrackingTip>,
 );
 
-/// The complete pre-traversal plan derived from either explicit tips or
-/// workspace metadata.
+/// The complete pre-traversal plan derived from workspace metadata and any
+/// extra tips.
 ///
 /// [`queue_initial_tips()`] consumes this value to create graph *segments*, seed
 /// the traversal queue, and provide the auxiliary ref and remote information
@@ -641,22 +617,21 @@ impl Graph {
     /// while avoiding traversing the entire commit-graph all the time.
     /// Change the rules as you see fit to accomplish this.
     ///
-    /// * Traversal is seeded from [`Tip`]s. Workspace metadata traversal first
-    ///   resolves metadata into tips, then follows the same path as callers
-    ///   passing explicit tips.
-    /// * Explicit tips must contain exactly one entrypoint and must not contain
+    /// * Traversal is seeded from [`Tip`]s. Workspace metadata is first
+    ///   resolved into tips, and [extra tips](Self::from_commit_traversal_with_extra_tips())
+    ///   are added to them.
+    /// * Tips must contain exactly one entrypoint and must not contain
     ///   duplicate traversal seeds. A traversal seed is the commit id, the
     ///   traversal role, and whether that tip is the entrypoint; naming,
-    ///   metadata, detached presentation, and queue position do not make it
-    ///   useful to enqueue the same seed twice.
+    ///   metadata, and queue position do not make it useful to enqueue the
+    ///   same seed twice.
     /// * Multiple tips with different [roles](TipRole) may point to the same commit id,
     ///   as multiple refs can name the same commit.
-    /// * A detached tip must be the entrypoint and cannot carry a ref name.
     /// * The entrypoint always causes the start of a [`Segment`].
     /// * Tips discovered from workspace metadata preserve their queue order.
-    ///   Explicit tips without a custom queue position are normalized into
-    ///   deterministic traversal order: integrated and target tips first,
-    ///   reachable/workspace tips next, and the entrypoint last.
+    ///   Extra tips are normalized into deterministic traversal order:
+    ///   integrated and target tips first, reachable/workspace tips next, and
+    ///   the entrypoint last.
     /// * A commit can be governed by multiple workspaces.
     /// * As workspaces and entrypoints "grow" together, we don't know anything
     ///   about workspaces until the very end, or when two partitions of commits
@@ -803,42 +778,6 @@ impl Graph {
         )
     }
 
-    /// Produce a graph from already resolved tips and their traversal roles.
-    ///
-    /// This is useful for callers that already know the commits they want to
-    /// relate, or whose tips are not represented by durable repository refs or
-    /// workspace metadata.
-    ///
-    /// `repo` provides commit objects, refs, remotes, worktrees, and optional
-    /// commit-graph acceleration for traversal.
-    /// `tips` provides the resolved commits and their traversal roles. It must
-    /// contain exactly one tip whose [`Tip::is_entrypoint`] flag is set.
-    /// `meta` provides branch metadata for any refs encountered while walking.
-    /// `options` controls tag collection, traversal limits, additional
-    /// integrated tips, and post-processing behavior.
-    pub fn from_commit_traversal_tips(
-        repo: &gix::Repository,
-        tips: impl IntoIterator<Item = Tip>,
-        meta: &impl RefMetadata,
-        project_meta: ProjectMeta,
-        db: &mut but_db::DbHandle,
-        options: Options,
-    ) -> anyhow::Result<Self> {
-        let tips: Vec<_> = tips.into_iter().collect();
-        let worktree_tips = discover_worktree_tips(repo, db, options.worktrees)?;
-        let (overlay_repo, overlay_meta, _entrypoint) = Overlay::default().into_parts(repo, meta);
-        validate_explicit_tip_refs(&overlay_repo, &tips)?;
-        Graph::traverse_tips_with_overlay(
-            &overlay_repo,
-            tips,
-            &overlay_meta,
-            project_meta,
-            options,
-            worktree_tips,
-            None,
-        )
-    }
-
     #[instrument(
         name = "Graph::traverse_tips_with_overlay",
         level = "trace",
@@ -859,7 +798,6 @@ impl Graph {
         // Otherwise the name is discovered from the live ref map during traversal,
         // so it must still point at the entrypoint.
         if let Some(ref_name) = entrypoint_ref_override.as_ref()
-            && !entrypoint.is_detached
             && !tips
                 .iter()
                 .any(|tip| tip.ref_name.as_ref() == Some(ref_name))
@@ -872,12 +810,7 @@ impl Graph {
             )?;
         }
         let tip = entrypoint.id;
-        let ref_name = if entrypoint.is_detached {
-            None
-        } else {
-            entrypoint_ref_override.or_else(|| entrypoint.ref_name.clone())
-        };
-        let detach_entrypoint = entrypoint.is_detached;
+        let ref_name = entrypoint_ref_override.or_else(|| entrypoint.ref_name.clone());
 
         {
             if let Some(name) = &ref_name {
@@ -970,7 +903,6 @@ impl Graph {
             inserted_proxy_segments: Vec::new(),
             refs_by_id,
             hard_limit: false,
-            detach_entrypoint,
             dangerously_skip_postprocessing_for_debugging,
             worktree_by_branch,
         };
@@ -1255,8 +1187,8 @@ impl Graph {
 
 /// Validate the structure of traversal tips before they seed graph traversal.
 ///
-/// Tips must name exactly one entrypoint, must not contain duplicate traversal
-/// seeds or repeated ref names, and must keep detached entrypoints unnamed.
+/// Tips must name exactly one entrypoint and must not contain duplicate
+/// traversal seeds or repeated ref names.
 ///
 /// Ref names are not resolved here: tips derived from workspace metadata were
 /// just read from the repository, and re-reading them would fail whenever a
@@ -1275,14 +1207,6 @@ fn validate_tips(tips: &[Tip]) -> anyhow::Result<&Tip> {
     let mut seen_names = BTreeSet::new();
     for tip in tips {
         ensure!(
-            !tip.is_detached || tip.is_entrypoint,
-            "explicit detached tip must also be the entrypoint"
-        );
-        ensure!(
-            !tip.is_detached || tip.ref_name.is_none(),
-            "explicit detached entrypoint tip cannot have a ref name"
-        );
-        ensure!(
             !tip.is_entrypoint || matches!(tip.role, TipRole::Reachable | TipRole::Workspace),
             "explicit entrypoint tip must be reachable or workspace"
         );
@@ -1299,19 +1223,6 @@ fn validate_tips(tips: &[Tip]) -> anyhow::Result<&Tip> {
         }
     }
     Ok(entrypoint)
-}
-
-/// Require every named caller-provided tip to resolve to its own commit id.
-///
-/// Only [`Graph::from_commit_traversal_tips()`] receives tips the graph did not
-/// resolve itself, so only there can a ref name and id disagree by mistake.
-fn validate_explicit_tip_refs(repo: &OverlayRepo<'_>, tips: &[Tip]) -> anyhow::Result<()> {
-    for tip in tips {
-        if let Some(ref_name) = tip.ref_name.as_ref() {
-            validate_tip_ref(repo, ref_name, tip.id, "explicit traversal tip ref")?;
-        }
-    }
-    Ok(())
 }
 
 fn validate_tip_ref(
@@ -1344,7 +1255,7 @@ type TraversalSeed = (gix::ObjectId, u8, Option<gix::refs::FullName>, bool, bool
 ///
 /// The traversal seed is the commit id, the traversal role, and whether the tip
 /// is the entrypoint. Labels and presentation data like `ref_name`, metadata,
-/// detached entrypoint mode, and caller order are intentionally ignored here:
+/// and caller order are intentionally ignored here:
 /// they can affect naming, post-processing, or stable tie-breaking, but they
 /// don't make it useful to enqueue the same commit with the same traversal
 /// semantics twice.
@@ -1470,7 +1381,7 @@ fn collapse_anonymous_integrated_tips_into_named_targets(tips: &mut Vec<Tip>) {
 
 /// Convert validated tips into deterministic initial traversal roots.
 ///
-/// The caller can provide explicit tips in any order, but queue order still
+/// Callers can provide extra tips in any order, but queue order still
 /// matters because the first item that reaches a commit owns the segment for
 /// that commit. This function recreates the ordering that metadata-derived
 /// traversal would have produced for workspace tips, while keeping the simpler
@@ -1480,7 +1391,7 @@ fn collapse_anonymous_integrated_tips_into_named_targets(tips: &mut Vec<Tip>) {
 /// traversal shape, workspace metadata restores stack/branch order when it is
 /// available, and stable tie-breakers make equivalent inputs independent of
 /// caller order. For non-workspace traversals, equal-priority tips keep caller
-/// order so existing explicit traversal behavior stays predictable.
+/// order so plain commit traversal stays predictable.
 fn tips_in_queue_order(tips: Vec<Tip>, has_workspace_related_tips: bool) -> Vec<Tip> {
     let workspace_branch_order = workspace_branch_order_from_tips(&tips);
     let mut tips: Vec<_> = tips.into_iter().enumerate().collect();
@@ -1573,9 +1484,9 @@ fn tip_queue_priority(tip: &Tip, has_workspace_related_tips: bool) -> usize {
 /// Recover stack-branch order from workspace metadata.
 ///
 /// Workspace metadata stores the user-visible ordering of workspaces, stacks,
-/// and branches. When explicit tips are equivalent to metadata-derived tips,
-/// this order is the only reliable way to make scrambled input produce the same
-/// graph and workspace projection as `from_commit_traversal()`.
+/// and branches. Queue normalization sorts tips by role and name, so this
+/// order is what keeps workspace stack branches in the order metadata lists
+/// them.
 ///
 /// The return value maps a branch ref name to the position where that branch
 /// appears in workspace metadata. The value tuple is
@@ -1583,8 +1494,7 @@ fn tip_queue_priority(tip: &Tip, has_workspace_related_tips: bool) -> usize {
 ///
 /// - `workspace_order` is the index of the workspace metadata tip after all
 ///   workspace metadata tips have been sorted by their optional ref name. This
-///   makes multi-workspace input deterministic even when the caller provided
-///   tips in a different order.
+///   makes multi-workspace input deterministic.
 /// - `stack_order` is the zero-based index among stacks that are currently in
 ///   the workspace. Archived or otherwise inactive stacks are ignored and don't
 ///   consume an order slot.
