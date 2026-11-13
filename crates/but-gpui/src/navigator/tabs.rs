@@ -36,7 +36,7 @@ use crate::state::{NavigatorPlace, Part, ProjectId, Selection, Store, WatchedOrd
 use crate::theme::Theme;
 use crate::transfer::{Dragged, Moving, Op, ProjectDrag, Slot};
 use crate::ui::fold::{FOLD, Glide, Reorder, Slide, inert};
-use crate::ui::{HEADER_HEIGHT, Icon, above_drag, dp, fixed, h_flex, icon, popover, v_flex};
+use crate::ui::{HEADER_HEIGHT, Icon, above_drag, dp, fixed, h_flex, icon_at, popover, v_flex};
 
 /// How tall a tab's ground is, and how far down the strip it starts.
 const TAB_HEIGHT: f32 = 28.;
@@ -1719,19 +1719,14 @@ impl NavigatorTabs {
         };
         let glyph = match key {
             TabKey::Project(id) => project_glyph(store, id, glyph_color, theme),
-            TabKey::More => icon(Icon::Kebab)
-                .size(dp(TAB_ICON))
+            TabKey::More => icon_at(Icon::Kebab, TAB_ICON)
                 .text_color(glyph_color)
                 .into_any_element(),
-            TabKey::Terminals => icon(Icon::TextCode)
-                .size(dp(TAB_ICON))
+            TabKey::Terminals => icon_at(Icon::TextCode, TAB_ICON)
                 .text_color(glyph_color)
                 .into_any_element(),
-            TabKey::Checkout(id, checkout) => {
-                let changed = (store.workspace(id))
-                    .and_then(|ws| ws.uncommitted_in(checkout))
-                    .is_some_and(|files| !store.uncommitted_shown(id, checkout, files).is_empty());
-                worktree_icon(checkout.is_linked(), changed, style).into_any_element()
+            TabKey::Checkout(_, checkout) => {
+                worktree_icon(checkout.is_linked(), style).into_any_element()
             }
         };
         let mark_share = self.mark_share(key, now);

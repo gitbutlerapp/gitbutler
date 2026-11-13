@@ -228,7 +228,7 @@ impl Navigator {
                     .aria_expanded(open)
                     .child(self.fold(
                         ("mesh-fold", ix),
-                        icon(Icon::Computer).text_color(style.muted()),
+                        icon(Icon::Desktop).text_color(style.muted()),
                         folds.then_some(open),
                         style.selected,
                         quiet,
@@ -478,7 +478,7 @@ pub(crate) fn mesh_choices(
         choices.push(choice(
             MeshPick::Checkout,
             label.clone().into(),
-            Icon::Computer,
+            Icon::Desktop,
             &[],
         ));
         for branch in &checkout.branches {

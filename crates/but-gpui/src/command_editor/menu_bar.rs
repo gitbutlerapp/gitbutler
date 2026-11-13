@@ -15,7 +15,7 @@ use crate::theme::Theme;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    self, ButtonStyle, Icon, Tooltip, button, dp, field, h_flex, icon, icon_button, list_row,
+    self, ButtonStyle, Icon, Tooltip, button, dp, field, h_flex, icon_at, icon_button, list_row,
     v_flex,
 };
 
@@ -512,7 +512,7 @@ impl MenuBarEditor {
             .group_hover("item", |el| el.visible())
             .tooltip(Tooltip::text("Remove from the menu"))
             .on_click(cx.listener(move |this, _, _, cx| this.remove_item(spot, &removed, cx)))
-            .child(icon(Icon::Cross).size(dp(12.)).text_color(theme.text_1));
+            .child(icon_at(Icon::Cross, 12.).text_color(theme.text_1));
         let pop = theme.pop;
         let row = h_flex()
             .id(("item", spot.ix))
@@ -560,8 +560,7 @@ impl MenuBarEditor {
                     }))
                     .when(matches!(item, BarItem::System(_)), |el| {
                         el.child(
-                            icon(Icon::ChevronRight)
-                                .size(dp(12.))
+                            icon_at(Icon::ChevronRight, 12.)
                                 .flex_none()
                                 .text_color(theme.text_2),
                         )

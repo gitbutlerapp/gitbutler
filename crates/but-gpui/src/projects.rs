@@ -18,7 +18,7 @@ use crate::state::{ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::emoji::{self, ProjectIcon};
 use crate::ui::text_input::{InputEvent, TextInput};
-use crate::ui::{Tooltip, dp, faint, field, popover, section_label};
+use crate::ui::{Tooltip, dp, faint, field, popover};
 
 actions!(projects, [CloneRepository]);
 
@@ -383,7 +383,7 @@ fn saved_in(missing: MissingAuthor) -> &'static str {
     }
 }
 
-/// The picker open on a project's icon, of the glyph's colours and emoji, as but.dev's
+/// The picker open on a project's icon, of the emoji but.dev offers, as its
 /// repository page has one.
 pub struct IconPicker {
     project: ProjectId,
@@ -411,17 +411,11 @@ impl AppView {
                 window,
                 |this, input, event, window, cx| match event {
                     InputEvent::Changed => cx.notify(),
-                    // Return takes the first match, a colour before an emoji as they're listed.
+                    // Return takes the first emoji found.
                     InputEvent::Submit => {
                         let query = input.read(cx).text();
-                        let first = match emoji::search_colours(query).first() {
-                            Some(colour) => Some(colour.stored()),
-                            None => {
-                                (emoji::search(query).first()).map(|e| Some(e.emoji.to_owned()))
-                            }
-                        };
-                        if let Some(first) = first {
-                            this.set_project_icon(first, window, cx)
+                        if let Some(first) = emoji::search(query).first() {
+                            this.set_project_icon(Some(first.emoji.to_owned()), window, cx)
                         }
                     }
                     InputEvent::Cancel => this.set_icon_picker_closed(window, cx),
@@ -470,8 +464,10 @@ impl AppView {
             .filter(|icon| !icon.is_empty())
             .map(str::to_owned);
         let query = picker.search.read(cx).text();
-        let colours = emoji::search_colours(query);
         let found = emoji::search(query);
+        // The glyph leads the grid: it's what a project wears with no icon, so its cell
+        // takes an emoji back off.
+        let plain = query.is_empty() || "repo glyph plain".contains(&query.to_lowercase());
         // A choice's cell: what it draws, highlighted when it's the project's.
         let cell = |id: (&'static str, usize),
                     name: &'static str,
@@ -501,14 +497,12 @@ impl AppView {
                 .gap(dp(4.))
                 .children(cells)
         };
-        let colour_cells: Vec<_> = (colours.iter().enumerate())
-            .map(|(ix, colour)| {
-                let mark = ProjectIcon::Glyph(colour).render(theme.scaled(18.), theme);
-                cell(("colour", ix), colour.name, colour.stored(), mark)
-            })
-            .collect();
-        let emoji_cells: Vec<_> = (found.iter().enumerate())
-            .map(|(ix, choice)| {
+        let plain_cell = plain.then(|| {
+            let mark = ProjectIcon::Glyph.render(18., theme);
+            cell(("glyph", 0), "No icon", None, mark)
+        });
+        let cells: Vec<_> = (plain_cell.into_iter())
+            .chain((found.iter().enumerate()).map(|(ix, choice)| {
                 let mark = div().child(choice.emoji).into_any_element();
                 cell(
                     ("emoji", ix),
@@ -516,30 +510,23 @@ impl AppView {
                     Some(choice.emoji.to_owned()),
                     mark,
                 )
-            })
+            }))
             .collect();
+        let empty = cells.is_empty();
         let grid = div()
             .id("emoji-grid")
             // Five rows, then it scrolls.
             .max_h(dp(5. * CELL + 4. * 4.))
             .overflow_y_scroll()
-            .child(row(emoji_cells));
+            .child(row(cells));
         let focused = picker.search.focus_handle(cx).is_focused(window);
         let card = popover(theme)
             .id("icon-picker")
             .p(dp(8.))
             .gap(dp(8.))
             .child(field(&picker.search, focused, theme))
-            .when(!colours.is_empty(), |el| {
-                el.child(section_label("Colours", theme))
-                    .child(row(colour_cells))
-            })
-            .when(!found.is_empty(), |el| {
-                el.child(section_label("Emoji", theme)).child(grid)
-            })
-            .when(colours.is_empty() && found.is_empty(), |el| {
-                el.child(faint("Nothing found", theme))
-            });
+            .when(!empty, |el| el.child(grid))
+            .when(empty, |el| el.child(faint("Nothing found", theme)));
         Some(floating(
             picker.position,
             card,

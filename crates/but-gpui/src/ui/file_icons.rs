@@ -5,9 +5,12 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock};
 
-use gpui::{App, Div, ImageSource, Img, RenderImage, SvgRenderer, div, img, prelude::*};
+use gpui::{
+    App, Div, Hsla, ImageSource, Img, RenderImage, Rgba, SvgRenderer, div, img, prelude::*,
+};
 
-use super::{Icon, dp};
+use super::dp;
+use crate::theme::Theme;
 
 include!(concat!(env!("OUT_DIR"), "/file_icons.rs"));
 
@@ -15,6 +18,9 @@ thread_local! {
     /// Each mark, drawn the first time it's needed. Loaded as an asset instead, a mark new
     /// to the screen stayed blank in a view gpui caches until something else redrew it.
     static DRAWN: RefCell<HashMap<&'static str, Arc<RenderImage>>> = RefCell::default();
+
+    /// The folder, drawn once for each pair of gradient stops the accent and appearance give.
+    static FOLDERS: RefCell<HashMap<[String; 2], Arc<RenderImage>>> = RefCell::default();
 }
 
 /// The icon names by whole file name, then by extension, from the UI package's map.
@@ -55,13 +61,67 @@ pub fn file_icon(path: &str, cx: &App) -> Img {
     img(ImageSource::Render(drawn)).size(dp(14.)).flex_none()
 }
 
-/// A folder's mark, in colour and at its own 17 by 14 points, as but-ui-react's FolderIcon draws
-/// it, in the box a file's mark has, which it runs a little past.
-pub fn folder_icon() -> Div {
+/// A folder's mark, in the box a file's mark has. Its gradient is the accent taken toward its
+/// foreground, as but-ui-react's `FolderIcon` mixes it in CSS, which GPUI can't: the stops go
+/// into the mark's SVG before it's drawn, so it follows the accent and the appearance.
+pub fn folder_icon(theme: &Theme, cx: &App) -> Div {
+    // `color-mix(in srgb, var(--but-primary), var(--but-primary-foreground) 60%)` and 20%, as
+    // `FolderIcon.module.css` writes them. `pop_bg` is the accent's primary, which the accent
+    // setting replaces, so the folder follows it.
+    let stops = [0.6, 0.2].map(|part| hex(toward(theme.pop_bg, theme.on_pop, part)));
+    let drawn = FOLDERS.with_borrow_mut(|drawn| {
+        let draw = || draw_folder(&cx.svg_renderer(), &stops);
+        drawn.entry(stops.clone()).or_insert_with(draw).clone()
+    });
     div()
         .flex_none()
         .size(dp(14.))
-        .child(img(Icon::FolderFill.path()).w(dp(17.)).h(dp(14.)))
+        .child(img(ImageSource::Render(drawn)).size(dp(14.)))
+}
+
+/// `from` taken `part` of the way to `to`, as CSS's `color-mix` in sRGB.
+fn toward(from: Hsla, to: Hsla, part: f32) -> Rgba {
+    let ([from, to], mix) = ([from, to].map(Rgba::from), |a: f32, b: f32| {
+        a + (b - a) * part
+    });
+    Rgba {
+        r: mix(from.r, to.r),
+        g: mix(from.g, to.g),
+        b: mix(from.b, to.b),
+        a: 1.,
+    }
+}
+
+/// A colour as the SVG writes it.
+fn hex(Rgba { r, g, b, .. }: Rgba) -> String {
+    let byte = |channel: f32| (channel.clamp(0., 1.) * 255.).round() as u8;
+    format!("#{:02x}{:02x}{:02x}", byte(r), byte(g), byte(b))
+}
+
+/// The folder mark with `stops` in place of the gradient's, top first.
+#[expect(
+    clippy::expect_used,
+    reason = "the folder is compiled in, and a test draws it"
+)]
+fn draw_folder(renderer: &SvgRenderer, stops: &[String; 2]) -> Arc<RenderImage> {
+    let svg = icon_svg("folder").expect("the folder is compiled in from but-ui-react");
+    let svg = String::from_utf8_lossy(svg);
+    let mut out = String::with_capacity(svg.len());
+    let mut rest = svg.as_ref();
+    let mut ix = 0;
+    while let Some((before, after)) = rest.split_once("stop-color=\"") {
+        let Some((_, after)) = after.split_once('"') else {
+            break;
+        };
+        out.push_str(before);
+        out.push_str("stop-color=\"");
+        out.push_str(stops.get(ix).map_or("currentColor", String::as_str));
+        out.push('"');
+        rest = after;
+        ix += 1;
+    }
+    out.push_str(rest);
+    (renderer.render_single_frame(out.as_bytes(), 1.)).expect("the folder draws, as a test checks")
 }
 
 /// Mark `icon` drawn as `img` draws an SVG asset.

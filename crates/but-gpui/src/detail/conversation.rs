@@ -17,7 +17,7 @@ use crate::ui::fold;
 use crate::ui::markdown;
 use crate::ui::person::forge_avatar;
 use crate::ui::{
-    Icon, Tooltip, ago, dp, error_summary, h_flex, local_time, plural, small_icon, v_flex,
+    Icon, Tooltip, ago, dp, error_summary, h_flex, icon_at, local_time, plural, v_flex,
 };
 
 impl Detail {
@@ -348,8 +348,7 @@ fn opens(note: &Note, at: i64, compact: bool, theme: &Theme) -> AnyElement {
                 .bottom_0()
                 .right(dp(-room))
                 .child(
-                    small_icon(Icon::ArrowUpRight)
-                        .size(dp(arrow))
+                    icon_at(Icon::ArrowUpRight, arrow)
                         .text_color(theme.text_3)
                         .opacity(0.)
                         .group_hover(group, |el| el.opacity(1.)),

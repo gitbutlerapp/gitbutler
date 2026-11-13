@@ -31,8 +31,8 @@ use crate::ui::review as ui_review;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
     ButtonStyle, Icon, TextPoint, Tooltip, ago, button, count_badge, dot, dp, dropdown_button,
-    duration, h_flex, icon, icon_button, local_time, now, relative_time, shortcut, small_icon,
-    switch_grounds, switch_spring, tab_after, tab_stop, v_flex,
+    duration, h_flex, icon, icon_at, icon_button, local_time, now, relative_time, shortcut,
+    small_icon, switch_grounds, switch_spring, tab_after, tab_stop, v_flex,
 };
 
 /// How tall the tabs over the diff beside a list are.
@@ -1285,7 +1285,7 @@ pub(super) fn tag(hue: Hue, theme: &Theme) -> Div {
 fn status_section(review: &Review, state: ReviewState, forge: &str, theme: &Theme) -> Div {
     let (glyph, color) = ui_review::state_glyph(state, theme);
     let badge = tag(ui_review::state_hue(state), theme)
-        .child(small_icon(glyph).size(dp(12.)).text_color(color))
+        .child(icon_at(glyph, 12.).text_color(color))
         .child(ui_review::state_label(state));
     let link = review.url.clone().map(|url| {
         h_flex()
@@ -1297,11 +1297,7 @@ fn status_section(review: &Review, state: ReviewState, forge: &str, theme: &Them
             .text_color(theme.text_2)
             .hover(|el| el.text_color(theme.text_1))
             .child(div().underline().child(format!("#{}", review.number)))
-            .child(
-                small_icon(Icon::ArrowUpRight)
-                    .size(dp(12.))
-                    .text_color(theme.text_3),
-            )
+            .child(icon_at(Icon::ArrowUpRight, 12.).text_color(theme.text_3))
             .tooltip(move |window, cx| {
                 let key = shortcut(&crate::app::OpenPullRequest, cx);
                 Tooltip::keyed("Open the pull request", key)(window, cx)
@@ -1380,8 +1376,7 @@ fn labels_section(review: &Review, theme: &Theme) -> Option<Div> {
 /// long it took or has run, or what became of it when that says more. A click opens its log,
 /// as the arrow in place of the time says on hover.
 fn check_row(ix: usize, run: &CheckRun, theme: &Theme) -> Stateful<Div> {
-    let glyph =
-        |glyph, color| (small_icon(glyph).size(dp(14.)).text_color(color)).into_any_element();
+    let glyph = |glyph, color| (icon_at(glyph, 14.).text_color(color)).into_any_element();
     let took =
         (run.started_at.zip(run.completed_at)).map(|(start, end)| duration((end - start).max(0)));
     let mark = match run.state {

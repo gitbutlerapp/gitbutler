@@ -148,7 +148,7 @@ impl Gallery {
             story("Counts and marks", counts::CountsStory, cx),
             story("Dropdown button", dropdown_button::DropdownButtonStory, cx),
             story("Empty state", empty_state::EmptyStateStory, cx),
-            story("Icons", icons::IconsStory, cx),
+            story("Icons", icons::IconsStory::default(), cx),
             story("Keycap", keycap::KeycapStory, cx),
             story("List rows", rows::RowsStory::default(), cx),
             story("Popover and modal", popover::PopoverStory, cx),

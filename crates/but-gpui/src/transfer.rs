@@ -1611,7 +1611,7 @@ impl Render for DragPreview {
                     _ => 0,
                 };
                 (
-                    folder_icon().into_any_element(),
+                    folder_icon(theme, cx).into_any_element(),
                     folder_label(name.clone(), files, theme).into_any_element(),
                 )
             }
@@ -1771,7 +1771,7 @@ impl Render for ProjectPreview {
         // A project carries no files to count.
         let label = folder_label(self.label.clone(), 0, theme);
         let hint = tile_hint(self.store.read(cx)).map(SharedString::from);
-        drag_pill(self.offset, folder_icon(), label, hint, 1, theme)
+        drag_pill(self.offset, folder_icon(theme, cx), label, hint, 1, theme)
     }
 }
 

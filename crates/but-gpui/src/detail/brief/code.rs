@@ -13,7 +13,7 @@ use crate::state::{Axis, CodePlace, RowKey, Selection, StoreEvent, Tile};
 use crate::theme::Theme;
 use crate::ui::diff::split_path;
 use crate::ui::file_icons::file_icon;
-use crate::ui::{Icon, diff, dp, h_flex, icon, v_flex};
+use crate::ui::{Icon, diff, dp, h_flex, icon_at, v_flex};
 
 /// How many hunks of a file a card shows, past which Changes is the place for it.
 const MOST_WHOLE_HUNKS: usize = 30;
@@ -271,11 +271,7 @@ impl Detail {
                         .flex_none()
                         .opacity(0.)
                         .group_hover("brief-file", |el| el.opacity(1.))
-                        .child(
-                            icon(Icon::ArrowUpRight)
-                                .size(dp(12.))
-                                .text_color(theme.text_2),
-                        ),
+                        .child(icon_at(Icon::ArrowUpRight, 12.).text_color(theme.text_2)),
                 )
             })
     }

@@ -214,28 +214,23 @@ pub const ROW_HEIGHT: f32 = 28.;
 pub const HEADER_HEIGHT: f32 = 40.;
 pub const STATUS_BAR_HEIGHT: f32 = 30.;
 
-/// Every icon: the design system's, compiled in from `packages/but-ui-react` so they're the ones
-/// but.dev draws, and a build fails if one goes; then this app's own, under
-/// `assets/icons`, for what but-ui-react draws in code rather than from a file, or doesn't have.
+/// Every icon, compiled in from `packages/but-ui-react` so they're the ones but.dev draws, and
+/// a build fails if one goes. The client draws none of its own: a glyph it needs is drawn in
+/// 🍑 But UI and exported there, so the two can't drift.
 macro_rules! icons {
-    (
-        $($variant:ident => $name:literal),* $(,)?;
-        own: $($own:ident => $own_name:literal),* $(,)?
-    ) => {
+    ($($variant:ident => $name:literal),* $(,)?) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
         pub enum Icon {
             $($variant,)*
-            $($own,)*
         }
 
         impl Icon {
             #[cfg(feature = "stories")]
-            pub const ALL: &[Icon] = &[$(Icon::$variant,)* $(Icon::$own,)*];
+            pub const ALL: &[Icon] = &[$(Icon::$variant,)*];
 
             pub fn path(self) -> &'static str {
                 match self {
                     $(Icon::$variant => concat!("icons/", $name, ".svg"),)*
-                    $(Icon::$own => concat!("icons/", $own_name, ".svg"),)*
                 }
             }
         }
@@ -244,9 +239,6 @@ macro_rules! icons {
             match path {
                 $(concat!("icons/", $name, ".svg") => Some(include_bytes!(concat!(
                     "../../../../packages/but-ui-react/src/icons/", $name, ".svg"
-                ))),)*
-                $(concat!("icons/", $own_name, ".svg") => Some(include_bytes!(concat!(
-                    "../../assets/icons/", $own_name, ".svg"
                 ))),)*
                 _ => None,
             }
@@ -267,6 +259,7 @@ icons! {
     Branch => "branch",
     BranchMerge => "branch-merge",
     BulletDisc => "bullet-disc",
+    Burger => "burger",
     Camera => "camera",
     ChevronDown => "chevron-down",
     ChevronLeft => "chevron-left",
@@ -281,8 +274,10 @@ icons! {
     Discord => "discord",
     Docs => "docs",
     DragVertical => "drag-vertical",
+    Desktop => "desktop",
     Edit => "edit",
     Eye => "eye",
+    EyeClosed => "eye-closed",
     CollapseVertical => "collapse-vertical",
     Cross => "cross",
     ExpandVertical => "expand-vertical",
@@ -291,11 +286,14 @@ icons! {
     FileDiff => "file-diff",
     FilesSidebar => "files-sidebar",
     Folder => "folder",
+    FullscreenEnter => "fullscreen-enter",
+    FullscreenExit => "fullscreen-exit",
     FolderCopy => "folder-copy",
     Fork => "fork",
     Globe => "globe",
     Hash => "hash",
     Kebab => "kebab",
+    Keyboard => "keyboard",
     Lab => "lab",
     Link => "link",
     Lock => "lock",
@@ -303,6 +301,7 @@ icons! {
     Mixer => "mixer",
     Plug => "plug",
     Plus => "plus",
+    PopOut => "pop-out",
     Pr => "pr",
     PrClose => "pr-close",
     PrDraft => "pr-draft",
@@ -310,6 +309,8 @@ icons! {
     Repo => "repo",
     Search => "search",
     Settings => "settings",
+    SplitBottom => "split-bottom",
+    SplitRight => "split-right",
     SidebarNarrow => "sidebar-narrow",
     Stack => "stack",
     Tag => "tag",
@@ -318,36 +319,7 @@ icons! {
     TextWrap => "text-wrap",
     Tick => "tick",
     Undo => "undo",
-    Warning => "warning";
-    // but-ui-react's FolderIcon, a component with its gradient in CSS.
-    own: FolderFill => "folder-fill",
-    // ui-svelte's keyboard, which but-ui-react doesn't have.
-    Keyboard => "keyboard",
-    // but-ui-react's sidebar-narrow, with the part a split makes filled in.
-    SplitRight => "split-right",
-    SplitBelow => "split-below",
-    TileZoom => "tile-zoom",
-    TileUnzoom => "tile-unzoom",
-    // A window coming off another, for what opens in a window of its own.
-    PopOutWindow => "pop-out-window",
-    // Three lines, for the menu bar folded into a button, as Windows and Linux apps draw it.
-    Menu => "menu",
-    // but-ui-react's eye, struck through, for a project not watched.
-    EyeOff => "eye-off",
-    // but-ui-react's folders with their top right corner cut away, for a dot there while a
-    // worktree has uncommitted changes.
-    FolderDot => "folder-dot",
-    FolderCopyDot => "folder-copy-dot",
-    // Another machine, which but-ui-react has no glyph for, in the style of its folder.
-    Computer => "computer",
-    // The repo glyph filled as but-ui-react's `EntityGlyph` fills it, its gradient baked in, for a
-    // project's icon: one for each colour but the outline, which is `Repo`.
-    RepoPop => "repo-pop",
-    RepoSafe => "repo-safe",
-    RepoPurple => "repo-purple",
-    RepoDanger => "repo-danger",
-    RepoWarn => "repo-warn",
-    RepoGray => "repo-gray",
+    Warning => "warning",
 }
 
 /// GitButler's fonts, compiled into the binary so the client looks the same everywhere.
@@ -399,12 +371,33 @@ pub fn prewarm_fonts(cx: &gpui::App) {
         .detach();
 }
 
-/// Serves the icons compiled into the binary.
+/// How wide the icons are drawn in Figma, and their viewBox.
+const ICON_PX: f32 = 16.;
+
+impl Icon {
+    /// The icon's path when it's drawn `px` across: its own at the size it's designed at, and
+    /// with the size on the end otherwise, for [`Assets`] to keep its strokes as wide.
+    pub fn path_at(self, px: f32) -> SharedString {
+        if px == ICON_PX {
+            self.path().into()
+        } else {
+            format!("{}@{px}", self.path()).into()
+        }
+    }
+}
+
+/// Serves the icons compiled into the binary, those asked for at a size (`icons/x.svg@12`) with
+/// their strokes kept as wide (see [`keep_strokes`]).
 pub struct Assets;
 
 impl AssetSource for Assets {
     fn load(&self, path: &str) -> anyhow::Result<Option<Cow<'static, [u8]>>> {
-        Ok(icon_bytes(path).map(Cow::Borrowed))
+        let Some((path, px)) = path.split_once('@') else {
+            return Ok(icon_bytes(path).map(Cow::Borrowed));
+        };
+        let px: f32 = px.parse()?;
+        let svg = icon_bytes(path).map(std::str::from_utf8).transpose()?;
+        Ok(svg.map(|svg| Cow::Owned(keep_strokes(svg, px).into_bytes())))
     }
 
     fn list(&self, _path: &str) -> anyhow::Result<Vec<SharedString>> {
@@ -412,12 +405,76 @@ impl AssetSource for Assets {
     }
 }
 
+/// `svg` with each stroke `vector-effect="non-scaling-stroke"` marks rewidened so that drawn
+/// `px` across, it's as wide as at the viewBox's own size, as a browser keeps it. GPUI's
+/// renderer ignores `vector-effect` and scales every stroke with the icon, so a 1.5px stroke
+/// would be 1.125px in a 12px icon.
+fn keep_strokes(svg: &str, px: f32) -> String {
+    let Some(scale) = view_box_width(svg).map(|width| width / px) else {
+        return svg.to_owned();
+    };
+    if scale == 1. {
+        return svg.to_owned();
+    }
+    let mut out = String::with_capacity(svg.len() + 64);
+    let mut rest = svg;
+    while let Some((text, from)) = rest.split_once('<') {
+        out.push_str(text);
+        out.push('<');
+        let Some((tag, after)) = from.split_once('>') else {
+            out.push_str(from);
+            return out;
+        };
+        out.push_str(&scaled_stroke(tag, scale));
+        out.push('>');
+        rest = after;
+    }
+    out.push_str(rest);
+    out
+}
+
+/// One tag of an icon, its stroke `scale` times as wide if it's kept from scaling.
+fn scaled_stroke(tag: &str, scale: f32) -> Cow<'_, str> {
+    const KEPT: &str = r#" vector-effect="non-scaling-stroke""#;
+    if !tag.contains(KEPT) {
+        return Cow::Borrowed(tag);
+    }
+    if let Some((before, after)) = tag.split_once(r#" stroke-width=""#)
+        && let Some((width, after)) = after.split_once('"')
+        && let Ok(width) = width.parse::<f32>()
+    {
+        return Cow::Owned(format!(
+            r#"{before} stroke-width="{}"{after}"#,
+            width * scale
+        ));
+    }
+    // A stroke without a width is 1 wide; a tag kept that has no stroke only fills.
+    let stroked = (tag.split_once(r#" stroke=""#)).is_some_and(|(_, v)| !v.starts_with("none\""));
+    if stroked {
+        Cow::Owned(tag.replacen(KEPT, &format!(r#" stroke-width="{scale}"{KEPT}"#), 1))
+    } else {
+        Cow::Borrowed(tag)
+    }
+}
+
+/// The width of the icon's viewBox, what its strokes are measured against.
+fn view_box_width(svg: &str) -> Option<f32> {
+    let (_, rest) = svg.split_once(r#"viewBox=""#)?;
+    let (values, _) = rest.split_once('"')?;
+    values.split_whitespace().nth(2)?.parse().ok()
+}
+
+/// `icon` drawn `px` across, its strokes as wide as at 16px.
+pub fn icon_at(icon: Icon, px: f32) -> Svg {
+    svg().path(icon.path_at(px)).size(dp(px)).flex_none()
+}
+
 pub fn icon(icon: Icon) -> Svg {
-    svg().path(icon.path()).size(dp(16.)).flex_none()
+    icon_at(icon, ICON_PX)
 }
 
 pub fn small_icon(icon: Icon) -> Svg {
-    svg().path(icon.path()).size(dp(12.)).flex_none()
+    icon_at(icon, 12.)
 }
 
 /// Icon toggles joined in a row, as but-ui-react's `ToggleGroupStyles` of outline toggles: one
@@ -988,11 +1045,7 @@ pub fn checkbox(id: impl Into<ElementId>, check: Toggled, theme: &Theme) -> Stat
         .items_center()
         .justify_center()
         .map(|el| match check {
-            Toggled::True => el.child(
-                small_icon(Icon::Tick)
-                    .size(dp(10.))
-                    .text_color(theme.on_pop),
-            ),
+            Toggled::True => el.child(icon_at(Icon::Tick, 10.).text_color(theme.on_pop)),
             Toggled::Mixed => el.child(div().w(dp(8.)).h(dp(2.)).rounded(dp(1.)).bg(theme.on_pop)),
             Toggled::False => el,
         })
@@ -1121,7 +1174,7 @@ pub fn snackbar_undo(id: impl Into<ElementId>, theme: &Theme) -> Stateful<Div> {
 
 /// A glyph in a snackbar, 14px as Figma's.
 fn snackbar_icon(icon: Icon) -> Svg {
-    svg().path(icon.path()).size(dp(14.)).flex_none()
+    icon_at(icon, 14.)
 }
 
 /// The card that menus, dialogs, toasts and tooltips float on.
@@ -1429,7 +1482,7 @@ impl RenderOnce for Button {
             .when(self.disabled.is_some(), |el| el.opacity(0.5))
             .when_some(self.icon, |el, kind| {
                 let opacity = if has_label { 0.7 } else { 0.8 };
-                el.child((icon(kind).size(dp(icon_size)).text_color(fg)).opacity(opacity))
+                el.child((icon_at(kind, icon_size).text_color(fg)).opacity(opacity))
             })
             .children(self.picture)
             .when_some(self.label, |el, label| match shrinks {
@@ -2147,7 +2200,87 @@ pub fn resize_pane(
 
 #[cfg(test)]
 mod tests {
-    use super::tab_after;
+    use super::{Icon, keep_strokes, tab_after};
+
+    #[test]
+    fn icons_keep_their_stroke_widths_at_any_size() {
+        let svg = concat!(
+            r#"<svg viewBox="0 0 16 16" fill="none">"#,
+            r#"<path d="M1 1" stroke="currentColor" stroke-width="1.5" vector-effect="non-scaling-stroke"/>"#,
+            r#"<circle r="2" fill="currentColor" stroke="currentColor" vector-effect="non-scaling-stroke"/>"#,
+            r#"<path d="M2 2" fill="currentColor" vector-effect="non-scaling-stroke"/>"#,
+            r#"<path d="M3 3" stroke="currentColor" stroke-width="1.5"/>"#,
+            "</svg>",
+        );
+        // 16px across a 16-wide viewBox is 1:1, so a 12px icon's strokes are 16/12 as wide in
+        // its viewBox; one without a width is 1 wide; fills and strokes that scale stay.
+        snapbox::assert_data_eq!(
+            keep_strokes(svg, 12.),
+            snapbox::str![[
+                r#"<svg viewBox="0 0 16 16" fill="none"><path d="M1 1" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke"/><circle r="2" fill="currentColor" stroke="currentColor" stroke-width="1.3333334" vector-effect="non-scaling-stroke"/><path d="M2 2" fill="currentColor" vector-effect="non-scaling-stroke"/><path d="M3 3" stroke="currentColor" stroke-width="1.5"/></svg>"#
+            ]]
+        );
+        assert_eq!(
+            keep_strokes(svg, 16.),
+            svg,
+            "at its viewBox's size nothing scales"
+        );
+    }
+
+    #[test]
+    fn every_icon_loads_at_a_size() {
+        use gpui::AssetSource as _;
+        for glyph in [Icon::Branch, Icon::Camera, Icon::Burger, Icon::SplitRight] {
+            let path = glyph.path_at(12.);
+            let svg = super::Assets.load(&path).unwrap();
+            assert!(svg.is_some(), "{path} is the icon with its size on the end");
+        }
+        assert_eq!(
+            Icon::Branch.path_at(16.),
+            Icon::Branch.path(),
+            "16px is as designed"
+        );
+    }
+
+    #[test]
+    fn no_icon_is_resized_after_its_path_is_picked() {
+        // `icon`, `small_icon` and `icon_at` bake the drawn size into the path, to keep the
+        // strokes as wide (see `keep_strokes`). A `.size()` after one of them draws that path
+        // at another size, which is the thin-stroke bug again, so the size goes to `icon_at`.
+        let mut resized = Vec::new();
+        let mut files = vec![std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src")];
+        while let Some(dir) = files.pop() {
+            for entry in std::fs::read_dir(&dir).expect("the crate's sources are readable") {
+                let path = entry.expect("the entry is readable").path();
+                if path.is_dir() {
+                    files.push(path);
+                    continue;
+                }
+                if path.extension().is_none_or(|ext| ext != "rs") {
+                    continue;
+                }
+                let source = std::fs::read_to_string(&path).expect("the source is UTF-8");
+                // The call, then anything chained that isn't itself a `.size(`, then `.size(`.
+                for (ix, _) in source.match_indices(".size(") {
+                    let before = source.get(..ix).unwrap_or_default();
+                    let call = before.rsplit_once([';', '{']);
+                    let call = call.map_or(before, |(_, after)| after);
+                    let drawn = ["icon(", "small_icon(", "icon_at(", "snackbar_icon("]
+                        .iter()
+                        .any(|helper| call.contains(helper));
+                    if drawn && !call.contains("svg()") {
+                        let line = before.matches('\n').count() + 1;
+                        resized.push(format!("{}:{line}", path.display()));
+                    }
+                }
+            }
+        }
+        assert!(
+            resized.is_empty(),
+            "these draw an icon and then resize it, so its strokes are made for another size; \
+             pass the size to `icon_at` instead: {resized:?}"
+        );
+    }
 
     #[test]
     fn button_heights_are_the_control_heights_density_moves() {

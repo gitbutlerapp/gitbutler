@@ -4255,8 +4255,8 @@ impl AppView {
         };
         let zoomed = self.zoomed() == Some(tile);
         let (icon, label, style) = match zoomed {
-            true => (Icon::TileUnzoom, "Zoom out", ButtonStyle::Pop),
-            false => (Icon::TileZoom, "Zoom", ButtonStyle::Ghost),
+            true => (Icon::FullscreenExit, "Zoom out", ButtonStyle::Pop),
+            false => (Icon::FullscreenEnter, "Zoom", ButtonStyle::Ghost),
         };
         let (this, target) = (cx.entity().downgrade(), tile.clone());
         let zoom = icon_button(SharedString::from(format!("zoom-{tile:?}")), icon)
@@ -4273,7 +4273,7 @@ impl AppView {
         vec![
             zoom,
             button(Axis::Across, Icon::SplitRight, "Split right", &SplitRight),
-            button(Axis::Down, Icon::SplitBelow, "Split below", &SplitBelow),
+            button(Axis::Down, Icon::SplitBottom, "Split below", &SplitBelow),
         ]
     }
 
