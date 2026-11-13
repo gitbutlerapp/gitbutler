@@ -1,8 +1,25 @@
+use but_core::RefMetadata;
+use but_rebase::graph_rebase::SuccessfulRebase;
+use gix::refs::FullName;
+
+/// Returned by [`super::tear_off_branch()`].
+pub struct TearOffBranchOutcome<'ws, 'meta, M: RefMetadata> {
+    /// The rebase that puts the branch in a stack of its own once materialized.
+    pub rebase: SuccessfulRebase<'ws, 'meta, M>,
+    /// Without a workspace commit, the stack `HEAD` no longer reaches, with the order it takes
+    /// among the stacks once [`apply_stack()`](super::apply_stack()) applies it beside the one
+    /// `HEAD` is on. That's the torn off branch, unless `HEAD` is on it and follows it, leaving
+    /// the top of the branches beneath it. `None` with a workspace commit, which holds the new
+    /// stack itself, or when nothing was torn off.
+    pub unreachable_stack: Option<(FullName, Option<usize>)>,
+}
+
 pub(super) mod function {
 
     use but_core::RefMetadata;
     use but_rebase::graph_rebase::mutate::SomeSelectors;
 
+    use super::TearOffBranchOutcome;
     use crate::graph_manipulation::DisconnectParameters;
     use crate::graph_manipulation::get_disconnect_parameters;
     use crate::graph_manipulation::traverse_nodes;
@@ -27,14 +44,14 @@ pub(super) mod function {
     /// `order` - Where the new stack goes among the others: it becomes a parent of the workspace
     ///     commit at `order`, or its last parent if `order` is `None`, as
     ///     [`create_reference()`](crate::branch::create_reference()) places an independent branch.
-    ///     Without a workspace commit there's no order to keep, and it's ignored. A branch that's
-    ///     already a stack of its own only moves to `order` among the others, and with `None`
-    ///     stays where it is.
+    ///     Without a workspace commit, it's kept in [`TearOffBranchOutcome::unreachable_stack`].
+    ///     A branch that's already a stack of its own only moves to `order` among the others,
+    ///     and with `None` stays where it is.
     pub fn tear_off_branch<'ws, 'meta, M: RefMetadata>(
         editor: Editor<'ws, 'meta, M>,
         subject_branch_name: &FullNameRef,
         order: impl Into<Option<usize>>,
-    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+    ) -> anyhow::Result<TearOffBranchOutcome<'ws, 'meta, M>> {
         let order = order.into();
         let successful_rebase = editor.rebase()?;
         let workspace = successful_rebase.overlayed_graph()?.into_workspace()?;
@@ -73,7 +90,10 @@ pub(super) mod function {
                 }
                 editor.insert_parent(head, tip, Some(order))?;
             }
-            return editor.rebase();
+            return Ok(TearOffBranchOutcome {
+                rebase: editor.rebase()?,
+                unreachable_stack: None,
+            });
         }
 
         let workspace_head = if managed {
@@ -119,7 +139,7 @@ pub(super) mod function {
             false,
         )?;
 
-        if let Some(workspace_head) = workspace_head {
+        let unreachable_stack = if let Some(workspace_head) = workspace_head {
             let head_selector = editor.select_commit(workspace_head)?;
             let selectors = SomeSelectors::new(Vec::from([head_selector]))?;
             editor.insert_segment_into(
@@ -134,13 +154,27 @@ pub(super) mod function {
                 editor.remove_edges(head_selector, subject_delimiter.child)?;
                 editor.insert_parent(head_selector, subject_delimiter.child, Some(order))?;
             }
+            None
         } else {
             // There is no workspace commit to connect to the torn-off branch. Attach only
             // its first parent at the target, leaving the remaining stack independent.
             editor.add_edge(subject_delimiter.parent, target_selector, 0)?;
-        }
+            if workspace.ref_name() == Some(subject_branch_name) {
+                // The branches left behind take the place `order` doesn't give the torn off one.
+                let left_behind = (source_stack.segments.iter())
+                    .filter_map(|segment| segment.ref_name())
+                    .find(|name| *name != subject_branch_name);
+                let order_left_behind = if order == Some(0) { None } else { Some(0) };
+                left_behind.map(|name| (name.to_owned(), order_left_behind))
+            } else {
+                Some((subject_branch_name.to_owned(), order))
+            }
+        };
 
-        editor.rebase()
+        Ok(TearOffBranchOutcome {
+            rebase: editor.rebase()?,
+            unreachable_stack,
+        })
     }
 
     /// Move a branch to `side` of `relative_to`, within its lane or into another one.
