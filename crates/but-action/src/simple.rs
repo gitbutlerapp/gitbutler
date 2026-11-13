@@ -167,6 +167,7 @@ fn stacks_creating_if_none(
     let branch_name = but_core::branch::unique_canned_refname(repo)?;
     let editor = Editor::create(ws, meta, repo, db)?;
     but_workspace::branch::create_reference(editor, branch_name.as_ref(), None, None)?
+        .into_rebase_in_workspace()?
         .materialize(Default::default())?;
     let stack = ws
         .stacks

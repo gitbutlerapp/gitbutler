@@ -107,7 +107,7 @@ impl SingleBranchMode {
     ///
     /// `_will_create_independent_branch` is ignored: the transaction enters GitButler's
     /// workspace itself at the end when an operation makes a stack of its own beside the
-    /// branch checked out, see [`Self::create_unstacked_reference()`] and
+    /// branch checked out, see [`Transaction::create_reference()`] and
     /// [`Transaction::tear_off_branch()`].
     #[expect(
         clippy::too_many_arguments,
@@ -221,17 +221,6 @@ impl SingleBranchMode {
             }
             (Some(target), _) if self.switch => {
                 tx.create_reference_at_commit(new_ref, target.commit_id)?;
-            }
-            (Some(target), Some(_)) if self.in_single_branch_mode => {
-                // Where the branch checked out leaves the target, so both merge in the workspace
-                // commit, even when the target changed the same lines since.
-                let repo = tx.repo();
-                let base = repo
-                    .merge_base(repo.head_id()?, target.commit_id)?
-                    .map_or(target.commit_id, gix::Id::detach);
-                tx.create_reference_at_commit(new_ref, base)?;
-                tx.apply_new_stack_at_end(new_ref, order);
-                return Ok(());
             }
             (None, Some(above_head)) if self.in_single_branch_mode => {
                 tx.create_reference(new_ref, above_head, order)?;

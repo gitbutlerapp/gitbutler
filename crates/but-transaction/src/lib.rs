@@ -612,17 +612,8 @@ where
             let outcome = but_workspace::branch::tear_off_branch(editor, source_branch, order)?;
             Ok((outcome.unreachable_stack, outcome.rebase))
         })?;
-        let Some(unreachable_stack) = unreachable_stack else {
-            return Ok(());
-        };
-        let workspace = (self.inner.rebase.as_ref())
-            .expect("rebase is always Some(_)")
-            .overlayed_graph()?
-            .into_workspace()?;
-        let target = workspace.graph.project_meta.target_ref.as_ref();
-        // Without a target, or with it checked out, the workspace isn't entered.
-        if target
-            .is_some_and(|target| Some(target.as_local_full_name_ref()) != workspace.ref_name())
+        if let Some(unreachable_stack) = unreachable_stack
+            && self.single_branch_workspace()?.is_some()
         {
             self.inner.pending_new_stacks.push(unreachable_stack);
         }
@@ -630,16 +621,21 @@ where
         Ok(())
     }
 
-    /// Apply `ref_name`, a branch beside the one checked out on its own, as a stack of its own at
-    /// `order` among the stacks once the callback is done, entering GitButler's workspace.
-    #[cfg_attr(
-        not(feature = "legacy"),
-        expect(dead_code, reason = "used by single-branch mode")
-    )]
-    pub(crate) fn apply_new_stack_at_end(&mut self, ref_name: &FullNameRef, order: Option<usize>) {
-        self.inner
-            .pending_new_stacks
-            .push((ref_name.to_owned(), order));
+    /// The workspace as the rebase has it so far, if it's a branch checked out on its own that
+    /// GitButler's workspace is entered with to hold a stack of its own beside it. That takes a
+    /// target, which isn't the branch checked out.
+    fn single_branch_workspace(&self) -> anyhow::Result<Option<but_graph::Workspace>> {
+        let workspace = (self.inner.rebase.as_ref())
+            .expect("rebase is always Some(_)")
+            .overlayed_graph()?
+            .into_workspace()?;
+        let target = workspace.graph.project_meta.target_ref.as_ref();
+        let beside_target = workspace.ref_name().is_some_and(|head| {
+            target.is_some_and(|target| target.as_local_full_name_ref() != head)
+        });
+        let in_single_branch_mode =
+            matches!(workspace.kind, but_graph::workspace::WorkspaceKind::AdHoc);
+        Ok((in_single_branch_mode && beside_target).then_some(workspace))
     }
 
     /// Create a new local branch at a commit already present in the editor.
@@ -694,6 +690,12 @@ where
         })
     }
 
+    /// Create `ref_name` at `anchor`, or without it as a stack of its own placed among the others
+    /// at `order`, or after them all, as [`but_workspace::branch::create_reference()`] says.
+    ///
+    /// With a branch checked out on its own and a target, GitButler's workspace is entered at the
+    /// end of the transaction to hold both stacks, unless a branch is checked out by then.
+    /// Elsewhere outside of a workspace, a stack of its own is refused.
     pub fn create_reference<'name>(
         &mut self,
         ref_name: &FullNameRef,
@@ -702,7 +704,8 @@ where
     ) -> anyhow::Result<()> {
         let anchor = anchor.into();
         let order = order.into();
-        self.rebase(|editor, commit_mappings| {
+        let enters_workspace = self.single_branch_workspace()?.is_some();
+        let unreachable_stack = self.rebase(|editor, commit_mappings| {
             let anchor = anchor
                 .map(|anchor| {
                     anyhow::Ok(match anchor {
@@ -717,9 +720,16 @@ where
                     })
                 })
                 .transpose()?;
-            let rebase = but_workspace::branch::create_reference(editor, ref_name, anchor, order)?;
-            Ok(((), rebase))
-        })
+            let outcome = but_workspace::branch::create_reference(editor, ref_name, anchor, order)?;
+            if enters_workspace {
+                Ok((outcome.unreachable_stack, outcome.rebase))
+            } else {
+                Ok((None, outcome.into_rebase_in_workspace()?))
+            }
+        })?;
+        self.inner.pending_new_stacks.extend(unreachable_stack);
+
+        Ok(())
     }
 
     /// Name the anonymous segment whose top commit is `top` as `ref_name`, as seen from
