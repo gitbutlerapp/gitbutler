@@ -1,7 +1,8 @@
 import { isStory, storyId, storyName, type Story } from "./stories.ts";
 import { pageList } from "./page-list.ts";
 
-export type Page = { id: string; title: string; file: string };
+/** A page: a design note, or a component's stories with the notes its JSDoc names (`notes`). */
+export type Page = { id: string; title: string; file: string; notes?: Array<string> };
 export const pages: Array<Page> = pageList;
 
 export const isDesignPage = (page: Page) => page.id.startsWith("design-");
@@ -19,6 +20,13 @@ export function groupPages(list: Array<Page>): Array<[heading: string, pages: Ar
 export const pageName = (page: Page) => page.title.split("/").at(-1) ?? page.title;
 
 export const findPage = (id: string | null) => pages.find((page) => page.id === id);
+
+/**
+ * The page a design note opens: its own, or for a component's note, the first component page that
+ * shows it. `note` is its path from this package, `../but-ui/design/components/buttons.md`.
+ */
+export const notePage = (note: string) =>
+	pages.find((page) => page.file === note || page.notes?.includes(note));
 
 const storyModules = import.meta.glob<Record<string, unknown>>("../src/*.stories.tsx");
 const storySources = import.meta.glob<string>("../src/*.stories.tsx", {
@@ -47,6 +55,8 @@ export type StoryEntry = {
 export type ComponentPageData = {
 	kind: "component";
 	description: string | undefined;
+	/** The Markdown of each design note the component's `@see` tags name. */
+	notes: Array<string>;
 	stories: Array<StoryEntry>;
 };
 export type DesignPageData = { kind: "design"; source: string };
@@ -72,7 +82,11 @@ const docOf = (source: string, name: string) =>
 
 async function loadComponentPage(page: Page): Promise<ComponentPageData> {
 	const path = `../src/${page.file}`;
-	const [module, source] = await Promise.all([storyModules[path]?.(), storySources[path]?.()]);
+	const [module, source, notes] = await Promise.all([
+		storyModules[path]?.(),
+		storySources[path]?.(),
+		Promise.all((page.notes ?? []).map(async (note) => markdown[`../${note}`]?.())),
+	]);
 	if (module === undefined || source === undefined) throw new Error(`No stories at ${path}`);
 
 	// The component's JSDoc, from the file the stories import it from.
@@ -95,6 +109,7 @@ async function loadComponentPage(page: Page): Promise<ComponentPageData> {
 			component === undefined || componentSource === undefined
 				? undefined
 				: docOf(componentSource, component),
+		notes: notes.filter((note) => note !== undefined),
 		// In the file's order, so `Default` leads.
 		stories: entries
 			.sort((a, b) => a.story.order - b.story.order)

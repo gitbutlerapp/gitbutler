@@ -9,7 +9,6 @@ const groups = [
 	"Getting started",
 	"Foundations",
 	"Content",
-	"Components",
 	"Patterns",
 	"Actions",
 	"Inputs",
@@ -19,26 +18,33 @@ const groups = [
 	"Illustrations",
 	"Preview",
 	"Sidebar",
+	"Workspace tree",
 	"Icons",
 ];
 
 /** Where each heading's design notes are: the rules for every platform are but-ui's; only how to
- * build with this library is here. */
+ * build with this library is here. A component's own notes are no heading's: they show on the
+ * component's page. */
 const designFolders = [
 	["design", "getting-started"],
 	["../but-ui/design", "foundations"],
 	["../but-ui/design", "content"],
-	["../but-ui/design", "components"],
 	["../but-ui/design", "patterns"],
 ] as const;
+
+/** The component notes a JSDoc block names in its `@see` tags, as paths from this package. */
+const componentNotes = (jsdoc: string) =>
+	[...jsdoc.matchAll(/@see packages\/but-ui\/(design\/components\/[a-z-]+\.md)/g)].flatMap(
+		([, note]) => (note === undefined ? [] : [`../but-ui/${note}`]),
+	);
 
 const capitalise = (words: string) =>
 	words.charAt(0).toUpperCase() + words.slice(1).replaceAll("-", " ");
 
 /**
  * Fills in `docs/page-list.ts`, every page the site lists: a design note per Markdown file, a
- * component per stories file. Read off the files here, so the sidebar knows the pages without
- * loading every component.
+ * component per stories file with the notes its component's `@see` tags name. Read off the files
+ * here, so the sidebar knows the pages without loading every component.
  */
 const docsPages = (): Plugin => ({
 	name: "docs-pages",
@@ -66,11 +72,27 @@ const docsPages = (): Plugin => ({
 			.filter((file) => file.endsWith(".stories.tsx"))
 			.map((file) => {
 				// The page's title and id are the `stories({…})` call's, not a story's data.
-				const source = read(`src/${file}`).split(/\bstories(?:<[^>]*>)?\(/)[1] ?? "";
+				const stories = read(`src/${file}`);
+				const source = stories.split(/\bstories(?:<[^>]*>)?\(/)[1] ?? "";
+				// The component's JSDoc, from the file the stories import it from, as the page shows it.
+				const component = /\bcomponent: (\w+)/.exec(source)?.[1];
+				const from =
+					component === undefined
+						? undefined
+						: new RegExp(
+								String.raw`import \{[^}]*\b${component}\b[^}]*\} from "\./(\w+\.tsx)"`,
+							).exec(stories)?.[1];
+				const jsdoc =
+					from === undefined
+						? ""
+						: (new RegExp(
+								String.raw`(\/\*\*(?:(?!\*\/)[\s\S])*\*\/)\s*export (?:const|function|class) ${component}\b`,
+							).exec(read(`src/${from}`))?.[1] ?? "");
 				return {
 					id: /\bid: "([^"]+)"/.exec(source)?.[1] ?? file,
 					title: /\btitle: "([^"]+)"/.exec(source)?.[1] ?? file,
 					file,
+					notes: componentNotes(jsdoc),
 				};
 			});
 		const group = (title: string) => groups.indexOf(title.split("/").slice(-2, -1)[0] ?? "");

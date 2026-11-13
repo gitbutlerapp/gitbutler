@@ -1,6 +1,7 @@
 import { Cell } from "../src/Cell.tsx";
 import { Code } from "../src/Code.tsx";
 import { RowGroup } from "../src/RowGroup.tsx";
+import { DesignNote } from "./DesignPage.tsx";
 import {
 	isDesignPage,
 	pageName,
@@ -13,8 +14,8 @@ import { pageLink } from "./site.ts";
 import type { FC } from "react";
 
 /**
- * A component's page, drawn with the components themselves: its name and JSDoc, then each story
- * under its name, then the pages before and after it.
+ * A component's page, drawn with the components themselves: its name and JSDoc, the design notes
+ * its `@see` tags name, then each story under its name, then the pages before and after it.
  */
 export const ComponentPage: FC<{ page: Page; data: ComponentPageData }> = ({ page, data }) => {
 	// An overlay's stories render open and a full view fills the window: each gets a frame of
@@ -28,11 +29,30 @@ export const ComponentPage: FC<{ page: Page; data: ComponentPageData }> = ({ pag
 				<h1 className="docs-page-title text-h1">{pageName(page)}</h1>
 				{data.description !== undefined && <Prose text={data.description} />}
 			</header>
+			{data.notes.map((note) => (
+				<Guidelines key={note} source={note} named={data.notes.length > 1} />
+			))}
 			{data.stories.map((entry) => (
 				<Example key={entry.id} entry={entry} framed={framed(entry)} />
 			))}
 			<Neighbours page={page} />
 		</div>
+	);
+};
+
+/**
+ * A design note under the component's description, headed Guidelines in its title's place, or
+ * with its title after it when the page shows more than one.
+ */
+const Guidelines: FC<{ source: string; named: boolean }> = ({ source, named }) => {
+	const title = /^# (.+)\n/m.exec(source)?.[1];
+	return (
+		<section className="docs-page-guidelines">
+			<h2 className="docs-page-example-title text-h3">
+				{named && title !== undefined ? `Guidelines: ${title}` : "Guidelines"}
+			</h2>
+			<DesignNote source={source.replace(/^# .+\n/m, "")} folder="components" />
+		</section>
 	);
 };
 

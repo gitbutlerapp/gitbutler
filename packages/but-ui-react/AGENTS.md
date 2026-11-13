@@ -113,7 +113,9 @@ holds the system and everything drawn with it, as a monorepo holds packages:
   section under it. Only these pages define the library's components; the
   showcases and drafts use instances of them. The docs site shelves the
   stories in the same groups, in the same order (plus Icons, which Figma
-  keeps on its own page): a stories file names its group in `title` and
+  keeps on its own page, and the Workspace tree, a group of its own after
+  Sidebar, one page for the tree and one for each kind of row it is long
+  enough to need): a stories file names its group in `title` and
   keeps its old `id`, so the addresses below don't change when a component
   moves group.
 - **The showcases**: 📱 Panel, 🖼️ Preview, 🎴 Overlays and 🪟 Modals, with the
@@ -217,8 +219,11 @@ the Figma link, and `layout`) and a `play` function. The docs site, in
 `docs/`, is a small Vite app that draws every page with these components: one
 page per component under its group's heading, every story on it with its
 JSDoc, and the design notes from but-ui's `DESIGN.md` and `design/`, and this
-library's own `design/`. It runs on port
-6007:
+library's own `design/`. A component's own note, in but-ui's
+`design/components/`, has no page: it shows as Guidelines on the page of each
+component whose JSDoc names it with `@see`, above the stories, and a link to
+it opens the first of them. A note there that no component names shows
+nowhere. It runs on port 6007:
 
 ```console
 $ pnpm -F @gitbutler/but-ui-react demos
