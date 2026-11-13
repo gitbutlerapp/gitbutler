@@ -1,3 +1,4 @@
+mod absorb;
 mod branch_apply;
 mod branch_checkout;
 mod branch_create;
