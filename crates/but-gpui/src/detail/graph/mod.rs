@@ -3291,7 +3291,7 @@ impl Render for GraphView {
                     )
                     .when(!self.own_window, |el| {
                         el.child(controls_divider(&theme)).child(
-                            icon_button("graph-pop-out", Icon::PopOutWindow)
+                            icon_button("graph-pop-out", Icon::PopOut)
                                 .tooltip("Open in new window")
                                 .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
                                     this.pop_out(window, cx)

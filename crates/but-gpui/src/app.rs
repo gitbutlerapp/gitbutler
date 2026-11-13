@@ -4273,7 +4273,7 @@ impl AppView {
         vec![
             zoom,
             button(Axis::Across, Icon::SplitRight, "Split right", &SplitRight),
-            button(Axis::Down, Icon::SplitBelow, "Split below", &SplitBelow),
+            button(Axis::Down, Icon::SplitBottom, "Split below", &SplitBelow),
         ]
     }
 

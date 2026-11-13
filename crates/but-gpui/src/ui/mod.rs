@@ -215,8 +215,8 @@ pub const HEADER_HEIGHT: f32 = 40.;
 pub const STATUS_BAR_HEIGHT: f32 = 30.;
 
 /// Every icon: the design system's, compiled in from `packages/but-ui-react` so they're the ones
-/// but.dev draws, and a build fails if one goes; then this app's own, under
-/// `assets/icons`, for what but-ui-react draws in code rather than from a file, or doesn't have.
+/// but.dev draws, and a build fails if one goes; then this app's own, under `assets/icons`, for
+/// what but-ui-react draws in code rather than from a file.
 macro_rules! icons {
     (
         $($variant:ident => $name:literal),* $(,)?;
@@ -267,6 +267,7 @@ icons! {
     Branch => "branch",
     BranchMerge => "branch-merge",
     BulletDisc => "bullet-disc",
+    Burger => "burger",
     Camera => "camera",
     ChevronDown => "chevron-down",
     ChevronLeft => "chevron-left",
@@ -308,6 +309,7 @@ icons! {
     Mixer => "mixer",
     Plug => "plug",
     Plus => "plus",
+    PopOut => "pop-out",
     Pr => "pr",
     PrClose => "pr-close",
     PrDraft => "pr-draft",
@@ -315,6 +317,8 @@ icons! {
     Repo => "repo",
     Search => "search",
     Settings => "settings",
+    SplitBottom => "split-bottom",
+    SplitRight => "split-right",
     SidebarNarrow => "sidebar-narrow",
     Stack => "stack",
     Tag => "tag",
@@ -327,14 +331,6 @@ icons! {
     // but-ui-react's FolderIcon, a component with its gradient in CSS: the folder of a file
     // list, not the worktree's outline folder.
     own: FolderFill => "folder-fill",
-    // but-ui-react's sidebar-narrow, with the part a split makes filled in. Drawn from an
-    // older sidebar-narrow than the library's: redraw them with it.
-    SplitRight => "split-right",
-    SplitBelow => "split-below",
-    // A window coming off another, for what opens in a window of its own.
-    PopOutWindow => "pop-out-window",
-    // Three lines, for the menu bar folded into a button, as Windows and Linux apps draw it.
-    Menu => "menu",
 }
 
 /// GitButler's fonts, compiled into the binary so the client looks the same everywhere.
@@ -2245,7 +2241,7 @@ mod tests {
     #[test]
     fn every_icon_loads_at_a_size() {
         use gpui::AssetSource as _;
-        for glyph in [Icon::Branch, Icon::Camera, Icon::FolderFill, Icon::Menu] {
+        for glyph in [Icon::Branch, Icon::Camera, Icon::FolderFill, Icon::Burger] {
             let path = glyph.path_at(12.);
             let svg = super::Assets.load(&path).unwrap();
             assert!(svg.is_some(), "{path} is the icon with its size on the end");

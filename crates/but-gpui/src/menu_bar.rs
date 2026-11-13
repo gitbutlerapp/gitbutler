@@ -183,7 +183,7 @@ impl AppView {
         let theme = Theme::get(cx);
         let left = left(window, theme);
         let Some(open) = self.bar_menu_open() else {
-            let button = icon_button("menu-bar", Icon::Menu)
+            let button = icon_button("menu-bar", Icon::Burger)
                 .tooltip_for("Menu", &OpenMenuBar)
                 .dispatch(&OpenMenuBar);
             return Some(overlay(
