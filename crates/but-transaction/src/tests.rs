@@ -45,6 +45,19 @@ fn assert_num_snapshots(ctx: &Context, expected: usize) {
     );
 }
 
+#[track_caller]
+fn undo_last(ctx: &mut Context) {
+    let snapshot = but_api::legacy::oplog::get_undo_target_snapshot(ctx)
+        .unwrap()
+        .expect("the transaction records an undo target");
+    but_api::legacy::oplog::restore_snapshot_with_kind(
+        ctx,
+        but_api::legacy::oplog::RestoreKind::RestoreFromSnapshotViaUndo,
+        snapshot.commit_id,
+    )
+    .unwrap();
+}
+
 #[test]
 fn squashing_three_commits() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
@@ -319,15 +332,7 @@ fn create_reference_at_commit_then_commit_and_checkout() {
                 "independent creation must not record a stack relationship with the base"
             );
             assert_num_snapshots(&ctx, 1);
-            let snapshot = but_api::legacy::oplog::get_undo_target_snapshot(&ctx)
-                .unwrap()
-                .expect("the transaction records an undo target");
-            but_api::legacy::oplog::restore_snapshot_with_kind(
-                &mut ctx,
-                but_api::legacy::oplog::RestoreKind::RestoreFromSnapshotViaUndo,
-                snapshot.commit_id,
-            )
-            .unwrap();
+            undo_last(&mut ctx);
             assert_eq!(
                 env.open_repo().head_name().unwrap().unwrap(),
                 original_head,
@@ -420,15 +425,7 @@ fn create_reference_and_checkout_are_undoable_together() {
     );
     assert_num_snapshots(&ctx, 1);
 
-    let snapshot = but_api::legacy::oplog::get_undo_target_snapshot(&ctx)
-        .unwrap()
-        .expect("the transaction records an undo target");
-    but_api::legacy::oplog::restore_snapshot_with_kind(
-        &mut ctx,
-        but_api::legacy::oplog::RestoreKind::RestoreFromSnapshotViaUndo,
-        snapshot.commit_id,
-    )
-    .unwrap();
+    undo_last(&mut ctx);
 
     assert_eq!(
         ctx.repo
@@ -474,15 +471,7 @@ fn undo_deletes_a_reference_the_snapshot_names() {
         "the transaction creates the branch"
     );
 
-    let snapshot = but_api::legacy::oplog::get_undo_target_snapshot(&ctx)
-        .unwrap()
-        .expect("the transaction records an undo target");
-    but_api::legacy::oplog::restore_snapshot_with_kind(
-        &mut ctx,
-        but_api::legacy::oplog::RestoreKind::RestoreFromSnapshotViaUndo,
-        snapshot.commit_id,
-    )
-    .unwrap();
+    undo_last(&mut ctx);
 
     assert_eq!(
         ref_target(&env, new_branch.as_ref()),
@@ -1634,15 +1623,7 @@ fn a_commit_to_a_new_stack_and_the_workspace_it_enters_undo_together() {
     );
     assert_num_snapshots(&ctx, 1);
 
-    let snapshot = but_api::legacy::oplog::get_undo_target_snapshot(&ctx)
-        .unwrap()
-        .expect("the transaction records an undo target");
-    but_api::legacy::oplog::restore_snapshot_with_kind(
-        &mut ctx,
-        but_api::legacy::oplog::RestoreKind::RestoreFromSnapshotViaUndo,
-        snapshot.commit_id,
-    )
-    .unwrap();
+    undo_last(&mut ctx);
 
     assert_eq!(
         head_name(&ctx),
@@ -1813,33 +1794,12 @@ fn removing_a_top_branch_and_committing_to_the_one_below_undo_together() {
     );
     assert_ne!(ref_target(&env, a.as_ref()), Some(b_tip));
 
-    let snapshot = but_api::legacy::oplog::get_undo_target_snapshot(&ctx)
-        .unwrap()
-        .expect("the transaction records an undo target");
-    but_api::legacy::oplog::restore_snapshot_with_kind(
-        &mut ctx,
-        but_api::legacy::oplog::RestoreKind::RestoreFromSnapshotViaUndo,
-        snapshot.commit_id,
-    )
-    .unwrap();
+    undo_last(&mut ctx);
     assert_eq!(refs(), before, "one undo brings both back");
 }
 
 fn rename_branch() -> SnapshotDetails {
     SnapshotDetails::new(OperationKind::UpdateBranchName)
-}
-
-#[track_caller]
-fn undo_last(ctx: &mut Context) {
-    let snapshot = but_api::legacy::oplog::get_undo_target_snapshot(ctx)
-        .unwrap()
-        .expect("the transaction records an undo target");
-    but_api::legacy::oplog::restore_snapshot_with_kind(
-        ctx,
-        but_api::legacy::oplog::RestoreKind::RestoreFromSnapshotViaUndo,
-        snapshot.commit_id,
-    )
-    .unwrap();
 }
 
 /// Two stacks in the workspace, and `main` moved on to a commit no checkout reaches.
