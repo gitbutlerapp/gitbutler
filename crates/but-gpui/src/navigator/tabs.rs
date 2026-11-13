@@ -2385,8 +2385,12 @@ impl Render for NavigatorTabs {
                             cx,
                         )
                     }))
-                    .on_action(cx.listener(|this, _: &ToggleFold, window, cx| {
-                        this.leave_to_page(window, cx)
+                    .on_action(cx.listener(|this, action: &ToggleFold, window, cx| {
+                        this.fold_row(
+                            |nav, window, cx| nav.toggle_fold(action, window, cx),
+                            window,
+                            cx,
+                        )
                     }))
                     .on_action(cx.listener(|this, _: &Cancel, window, cx| {
                         // A move under way lets go first, as it does in the navigator.
