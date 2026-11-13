@@ -358,6 +358,7 @@ where
                         pending_branch_metadata,
                         FinalizeOptions {
                             checkout: pending_checkout,
+                            edited,
                             dry_run,
                         },
                     )
@@ -1409,6 +1410,7 @@ struct RenamedReference {
 
 struct FinalizeOptions {
     checkout: Option<FullName>,
+    edited: bool,
     dry_run: DryRun,
 }
 
@@ -1655,6 +1657,7 @@ fn workspace_state_from_rebase<M: RefMetadata>(
 ) -> anyhow::Result<WorkspaceState> {
     let FinalizeOptions {
         checkout: pending_checkout,
+        edited,
         dry_run,
     } = options;
     if dry_run.into() {
@@ -1677,6 +1680,24 @@ fn workspace_state_from_rebase<M: RefMetadata>(
             repo,
             replaced_commits,
             conflicted_commits,
+            db,
+        );
+    }
+
+    // Materializing a rebase that changed nothing would still rewrite the workspace commit and
+    // the metadata as seen from `HEAD`, which a checkout alone mustn't touch.
+    if !edited && let Some(branch) = &pending_checkout {
+        checkout_reference(repo, branch.as_ref())?;
+        let mut workspace = rebase.overlayed_graph()?.into_workspace()?;
+        let (_, meta, db) = rebase.repo_meta_and_db_mut();
+        let project_meta = workspace.graph.project_meta.clone();
+        workspace.refresh_from_head(repo, &*meta, project_meta, &mut *db)?;
+        return WorkspaceState::from_workspace_with_db(
+            &workspace,
+            meta,
+            repo,
+            BTreeMap::new(),
+            Vec::new(),
             db,
         );
     }
