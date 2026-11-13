@@ -286,6 +286,7 @@ where
             pending_branch_metadata: Vec::new(),
             pending_ref_changes: PendingRefChanges::default(),
             pending_checkout: None,
+            edited: false,
             pending_new_stacks: Vec::new(),
             removals_to_settle: Vec::new(),
             started,
@@ -313,15 +314,24 @@ where
             pending_branch_metadata,
             mut pending_ref_changes,
             pending_checkout,
+            edited,
             pending_new_stacks,
             removals_to_settle,
-            started: _,
+            started,
             context_lines: _,
         } = inner;
         let rebase = rebase.take().expect("rebase is always Some(_)");
 
         let should_rollback = callback_outcome.should_rollback();
         *checkout_guard.pending = pending_checkout.is_some();
+        if pending_checkout.is_some()
+            && !should_rollback
+            && edited
+            && started.head_reference.is_none()
+        {
+            pending_ref_changes.rollback(&repo)?;
+            anyhow::bail!("--switch needs a branch checked out (HEAD is detached)");
+        }
         if checkout_guard.refuse_without_checkpoint
             && pending_checkout.is_some()
             && !should_rollback
@@ -404,6 +414,9 @@ where
     pending_ref_changes: PendingRefChanges,
     // A checkout cannot happen until the in-memory rebase and its references are materialized.
     pending_checkout: Option<FullName>,
+    // With `HEAD` detached there's no checkpoint to take back a failed checkout, so one may only
+    // follow a transaction that writes nothing else.
+    edited: bool,
     // Applied once the callback is done rather than when they're made: a checkout later in the
     // transaction leaves `HEAD` on a branch of its own, which needs no workspace.
     pending_new_stacks: Vec<(FullName, Option<usize>)>,
@@ -585,13 +598,9 @@ where
     /// before the transaction. Calling this more than once replaces the previously requested final
     /// checkout.
     ///
-    /// Fails if `HEAD` was detached when the transaction started, as there's no checkpoint to
-    /// undo a checkout that fails.
+    /// If `HEAD` was detached when the transaction started, the transaction fails when it also
+    /// changes anything else, as there's no checkpoint to undo a checkout that fails.
     pub fn checkout(&mut self, branch: &FullNameRef) -> anyhow::Result<()> {
-        anyhow::ensure!(
-            self.inner.started.head_reference.is_some(),
-            "--switch needs a branch checked out (HEAD is detached)"
-        );
         anyhow::ensure!(
             branch.category() == Some(gix::refs::Category::LocalBranch),
             "Can only check out local branches under refs/heads, got '{}'",
@@ -631,6 +640,7 @@ where
         );
         if !self.has_reference(ref_name) {
             but_workspace::worktrees::refuse_checked_out_in_linked_worktree(self.repo(), ref_name)?;
+            self.inner.edited = true;
             self.inner.removed_references.push(ref_name.to_owned());
             return Ok(());
         }
@@ -1346,6 +1356,7 @@ where
 
         self.inner.commit_mappings = new_rebase.history.commit_mappings();
         self.inner.rebase = Some(new_rebase);
+        self.inner.edited = true;
         Ok(outcome)
     }
 

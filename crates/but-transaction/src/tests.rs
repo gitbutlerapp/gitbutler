@@ -1487,7 +1487,7 @@ fn remove_references() {
 fn a_new_stack_checked_out_in_the_same_transaction_doesnt_enter_the_workspace() {
     let (env, mut ctx) = single_branch_beside_target();
     let mut meta = ctx.meta().unwrap();
-    let new_branch = FullName::try_from("refs/heads/new").unwrap();
+    let new_branch = FullName::try_from("refs/heads/independent").unwrap();
 
     with_transaction(
         &mut ctx,
@@ -2054,4 +2054,68 @@ fn amending_commits_and_rewording_one_undo_together() {
         env.invoke_git("status --porcelain"),
         "M file-one\n M file-three"
     );
+}
+
+#[test]
+fn checking_out_from_a_detached_head_alone_works() {
+    let env = Sandbox::open_scenario_with_target_and_default_settings("one-stack");
+    env.invoke_git("checkout --detach");
+    let branch = FullName::try_from("refs/heads/branch").unwrap();
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let mut meta = ctx.meta().unwrap();
+    let _workspace: WorkspaceState = with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::SwitchBranch),
+        DryRun::No,
+        |mut tx| tx.checkout(branch.as_ref()),
+    )
+    .unwrap();
+
+    assert_eq!(env.open_repo().head_name().unwrap(), Some(branch));
+}
+
+#[test]
+fn checking_out_from_a_detached_head_after_an_edit_is_refused() {
+    let env = Sandbox::open_scenario_with_target_and_default_settings("one-stack");
+    env.invoke_git("checkout --detach");
+    let branch = FullName::try_from("refs/heads/branch").unwrap();
+    let new_branch = FullName::try_from("refs/heads/independent").unwrap();
+    let [tip] = find_commits(&env, ["branch"]);
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let mut meta = ctx.meta().unwrap();
+    let err = with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::SwitchBranch),
+        DryRun::No,
+        |mut tx| {
+            tx.checkout(branch.as_ref())?;
+            tx.create_reference_at_commit(new_branch.as_ref(), tip)?;
+            tx.insert_blank_commit(RelativeTo::Reference(branch.clone()), InsertSide::Below)?;
+            Ok(())
+        },
+    )
+    .unwrap_err();
+
+    assert_eq!(
+        err.to_string(),
+        "--switch needs a branch checked out (HEAD is detached)"
+    );
+    let repo = env.open_repo();
+    assert_eq!(repo.head_name().unwrap(), None, "HEAD stays detached");
+    assert_eq!(
+        ref_target(&env, branch.as_ref()),
+        Some(tip),
+        "nothing is written"
+    );
+    assert_eq!(ref_target(&env, new_branch.as_ref()), None);
 }
