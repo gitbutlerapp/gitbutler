@@ -4,7 +4,6 @@
 
 use std::borrow::Cow;
 use std::collections::HashMap;
-#[cfg(unix)]
 use std::collections::HashSet;
 use std::time::Instant;
 
