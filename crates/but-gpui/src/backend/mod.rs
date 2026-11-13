@@ -325,7 +325,9 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
     let ctx = open(path)?;
     let Kept { main, mut linked } = kept;
     let repo = ctx.repo.get()?.clone();
-    let head = repo.head_name()?;
+    let head = repo.head()?;
+    let head_id = head.id().map(|id| CommitId(id.detach()));
+    let head = head.referent_name().map(ToOwned::to_owned);
     let remoteless = repo.remote_names().is_empty();
     let managed =
         (head.as_ref()).is_some_and(|name| name.as_bstr() == but_core::WORKSPACE_REF_NAME);
@@ -364,6 +366,8 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         Ok(info) => info,
         Err(editing) => {
             return Ok(Workspace {
+                head,
+                head_id,
                 uncommitted,
                 tree,
                 git_operation,
@@ -413,6 +417,8 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
     // One whose upstream went, or isn't there yet, still records, against its stored commit.
     let unrecorded = head.is_none() || tree.is_none() || target_branch.is_none();
     Ok(Workspace {
+        head,
+        head_id,
         target,
         lost_target,
         forge: reviews::forge_name(&ctx).map(reviews::app_forge),

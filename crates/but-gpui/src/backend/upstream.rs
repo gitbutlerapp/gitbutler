@@ -40,17 +40,16 @@ pub struct TargetCommit {
     pub merge: bool,
 }
 
-/// Up to `limit` of the target's commits, newest first, after `after` or from its tip;
-/// and whether there are older ones. From the tip, the first page stops where the workspace
-/// forked off.
-pub fn target_commits(
+/// Up to `limit` commits of the current checkout, newest first, after `after` or from its
+/// tip, and whether there are older ones. A managed workspace shows the target instead.
+pub fn overview_commits(
     path: &Path,
     after: Option<CommitId>,
     limit: u32,
 ) -> Result<(Vec<TargetCommit>, bool)> {
     let ctx = open(path)?;
     let cached = cached_reviews(&ctx);
-    let (mut commits, mut more) = target_page(&ctx, &cached, after, limit)?;
+    let (mut commits, mut more) = overview_page(&ctx, &cached, after, limit)?;
     // The API reads a thousand at most at a time.
     while after.is_some()
         && more
@@ -59,7 +58,7 @@ pub fn target_commits(
             .checked_sub(commits.len() as u32)
             .filter(|left| *left > 0)
     {
-        let (older, older_more) = target_page(&ctx, &cached, Some(last), left)?;
+        let (older, older_more) = overview_page(&ctx, &cached, Some(last), left)?;
         if older.is_empty() {
             break;
         }
@@ -69,7 +68,7 @@ pub fn target_commits(
     Ok((commits, more))
 }
 
-/// The paths [`target_commits_changing`] looks for.
+/// The paths [`overview_commits_changing`] looks for.
 #[derive(Debug, Clone)]
 pub enum PathQuery {
     /// The file or folder at this path, from the top of the repository.
@@ -90,10 +89,10 @@ impl PathQuery {
     }
 }
 
-/// Up to `limit` of the commits [`target_commits`] lists that changed a path `query` names,
+/// Up to `limit` of the commits [`overview_commits`] lists that changed a path `query` names,
 /// after `after` or from the tip; and whether there are more. Each is compared with its first
 /// parent, so a merge counts for all it brought in. Renames aren't followed.
-pub fn target_commits_changing(
+pub fn overview_commits_changing(
     path: &Path,
     query: &PathQuery,
     after: Option<CommitId>,
@@ -105,7 +104,7 @@ pub fn target_commits_changing(
     let cached = cached_reviews(&ctx);
     let (mut found, mut cursor) = (Vec::new(), after);
     loop {
-        let (page, more) = target_page(&ctx, &cached, cursor, READ)?;
+        let (page, more) = overview_page(&ctx, &cached, cursor, READ)?;
         cursor = page.last().map(|commit| commit.id);
         let repo = ctx.repo.get()?;
         let mut diffs = repo.diff_resource_cache_for_tree_diff()?;
@@ -183,6 +182,81 @@ pub(super) fn incoming(
         .collect())
 }
 
+/// The actual checkout, including an unborn or detached HEAD. GitButler's integration ref
+/// represents several branches, so its overview keeps showing the target's history.
+fn overview_head(repo: &gix::Repository) -> Result<Option<gix::Head<'_>>> {
+    let head = repo.head()?;
+    let managed = head
+        .referent_name()
+        .is_some_and(|name| name.as_bstr() == but_core::WORKSPACE_REF_NAME);
+    Ok((!managed).then_some(head))
+}
+
+fn overview_page(
+    ctx: &but_ctx::Context,
+    cached: &HashMap<u64, but_forge::ForgeReview>,
+    after: Option<CommitId>,
+    limit: u32,
+) -> Result<(Vec<TargetCommit>, bool)> {
+    let repo = ctx.repo.get()?;
+    let Some(head) = overview_head(&repo)? else {
+        drop(repo);
+        return target_page(ctx, cached, after, limit);
+    };
+    let Some(tip) = head.id() else {
+        return Ok((Vec::new(), false));
+    };
+    let (mut commits, more) = local_page(&repo, tip.detach(), None, after, limit)?;
+    // Keep merged reviews on the local history too, including squash merges whose message
+    // doesn't name the review. Enrichment reads only the cache and repository configuration.
+    let mut by_commit = HashMap::new();
+    for review in cached.values().filter(|review| review.is_merged()) {
+        let head = gix::ObjectId::from_hex(review.sha.as_bytes()).ok();
+        for id in review
+            .integration_commit_shas
+            .iter()
+            .filter_map(|sha| gix::ObjectId::from_hex(sha.as_bytes()).ok())
+        {
+            // Two reviews can share an integration commit. Prefer the one it merged.
+            if !by_commit.contains_key(&id)
+                || head.is_some_and(|head| {
+                    repo.find_commit(id)
+                        .is_ok_and(|commit| commit.parent_ids().any(|parent| parent == head))
+                })
+            {
+                by_commit.insert(id, review);
+            }
+        }
+    }
+    let forge = but_api::legacy::forge::forge_info(ctx).ok().flatten();
+    for commit in &mut commits {
+        commit.review = by_commit
+            .get(&commit.id.0)
+            .map(|review| from_cache(review))
+            .or_else(|| {
+                let forge = forge.as_ref()?;
+                let message = format!("{}\n\n{}", commit.title, commit.body);
+                let merged = but_forge::merged_review_from_message(&forge.name, &message)?;
+                let number = u64::try_from(merged.number).ok()?;
+                let mut review = cached
+                    .get(&number)
+                    .map(from_cache)
+                    .unwrap_or_else(|| Review {
+                        number,
+                        title: merged.title.to_owned(),
+                        url: Some(format!(
+                            "{}{}{}",
+                            forge.base_url, forge.pr_url_path, merged.number
+                        )),
+                        ..Review::default()
+                    });
+                review.state = ReviewState::Merged;
+                Some(review)
+            });
+    }
+    Ok((commits, more))
+}
+
 fn target_page(
     ctx: &but_ctx::Context,
     cached: &HashMap<u64, but_forge::ForgeReview>,
@@ -200,7 +274,7 @@ fn target_page(
         (source.as_ref())
             .is_some_and(|name| name.category() == Some(gix::refs::Category::LocalBranch))
     }) {
-        return local_target_page(&repo, tip, &new, after, limit);
+        return local_page(&repo, tip, Some(&new), after, limit);
     }
     // An upstream that isn't there, before a first push or after the remote deleted it, has
     // no history to list; the project's page says which.
@@ -248,13 +322,13 @@ fn target_page(
     Ok((commits, page.has_more || forked_above_root))
 }
 
-/// [`target_page`] for a target with no upstream, which the API lists nothing of: the local
-/// branch's own history from `tip`, along first parents, with those among `new` incoming. The
-/// first page stops where the workspace is.
-fn local_target_page(
+/// Local history from `tip` along first parents. With `new`, this is the target's history:
+/// those commits are incoming and the first page stops where the workspace is. Without it,
+/// this is the checkout's own history, paged all the way to its root.
+fn local_page(
     repo: &gix::Repository,
     tip: gix::ObjectId,
-    new: &HashSet<gix::ObjectId>,
+    new: Option<&HashSet<gix::ObjectId>>,
     after: Option<CommitId>,
     limit: u32,
 ) -> Result<(Vec<TargetCommit>, bool)> {
@@ -269,14 +343,14 @@ fn local_target_page(
         && let Some(id) = cursor
     {
         // Once one is in the workspace's history, so is every commit below it.
-        incoming = incoming && new.contains(&id);
+        incoming = incoming && new.is_some_and(|new| new.contains(&id));
         let commit = repo.find_commit(id)?;
         cursor = present_first_parent(&commit);
         commits.push(TargetCommit {
             incoming,
             ..target_commit(&mailmap, &commit)?
         });
-        if after.is_none() && !incoming {
+        if new.is_some() && after.is_none() && !incoming {
             break;
         }
     }
@@ -395,15 +469,16 @@ pub struct Person {
     pub merged: HashSet<CommitId>,
 }
 
-/// The target summed up as of `now`, in seconds since the epoch, or nothing without one. A
-/// commit that can't be read is left out rather than failing the rest.
+/// The checkout summed up as of `now`, in seconds since the epoch, or the target for a
+/// managed workspace. A commit that can't be read is left out rather than failing the rest.
 pub fn overview(path: &Path, now: i64) -> Result<Option<Overview>> {
     let ctx = open(path)?;
     let repo = ctx.repo.get()?;
-    // By its full name, as a tag or a branch can have its short one.
-    let meta = ctx.project_meta()?;
-    let tip =
-        super::target_source(&repo, &meta).and_then(|name| super::ref_tip(&repo, name.as_ref()));
+    let tip = match overview_head(&repo)? {
+        Some(head) => head.id().map(|id| id.detach()),
+        None => super::target_source(&repo, &ctx.project_meta()?)
+            .and_then(|name| super::ref_tip(&repo, name.as_ref())),
+    };
     let Some(tip) = tip else {
         return Ok(None);
     };
@@ -1834,6 +1909,208 @@ refs/heads/wt
     }
 
     #[test]
+    fn overview_follows_the_checkout_instead_of_the_remote_target() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("base\n");
+            let path = dir.path();
+            target_origin_main(path);
+            new_on_target(path, "remote only");
+            git(path, &["switch", "-q", "-c", "feature"]);
+            std::fs::write(path.join("file"), "feature\n").unwrap();
+            git(path, &["commit", "-qam", "local feature"]);
+
+            let (commits, more) = super::overview_commits(path, None, 1).unwrap();
+            assert_eq!(
+                commits[0].title, "local feature",
+                "the checkout is the overview's tip"
+            );
+            assert!(
+                !commits[0].incoming,
+                "a checked-out commit is already local"
+            );
+            assert!(more, "the base commit is on the next page");
+            let (older, more) = super::overview_commits(path, Some(commits[0].id), 10).unwrap();
+            assert_eq!(older[0].title, "first", "paging follows the local branch");
+            assert!(!more, "the root ends the history");
+
+            let query = super::PathQuery::Whole("file".into());
+            let (changed, _) = super::overview_commits_changing(path, &query, None, 10).unwrap();
+            assert_eq!(
+                changed[0].id, commits[0].id,
+                "path filtering uses the same branch"
+            );
+            let now = commits[0].time;
+            let summed = overview(path, now)
+                .unwrap()
+                .expect("the checkout has commits");
+            assert_eq!(
+                summed.merges[0].id, commits[0].id,
+                "activity follows the checkout too"
+            );
+            assert_eq!(
+                summed.daily.iter().sum::<u32>(),
+                2,
+                "remote-only activity is excluded"
+            );
+
+            let feature = crate::backend::load_workspace(path, Default::default()).unwrap();
+            git(path, &["switch", "-q", "-c", "same-tip"]);
+            let renamed = crate::backend::load_workspace(path, Default::default()).unwrap();
+            assert_eq!(
+                feature.head_id, renamed.head_id,
+                "switching needn't move the commit"
+            );
+            assert_ne!(
+                feature.head, renamed.head,
+                "the overview's reload key still changes"
+            );
+            assert_eq!(
+                renamed.overview_name().as_deref(),
+                Some("same-tip"),
+                "the label follows HEAD"
+            );
+
+            // Switching to another branch, or detaching HEAD, reads its own history.
+            git(path, &["switch", "-q", "main"]);
+            let (main, _) = super::overview_commits(path, None, 10).unwrap();
+            assert_eq!(
+                main.len(),
+                1,
+                "main hasn't fetched the remote-only commit into itself"
+            );
+            assert_eq!(main[0].title, "first", "the local target's tip is shown");
+            git(path, &["checkout", "-q", "--detach", "feature"]);
+            let (detached, _) = super::overview_commits(path, None, 10).unwrap();
+            assert_eq!(
+                detached[0].id, commits[0].id,
+                "detached HEAD keeps its local history"
+            );
+            let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+            assert_eq!(workspace.head, None, "detached HEAD has no branch name");
+            assert_eq!(
+                workspace.head_id,
+                Some(commits[0].id),
+                "its tip still invalidates the overview"
+            );
+            assert_eq!(
+                workspace.overview_name().as_deref(),
+                Some(format!("HEAD ({})", commits[0].id.short()).as_str()),
+                "detached history is named by its commit"
+            );
+
+            // Incoming updates still belong to the configured integration target.
+            let ctx = crate::backend::open(path).unwrap();
+            let incoming = super::incoming(&ctx, &Default::default(), 10).unwrap();
+            assert_eq!(
+                incoming[0].title, "remote only",
+                "overview doesn't change pull's source"
+            );
+        });
+    }
+
+    #[test]
+    fn overview_reads_a_checkout_without_a_target_or_remote() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("local\n");
+            let path = dir.path();
+            let (commits, more) = super::overview_commits(path, None, 10).unwrap();
+            assert_eq!(
+                commits.len(),
+                1,
+                "local history needs no target configuration"
+            );
+            assert!(!more, "the only commit is the root");
+            assert!(
+                overview(path, commits[0].time).unwrap().is_some(),
+                "local activity is available"
+            );
+
+            git(path, &["switch", "-q", "--orphan", "empty"]);
+            let (commits, more) = super::overview_commits(path, None, 10).unwrap();
+            assert!(
+                commits.is_empty() && !more,
+                "an unborn branch has no history"
+            );
+            assert!(
+                overview(path, 2_000_000_000).unwrap().is_none(),
+                "an unborn branch has no activity"
+            );
+        });
+    }
+
+    #[test]
+    fn overview_keeps_the_target_for_a_managed_workspace() {
+        crate::backend::lane_tests::linked_workspace(|path| {
+            new_on_target(path, "remote update");
+            let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+            assert!(
+                workspace.managed,
+                "several applied branches use the integration ref"
+            );
+            assert_eq!(
+                workspace.overview_name().as_deref(),
+                Some("origin/main"),
+                "the integration ref isn't a business branch"
+            );
+            let (commits, _) = super::overview_commits(path, None, 10).unwrap();
+            assert_eq!(
+                commits[0].title, "remote update",
+                "managed mode retains the target overview"
+            );
+            assert!(commits[0].incoming, "the update isn't applied yet");
+            let summed = overview(path, commits[0].time)
+                .unwrap()
+                .expect("the target exists");
+            assert_eq!(
+                summed.merges[0].id, commits[0].id,
+                "managed activity uses the same target"
+            );
+        });
+    }
+
+    #[test]
+    fn overview_keeps_merged_review_details_on_local_commits() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("base\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(
+                path,
+                &[
+                    "remote",
+                    "set-url",
+                    "origin",
+                    "https://github.com/example/repo.git",
+                ],
+            );
+            git(
+                path,
+                &["commit", "-q", "--allow-empty", "-m", "Local work (#42)"],
+            );
+            let (commits, _) = super::overview_commits(path, None, 10).unwrap();
+            let review = commits[0]
+                .review
+                .as_ref()
+                .expect("the local message names a merged review");
+            assert_eq!(review.number, 42, "the review is retained on local history");
+            assert_eq!(
+                review.title, "Local work",
+                "the list keeps the review's title"
+            );
+            assert_eq!(
+                review.url.as_deref(),
+                Some("https://github.com/example/repo/pull/42"),
+                "the review link remains available"
+            );
+            assert_eq!(
+                review.state,
+                crate::backend::ReviewState::Merged,
+                "the commit has already landed"
+            );
+        });
+    }
+
+    #[test]
     fn a_commit_dated_before_the_window_does_not_end_it() {
         but_testsupport::isolated_app_data_dir(|| {
             use std::process::Command;
@@ -2149,17 +2426,17 @@ refs/heads/wt
                 ),
             ] {
                 let (commits, more) =
-                    super::target_commits_changing(path, &query, None, 10).unwrap();
+                    super::overview_commits_changing(path, &query, None, 10).unwrap();
                 assert_eq!(titles(&commits), expected, "{query:?}: {why}");
                 assert!(!more, "{query:?}: ten is more than it finds");
             }
 
             let app = whole("src/app.rs");
-            let (first, more) = super::target_commits_changing(path, &app, None, 2).unwrap();
+            let (first, more) = super::overview_commits_changing(path, &app, None, 2).unwrap();
             assert_eq!(titles(&first), ["delete app", "merge side"]);
             assert!(more, "older commits changed it too");
             let after = first.last().map(|c| c.id);
-            let (rest, more) = super::target_commits_changing(path, &app, after, 2).unwrap();
+            let (rest, more) = super::overview_commits_changing(path, &app, after, 2).unwrap();
             assert_eq!(
                 titles(&rest),
                 ["change app", "add app"],

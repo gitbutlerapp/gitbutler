@@ -1,6 +1,6 @@
-//! A project's page: where it is, when it last fetched, how busy the target has been and
-//! who's been committing to it, and its history, the commits the workspace doesn't have yet
-//! first, each with the pull request that merged it. Selecting a commit shows its diff.
+//! A project's page: where it is, when it last fetched, and the current checkout's history
+//! and activity. A managed workspace shows the integration target instead, with incoming
+//! commits first. Selecting a commit shows its diff.
 
 use std::cell::Cell;
 use std::collections::{BTreeSet, HashSet};
@@ -260,7 +260,7 @@ impl Detail {
         let now = crate::ui::now();
         // The branches the header counts are the Branches page's, read on their own rather
         // than waited for; that page then opens with them.
-        if newest && workspace.is_some_and(|ws| ws.target.is_some()) {
+        if newest && workspace.is_some() {
             self.load_branches(&project, false, cx);
         }
         self._upstream_load = cx.spawn(async move |this, cx| {
@@ -271,16 +271,20 @@ impl Detail {
                     let summary = newest.then(|| scope.spawn(|| upstream::overview(&path, now)));
                     let (mut commits, mut more) = match &changing {
                         Some(query) => {
-                            upstream::target_commits_changing(&path, query, after, limit)?
+                            upstream::overview_commits_changing(&path, query, after, limit)?
                         }
-                        None => upstream::target_commits(&path, after, limit)?,
+                        None => upstream::overview_commits(&path, after, limit)?,
                     };
                     // The newest page stops where the workspace forked off, often a commit or
                     // two in, so the rest of a page is read with it rather than a wait after.
                     let short = PAGE.saturating_sub(commits.len() as u32);
-                    if let Some(last) = commits.last().map(|c| c.id).filter(|_| more && short > 0) {
+                    if let Some(last) = commits
+                        .last()
+                        .map(|c| c.id)
+                        .filter(|_| changing.is_none() && more && short > 0)
+                    {
                         let (older, older_more) =
-                            upstream::target_commits(&path, Some(last), short)?;
+                            upstream::overview_commits(&path, Some(last), short)?;
                         commits.extend(older);
                         more = older_more;
                     }
@@ -454,6 +458,9 @@ impl Detail {
         // one that failed, what it says about that.
         (store.fetched_at(project), store.fetch_failed_at(project)).hash(&mut hasher);
         if let Some(workspace) = store.workspace(project) {
+            // Even two branches at the same commit have different names; an empty commit
+            // moves HEAD without changing the tree or the bottom commit of its stack.
+            (&workspace.head, workspace.head_id).hash(&mut hasher);
             workspace
                 .target
                 .as_ref()
@@ -1219,8 +1226,8 @@ impl Detail {
         let Some(upstream) = self.upstream_for(project) else {
             return;
         };
-        // Over what merged lately, the target names the page, last.
-        let target = (self.store.read(cx).workspace(project)).and_then(|ws| ws.target_name());
+        // The name follows the same checkout as the history and activity.
+        let target = (self.store.read(cx).workspace(project)).and_then(|ws| ws.overview_name());
         if upstream.selected == Some(Picked::Shipped) {
             return crumbs.push((target.unwrap_or("Target".into()).into_owned().into(), None));
         }
@@ -1818,8 +1825,8 @@ impl Detail {
         let target = entry
             .workspace
             .as_ref()
-            .and_then(|ws| ws.target.as_ref())
-            .map(|t| t.name.clone());
+            .and_then(|ws| ws.overview_name())
+            .map(|name| name.into_owned());
         let upstream = self.upstream_for(project);
         let missing = entry.gone;
         let fetch_error = upstream.and_then(|u| u.fetch.as_ref()?.1.clone());
@@ -1938,12 +1945,21 @@ impl Detail {
                 crate::ui::empty_state(
                     None,
                     "No commits yet",
-                    "Make the first one, then pick the branch your work goes into",
+                    "Make the first commit on this branch to see its history",
                     theme,
                     cx,
                 )
             }
             None => crate::ui::loading_state("Loading…", theme, cx),
+            Some(Upstream {
+                failed: Some(err), ..
+            }) if entry.workspace.as_ref().is_some_and(|ws| !ws.managed) => crate::ui::empty_state(
+                None,
+                "Couldn't read the checkout's history",
+                error_summary(err),
+                theme,
+                cx,
+            ),
             // Picking the target again is the way out of what it most often is, as a target that
             // more than one local branch tracks.
             // Its target is being asked for beside, the history waiting on it.

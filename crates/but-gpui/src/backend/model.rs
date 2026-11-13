@@ -67,6 +67,10 @@ pub struct Project {
 
 #[derive(Debug, Clone, Default)]
 pub struct Workspace {
+    /// The main checkout's branch, or `None` for a detached HEAD.
+    pub head: Option<FullName>,
+    /// The commit checked out, or `None` before the branch's first commit.
+    pub head_id: Option<CommitId>,
     /// The branch everything integrates into, like `origin/main`.
     pub target: Option<Target>,
     /// The target the project names but its repository no longer has, as when the remote
@@ -297,6 +301,17 @@ impl Workspace {
             Some(target) => Some(target.name.as_str().into()),
             None => self.target_branch.as_ref().map(super::short_ref),
         }
+    }
+
+    /// The local checkout named by Overview, or the integration target in a managed workspace.
+    pub fn overview_name(&self) -> Option<std::borrow::Cow<'_, str>> {
+        if self.managed {
+            return self.target_name();
+        }
+        self.head.as_ref().map(super::short_ref).or_else(|| {
+            self.head_id
+                .map(|id| format!("HEAD ({})", id.short()).into())
+        })
     }
 
     /// The commits only branch `ref_name`'s remote has, newest first.
