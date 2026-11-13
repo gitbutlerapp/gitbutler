@@ -20,7 +20,10 @@ pub use but_rebase::graph_rebase::{
 };
 #[cfg(not(feature = "graph-workspace"))]
 use but_workspace::RefInfo;
-use but_workspace::branch::create_reference::Anchor;
+use but_workspace::branch::{
+    create_reference::Anchor, integrate_branch_in_editor,
+    integrate_branch_upstream::InteractiveIntegration,
+};
 use but_workspace::commit::{
     ChangeSource, MoveChangesOutcome, SquashCommitsOutcome, UncommitChangesFailure,
     UncommitChangesFromCommitsOutcome, UncommitChangesSource,
@@ -286,6 +289,7 @@ where
             pending_branch_metadata: Vec::new(),
             pending_ref_changes: PendingRefChanges::default(),
             pending_checkout: None,
+            edited: false,
             pending_new_stacks: Vec::new(),
             removals_to_settle: Vec::new(),
             started,
@@ -313,15 +317,24 @@ where
             pending_branch_metadata,
             mut pending_ref_changes,
             pending_checkout,
+            edited,
             pending_new_stacks,
             removals_to_settle,
-            started: _,
+            started,
             context_lines: _,
         } = inner;
         let rebase = rebase.take().expect("rebase is always Some(_)");
 
         let should_rollback = callback_outcome.should_rollback();
         *checkout_guard.pending = pending_checkout.is_some();
+        if pending_checkout.is_some()
+            && !should_rollback
+            && edited
+            && started.head_reference.is_none()
+        {
+            pending_ref_changes.rollback(&repo)?;
+            anyhow::bail!("--switch needs a branch checked out (HEAD is detached)");
+        }
         if checkout_guard.refuse_without_checkpoint
             && pending_checkout.is_some()
             && !should_rollback
@@ -348,6 +361,7 @@ where
                         pending_branch_metadata,
                         FinalizeOptions {
                             checkout: pending_checkout,
+                            edited,
                             dry_run,
                         },
                     )
@@ -404,6 +418,9 @@ where
     pending_ref_changes: PendingRefChanges,
     // A checkout cannot happen until the in-memory rebase and its references are materialized.
     pending_checkout: Option<FullName>,
+    // Whether anything besides a checkout was asked for. If not, there's nothing to materialize,
+    // and a checkout from a detached `HEAD`, which has no checkpoint to take it back, is safe.
+    edited: bool,
     // Applied once the callback is done rather than when they're made: a checkout later in the
     // transaction leaves `HEAD` on a branch of its own, which needs no workspace.
     pending_new_stacks: Vec<(FullName, Option<usize>)>,
@@ -585,13 +602,9 @@ where
     /// before the transaction. Calling this more than once replaces the previously requested final
     /// checkout.
     ///
-    /// Fails if `HEAD` was detached when the transaction started, as there's no checkpoint to
-    /// undo a checkout that fails.
+    /// If `HEAD` was detached when the transaction started, the transaction fails when it also
+    /// changes anything else, as there's no checkpoint to undo a checkout that fails.
     pub fn checkout(&mut self, branch: &FullNameRef) -> anyhow::Result<()> {
-        anyhow::ensure!(
-            self.inner.started.head_reference.is_some(),
-            "--switch needs a branch checked out (HEAD is detached)"
-        );
         anyhow::ensure!(
             branch.category() == Some(gix::refs::Category::LocalBranch),
             "Can only check out local branches under refs/heads, got '{}'",
@@ -631,6 +644,7 @@ where
         );
         if !self.has_reference(ref_name) {
             but_workspace::worktrees::refuse_checked_out_in_linked_worktree(self.repo(), ref_name)?;
+            self.inner.edited = true;
             self.inner.removed_references.push(ref_name.to_owned());
             return Ok(());
         }
@@ -884,6 +898,19 @@ where
             };
             let rebase =
                 but_workspace::branch::move_branch(editor, source_branch, relative_to, side)?;
+            Ok(((), rebase))
+        })
+    }
+
+    /// Rebuild `branch` from the commits of itself and its upstream as `integration` lists them,
+    /// see [`but_workspace::branch::integrate_branch_in_editor()`].
+    pub fn integrate_branch_upstream(
+        &mut self,
+        branch: &FullNameRef,
+        integration: InteractiveIntegration,
+    ) -> anyhow::Result<()> {
+        self.rebase(|editor, _| {
+            let rebase = integrate_branch_in_editor(editor, branch, integration)?;
             Ok(((), rebase))
         })
     }
@@ -1346,6 +1373,7 @@ where
 
         self.inner.commit_mappings = new_rebase.history.commit_mappings();
         self.inner.rebase = Some(new_rebase);
+        self.inner.edited = true;
         Ok(outcome)
     }
 
@@ -1398,6 +1426,7 @@ struct RenamedReference {
 
 struct FinalizeOptions {
     checkout: Option<FullName>,
+    edited: bool,
     dry_run: DryRun,
 }
 
@@ -1644,6 +1673,7 @@ fn workspace_state_from_rebase<M: RefMetadata>(
 ) -> anyhow::Result<WorkspaceState> {
     let FinalizeOptions {
         checkout: pending_checkout,
+        edited,
         dry_run,
     } = options;
     if dry_run.into() {
@@ -1666,6 +1696,24 @@ fn workspace_state_from_rebase<M: RefMetadata>(
             repo,
             replaced_commits,
             conflicted_commits,
+            db,
+        );
+    }
+
+    // Materializing a rebase that changed nothing would still rewrite the workspace commit and
+    // the metadata as seen from `HEAD`, which a checkout alone mustn't touch.
+    if !edited && let Some(branch) = &pending_checkout {
+        checkout_reference(repo, branch.as_ref())?;
+        let mut workspace = rebase.overlayed_graph()?.into_workspace()?;
+        let (_, meta, db) = rebase.repo_meta_and_db_mut();
+        let project_meta = workspace.graph.project_meta.clone();
+        workspace.refresh_from_head(repo, &*meta, project_meta, &mut *db)?;
+        return WorkspaceState::from_workspace_with_db(
+            &workspace,
+            meta,
+            repo,
+            BTreeMap::new(),
+            Vec::new(),
             db,
         );
     }

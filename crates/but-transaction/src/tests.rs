@@ -4,7 +4,10 @@ use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use but_testsupport::Sandbox;
 use but_workspace::{
-    branch::create_reference::{Anchor, Position},
+    branch::{
+        create_reference::{Anchor, Position},
+        integrate_branch_upstream::InteractiveIntegration,
+    },
     commit::{UncommitChangesSource, squash_commits::MessageCombinationStrategy},
 };
 use gix::{ObjectId, refs::FullName};
@@ -65,10 +68,7 @@ fn squashing_three_commits() {
 
     let [three, two, one] = find_commits(&env, ["1e25c58", "9b3b3d5", "dbdbcea"]);
 
-    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let mut ctx = Context::from_repo_for_testing(repo)
-        .map(Context::with_memory_app_cache)
-        .unwrap();
+    let mut ctx = ctx_for(&env);
 
     assert_num_snapshots(&ctx, 0);
 
@@ -118,10 +118,7 @@ fn rollback() {
 
     let [three, two, one] = find_commits(&env, ["1e25c58", "9b3b3d5", "dbdbcea"]);
 
-    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let mut ctx = Context::from_repo_for_testing(repo)
-        .map(Context::with_memory_app_cache)
-        .unwrap();
+    let mut ctx = ctx_for(&env);
 
     assert_num_snapshots(&ctx, 0);
 
@@ -164,10 +161,7 @@ fn create_reference_without_creating_commits() {
 
     let [three] = find_commits(&env, ["1e25c58"]);
 
-    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let mut ctx = Context::from_repo_for_testing(repo)
-        .map(Context::with_memory_app_cache)
-        .unwrap();
+    let mut ctx = ctx_for(&env);
 
     let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
@@ -205,10 +199,7 @@ fn name_segment_attaches_head_to_a_commit_rewritten_earlier_in_the_transaction()
     env.invoke_git("checkout --detach branch");
     let [top] = find_commits(&env, ["HEAD"]);
 
-    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let mut ctx = Context::from_repo_for_testing(repo)
-        .map(Context::with_memory_app_cache)
-        .unwrap();
+    let mut ctx = ctx_for(&env);
     let mut meta = ctx.meta().unwrap();
     let refname = FullName::try_from("refs/heads/named").unwrap();
 
@@ -444,10 +435,7 @@ fn undo_deletes_a_reference_the_snapshot_names() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["branch"]);
 
-    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let mut ctx = Context::from_repo_for_testing(repo)
-        .map(Context::with_memory_app_cache)
-        .unwrap();
+    let mut ctx = ctx_for(&env);
     let mut meta = ctx.meta().unwrap();
     let new_branch = FullName::try_from("refs/heads/named-in-snapshot").unwrap();
 
@@ -578,10 +566,7 @@ fn create_reference_records_branch_stack_order_in_single_branch_mode() {
     let env = Sandbox::open_scenario_with_target_and_default_settings("one-stack");
     env.invoke_git("checkout main");
 
-    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let mut ctx = Context::from_repo_for_testing(repo)
-        .map(Context::with_memory_app_cache)
-        .unwrap();
+    let mut ctx = ctx_for(&env);
     let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
     let main = FullName::try_from("refs/heads/main").unwrap();
@@ -623,10 +608,7 @@ fn create_reference_rolls_back_branch_stack_order_in_single_branch_mode() {
     let env = Sandbox::open_scenario_with_target_and_default_settings("one-stack");
     env.invoke_git("checkout main");
 
-    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let mut ctx = Context::from_repo_for_testing(repo)
-        .map(Context::with_memory_app_cache)
-        .unwrap();
+    let mut ctx = ctx_for(&env);
     let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
     let main = FullName::try_from("refs/heads/main").unwrap();
@@ -670,10 +652,7 @@ fn create_reference_relative_to_various_anchors() {
 
     let [three, two, base] = find_commits(&env, ["1e25c58", "9b3b3d5", "6674d4f"]);
 
-    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let mut ctx = Context::from_repo_for_testing(repo)
-        .map(Context::with_memory_app_cache)
-        .unwrap();
+    let mut ctx = ctx_for(&env);
 
     let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
@@ -736,10 +715,7 @@ fn create_reference_then_remove_it_in_same_transaction() {
 
     let [three] = find_commits(&env, ["1e25c58"]);
 
-    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let mut ctx = Context::from_repo_for_testing(repo)
-        .map(Context::with_memory_app_cache)
-        .unwrap();
+    let mut ctx = ctx_for(&env);
 
     let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
@@ -778,10 +754,7 @@ fn create_reference_then_commit_below_anchor_keeps_commit_in_workspace() {
 
     let [three, base] = find_commits(&env, ["1e25c58", "6674d4f"]);
 
-    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let mut ctx = Context::from_repo_for_testing(repo)
-        .map(Context::with_memory_app_cache)
-        .unwrap();
+    let mut ctx = ctx_for(&env);
 
     let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateCommit);
@@ -848,10 +821,7 @@ fn cherry_pick_then_reword_copied_commit() {
 
     let [three, one] = find_commits(&env, ["1e25c58", "dbdbcea"]);
 
-    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let mut ctx = Context::from_repo_for_testing(repo)
-        .map(Context::with_memory_app_cache)
-        .unwrap();
+    let mut ctx = ctx_for(&env);
 
     let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::CherryPick);
@@ -900,10 +870,7 @@ fn move_commits_then_commit_relative_to_moved_commit() {
 
     let [three, one] = find_commits(&env, ["1e25c58", "dbdbcea"]);
 
-    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let mut ctx = Context::from_repo_for_testing(repo)
-        .map(Context::with_memory_app_cache)
-        .unwrap();
+    let mut ctx = ctx_for(&env);
 
     let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::MoveCommit);
@@ -956,10 +923,7 @@ fn move_commits_reorders_multiple_subjects() {
 
     let [three, two, one] = find_commits(&env, ["1e25c58", "9b3b3d5", "dbdbcea"]);
 
-    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let mut ctx = Context::from_repo_for_testing(repo)
-        .map(Context::with_memory_app_cache)
-        .unwrap();
+    let mut ctx = ctx_for(&env);
 
     let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::MoveCommit);
@@ -998,10 +962,7 @@ fn create_reference_then_commit_relative_to_it() {
 
     let [three] = find_commits(&env, ["1e25c58"]);
 
-    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let mut ctx = Context::from_repo_for_testing(repo)
-        .map(Context::with_memory_app_cache)
-        .unwrap();
+    let mut ctx = ctx_for(&env);
 
     let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateCommit);
@@ -1044,10 +1005,7 @@ fn create_reference_is_removed_on_rollback() {
 
     let [three] = find_commits(&env, ["1e25c58"]);
 
-    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let mut ctx = Context::from_repo_for_testing(repo)
-        .map(Context::with_memory_app_cache)
-        .unwrap();
+    let mut ctx = ctx_for(&env);
 
     let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateCommit);
@@ -1086,10 +1044,7 @@ fn dynamic_rollback() {
 
     let [three, two, one] = find_commits(&env, ["1e25c58", "9b3b3d5", "dbdbcea"]);
 
-    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let mut ctx = Context::from_repo_for_testing(repo)
-        .map(Context::with_memory_app_cache)
-        .unwrap();
+    let mut ctx = ctx_for(&env);
 
     assert_num_snapshots(&ctx, 0);
 
@@ -1150,10 +1105,7 @@ fn discarding_three_commits() {
 
     let [three, two, one] = find_commits(&env, ["1e25c58", "9b3b3d5", "dbdbcea"]);
 
-    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let mut ctx = Context::from_repo_for_testing(repo)
-        .map(Context::with_memory_app_cache)
-        .unwrap();
+    let mut ctx = ctx_for(&env);
 
     assert_num_snapshots(&ctx, 0);
 
@@ -1194,10 +1146,7 @@ fn discard_changes_from_commit() {
 
     let [two] = find_commits(&env, ["9b3b3d5"]);
 
-    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let mut ctx = Context::from_repo_for_testing(repo)
-        .map(Context::with_memory_app_cache)
-        .unwrap();
+    let mut ctx = ctx_for(&env);
 
     assert_num_snapshots(&ctx, 0);
 
@@ -1251,10 +1200,7 @@ fn uncommit_changes_from_commit() {
 
     let [two] = find_commits(&env, ["9b3b3d5"]);
 
-    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let mut ctx = Context::from_repo_for_testing(repo)
-        .map(Context::with_memory_app_cache)
-        .unwrap();
+    let mut ctx = ctx_for(&env);
     let mut meta = ctx.meta().unwrap();
 
     let (new_two, _workspace) = with_transaction(
@@ -1297,10 +1243,7 @@ fn uncommit_changes_from_commits_reports_what_it_could_not_uncommit() {
 
     let [three, two] = find_commits(&env, ["1e25c58", "9b3b3d5"]);
 
-    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let mut ctx = Context::from_repo_for_testing(repo)
-        .map(Context::with_memory_app_cache)
-        .unwrap();
+    let mut ctx = ctx_for(&env);
     let mut meta = ctx.meta().unwrap();
 
     let (failures, _workspace) = with_transaction(
@@ -1342,10 +1285,7 @@ fn leaving_the_workspace_removes_its_metadata() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let mut ctx = Context::from_repo_for_testing(repo)
-        .map(Context::with_memory_app_cache)
-        .unwrap();
+    let mut ctx = ctx_for(&env);
     let mut meta = ctx.meta().unwrap();
 
     let a = FullName::try_from("refs/heads/A").unwrap();
@@ -1391,10 +1331,7 @@ fn removing_the_last_two_stacks_together_leaves_the_workspace() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let mut ctx = Context::from_repo_for_testing(repo)
-        .map(Context::with_memory_app_cache)
-        .unwrap();
+    let mut ctx = ctx_for(&env);
     let mut meta = ctx.meta().unwrap();
 
     let a = FullName::try_from("refs/heads/A").unwrap();
@@ -1445,10 +1382,7 @@ fn remove_references() {
 
     let [three, two, one] = find_commits(&env, ["1e25c58", "9b3b3d5", "dbdbcea"]);
 
-    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let mut ctx = Context::from_repo_for_testing(repo)
-        .map(Context::with_memory_app_cache)
-        .unwrap();
+    let mut ctx = ctx_for(&env);
 
     assert_num_snapshots(&ctx, 0);
 
@@ -1487,7 +1421,7 @@ fn remove_references() {
 fn a_new_stack_checked_out_in_the_same_transaction_doesnt_enter_the_workspace() {
     let (env, mut ctx) = single_branch_beside_target();
     let mut meta = ctx.meta().unwrap();
-    let new_branch = FullName::try_from("refs/heads/new").unwrap();
+    let new_branch = FullName::try_from("refs/heads/independent").unwrap();
 
     with_transaction(
         &mut ctx,
@@ -1518,10 +1452,7 @@ fn single_branch_beside_target() -> (Sandbox, Context) {
     let env = Sandbox::open_scenario_with_target_and_default_settings("one-stack");
     env.invoke_git("checkout branch");
     env.invoke_git("update-ref -d refs/heads/gitbutler/workspace");
-    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let ctx = Context::from_repo_for_testing(repo)
-        .map(Context::with_memory_app_cache)
-        .unwrap();
+    let ctx = ctx_for(&env);
     (env, ctx)
 }
 
@@ -1991,10 +1922,7 @@ fn one_stack_with_changes_to_its_first_and_third_commits()
     env.file("file-one", "file-one amended\n");
     env.file("file-three", "file-three amended\n");
 
-    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let ctx = Context::from_repo_for_testing(repo)
-        .map(Context::with_memory_app_cache)
-        .unwrap();
+    let ctx = ctx_for(&env);
     let amendments = [
         (one, vec![diff_spec_for_file("file-one")]),
         (three, vec![diff_spec_for_file("file-three")]),
@@ -2054,4 +1982,123 @@ fn amending_commits_and_rewording_one_undo_together() {
         env.invoke_git("status --porcelain"),
         "M file-one\n M file-three"
     );
+}
+
+#[test]
+fn checking_out_from_a_detached_head_alone_works() {
+    let env = Sandbox::open_scenario_with_target_and_default_settings("one-stack");
+    env.invoke_git("checkout --detach");
+    let branch = FullName::try_from("refs/heads/branch").unwrap();
+
+    let mut ctx = ctx_for(&env);
+    let mut meta = ctx.meta().unwrap();
+    let _workspace: WorkspaceState = with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::SwitchBranch),
+        DryRun::No,
+        |mut tx| tx.checkout(branch.as_ref()),
+    )
+    .unwrap();
+
+    assert_eq!(env.open_repo().head_name().unwrap(), Some(branch));
+}
+
+#[test]
+fn checking_out_from_a_detached_head_after_an_edit_is_refused() {
+    let env = Sandbox::open_scenario_with_target_and_default_settings("one-stack");
+    env.invoke_git("checkout --detach");
+    let branch = FullName::try_from("refs/heads/branch").unwrap();
+    let new_branch = FullName::try_from("refs/heads/independent").unwrap();
+    let [tip] = find_commits(&env, ["branch"]);
+
+    let mut ctx = ctx_for(&env);
+    let mut meta = ctx.meta().unwrap();
+    let err = with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::SwitchBranch),
+        DryRun::No,
+        |mut tx| {
+            tx.checkout(branch.as_ref())?;
+            tx.create_reference_at_commit(new_branch.as_ref(), tip)?;
+            tx.insert_blank_commit(RelativeTo::Reference(branch.clone()), InsertSide::Below)?;
+            Ok(())
+        },
+    )
+    .unwrap_err();
+
+    assert_eq!(
+        err.to_string(),
+        "--switch needs a branch checked out (HEAD is detached)"
+    );
+    let repo = env.open_repo();
+    assert_eq!(repo.head_name().unwrap(), None, "HEAD stays detached");
+    assert_eq!(
+        ref_target(&env, branch.as_ref()),
+        Some(tip),
+        "nothing is written"
+    );
+    assert_eq!(ref_target(&env, new_branch.as_ref()), None);
+}
+
+fn one_stack_behind_its_remote() -> (Sandbox, Context, InteractiveIntegration) {
+    let env =
+        Sandbox::open_scenario_with_target_and_default_settings("one-stack-behind-its-remote");
+    let ctx = ctx_for(&env);
+    let branch = FullName::try_from("refs/heads/branch").unwrap();
+    let plan =
+        but_api::branch::get_initial_branch_integration(&ctx, branch.as_ref(), None).unwrap();
+    (env, ctx, plan.integration)
+}
+
+#[test]
+fn integrating_a_branch_s_upstream() {
+    let (env, mut ctx, integration) = one_stack_behind_its_remote();
+    let branch = FullName::try_from("refs/heads/branch").unwrap();
+    let mut meta = ctx.meta().unwrap();
+
+    let _workspace: WorkspaceState = with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::GenericBranchUpdate),
+        DryRun::No,
+        |mut tx| tx.integrate_branch_upstream(branch.as_ref(), integration),
+    )
+    .unwrap();
+
+    assert_eq!(
+        env.invoke_git("log --format=%s main..branch"),
+        "add local\nadd remote\nadd shared"
+    );
+}
+
+#[test]
+fn integrating_a_branch_s_upstream_and_rewording_undo_together() {
+    let (env, mut ctx, integration) = one_stack_behind_its_remote();
+    let branch = FullName::try_from("refs/heads/branch").unwrap();
+    let [shared] = find_commits(&env, ["branch~1"]);
+    let tip_before = env.invoke_git("rev-parse branch");
+    let mut meta = ctx.meta().unwrap();
+
+    let _workspace: WorkspaceState = with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::GenericBranchUpdate),
+        DryRun::No,
+        |mut tx| {
+            tx.integrate_branch_upstream(branch.as_ref(), integration)?;
+            tx.reword_commit(shared, "shared, reworded".into())?;
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        env.invoke_git("log --format=%s main..branch"),
+        "add local\nadd remote\nshared, reworded"
+    );
+
+    undo_last(&mut ctx);
+
+    assert_eq!(env.invoke_git("rev-parse branch"), tip_before);
 }
