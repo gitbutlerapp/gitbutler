@@ -7,7 +7,7 @@ use but_api::{
 };
 use but_core::{DiffSpec, DryRun, RefMetadata, sync::RepoExclusive};
 use but_ctx::Context;
-use but_rebase::graph_rebase::mutate::RelativeTo;
+use but_transaction::RelativeTo;
 use but_transaction::Transaction;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::refs::{FullName, FullNameRef};
@@ -521,11 +521,7 @@ impl MoveTarget {
     fn create_target(
         self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
-    ) -> anyhow::Result<(
-        RelativeTo,
-        but_rebase::graph_rebase::mutate::InsertSide,
-        Option<FullName>,
-    )> {
+    ) -> anyhow::Result<(RelativeTo, but_transaction::InsertSide, Option<FullName>)> {
         let target = match self {
             MoveTarget::Commit { commit, side } => CommitRelativeToTarget::Commit { commit, side },
             MoveTarget::BranchTip { name } => CommitRelativeToTarget::BranchTip {

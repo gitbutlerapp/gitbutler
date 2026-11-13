@@ -11,7 +11,7 @@ use but_core::{
     sync::{RepoExclusive, RepoExclusiveGuard},
 };
 use but_ctx::Context;
-use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
+use but_transaction::{InsertSide, RelativeTo};
 use but_transaction::{IntermediateCommitCreateResult, Transaction};
 use but_workspace::{RefInfo, commit::ChangeSource};
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};

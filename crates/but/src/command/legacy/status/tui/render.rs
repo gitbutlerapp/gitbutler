@@ -3,7 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use but_rebase::graph_rebase::mutate::InsertSide;
+use but_transaction::InsertSide;
 use nonempty::NonEmpty;
 use ratatui::{
     Frame,

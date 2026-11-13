@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use bstr::BString;
 use but_core::{ChangeId, HunkHeader, ref_metadata::StackId};
-use but_rebase::graph_rebase::mutate::InsertSide;
+use but_transaction::InsertSide;
 use nonempty::NonEmpty;
 use ratatui_textarea::TextArea;
 
