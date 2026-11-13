@@ -47,7 +47,7 @@ use crate::ui::person::{byline, byline_avatar};
 use crate::ui::text_input::TextInput;
 use crate::ui::{
     ButtonStyle, Icon, Tooltip, age_column, button, dp, error_summary, faint, fold_button, guide,
-    h_flex, icon, icon_button, loading_state, plural, quiet, review, shown_row, side_row,
+    h_flex, icon_at, icon_button, loading_state, plural, quiet, review, shown_row, side_row,
     small_icon, v_flex,
 };
 
@@ -2064,7 +2064,7 @@ impl Detail {
                 h_flex()
                     .flex_none()
                     .gap(dp(3.))
-                    .child(icon(glyph).size(dp(14.)).text_color(color))
+                    .child(icon_at(glyph, 14.).text_color(color))
                     .child(format!("{state} #{}", review.number))
             });
         let commits = match (branch.ahead, branches.stack) {

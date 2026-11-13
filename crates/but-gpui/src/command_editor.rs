@@ -31,7 +31,7 @@ use crate::ui::modal::{ModalSize, modal};
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{self, InputEvent, TextInput};
 use crate::ui::{
-    self, ButtonStyle, Icon, Tooltip, dp, field, fixed, h_flex, icon, icon_button, list_row,
+    self, ButtonStyle, Icon, Tooltip, dp, field, fixed, h_flex, icon_at, icon_button, list_row,
     segmented, v_flex,
 };
 use menu_bar::MenuBarEditor;
@@ -825,8 +825,7 @@ impl CommandEditor {
                     .text_size(dp(SMALL_TEXT))
                     .when(row.locked(), |el| {
                         el.child(
-                            icon(Icon::Lock)
-                                .size(dp(12.))
+                            icon_at(Icon::Lock, 12.)
                                 .flex_none()
                                 .text_color(theme.text_1),
                         )
@@ -1038,7 +1037,7 @@ impl CommandEditor {
             .group_hover("key", |el| el.visible())
             .tooltip(Tooltip::text("Remove these keys"))
             .on_click(cx.listener(move |this, _, _, cx| this.remove(binding.clone(), cx)))
-            .child(icon(Icon::Cross).size(dp(12.)).text_color(theme.text_1));
+            .child(icon_at(Icon::Cross, 12.).text_color(theme.text_1));
         h_flex()
             .group("key")
             .flex_none()

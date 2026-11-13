@@ -1069,11 +1069,7 @@ pub fn checkbox(id: impl Into<ElementId>, check: Toggled, theme: &Theme) -> Stat
         .items_center()
         .justify_center()
         .map(|el| match check {
-            Toggled::True => el.child(
-                small_icon(Icon::Tick)
-                    .size(dp(10.))
-                    .text_color(theme.on_pop),
-            ),
+            Toggled::True => el.child(icon_at(Icon::Tick, 10.).text_color(theme.on_pop)),
             Toggled::Mixed => el.child(div().w(dp(8.)).h(dp(2.)).rounded(dp(1.)).bg(theme.on_pop)),
             Toggled::False => el,
         })
@@ -1510,7 +1506,7 @@ impl RenderOnce for Button {
             .when(self.disabled.is_some(), |el| el.opacity(0.5))
             .when_some(self.icon, |el, kind| {
                 let opacity = if has_label { 0.7 } else { 0.8 };
-                el.child((icon(kind).size(dp(icon_size)).text_color(fg)).opacity(opacity))
+                el.child((icon_at(kind, icon_size).text_color(fg)).opacity(opacity))
             })
             .children(self.picture)
             .when_some(self.label, |el, label| match shrinks {
@@ -2267,6 +2263,46 @@ mod tests {
             Icon::Branch.path_at(16.),
             Icon::Branch.path(),
             "16px is as designed"
+        );
+    }
+
+    #[test]
+    fn no_icon_is_resized_after_its_path_is_picked() {
+        // `icon`, `small_icon` and `icon_at` bake the drawn size into the path, to keep the
+        // strokes as wide (see `keep_strokes`). A `.size()` after one of them draws that path
+        // at another size, which is the thin-stroke bug again, so the size goes to `icon_at`.
+        let mut resized = Vec::new();
+        let mut files = vec![std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src")];
+        while let Some(dir) = files.pop() {
+            for entry in std::fs::read_dir(&dir).expect("the crate's sources are readable") {
+                let path = entry.expect("the entry is readable").path();
+                if path.is_dir() {
+                    files.push(path);
+                    continue;
+                }
+                if path.extension().is_none_or(|ext| ext != "rs") {
+                    continue;
+                }
+                let source = std::fs::read_to_string(&path).expect("the source is UTF-8");
+                // The call, then anything chained that isn't itself a `.size(`, then `.size(`.
+                for (ix, _) in source.match_indices(".size(") {
+                    let before = source.get(..ix).unwrap_or_default();
+                    let call = before.rsplit_once([';', '{']);
+                    let call = call.map_or(before, |(_, after)| after);
+                    let drawn = ["icon(", "small_icon(", "icon_at(", "snackbar_icon("]
+                        .iter()
+                        .any(|helper| call.contains(helper));
+                    if drawn && !call.contains("svg()") {
+                        let line = before.matches('\n').count() + 1;
+                        resized.push(format!("{}:{line}", path.display()));
+                    }
+                }
+            }
+        }
+        assert!(
+            resized.is_empty(),
+            "these draw an icon and then resize it, so its strokes are made for another size; \
+             pass the size to `icon_at` instead: {resized:?}"
         );
     }
 

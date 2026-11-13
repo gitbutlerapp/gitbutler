@@ -1633,7 +1633,7 @@ impl Detail {
         let Some(entry) = store.project(project) else {
             return div().into_any_element();
         };
-        let mark = ProjectIcon::parse(store.project_icon(project)).render(theme.scaled(16.), theme);
+        let mark = ProjectIcon::parse(store.project_icon(project)).render(16., theme);
         let fetch = self.upstream_for(project).map(|u| u.fetch.clone());
         let picked = project.clone();
         // As wide as the other pages' icons, so the titles line up.

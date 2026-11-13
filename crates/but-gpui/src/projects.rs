@@ -503,7 +503,7 @@ impl AppView {
         };
         let colour_cells: Vec<_> = (colours.iter().enumerate())
             .map(|(ix, colour)| {
-                let mark = ProjectIcon::Glyph(colour).render(theme.scaled(18.), theme);
+                let mark = ProjectIcon::Glyph(colour).render(18., theme);
                 cell(("colour", ix), colour.name, colour.stored(), mark)
             })
             .collect();

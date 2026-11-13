@@ -44,8 +44,8 @@ use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     BLINK, ButtonStyle, HEADER_HEIGHT, Icon, Tooltip, WINDOW_CONTROLS_WIDTH, above_drag,
     blink_once, button, commit_title, count_badge, dp, faint, field, fixed, fold_button, fold_row,
-    glow_once, guide, h_flex, icon, icon_button, list_row, meta_count, plural, pulsing, review,
-    section_label, small_icon, spinning, unread_line, v_flex,
+    glow_once, guide, h_flex, icon, icon_at, icon_button, list_row, meta_count, plural, pulsing,
+    review, section_label, small_icon, spinning, unread_line, v_flex,
 };
 
 mod account;
@@ -313,11 +313,10 @@ pub(super) fn project_glyph(
     theme: &Theme,
 ) -> AnyElement {
     match ProjectIcon::parse(store.project_icon(id)) {
-        ProjectIcon::Glyph(Colour { fill: None, .. }) => icon(Icon::Repo)
-            .size(dp(16.))
+        ProjectIcon::Glyph(Colour { fill: None, .. }) => icon_at(Icon::Repo, 16.)
             .text_color(color)
             .into_any_element(),
-        picked => picked.render(theme.scaled(16.), theme),
+        picked => picked.render(16., theme),
     }
 }
 

@@ -34,7 +34,7 @@ use crate::ui::scrollbar::{Scroll, scrollbar, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     Button, ButtonStyle, Icon, ROW_HEIGHT, Tooltip, WINDOW_CONTROLS_WIDTH, above_drag, age_column,
-    button, commit_title, dp, empty_state, faint, field, fixed, fold_row, h_flex, icon,
+    button, commit_title, dp, empty_state, faint, field, fixed, fold_row, h_flex, icon, icon_at,
     icon_button, list_row, plural, quiet, section_label, shortcut, side_row, small_icon, v_flex,
 };
 
@@ -272,8 +272,7 @@ impl Detail {
                         .enumerate()
                         .flat_map(|(ix, (crumb, target))| {
                             let sep = (ix > 0).then(|| {
-                                small_icon(Icon::ChevronRight)
-                                    .size(dp(10.))
+                                icon_at(Icon::ChevronRight, 10.)
                                     .text_color(theme.text_3)
                                     .into_any_element()
                             });
@@ -1110,8 +1109,7 @@ impl Detail {
             .group("commit-sha")
             .hover(move |el| el.text_color(hover))
             .child(
-                icon(Icon::Hash)
-                    .size(dp(14.))
+                icon_at(Icon::Hash, 14.)
                     .text_color(theme.text_2)
                     .opacity(0.7)
                     .group_hover("commit-sha", move |el| el.text_color(hover)),
@@ -1510,12 +1508,9 @@ pub(super) fn meta_row(theme: &Theme) -> Div {
 /// One of a header's facts in its `meta_row`: its glyph at 0.7 of the line's ink, as
 /// but-ui-react's meta glyphs are, then what's added after.
 pub(super) fn meta_item(glyph: Icon, theme: &Theme) -> Div {
-    h_flex().gap(dp(3.)).child(
-        icon(glyph)
-            .size(dp(14.))
-            .text_color(theme.text_2)
-            .opacity(0.7),
-    )
+    h_flex()
+        .gap(dp(3.))
+        .child(icon_at(glyph, 14.).text_color(theme.text_2).opacity(0.7))
 }
 
 /// A row of an overview, which opens `at` in the navigator, the navigator taking the keys, as a

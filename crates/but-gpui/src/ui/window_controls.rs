@@ -5,7 +5,7 @@
 
 use gpui::{App, Hsla, Rgba, Window, WindowControlArea, div, prelude::*};
 
-use super::{HEADER_HEIGHT, Icon, fixed, h_flex, icon};
+use super::{HEADER_HEIGHT, Icon, fixed, h_flex};
 use crate::theme::Theme;
 
 const LINUX: bool = cfg!(target_os = "linux");
@@ -50,7 +50,12 @@ pub fn window_controls(window: &Window, cx: &App) -> impl IntoElement {
         true => restore_glyph(glyph),
         false => div().size(fixed(10.)).border_1().border_color(glyph),
     };
-    let cross = icon(Icon::Cross).size(fixed(14.)).text_color(glyph);
+    // In real pixels, as the buttons around it are, so its path is the one for that size.
+    let cross = gpui::svg()
+        .path(Icon::Cross.path_at(14.))
+        .size(fixed(14.))
+        .flex_none()
+        .text_color(glyph);
     let hover = match gnome() {
         true => theme.border_2,
         false => theme.hover,

@@ -4,9 +4,9 @@
 
 use std::sync::LazyLock;
 
-use gpui::{AnyElement, IntoElement as _, Pixels, Styled as _, div, img, prelude::*};
+use gpui::{AnyElement, IntoElement as _, Styled as _, div, img, prelude::*};
 
-use super::{Icon, icon};
+use super::{Icon, dp, icon_at};
 use crate::theme::Theme;
 
 /// The repo glyph in one of its colours, as but.dev's `RepoGlyph` draws it.
@@ -81,16 +81,15 @@ impl<'a> ProjectIcon<'a> {
         }
     }
 
-    /// The glyph `size` points square, or the emoji in the text size around it.
-    pub fn render(&self, size: Pixels, theme: &Theme) -> AnyElement {
+    /// The glyph `px` design pixels square, or the emoji in the text size around it.
+    pub fn render(&self, px: f32, theme: &Theme) -> AnyElement {
         match self {
-            ProjectIcon::Glyph(Colour { fill: None, .. }) => icon(Icon::Repo)
-                .size(size)
+            ProjectIcon::Glyph(Colour { fill: None, .. }) => icon_at(Icon::Repo, px)
                 .text_color(theme.text_1)
                 .into_any_element(),
             ProjectIcon::Glyph(Colour {
                 fill: Some(fill), ..
-            }) => img(fill.path()).size(size).flex_none().into_any_element(),
+            }) => img(fill.path()).size(dp(px)).flex_none().into_any_element(),
             ProjectIcon::Emoji(emoji) => div().child(emoji.to_string()).into_any_element(),
         }
     }
