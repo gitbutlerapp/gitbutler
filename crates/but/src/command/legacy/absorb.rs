@@ -8,10 +8,6 @@ use but_ctx::Context;
 use but_hunk_assignment::{
     AbsorptionTarget, CommitAbsorption, JsonAbsorbOutput, JsonCommitAbsorption, JsonFileAbsorption,
 };
-use gitbutler_oplog::{
-    OplogExt,
-    entry::{OperationKind, SnapshotDetails},
-};
 use itertools::Itertools;
 
 use crate::{
@@ -140,10 +136,6 @@ pub(crate) fn handle(
         return Ok(());
     }
 
-    let operation = OperationKind::Absorb;
-    let _snapshot = ctx
-        .create_snapshot(SnapshotDetails::new(operation), guard.write_permission())
-        .ok(); // Ignore errors for snapshot creation
     absorb_assignments(
         ctx,
         absorption_plan,
