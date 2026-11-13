@@ -88,23 +88,26 @@ export const Kinds = meta.story({
 
 /**
  * Counts that do their next step: ↓ updates the branch, ↑ pushes it. They read as the counts beside
- * them until the pointer reaches one, and each tooltip says what pressing it does.
+ * them until the pointer reaches one, and each tooltip says what pressing it does. The age only
+ * explains itself in its tooltip, so it stays a plain count.
  */
 export const Pressable = meta.story({
 	render: () => (
 		<div style={{ display: "flex", gap: 12, alignItems: "center" }}>
 			<Tooltip content="Update from main">
-				<MetaCount type="behind" onClick={() => {}}>
+				<MetaCount type="behind" onPress={() => {}}>
 					2
 				</MetaCount>
 			</Tooltip>
 			<Tooltip content="Push 1 commit">
-				<MetaCount type="unpushed" onClick={() => {}}>
+				<MetaCount type="unpushed" onPress={() => {}}>
 					1
 				</MetaCount>
 			</Tooltip>
-			<MetaCount type="age">27d</MetaCount>
-			<MetaCount type="unpushed" onClick={() => {}} disabled aria-label="Pushing 4 commits">
+			<Tooltip content="Last activity 27 days ago">
+				<MetaCount type="age">27d</MetaCount>
+			</Tooltip>
+			<MetaCount type="unpushed" onPress={() => {}} disabled aria-label="Pushing 4 commits">
 				4
 			</MetaCount>
 		</div>

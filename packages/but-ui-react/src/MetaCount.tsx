@@ -47,12 +47,9 @@ const glyph: Record<MetaCountType, IconName> = {
 };
 
 type MetaCountProps = { type: MetaCountType } & (
-	| ({ onClick?: undefined } & Omit<ComponentProps<"span">, "onClick">)
+	| ({ onPress?: undefined } & ComponentProps<"span">)
 	// A button's own `type` (submit, reset) would clash with what the count counts.
-	| ({ onClick: MouseEventHandler<HTMLButtonElement> } & Omit<
-			ComponentProps<"button">,
-			"onClick" | "type"
-	  >)
+	| ({ onPress: MouseEventHandler<HTMLButtonElement> } & Omit<ComponentProps<"button">, "type">)
 );
 
 /**
@@ -73,16 +70,17 @@ type MetaCountProps = { type: MetaCountType } & (
  * `aria-label`. A long value, such as a branch's name, ends in an ellipsis once its row runs out
  * of room.
  *
- * With `onClick` the count is the button for its next step: ↓ `behind` updates, ↑ `unpushed`
+ * With `onPress` the count is the button for its next step: ↓ `behind` updates, ↑ `unpushed`
  * pushes. It looks the same at rest and takes up the same room; under the pointer it sits on its
  * own colour at 14% (a grey one on the hover ground) and keeps its text, and keyboard focus shows
  * the ring.
  * Its `Tooltip` then says what pressing it does ("Push 4 commits"), not what it counts. The row
- * under it still gets the click, so a host that selects rows stops it there.
- *
+ * under it still gets the click, so a host that selects rows stops it there. `onPress` rather than
+ * `onClick`, because a `Tooltip` hands its trigger an `onClick` of its own: a count that only
+ * explains itself on hover stays a plain count.
  *
  * @figma `state=hover` is the drawing's only: what it draws under the pointer when it has
- * `onClick`.
+ * `onPress`.
  * @see packages/but-ui/design/components/meta-lines.md
  * @import import { MetaCount } from "@gitbutler/but-ui-react/MetaCount.tsx";
  */
@@ -99,17 +97,25 @@ export const MetaCount: FC<MetaCountProps> = (props) => {
 		</>
 	);
 	const className = classes(props.className, "text-13", styles.count, styles[type]);
-	if (props.onClick === undefined) {
-		const { type: _type, children: _children, ...rest } = props;
+	if (props.onPress === undefined) {
+		const { type: _type, children: _children, onPress: _onPress, ...rest } = props;
 		return (
 			<span {...rest} className={className}>
 				{content}
 			</span>
 		);
 	}
-	const { type: _type, children: _children, ...rest } = props;
+	const { type: _type, children: _children, onPress, ...rest } = props;
 	return (
-		<button type="button" {...rest} className={classes(className, styles.pressable)}>
+		<button
+			type="button"
+			{...rest}
+			onClick={(event) => {
+				rest.onClick?.(event);
+				onPress(event);
+			}}
+			className={classes(className, styles.pressable)}
+		>
 			{content}
 		</button>
 	);
