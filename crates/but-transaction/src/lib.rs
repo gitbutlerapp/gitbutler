@@ -418,8 +418,8 @@ where
     pending_ref_changes: PendingRefChanges,
     // A checkout cannot happen until the in-memory rebase and its references are materialized.
     pending_checkout: Option<FullName>,
-    // With `HEAD` detached there's no checkpoint to take back a failed checkout, so one may only
-    // follow a transaction that writes nothing else.
+    // Whether anything besides a checkout was asked for. If not, there's nothing to materialize,
+    // and a checkout from a detached `HEAD`, which has no checkpoint to take it back, is safe.
     edited: bool,
     // Applied once the callback is done rather than when they're made: a checkout later in the
     // transaction leaves `HEAD` on a branch of its own, which needs no workspace.
