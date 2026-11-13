@@ -1727,11 +1727,8 @@ impl NavigatorTabs {
                 .size(dp(TAB_ICON))
                 .text_color(glyph_color)
                 .into_any_element(),
-            TabKey::Checkout(id, checkout) => {
-                let changed = (store.workspace(id))
-                    .and_then(|ws| ws.uncommitted_in(checkout))
-                    .is_some_and(|files| !store.uncommitted_shown(id, checkout, files).is_empty());
-                worktree_icon(checkout.is_linked(), changed, style).into_any_element()
+            TabKey::Checkout(_, checkout) => {
+                worktree_icon(checkout.is_linked(), style).into_any_element()
             }
         };
         let mark_share = self.mark_share(key, now);

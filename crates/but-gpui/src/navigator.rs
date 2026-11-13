@@ -43,9 +43,9 @@ use crate::ui::scrollbar::{Scroll, scrollbar, scrolled_in_gap};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     BLINK, ButtonStyle, HEADER_HEIGHT, Icon, Tooltip, WINDOW_CONTROLS_WIDTH, above_drag,
-    blink_once, button, commit_title, count_badge, dot, dp, faint, field, fixed, fold_button,
-    fold_row, glow_once, guide, h_flex, icon, icon_button, list_row, meta_count, plural, pulsing,
-    review, section_label, small_icon, spinning, unread_line, v_flex,
+    blink_once, button, commit_title, count_badge, dp, faint, field, fixed, fold_button, fold_row,
+    glow_once, guide, h_flex, icon, icon_button, list_row, meta_count, plural, pulsing, review,
+    section_label, small_icon, spinning, unread_line, v_flex,
 };
 
 mod account;
@@ -3670,7 +3670,7 @@ impl Navigator {
         };
         let glyph = self.fold(
             ("worktree-fold", ix),
-            worktree_icon(checkout.is_linked(), !uncommitted.is_empty(), style),
+            worktree_icon(checkout.is_linked(), style),
             folds.then_some(open),
             style.selected,
             style.quiet(),
@@ -4967,23 +4967,13 @@ fn running_mark(ix: usize, style: RowStyle) -> impl IntoElement {
         ))
 }
 
-/// A worktree heading's folder, a linked one's doubled, with a dot in its corner while it has
-/// uncommitted changes, as an edited document has.
-fn worktree_icon(linked: bool, changed: bool, style: RowStyle) -> Div {
-    let glyph = match (linked, changed) {
-        (false, false) => Icon::Folder,
-        (false, true) => Icon::FolderDot,
-        (true, false) => Icon::FolderCopy,
-        (true, true) => Icon::FolderCopyDot,
+/// A worktree heading's folder, a linked one's doubled.
+fn worktree_icon(linked: bool, style: RowStyle) -> gpui::Svg {
+    let glyph = match linked {
+        false => Icon::Folder,
+        true => Icon::FolderCopy,
     };
-    div()
-        .relative()
-        .flex_none()
-        .child(icon(glyph).text_color(style.muted()))
-        .when(changed, |el| {
-            let color = style.meta(style.theme.warn);
-            el.child(dot(color).absolute().top_0().right_0().size(dp(5.)))
-        })
+    icon(glyph).text_color(style.muted())
 }
 
 /// What the heading over the commits only `ref_name`'s remote has says: where they are, how
