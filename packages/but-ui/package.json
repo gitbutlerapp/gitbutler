@@ -22,8 +22,8 @@
 	},
 	"devDependencies": {
 		"@radix-ui/colors": "3.0.0",
-		"@terrazzo/cli": "0.10.3",
-		"@terrazzo/parser": "0.10.4",
+		"@terrazzo/cli": "0.10.5",
+		"@terrazzo/parser": "0.10.5",
 		"@terrazzo/plugin-css": "0.10.4",
 		"culori": "4.0.2",
 		"dittotones": "0.13.0"
