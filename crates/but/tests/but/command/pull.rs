@@ -3010,3 +3010,59 @@ To undo this operation:
         );
     }
 }
+
+#[test]
+fn pull_rebases_past_a_branch_checked_out_in_an_archived_worktree() {
+    let env = single_branch_integration_scenario();
+    commit_file(&env, "feature");
+    env.invoke_git("branch archived-lower");
+    env.file("top.txt", "top\n");
+    env.but("commit -m top").assert().success();
+    let worktree = env.app_data_dir().join("archived-lower");
+    env.invoke_git(&format!(
+        "worktree add -q \"{}\" archived-lower",
+        worktree.display()
+    ));
+    env.but("worktree archive archived-lower")
+        .assert()
+        .success();
+    let lower = rev_parse(&env, "archived-lower");
+    let head = env.invoke_git("symbolic-ref --short HEAD");
+    env.invoke_git("checkout main");
+    env.file("upstream.txt", "upstream\n");
+    env.invoke_git("add upstream.txt");
+    env.invoke_git("commit -m 'add upstream'");
+    env.invoke_git(&format!("checkout {head}"));
+    env.invoke_git("fetch origin");
+
+    // The branch left behind is neither rebased nor integrated, so it isn't reported at all.
+    env.but("pull").assert().success().stdout_eq(str![[r#"
+
+Found 1 upstream commits on origin/main
+   9b6ee5c add upstream
+
+Updating 1 active branches...
+
+Rebase successful
+
+Summary
+────────
+  feature - rebased
+
+To undo this operation:
+  Run `but undo`
+
+"#]]);
+
+    assert_eq!(
+        rev_parse(&env, "archived-lower"),
+        lower,
+        "the archived worktree's branch stays where it is"
+    );
+    env.invoke_git("merge-base --is-ancestor origin/main feature");
+    assert_eq!(
+        but_testsupport::git_status_at_dir(&worktree).unwrap(),
+        "",
+        "the archived worktree's index and files still match its HEAD"
+    );
+}

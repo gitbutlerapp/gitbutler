@@ -6442,3 +6442,48 @@ Hint: run `but help` for all commands
 
 "#]]);
 }
+
+#[test]
+fn amending_below_an_archived_worktree_leaves_its_branch_and_changes_alone() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    let wt = env.app_data_dir().join("worktrees").join("wt-archived");
+    but_testsupport::invoke_bash_at_dir(
+        &format!(
+            r#"
+        git checkout -q -b feature
+        echo lower >shared && git add shared && git commit -q -m lower
+        git branch wt-archived
+        echo top >top && git add top && git commit -q -m top
+        git worktree add -q "{wt}" wt-archived
+        echo dirty >"{wt}/shared"
+        "#,
+            wt = wt.display()
+        ),
+        env.projects_root(),
+    );
+    // The first read archives every worktree already on disk.
+    env.but("status").assert().success();
+    let lower = env.invoke_git("rev-parse wt-archived");
+    env.file("shared", "amended\n");
+    env.file("added-by-amend", "new\n");
+
+    env.but(format!("amend shared added-by-amend --target {lower}"))
+        .assert()
+        .success();
+
+    assert_eq!(
+        env.invoke_git("rev-parse wt-archived"),
+        lower,
+        "nothing would update the worktree, so its branch stays put"
+    );
+    assert_ne!(
+        env.invoke_git("rev-parse feature~1"),
+        lower,
+        "the commit itself is still rewritten for the branch that is checked out"
+    );
+    assert_eq!(
+        but_testsupport::git_status_at_dir(&wt).unwrap(),
+        " M shared\n",
+        "the worktree keeps its uncommitted change against an unmoved HEAD"
+    );
+}
