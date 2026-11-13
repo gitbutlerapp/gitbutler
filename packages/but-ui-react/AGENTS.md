@@ -219,8 +219,11 @@ the Figma link, and `layout`) and a `play` function. The docs site, in
 `docs/`, is a small Vite app that draws every page with these components: one
 page per component under its group's heading, every story on it with its
 JSDoc, and the design notes from but-ui's `DESIGN.md` and `design/`, and this
-library's own `design/`. It runs on port
-6007:
+library's own `design/`. A component's own note, in but-ui's
+`design/components/`, has no page: it shows as Guidelines on the page of each
+component whose JSDoc names it with `@see`, above the stories, and a link to
+it opens the first of them. A note there that no component names shows
+nowhere. It runs on port 6007:
 
 ```console
 $ pnpm -F @gitbutler/but-ui-react demos

@@ -5,6 +5,7 @@ import type { ComponentProps, FC, ReactNode } from "react";
 
 /**
  * @public
+ * @see packages/but-ui/design/components/fields.md
  * @import import { FieldRootStyles } from "@gitbutler/but-ui-react/Field.tsx";
  */
 export const FieldRootStyles: FC<ComponentProps<"div">> = (props) => (

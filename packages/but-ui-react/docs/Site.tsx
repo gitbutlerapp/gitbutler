@@ -76,7 +76,7 @@ export const Site: FC = () => {
 const PageView: FC<{ page: Page }> = ({ page }) => {
 	const data = use(loadPage(page));
 	return data.kind === "design" ? (
-		<DesignPage source={data.source} />
+		<DesignPage source={data.source} folder={page.file.split("/").at(-2) ?? ""} />
 	) : (
 		<ComponentPage page={page} data={data} />
 	);
@@ -99,7 +99,6 @@ const GROUP_ICONS: Record<string, IconName> = {
 	"Getting started": "play",
 	Foundations: "4x4-grid",
 	Content: "text-plain",
-	Components: "components",
 	Patterns: "hash",
 	Actions: "pointer",
 	Inputs: "keyboard",
@@ -144,7 +143,7 @@ const Navigation: FC<{ current: Page | undefined }> = ({ current }) => {
 						const held = found.filter((page) => section.holds(page) && page !== section.page);
 						if (held.length === 0 && (section.page === undefined || !found.includes(section.page)))
 							return null;
-						// Keyed apart from the groups: Docs has a Components folder of its own.
+						// Keyed apart from the groups, whose headings may share a section's name.
 						const key = `section:${section.name}`;
 						return (
 							<section

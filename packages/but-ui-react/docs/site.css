@@ -290,7 +290,17 @@ body[data-layout="centered"] {
 	margin: 0;
 }
 
+/* The component's design notes, under its description and ruled off from the examples as it is. */
+.docs-page-guidelines {
+	display: flex;
+	flex-direction: column;
+	padding-bottom: 32px;
+	gap: 12px;
+	border-bottom: 1px solid var(--but-border-subtle);
+}
+
 .docs-page-header,
+.docs-page-guidelines,
 .docs-page-example > :is(.docs-page-example-title, .docs-page-prose) {
 	box-sizing: border-box;
 	width: 100%;
