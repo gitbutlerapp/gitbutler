@@ -80,6 +80,20 @@ pub fn checkout_branch_in_linked_worktree(
     Ok(dir)
 }
 
+/// Create `outside` from `feature` in the repository at `dir`, with a commit nothing in the
+/// workspace reaches, switch back to `main`, and return its tip.
+pub fn create_branch_outside_the_workspace(dir: &std::path::Path) -> anyhow::Result<gix::ObjectId> {
+    use but_testsupport::{CommandExt as _, git_at_dir};
+    git_at_dir(dir)
+        .args(["switch", "-c", "outside", "feature"])
+        .run();
+    write_file(dir, "outside.txt", "outside\n")?;
+    git_at_dir(dir).args(["add", "outside.txt"]).run();
+    git_at_dir(dir).args(["commit", "-m", "outside"]).run();
+    git_at_dir(dir).args(["switch", "main"]).run();
+    Ok(gix::open(dir)?.rev_parse_single("outside")?.detach())
+}
+
 pub fn write_file(
     root: &std::path::Path,
     relative_path: &str,

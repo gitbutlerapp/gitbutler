@@ -4,9 +4,9 @@ use gix::bstr::ByteSlice;
 use but_testsupport::{CommandExt, git_at_dir};
 
 use crate::support::{
-    assert_workspace_ref, checkout_branch_in_linked_worktree, create_empty_branch_above,
-    persist_default_target, repo_with_feature_branch, undo, workspace_graph, writable_scenario,
-    write_file,
+    assert_workspace_ref, checkout_branch_in_linked_worktree, create_branch_outside_the_workspace,
+    create_empty_branch_above, persist_default_target, repo_with_feature_branch, undo,
+    workspace_graph, writable_scenario,
 };
 
 #[test]
@@ -555,17 +555,7 @@ fn branch_rename_out_of_a_directory_prefix() -> anyhow::Result<()> {
 fn renaming_a_branch_the_workspace_doesnt_show_is_refused() -> anyhow::Result<()> {
     let (repo, tmp) = repo_with_feature_branch()?;
     persist_default_target(&repo)?;
-    // `outside` has a commit that nothing in the workspace reaches.
-    git_at_dir(tmp.path())
-        .args(["switch", "-c", "outside", "feature"])
-        .run();
-    write_file(tmp.path(), "outside.txt", "outside\n")?;
-    git_at_dir(tmp.path()).args(["add", "outside.txt"]).run();
-    git_at_dir(tmp.path())
-        .args(["commit", "-m", "outside"])
-        .run();
-    git_at_dir(tmp.path()).args(["switch", "main"]).run();
-    let outside_tip = repo.rev_parse_single("outside")?.detach();
+    let outside_tip = create_branch_outside_the_workspace(tmp.path())?;
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
     let outside = gix::refs::FullName::try_from("refs/heads/outside")?;
 
