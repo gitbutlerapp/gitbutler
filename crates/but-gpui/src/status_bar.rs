@@ -2,8 +2,8 @@
 //! that matter right now.
 
 use gpui::{
-    Action, AnyElement, App, Context, Div, Focusable as _, Role, SharedString, Stateful, Window,
-    div, prelude::*,
+    Action, AnyElement, App, Context, Div, Focusable as _, Hsla, Role, SharedString, Stateful,
+    Window, div, prelude::*,
 };
 
 use crate::app::{
@@ -407,7 +407,7 @@ impl AppView {
             .when_some(fetched, |el, (failed, said)| {
                 let tip = if failed { "Fetch again" } else { "Fetch" };
                 el.child(
-                    clickable("fetched", &said, &theme)
+                    clickable("fetched", &said, theme.hover, &theme)
                         // Pulled left by its hover's padding, so its words start at the bar's edge.
                         .ml(dp(-6.))
                         .text_color(if failed { theme.warn } else { theme.text_3 })
@@ -433,7 +433,7 @@ impl AppView {
                 Some(hint(&keys, label, &theme))
             }))
             .child(
-                clickable("open-commands", "Commands", &theme)
+                clickable("open-commands", "Commands", theme.hover, &theme)
                     // A keymap can leave the palette without a key, as the TUI's does so far.
                     .child(match shortcut(&CommandPalette, cx) {
                         Some(keys) => hint(&keys, "Commands", &theme),
@@ -566,13 +566,12 @@ impl AppView {
             .overflow_hidden()
             .children(notes.into_iter().map(|note| {
                 let (to, tab) = (note.to, note.tab);
-                clickable(note.id, &note.text, theme)
-                    // A coloured note takes its colour's soft fill, as but-ui-react's StatusNote
-                    // and a badge do, a step stronger under the pointer.
+                // A coloured note takes its colour's soft fill, as but-ui-react's StatusNote and
+                // a badge do, a step stronger under the pointer.
+                let hover = note.tone.map_or(theme.hover, |hue| theme.soft_hover(hue));
+                clickable(note.id, &note.text, hover, theme)
                     .when_some(note.tone, |el, hue| {
-                        el.text_color(theme.hue(hue))
-                            .bg(theme.soft(hue))
-                            .hover(|el| el.bg(theme.soft_hover(hue)))
+                        el.text_color(theme.hue(hue)).bg(theme.soft(hue))
                     })
                     .child(note.mark)
                     .child(note.text)
@@ -679,8 +678,9 @@ fn written_in(names: &[String]) -> Option<String> {
     })
 }
 
-/// A part of the bar a click acts on, which a hover marks as it does the Commands button.
-fn clickable(id: &'static str, label: &str, theme: &Theme) -> Stateful<Div> {
+/// A part of the bar a click acts on, which a hover marks with `hover` as it does the Commands
+/// button. GPUI panics on a second `hover`, so the fill is given here.
+fn clickable(id: &'static str, label: &str, hover: Hsla, theme: &Theme) -> Stateful<Div> {
     h_flex()
         .id(id)
         .role(Role::Button)
@@ -690,7 +690,7 @@ fn clickable(id: &'static str, label: &str, theme: &Theme) -> Stateful<Div> {
         .px(dp(6.))
         .h(dp(22.))
         .rounded(dp(theme.shape.control))
-        .hover(|el| el.bg(theme.hover))
+        .hover(move |el| el.bg(hover))
 }
 
 /// An operation's label, which names it as a command ("Push main"), as what's under way
