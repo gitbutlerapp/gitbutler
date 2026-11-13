@@ -177,20 +177,6 @@ impl TargetCommit {
 }
 
 impl TargetRef {
-    /// Return `None` if `ref_name` wasn't found as segment in `graph`.
-    /// This can happen if a reference is configured, but not actually present as reference.
-    /// Note that `commits_ahead` isn't set yet, see [`Self::commits_ahead()`].
-    fn from_ref_name_without_commits_ahead(
-        ref_name: &gix::refs::FullNameRef,
-        graph: &Graph,
-    ) -> Option<Self> {
-        Some(TargetRef {
-            ref_name: ref_name.to_owned(),
-            segment_index: graph.segment_by_ref_name(ref_name)?.id,
-            commits_ahead: 0,
-        })
-    }
-
     /// Count the commits of the target at `target_segment` that aren't in the workspace, stopping
     /// at `lower_bound_segment`.
     pub(crate) fn commits_ahead(
