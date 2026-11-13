@@ -1,4 +1,6 @@
-//! The API layer is what can be used to create GitButler applications.
+//! One-op functions for JSON clients (Tauri, `but-server`, the SDK) and for callers that do a single
+//! action. Rust clients that group workspace mutations into one undo step compose
+//! [`but_transaction::Transaction`] methods instead.
 //!
 //! ### Coordinating Filesystem Access
 //!
