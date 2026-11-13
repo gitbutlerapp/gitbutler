@@ -398,7 +398,9 @@ fn mock_gitlab_reads(replies: Vec<Reply>) -> (String, ReadMockServer) {
 
 const TOKEN: &str = "synthetic-token-that-must-not-leak";
 const MERGE_STATUS: &str = r#"{"merge_status":"can_be_merged","user_notes_count":0}"#;
-const PIPELINE: &str = r#"{"id":5,"status":"success","web_url":null}"#;
+const FAILED_PIPELINES: &str = r#"[{"id":5,"sha":"0123456789abcdef","status":"failed","created_at":null,"updated_at":null,"web_url":null}]"#;
+const PIPELINE_BRANCH: &str = r#"{"commit":{"id":"0123456789abcdef"}}"#;
+const SYNTHETIC_PIPELINES: &str = r#"[{"id":5,"sha":"synthetic-merge","status":"success","source":"merge_request_event","ref":"refs/merge-requests/12/merge"}]"#;
 const PROJECT: &str = r#"{"id":7,"path_with_namespace":"group/repo","ssh_url_to_repo":"git@gitlab.example:group/repo.git","http_url_to_repo":"https://gitlab.example/group/repo.git","default_branch":"main"}"#;
 
 fn mr(iid: i64) -> String {
@@ -409,7 +411,7 @@ fn mr(iid: i64) -> String {
 
 fn job(id: i64) -> String {
     format!(
-        r#"{{"id":{id},"name":"job-{id}","status":"success","allow_failure":false,"started_at":null,"finished_at":null,"web_url":null,"pipeline":{{"id":5,"web_url":null,"status":"success"}}}}"#
+        r#"{{"id":{id},"name":"job-{id}","allow_failure":false,"started_at":null,"finished_at":null,"web_url":null}}"#
     )
 }
 
@@ -450,7 +452,7 @@ enum Read {
     RecentlyClosed,
     Get,
     MergeStatus,
-    PipelineJobs,
+    PipelineChecks,
 }
 
 /// Perform `read` through the stored account and report how many items it returned.
@@ -479,9 +481,10 @@ async fn perform(
             but_gitlab::mr::get_merge_status(account, project, 1, storage).await?;
             1
         }
-        Read::PipelineJobs => {
-            but_gitlab::checks::list_pipeline_jobs_for_ref(account, project, "main", storage)
+        Read::PipelineChecks => {
+            but_gitlab::checks::latest_pipeline_for_branch(account, project, "main", storage)
                 .await?
+                .1
                 .len()
         }
     })
@@ -506,16 +509,24 @@ fn rejected_token_on_read_paths_carries_the_unauthorized_code_on_every_seam() {
             ),
             (Read::Get, vec![reply(401, REJECTED)]),
             (Read::MergeStatus, vec![reply(401, REJECTED)]),
-            (Read::PipelineJobs, vec![reply(401, REJECTED)]),
+            (Read::PipelineChecks, vec![reply(401, REJECTED)]),
             (
-                Read::PipelineJobs,
-                vec![reply(200, PIPELINE), reply(401, REJECTED)],
+                Read::PipelineChecks,
+                vec![reply(200, FAILED_PIPELINES), reply(401, REJECTED)],
             ),
             (
-                Read::PipelineJobs,
+                Read::PipelineChecks,
                 vec![
-                    reply(200, PIPELINE),
-                    page(format!("[{}]", job(1)), "2"),
+                    reply(200, SYNTHETIC_PIPELINES),
+                    reply(200, PIPELINE_BRANCH),
+                    reply(401, REJECTED),
+                ],
+            ),
+            (
+                Read::PipelineChecks,
+                vec![
+                    reply(200, FAILED_PIPELINES),
+                    reply(200, PIPELINE_BRANCH),
                     reply(401, REJECTED),
                 ],
             ),
@@ -658,11 +669,15 @@ fn read_failures_other_than_a_rejected_token_stay_unclassified() {
             (Read::Get, vec![reply(500, REJECTED)], "500"),
             (Read::Get, vec![reply(403, REJECTED)], "403"),
             (Read::MergeStatus, vec![reply(403, REJECTED)], "403"),
-            (Read::PipelineJobs, vec![reply(500, REJECTED)], "500"),
+            (Read::PipelineChecks, vec![reply(500, REJECTED)], "500"),
             (
-                Read::PipelineJobs,
-                vec![reply(200, PIPELINE), reply(403, REJECTED)],
-                "403",
+                Read::PipelineChecks,
+                vec![
+                    reply(200, FAILED_PIPELINES),
+                    reply(200, PIPELINE_BRANCH),
+                    reply(500, REJECTED),
+                ],
+                "500",
             ),
         ];
         for (read, replies, detail) in cases {
@@ -701,17 +716,261 @@ fn read_failures_other_than_a_rejected_token_stay_unclassified() {
 }
 
 #[test]
-fn ci_reads_keep_treating_a_forbidden_or_missing_pipeline_as_no_checks() {
+fn ci_does_not_report_an_older_commits_pipeline_for_the_branch_head() {
+    memory_keyring::install();
+    run(async {
+        let fixture = stored_account(vec![
+            reply(200, FAILED_PIPELINES.replace("failed", "success")),
+            reply(200, r#"{"commit":{"id":"new-head"}}"#),
+        ])
+        .await;
+        let (lookup, jobs) = but_gitlab::checks::latest_pipeline_for_branch(
+            Some(&fixture.account),
+            GitLabProjectId::new("group", "repo"),
+            "topic/with-slash",
+            &fixture.storage,
+        )
+        .await
+        .expect("an older pipeline is not a lookup failure");
+        assert!(
+            matches!(lookup, but_gitlab::PipelineLookup::Resolved(None)) && jobs.is_empty(),
+            "a pipeline for an older commit must not pass checks for the current head"
+        );
+        let targets = fixture.server.finish();
+        assert_eq!(
+            targets.last().map(String::as_str),
+            Some("/api/v4/projects/group%2Frepo/repository/branches/topic%2Fwith-slash"),
+            "branch names with slashes must be encoded as one path component"
+        );
+    });
+}
+
+#[test]
+fn ci_validates_synthetic_pipelines_against_the_current_mr() {
+    memory_keyring::install();
+    run(async {
+        for reference in [
+            "refs/merge-requests/12/merge",
+            "refs/merge-requests/12/train",
+        ] {
+            for (head_sha, pipelines, current) in [
+                (
+                    "source-head",
+                    r#"[{"id":"gid://gitlab/Ci::Pipeline/5"}]"#,
+                    true,
+                ),
+                ("source-head", "[]", false),
+                (
+                    "old-source",
+                    r#"[{"id":"gid://gitlab/Ci::Pipeline/5"}]"#,
+                    false,
+                ),
+            ] {
+                let pipeline = format!(
+                    r#"[{{"id":5,"sha":"synthetic-merge","status":"success","source":"merge_request_event","ref":"{reference}"}}]"#
+                );
+                let pipeline_nodes = serde_json::from_str::<serde_json::Value>(pipelines)
+                    .expect("test pipeline nodes must be valid JSON");
+                let validation = serde_json::json!({
+                    "data": {
+                        "project": {
+                            "mergeRequest": {
+                                "diffHeadSha": head_sha,
+                                "pipelines": { "nodes": pipeline_nodes },
+                            }
+                        }
+                    }
+                })
+                .to_string();
+                let fixture = stored_account(vec![
+                    reply(200, pipeline),
+                    reply(200, r#"{"commit":{"id":"source-head"}}"#),
+                    reply(200, validation),
+                ])
+                .await;
+                let (lookup, jobs) = but_gitlab::checks::latest_pipeline_for_branch(
+                    Some(&fixture.account),
+                    GitLabProjectId::new("group", "repo"),
+                    "topic",
+                    &fixture.storage,
+                )
+                .await
+                .expect("synthetic pipelines should be checked against the current MR");
+                assert_eq!(
+                    matches!(lookup, but_gitlab::PipelineLookup::Resolved(Some(_))),
+                    current,
+                    "{reference}: only a pipeline associated with the current MR may report checks"
+                );
+                assert!(
+                    jobs.is_empty(),
+                    "a successful merge pipeline needs no job detail"
+                );
+                let targets = fixture.server.finish();
+                let url = reqwest::Url::parse(&format!("http://mock{}", targets.last().unwrap()))
+                    .unwrap();
+                assert_eq!(
+                    url.path(),
+                    "/api/graphql",
+                    "synthetic pipelines use GraphQL validation"
+                );
+                let query: std::collections::BTreeMap<_, _> =
+                    url.query_pairs().into_owned().collect();
+                assert_eq!(
+                    query["query"],
+                    "query($project: ID!, $iid: String!, $sha: String!) { project(fullPath: $project) { mergeRequest(iid: $iid) { diffHeadSha pipelines(first: 1, sha: $sha) { nodes { id } } } } }",
+                    "the MR pipeline list validates the candidate without conflating it with the source-branch pipeline"
+                );
+                assert_eq!(
+                    serde_json::from_str::<serde_json::Value>(&query["variables"]).unwrap(),
+                    serde_json::json!({"project": "group/repo", "iid": "12", "sha": "synthetic-merge"}),
+                    "the query must address the pipeline and its merge request"
+                );
+            }
+        }
+    });
+}
+
+#[test]
+fn ci_accepts_a_current_synthetic_pipeline_when_the_branch_head_pipeline_differs() {
+    memory_keyring::install();
+    run(async {
+        let fixture = stored_account(vec![
+            reply(200, SYNTHETIC_PIPELINES),
+            reply(200, PIPELINE_BRANCH),
+            reply(
+                200,
+                r#"{"data":{"project":{"mergeRequest":{"diffHeadSha":"0123456789abcdef","headPipeline":{"id":"gid://gitlab/Ci::Pipeline/6"},"pipelines":{"nodes":[{"id":"gid://gitlab/Ci::Pipeline/5"}]}}}}}"#,
+            ),
+        ])
+        .await;
+
+        let (lookup, _) = but_gitlab::checks::latest_pipeline_for_branch(
+            Some(&fixture.account),
+            GitLabProjectId::new("group", "repo"),
+            "topic",
+            &fixture.storage,
+        )
+        .await
+        .expect("a pipeline associated with the current merge request is valid");
+
+        assert!(
+            matches!(lookup, but_gitlab::PipelineLookup::Resolved(Some(_))),
+            "the source-branch head pipeline and a merged-result pipeline have different IDs"
+        );
+        fixture.server.finish();
+    });
+}
+
+#[test]
+fn ci_keeps_unavailable_or_partial_validation_from_becoming_no_checks() {
+    memory_keyring::install();
+    run(async {
+        for validate_mr in [false, true] {
+            for (status, body, unresolved) in [
+                (403, REJECTED, true),
+                (404, REJECTED, true),
+                (500, REJECTED, false),
+                (
+                    200,
+                    r#"{"errors":[{"message":"not available"}],"data":{"project":null}}"#,
+                    false,
+                ),
+                (200, r#"{"data":{"project":null}}"#, validate_mr),
+                (
+                    200,
+                    r#"{"data":{"project":{"mergeRequest":{"diffHeadSha":null,"pipelines":{"nodes":[]}}}}}"#,
+                    validate_mr,
+                ),
+            ] {
+                let mut replies = vec![reply(
+                    200,
+                    if validate_mr {
+                        SYNTHETIC_PIPELINES
+                    } else {
+                        FAILED_PIPELINES
+                    },
+                )];
+                if validate_mr {
+                    replies.push(reply(200, PIPELINE_BRANCH));
+                }
+                replies.push(reply(status, body));
+                let fixture = stored_account(replies).await;
+                let result = but_gitlab::checks::latest_pipeline_for_branch(
+                    Some(&fixture.account),
+                    GitLabProjectId::new("group", "repo"),
+                    "topic",
+                    &fixture.storage,
+                )
+                .await;
+                if unresolved {
+                    assert!(
+                        matches!(result, Ok((but_gitlab::PipelineLookup::Unresolved, _))),
+                        "hidden validation subjects must leave cached checks alone"
+                    );
+                } else {
+                    assert!(
+                        result.is_err(),
+                        "failed or partial validation must not clear cached checks"
+                    );
+                }
+                fixture.server.finish();
+            }
+        }
+    });
+}
+
+#[test]
+fn ci_reads_tell_an_unresolved_lookup_from_a_branch_without_pipelines() {
     memory_keyring::install();
 
     run(async {
+        let fetch = |replies: Vec<Reply>| async {
+            let fixture = stored_account(replies).await;
+            let result = but_gitlab::checks::latest_pipeline_for_branch(
+                Some(&fixture.account),
+                GitLabProjectId::new("group", "repo"),
+                "main",
+                &fixture.storage,
+            )
+            .await
+            .expect("these answers are not failures");
+            (result, fixture.server.finish())
+        };
+
         for status in [403, 404] {
-            let fixture = stored_account(vec![reply(status, REJECTED)]).await;
-            let jobs = perform(Read::PipelineJobs, &fixture.storage, &fixture.account)
-                .await
-                .expect("a pipeline GitLab hides or lacks is an empty check list");
-            fixture.server.finish();
-            assert_eq!(jobs, 0, "HTTP {status} on the latest pipeline stays empty");
+            let ((lookup, _), _) = fetch(vec![reply(status, REJECTED)]).await;
+            assert!(
+                matches!(lookup, but_gitlab::PipelineLookup::Unresolved),
+                "HTTP {status} on the lookup must keep the cached checks"
+            );
+        }
+
+        let ((lookup, _), targets) = fetch(vec![reply(200, "[]")]).await;
+        assert!(
+            matches!(lookup, but_gitlab::PipelineLookup::Resolved(None)),
+            "a branch without pipelines authoritatively has no checks"
+        );
+        assert_eq!(
+            targets.last().map(String::as_str),
+            Some("/api/v4/projects/group%2Frepo/pipelines?ref=main&per_page=1"),
+            "the list endpoint's ref filter also matches merge request pipelines"
+        );
+
+        let green = FAILED_PIPELINES.replace("failed", "success");
+        let (_, targets) = fetch(vec![reply(200, green), reply(200, PIPELINE_BRANCH)]).await;
+        assert_eq!(targets.len(), 3, "a green pipeline needs no job request");
+
+        for status in [403, 404] {
+            let ((lookup, jobs), _) = fetch(vec![
+                reply(200, FAILED_PIPELINES),
+                reply(200, PIPELINE_BRANCH),
+                reply(status, REJECTED),
+            ])
+            .await;
+            assert!(
+                matches!(lookup, but_gitlab::PipelineLookup::Resolved(Some(_))) && jobs.is_empty(),
+                "HTTP {status} on the jobs leaves the pipeline status to stand alone"
+            );
         }
     });
 }
@@ -741,11 +1000,11 @@ fn read_paths_still_return_data_across_pages() {
             (Read::Get, vec![reply(200, mr(1)), reply(200, PROJECT)], 1),
             (Read::MergeStatus, vec![reply(200, MERGE_STATUS)], 1),
             (
-                Read::PipelineJobs,
+                Read::PipelineChecks,
                 vec![
-                    reply(200, PIPELINE),
-                    page(format!("[{}]", job(1)), "2"),
-                    reply(200, format!("[{}]", job(2))),
+                    reply(200, FAILED_PIPELINES),
+                    reply(200, PIPELINE_BRANCH),
+                    reply(200, format!("[{},{}]", job(1), job(2))),
                 ],
                 2,
             ),
