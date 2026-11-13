@@ -1981,8 +1981,10 @@ fn a_dry_run_rename_writes_nothing() {
     assert_num_snapshots(&ctx, 0);
 }
 
-#[test]
-fn amending_two_commits_from_the_worktree_at_once() {
+/// `one-stack` with `file-one` and `file-three` changed in the worktree, and the amendments
+/// that put each change into the commit that added the file.
+fn one_stack_with_changes_to_its_first_and_third_commits()
+-> (Sandbox, Context, [(ObjectId, Vec<DiffSpec>); 2]) {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["branch"]);
     let [three, one] = find_commits(&env, ["1e25c58", "dbdbcea"]);
@@ -1990,9 +1992,19 @@ fn amending_two_commits_from_the_worktree_at_once() {
     env.file("file-three", "file-three amended\n");
 
     let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let mut ctx = Context::from_repo_for_testing(repo)
+    let ctx = Context::from_repo_for_testing(repo)
         .map(Context::with_memory_app_cache)
         .unwrap();
+    let amendments = [
+        (one, vec![diff_spec_for_file("file-one")]),
+        (three, vec![diff_spec_for_file("file-three")]),
+    ];
+    (env, ctx, amendments)
+}
+
+#[test]
+fn amending_two_commits_from_the_worktree_at_once() {
+    let (env, mut ctx, amendments) = one_stack_with_changes_to_its_first_and_third_commits();
     let mut meta = ctx.meta().unwrap();
 
     let (rejected, _workspace) = with_transaction(
@@ -2000,13 +2012,7 @@ fn amending_two_commits_from_the_worktree_at_once() {
         &mut meta,
         SnapshotDetails::new(OperationKind::Absorb),
         DryRun::No,
-        |mut tx| {
-            tx.amend_commits([
-                (one, vec![diff_spec_for_file("file-one")]),
-                (three, vec![diff_spec_for_file("file-three")]),
-            ])
-            .map(Commit)
-        },
+        |mut tx| tx.amend_commits(amendments).map(Commit),
     )
     .unwrap();
 
@@ -2022,17 +2028,9 @@ fn amending_two_commits_from_the_worktree_at_once() {
 
 #[test]
 fn amending_commits_and_rewording_one_undo_together() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["branch"]);
-    let [three, one] = find_commits(&env, ["1e25c58", "dbdbcea"]);
-    env.file("file-one", "file-one amended\n");
-    env.file("file-three", "file-three amended\n");
+    let (env, mut ctx, amendments) = one_stack_with_changes_to_its_first_and_third_commits();
+    let one = amendments[0].0;
     let tip_before = env.invoke_git("rev-parse branch");
-
-    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let mut ctx = Context::from_repo_for_testing(repo)
-        .map(Context::with_memory_app_cache)
-        .unwrap();
     let mut meta = ctx.meta().unwrap();
 
     let _workspace: WorkspaceState = with_transaction(
@@ -2041,17 +2039,13 @@ fn amending_commits_and_rewording_one_undo_together() {
         SnapshotDetails::new(OperationKind::Absorb),
         DryRun::No,
         |mut tx| {
-            tx.amend_commits([
-                (one, vec![diff_spec_for_file("file-one")]),
-                (three, vec![diff_spec_for_file("file-three")]),
-            ])?;
+            tx.amend_commits(amendments)?;
             tx.reword_commit(one, "amended one".into())?;
             Ok(())
         },
     )
     .unwrap();
     assert_eq!(env.invoke_git("log -1 --format=%s branch~2"), "amended one");
-    drop(meta);
 
     undo_last(&mut ctx);
 
