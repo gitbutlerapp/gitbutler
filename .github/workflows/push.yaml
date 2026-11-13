@@ -32,6 +32,7 @@ jobs:
       but_installer: ${{ steps.filter.outputs.but_installer }}
       install_script: ${{ steps.filter.outputs.install_script }}
       tauri_gui: ${{ steps.filter.outputs.tauri_gui }}
+      but_ui_react: ${{ steps.filter.outputs.but_ui_react }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -87,6 +88,9 @@ jobs:
               - 'packages/shared/**'
               - 'packages/core/**'
               - 'e2e/**'
+            # oxlint checks only this package, and nothing else lints it before merge.
+            but_ui_react:
+              - 'packages/but-ui-react/**'
 
   prettier:
     needs: changes
@@ -102,7 +106,7 @@ jobs:
 
   lint-node:
     needs: changes
-    if: ${{ needs.changes.outputs.tauri_gui == 'true' && (needs.changes.outputs.node == 'true') }}
+    if: ${{ (needs.changes.outputs.tauri_gui == 'true' || needs.changes.outputs.but_ui_react == 'true') && needs.changes.outputs.node == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
