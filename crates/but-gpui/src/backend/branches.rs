@@ -1,5 +1,4 @@
-//! The project's branches: local ones, applied or not, and ones only a remote has, like a
-//! teammate's.
+//! The project's local and remote branches, including its target and branches in use.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -15,12 +14,15 @@ use super::{Agent, CommitId, Review, open};
 
 #[derive(Debug, Clone)]
 pub struct OtherBranch {
-    /// The local branch if there is one, else the remote-tracking one.
+    /// The exact local or remote-tracking ref this row displays.
     pub ref_name: super::FullName,
     pub name: String,
     pub local: bool,
-    /// The workspace has it applied: the Branches page lists only the others, and its
-    /// overview counts both.
+    /// Its local counterpart, if any, also for a remote row whose tip differs from it.
+    pub local_ref: Option<super::FullName>,
+    /// This ref is the local target or the target's configured upstream.
+    pub target: bool,
+    /// Its local counterpart is applied or checked out in a worktree.
     pub applied: bool,
     /// Who its newest commit is shown by, as [`super::byline`] picks.
     pub author: Option<String>,
@@ -38,7 +40,7 @@ pub struct OtherBranch {
     pub ahead: Option<usize>,
     /// Commits of its own, down to the branch it's stacked on or where it forked, when known.
     pub own_commits: Option<usize>,
-    /// Which of the listed stacks it's in, so a stack's branches stay together.
+    /// A local stack's display group, or a remote ref's own group in the flat inventory.
     pub stack: usize,
     pub tip: CommitId,
     /// Its pull request, without CI checks: the app asks the forge about those only for the
@@ -57,22 +59,21 @@ pub struct OwnCommit {
     pub person: usize,
 }
 
-/// Every branch but the target, newest first, a stack's branches together from the top, those
-/// the workspace has applied too.
+/// Every local branch and every remote-tracking branch as separate rows. Local stacks keep
+/// their order; remote refs are listed independently, newest first, including the target.
 pub fn all_branches(path: &Path) -> Result<Vec<OtherBranch>> {
     let ctx = open(path)?;
     let repo = ctx.repo.get()?;
     let descriptions = descriptions(&repo);
     let mailmap = repo.open_mailmap();
-    Ok(but_api::branch::branch_list(&ctx)?
-        .into_iter()
-        .filter(|stack| stack.status != ListedStackStatus::Target)
-        .enumerate()
-        .flat_map(|(stack, listed)| {
-            let applied = listed.status == ListedStackStatus::Applied;
-            (listed.branches.into_iter()).map(move |b| (stack, applied, b))
-        })
-        .map(|(stack, applied, listed)| {
+    let target = super::target_source(&repo, &ctx.project_meta()?);
+    let stacks = but_api::branch::branch_list(&ctx)?;
+    let mut remote_group = stacks.len();
+    let (mut local, mut remotes) = (Vec::new(), Vec::new());
+    for (stack, listed_stack) in stacks.into_iter().enumerate() {
+        let applied = listed_stack.status == ListedStackStatus::Applied;
+        let is_target = listed_stack.status == ListedStackStatus::Target;
+        for listed in listed_stack.branches {
             let branch = listed.branch;
             let byline = (repo.find_commit(branch.tip).ok())
                 .and_then(|tip| super::commit_byline(&mailmap, &tip).ok());
@@ -84,10 +85,12 @@ pub fn all_branches(path: &Path) -> Result<Vec<OtherBranch>> {
                 branch.tip,
                 branch.commit_count.unwrap_or(1),
             );
-            OtherBranch {
+            let row = OtherBranch {
                 ref_name: branch.ref_name.clone(),
                 name: branch.display_name.to_str_lossy().into_owned(),
                 local: branch.has_local,
+                local_ref: branch.has_local.then(|| branch.ref_name.clone()),
+                target: is_target,
                 applied,
                 people,
                 commits,
@@ -105,9 +108,57 @@ pub fn all_branches(path: &Path) -> Result<Vec<OtherBranch>> {
                     .and_then(|_| descriptions.get(branch.ref_name.shorten()))
                     .map(|d| d.to_str_lossy().trim().to_owned())
                     .filter(|d| !d.is_empty()),
+            };
+            if branch.has_local {
+                local.push(row.clone());
             }
-        })
-        .collect())
+            // The shared listing already enumerates every remote ref. Expand those here
+            // instead of another ref walk, and never substitute a local namesake's tip.
+            for ref_name in branch.remote_refs {
+                let Some(tip) = super::ref_tip(&repo, ref_name.as_ref()).map(CommitId) else {
+                    continue;
+                };
+                let mut remote = row.clone();
+                remote.ref_name = ref_name;
+                remote.local = false;
+                remote.target = target.as_ref() == Some(&remote.ref_name);
+                remote.description = None;
+                remote.stack = remote_group;
+                remote_group += 1;
+                if tip != row.tip {
+                    let commit = repo.find_commit(tip.0)?;
+                    let byline = super::commit_byline(&mailmap, &commit).ok();
+                    let (person, agent) = byline.unzip();
+                    let (author, email) = person.unzip();
+                    remote.tip = tip;
+                    remote.author = author;
+                    remote.email = email;
+                    remote.agent = agent.flatten();
+                    remote.time = commit.time().ok().map(|time| time.seconds);
+                    // The graph counts belong to the primary ref, not this different tip.
+                    // Its full history is read on demand when its row is opened.
+                    remote.ahead = None;
+                    remote.own_commits = None;
+                    remote.people = remote.author.iter().cloned().collect();
+                    remote.commits.clear();
+                }
+                if remote.target {
+                    remote.ahead = Some(0);
+                    remote.own_commits = Some(0);
+                    remote.people.clear();
+                    remote.commits.clear();
+                }
+                remotes.push(remote);
+            }
+        }
+    }
+    remotes.sort_by(|a, b| {
+        b.time
+            .cmp(&a.time)
+            .then_with(|| a.ref_name.cmp(&b.ref_name))
+    });
+    local.extend(remotes);
+    Ok(local)
 }
 
 /// The `count` commits from `tip` down its first parents, newest first, and who they're
@@ -321,5 +372,163 @@ impl Intent for ApplyBranch {
                     .collect(),
             ),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::all_branches;
+    use crate::backend::ops::tests::{git, repo_with, target_origin_main};
+
+    #[test]
+    fn remote_inventory_includes_target_current_and_same_tip_branches() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("base\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(
+                path,
+                &[
+                    "symbolic-ref",
+                    "refs/remotes/origin/HEAD",
+                    "refs/remotes/origin/main",
+                ],
+            );
+            git(path, &["update-ref", "refs/remotes/origin/master", "main"]);
+            git(path, &["checkout", "-qb", "xsh/dev"]);
+            git(
+                path,
+                &["commit", "-q", "--allow-empty", "-m", "active work"],
+            );
+            git(path, &["branch", "dev"]);
+            git(path, &["update-ref", "refs/remotes/origin/xsh/dev", "HEAD"]);
+            let advanced = git(
+                path,
+                &[
+                    "commit-tree",
+                    "HEAD^{tree}",
+                    "-p",
+                    "HEAD",
+                    "-m",
+                    "remote work",
+                ],
+            );
+            git(
+                path,
+                &["update-ref", "refs/remotes/origin/dev", advanced.trim()],
+            );
+            let feature = git(
+                path,
+                &[
+                    "commit-tree",
+                    "main^{tree}",
+                    "-p",
+                    "main",
+                    "-m",
+                    "feature work",
+                ],
+            );
+            git(
+                path,
+                &["update-ref", "refs/remotes/origin/feature", feature.trim()],
+            );
+
+            let branches = all_branches(path).expect("the branch inventory can be read");
+            let mut remotes: Vec<_> = branches
+                .iter()
+                .filter(|b| !b.local)
+                .map(|b| b.ref_name.to_string())
+                .collect();
+            remotes.sort();
+            assert_eq!(
+                remotes,
+                [
+                    "refs/remotes/origin/dev",
+                    "refs/remotes/origin/feature",
+                    "refs/remotes/origin/main",
+                    "refs/remotes/origin/master",
+                    "refs/remotes/origin/xsh/dev",
+                ],
+                "every remote branch gets a row, including the target and the current branch, without symbolic HEAD"
+            );
+            let dev = branches
+                .iter()
+                .find(|b| b.ref_name.to_string() == "refs/remotes/origin/dev")
+                .expect("the remote dev branch is listed");
+            assert_eq!(
+                dev.tip.0.to_string(),
+                advanced.trim(),
+                "a local namesake cannot replace the remote branch's tip"
+            );
+            assert!(
+                dev.own_commits.is_none(),
+                "the local namesake's graph count is not reused for a different remote tip"
+            );
+            assert_eq!(
+                dev.local_ref.as_ref().map(ToString::to_string).as_deref(),
+                Some("refs/heads/dev"),
+                "the local counterpart remains known for in-use checks"
+            );
+            assert!(
+                branches
+                    .iter()
+                    .any(|b| !b.local && b.target && b.name == "main"),
+                "the configured target upstream is marked"
+            );
+            assert!(
+                branches
+                    .iter()
+                    .any(|b| !b.local && b.applied && b.name == "xsh/dev"),
+                "the current branch's remote counterpart retains its in-use status"
+            );
+        });
+    }
+
+    #[test]
+    fn remote_inventory_keeps_the_same_name_on_multiple_remotes() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("base\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(
+                path,
+                &["remote", "add", "backup", "https://example.com/backup.git"],
+            );
+            let other = git(
+                path,
+                &[
+                    "commit-tree",
+                    "HEAD^{tree}",
+                    "-p",
+                    "HEAD",
+                    "-m",
+                    "other remote",
+                ],
+            );
+            git(
+                path,
+                &["update-ref", "refs/remotes/backup/main", other.trim()],
+            );
+            let branches = all_branches(path).expect("the inventory can be read");
+            let remotes: Vec<_> = branches.iter().filter(|b| !b.local).collect();
+            assert_eq!(
+                remotes.len(),
+                2,
+                "both remotes have their own row despite sharing the branch name"
+            );
+            let backup = remotes
+                .iter()
+                .find(|b| b.ref_name.to_string() == "refs/remotes/backup/main")
+                .expect("backup/main is listed");
+            assert_eq!(
+                backup.tip.0.to_string(),
+                other.trim(),
+                "each remote keeps its own tip"
+            );
+            assert!(
+                !backup.target,
+                "a different remote's main is not the configured target upstream"
+            );
+        });
     }
 }

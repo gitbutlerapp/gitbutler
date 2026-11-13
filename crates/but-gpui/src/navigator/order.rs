@@ -61,15 +61,32 @@ impl AppView {
         let el = set::<SortProjectsByActivity>(el, |p| p.projects_by_activity = true, cx);
         let el = set::<SortProjectsByName>(el, |p| p.projects_by_activity = false, cx);
         let el = set::<ShowAllProjects>(el, |p| p.active_projects_only = false, cx);
-        set::<ShowActiveProjects>(el, |p| p.active_projects_only = true, cx).on_action(cx.listener(
-            |this, _: &crate::detail::ShowOnlyLocalBranches, _, cx| {
-                (this.store).update(cx, |store, cx| {
-                    store.set_prefs(|p| p.branches_local_only = !p.branches_local_only, cx)
-                });
-                // The branch opened may have just been filtered out.
-                (this.detail).update(cx, |detail, cx| detail.select_shown_branch(cx));
-            },
-        ))
+        set::<ShowActiveProjects>(el, |p| p.active_projects_only = true, cx)
+            .on_action(
+                cx.listener(|this, _: &crate::detail::ShowOnlyLocalBranches, _, cx| {
+                    (this.store).update(cx, |store, cx| {
+                        store.set_prefs(|p| p.branches_local_only = true, cx)
+                    });
+                    // The branch opened may have just been filtered out.
+                    (this.detail).update(cx, |detail, cx| detail.select_shown_branch(cx));
+                }),
+            )
+            .on_action(
+                cx.listener(|this, _: &crate::detail::ShowRemoteBranches, _, cx| {
+                    (this.store).update(cx, |store, cx| {
+                        store.set_prefs(|p| p.branches_local_only = false, cx)
+                    });
+                    (this.detail).update(cx, |detail, cx| detail.select_shown_branch(cx));
+                }),
+            )
+            .on_action(cx.listener(
+                |this, _: &crate::detail::ShowBranchesWithoutCommits, _, cx| {
+                    (this.store).update(cx, |store, cx| {
+                        store.set_prefs(|p| p.branches_hide_empty = !p.branches_hide_empty, cx)
+                    });
+                    (this.detail).update(cx, |detail, cx| detail.select_shown_branch(cx));
+                },
+            ))
     }
 }
 

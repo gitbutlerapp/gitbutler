@@ -438,13 +438,13 @@ pub enum NavigatorPlace {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BranchStatus {
     /// Those under way: with an open or draft pull request, or none.
-    #[default]
     NotMerged,
     Open,
     Draft,
     Closed,
     NoPullRequest,
     /// Merged and closed ones too.
+    #[default]
     Any,
 }
 
@@ -603,8 +603,11 @@ pub struct Prefs {
     /// Each project's linked worktrees by name, archived ones too, by project id, in the
     /// order the navigator lists them: as the user moved them, with new ones last.
     pub worktree_order: HashMap<String, Vec<String>>,
-    /// The Branches page leaves out the branches only a remote has.
+    /// The Branches page lists local branches instead of the complete remote inventory.
     pub branches_local_only: bool,
+    /// The Branches page leaves out branches without commits of their own, unless searched
+    /// for by name. Off by default so remote branches sharing a tip are listed too.
+    pub branches_hide_empty: bool,
     /// The common notes a click leaves on a brief, the stock ones if never changed.
     pub brief_shortcuts: Option<Vec<String>>,
     pub branches_status: BranchStatus,
@@ -771,6 +774,42 @@ impl Saved {
 #[cfg(test)]
 mod tests {
     use super::Saved;
+
+    #[test]
+    fn branches_without_unique_commits_show_by_default() {
+        let saved = Saved::parse(
+            serde_json::from_str(r#"{ "prefs": { "wrap": true } }"#).expect("it's JSON"),
+        );
+        assert!(
+            !saved.prefs.branches_hide_empty,
+            "existing settings include branches without unique commits"
+        );
+        assert!(saved.prefs.wrap, "the existing preferences are kept");
+        assert_eq!(
+            saved.prefs.branches_status,
+            super::BranchStatus::Any,
+            "an unconfigured status filter includes every remote branch"
+        );
+        assert!(
+            !saved.prefs.branches_local_only,
+            "remote branches are the default scope"
+        );
+        assert!(
+            !Saved::default().prefs.branches_hide_empty,
+            "new installations include branches without unique commits too"
+        );
+    }
+
+    #[test]
+    fn hiding_branches_without_unique_commits_survives_a_restart() {
+        let mut saved = Saved::default();
+        saved.prefs.branches_hide_empty = true;
+        let saved = Saved::parse(serde_json::to_value(saved).expect("saved state is JSON"));
+        assert!(
+            saved.prefs.branches_hide_empty,
+            "the explicitly chosen filter is kept between launches"
+        );
+    }
 
     #[test]
     fn closing_a_terminal_asks_only_once_picked() {

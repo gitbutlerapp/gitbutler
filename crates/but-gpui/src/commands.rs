@@ -406,7 +406,14 @@ commands! {
         phrase: |_, _| Some("Active in the last 7 days".to_owned()),
     },
     crate::detail::ShowOnlyLocalBranches => "Show only local branches" {
-        phrase: |_, _| Some("Only local branches".to_owned()),
+        phrase: |_, _| Some("Local branches".to_owned()),
+    },
+    crate::detail::ShowRemoteBranches => "Show remote branches" {
+        phrase: |_, _| Some("Remote branches".to_owned()),
+        aliases: &["Show all remote branches"],
+    },
+    crate::detail::ShowBranchesWithoutCommits => "Show branches without unique commits" {
+        aliases: &["Include empty branches"],
     },
     // The menu bar's, for Windows, which has none.
     CheckForUpdates => "Check for updates",

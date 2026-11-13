@@ -17,7 +17,7 @@ use crate::detail::panes::{
     overview_tiles, overview_title,
 };
 use crate::detail::upstream::noon;
-use crate::state::{BranchStatus, ProjectId, Selection};
+use crate::state::{BranchStatus, ProjectId};
 use crate::theme::Theme;
 use crate::ui::person::author_avatar;
 use crate::ui::{Icon, Tooltip, dp, faint, h_flex, list_row, plural, review, small_icon, v_flex};
@@ -131,14 +131,14 @@ impl Detail {
             return div().flex_1().into_any_element();
         };
         let today = upstream::day_of(crate::ui::now());
-        // The applied ones too, as the filters keep them, as they're under way as much.
         let shown = self.kept_in(branches, &branches.list, None, cx).into_iter();
-        let applied = (self.kept_in(branches, &branches.applied, None, cx)).into_iter();
-        let kept: Vec<&OtherBranch> = (shown.filter_map(|ix| branches.list.get(ix)))
-            .chain(applied.filter_map(|ix| branches.applied.get(ix)))
-            .collect();
+        let kept: Vec<&OtherBranch> = (shown.filter_map(|ix| branches.list.get(ix))).collect();
         let since = branches.recency.since(today);
         let summary = sum_up(&kept, branches.who.as_deref(), since, today);
+        let commits = match kept.iter().any(|b| b.own_commits.is_none()) {
+            true => "Uncounted".to_owned(),
+            false => grouped(summary.commits),
+        };
         // What the list keeps, by its pull request, so it reads as work under way at rest.
         let listed = match self.store.read(cx).prefs.branches_status {
             BranchStatus::NotMerged => "In progress",
@@ -146,7 +146,8 @@ impl Detail {
             BranchStatus::Draft => "Draft pull requests",
             BranchStatus::Closed => "Closed pull requests",
             BranchStatus::NoPullRequest => "Without a pull request",
-            BranchStatus::Any => "All branches",
+            BranchStatus::Any if self.store.read(cx).prefs.branches_local_only => "Local branches",
+            BranchStatus::Any => "Remote branches",
         };
         let when = match branches.recency {
             Recency::Any => format!("Last {ACTIVITY_DAYS} days"),
@@ -154,12 +155,12 @@ impl Detail {
         };
         let scope = [Some(when), branches.who.clone()];
         let tiles = [
+            ("Branches", grouped(kept.len()), "Branches in this list"),
             (
-                "Branches",
-                grouped(summary.lanes.len()),
-                "Branches with commits then",
+                "Commits",
+                commits,
+                "Their commits then, when their histories are counted",
             ),
-            ("Commits", grouped(summary.commits), "Their commits then"),
             (
                 "Started",
                 grouped(summary.started),
@@ -340,8 +341,6 @@ fn lane_row(
             })
     });
     let ref_name = branch.ref_name.clone();
-    let applied = (branch.applied)
-        .then(|| Selection::Branch(branches.project.clone(), Some(ref_name.clone())));
     // The title and the cells share the room, the title most of it when it's tight, giving
     // up "applied" before its name, the cells no wider than a cell a day needs.
     list_row(id, false, theme)
@@ -363,7 +362,7 @@ fn lane_row(
                 )
                 // Whole, as a cut-off tag reads as a stray glyph; the title gives way.
                 .when(branch.applied, |el| {
-                    el.child(faint("applied", theme).flex_none())
+                    el.child(faint("in use", theme).flex_none())
                 })
                 // Short, as the list's ages are, to leave the title room.
                 .children(quiet.map(|days| {
@@ -393,12 +392,7 @@ fn lane_row(
                 .text_right(),
         )
         .on_click(
-            cx.listener(move |this, _, window, cx| match applied.clone() {
-                Some(selection) => this.app.update_later(window, cx, move |app, window, cx| {
-                    app.select(selection, window, cx)
-                }),
-                None => this.select_other_branch(Some(ref_name.clone()), cx),
-            }),
+            cx.listener(move |this, _, _, cx| this.select_other_branch(Some(ref_name.clone()), cx)),
         )
         .into_any_element()
 }
@@ -424,6 +418,10 @@ mod tests {
             ref_name: crate::backend::model::build::full(&format!("refs/heads/{name}")),
             name: name.to_owned(),
             local: true,
+            local_ref: Some(crate::backend::model::build::full(&format!(
+                "refs/heads/{name}"
+            ))),
+            target: false,
             applied: false,
             author: None,
             people: people.iter().map(|p| p.to_string()).collect(),
