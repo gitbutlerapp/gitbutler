@@ -24,7 +24,7 @@ use crate::{
 /// The segment a workspace is projected from, and the target it is framed against.
 #[derive(Debug, Clone)]
 struct Frame<'graph> {
-    kind: WorkspaceKind,
+    /// The metadata of the workspace if it is managed, `None` for a plain checkout.
     metadata: Option<&'graph ref_metadata::Workspace>,
     ws: SegmentIndex,
     target_ref: Option<TargetRef>,
@@ -127,13 +127,9 @@ impl Graph {
     }
 
     pub(crate) fn to_workspace_state(&self) -> anyhow::Result<WorkspaceState> {
-        Ok(self.project(self.frame(self.entrypoint()?.segment.id)?))
-    }
-
-    fn frame(&self, ws: SegmentIndex) -> anyhow::Result<Frame<'_>> {
+        let ws = self.entrypoint()?.segment.id;
         let segment = &self[ws];
-        let metadata = segment.workspace_metadata();
-        let kind = match metadata {
+        let kind = match segment.workspace_metadata() {
             Some(_) => {
                 let ref_info = segment
                     .ref_info
@@ -147,6 +143,12 @@ impl Graph {
             }
             None => WorkspaceKind::AdHoc,
         };
+        Ok(self.project(kind, self.frame(ws)))
+    }
+
+    fn frame(&self, ws: SegmentIndex) -> Frame<'_> {
+        let segment = &self[ws];
+        let metadata = segment.workspace_metadata();
         // A plain branch integrates with its own upstream.
         let own_upstream = || {
             segment
@@ -166,7 +168,7 @@ impl Graph {
             .and_then(|rn| {
                 TargetRef::from_ref_name_without_commits_ahead(rn.as_local_full_name_ref(), self)
             })
-            .or_else(|| (!kind.has_managed_ref()).then(own_upstream).flatten());
+            .or_else(|| metadata.is_none().then(own_upstream).flatten());
         let target_commit = match self.project_meta.target_commit_id {
             // An unavailable stored cutoff must not silently become a different boundary.
             Some(id) => TargetCommit::from_commit(id, self),
@@ -187,13 +189,12 @@ impl Graph {
                 cutoff_ref.and_then(|name| self.target_commit_from_ref(name))
             }
         };
-        Ok(Frame {
-            kind,
+        Frame {
             metadata,
             ws,
             target_ref,
             target_commit,
-        })
+        }
     }
 
     /// Resolve the already selected fallback ref without substituting another boundary.
@@ -209,7 +210,7 @@ impl Graph {
         Some(target)
     }
 
-    fn project(&self, frame: Frame<'_>) -> WorkspaceState {
+    fn project(&self, kind: WorkspaceKind, frame: Frame<'_>) -> WorkspaceState {
         let tips = self.stack_tips(&frame);
         let stop = self.stop_set(&frame);
         let local_target = self.upstream_local_target(&frame);
@@ -252,7 +253,7 @@ impl Graph {
         });
         WorkspaceState {
             id: frame.ws,
-            kind: frame.kind,
+            kind,
             stacks,
             lower_bound,
             lower_bound_segment_id,
@@ -354,7 +355,7 @@ impl Graph {
     }
 
     fn stack_tips(&self, frame: &Frame<'_>) -> Vec<SegmentIndex> {
-        if !frame.kind.has_managed_ref() {
+        if frame.metadata.is_none() {
             return vec![frame.ws];
         }
         self.inner
@@ -468,11 +469,8 @@ impl Graph {
     /// segment names over refs on commits and applied stacks over unapplied ones. Ids are handed
     /// out once, in lane order.
     fn stack_ids(&self, frame: &Frame<'_>, lanes: &[Lane]) -> Vec<Option<StackId>> {
-        if !frame.kind.has_managed_ref() {
-            return vec![Some(StackId::single_branch_id()); lanes.len()];
-        }
         let Some(metadata) = frame.metadata else {
-            return vec![None; lanes.len()];
+            return vec![Some(StackId::single_branch_id()); lanes.len()];
         };
         lanes
             .iter()
@@ -554,7 +552,7 @@ impl Graph {
                     || target.sibling_segment_id == Some(checked_out_segment.id)
             });
 
-        let keep_first = frame.kind.has_adhoc_ref()
+        let keep_first = frame.metadata.is_none()
             && !(lane.base.is_some() && checked_out_branch_is_the_local_integration_branch);
 
         let segments = self.lane_segments(lane, id, keep_first, frame, remotes);
@@ -608,7 +606,7 @@ impl Graph {
                 .stacks(Applied)
                 .find(|stack| stack.id == id)
         });
-        let ad_hoc_orders = if frame.kind.has_managed_ref() {
+        let ad_hoc_orders = if frame.metadata.is_some() {
             &[][..]
         } else {
             &self.ad_hoc_branch_stack_orders[..]
@@ -653,7 +651,7 @@ impl Graph {
     ) -> StackSegment {
         let head = &self[group.head];
         let remote = head.remote_tracking_ref_name.as_ref();
-        let keep_any_name = !frame.kind.has_managed_ref();
+        let keep_any_name = frame.metadata.is_none();
         let mut commits: Vec<_> = group
             .members
             .iter()
