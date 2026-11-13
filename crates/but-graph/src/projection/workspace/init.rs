@@ -27,7 +27,10 @@ struct Frame<'graph> {
     /// The metadata of the workspace if it is managed, `None` for a plain checkout.
     metadata: Option<&'graph ref_metadata::Workspace>,
     ws: SegmentIndex,
-    target_ref: Option<TargetRef>,
+    /// The segment named by the configured local target, if it is in the graph.
+    local_target: Option<SegmentIndex>,
+    /// The name and segment of the ref to integrate with.
+    target_ref: Option<(gix::refs::FullName, SegmentIndex)>,
     target_commit: Option<TargetCommit>,
 }
 
@@ -155,19 +158,13 @@ impl Graph {
                 .remote_tracking_ref_name
                 .clone()
                 .zip(segment.remote_tracking_branch_segment_id)
-                .map(|(ref_name, segment_index)| TargetRef {
-                    ref_name,
-                    segment_index,
-                    commits_ahead: 0,
-                })
         };
-        let target_ref = self
-            .project_meta
-            .target_ref
-            .as_ref()
-            .and_then(|rn| {
-                TargetRef::from_ref_name_without_commits_ahead(rn.as_local_full_name_ref(), self)
-            })
+        let local_target = self.project_meta.target_ref.as_ref().and_then(|name| {
+            let name = name.as_local_full_name_ref();
+            Some((name.to_owned(), self.segment_by_ref_name(name)?.id))
+        });
+        let target_ref = local_target
+            .clone()
             .or_else(|| metadata.is_none().then(own_upstream).flatten());
         let target_commit = match self.project_meta.target_commit_id {
             // An unavailable stored cutoff must not silently become a different boundary.
@@ -185,13 +182,14 @@ impl Graph {
                             .as_ref()
                             .map(|name| name.as_local_full_name_ref())
                     })
-                    .or_else(|| target_ref.as_ref().map(|target| target.ref_name.as_ref()));
+                    .or_else(|| target_ref.as_ref().map(|(name, _)| name.as_ref()));
                 cutoff_ref.and_then(|name| self.target_commit_from_ref(name))
             }
         };
         Frame {
             metadata,
             ws,
+            local_target: local_target.map(|(_, sidx)| sidx),
             target_ref,
             target_commit,
         }
@@ -243,13 +241,10 @@ impl Graph {
             .into_iter()
             .map(|(tip, lane)| self.worktree_stack(tip, lane, &stop, &frame, &remotes))
             .collect();
-        let target_ref = frame.target_ref.map(|target| TargetRef {
-            commits_ahead: TargetRef::commits_ahead(
-                self,
-                target.segment_index,
-                lower_bound_segment_id,
-            ),
-            ..target
+        let target_ref = frame.target_ref.map(|(ref_name, segment_index)| TargetRef {
+            commits_ahead: TargetRef::commits_ahead(self, segment_index, lower_bound_segment_id),
+            ref_name,
+            segment_index,
         });
         WorkspaceState {
             id: frame.ws,
@@ -385,12 +380,7 @@ impl Graph {
     /// workspace metadata lists it in a stack. It often sits at the base of stacks, and is no
     /// branch of theirs until it has commits of its own.
     fn upstream_local_target(&self, frame: &Frame<'_>) -> Option<SegmentIndex> {
-        let local_target = self
-            .project_meta
-            .target_ref
-            .as_ref()
-            .and_then(|name| self.segment_by_ref_name(name.as_local_full_name_ref()))?
-            .id;
+        let local_target = frame.local_target?;
         let name = self[local_target].ref_name()?;
         let is_listed = frame
             .metadata
@@ -540,11 +530,7 @@ impl Graph {
     ) -> Option<Stack> {
         let checked_out_segment = &self[frame.ws];
 
-        let target_segment = self
-            .project_meta
-            .target_ref
-            .as_ref()
-            .and_then(|name| self.segment_by_ref_name(name.as_local_full_name_ref()));
+        let target_segment = frame.local_target.map(|sidx| &self[sidx]);
 
         let checked_out_branch_is_the_local_integration_branch =
             target_segment.is_some_and(|target| {
