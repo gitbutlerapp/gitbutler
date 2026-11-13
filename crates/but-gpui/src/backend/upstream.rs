@@ -10,6 +10,7 @@ use anyhow::Result;
 use bstr::ByteSlice;
 use but_core::DryRun;
 use but_core::sync::RepoExclusive;
+use but_transaction::ConflictedCheckout;
 
 use super::intent::Run;
 use super::reviews::{cached_reviews, from_cache};
@@ -1365,13 +1366,11 @@ pub struct MergedIntoTarget {
     pub marked: Vec<super::Checkout>,
 }
 
-fn marked(checkouts: &[but_rebase::graph_rebase::ConflictedCheckout]) -> Vec<super::Checkout> {
+fn marked(checkouts: &[ConflictedCheckout]) -> Vec<super::Checkout> {
     (checkouts.iter())
         .map(|checkout| match checkout {
-            but_rebase::graph_rebase::ConflictedCheckout::Head => super::Checkout::Main,
-            but_rebase::graph_rebase::ConflictedCheckout::Worktree { name, .. } => {
-                super::Checkout::Linked(name.clone())
-            }
+            ConflictedCheckout::Head => super::Checkout::Main,
+            ConflictedCheckout::Worktree { name, .. } => super::Checkout::Linked(name.clone()),
         })
         .collect()
 }

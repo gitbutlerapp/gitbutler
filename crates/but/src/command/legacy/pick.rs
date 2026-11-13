@@ -8,8 +8,7 @@ use but_core::{
     sync::{RepoExclusive, RepoShared},
 };
 use but_ctx::Context;
-use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
-use but_transaction::Transaction;
+use but_transaction::{InsertSide, RelativeTo, Transaction};
 use but_workspace::RefInfo;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::{ObjectId, refs::FullNameRef};

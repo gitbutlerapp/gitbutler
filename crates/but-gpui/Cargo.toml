@@ -104,7 +104,6 @@ but-llm.workspace = true
 but-ctx = { workspace = true, features = ["legacy"] }
 but-path.workspace = true
 but-oplog.workspace = true
-but-rebase.workspace = true
 but-secret.workspace = true
 but-settings.workspace = true
 but-transaction.workspace = true

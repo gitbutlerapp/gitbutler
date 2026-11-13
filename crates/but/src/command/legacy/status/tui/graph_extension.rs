@@ -1,4 +1,4 @@
-use but_rebase::graph_rebase::mutate::InsertSide;
+use but_transaction::InsertSide;
 use ratatui::text::Span;
 
 use crate::utils::targeting::Side;
