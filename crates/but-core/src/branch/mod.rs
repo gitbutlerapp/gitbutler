@@ -1,6 +1,7 @@
 use std::{borrow::Cow, collections::BTreeMap, path::PathBuf};
 
 use anyhow::{Result, bail};
+use bstr::{BStr, ByteSlice as _};
 use gix::remote::Direction;
 
 type WorktreePathByRef = BTreeMap<gix::refs::FullName, Vec<PathBuf>>;
@@ -13,6 +14,27 @@ pub use generate::{
     canned_refname, find_unique_refname, find_unique_refname_excluding, refuse_colliding_refname,
     unique_canned_refname,
 };
+
+/// Return `true` if `identity` is a GitButler-internal branch name that must not
+/// be shown or treated as a user branch.
+pub fn is_technical_branch_name(identity: &BStr) -> bool {
+    const TECHNICAL_IDENTITIES: &[&[u8]] = &[
+        b"HEAD",
+        b"gitbutler/edit",
+        b"gitbutler/integration",
+        b"gitbutler/oplog",
+        b"gitbutler/target",
+        b"gitbutler/workspace",
+    ];
+    debug_assert!(
+        TECHNICAL_IDENTITIES.is_sorted(),
+        "binary search requires sorted technical identities"
+    );
+    TECHNICAL_IDENTITIES
+        .binary_search(&identity.as_bytes())
+        .is_ok()
+        || identity.starts_with(b"gitbutler/rename-backup/")
+}
 
 /// Resolve the remote-tracking ref that corresponds to a local branch ref.
 ///

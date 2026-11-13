@@ -1665,3 +1665,162 @@ fn a_commit_to_a_new_stack_and_the_workspace_it_enters_undo_together() {
         "the change is uncommitted again"
     );
 }
+
+fn ctx_for(env: &Sandbox) -> Context {
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap()
+}
+
+fn delete_branch() -> SnapshotDetails {
+    SnapshotDetails::new(OperationKind::DeleteBranch)
+}
+
+#[test]
+fn a_stacks_only_branch_and_its_commits_go_together_in_either_order() {
+    let mut logs = Vec::new();
+    for discard_first in [false, true] {
+        let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+        env.setup_metadata(&["A", "B"]);
+        let mut ctx = ctx_for(&env);
+        let mut meta = ctx.meta().unwrap();
+        let a = FullName::try_from("refs/heads/A").unwrap();
+        let [a_tip] = find_commits(&env, ["A"]);
+
+        with_transaction(
+            &mut ctx,
+            &mut meta,
+            delete_branch(),
+            DryRun::No,
+            |mut tx| {
+                if discard_first {
+                    tx.discard_commits([a_tip])?;
+                    tx.remove_reference(a.as_ref())?;
+                } else {
+                    tx.remove_reference(a.as_ref())?;
+                    tx.discard_commits([a_tip])?;
+                }
+                Ok(())
+            },
+        )
+        .unwrap();
+        logs.push(env.git_log());
+    }
+
+    assert_eq!(logs[0], logs[1], "the order makes no difference");
+    snapbox::assert_data_eq!(
+        &logs[0],
+        snapbox::str![[r#"
+* d3e2ba3 (HEAD -> B) add B
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+}
+
+#[test]
+fn a_branch_removed_before_its_commits_are_squashed_away() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    let mut ctx = ctx_for(&env);
+    let mut meta = ctx.meta().unwrap();
+    let a = FullName::try_from("refs/heads/A").unwrap();
+    let [a_tip, b_tip] = find_commits(&env, ["A", "B"]);
+
+    with_transaction(
+        &mut ctx,
+        &mut meta,
+        delete_branch(),
+        DryRun::No,
+        |mut tx| {
+            tx.remove_reference(a.as_ref())?;
+            tx.squash_commits([a_tip], b_tip, MessageCombinationStrategy::KeepBoth)?;
+            Ok(())
+        },
+    )
+    .unwrap();
+
+    assert_eq!(ref_target(&env, a.as_ref()), None, "the branch is gone");
+    let squashed_files = env.invoke_git("show --name-only --format= B --");
+    assert_eq!(squashed_files, "A\nB", "its commit went into B's");
+}
+
+#[test]
+fn a_stacks_only_branch_that_keeps_its_commits_isnt_removed() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    let log = env.git_log();
+    let mut ctx = ctx_for(&env);
+    let mut meta = ctx.meta().unwrap();
+    let a = FullName::try_from("refs/heads/A").unwrap();
+
+    let err = with_transaction(
+        &mut ctx,
+        &mut meta,
+        delete_branch(),
+        DryRun::No,
+        |mut tx| tx.remove_reference(a.as_ref()),
+    )
+    .expect_err("its commit would be left without a branch");
+    assert!(
+        err.to_string().contains("last named segment"),
+        "unexpected error: {err:#}"
+    );
+
+    assert_eq!(env.git_log(), log, "nothing changed");
+    assert_num_snapshots(&ctx, 0);
+}
+
+#[test]
+fn removing_a_top_branch_and_committing_to_the_one_below_undo_together() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-dependent-branches");
+    env.setup_metadata(&["B"]);
+    let refs = || env.invoke_git("rev-parse A B HEAD");
+    let before = refs();
+    env.file("new-file", "new");
+    let mut ctx = ctx_for(&env);
+    let mut meta = ctx.meta().unwrap();
+    let a = FullName::try_from("refs/heads/A").unwrap();
+    let b = FullName::try_from("refs/heads/B").unwrap();
+    let [b_tip] = find_commits(&env, ["B"]);
+
+    with_transaction(
+        &mut ctx,
+        &mut meta,
+        delete_branch(),
+        DryRun::No,
+        |mut tx| {
+            tx.remove_reference(b.as_ref())?;
+            tx.create_commit(
+                RelativeTo::Reference(a.clone()),
+                InsertSide::Below,
+                vec![diff_spec_for_file("new-file")],
+                "add new-file".into(),
+                but_workspace::commit::ChangeSource::Head,
+            )?;
+            Ok(())
+        },
+    )
+    .unwrap();
+
+    assert_eq!(ref_target(&env, b.as_ref()), None, "B is gone");
+    assert_eq!(
+        env.invoke_git("log --format=%s -2 A --"),
+        "add new-file\nadd B",
+        "B's commit went to A, which took the new one on top"
+    );
+    assert_ne!(ref_target(&env, a.as_ref()), Some(b_tip));
+
+    let snapshot = but_api::legacy::oplog::get_undo_target_snapshot(&ctx)
+        .unwrap()
+        .expect("the transaction records an undo target");
+    but_api::legacy::oplog::restore_snapshot_with_kind(
+        &mut ctx,
+        but_api::legacy::oplog::RestoreKind::RestoreFromSnapshotViaUndo,
+        snapshot.commit_id,
+    )
+    .unwrap();
+    assert_eq!(refs(), before, "one undo brings both back");
+}
