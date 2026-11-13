@@ -875,6 +875,83 @@ mod tests {
     }
 
     #[test]
+    fn a_landed_branch_whose_review_is_still_open_is_not_retargeted() -> Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let git = |args: &[&str]| git_at_dir(tmp.path()).args(args).run();
+        git(&["init", "-b", "main"]);
+        git(&["config", "user.name", "GitButler"]);
+        git(&["config", "user.email", "gitbutler@example.com"]);
+        git(&["commit", "--allow-empty", "-m", "base"]);
+        git(&["remote", "add", "origin", "../origin"]);
+        git(&["update-ref", "refs/remotes/origin/main", "HEAD"]);
+        git(&["branch", "--set-upstream-to=origin/main", "main"]);
+        for branch in ["A", "B", "C"] {
+            git(&["checkout", "-b", branch]);
+            git(&["commit", "--allow-empty", "-m", branch]);
+            git(&[
+                "update-ref",
+                &format!("refs/remotes/origin/{branch}"),
+                branch,
+            ]);
+        }
+        let repo = open_repo(tmp.path())?;
+        ProjectMeta {
+            target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+                "refs/heads/main".try_into()?,
+            )?),
+            target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
+            push_remote: Some("origin".into()),
+        }
+        .persist(&repo)?;
+        // `A` and `B` landed on the target together. GitHub then closes #1, whose base is the
+        // target, but #2 stays open as its base `A` doesn't contain it.
+        git(&["checkout", "-b", "landed", "main"]);
+        git(&["commit", "--allow-empty", "-m", "other"]);
+        git(&["merge", "--no-ff", "-m", "land B", "B"]);
+        git(&["update-ref", "refs/remotes/origin/main", "landed"]);
+        git(&["checkout", "C"]);
+        git(&["branch", "-D", "landed"]);
+        let ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+        let reviews = [(1, "A", "main"), (2, "B", "A"), (3, "C", "B")];
+        {
+            let mut db = ctx.db.get_cache_mut()?;
+            for (number, branch, target) in reviews {
+                let mut review = open_review(number, branch);
+                review.target_branch = target.into();
+                if number == 1 {
+                    review.merged_at = Some("2026-11-12T03:11:09Z".into());
+                }
+                but_forge::cache_review(&mut db, &review)?;
+            }
+        }
+        for (number, branch, _) in reviews {
+            let branch = gix::refs::Category::LocalBranch.to_full_name(branch)?;
+            persist_review_association(&ctx, branch.as_ref(), number as usize)?;
+        }
+
+        let c: gix::refs::FullName = "refs/heads/C".try_into()?;
+        let updates = review_target_updates_for_branch(&ctx, c.as_ref())?;
+        assert_eq!(
+            updates
+                .iter()
+                .map(|(update, current)| (
+                    update.number,
+                    update.target_branch.as_str(),
+                    current.as_deref()
+                ))
+                .collect::<Vec<_>>(),
+            [(3, "main", Some("B"))],
+            "a landed branch's review needs nothing, so the review above it targets main"
+        );
+        assert_eq!(
+            review_target_flattening_plan(&updates, "main"),
+            Some(std::collections::HashSet::from([3])),
+            "GitHub refuses to retarget #2 to main, as all its commits are already there"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn unchanged_review_targets_do_not_need_pre_push_flattening() {
         let reviews = [
             (
@@ -2264,11 +2341,18 @@ pub fn open_review_numbers(ctx: &Context) -> Result<std::collections::HashSet<i6
 }
 
 /// The number of the segment's active review: its recorded number, when the
-/// cache knows that review as open. There is deliberately no ungated variant.
+/// cache knows that review as open and the branch hasn't landed. A landed
+/// branch's review can stay open: when a whole stack lands at once, GitHub
+/// closes only the review based on the target, and refuses to point the
+/// others at the target, as it already has their commits. There is
+/// deliberately no ungated variant.
 fn review_number(
     segment: &but_workspace::ref_info::Segment,
     open_reviews: &std::collections::HashSet<i64>,
 ) -> Option<i64> {
+    if segment.push_status == but_workspace::ui::PushStatus::Integrated {
+        return None;
+    }
     let number = segment
         .metadata
         .as_ref()
