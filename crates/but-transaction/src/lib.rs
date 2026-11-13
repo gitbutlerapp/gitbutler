@@ -598,8 +598,8 @@ where
     ) -> anyhow::Result<()> {
         let order = order.into();
         self.rebase(|editor, _| {
-            let rebase = but_workspace::branch::tear_off_branch(editor, source_branch, order)?;
-            Ok(((), rebase))
+            let outcome = but_workspace::branch::tear_off_branch(editor, source_branch, order)?;
+            Ok(((), outcome.rebase))
         })?;
 
         Ok(())
