@@ -5,8 +5,8 @@ use anyhow::{Context as _, bail};
 use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_core::{
-    DryRun, RefMetadata, WORKSPACE_REF_NAME,
-    branch::{refuse_colliding_refname, unique_canned_refname},
+    DryRun, WORKSPACE_REF_NAME,
+    branch::unique_canned_refname,
     ref_metadata::{ProjectMeta, UnresolvedLegacyTargetRefError},
     sync::{RepoExclusive, RepoShared},
     ui::TreeChanges,
@@ -14,12 +14,8 @@ use but_core::{
     worktree::{checkout, safe_checkout_from_head},
 };
 use but_ctx::Context;
-use but_error::bail_precondition;
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
-use but_rebase::graph_rebase::{
-    Editor, GraphEditorOptions,
-    mutate::{InsertSide, RelativeTo},
-};
+use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use but_workspace::branch::{
     BranchIntegrationStrategy, InitialBranchIntegration,
     integrate_branch_upstream::InteractiveIntegration,
@@ -1110,16 +1106,14 @@ pub fn branch_remove_with_perm(
     Ok(BranchRemoveResult { workspace })
 }
 
-/// Renames the local branch `ref_name` to `new_name`, moving its git reference and
-/// its metadata (including its `branch_order` entry) and re-pointing the `HEAD`
-/// of every worktree that has it checked out at the new name.
+/// Renames the local branch `ref_name` to `new_name` in one transaction, as
+/// [`but_transaction::Transaction::rename_reference()`] does, and returns the new
+/// workspace view with the new name.
 ///
 /// `new_name` is a short branch name that is normalized into a valid
-/// `refs/heads/<name>` reference before the rename, so callers don't have to
-/// pre-normalize it. This acquires exclusive worktree access from `ctx`, records
-/// an oplog snapshot on success, and returns the post-operation workspace view.
-/// It requires no stack id and works in both managed and ad-hoc/single-branch
-/// workspaces.
+/// `refs/heads/<name>` reference, so callers don't have to pre-normalize it.
+/// Renaming onto the same name changes nothing. This acquires exclusive worktree
+/// access from `ctx`.
 #[but_api(try_from = json::BranchRenameResult, refreshes)]
 #[instrument(err(Debug))]
 pub fn branch_rename(
@@ -1131,10 +1125,7 @@ pub fn branch_rename(
     branch_rename_with_perm(ctx, ref_name, new_name, guard.write_permission())
 }
 
-/// Rename the local branch `ref_name` to `new_name` under caller-held exclusive
-/// repository access and record an oplog snapshot on success.
-///
-/// See [`branch_rename()`] for the higher-level behaviour.
+/// [`branch_rename()`] under caller-held exclusive repository access.
 pub fn branch_rename_with_perm(
     ctx: &mut but_ctx::Context,
     ref_name: gix::refs::FullName,
@@ -1198,8 +1189,11 @@ pub fn branch_rename_with_perm(
             true => &names,
             false => &[],
         };
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
+    let mut meta = ctx.meta()?;
+    let workspace = but_transaction::with_transaction_with_perm(
         ctx,
+        &mut meta,
+        perm,
         SnapshotDetails::new(OperationKind::UpdateBranchName).with_trailers([
             // Distinct keys (`previous_name` / `name`) so both survive `.find(key)` lookups on the
             // consumer side; two `Name` trailers would collide and drop the second.
@@ -1207,51 +1201,8 @@ pub fn branch_rename_with_perm(
             Trailer::Name(new_ref.to_string()),
         ]),
         listed,
-        perm.read_permission(),
         DryRun::No,
-    );
-
-    {
-        let mut meta = ctx.meta()?;
-        let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-
-        repo.find_reference(ref_name.as_ref())
-            .with_context(|| format!("Branch '{}' does not exist", ref_name.shorten()))?;
-        if repo.try_find_reference(new_ref.as_ref())?.is_some()
-            || meta.branch_opt(new_ref.as_ref())?.is_some()
-            || meta.branch_stack_order(new_ref.as_ref())?.is_some()
-        {
-            bail_precondition!("A branch named '{}' already exists", new_ref.shorten());
-        }
-        refuse_colliding_refname(&repo, new_ref.as_ref(), Some(ref_name.as_ref()))?;
-
-        let options = GraphEditorOptions {
-            extra_mutable_refs: vec![ref_name.clone()],
-            ..Default::default()
-        };
-        let mut editor = Editor::create_with_opts(&mut ws, &mut meta, &repo, &mut db, &options)?;
-        editor.replace_reference(editor.select_reference(ref_name.as_ref())?, new_ref.clone())?;
-        let mut rebase = editor.rebase()?;
-        let (_, meta) = rebase.repo_and_meta_mut();
-        meta.rename(ref_name.as_ref(), new_ref.as_ref())?;
-        rebase.materialize(Default::default())?;
-    }
-
-    // Rebuild the workspace from scratch: this re-reads HEAD, so the moved-HEAD case needs no
-    // stale-entrypoint handling.
-    ctx.reload_repo_and_invalidate_workspace(perm)?;
-    if let Some(snapshot) = maybe_oplog_entry {
-        snapshot.commit(ctx, perm).ok();
-    }
-    let mut meta = ctx.meta()?;
-    let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let workspace = WorkspaceState::from_workspace_with_db(
-        &ws,
-        &mut meta,
-        &repo,
-        BTreeMap::new(),
-        Vec::new(),
-        &mut db,
+        |mut tx| tx.rename_reference(ref_name.as_ref(), new_ref.as_ref()),
     )?;
     Ok(BranchRenameResult { workspace, new_ref })
 }
