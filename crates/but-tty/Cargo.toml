@@ -26,9 +26,10 @@ parking_lot.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
-# Its build compiles Ghostty with Zig 0.17. From master, past 0.2.2, for reading the selection
-# back to copy it. `png` decodes the PNGs programs show with kitty graphics, as pi's images.
-libghostty-vt = { git = "https://github.com/uzaaft/libghostty-rs", rev = "9ede35b8ea94a55ed3608408d67e102883129f1e", features = ["png"] }
+# Its build compiles Ghostty with Zig 0.17. Targets libghostty-vt 1.0.1, reads
+# the selection back to copy it, and `png` decodes the PNGs programs show with
+# kitty graphics, as pi's images.
+libghostty-vt = { git = "https://github.com/uzaaft/libghostty-rs", rev = "483ea3d5247b214060da58ef6037a95f30ae89fb", features = ["png"] }
 
 [dev-dependencies]
 tempfile.workspace = true
