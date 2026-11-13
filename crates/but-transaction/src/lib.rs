@@ -20,7 +20,9 @@ pub use but_rebase::graph_rebase::{
 };
 #[cfg(not(feature = "graph-workspace"))]
 use but_workspace::RefInfo;
-use but_workspace::branch::create_reference::Anchor;
+use but_workspace::branch::{
+    create_reference::Anchor, integrate_branch_upstream::InteractiveIntegration,
+};
 use but_workspace::commit::{
     ChangeSource, MoveChangesOutcome, SquashCommitsOutcome, UncommitChangesFailure,
     UncommitChangesFromCommitsOutcome, UncommitChangesSource,
@@ -895,6 +897,24 @@ where
             };
             let rebase =
                 but_workspace::branch::move_branch(editor, source_branch, relative_to, side)?;
+            Ok(((), rebase))
+        })
+    }
+
+    /// Rebuild `branch` from the commits of itself and its upstream as `integration` lists them,
+    /// as [`but_workspace::branch::integrate_branch_with_steps()`] does.
+    pub fn integrate_branch_upstream(
+        &mut self,
+        branch: &FullNameRef,
+        integration: InteractiveIntegration,
+    ) -> anyhow::Result<()> {
+        self.rebase(|editor, _| {
+            let rebase =
+                but_workspace::branch::integrate_branch_upstream::integrate_branch_in_editor(
+                    editor,
+                    branch,
+                    integration,
+                )?;
             Ok(((), rebase))
         })
     }

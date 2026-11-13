@@ -4,7 +4,10 @@ use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use but_testsupport::Sandbox;
 use but_workspace::{
-    branch::create_reference::{Anchor, Position},
+    branch::{
+        create_reference::{Anchor, Position},
+        integrate_branch_upstream::InteractiveIntegration,
+    },
     commit::{UncommitChangesSource, squash_commits::MessageCombinationStrategy},
 };
 use gix::{ObjectId, refs::FullName};
@@ -2118,4 +2121,68 @@ fn checking_out_from_a_detached_head_after_an_edit_is_refused() {
         "nothing is written"
     );
     assert_eq!(ref_target(&env, new_branch.as_ref()), None);
+}
+
+fn one_stack_behind_its_remote() -> (Sandbox, Context, InteractiveIntegration) {
+    let env =
+        Sandbox::open_scenario_with_target_and_default_settings("one-stack-behind-its-remote");
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let branch = FullName::try_from("refs/heads/branch").unwrap();
+    let plan =
+        but_api::branch::get_initial_branch_integration(&ctx, branch.as_ref(), None).unwrap();
+    (env, ctx, plan.integration)
+}
+
+#[test]
+fn integrating_a_branch_s_upstream() {
+    let (env, mut ctx, integration) = one_stack_behind_its_remote();
+    let branch = FullName::try_from("refs/heads/branch").unwrap();
+    let mut meta = ctx.meta().unwrap();
+
+    let _workspace: WorkspaceState = with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::GenericBranchUpdate),
+        DryRun::No,
+        |mut tx| tx.integrate_branch_upstream(branch.as_ref(), integration),
+    )
+    .unwrap();
+
+    assert_eq!(
+        env.invoke_git("log --format=%s main..branch"),
+        "add local\nadd remote\nadd shared"
+    );
+}
+
+#[test]
+fn integrating_a_branch_s_upstream_and_rewording_undo_together() {
+    let (env, mut ctx, integration) = one_stack_behind_its_remote();
+    let branch = FullName::try_from("refs/heads/branch").unwrap();
+    let [shared] = find_commits(&env, ["branch~1"]);
+    let tip_before = env.invoke_git("rev-parse branch");
+    let mut meta = ctx.meta().unwrap();
+
+    let _workspace: WorkspaceState = with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::GenericBranchUpdate),
+        DryRun::No,
+        |mut tx| {
+            tx.integrate_branch_upstream(branch.as_ref(), integration)?;
+            tx.reword_commit(shared, "shared, reworded".into())?;
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        env.invoke_git("log --format=%s main..branch"),
+        "add local\nadd remote\nshared, reworded"
+    );
+
+    undo_last(&mut ctx);
+
+    assert_eq!(env.invoke_git("rev-parse branch"), tip_before);
 }

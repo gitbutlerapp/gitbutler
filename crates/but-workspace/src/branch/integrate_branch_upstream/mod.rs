@@ -109,12 +109,22 @@ pub fn integrate_branch_with_steps<'ws, 'meta, M: RefMetadata>(
     repo: &gix::Repository,
     db: &'meta mut but_db::DbHandle,
 ) -> Result<SuccessfulRebase<'ws, 'meta, M>> {
+    // The editor maps every segment in the graph, including the remote
+    // reference of the branch we're integrating.
+    let editor = Editor::create(workspace, meta, repo, db)?;
+    integrate_branch_in_editor(editor, ref_name, integration)
+}
+
+/// Like [`integrate_branch_with_steps()`], but in `editor`, which must map the remote reference
+/// of the branch, as an editor created for the whole graph does.
+pub fn integrate_branch_in_editor<'ws, 'meta, M: RefMetadata>(
+    mut editor: Editor<'ws, 'meta, M>,
+    ref_name: &gix::refs::FullNameRef,
+    integration: InteractiveIntegration,
+) -> Result<SuccessfulRebase<'ws, 'meta, M>> {
     if integration.steps.is_empty() {
         bail!("Integration steps cannot be empty")
     }
-    // The editor maps every segment in the graph, including the remote
-    // reference of the branch we're integrating.
-    let mut editor = Editor::create(workspace, meta, repo, db)?;
     // Step 1: We prepare the steps before building.
     // At this point, we construct the commits for the squash steps in memory.
     let prepared_steps = prepare_integration_steps_for_editor(&editor, &integration.steps)?;
