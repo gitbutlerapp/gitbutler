@@ -32,6 +32,7 @@ jobs:
       but_installer: ${{ steps.filter.outputs.but_installer }}
       install_script: ${{ steps.filter.outputs.install_script }}
       tauri_gui: ${{ steps.filter.outputs.tauri_gui }}
+      gpui: ${{ steps.filter.outputs.gpui }}
       but_ui_react: ${{ steps.filter.outputs.but_ui_react }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -88,6 +89,10 @@ jobs:
               - 'packages/shared/**'
               - 'packages/core/**'
               - 'e2e/**'
+            # quality.but.dev doesn't build on Windows, so the Windows jobs run for these too.
+            gpui:
+              - 'crates/but-gpui/**'
+              - 'crates/but-tty/**'
             # oxlint checks only this package, and nothing else lints it before merge.
             but_ui_react:
               - 'packages/but-ui-react/**'
@@ -352,7 +357,7 @@ jobs:
     needs: changes
     runs-on: windows-latest
     timeout-minutes: 25
-    if: ${{ needs.changes.outputs.tauri_gui == 'true' && (needs.changes.outputs.rust == 'true') }}
+    if: ${{ (needs.changes.outputs.tauri_gui == 'true' || needs.changes.outputs.gpui == 'true') && needs.changes.outputs.rust == 'true' }}
     env:
       CARGO_TERM_COLOR: always
     steps:
@@ -378,7 +383,7 @@ jobs:
     needs: changes
     runs-on: windows-latest
     timeout-minutes: 35
-    if: ${{ needs.changes.outputs.tauri_gui == 'true' && (needs.changes.outputs.rust == 'true') }}
+    if: ${{ (needs.changes.outputs.tauri_gui == 'true' || needs.changes.outputs.gpui == 'true') && needs.changes.outputs.rust == 'true' }}
     env:
       CARGO_TERM_COLOR: always
     steps:
@@ -399,7 +404,7 @@ jobs:
     needs: changes
     runs-on: windows-latest
     timeout-minutes: 25
-    if: ${{ needs.changes.outputs.tauri_gui == 'true' && (needs.changes.outputs.rust == 'true') }}
+    if: ${{ (needs.changes.outputs.tauri_gui == 'true' || needs.changes.outputs.gpui == 'true') && needs.changes.outputs.rust == 'true' }}
     env:
       CARGO_TERM_COLOR: always
     steps:
