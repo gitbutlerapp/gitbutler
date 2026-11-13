@@ -1824,3 +1824,199 @@ fn removing_a_top_branch_and_committing_to_the_one_below_undo_together() {
     .unwrap();
     assert_eq!(refs(), before, "one undo brings both back");
 }
+
+fn rename_branch() -> SnapshotDetails {
+    SnapshotDetails::new(OperationKind::UpdateBranchName)
+}
+
+#[track_caller]
+fn undo_last(ctx: &mut Context) {
+    let snapshot = but_api::legacy::oplog::get_undo_target_snapshot(ctx)
+        .unwrap()
+        .expect("the transaction records an undo target");
+    but_api::legacy::oplog::restore_snapshot_with_kind(
+        ctx,
+        but_api::legacy::oplog::RestoreKind::RestoreFromSnapshotViaUndo,
+        snapshot.commit_id,
+    )
+    .unwrap();
+}
+
+/// Two stacks in the workspace, and `main` moved on to a commit no checkout reaches.
+fn two_stacks_and_main_ahead() -> (Sandbox, Context, ObjectId) {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    let ahead = env.invoke_git("commit-tree -p main -m ahead main^{tree}");
+    env.invoke_git(&format!("update-ref refs/heads/main {ahead}"));
+    let ctx = ctx_for(&env);
+    (env, ctx, ObjectId::from_hex(ahead.as_bytes()).unwrap())
+}
+
+#[test]
+fn renaming_the_checked_out_branch_moves_head_and_undoes() {
+    let (env, mut ctx) = single_branch_beside_target();
+    let mut meta = ctx.meta().unwrap();
+    let branch = FullName::try_from("refs/heads/branch").unwrap();
+    let renamed = FullName::try_from("refs/heads/renamed").unwrap();
+    let branch_tip = ref_target(&env, branch.as_ref());
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let _workspace: WorkspaceState = with_transaction_with_perm(
+        &mut ctx,
+        &mut meta,
+        guard.write_permission(),
+        rename_branch(),
+        &[branch.as_ref(), renamed.as_ref()],
+        DryRun::No,
+        |mut tx| tx.rename_reference(branch.as_ref(), renamed.as_ref()),
+    )
+    .unwrap();
+    drop(guard);
+
+    assert_eq!(
+        head_name(&ctx),
+        Some(renamed.clone()),
+        "HEAD follows the rename"
+    );
+    assert_eq!(
+        ref_target(&env, branch.as_ref()),
+        None,
+        "the old name is gone"
+    );
+    assert_eq!(ref_target(&env, renamed.as_ref()), branch_tip);
+
+    undo_last(&mut ctx);
+    assert_eq!(
+        head_name(&ctx),
+        Some(branch.clone()),
+        "undo checks out the old name"
+    );
+    assert_eq!(ref_target(&env, branch.as_ref()), branch_tip);
+    assert_eq!(
+        ref_target(&env, renamed.as_ref()),
+        None,
+        "undo deletes the new name"
+    );
+}
+
+#[test]
+fn renaming_a_branch_no_checkout_reaches() {
+    let (env, mut ctx, ahead) = two_stacks_and_main_ahead();
+    let mut meta = ctx.meta().unwrap();
+    let main = FullName::try_from("refs/heads/main").unwrap();
+    let renamed = FullName::try_from("refs/heads/renamed").unwrap();
+
+    with_transaction(
+        &mut ctx,
+        &mut meta,
+        rename_branch(),
+        DryRun::No,
+        |mut tx| tx.rename_reference(main.as_ref(), renamed.as_ref()),
+    )
+    .unwrap();
+
+    assert_eq!(
+        ref_target(&env, main.as_ref()),
+        None,
+        "the old name is gone"
+    );
+    assert_eq!(ref_target(&env, renamed.as_ref()), Some(ahead));
+}
+
+#[test]
+fn a_branch_no_checkout_reaches_cant_move_into_its_own_directory() {
+    let (env, mut ctx, ahead) = two_stacks_and_main_ahead();
+    let mut meta = ctx.meta().unwrap();
+    let main = FullName::try_from("refs/heads/main").unwrap();
+    let nested = FullName::try_from("refs/heads/main/x").unwrap();
+
+    let err = with_transaction(
+        &mut ctx,
+        &mut meta,
+        rename_branch(),
+        DryRun::No,
+        |mut tx| tx.rename_reference(main.as_ref(), nested.as_ref()),
+    )
+    .expect_err("git can't write the new name while the old one exists");
+    assert!(
+        err.to_string().contains("collides"),
+        "unexpected error: {err:#}"
+    );
+
+    assert_eq!(
+        ref_target(&env, main.as_ref()),
+        Some(ahead),
+        "nothing changed"
+    );
+    assert_eq!(ref_target(&env, nested.as_ref()), None);
+}
+
+#[test]
+fn renaming_a_branch_and_committing_to_it_undo_together() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    let refs = || env.invoke_git("rev-parse A B HEAD");
+    let before = refs();
+    env.file("new-file", "new");
+    let mut ctx = ctx_for(&env);
+    let mut meta = ctx.meta().unwrap();
+    let a = FullName::try_from("refs/heads/A").unwrap();
+    let renamed = FullName::try_from("refs/heads/renamed").unwrap();
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let _workspace: WorkspaceState = with_transaction_with_perm(
+        &mut ctx,
+        &mut meta,
+        guard.write_permission(),
+        rename_branch(),
+        &[a.as_ref(), renamed.as_ref()],
+        DryRun::No,
+        |mut tx| {
+            tx.rename_reference(a.as_ref(), renamed.as_ref())?;
+            tx.create_commit(
+                RelativeTo::Reference(renamed.clone()),
+                InsertSide::Below,
+                vec![diff_spec_for_file("new-file")],
+                "add new-file".into(),
+                but_workspace::commit::ChangeSource::Head,
+            )?;
+            Ok(())
+        },
+    )
+    .unwrap();
+    drop(guard);
+
+    assert_eq!(ref_target(&env, a.as_ref()), None, "A is renamed");
+    assert_eq!(
+        env.invoke_git("log --format=%s -2 renamed --"),
+        "add new-file\nadd A",
+        "the renamed branch took the new commit"
+    );
+
+    undo_last(&mut ctx);
+    assert_eq!(refs(), before, "one undo brings both back");
+    assert_eq!(ref_target(&env, renamed.as_ref()), None);
+}
+
+#[test]
+fn a_dry_run_rename_writes_nothing() {
+    let (env, mut ctx) = single_branch_beside_target();
+    let mut meta = ctx.meta().unwrap();
+    let branch = FullName::try_from("refs/heads/branch").unwrap();
+    let renamed = FullName::try_from("refs/heads/renamed").unwrap();
+    let branch_tip = ref_target(&env, branch.as_ref());
+
+    let _workspace: WorkspaceState = with_transaction(
+        &mut ctx,
+        &mut meta,
+        rename_branch(),
+        DryRun::Yes,
+        |mut tx| tx.rename_reference(branch.as_ref(), renamed.as_ref()),
+    )
+    .unwrap();
+
+    assert_eq!(head_name(&ctx), Some(branch.clone()));
+    assert_eq!(ref_target(&env, branch.as_ref()), branch_tip);
+    assert_eq!(ref_target(&env, renamed.as_ref()), None);
+    assert_num_snapshots(&ctx, 0);
+}

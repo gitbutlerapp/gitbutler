@@ -281,6 +281,7 @@ where
             rebase: Some(rebase),
             commit_mappings: CommitMappings::default(),
             removed_references: Vec::new(),
+            renamed_references: Vec::new(),
             pending_branch_metadata: Vec::new(),
             pending_ref_changes: PendingRefChanges::default(),
             pending_checkout: None,
@@ -307,6 +308,7 @@ where
             mut rebase,
             commit_mappings: _,
             removed_references,
+            renamed_references,
             pending_branch_metadata,
             mut pending_ref_changes,
             pending_checkout,
@@ -341,6 +343,7 @@ where
                         rebase,
                         &repo,
                         removed_references,
+                        renamed_references,
                         pending_branch_metadata,
                         FinalizeOptions {
                             checkout: pending_checkout,
@@ -394,6 +397,8 @@ where
     // Their metadata goes once materialized, and so does the reference with its Git
     // configuration where the rebase couldn't delete it.
     removed_references: Vec<FullName>,
+    // Their metadata moves before materializing, which writes the stacks under the new names.
+    renamed_references: Vec<RenamedReference>,
     pending_branch_metadata: Vec<PendingBranchMetadata>,
     pending_ref_changes: PendingRefChanges,
     // A checkout cannot happen until the in-memory rebase and its references are materialized.
@@ -658,6 +663,71 @@ where
             }
         }
         self.inner.removed_references.push(ref_name.to_owned());
+        Ok(())
+    }
+
+    /// Rename the local branch `ref_name` to `new_ref`, along with its metadata. Every checkout
+    /// on it follows the new name, and its `branch.<name>` Git configuration stays under the old.
+    ///
+    /// It refuses a branch the workspace doesn't show, and a `new_ref` that a branch or branch
+    /// metadata already has or that nests with another branch. A branch no checkout reaches can't
+    /// move into its own directory or out of it, as its old name is deleted only once the new one
+    /// is written.
+    pub fn rename_reference(
+        &mut self,
+        ref_name: &FullNameRef,
+        new_ref: &FullNameRef,
+    ) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            ref_name.category() == Some(gix::refs::Category::LocalBranch)
+                && new_ref.category() == Some(gix::refs::Category::LocalBranch),
+            "Can only rename local branches under refs/heads, got '{}' and '{}'",
+            ref_name.as_bstr(),
+            new_ref.as_bstr()
+        );
+        if !self.has_reference(ref_name) {
+            if self.repo().try_find_reference(ref_name)?.is_none() {
+                but_error::bail_precondition!("Branch '{}' does not exist", ref_name.shorten());
+            }
+            but_error::bail_precondition!(
+                "Cannot rename '{}': the workspace doesn't show it",
+                ref_name.shorten()
+            );
+        }
+        let name_taken = self.repo().try_find_reference(new_ref)?.is_some() || {
+            let (_, meta) = (self.inner.rebase.as_mut())
+                .expect("rebase is always Some(_)")
+                .repo_and_meta_mut();
+            meta.branch_opt(new_ref)?.is_some() || meta.branch_stack_order(new_ref)?.is_some()
+        };
+        if name_taken {
+            but_error::bail_precondition!("A branch named '{}' already exists", new_ref.shorten());
+        }
+        let old_target = self.rebase(|mut editor, _| {
+            let selector = editor.select_reference(ref_name)?;
+            let mutable = matches!(
+                editor.lookup_step(selector)?,
+                Step::Reference { mutable: true, .. }
+            );
+            // The rebase deletes a mutable reference along with writing the new one, so the two
+            // names may nest. Any other is deleted afterwards.
+            but_core::branch::refuse_colliding_refname(
+                editor.repo(),
+                new_ref,
+                mutable.then_some(ref_name),
+            )?;
+            let old_target = (!mutable)
+                .then(|| editor.repo().find_reference(ref_name))
+                .transpose()?
+                .map(|reference| reference.id().detach());
+            editor.replace_reference(selector, new_ref.to_owned())?;
+            Ok((old_target, editor.rebase()?))
+        })?;
+        self.inner.renamed_references.push(RenamedReference {
+            from: ref_name.to_owned(),
+            to: new_ref.to_owned(),
+            old_target,
+        });
         Ok(())
     }
 
@@ -1289,6 +1359,13 @@ fn apply_new_stacks<'rebase, M: RefMetadata>(
     Ok(rebase)
 }
 
+struct RenamedReference {
+    from: FullName,
+    to: FullName,
+    /// Where `from` points if the rebase can't delete it, to delete it after materializing.
+    old_target: Option<ObjectId>,
+}
+
 struct FinalizeOptions {
     checkout: Option<FullName>,
     dry_run: DryRun,
@@ -1531,6 +1608,7 @@ fn workspace_state_from_rebase<M: RefMetadata>(
     rebase: SuccessfulRebase<'_, '_, M>,
     repo: &gix::Repository,
     removed_references: Vec<FullName>,
+    renamed_references: Vec<RenamedReference>,
     pending_branch_metadata: Vec<PendingBranchMetadata>,
     options: FinalizeOptions,
 ) -> anyhow::Result<WorkspaceState> {
@@ -1562,13 +1640,28 @@ fn workspace_state_from_rebase<M: RefMetadata>(
         );
     }
 
+    let mut rebase = rebase;
+    let (_, meta) = rebase.repo_and_meta_mut();
+    for renamed in &renamed_references {
+        meta.rename(renamed.from.as_ref(), renamed.to.as_ref())?;
+    }
     let materialized = rebase.materialize(Default::default())?;
+    let mut deleted_outside_rebase = false;
+    for renamed in renamed_references {
+        let Some(old_target) = renamed.old_target else {
+            continue;
+        };
+        repo.edit_references([RefEdit::delete(
+            renamed.from,
+            PreviousValue::MustExistAndMatch(old_target.into()),
+        )])?;
+        deleted_outside_rebase = true;
+    }
     for branch in pending_branch_metadata {
         let mut handle = materialized.meta.branch(branch.name.as_ref())?;
         *handle = branch.value;
         materialized.meta.set_branch(&handle)?;
     }
-    let mut deleted_outside_rebase = false;
     let mut deleting_repo = repo.clone();
     for ref_name in removed_references {
         materialized.meta.remove(ref_name.as_ref())?;
