@@ -113,7 +113,9 @@ holds the system and everything drawn with it, as a monorepo holds packages:
   section under it. Only these pages define the library's components; the
   showcases and drafts use instances of them. The docs site shelves the
   stories in the same groups, in the same order (plus Icons, which Figma
-  keeps on its own page): a stories file names its group in `title` and
+  keeps on its own page, and the Workspace tree, a group of its own after
+  Sidebar, one page for the tree and one for each kind of row it is long
+  enough to need): a stories file names its group in `title` and
   keeps its old `id`, so the addresses below don't change when a component
   moves group.
 - **The showcases**: 📱 Panel, 🖼️ Preview, 🎴 Overlays and 🪟 Modals, with the

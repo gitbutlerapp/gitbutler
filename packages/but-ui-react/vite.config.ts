@@ -19,6 +19,7 @@ const groups = [
 	"Illustrations",
 	"Preview",
 	"Sidebar",
+	"Workspace tree",
 	"Icons",
 ];
 

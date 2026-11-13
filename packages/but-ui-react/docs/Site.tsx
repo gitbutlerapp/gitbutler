@@ -109,6 +109,7 @@ const GROUP_ICONS: Record<string, IconName> = {
 	Illustrations: "image",
 	Preview: "layout",
 	Sidebar: "sidebar",
+	"Workspace tree": "folder-tree",
 	Icons: "smiley",
 };
 
