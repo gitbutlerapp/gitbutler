@@ -13,16 +13,9 @@ use but_hunk_dependency::ui::{
     HunkDependencies, HunkLock, HunkLockTarget,
     hunk_dependencies_for_workspace_changes_by_worktree_dir,
 };
-use but_rebase::graph_rebase::{
-    Editor,
-    mutate::{InsertSide, RelativeTo},
-};
-use but_workspace::commit::{ChangeSource, amend_in_editor, cancel_consumed_changes};
+use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use but_workspace::{RefInfo, branch::Stack};
-use gitbutler_oplog::{
-    OplogExt,
-    entry::{OperationKind, SnapshotDetails},
-};
+use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use itertools::Itertools;
 use tracing::instrument;
 
@@ -32,26 +25,16 @@ use but_core::DryRun;
 /// Absorb the changes described by `absorption_plan` using the behavior documented by
 /// [`absorb_with_perm()`].
 ///
-/// This acquires exclusive worktree access from `ctx` before creating the
-/// snapshot and rewriting commits.
-///
-/// Before applying the plan, this records an `Absorb` oplog snapshot.
+/// This acquires exclusive worktree access from `ctx` before rewriting commits.
 #[but_api]
 #[instrument(err(Debug))]
 pub fn absorb(ctx: &mut Context, absorption_plan: Vec<CommitAbsorption>) -> anyhow::Result<usize> {
     let mut guard = ctx.exclusive_worktree_access();
-    let _snapshot = ctx
-        .create_snapshot(
-            SnapshotDetails::new(OperationKind::Absorb),
-            guard.write_permission(),
-        )
-        .ok(); // Ignore errors for snapshot creation
-
     absorb_with_perm(ctx, absorption_plan, guard.write_permission())
 }
 
 /// Absorb the changes described by `absorption_plan` using the exclusive repository
-/// access granted by `perm`.
+/// access granted by `perm`, recording one `Absorb` undo step.
 ///
 /// Returns the total amount of rejected diff specs.
 pub fn absorb_with_perm(
@@ -59,36 +42,29 @@ pub fn absorb_with_perm(
     absorption_plan: Vec<CommitAbsorption>,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<usize> {
-    let context_lines = ctx.settings.context_lines;
+    let amendments = absorption_plan
+        .into_iter()
+        .map(|absorption| {
+            Ok((
+                absorption.commit_id,
+                convert_hunks_to_diff_specs(&absorption.hunks)?,
+            ))
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let mut editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-
-    let mut total_rejected = 0;
-    let mut consumed = Vec::new();
-    for absorption in absorption_plan {
-        let diff_specs = convert_hunks_to_diff_specs(&absorption.hunks)?;
-        let outcome = amend_in_editor(
-            &mut editor,
-            absorption.commit_id,
-            diff_specs,
-            context_lines,
-            &ChangeSource::Head,
-        )?;
-        if !outcome.rejected_specs.is_empty() {
-            tracing::warn!(?outcome.rejected_specs, "Failed to commit at least one hunk");
-        }
-        total_rejected += outcome.rejected_specs.len();
-        consumed.extend(outcome.consumed);
+    let (rejected, _workspace) = but_transaction::with_transaction_with_perm(
+        ctx,
+        &mut meta,
+        perm,
+        SnapshotDetails::new(OperationKind::Absorb),
+        &[],
+        DryRun::No,
+        |mut tx| tx.amend_commits(amendments).map(but_transaction::Commit),
+    )?;
+    if !rejected.is_empty() {
+        tracing::warn!(?rejected, "Failed to commit at least one hunk");
     }
-
-    cancel_consumed_changes(&mut editor, &ChangeSource::Head, consumed, context_lines)?;
-    editor.rebase()?.materialize(Default::default())?;
-
-    drop(repo);
-    drop(db);
-    ctx.update_workspace_cache(ws);
-    Ok(total_rejected)
+    Ok(rejected.len())
 }
 
 /// Build an absorption plan for `target` using the behavior documented by
