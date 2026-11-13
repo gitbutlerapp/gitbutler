@@ -126,7 +126,7 @@ const ROW_GROUP: &str = "navigator-row";
 fn watch_glyph(watched: bool) -> gpui::Svg {
     let eye = match watched {
         true => Icon::Eye,
-        false => Icon::EyeOff,
+        false => Icon::EyeClosed,
     };
     crate::ui::icon_at(eye, 14.)
 }

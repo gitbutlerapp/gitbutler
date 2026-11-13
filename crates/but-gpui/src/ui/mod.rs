@@ -281,8 +281,10 @@ icons! {
     Discord => "discord",
     Docs => "docs",
     DragVertical => "drag-vertical",
+    Desktop => "desktop",
     Edit => "edit",
     Eye => "eye",
+    EyeClosed => "eye-closed",
     CollapseVertical => "collapse-vertical",
     Cross => "cross",
     ExpandVertical => "expand-vertical",
@@ -291,6 +293,8 @@ icons! {
     FileDiff => "file-diff",
     FilesSidebar => "files-sidebar",
     Folder => "folder",
+    FullscreenEnter => "fullscreen-enter",
+    FullscreenExit => "fullscreen-exit",
     FolderCopy => "folder-copy",
     Fork => "fork",
     Globe => "globe",
@@ -320,23 +324,20 @@ icons! {
     Tick => "tick",
     Undo => "undo",
     Warning => "warning";
-    // but-ui-react's FolderIcon, a component with its gradient in CSS.
+    // but-ui-react's FolderIcon, a component with its gradient in CSS: the folder of a file
+    // list, not the worktree's outline folder.
     own: FolderFill => "folder-fill",
-    // but-ui-react's sidebar-narrow, with the part a split makes filled in.
+    // but-ui-react's sidebar-narrow, with the part a split makes filled in. Drawn from an
+    // older sidebar-narrow than the library's: redraw them with it.
     SplitRight => "split-right",
     SplitBelow => "split-below",
-    TileZoom => "tile-zoom",
-    TileUnzoom => "tile-unzoom",
     // A window coming off another, for what opens in a window of its own.
     PopOutWindow => "pop-out-window",
     // Three lines, for the menu bar folded into a button, as Windows and Linux apps draw it.
     Menu => "menu",
-    // but-ui-react's eye, struck through, for a project not watched.
-    EyeOff => "eye-off",
-    // Another machine, which but-ui-react has no glyph for, in the style of its folder.
-    Computer => "computer",
     // The repo glyph filled as but-ui-react's `EntityGlyph` fills it, its gradient baked in, for a
-    // project's icon: one for each colour but the outline, which is `Repo`.
+    // project's icon: one for each colour but the outline, which is `Repo`. Baked from an older
+    // repo than the library's, so they no longer match `Repo`: redraw them with it.
     RepoPop => "repo-pop",
     RepoSafe => "repo-safe",
     RepoPurple => "repo-purple",

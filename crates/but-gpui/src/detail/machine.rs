@@ -289,14 +289,14 @@ impl Detail {
                 count(&|c| !c.online),
             ),
         ]
-        .map(|(color, fill, said, n)| (Icon::Computer, color, fill, said.to_owned(), n));
+        .map(|(color, fill, said, n)| (Icon::Desktop, color, fill, said.to_owned(), n));
 
         // Who did the most lately first.
         let mut by_activity: Vec<&Checkout> = checkouts.iter().collect();
         by_activity.sort_by_key(|c| std::cmp::Reverse(c.last_activity));
         let lanes = by_activity.into_iter().map(|c| Lane {
             at: Selection::Mesh(project.clone(), c.id.as_str().into(), MeshPick::Checkout),
-            glyph: Icon::Computer,
+            glyph: Icon::Desktop,
             name: c.label(),
             tag: match (active(c), c.online) {
                 (true, _) => Some(("active".to_owned(), theme.safe)),
