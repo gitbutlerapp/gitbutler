@@ -398,7 +398,7 @@ impl Navigator {
         if !terms.is_empty() {
             return self.build_filtered_rows(&terms, cx);
         }
-        if let Some(scope) = self.scope.clone().or_else(|| self.top_scope(cx)) {
+        if let Some(scope) = self.rows_scope(cx) {
             return self.scope_rows(&scope, cx);
         }
         let store = self.store.read(cx);

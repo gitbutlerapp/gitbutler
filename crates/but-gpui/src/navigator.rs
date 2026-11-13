@@ -1638,46 +1638,46 @@ impl Navigator {
     }
 
     /// Set moving the folds `seen` building the rows that opened or shut since they were last
-    /// built, saying whether any did. Only one whose rows start on screen moves: elsewhere it
-    /// would move only what's in view. Under the filter, which lists what it finds whatever's
-    /// folded, none do.
+    /// built ([`folds_changed`]), saying whether any did. Only one whose rows start on screen
+    /// moves: elsewhere it would move only what's in view. Under the filter, which lists what it
+    /// finds whatever's folded, none do.
     fn follow_folds(&mut self, seen: &[(Fold, bool, Option<usize>)], cx: &App) -> bool {
         if self.filtering(cx) {
             self.folds_seen.clear();
             self.folds.stop_all();
             return false;
         }
-        // Where the rows above them were drawn, which is where they'll be.
+        // Where the rows above them were drawn, which is where they'll be. A card's rows are
+        // all in view, and aren't in the list here, which isn't drawn while they're a card's.
+        let in_card = self.rows_scope(cx).is_some();
         let list = &self.list;
         let view = list.viewport_bounds();
         let on_screen = |above: Option<usize>| {
-            self.scope.is_some()
+            in_card
                 || above.is_none_or(|ix| {
                     (list.bounds_for_item(ix)).is_some_and(|row| {
                         row.bottom() > view.top() && row.bottom() < view.bottom()
                     })
                 })
         };
-        let (mut changed, mut started) = (seen.len() != self.folds_seen.len(), false);
-        for (fold, open, above) in seen {
-            match self.folds_seen.get(fold) {
-                Some(was) if was == open => {}
-                Some(_) => {
-                    changed = true;
-                    if on_screen(*above) {
-                        self.folds.start(fold.clone(), *open, cx);
-                        started = true;
-                    }
-                }
-                None => changed = true,
+        let mut started = false;
+        for (fold, open, above) in folds_changed(&mut self.folds_seen, seen) {
+            if on_screen(*above) {
+                self.folds.start(fold.clone(), *open, cx);
+                started = true;
             }
         }
-        if changed {
-            self.folds_seen = (seen.iter())
-                .map(|(fold, open, _)| (fold.clone(), *open))
-                .collect();
-        }
         started
+    }
+
+    /// The rows as they're built now, any fold that opened or shut since they were last built
+    /// set moving first, which changes what they hold.
+    fn rows_now(&mut self, cx: &App) -> Rows {
+        let built = self.build_rows(cx);
+        match self.follow_folds(&built.folds, cx) {
+            true => self.build_rows(cx),
+            false => built,
+        }
     }
 
     /// Have each moving fold move only as far as the list shows it, from the row above it as
@@ -1705,10 +1705,6 @@ impl Navigator {
     /// Build the rows and bring the list up to date, as a frame does, for what reads them while
     /// the navigator isn't drawn.
     pub(crate) fn catch_up_rows(&mut self, window: &Window, cx: &App) {
-        let mut built = self.build_rows(cx);
-        if self.follow_folds(&built.folds, cx) {
-            built = self.build_rows(cx);
-        }
         let Rows {
             rows,
             insets,
@@ -1717,7 +1713,7 @@ impl Navigator {
             drawer,
             first_hit,
             ..
-        } = built;
+        } = self.rows_now(cx);
         self.moving = moving;
         self.sync_list(rows, drawer, window, cx);
         self.insets = insets;
@@ -1991,7 +1987,17 @@ impl Navigator {
             .or_else(|| NavigatorTabs::active_tab(store))
     }
 
+    /// What the rows are the rows of: the card being drawn, else across the top the tab the
+    /// selection's in, else the cards here (`None`).
+    fn rows_scope(&self, cx: &App) -> Option<tabs::TabKey> {
+        self.scope.clone().or_else(|| self.top_scope(cx))
+    }
+
     fn set_card_key(&mut self, key: Option<tabs::TabKey>) {
+        // A card coming shows its folds as they are, not moving from how it last showed them.
+        if self.card_key != key {
+            self.folds_seen.clear();
+        }
         self.card_key = key;
     }
 
@@ -4712,6 +4718,30 @@ fn as_deep(
     }
 }
 
+/// Record how each fold one build of the rows went through is now, as `seen` says, and give
+/// those that opened or shut since `record` last had them. One seen for the first time is
+/// recorded as it is. Across the top, the rows of each card drawn and of the selection's tab
+/// are built each frame, each with folds of its own, so the folds a build didn't go through
+/// keep what another recorded.
+fn folds_changed<'a>(
+    record: &mut HashMap<Fold, bool>,
+    seen: &'a [(Fold, bool, Option<usize>)],
+) -> Vec<&'a (Fold, bool, Option<usize>)> {
+    (seen.iter())
+        .filter(|(fold, open, _)| match record.get_mut(fold) {
+            Some(was) if was == open => false,
+            Some(was) => {
+                *was = *open;
+                true
+            }
+            None => {
+                record.insert(fold.clone(), *open);
+                false
+            }
+        })
+        .collect()
+}
+
 /// Whether going from `old` to `new` only lists or unlists checkouts' uncommitted changes, or
 /// the zone for a new branch, which a drag brings before it's a move.
 fn room_came_or_went(old: &[Row], new: &[Row]) -> bool {
@@ -5027,11 +5057,7 @@ impl Render for Navigator {
         self.row = Theme::get(cx).sizes.control;
         self.card_top.set(None);
         self.next_frame();
-        let mut built = self.build_rows(cx);
         // A fold that just opened or shut is drawn moving from this frame on.
-        if self.follow_folds(&built.folds, cx) {
-            built = self.build_rows(cx);
-        }
         let Rows {
             rows,
             insets,
@@ -5040,7 +5066,7 @@ impl Render for Navigator {
             first_hit,
             drawer,
             ..
-        } = built;
+        } = self.rows_now(cx);
         self.moving = moving;
         // As the list drew it, before the rows change, which a reorder doesn't do by much.
         let inset = Theme::get(cx).scaled(LIST_TOP);
@@ -5229,9 +5255,46 @@ impl Render for Navigator {
 
 #[cfg(test)]
 mod tests {
-    use super::{Row, Step, headings_reordered, past_last_row, room_came_or_went, step_to};
+    use std::collections::HashMap;
+
+    use super::{
+        Fold, Row, Step, folds_changed, headings_reordered, past_last_row, room_came_or_went,
+        step_to,
+    };
     use crate::backend::Checkout;
     use crate::state::{ProjectId, Selection};
+
+    #[test]
+    fn a_fold_shut_between_builds_of_other_rows_is_a_change() {
+        let id = ProjectId::from("p");
+        let worktree = Fold::Under(Selection::Checkout(id.clone(), Checkout::Main));
+        let project = Fold::Under(Selection::Project(id));
+        let mut record = HashMap::new();
+        // Across the top, a project's card and the selection's worktree tab are built in turn,
+        // each with folds of its own.
+        folds_changed(&mut record, &[(worktree.clone(), true, None)]);
+        folds_changed(&mut record, &[(project.clone(), true, None)]);
+        let shut = [(worktree.clone(), false, None)];
+        let changed = folds_changed(&mut record, &shut);
+        assert!(
+            matches!(changed.as_slice(), [(fold, false, _)] if *fold == worktree),
+            "the worktree's fold shut since its card was last built"
+        );
+        assert!(
+            folds_changed(&mut record, &[(project, true, None)]).is_empty(),
+            "the project's fold is as its card last saw it"
+        );
+    }
+
+    #[test]
+    fn a_fold_seen_for_the_first_time_is_no_change() {
+        let fold = Fold::Under(Selection::Project(ProjectId::from("p")));
+        let mut record = HashMap::new();
+        assert!(
+            folds_changed(&mut record, &[(fold, false, None)]).is_empty(),
+            "a fold that wasn't built before comes as it is"
+        );
+    }
 
     #[test]
     fn a_step_down_from_the_last_card_row_lands_on_the_bar() {

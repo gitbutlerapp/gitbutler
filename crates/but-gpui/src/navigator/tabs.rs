@@ -2475,10 +2475,6 @@ impl Navigator {
     ) -> R {
         let outer = self.scope.replace(scope.clone());
         self.folds.frame();
-        let mut built = self.build_rows(cx);
-        if self.follow_folds(&built.folds, cx) {
-            built = self.build_rows(cx);
-        }
         let Rows {
             rows,
             insets,
@@ -2486,7 +2482,7 @@ impl Navigator {
             moving,
             drawer,
             ..
-        } = built;
+        } = self.rows_now(cx);
         // The rows of the tab the selection's in are the navigator's own, keys and all.
         let own = self.top_scope(cx).as_ref() == Some(scope);
         let held_card = self.held_card.take();
