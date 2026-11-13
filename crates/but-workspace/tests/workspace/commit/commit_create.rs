@@ -97,6 +97,63 @@ fn new_commit_whose_every_change_is_rejected_is_not_made() -> Result<()> {
     Ok(())
 }
 
+#[cfg(windows)]
+#[test]
+fn symlink_targets_are_committed_with_forward_slashes() -> Result<()> {
+    use but_testsupport::{CommandExt as _, git_at_dir};
+    use std::os::windows::fs::symlink_dir;
+
+    fn commit_and_read_link(
+        repo: &gix::Repository,
+        specs: Vec<DiffSpec>,
+    ) -> Result<gix::bstr::BString> {
+        let outcome = create_commit(
+            repo,
+            Destination::NewCommit {
+                parent_commit_id: repo.head_id().ok().map(|id| id.detach()),
+                stack_segment: None,
+                message: "link".into(),
+            },
+            specs,
+            0,
+        )?;
+        let tree = repo
+            .find_commit(outcome.new_commit.expect("a commit was created"))?
+            .tree()?;
+        let link = tree.find_entry("link").expect("the link was committed");
+        Ok(link.object()?.detach().data.into())
+    }
+
+    let tmp = tempfile::tempdir()?;
+    let git = || git_at_dir(tmp.path());
+    git().args(["init", "-q"]).run();
+    git().args(["config", "core.symlinks", "true"]).run();
+    let link = tmp.path().join("link");
+    // Windows tools such as Node's `fs.symlinkSync` write `\` into link targets.
+    symlink_dir(r"a\b", &link)?;
+
+    let repo = but_testsupport::open_repo(tmp.path())?;
+    assert_eq!(
+        commit_and_read_link(&repo, worktree_changes_as_specs(&repo)?)?,
+        "a/b",
+        "a new link is committed whole, with `/` as `git add` writes it"
+    );
+
+    git().args(["add", "link"]).run();
+    git().args(["commit", "-q", "-m", "add link"]).run();
+    std::fs::remove_dir(&link)?;
+    symlink_dir(r"c\d", &link)?;
+    let repo = but_testsupport::open_repo(tmp.path())?;
+    let specs =
+        crate::utils::to_change_specs_all_hunks(&repo, but_core::diff::worktree_changes(&repo)?)?;
+    assert_eq!(
+        commit_and_read_link(&repo, specs)?,
+        "c/d",
+        "a changed link is committed by hunk, also with `/`"
+    );
+    Ok(())
+}
+
 #[test]
 fn commit_above_commit() -> Result<()> {
     let (_tmp, graph, repo, mut _meta, _description, mut db) =
