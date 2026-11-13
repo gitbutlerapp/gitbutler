@@ -23,33 +23,33 @@
 		"build:demos": "vite build"
 	},
 	"dependencies": {
-		"@base-ui/react": "^1.6.0",
-		"@tanstack/react-hotkeys": "^0.10.0",
-		"@tanstack/react-virtual": "^3.14.10",
-		"effect": "^3.20.0",
+		"@base-ui/react": "^1.9.0",
+		"@tanstack/react-hotkeys": "^0.22.0",
+		"@tanstack/react-virtual": "^3.14.26",
+		"effect": "^3.22.4",
 		"markdown-to-jsx": "^7.7.17",
-		"react-resizable-panels": "^4.11.2"
+		"react-resizable-panels": "^4.19.0"
 	},
 	"peerDependencies": {
 		"@gitbutler/but-ui": "^11.3.0",
-		"react": "^19.2.4",
-		"react-dom": "^19.2.4"
+		"react": "^19.3.1",
+		"react-dom": "^19.3.1"
 	},
 	"devDependencies": {
 		"@gitbutler/but-ui": "workspace:*",
 		"@playwright/test": "catalog:",
-		"@testing-library/dom": "^10.4.1",
-		"@testing-library/user-event": "^14.6.1",
-		"@types/react": "^19.2.14",
-		"@types/react-dom": "^19.2.3",
+		"@testing-library/dom": "^10.4.2",
+		"@testing-library/user-event": "^14.6.8",
+		"@types/react": "^19.3.0",
+		"@types/react-dom": "^19.3.0",
 		"@typescript/native-preview": "7.0.0-dev.20260707.2",
 		"@vitejs/plugin-react": "^5.2.0",
 		"@vitest/browser": "catalog:",
-		"eslint-plugin-react-you-might-not-need-an-effect": "^1.0.0",
+		"eslint-plugin-react-you-might-not-need-an-effect": "^1.1.0",
 		"jsdom": "28.1.0",
-		"react": "^19.2.4",
-		"react-dom": "^19.2.4",
-		"stylelint": "^17.15.0",
+		"react": "^19.3.1",
+		"react-dom": "^19.3.1",
+		"stylelint": "^17.16.0",
 		"vite": "catalog:",
 		"vitest": "catalog:"
 	}
