@@ -105,7 +105,9 @@ pub fn move_changes_between_commits<'ws, 'meta, M: RefMetadata>(
         )?;
 
         if merge_result.has_unresolved_conflicts(conflict_kind) {
-            bail!("Failed to apply changes to destination commit - merge conflict");
+            but_error::bail_precondition!(
+                "The changes conflict with the destination commit, so they can't move into it"
+            );
         }
 
         merge_result.tree.write()?.detach()
