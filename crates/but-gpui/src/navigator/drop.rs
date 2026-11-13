@@ -618,7 +618,8 @@ fn ends_branch(row: Option<&Row>) -> bool {
     matches!(
         row,
         Some(
-            Row::Item(Selection::Branch(..) | Selection::Stack(..))
+            Row::Item(Selection::Branch(..) | Selection::Stack(..) | Selection::Project(_))
+                | Row::Group(_)
                 | Row::Between(_)
                 | Row::Gap
                 | Row::WorktreeDivider
@@ -755,6 +756,23 @@ fn divider(color: Hsla) -> Div {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn repository_groups_keep_branch_drop_targets_inside_their_project() {
+        use super::Row;
+        use crate::state::Selection;
+        let rows = [
+            Row::Item(Selection::Project("alpha".into())),
+            Row::Item(Selection::Branch("alpha".into(), None)),
+            Row::Item(Selection::Project("beta".into())),
+            Row::Item(Selection::Branch("beta".into(), None)),
+        ];
+        assert_eq!(
+            super::branch_end(&rows, 1),
+            2,
+            "another repository ends the branch even without a gap between cards"
+        );
+    }
+
     use std::sync::Arc;
 
     use super::{

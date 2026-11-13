@@ -372,6 +372,13 @@ impl Navigator {
                     command(&CopyErrorMessage),
                     command(&OpenProjectSettings).separated(),
                 ]);
+                let project = project.clone();
+                items.push(
+                    MenuItem::new("Move to group…", move |app, window, cx| {
+                        app.choose_project_group(project.clone(), window, cx)
+                    })
+                    .separated(),
+                );
                 items
             }
             Selection::Checkout(project, Checkout::Main) => {
