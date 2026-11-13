@@ -296,6 +296,7 @@ icons! {
     Globe => "globe",
     Hash => "hash",
     Kebab => "kebab",
+    Keyboard => "keyboard",
     Lab => "lab",
     Link => "link",
     Lock => "lock",
@@ -321,8 +322,6 @@ icons! {
     Warning => "warning";
     // but-ui-react's FolderIcon, a component with its gradient in CSS.
     own: FolderFill => "folder-fill",
-    // ui-svelte's keyboard, which but-ui-react doesn't have.
-    Keyboard => "keyboard",
     // but-ui-react's sidebar-narrow, with the part a split makes filled in.
     SplitRight => "split-right",
     SplitBelow => "split-below",
@@ -2262,7 +2261,7 @@ mod tests {
     #[test]
     fn every_icon_loads_at_a_size() {
         use gpui::AssetSource as _;
-        for glyph in [Icon::Branch, Icon::Camera, Icon::FolderFill, Icon::Keyboard] {
+        for glyph in [Icon::Branch, Icon::Camera, Icon::FolderFill, Icon::Menu] {
             let path = glyph.path_at(12.);
             let svg = super::Assets.load(&path).unwrap();
             assert!(svg.is_some(), "{path} is the icon with its size on the end");
