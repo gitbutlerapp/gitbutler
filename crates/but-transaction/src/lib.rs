@@ -1210,6 +1210,37 @@ where
         })
     }
 
+    /// Amend each commit with its changes from `HEAD`'s worktree in one rebase, returning the
+    /// changes no commit could take.
+    pub fn amend_commits(
+        &mut self,
+        amendments: impl IntoIterator<Item = (ObjectId, Vec<DiffSpec>)>,
+    ) -> anyhow::Result<Vec<(RejectionReason, DiffSpec)>> {
+        let context_lines = self.context_lines();
+        self.rebase(|mut editor, commit_mappings| {
+            let mut rejected = Vec::new();
+            let mut consumed = Vec::new();
+            for (commit, changes) in amendments {
+                let outcome = but_workspace::commit::amend_in_editor(
+                    &mut editor,
+                    commit_mappings.current(commit)?,
+                    changes,
+                    context_lines,
+                    &ChangeSource::Head,
+                )?;
+                rejected.extend(outcome.rejected_specs);
+                consumed.extend(outcome.consumed);
+            }
+            but_workspace::commit::cancel_consumed_changes(
+                &mut editor,
+                &ChangeSource::Head,
+                consumed,
+                context_lines,
+            )?;
+            Ok((rejected, editor.rebase()?))
+        })
+    }
+
     /// Split `changes` off `source` into a new commit placed on `side` of `relative_to`,
     /// returning the new commit.
     pub fn split_commit(

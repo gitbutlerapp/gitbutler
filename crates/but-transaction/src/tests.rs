@@ -1980,3 +1980,84 @@ fn a_dry_run_rename_writes_nothing() {
     assert_eq!(ref_target(&env, renamed.as_ref()), None);
     assert_num_snapshots(&ctx, 0);
 }
+
+#[test]
+fn amending_two_commits_from_the_worktree_at_once() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["branch"]);
+    let [three, one] = find_commits(&env, ["1e25c58", "dbdbcea"]);
+    env.file("file-one", "file-one amended\n");
+    env.file("file-three", "file-three amended\n");
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let mut meta = ctx.meta().unwrap();
+
+    let (rejected, _workspace) = with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::Absorb),
+        DryRun::No,
+        |mut tx| {
+            tx.amend_commits([
+                (one, vec![diff_spec_for_file("file-one")]),
+                (three, vec![diff_spec_for_file("file-three")]),
+            ])
+            .map(Commit)
+        },
+    )
+    .unwrap();
+
+    assert!(rejected.is_empty());
+    assert_eq!(env.invoke_git("show branch~2:file-one"), "file-one amended");
+    assert_eq!(
+        env.invoke_git("show branch:file-three"),
+        "file-three amended"
+    );
+    assert_eq!(env.invoke_git("status --porcelain"), "");
+    assert_num_snapshots(&ctx, 1);
+}
+
+#[test]
+fn amending_commits_and_rewording_one_undo_together() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["branch"]);
+    let [three, one] = find_commits(&env, ["1e25c58", "dbdbcea"]);
+    env.file("file-one", "file-one amended\n");
+    env.file("file-three", "file-three amended\n");
+    let tip_before = env.invoke_git("rev-parse branch");
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let mut meta = ctx.meta().unwrap();
+
+    let _workspace: WorkspaceState = with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::Absorb),
+        DryRun::No,
+        |mut tx| {
+            tx.amend_commits([
+                (one, vec![diff_spec_for_file("file-one")]),
+                (three, vec![diff_spec_for_file("file-three")]),
+            ])?;
+            tx.reword_commit(one, "amended one".into())?;
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(env.invoke_git("log -1 --format=%s branch~2"), "amended one");
+    drop(meta);
+
+    undo_last(&mut ctx);
+
+    assert_eq!(env.invoke_git("rev-parse branch"), tip_before);
+    assert_eq!(
+        env.invoke_git("status --porcelain"),
+        "M file-one\n M file-three"
+    );
+}
