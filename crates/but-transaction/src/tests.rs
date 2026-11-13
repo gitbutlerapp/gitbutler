@@ -1493,3 +1493,175 @@ fn remove_references() {
 
     assert_num_snapshots(&ctx, 1);
 }
+
+#[test]
+fn a_new_stack_checked_out_in_the_same_transaction_doesnt_enter_the_workspace() {
+    let (env, mut ctx) = single_branch_beside_target();
+    let mut meta = ctx.meta().unwrap();
+    let new_branch = FullName::try_from("refs/heads/new").unwrap();
+
+    with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::CreateBranch),
+        DryRun::No,
+        |mut tx| {
+            tx.create_unstacked_reference(new_branch.as_ref(), None)?;
+            tx.checkout(new_branch.as_ref())?;
+            Ok(())
+        },
+    )
+    .unwrap();
+
+    assert_eq!(
+        head_name(&ctx),
+        Some(new_branch),
+        "the new branch is checked out"
+    );
+    assert_eq!(
+        ref_target(&env, "refs/heads/gitbutler/workspace".try_into().unwrap()),
+        None,
+        "a branch checked out on its own needs no workspace"
+    );
+}
+
+fn single_branch_beside_target() -> (Sandbox, Context) {
+    let env = Sandbox::open_scenario_with_target_and_default_settings("one-stack");
+    env.invoke_git("checkout branch");
+    env.invoke_git("update-ref -d refs/heads/gitbutler/workspace");
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    (env, ctx)
+}
+
+#[track_caller]
+fn head_name(ctx: &Context) -> Option<FullName> {
+    ctx.repo.get().unwrap().head_name().unwrap()
+}
+
+#[test]
+fn a_dry_run_previews_the_workspace_a_new_stack_enters_and_writes_nothing() {
+    let (env, mut ctx) = single_branch_beside_target();
+    let mut meta = ctx.meta().unwrap();
+    let new_branch = FullName::try_from("refs/heads/new-branch").unwrap();
+    let workspace_ref = FullName::try_from("refs/heads/gitbutler/workspace").unwrap();
+
+    let workspace: WorkspaceState = with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::CreateBranch),
+        DryRun::Yes,
+        |mut tx| tx.create_unstacked_reference(new_branch.as_ref(), None),
+    )
+    .unwrap();
+
+    #[cfg(not(feature = "graph-workspace"))]
+    {
+        let mut stacks: Vec<Vec<String>> = (workspace.head_info.stacks.iter())
+            .map(|stack| {
+                (stack.segments.iter())
+                    .filter_map(|segment| segment.ref_name())
+                    .map(|name| name.shorten().to_string())
+                    .collect()
+            })
+            .collect();
+        stacks.sort();
+        assert_eq!(
+            stacks,
+            [vec!["branch".to_owned()], vec!["new-branch".to_owned()]],
+            "the preview shows both stacks in the workspace"
+        );
+    }
+    #[cfg(feature = "graph-workspace")]
+    let _ = workspace;
+    assert_eq!(
+        head_name(&ctx),
+        Some(FullName::try_from("refs/heads/branch").unwrap()),
+        "HEAD stays on the branch"
+    );
+    assert_eq!(
+        ref_target(&env, new_branch.as_ref()),
+        None,
+        "no branch is made"
+    );
+    assert_eq!(
+        ref_target(&env, workspace_ref.as_ref()),
+        None,
+        "no workspace is made"
+    );
+    assert_num_snapshots(&ctx, 0);
+}
+
+#[test]
+fn a_commit_to_a_new_stack_and_the_workspace_it_enters_undo_together() {
+    let (env, mut ctx) = single_branch_beside_target();
+    std::fs::write(env.projects_root().join("new-file"), "content\n").unwrap();
+    let mut meta = ctx.meta().unwrap();
+    let branch = FullName::try_from("refs/heads/branch").unwrap();
+    let new_branch = FullName::try_from("refs/heads/new-branch").unwrap();
+    let workspace_ref = FullName::try_from("refs/heads/gitbutler/workspace").unwrap();
+    let branch_tip = ref_target(&env, branch.as_ref());
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let _workspace: WorkspaceState = with_transaction_with_perm(
+        &mut ctx,
+        &mut meta,
+        guard.write_permission(),
+        SnapshotDetails::new(OperationKind::CreateCommit),
+        &[new_branch.as_ref()],
+        DryRun::No,
+        |mut tx| {
+            tx.create_unstacked_reference(new_branch.as_ref(), None)?;
+            let outcome = tx.create_commit(
+                RelativeTo::Reference(new_branch.clone()),
+                InsertSide::Below,
+                vec![diff_spec_for_file("new-file")],
+                "add new-file".into(),
+                but_workspace::commit::ChangeSource::Head,
+            )?;
+            anyhow::ensure!(outcome.rejected_specs.is_empty(), "the change is committed");
+            Ok(())
+        },
+    )
+    .unwrap();
+    drop(guard);
+    assert_eq!(
+        head_name(&ctx),
+        Some(workspace_ref),
+        "the new stack enters the workspace"
+    );
+    assert_num_snapshots(&ctx, 1);
+
+    let snapshot = but_api::legacy::oplog::get_undo_target_snapshot(&ctx)
+        .unwrap()
+        .expect("the transaction records an undo target");
+    but_api::legacy::oplog::restore_snapshot_with_kind(
+        &mut ctx,
+        but_api::legacy::oplog::RestoreKind::RestoreFromSnapshotViaUndo,
+        snapshot.commit_id,
+    )
+    .unwrap();
+
+    assert_eq!(
+        head_name(&ctx),
+        Some(branch.clone()),
+        "undo checks out the branch again"
+    );
+    assert_eq!(
+        ref_target(&env, branch.as_ref()),
+        branch_tip,
+        "the branch is where it was"
+    );
+    assert_eq!(
+        ref_target(&env, new_branch.as_ref()),
+        None,
+        "undo deletes the new branch"
+    );
+    assert_eq!(
+        std::fs::read_to_string(env.projects_root().join("new-file")).unwrap(),
+        "content\n",
+        "the change is uncommitted again"
+    );
+}

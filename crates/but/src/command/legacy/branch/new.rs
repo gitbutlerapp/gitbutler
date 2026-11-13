@@ -1,10 +1,9 @@
 use anyhow::Context as _;
 use but_core::{
-    RefMetadata,
+    DryRun, RefMetadata,
     sync::{RepoExclusive, RepoShared},
 };
 use but_ctx::Context;
-use but_transaction::single_branch_mode::SingleBranchMode;
 use but_workspace::{RefInfo, branch::create_reference::Anchor};
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::refs::FullName;
@@ -190,19 +189,24 @@ impl NewUnstackedBranchOperation {
         perm: &mut RepoExclusive,
     ) -> anyhow::Result<NewOutcome> {
         let NewUnstackedBranchOperation { mut name, switch } = self;
-        let sbm = SingleBranchMode::new(ctx, perm.read_permission(), switch)?;
         let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
         let new_ref = name_new_branch(&mut name, &*ctx.repo.get()?)?;
 
         // Named so undo deletes it again.
-        sbm.transaction_with_workspace_setup(
+        but_transaction::with_transaction_with_perm(
             ctx,
             meta,
+            perm,
             snapshot_details,
             &[new_ref.as_ref()],
-            perm,
-            true,
-            |mut tx| sbm.create_unstacked_reference(&mut tx, new_ref.as_ref(), Some(0)),
+            DryRun::No,
+            |mut tx| {
+                if switch {
+                    tx.switch_to_new_reference(new_ref.as_ref())
+                } else {
+                    tx.create_unstacked_reference(new_ref.as_ref(), Some(0))
+                }
+            },
         )?;
 
         Ok(NewOutcome {
@@ -226,18 +230,17 @@ impl NewStackedBranchOperation {
             switch,
         } = self;
 
-        let sbm = SingleBranchMode::new(ctx, perm.read_permission(), switch)?;
         let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
         let new_ref = name_new_branch(&mut name, &*ctx.repo.get()?)?;
 
         // Named so undo deletes it again.
-        sbm.transaction_with_workspace_setup(
+        but_transaction::with_transaction_with_perm(
             ctx,
             meta,
+            perm,
             snapshot_details,
             &[new_ref.as_ref()],
-            perm,
-            false,
+            DryRun::No,
             |mut tx| {
                 match &target {
                     NewStackedBranchTarget::Commit(commit_target) => {
@@ -253,8 +256,7 @@ impl NewStackedBranchOperation {
                             })?;
                     }
                     NewStackedBranchTarget::Branch(branch_target) => {
-                        sbm.create_stacked_reference(
-                            &mut tx,
+                        tx.create_stacked_reference(
                             new_ref.as_ref(),
                             branch_target.as_ref(),
                             side.into(),

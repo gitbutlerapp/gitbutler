@@ -38,8 +38,8 @@ use gix::{
 mod tests;
 
 /// Running transactions while a branch is checked out on its own, as the CLI and the GUI do.
-#[cfg(feature = "legacy")]
 pub mod single_branch_mode;
+use single_branch_mode::StartingCheckout;
 
 pub mod workspace_state;
 
@@ -127,6 +127,18 @@ where
 /// yet, deletes it. See [`but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm`].
 /// Recording it is best-effort: a transaction that landed succeeds even when its oplog entry
 /// can't be written, so it can't be undone.
+///
+/// # Single-branch mode
+///
+/// While a branch is checked out on its own rather than GitButler's workspace, a stack of its
+/// own made beside it enters the workspace at the end, see
+/// [`Transaction::create_unstacked_reference()`] and [`Transaction::tear_off_branch()`].
+///
+/// The rebase is written before any checkout, so a checkout that fails leaves commits that
+/// already took worktree changes, which rolling back the references can't undo. So then, or
+/// whenever a checkout is pending, the snapshot is also the checkpoint that a failure restores.
+/// It can't be taken without a target or with `HEAD` detached. In single-branch mode, failing to
+/// prepare it fails the transaction before it starts, and with a checkout pending, before it writes.
 pub fn with_transaction_with_perm<M, F, T>(
     ctx: &mut Context,
     meta: &mut M,
@@ -141,24 +153,79 @@ where
     M: RefMetadata,
     T: TransactionOutcome,
 {
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
+    let started = StartingCheckout::read(ctx, perm.read_permission())?;
+    let in_single_branch_mode = started.in_single_branch_mode;
+    let may_need_checkpoint = dry_run == DryRun::No && started.can_checkpoint();
+    let snapshot = if may_need_checkpoint && in_single_branch_mode {
+        Some(but_oplog::UnmaterializedOplogSnapshot::prepare_checkpoint(
+            ctx,
+            snapshot_details,
+            snapshot_refs,
+            perm.read_permission(),
+        )?)
+    } else {
+        but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
+            ctx,
+            snapshot_details,
+            snapshot_refs,
+            perm.read_permission(),
+            dry_run,
+        )
+    };
+    let original_metadata = (may_need_checkpoint && snapshot.is_some())
+        .then(|| meta.workspace(but_core::WORKSPACE_REF_NAME.try_into()?))
+        .transpose()?;
+
+    let mut checkout_pending = false;
+    let outcome = run_transaction(
         ctx,
-        snapshot_details,
-        snapshot_refs,
-        perm.read_permission(),
+        meta,
+        perm,
         dry_run,
+        started,
+        CheckoutGuard {
+            refuse_without_checkpoint: may_need_checkpoint && snapshot.is_none(),
+            pending: &mut checkout_pending,
+        },
+        f,
     );
 
-    let (should_rollback, outcome) = with_transaction_with_perm_only(ctx, meta, perm, dry_run, f)?;
-
-    if !should_rollback
-        && let Some(snapshot) = maybe_oplog_entry
-        && let Err(err) = snapshot.commit(ctx, perm)
-    {
-        tracing::warn!(?err, "couldn't record the transaction in the oplog");
+    let restore_checkpoint = in_single_branch_mode || checkout_pending;
+    match (outcome, snapshot, original_metadata) {
+        (Ok((false, outcome)), snapshot, _) => {
+            if let Some(snapshot) = snapshot
+                && let Err(err) = snapshot.commit(ctx, perm)
+            {
+                tracing::warn!(?err, "couldn't record the transaction in the oplog");
+            }
+            Ok(outcome)
+        }
+        (outcome, Some(checkpoint), Some(original_metadata)) if restore_checkpoint => {
+            // Restore the caller's metadata too: legacy handles write on drop and must not
+            // re-persist the failed operation after the checkpoint is restored.
+            let metadata_result = meta.set_workspace(&original_metadata);
+            let rollback_result = checkpoint.rollback(ctx, perm);
+            let rollback_result = metadata_result.and(rollback_result);
+            match outcome {
+                Ok((_, outcome)) => {
+                    rollback_result?;
+                    Ok(outcome)
+                }
+                Err(err) => match rollback_result {
+                    Ok(()) => Err(err),
+                    Err(rollback_err) => {
+                        Err(err.context(format!("Failed to roll back operation: {rollback_err:#}")))
+                    }
+                },
+            }
+        }
+        (outcome, _, _) => outcome.map(|(_, outcome)| outcome),
     }
+}
 
-    Ok(outcome)
+struct CheckoutGuard<'a> {
+    refuse_without_checkpoint: bool,
+    pending: &'a mut bool,
 }
 
 pub fn with_transaction_with_perm_only<M, F, T>(
@@ -166,6 +233,36 @@ pub fn with_transaction_with_perm_only<M, F, T>(
     meta: &mut M,
     perm: &mut RepoExclusive,
     dry_run: DryRun,
+    f: F,
+) -> anyhow::Result<(bool, T::Outcome)>
+where
+    F: FnOnce(Transaction<'_, '_, M>) -> anyhow::Result<T>,
+    M: RefMetadata,
+    T: TransactionOutcome,
+{
+    let started = StartingCheckout::read(ctx, perm.read_permission())?;
+    let mut checkout_pending = false;
+    run_transaction(
+        ctx,
+        meta,
+        perm,
+        dry_run,
+        started,
+        CheckoutGuard {
+            refuse_without_checkpoint: false,
+            pending: &mut checkout_pending,
+        },
+        f,
+    )
+}
+
+fn run_transaction<M, F, T>(
+    ctx: &mut Context,
+    meta: &mut M,
+    perm: &mut RepoExclusive,
+    dry_run: DryRun,
+    started: StartingCheckout,
+    checkout_guard: CheckoutGuard<'_>,
     f: F,
 ) -> anyhow::Result<(bool, T::Outcome)>
 where
@@ -188,6 +285,7 @@ where
             pending_ref_changes: PendingRefChanges::default(),
             pending_checkout: None,
             pending_new_stacks: Vec::new(),
+            started,
             context_lines,
         };
 
@@ -212,11 +310,22 @@ where
             mut pending_ref_changes,
             pending_checkout,
             pending_new_stacks,
+            started: _,
             context_lines: _,
         } = inner;
         let rebase = rebase.take().expect("rebase is always Some(_)");
 
         let should_rollback = callback_outcome.should_rollback();
+        *checkout_guard.pending = pending_checkout.is_some();
+        if checkout_guard.refuse_without_checkpoint
+            && pending_checkout.is_some()
+            && !should_rollback
+        {
+            pending_ref_changes.rollback(&repo)?;
+            anyhow::bail!(
+                "Couldn't prepare the checkpoint that takes back a checkout that fails, see the log"
+            );
+        }
         // A rolled-back transaction never materializes, so it has no workspace to report.
         let workspace = if should_rollback {
             Ok(None)
@@ -282,11 +391,12 @@ where
     pending_ref_changes: PendingRefChanges,
     // A checkout cannot happen until the in-memory rebase and its references are materialized.
     pending_checkout: Option<FullName>,
-    // Branches that became stacks of their own beside the one checked out on its own, each with
-    // its order among the stacks. Only GitButler's workspace holds two stacks, so it's entered
-    // with them once the callback is done, rather than when they're made: a checkout later in
-    // the transaction leaves `HEAD` on a branch of its own, which needs no workspace.
+    // Applied once the callback is done rather than when they're made: a checkout later in the
+    // transaction leaves `HEAD` on a branch of its own, which needs no workspace.
     pending_new_stacks: Vec<(FullName, Option<usize>)>,
+    // Read before the callback, as leaving the workspace inside the rebase changes what the
+    // graph says is checked out.
+    started: StartingCheckout,
     // Commits given to `squash_commits`, `reword_commit`, etc are allowed to be the original
     // commits from live repo. This is used to map those to the rebased in-memory commits.
     //
@@ -459,7 +569,14 @@ where
     /// materialized. Consequently, operations after this call still observe the checkout from
     /// before the transaction. Calling this more than once replaces the previously requested final
     /// checkout.
+    ///
+    /// Fails if `HEAD` was detached when the transaction started, as there's no checkpoint to
+    /// undo a checkout that fails.
     pub fn checkout(&mut self, branch: &FullNameRef) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            self.inner.started.head_reference.is_some(),
+            "--switch needs a branch checked out (HEAD is detached)"
+        );
         anyhow::ensure!(
             branch.category() == Some(gix::refs::Category::LocalBranch),
             "Can only check out local branches under refs/heads, got '{}'",
@@ -614,28 +731,10 @@ where
             let outcome = but_workspace::branch::tear_off_branch(editor, source_branch, order)?;
             Ok((outcome.unreachable_stack, outcome.rebase))
         })?;
-        if let Some(unreachable_stack) = unreachable_stack
-            && self.new_stack_enters_workspace()?
-        {
-            self.inner.pending_new_stacks.push(unreachable_stack);
+        if self.inner.started.new_stack_enters_workspace() {
+            self.inner.pending_new_stacks.extend(unreachable_stack);
         }
         Ok(())
-    }
-
-    /// Whether a new stack makes the transaction enter GitButler's workspace when it ends: `HEAD`
-    /// is on a branch of its own, and there is a target other than that branch.
-    fn new_stack_enters_workspace(&self) -> anyhow::Result<bool> {
-        let workspace = (self.inner.rebase.as_ref())
-            .expect("rebase is always Some(_)")
-            .overlayed_graph()?
-            .into_workspace()?;
-        let target = workspace.graph.project_meta.target_ref.as_ref();
-        let beside_target = workspace.ref_name().is_some_and(|head| {
-            target.is_some_and(|target| target.as_local_full_name_ref() != head)
-        });
-        let in_single_branch_mode =
-            matches!(workspace.kind, but_graph::workspace::WorkspaceKind::AdHoc);
-        Ok(in_single_branch_mode && beside_target)
     }
 
     /// Create a new local branch at a commit already present in the editor.
@@ -704,7 +803,7 @@ where
     ) -> anyhow::Result<()> {
         let anchor = anchor.into();
         let order = order.into();
-        let enters_workspace = self.new_stack_enters_workspace()?;
+        let enters_workspace = self.inner.started.new_stack_enters_workspace();
         let unreachable_stack = self.rebase(|editor, commit_mappings| {
             let anchor = anchor
                 .map(|anchor| {
