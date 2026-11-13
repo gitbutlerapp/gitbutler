@@ -1400,13 +1400,7 @@ pub fn apply_branch_integration(
     apply_branch_integration_with_perm(ctx, branch, integration, dry_run, guard.write_permission())
 }
 
-/// Apply `integration` to `branch` under caller-held exclusive repository access.
-///
-/// It prepares a best-effort oplog snapshot, runs the interactive branch
-/// integration, and commits the snapshot only if the operation succeeds. The
-/// returned [`IntegrateBranchResult`] contains the post-operation workspace
-/// view. When `dry_run` is enabled, it returns a preview of the resulting
-/// workspace state and skips oplog persistence.
+/// Like [`apply_branch_integration()`], under caller-held exclusive repository access.
 pub fn apply_branch_integration_with_perm(
     ctx: &mut but_ctx::Context,
     branch: &gix::refs::FullNameRef,
@@ -1414,28 +1408,20 @@ pub fn apply_branch_integration_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<IntegrateBranchResult> {
-    branch_mutation_with_snapshot(
+    let mut meta = ctx.meta()?;
+    let (_, workspace) = but_transaction::with_transaction_with_perm(
         ctx,
+        &mut meta,
         perm,
-        OperationKind::GenericBranchUpdate,
+        SnapshotDetails::new(OperationKind::GenericBranchUpdate),
+        &[],
         dry_run,
-        |ctx, perm| {
-            let mut meta = ctx.meta()?;
-            let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-            let rebase = but_workspace::branch::integrate_branch_with_steps(
-                branch,
-                integration,
-                &mut ws,
-                &mut meta,
-                &repo,
-                &mut db,
-            )?;
-
-            Ok(IntegrateBranchResult {
-                workspace: WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?,
-            })
+        |mut tx| {
+            tx.integrate_branch_upstream(branch, integration)?;
+            Ok(but_transaction::Commit(()))
         },
-    )
+    )?;
+    Ok(IntegrateBranchResult { workspace })
 }
 
 /// Moves a branch using the behavior described by [`move_branch_with_perm()`].
@@ -1545,31 +1531,4 @@ pub fn tear_off_branch_with_perm(
         |mut tx| tx.tear_off_branch(subject_branch, None),
     )?;
     Ok(MoveBranchResult { workspace })
-}
-
-fn branch_mutation_with_snapshot<T, F>(
-    ctx: &mut but_ctx::Context,
-    perm: &mut RepoExclusive,
-    operation_kind: OperationKind,
-    dry_run: DryRun,
-    operation: F,
-) -> anyhow::Result<T>
-where
-    F: FnOnce(&mut but_ctx::Context, &mut RepoExclusive) -> anyhow::Result<T>,
-{
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
-        ctx,
-        SnapshotDetails::new(operation_kind),
-        perm.read_permission(),
-        dry_run,
-    );
-
-    let result = operation(ctx, perm);
-    if let Some(snapshot) = maybe_oplog_entry
-        && result.is_ok()
-    {
-        snapshot.commit(ctx, perm).ok();
-    }
-
-    result
 }
