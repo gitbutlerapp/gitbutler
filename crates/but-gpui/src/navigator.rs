@@ -37,7 +37,7 @@ use crate::transfer::{
     Changes, Dragged, Move, Op, PageDrag, ProjectDrag, Stop, TerminalDrag, drag_preview,
     page_preview, row_preview,
 };
-use crate::ui::emoji::{Colour, ProjectIcon};
+use crate::ui::emoji::ProjectIcon;
 use crate::ui::fold::{self, Folds, Reorder, clipped, curtain, inert, on_top, reordered, shifted};
 use crate::ui::scrollbar::{Scroll, scrollbar, scrolled_in_gap};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -313,7 +313,7 @@ pub(super) fn project_glyph(
     theme: &Theme,
 ) -> AnyElement {
     match ProjectIcon::parse(store.project_icon(id)) {
-        ProjectIcon::Glyph(Colour { fill: None, .. }) => icon_at(Icon::Repo, 16.)
+        ProjectIcon::Glyph => icon_at(Icon::Repo, 16.)
             .text_color(color)
             .into_any_element(),
         picked => picked.render(16., theme),

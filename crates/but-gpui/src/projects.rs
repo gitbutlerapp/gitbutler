@@ -383,7 +383,7 @@ fn saved_in(missing: MissingAuthor) -> &'static str {
     }
 }
 
-/// The picker open on a project's icon, of the glyph's colours and emoji, as but.dev's
+/// The picker open on a project's icon, of the emoji but.dev offers, as its
 /// repository page has one.
 pub struct IconPicker {
     project: ProjectId,
@@ -411,17 +411,11 @@ impl AppView {
                 window,
                 |this, input, event, window, cx| match event {
                     InputEvent::Changed => cx.notify(),
-                    // Return takes the first match, a colour before an emoji as they're listed.
+                    // Return takes the first emoji found.
                     InputEvent::Submit => {
                         let query = input.read(cx).text();
-                        let first = match emoji::search_colours(query).first() {
-                            Some(colour) => Some(colour.stored()),
-                            None => {
-                                (emoji::search(query).first()).map(|e| Some(e.emoji.to_owned()))
-                            }
-                        };
-                        if let Some(first) = first {
-                            this.set_project_icon(first, window, cx)
+                        if let Some(first) = emoji::search(query).first() {
+                            this.set_project_icon(Some(first.emoji.to_owned()), window, cx)
                         }
                     }
                     InputEvent::Cancel => this.set_icon_picker_closed(window, cx),
@@ -470,8 +464,9 @@ impl AppView {
             .filter(|icon| !icon.is_empty())
             .map(str::to_owned);
         let query = picker.search.read(cx).text();
-        let colours = emoji::search_colours(query);
         let found = emoji::search(query);
+        // The glyph is what a project wears with no icon, so its cell takes the icon off.
+        let plain = query.is_empty() || "repo glyph default".contains(&query.to_lowercase());
         // A choice's cell: what it draws, highlighted when it's the project's.
         let cell = |id: (&'static str, usize),
                     name: &'static str,
@@ -501,12 +496,10 @@ impl AppView {
                 .gap(dp(4.))
                 .children(cells)
         };
-        let colour_cells: Vec<_> = (colours.iter().enumerate())
-            .map(|(ix, colour)| {
-                let mark = ProjectIcon::Glyph(colour).render(18., theme);
-                cell(("colour", ix), colour.name, colour.stored(), mark)
-            })
-            .collect();
+        let plain_cell = plain.then(|| {
+            let mark = ProjectIcon::Glyph.render(18., theme);
+            cell(("glyph", 0), "No icon", None, mark)
+        });
         let emoji_cells: Vec<_> = (found.iter().enumerate())
             .map(|(ix, choice)| {
                 let mark = div().child(choice.emoji).into_any_element();
@@ -530,14 +523,14 @@ impl AppView {
             .p(dp(8.))
             .gap(dp(8.))
             .child(field(&picker.search, focused, theme))
-            .when(!colours.is_empty(), |el| {
-                el.child(section_label("Colours", theme))
-                    .child(row(colour_cells))
+            .when_some(plain_cell, |el, plain| {
+                el.child(section_label("Plain", theme))
+                    .child(row(vec![plain]))
             })
             .when(!found.is_empty(), |el| {
                 el.child(section_label("Emoji", theme)).child(grid)
             })
-            .when(colours.is_empty() && found.is_empty(), |el| {
+            .when(!plain && found.is_empty(), |el| {
                 el.child(faint("Nothing found", theme))
             });
         Some(floating(

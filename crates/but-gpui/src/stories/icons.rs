@@ -87,14 +87,5 @@ impl Render for IconsStory {
 
 /// The icons with their colours in the file, which `svg()` would draw in one.
 fn filled(glyph: Icon) -> bool {
-    matches!(
-        glyph,
-        Icon::FolderFill
-            | Icon::RepoPop
-            | Icon::RepoSafe
-            | Icon::RepoPurple
-            | Icon::RepoDanger
-            | Icon::RepoWarn
-            | Icon::RepoGray
-    )
+    matches!(glyph, Icon::FolderFill)
 }

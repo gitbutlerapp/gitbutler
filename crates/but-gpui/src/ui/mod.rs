@@ -335,15 +335,6 @@ icons! {
     PopOutWindow => "pop-out-window",
     // Three lines, for the menu bar folded into a button, as Windows and Linux apps draw it.
     Menu => "menu",
-    // The repo glyph filled as but-ui-react's `EntityGlyph` fills it, its gradient baked in, for a
-    // project's icon: one for each colour but the outline, which is `Repo`. Baked from an older
-    // repo than the library's, so they no longer match `Repo`: redraw them with it.
-    RepoPop => "repo-pop",
-    RepoSafe => "repo-safe",
-    RepoPurple => "repo-purple",
-    RepoDanger => "repo-danger",
-    RepoWarn => "repo-warn",
-    RepoGray => "repo-gray",
 }
 
 /// GitButler's fonts, compiled into the binary so the client looks the same everywhere.

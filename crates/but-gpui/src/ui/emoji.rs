@@ -1,95 +1,42 @@
-//! What a project can wear as its icon, as but.dev's repository picker offers it: the repo
-//! glyph in one of its colours, or an emoji, what a repository is about first, then a shared
-//! set, each found by its name and keywords.
+//! What a project can wear as its icon, as but.dev's repository picker offers it: an emoji,
+//! what a repository is about first, then a shared set, each found by its name and keywords.
+//! Without one it wears the repo glyph.
 
 use std::sync::LazyLock;
 
-use gpui::{AnyElement, IntoElement as _, Styled as _, div, img, prelude::*};
+use gpui::{AnyElement, IntoElement as _, Styled as _, div, prelude::*};
 
-use super::{Icon, dp, icon_at};
+use super::{Icon, icon_at};
 use crate::theme::Theme;
 
-/// The repo glyph in one of its colours, as but.dev's `RepoGlyph` draws it.
-pub struct Colour {
-    /// What but.dev stores after `glyph:`; the outline is stored as no icon at all.
-    pub key: &'static str,
-    pub name: &'static str,
-    /// The filled glyph; `None` for the outline, drawn in the text's colour.
-    pub fill: Option<Icon>,
-}
-
-impl Colour {
-    const fn new(key: &'static str, name: &'static str, fill: Option<Icon>) -> Self {
-        Self { key, name, fill }
-    }
-
-    /// The icon as but.dev stores it.
-    pub fn stored(&self) -> Option<String> {
-        self.fill.map(|_| format!("glyph:{}", self.key))
-    }
-}
-
-/// The glyph's colours, in the order but.dev's picker offers them: the outline first.
-pub const COLOURS: [Colour; 7] = [
-    Colour::new("outline", "Outline", None),
-    Colour::new("pop", "Teal", Some(Icon::RepoPop)),
-    Colour::new("safe", "Green", Some(Icon::RepoSafe)),
-    Colour::new("purple", "Purple", Some(Icon::RepoPurple)),
-    Colour::new("danger", "Red", Some(Icon::RepoDanger)),
-    Colour::new("warn", "Orange", Some(Icon::RepoWarn)),
-    Colour::new("gray", "Gray", Some(Icon::RepoGray)),
-];
-
-/// The colours whose name holds every word of `query`, as but.dev finds them, by their
-/// name and "colour color glyph".
-pub fn search_colours(query: &str) -> Vec<&'static Colour> {
-    let words: Vec<String> = query.split_whitespace().map(str::to_lowercase).collect();
-    (COLOURS.iter())
-        .filter(|colour| {
-            let haystack = format!("{} colour color glyph", colour.name.to_lowercase());
-            words.iter().all(|word| haystack.contains(word.as_str()))
-        })
-        .collect()
-}
-
-/// What a project's stored icon is, as but.dev reads it: `glyph:<colour>`; `shape:color`,
-/// what but.dev stored before the glyph, in the nearest colour; or an emoji.
+/// What a project's stored icon is, as but.dev reads it: an emoji, or nothing, which is the
+/// repo glyph. but.dev also stored a colour of that glyph (`glyph:<colour>`, and `shape:<color>`
+/// before it); the colours are gone, so those wear the glyph as no icon does.
 pub enum ProjectIcon<'a> {
-    Glyph(&'static Colour),
+    Glyph,
     Emoji(&'a str),
 }
 
 impl<'a> ProjectIcon<'a> {
-    /// No icon is the glyph's outline.
+    /// No icon, and a colour but.dev stored before, is the glyph.
     pub fn parse(stored: Option<&'a str>) -> Self {
         let Some(stored) = stored.filter(|s| !s.is_empty()) else {
-            return ProjectIcon::Glyph(&COLOURS[0]);
+            return ProjectIcon::Glyph;
         };
-        let (kind, colour) = stored.split_once(':').unwrap_or((stored, ""));
-        let key = match (kind, colour) {
-            ("glyph", colour) => Some(colour),
-            (_, "red") => Some("danger"),
-            (_, "orange" | "yellow") => Some("warn"),
-            (_, "green") => Some("safe"),
-            (_, "teal" | "blue") => Some("pop"),
-            (_, "purple" | "pink") => Some("purple"),
-            _ => None,
-        };
-        match key.and_then(|key| COLOURS.iter().find(|c| c.key == key)) {
-            Some(colour) => ProjectIcon::Glyph(colour),
-            None => ProjectIcon::Emoji(stored),
+        // Every form but.dev stored the glyph in names a colour after a colon
+        // (`glyph:teal`, and `square:blue` before it), and no emoji holds one.
+        match stored.contains(':') {
+            true => ProjectIcon::Glyph,
+            false => ProjectIcon::Emoji(stored),
         }
     }
 
     /// The glyph `px` design pixels square, or the emoji in the text size around it.
     pub fn render(&self, px: f32, theme: &Theme) -> AnyElement {
         match self {
-            ProjectIcon::Glyph(Colour { fill: None, .. }) => icon_at(Icon::Repo, px)
-                .text_color(theme.text_1)
-                .into_any_element(),
-            ProjectIcon::Glyph(Colour {
-                fill: Some(fill), ..
-            }) => img(fill.path()).size(dp(px)).flex_none().into_any_element(),
+            ProjectIcon::Glyph => {
+                (icon_at(Icon::Repo, px).text_color(theme.text_1)).into_any_element()
+            }
             ProjectIcon::Emoji(emoji) => div().child(emoji.to_string()).into_any_element(),
         }
     }
@@ -249,7 +196,7 @@ pub fn search(query: &str) -> Vec<&'static Emoji> {
 
 #[cfg(test)]
 mod tests {
-    use super::{ProjectIcon, all, search, search_colours};
+    use super::{ProjectIcon, all, search};
 
     #[test]
     fn shared_emoji_come_after_the_repository_ones() {
@@ -263,27 +210,25 @@ mod tests {
             ["dog", "cat"],
             "every word of a search has to match"
         );
-        assert_eq!(
-            search_colours("colour").len(),
-            7,
-            "every colour is found as a colour"
-        );
-        assert_eq!(search_colours("dog").len(), 0, "no colour is a dog");
     }
 
     #[test]
     fn reads_icons_as_but_dev_stores_them() {
         let key = |stored| match ProjectIcon::parse(stored) {
-            ProjectIcon::Glyph(colour) => colour.key.to_owned(),
+            ProjectIcon::Glyph => "glyph".to_owned(),
             ProjectIcon::Emoji(emoji) => emoji.to_owned(),
         };
-        assert_eq!(key(None), "outline", "no icon is the outline");
-        assert_eq!(key(Some("")), "outline", "nor is an empty one");
-        assert_eq!(key(Some("glyph:safe")), "safe", "a glyph in its colour");
+        assert_eq!(key(None), "glyph", "no icon is the glyph");
+        assert_eq!(key(Some("")), "glyph", "nor is an empty one");
+        assert_eq!(
+            key(Some("glyph:safe")),
+            "glyph",
+            "a colour but.dev stored is the glyph, now the colours are gone"
+        );
         assert_eq!(
             key(Some("square:blue")),
-            "pop",
-            "the old shapes in the nearest colour"
+            "glyph",
+            "as are the shapes it stored before them"
         );
         assert_eq!(key(Some("🦀")), "🦀", "anything else is an emoji");
     }
