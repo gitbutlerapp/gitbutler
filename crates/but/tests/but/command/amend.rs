@@ -995,3 +995,38 @@ Error: --target cannot be an empty branch
         );
     }
 }
+
+/// A pure insertion directly under `upper`'s change depends on both commits, and `lower`
+/// owns more than one range that intersects it. Each blocking commit is named once.
+#[test]
+fn amend_rejection_names_each_dependency_once() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    let lower = "a\nb\nc\nd\ne\nf\nfn old() {\n    body();\n}\ng\nh\ni\n";
+    env.file("provider.ts", lower);
+    env.but("commit -m lower -b lower").assert().success();
+    env.but("branch new upper --above lower").assert().success();
+    env.file("provider.ts", lower.replace("fn old()", "fn new()"));
+    env.but("commit -m upper -b upper").assert().success();
+
+    // Insert right below the line `upper` changed.
+    env.file(
+        "provider.ts",
+        lower.replace("fn old() {\n", "fn new() {\n    one();\n    two();\n"),
+    );
+    env.but("amend -t lower")
+        .assert()
+        .failure()
+        .stdout_eq(str![""])
+        .stderr_eq(str![[r#"
+Error: Cannot amend: 1 change could not be applied:
+  provider.ts
+    lines 8–9 depends on lower (osn)
+    lines 8–9 depends on upper (vvs)
+
+Hint: to apply these changes, stack lower on top of upper and try again — commits already on the branch move with it:
+  but move lower --above upper
+
+"#]]);
+}

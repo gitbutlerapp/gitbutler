@@ -155,6 +155,61 @@ fn symlink_targets_are_committed_with_forward_slashes() -> Result<()> {
 }
 
 #[test]
+fn amend_whose_every_change_is_rejected_is_not_made() -> Result<()> {
+    use but_testsupport::{CommandExt as _, git_at_dir};
+    let tmp = tempfile::tempdir()?;
+    let git = || {
+        let mut cmd = git_at_dir(tmp.path());
+        cmd.args(["-c", "user.name=T", "-c", "user.email=t@example.com"]);
+        cmd.args(["-c", "commit.gpgsign=false"]);
+        cmd
+    };
+    git().args(["init", "-q"]).run();
+    git().args(["config", "user.name", "T"]).run();
+    git().args(["config", "user.email", "t@example.com"]).run();
+    std::fs::write(tmp.path().join("file"), "one\n")?;
+    git().args(["add", "file"]).run();
+    git().args(["commit", "-q", "-m", "base"]).run();
+    std::fs::write(tmp.path().join("file"), "first's\n")?;
+    git().args(["commit", "-q", "-am", "first"]).run();
+    // An edit of the line only `first` has, so it can't be amended into `base`.
+    std::fs::write(tmp.path().join("file"), "first's, edited\n")?;
+
+    let repo = gix::open(tmp.path())?;
+    let base = repo.rev_parse_single("HEAD~1")?.detach();
+    let amend = |new_message: Option<&str>| {
+        create_commit(
+            &repo,
+            Destination::AmendCommit {
+                commit_id: base,
+                new_message: new_message.map(Into::into),
+            },
+            worktree_changes_as_specs(&repo)?,
+            0,
+        )
+    };
+
+    let outcome = amend(None)?;
+    assert_eq!(
+        outcome.rejected_specs.len(),
+        1,
+        "the edit conflicts on `base`"
+    );
+    assert!(
+        outcome.new_commit.is_none(),
+        "with every change rejected, `base` must not be rewritten"
+    );
+
+    let outcome = amend(Some("reworded"))?;
+    assert_eq!(outcome.rejected_specs.len(), 1);
+    assert!(
+        outcome.new_commit.is_some(),
+        "a requested message change is still applied"
+    );
+    Ok(())
+}
+
+#[test]
 fn commit_above_commit() -> Result<()> {
     let (_tmp, graph, repo, mut _meta, _description, mut db) =
         writable_scenario("reword-three-commits", |_| {})?;

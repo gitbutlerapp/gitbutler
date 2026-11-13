@@ -318,8 +318,11 @@ fn dependencies_for_spec(
         if !overlaps {
             continue;
         }
+        // A commit can hold several ranges a hunk intersects; name it once.
+        let mut seen = std::collections::HashSet::new();
         let commits = locks
             .iter()
+            .filter(|lock| seen.insert(lock.commit_id))
             .map(|lock| DependencyCommit {
                 commit_id: lock.commit_id,
                 branch: branch_of_commit(ws, lock.commit_id, stack_of(lock.target)),

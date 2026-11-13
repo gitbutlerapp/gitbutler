@@ -157,9 +157,8 @@ impl WorkspaceRanges {
                         //   AND the commit range is a deletion point (hr.lines == 0):
                         //   a deletion removes the anchor that the merge algorithm
                         //   uses to place the insertion, so this can conflict.
-                        //   Insertions adjacent to normal modification spans are safe
-                        //   because `intersects()` already catches insertions *inside*
-                        //   the span, and the merge algorithm can anchor outside it.
+                        //   `intersects()` already catches insertions inside or directly
+                        //   below a normal modification span.
                         // - the hunk content signals a reorder/move (not a plain
                         //   substitution) via `hunk_suggests_boundary_insertion`.
                         hr.intersects_or_adjacent(start, lines).unwrap_or(false)

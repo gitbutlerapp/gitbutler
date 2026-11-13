@@ -137,8 +137,10 @@ impl HunkRange {
         }
 
         if lines == 0 {
-            // Special case when only adding lines.
-            return Ok(self.start <= start && self.start + self.lines > start);
+            // Special case when only adding lines. gix reports a pure insertion with
+            // `start` being the line the new lines are inserted *before*, so an insertion
+            // directly below this range has `start == self.start + self.lines`.
+            return Ok(self.start <= start && self.start + self.lines >= start);
         }
 
         let last_line = (self.start + self.lines)
