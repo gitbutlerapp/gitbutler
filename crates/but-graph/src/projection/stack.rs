@@ -112,10 +112,12 @@ impl std::fmt::Debug for Stack {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WorktreeBase {
     /// The base commit is owned by a workspace stack, or by a worktree listed earlier in
-    /// [tip order](crate::Graph::worktree_tips) for worktrees stacked on each other, so the
-    /// worktree branches off the workspace and belongs *inside* it when presented.
+    /// [tip order](crate::Graph::worktree_tips) for worktrees stacked on each other, and the
+    /// target doesn't have it, so the worktree branches off the workspace and belongs *inside*
+    /// it when presented.
     InWorkspace(gix::ObjectId),
-    /// The base commit is the target commit or below it, so the worktree stands on its own.
+    /// The base commit is the target commit or below it, or another commit the target has, so
+    /// the worktree stands on its own.
     Outside(gix::ObjectId),
 }
 

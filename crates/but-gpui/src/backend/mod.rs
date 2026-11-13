@@ -1602,24 +1602,26 @@ mod lane_tests {
             );
             // `top`, checked out in wt-top, names an empty segment in that lane, which leaves
             // its commit in the stack unnamed, and wt-top resting on it.
-            // agent2, started from the target's commit agent1 runs down through, rests on agent1.
+            // agent2 is started from a target commit that agent1 runs down through, so it rests
+            // on the target, not on agent1. wt-stacked's chain runs down through wt to the stack.
             snapbox::assert_data_eq!(
                 describe(&workspace)
                     + &describe_chain(
                         &workspace,
-                        &crate::backend::model::build::full("refs/heads/agent2")
+                        &crate::backend::model::build::full("refs/heads/wt-stacked")
                     ),
                 snapbox::str![[r#"
 Main: [Unnamed branch, middle, bottom]
 Main: [beside]
 agent1: [agent1 (checked out)]
-agent2: [agent2 (checked out)] rests on agent1~2
+agent2: [agent2 (checked out)]
 wt: [wt (checked out), t-branch-1] rests on middle
 wt-stacked: [wt-stacked (checked out)] rests on t-branch-1
 wt-top: [top (checked out)] rests on Unnamed branch
-agent2: [agent2 (checked out)]
-agent1: [agent1 (checked out)] from agent1~2
-history: [agent2, agent1~2]
+wt-stacked: [wt-stacked (checked out)]
+wt: [t-branch-1]
+Main: [middle, bottom]
+history: [t-branch-1, middle, bottom]
 
 "#]]
             );

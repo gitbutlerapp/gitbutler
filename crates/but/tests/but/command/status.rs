@@ -2179,6 +2179,68 @@ second work
 "#]]);
 }
 
+/// The target moved past the workspace base, and two worktrees were made at its tip. The
+/// first one holds that commit, but the target has it too, so the second rests on the target
+/// and stands on its own instead of nesting inside the first.
+#[test]
+fn worktrees_on_the_target_tip_stand_on_their_own() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    // The first read archives every worktree already on disk, so the ones under test have to
+    // be created after it.
+    env.but("status").assert().success();
+
+    let wt = env.app_data_dir().join("worktrees");
+    but_testsupport::invoke_bash_at_dir(
+        &format!(
+            r#"
+        git update-ref refs/remotes/origin/main "$(git commit-tree -p main -m upstream 'main^{{tree}}')"
+        git worktree add -q -b wt-one "{wt}/wt-one" origin/main
+        git worktree add -q -b wt-two "{wt}/wt-two" origin/main
+        (cd "{wt}/wt-two" && git commit -q --allow-empty -m "two work")
+        "#,
+            wt = wt.display()
+        ),
+        env.projects_root(),
+    );
+
+    // The hint that `wt-one` is behind counts from its base, below the target commit it holds.
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┊╭┄ wt:@ [uncommitted] {wt-one} (no changes)
+┊├┄ wt [wt-one] (merged upstream)
+┊●   xpk upstream (no changes)
+├╯
+┊
+┊╭┄ tw:@ [uncommitted] {wt-two} (no changes)
+┊├┄ tw [wt-two]
+┊●   llv two work (no changes)
+├╯ e30c3c6 (origin/main)
+┊
+┊● e30c3c6 (upstream: origin/main) 1 new commit
+├╯ 0dc3733 (common base, main) 2000-01-02 add M
+
+Hint: origin/main moved ahead; run `but pull` to update the workspace
+Hint: wt-one is behind origin/main; run `but pull` to update it
+
+"#]]);
+}
+
 /// Running from inside a linked worktree resolves to the main worktree, so the workspace and
 /// its IDs are the same as they are from the main worktree.
 #[test]

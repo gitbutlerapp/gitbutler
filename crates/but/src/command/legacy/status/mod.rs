@@ -1337,9 +1337,9 @@ fn print_worktree_status(
             print_group(ctx, status_ctx, stack_with_id, files, i == 0, output)?;
     }
 
-    // Worktrees that rest below the workspace, or on a commit no lane printed, have no lane to
-    // nest into, so they stand on their own below the stacks. Commits owned by other worktrees
-    // count as printed: a worktree resting on one nests recursively inside that lane instead.
+    // Worktrees that rest on the target, or on a commit no lane printed, have no lane to nest
+    // into, so they stand on their own below the stacks. Commits owned by other worktrees count
+    // as printed: a worktree resting on one nests recursively inside that lane instead.
     let commits_in_lanes: gix::hashtable::HashSet<gix::ObjectId> = status_ctx
         .stack_details
         .iter()
@@ -1356,8 +1356,9 @@ fn print_worktree_status(
         )
         .collect();
     for worktree in status_ctx.worktrees.iter().filter(|wt| {
-        wt.base
-            .is_none_or(|base| !commits_in_lanes.contains(&base.commit_id()))
+        wt.lane()
+            .rests_on
+            .is_none_or(|base| !commits_in_lanes.contains(&base))
     }) {
         // Every stack already ends with a blank lane line, so the separator goes below.
         print_worktree_lane(
@@ -1433,7 +1434,7 @@ fn print_worktree_lanes_on(
     for worktree in status_ctx
         .worktrees
         .iter()
-        .filter(|wt| wt.base.map(|base| base.commit_id()) == Some(base))
+        .filter(|wt| wt.lane().rests_on == Some(base))
     {
         print_worktree_lane(
             ctx,

@@ -322,7 +322,13 @@ impl Graph {
             .and_then(|group| self.tip_skip_empty(group.head))
             .map_or(tip.id, |commit| commit.id);
         let base = lane.base.map(|(id, sidx)| {
-            if target_stop.get(sidx) {
+            // History the target has is the target's, even where a lane holds it because the
+            // workspace wasn't updated yet. Resting on it means resting on the target.
+            let integrated = self[sidx]
+                .commits
+                .first()
+                .is_some_and(|commit| commit.flags.contains(CommitFlags::Integrated));
+            if target_stop.get(sidx) || integrated {
                 WorktreeBase::Outside(id)
             } else {
                 WorktreeBase::InWorkspace(id)
