@@ -22,11 +22,6 @@ use walk::OwnedHistory;
 pub struct Options {
     /// The project metadata carrying the target ref and last-seen target commit.
     pub project_meta: but_core::ref_metadata::ProjectMeta,
-    /// Stop the traversal after roughly this many commits, for very large repositories.
-    ///
-    /// A hit limit sets [`BranchListing::incomplete`], and branches whose fork point
-    /// lies beyond it report `None` counts instead of wrong ones.
-    pub hard_limit: Option<usize>,
 }
 
 #[derive(Debug, Clone)]
@@ -39,9 +34,6 @@ pub struct BranchListing {
     pub stacks: Vec<ListedStack>,
     /// The configured local project target, if set, e.g. `refs/heads/main`.
     pub target_ref: Option<LocalRefName>,
-    /// If `true`, the traversal hit its hard limit: at least one branch reports
-    /// `None` counts, and stacks whose relation lies beyond the limit are not inferred.
-    pub incomplete: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -91,8 +83,7 @@ pub struct ListedBranch {
     /// fork. Contrast [`commits_ahead_of_target`](Self::commits_ahead_of_target),
     /// which for a stacked branch also counts the commits of the branches below.
     ///
-    /// `None` when the commit graph ends before the fork point was found — because
-    /// a traversal hard limit cut it short (see [`BranchListing::incomplete`]) or
+    /// `None` when the commit graph ends before the fork point was found because
     /// the repository is a shallow clone; an exact-looking number would be wrong.
     pub commit_count: Option<usize>,
     /// The number of commits reachable from the branch but not from the configured local target branch.
@@ -102,9 +93,8 @@ pub struct ListedBranch {
     /// its own contribution (see [`commit_count`](Self::commit_count)).
     ///
     /// `None` when no target is configured ([`BranchListing::target_ref`] is `None`),
-    /// or when the connection to the target lies beyond the end of the traversed
-    /// graph, due to a traversal hard limit or a shallow clone. With a target and a
-    /// fully traversed graph this is always `Some`.
+    /// or when the connection to the target lies beyond the end of a shallow clone.
+    /// With a target and a complete history this is always `Some`.
     pub commits_ahead_of_target: Option<usize>,
     /// The author of the tip commit, identifying who worked on the branch.
     ///
@@ -143,7 +133,6 @@ pub fn list(
                 return Ok(BranchListing {
                     stacks: Vec::new(),
                     target_ref: options.project_meta.target_ref,
-                    incomplete: false,
                 });
             }
         },
@@ -170,17 +159,13 @@ pub fn list(
             .then(|| (r.tip, r.ref_name.clone()))
     });
 
-    let (ws, incomplete) = walk::build_workspace(
+    let ws = walk::build_workspace(
         head_id,
         head_ref,
         extra_tips,
         meta,
         options.project_meta.clone(),
         db,
-        but_graph::init::Options {
-            hard_limit: options.hard_limit,
-            ..Default::default()
-        },
     )?;
 
     let mut tips: BTreeSet<gix::ObjectId> =
@@ -220,7 +205,6 @@ pub fn list(
     Ok(BranchListing {
         stacks,
         target_ref: options.project_meta.target_ref,
-        incomplete,
     })
 }
 

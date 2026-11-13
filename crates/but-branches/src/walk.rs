@@ -18,7 +18,7 @@ use gix::refs::{Category, FullName};
 use crate::display_identity;
 
 /// Build the workspace graph from `head`, additionally traversing the given
-/// `(tip, ref name)` pairs, and report whether a traversal limit cut it short.
+/// `(tip, ref name)` pairs.
 pub(crate) fn build_workspace(
     head: gix::Id<'_>,
     head_ref: Option<FullName>,
@@ -26,9 +26,8 @@ pub(crate) fn build_workspace(
     meta: &impl RefMetadata,
     project_meta: but_core::ref_metadata::ProjectMeta,
     db: &mut but_db::DbHandle,
-    traversal: but_graph::init::Options,
-) -> anyhow::Result<(Workspace, bool)> {
-    let graph = Graph::from_commit_traversal_with_extra_tips(
+) -> anyhow::Result<Workspace> {
+    Graph::from_commit_traversal_with_extra_tips(
         head,
         head_ref,
         extra_tips
@@ -37,10 +36,9 @@ pub(crate) fn build_workspace(
         meta,
         project_meta,
         db,
-        traversal,
-    )?;
-    let incomplete = graph.hard_limit_hit();
-    Ok((graph.into_workspace()?, incomplete))
+        but_graph::init::Options::default(),
+    )?
+    .into_workspace()
 }
 
 /// The configured local target's tip and owning segment, without upstream or cutoff fallback.
@@ -239,20 +237,10 @@ pub(crate) fn segment_tip(segment: &but_graph::workspace::StackSegment) -> Optio
 /// Return `true` if traversal stopped at `segment` due to a limit or a shallow
 /// boundary, meaning history below it exists but is not part of the graph.
 pub(crate) fn traversal_was_clipped(graph: &Graph, segment: SegmentIndex) -> bool {
-    use but_graph::{StopCondition, petgraph::Direction};
-    if graph.stop_condition(segment).is_some_and(|condition| {
+    use but_graph::StopCondition;
+    graph.stop_condition(segment).is_some_and(|condition| {
         condition.intersects(StopCondition::Limit | StopCondition::ShallowBoundary)
-    }) {
-        return true;
-    }
-    // An empty segment without connections is a tip whose commit was never walked,
-    // which only happens when the traversal was cut short before reaching it.
-    graph.hard_limit_hit()
-        && graph[segment].commits.is_empty()
-        && graph
-            .edges_directed(segment, Direction::Outgoing)
-            .next()
-            .is_none()
+    })
 }
 
 /// Return `true` if `segment` is named after a branch other than `identity`.

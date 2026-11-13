@@ -1603,10 +1603,7 @@ pub fn branch_list_with_perm(
             &repo,
             &meta,
             &mut db,
-            but_branches::Options {
-                project_meta,
-                hard_limit: None,
-            },
+            but_branches::Options { project_meta },
         )?
     };
 
