@@ -1,4 +1,4 @@
-use gpui::{AnyElement, Context, SharedString, Window, div, img, prelude::*};
+use gpui::{AnyElement, Context, SharedString, Window, div, prelude::*};
 
 use super::{page, section};
 use crate::theme::Theme;
@@ -25,8 +25,7 @@ impl Render for IconsStory {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx);
         let px = self.px;
-        let (filled, plain): (Vec<Icon>, Vec<Icon>) =
-            Icon::ALL.iter().partition(|glyph| filled(**glyph));
+        let plain: Vec<Icon> = Icon::ALL.to_vec();
         let sizes = SIZES.map(|size| {
             let segment = (div().id(("size", size as usize)))
                 .child(format!("{size:.0}px"))
@@ -62,9 +61,6 @@ impl Render for IconsStory {
                 )
             })
             .collect();
-        let filled = (filled.into_iter())
-            .map(|glyph| cell(glyph, img(glyph.path()).size(dp(px)).into_any_element()))
-            .collect();
         page([
             section(
                 "Size",
@@ -76,16 +72,6 @@ impl Render for IconsStory {
                 theme,
                 [grid(plain)],
             ),
-            section(
-                "In colours of their own, drawn as images",
-                theme,
-                [grid(filled)],
-            ),
         ])
     }
-}
-
-/// The icons with their colours in the file, which `svg()` would draw in one.
-fn filled(glyph: Icon) -> bool {
-    matches!(glyph, Icon::FolderFill)
 }

@@ -214,28 +214,23 @@ pub const ROW_HEIGHT: f32 = 28.;
 pub const HEADER_HEIGHT: f32 = 40.;
 pub const STATUS_BAR_HEIGHT: f32 = 30.;
 
-/// Every icon: the design system's, compiled in from `packages/but-ui-react` so they're the ones
-/// but.dev draws, and a build fails if one goes; then this app's own, under `assets/icons`, for
-/// what but-ui-react draws in code rather than from a file.
+/// Every icon, compiled in from `packages/but-ui-react` so they're the ones but.dev draws, and
+/// a build fails if one goes. The client draws none of its own: a glyph it needs is drawn in
+/// 🍑 But UI and exported there, so the two can't drift.
 macro_rules! icons {
-    (
-        $($variant:ident => $name:literal),* $(,)?;
-        own: $($own:ident => $own_name:literal),* $(,)?
-    ) => {
+    ($($variant:ident => $name:literal),* $(,)?) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
         pub enum Icon {
             $($variant,)*
-            $($own,)*
         }
 
         impl Icon {
             #[cfg(feature = "stories")]
-            pub const ALL: &[Icon] = &[$(Icon::$variant,)* $(Icon::$own,)*];
+            pub const ALL: &[Icon] = &[$(Icon::$variant,)*];
 
             pub fn path(self) -> &'static str {
                 match self {
                     $(Icon::$variant => concat!("icons/", $name, ".svg"),)*
-                    $(Icon::$own => concat!("icons/", $own_name, ".svg"),)*
                 }
             }
         }
@@ -244,9 +239,6 @@ macro_rules! icons {
             match path {
                 $(concat!("icons/", $name, ".svg") => Some(include_bytes!(concat!(
                     "../../../../packages/but-ui-react/src/icons/", $name, ".svg"
-                ))),)*
-                $(concat!("icons/", $own_name, ".svg") => Some(include_bytes!(concat!(
-                    "../../assets/icons/", $own_name, ".svg"
                 ))),)*
                 _ => None,
             }
@@ -327,10 +319,7 @@ icons! {
     TextWrap => "text-wrap",
     Tick => "tick",
     Undo => "undo",
-    Warning => "warning";
-    // but-ui-react's FolderIcon, a component with its gradient in CSS: the folder of a file
-    // list, not the worktree's outline folder.
-    own: FolderFill => "folder-fill",
+    Warning => "warning",
 }
 
 /// GitButler's fonts, compiled into the binary so the client looks the same everywhere.
@@ -2241,7 +2230,7 @@ mod tests {
     #[test]
     fn every_icon_loads_at_a_size() {
         use gpui::AssetSource as _;
-        for glyph in [Icon::Branch, Icon::Camera, Icon::FolderFill, Icon::Burger] {
+        for glyph in [Icon::Branch, Icon::Camera, Icon::Burger, Icon::SplitRight] {
             let path = glyph.path_at(12.);
             let svg = super::Assets.load(&path).unwrap();
             assert!(svg.is_some(), "{path} is the icon with its size on the end");

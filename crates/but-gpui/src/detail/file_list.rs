@@ -1303,7 +1303,7 @@ impl Detail {
                     .flex_1()
                     .min_w_0()
                     .gap(dp(6.))
-                    .child(folder_icon())
+                    .child(folder_icon(theme, cx))
                     .child(
                         div()
                             .flex_none()
@@ -1451,7 +1451,7 @@ impl Detail {
         )
         .group(ROW_GROUP)
         .child(steps(depth, Some(chevron), theme))
-        .child(folder_icon())
+        .child(folder_icon(theme, cx))
         // Cut in the middle: a chain of folders, `ios/App/Resources/de.lproj`, ends in the one
         // that tells it from its siblings. Folded, how many files it holds follows the name, so
         // its end lines up with the files'.
