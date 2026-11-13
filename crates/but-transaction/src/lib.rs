@@ -718,8 +718,6 @@ where
                 editor.lookup_step(selector)?,
                 Step::Reference { mutable: true, .. }
             );
-            // The rebase deletes a mutable reference along with writing the new one, so the two
-            // names may nest. Any other is deleted afterwards.
             but_core::branch::refuse_colliding_refname(
                 editor.repo(),
                 new_ref,
@@ -1635,7 +1633,7 @@ impl<T, K> TransactionOutcome for DynamicOutcome<T, K> {
 }
 
 fn workspace_state_from_rebase<M: RefMetadata>(
-    rebase: SuccessfulRebase<'_, '_, M>,
+    mut rebase: SuccessfulRebase<'_, '_, M>,
     repo: &gix::Repository,
     removed_references: Vec<FullName>,
     renamed_references: Vec<RenamedReference>,
@@ -1670,7 +1668,6 @@ fn workspace_state_from_rebase<M: RefMetadata>(
         );
     }
 
-    let mut rebase = rebase;
     let (_, meta) = rebase.repo_and_meta_mut();
     for renamed in &renamed_references {
         meta.rename(renamed.from.as_ref(), renamed.to.as_ref())?;
