@@ -75,6 +75,32 @@ impl<'a> Anchor<'a> {
     }
 }
 
+/// What [`super::create_reference()`] returns.
+pub struct CreateReferenceOutcome<'ws, 'meta, M: but_core::RefMetadata> {
+    /// The rebase that creates the reference.
+    pub rebase: but_rebase::graph_rebase::SuccessfulRebase<'ws, 'meta, M>,
+    /// The new stack and its order among the stacks, if there is no workspace commit to make it a
+    /// parent of. `HEAD` reaches it once [`apply_stack()`](super::apply_stack()) applies it.
+    /// `None` when the workspace holds the reference.
+    pub unreachable_stack: Option<(gix::refs::FullName, Option<usize>)>,
+}
+
+impl<'ws, 'meta, M: but_core::RefMetadata> CreateReferenceOutcome<'ws, 'meta, M> {
+    /// The rebase, or an error if [`Self::unreachable_stack`] is set, for callers that don't
+    /// apply it themselves.
+    pub fn into_rebase_in_workspace(
+        self,
+    ) -> anyhow::Result<but_rebase::graph_rebase::SuccessfulRebase<'ws, 'meta, M>> {
+        if let Some((ref_name, _)) = self.unreachable_stack {
+            but_error::bail_precondition!(
+                "Cannot create independent branch '{}' outside of a workspace",
+                ref_name.shorten()
+            );
+        }
+        Ok(self.rebase)
+    }
+}
+
 pub(super) mod function {
     use anyhow::Context as _;
     use but_core::{
@@ -82,12 +108,10 @@ pub(super) mod function {
         branch::{find_unique_refname_excluding, refuse_colliding_refname},
     };
     use but_error::bail_precondition;
-    use but_rebase::graph_rebase::{
-        Editor, LookupStep, Selector, Step, SuccessfulRebase, mutate::InsertSide,
-    };
+    use but_rebase::graph_rebase::{Editor, LookupStep, Selector, Step, mutate::InsertSide};
 
     use crate::{
-        branch::create_reference::{Anchor, Position},
+        branch::create_reference::{Anchor, CreateReferenceOutcome, Position},
         editor_workspace::ensure_workspace_commit,
     };
 
@@ -100,8 +124,9 @@ pub(super) mod function {
     /// or as a new independent branch on the workspace base if `anchor` is `None`.
     ///
     /// An independent branch becomes a parent of the workspace commit at `order`, or its last parent
-    /// if `order` is `None`, and can't be created outside of a workspace. A workspace commit is
-    /// created if `HEAD` is on the workspace reference without one.
+    /// if `order` is `None`. A workspace commit is created if `HEAD` is on the workspace reference
+    /// without one. Outside a workspace, an independent branch goes on the base and is
+    /// returned in [`CreateReferenceOutcome::unreachable_stack`] for the caller to apply.
     ///
     /// Fail if `ref_name` is already taken, in the repository or in the editor.
     pub fn create_reference<'ws, 'meta, 'anchor, M: RefMetadata>(
@@ -109,7 +134,8 @@ pub(super) mod function {
         ref_name: &gix::refs::FullNameRef,
         anchor: impl Into<Option<Anchor<'anchor>>>,
         order: impl Into<Option<usize>>,
-    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+    ) -> anyhow::Result<CreateReferenceOutcome<'ws, 'meta, M>> {
+        let order = order.into();
         ensure_name_is_available(&editor, ref_name)?;
         if editor.repo().head()?.is_unborn() {
             bail_precondition!("Cannot create reference on unborn branch");
@@ -122,10 +148,12 @@ pub(super) mod function {
         match placement {
             Placement::Independent { base } => {
                 let Some(workspace_reference) = editor.workspace_reference() else {
-                    bail_precondition!(
-                        "Cannot create independent branch '{}' outside of a workspace",
-                        ref_name.shorten()
-                    );
+                    let reference = editor.add_step(reference)?;
+                    editor.add_edge(reference, base, 0)?;
+                    return Ok(CreateReferenceOutcome {
+                        rebase: editor.rebase()?,
+                        unreachable_stack: Some((ref_name.to_owned(), order)),
+                    });
                 };
                 let (successful_rebase, workspace_commit) =
                     ensure_workspace_commit(editor, workspace_reference)?;
@@ -137,13 +165,16 @@ pub(super) mod function {
                 }
                 let reference = editor.add_step(reference)?;
                 editor.add_edge(reference, base, 0)?;
-                editor.insert_parent(workspace_commit, reference, order.into())?;
+                editor.insert_parent(workspace_commit, reference, order)?;
             }
             Placement::Relative { target, side } => {
                 editor.insert(target, reference, side)?;
             }
         }
-        editor.rebase()
+        Ok(CreateReferenceOutcome {
+            rebase: editor.rebase()?,
+            unreachable_stack: None,
+        })
     }
 
     pub(in crate::branch) fn ensure_name_is_available<M: RefMetadata>(

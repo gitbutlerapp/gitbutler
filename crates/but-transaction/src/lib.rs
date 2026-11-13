@@ -680,7 +680,8 @@ where
                     })
                 })
                 .transpose()?;
-            let rebase = but_workspace::branch::create_reference(editor, ref_name, anchor, order)?;
+            let rebase = but_workspace::branch::create_reference(editor, ref_name, anchor, order)?
+                .into_rebase_in_workspace()?;
             Ok(((), rebase))
         })
     }
