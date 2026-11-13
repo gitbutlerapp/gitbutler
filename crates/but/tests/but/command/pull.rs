@@ -1408,7 +1408,7 @@ Run `but pull` to update your branches
 ┊●   rkq add C
 ├╯
 ┊
-┊● d4cb681 (main, upstream: origin/main) 2 new commits (checked 0 seconds ago)
+┊● d4cb681 (main, upstream: origin/main) 2 new commits (checked [..] ago)
 ├╯ 0dc3733 (common base) 2000-01-02 add M
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
