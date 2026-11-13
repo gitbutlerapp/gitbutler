@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use bstr::ByteSlice;
 use but_core::{Commit, RefMetadata, commit::SignCommit, ref_metadata::ProjectMeta};
-use but_graph::init::{Options, Tip};
+use but_graph::init::Options;
 use but_rebase::graph_rebase::mutate::RelativeTo;
 use but_testsupport::{
     CommandExt, InMemoryRefMetadata, git, git_at_dir, graph_workspace, open_repo,
@@ -385,20 +385,8 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
     // No workspace branch, commit, or stack metadata: HEAD is checked out directly on `A`,
     // the top of a two-branch stack whose bottom branch `B` is integrated into the target.
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
-    let graph = but_graph::Graph::from_commit_traversal_tips(
-        &repo,
-        [
-            Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
-            Tip::integrated(
-                repo.rev_parse_single("origin/main")?.detach(),
-                Some("refs/remotes/origin/main".try_into()?),
-            ),
-        ],
-        &meta,
-        project_meta,
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -493,20 +481,8 @@ fn integrated_bottom_branch_does_not_delete_local_main_or_master() -> Result<()>
     git(&repo).args(["branch", "master", "B"]).run();
 
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
-    let graph = but_graph::Graph::from_commit_traversal_tips(
-        &repo,
-        [
-            Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
-            Tip::integrated(
-                repo.rev_parse_single("origin/main")?.detach(),
-                Some("refs/remotes/origin/main".try_into()?),
-            ),
-        ],
-        &meta,
-        project_meta,
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
@@ -549,20 +525,8 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
     // No workspace branch, commit, or stack metadata: HEAD is checked out directly on `A`,
     // the top of a two-branch stack whose bottom branch `B` is integrated into the target.
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
-    let graph = but_graph::Graph::from_commit_traversal_tips(
-        &repo,
-        [
-            Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
-            Tip::integrated(
-                repo.rev_parse_single("origin/main")?.detach(),
-                Some("refs/remotes/origin/main".try_into()?),
-            ),
-        ],
-        &meta,
-        project_meta,
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -2047,23 +2011,8 @@ fn empty_workspace_reparents_workspace_commit_to_advanced_target() -> Result<()>
 
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     let mut meta = empty_managed_workspace_metadata(&meta)?;
-    let graph = but_graph::Graph::from_commit_traversal_tips(
-        &repo,
-        [
-            Tip::entrypoint(
-                repo.head_id()?.detach(),
-                Some(but_core::WORKSPACE_REF_NAME.try_into()?),
-            ),
-            Tip::integrated(
-                repo.rev_parse_single("origin/main")?.detach(),
-                Some("refs/remotes/origin/main".try_into()?),
-            ),
-        ],
-        &meta,
-        project_meta,
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let mut workspace = graph.into_workspace()?;
     integrate_and_materialize(&mut workspace, &mut meta, &repo, &mut db, vec![])?;
 
@@ -2084,23 +2033,8 @@ fn empty_workspace_reparents_workspace_commit_to_merge_advanced_target() -> Resu
 
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     let mut meta = empty_managed_workspace_metadata(&meta)?;
-    let graph = but_graph::Graph::from_commit_traversal_tips(
-        &repo,
-        [
-            Tip::entrypoint(
-                repo.head_id()?.detach(),
-                Some(but_core::WORKSPACE_REF_NAME.try_into()?),
-            ),
-            Tip::integrated(
-                repo.rev_parse_single("origin/main")?.detach(),
-                Some("refs/remotes/origin/main".try_into()?),
-            ),
-        ],
-        &meta,
-        project_meta,
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let mut workspace = graph.into_workspace()?;
     integrate_and_materialize(&mut workspace, &mut meta, &repo, &mut db, vec![])?;
 
@@ -3175,20 +3109,8 @@ fn review_hint_fully_integrates_direct_checkout_branch() -> Result<()> {
     let review_head = repo.rev_parse_single("A")?.detach();
 
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
-    let graph = but_graph::Graph::from_commit_traversal_tips(
-        &repo,
-        [
-            Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
-            Tip::integrated(
-                repo.rev_parse_single("origin/main")?.detach(),
-                Some("refs/remotes/origin/main".try_into()?),
-            ),
-        ],
-        &meta,
-        project_meta,
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
     let out = integrate_upstream_with_hints(
@@ -3360,20 +3282,8 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
     let review_head = repo.rev_parse_single("A")?.detach();
 
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
-    let graph = but_graph::Graph::from_commit_traversal_tips(
-        &repo,
-        [
-            Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
-            Tip::integrated(
-                repo.rev_parse_single("origin/main")?.detach(),
-                Some("refs/remotes/origin/main".try_into()?),
-            ),
-        ],
-        &meta,
-        project_meta,
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -3577,20 +3487,8 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
     let review_head = repo.rev_parse_single("A^")?.detach();
 
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
-    let graph = but_graph::Graph::from_commit_traversal_tips(
-        &repo,
-        [
-            Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
-            Tip::integrated(
-                repo.rev_parse_single("origin/main")?.detach(),
-                Some("refs/remotes/origin/main".try_into()?),
-            ),
-        ],
-        &meta,
-        project_meta,
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -3658,15 +3556,8 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
     )?;
     rebase.materialize(Default::default())?;
 
-    let graph = but_graph::Graph::from_commit_traversal_tips(
+    let graph = but_graph::Graph::from_head(
         &repo,
-        [
-            Tip::entrypoint(repo.head_id()?.detach(), repo.head_name()?),
-            Tip::integrated(
-                repo.rev_parse_single("origin/main")?.detach(),
-                Some("refs/remotes/origin/main".try_into()?),
-            ),
-        ],
         &meta,
         updated_project_meta,
         &mut db,
@@ -3715,20 +3606,8 @@ fn review_hint_integrates_prefix_but_keeps_extra_local_commit() -> Result<()> {
         .args(["commit", "-m", "post-review local commit"])
         .run();
 
-    let graph = but_graph::Graph::from_commit_traversal_tips(
-        &repo,
-        [
-            Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
-            Tip::integrated(
-                repo.rev_parse_single("origin/main")?.detach(),
-                Some("refs/remotes/origin/main".try_into()?),
-            ),
-        ],
-        &meta,
-        project_meta,
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
     let out = integrate_upstream_with_hints(

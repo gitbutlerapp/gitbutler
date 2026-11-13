@@ -5,8 +5,8 @@ use but_core::{
     },
 };
 use but_graph::{
-    Graph, SegmentMetadata,
-    init::{Overlay, Tip, TipRole},
+    Graph,
+    init::{Overlay, Tip},
 };
 use but_testsupport::{
     InMemoryRefMetadata, graph_tree, graph_workspace, visualize_commit_graph_all,
@@ -2234,188 +2234,6 @@ fn just_init_with_branches() -> anyhow::Result<()> {
 📕🏘️⚠️:gitbutler/workspace <> ✓! on fafd9d0
 
 "#]]
-    );
-
-    Ok(())
-}
-
-#[test]
-fn tips_equivalent_to_workspace_metadata_are_order_independent() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/just-init-with-branches")?;
-    snapbox::assert_data_eq!(
-        visualize_commit_graph_all(&repo)?,
-        snapbox::str![[r#"
-* fafd9d0 (HEAD -> main, origin/main, gitbutler/workspace, F, E, D, C, B, A) init
-
-"#]]
-    );
-
-    add_workspace(&mut meta);
-    add_stack_with_segments(&mut meta, 0, "C", StackState::InWorkspace, &["B", "A"]);
-    add_stack_with_segments(&mut meta, 1, "D", StackState::InWorkspace, &["E", "F"]);
-
-    let (id, ws_ref_name) = id_at(&repo, "gitbutler/workspace");
-    let commit_id = id.detach();
-    let workspace_metadata = (*meta.workspace(ws_ref_name.as_ref())?).clone();
-    let main_ref = super::ref_name("refs/heads/main");
-    let origin_main_ref = super::ref_name("refs/remotes/origin/main");
-    let stack_ref = |name: &str| super::ref_name(&format!("refs/heads/{name}"));
-
-    let head_baseline = Graph::from_head(
-        &repo,
-        &*meta,
-        default_project_meta(&repo),
-        &mut db,
-        standard_options(),
-    )?
-    .validated()?;
-    let head_baseline_tree = graph_dag(&head_baseline);
-    let head_baseline_workspace = graph_workspace(&head_baseline.into_workspace()?).to_string();
-
-    let head_tips = vec![
-        Tip::new(commit_id).with_role(TipRole::WorkspaceStackBranch {
-            desired_ref_name: stack_ref("F"),
-        }),
-        Tip::new(commit_id)
-            .with_ref_name(Some(ws_ref_name.clone()))
-            .with_role(TipRole::Workspace)
-            .with_metadata(SegmentMetadata::Workspace(workspace_metadata.clone())),
-        Tip::new(commit_id).with_role(TipRole::WorkspaceStackBranch {
-            desired_ref_name: stack_ref("B"),
-        }),
-        Tip::new(commit_id)
-            .with_ref_name(Some(origin_main_ref.clone()))
-            .with_role(TipRole::TargetRemote),
-        Tip::new(commit_id).with_role(TipRole::WorkspaceStackBranch {
-            desired_ref_name: stack_ref("A"),
-        }),
-        Tip::new(commit_id)
-            .with_ref_name(Some(main_ref.clone()))
-            .with_entrypoint(),
-        Tip::new(commit_id).with_role(TipRole::WorkspaceStackBranch {
-            desired_ref_name: stack_ref("E"),
-        }),
-        Tip::new(commit_id).with_role(TipRole::WorkspaceStackBranch {
-            desired_ref_name: stack_ref("C"),
-        }),
-        Tip::new(commit_id).with_role(TipRole::WorkspaceStackBranch {
-            desired_ref_name: stack_ref("D"),
-        }),
-    ];
-
-    let workspace_baseline = Graph::from_commit_traversal(
-        id,
-        ws_ref_name.clone(),
-        &*meta,
-        default_project_meta(&repo),
-        &mut db,
-        standard_options(),
-    )?
-    .validated()?;
-    let workspace_baseline_tree = graph_dag(&workspace_baseline);
-    let workspace_baseline_workspace = graph_workspace(&workspace_baseline.into_workspace()?);
-    snapbox::assert_data_eq!(
-        workspace_baseline_workspace.to_string(),
-        snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace <> ✓refs/heads/main on fafd9d0
-├── ≡📙:C on fafd9d0 {0}
-│   ├── 📙:C
-│   ├── 📙:B
-│   └── 📙:A
-└── ≡📙:D on fafd9d0 {1}
-    ├── 📙:D
-    ├── 📙:E
-    └── 📙:F
-
-"#]]
-    );
-    let workspace_baseline_workspace = workspace_baseline_workspace.to_string();
-
-    let explicit_tips = vec![
-        Tip::new(commit_id).with_role(TipRole::WorkspaceStackBranch {
-            desired_ref_name: stack_ref("E"),
-        }),
-        Tip::new(commit_id).with_role(TipRole::TargetLocal {
-            local_ref_name: main_ref,
-        }),
-        Tip::new(commit_id)
-            .with_ref_name(Some(ws_ref_name))
-            .with_role(TipRole::Workspace)
-            .with_metadata(SegmentMetadata::Workspace(workspace_metadata))
-            .with_entrypoint(),
-        Tip::new(commit_id).with_role(TipRole::WorkspaceStackBranch {
-            desired_ref_name: stack_ref("C"),
-        }),
-        Tip::new(commit_id)
-            .with_ref_name(Some(origin_main_ref))
-            .with_role(TipRole::TargetRemote),
-        Tip::new(commit_id).with_role(TipRole::WorkspaceStackBranch {
-            desired_ref_name: stack_ref("F"),
-        }),
-        Tip::new(commit_id).with_role(TipRole::WorkspaceStackBranch {
-            desired_ref_name: stack_ref("A"),
-        }),
-        Tip::new(commit_id).with_role(TipRole::WorkspaceStackBranch {
-            desired_ref_name: stack_ref("D"),
-        }),
-        Tip::new(commit_id).with_role(TipRole::WorkspaceStackBranch {
-            desired_ref_name: stack_ref("B"),
-        }),
-    ];
-    let graph = Graph::from_commit_traversal_tips(
-        &repo,
-        head_tips,
-        &*meta,
-        default_project_meta(&repo),
-        &mut db,
-        standard_options(),
-    )?
-    .validated()?;
-    assert_eq!(
-        graph_dag(&graph),
-        head_baseline_tree,
-        "unordered explicit tips with a reachable entrypoint should match HEAD traversal"
-    );
-    assert_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
-        head_baseline_workspace,
-        "unordered explicit tips with a reachable entrypoint should match the HEAD workspace projection"
-    );
-
-    let graph = Graph::from_commit_traversal_tips(
-        &repo,
-        explicit_tips,
-        &*meta,
-        default_project_meta(&repo),
-        &mut db,
-        standard_options(),
-    )?
-    .validated()?;
-    assert_eq!(
-        graph_dag(&graph),
-        workspace_baseline_tree,
-        "unordered explicit tips should create the same graph as workspace metadata traversal"
-    );
-    let explicit_workspace = graph_workspace(&graph.into_workspace()?);
-    snapbox::assert_data_eq!(
-        explicit_workspace.to_string(),
-        snapbox::str![[r#"
-📕🏘️⚠️:gitbutler/workspace <> ✓refs/heads/main on fafd9d0
-├── ≡📙:C on fafd9d0 {0}
-│   ├── 📙:C
-│   ├── 📙:B
-│   └── 📙:A
-└── ≡📙:D on fafd9d0 {1}
-    ├── 📙:D
-    ├── 📙:E
-    └── 📙:F
-
-"#]]
-    );
-    assert_eq!(
-        explicit_workspace.to_string(),
-        workspace_baseline_workspace,
-        "unordered explicit tips should create the same workspace projection as workspace metadata traversal"
     );
 
     Ok(())
@@ -9100,7 +8918,7 @@ fn workspace_traversal_with_extra_tips() -> anyhow::Result<()> {
     let err = Graph::from_commit_traversal_with_extra_tips(
         head_id,
         ws_ref,
-        Some(Tip::detached_entrypoint(wt_feature_id)),
+        Some(Tip::entrypoint(wt_feature_id, None)),
         &*meta,
         default_project_meta(&repo),
         &mut db,

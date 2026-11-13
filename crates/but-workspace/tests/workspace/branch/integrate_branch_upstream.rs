@@ -211,10 +211,10 @@ fn integration_graph_for_branch(
             .find_reference(upstream_ref_name.as_ref())?
             .id()
             .detach();
-        but_graph::Graph::from_commit_traversal_tips(
-            repo,
+        but_graph::Graph::from_commit_traversal_with_extra_tips(
+            head_id.attach(repo),
+            head_ref_name,
             [
-                but_graph::init::Tip::entrypoint(head_id, head_ref_name),
                 but_graph::init::Tip::reachable(upstream_id, Some(upstream_ref_name.into_owned())),
                 but_graph::init::Tip::integrated(target_id, Some(target_ref_name.to_owned())),
             ],
@@ -245,12 +245,13 @@ fn integration_graph_for_branch(
             .find_reference(upstream_ref_name.as_ref())?
             .id()
             .detach();
-        but_graph::Graph::from_commit_traversal_tips(
-            repo,
-            [
-                but_graph::init::Tip::entrypoint(head_id, head_ref_name),
-                but_graph::init::Tip::reachable(upstream_id, Some(upstream_ref_name.into_owned())),
-            ],
+        but_graph::Graph::from_commit_traversal_with_extra_tips(
+            head_id.attach(repo),
+            head_ref_name,
+            [but_graph::init::Tip::reachable(
+                upstream_id,
+                Some(upstream_ref_name.into_owned()),
+            )],
             meta,
             Default::default(),
             &mut db,

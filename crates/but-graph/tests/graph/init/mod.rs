@@ -203,7 +203,6 @@ Graph {
             role: Reachable,
             metadata: None,
             is_entrypoint: true,
-            is_detached: false,
         },
     ],
     ad_hoc_branch_stack_orders: [],
@@ -755,47 +754,16 @@ fn four_diamond() -> anyhow::Result<()> {
 }
 
 #[test]
-fn explicit_traversal_tips_reject_duplicate_traversal_seeds() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
-    let merged_id = id_by_rev(&repo, "merged").detach();
-    let a_id = id_by_rev(&repo, "A").detach();
-    let a_ref = ref_name("refs/heads/A");
-
-    let err = Graph::from_commit_traversal_tips(
-        &repo,
-        [
-            Tip::entrypoint(merged_id, None),
-            Tip::reachable(a_id, None),
-            Tip::reachable(a_id, Some(a_ref)),
-        ],
-        &*meta,
-        but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
-        standard_options(),
-    )
-    .expect_err("duplicate traversal seeds must be rejected");
-
-    assert!(
-        err.to_string()
-            .starts_with("explicit traversal tips contain duplicate traversal seed Tip"),
-        "unexpected error: {err}"
-    );
-    Ok(())
-}
-
-#[test]
-fn explicit_traversal_tips_allow_overlapping_commit_ids() -> anyhow::Result<()> {
+fn extra_tips_allow_overlapping_commit_ids() -> anyhow::Result<()> {
     let (repo, meta, mut db) = read_only_in_memory_scenario("detached")?;
-    let main_id = id_by_rev(&repo, "main").detach();
+    let main_id = id_by_rev(&repo, "main");
     let main_ref = ref_name("refs/heads/main");
     let release_tag = ref_name("refs/tags/release/v1");
 
-    let graph = Graph::from_commit_traversal_tips(
-        &repo,
-        [
-            Tip::entrypoint(main_id, Some(main_ref)),
-            Tip::reachable(main_id, Some(release_tag)),
-        ],
+    let graph = Graph::from_commit_traversal_with_extra_tips(
+        main_id,
+        Some(main_ref),
+        [Tip::reachable(main_id.detach(), Some(release_tag))],
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
@@ -819,10 +787,9 @@ fn explicit_traversal_tips_allow_overlapping_commit_ids() -> anyhow::Result<()> 
 }
 
 #[test]
-fn explicit_traversal_tips_allow_named_and_anonymous_integrated_targets_on_same_commit()
--> anyhow::Result<()> {
+fn extra_tips_allow_named_and_anonymous_integrated_targets_on_same_commit() -> anyhow::Result<()> {
     let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
-    let merged_id = id_by_rev(&repo, "merged").detach();
+    let merged_id = id_by_rev(&repo, "merged");
     let main_id = id_by_rev(&repo, "main").detach();
 
     snapbox::assert_data_eq!(
@@ -847,10 +814,10 @@ fn explicit_traversal_tips_allow_named_and_anonymous_integrated_targets_on_same_
         .raw()
     );
 
-    let graph = Graph::from_commit_traversal_tips(
-        &repo,
+    let graph = Graph::from_commit_traversal_with_extra_tips(
+        merged_id,
+        Some(ref_name("refs/heads/merged")),
         [
-            Tip::entrypoint(merged_id, Some(ref_name("refs/heads/merged"))),
             Tip::integrated(main_id, Some(ref_name("refs/heads/main"))),
             Tip::integrated(main_id, None),
         ],
@@ -886,107 +853,6 @@ fn explicit_traversal_tips_allow_named_and_anonymous_integrated_targets_on_same_
 ◎  main
 ●  🏁·965998b (⌂|✓)
 "#]]
-    );
-    Ok(())
-}
-
-#[test]
-fn explicit_traversal_tips_reject_multiple_entrypoints() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
-    let merged_id = id_by_rev(&repo, "merged").detach();
-    let a_id = id_by_rev(&repo, "A").detach();
-
-    let err = Graph::from_commit_traversal_tips(
-        &repo,
-        [
-            Tip::entrypoint(merged_id, None),
-            Tip::entrypoint(a_id, None),
-        ],
-        &*meta,
-        but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
-        standard_options(),
-    )
-    .expect_err("multiple entrypoints must be rejected");
-
-    assert_eq!(
-        err.to_string(),
-        "explicit traversal tips require exactly one entrypoint"
-    );
-    Ok(())
-}
-
-#[test]
-fn explicit_traversal_tips_reject_duplicate_ref_names() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
-    let a_id = id_by_rev(&repo, "A").detach();
-    let a_ref = ref_name("refs/heads/A");
-
-    let err = Graph::from_commit_traversal_tips(
-        &repo,
-        [
-            Tip::entrypoint(a_id, Some(a_ref.clone())),
-            Tip::reachable(a_id, Some(a_ref.clone())),
-        ],
-        &*meta,
-        but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
-        standard_options(),
-    )
-    .expect_err("duplicate ref names must be rejected");
-
-    assert_eq!(
-        err.to_string(),
-        format!("explicit traversal tips contain duplicate ref name {a_ref}")
-    );
-    Ok(())
-}
-
-#[test]
-fn explicit_traversal_tips_reject_detached_entrypoint_with_ref_name() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
-    let merged_id = id_by_rev(&repo, "merged").detach();
-
-    let err = Graph::from_commit_traversal_tips(
-        &repo,
-        [Tip::new(merged_id)
-            .with_ref_name(Some(ref_name("refs/heads/merged")))
-            .with_entrypoint()
-            .with_is_detached(true)],
-        &*meta,
-        but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
-        standard_options(),
-    )
-    .expect_err("detached entrypoints must not be named");
-
-    assert_eq!(
-        err.to_string(),
-        "explicit detached entrypoint tip cannot have a ref name"
-    );
-    Ok(())
-}
-
-#[test]
-fn explicit_traversal_tips_reject_ref_names_that_point_elsewhere() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
-    let merged_id = id_by_rev(&repo, "merged").detach();
-    let a_id = id_by_rev(&repo, "A").detach();
-    let a_ref = ref_name("refs/heads/A");
-
-    let err = Graph::from_commit_traversal_tips(
-        &repo,
-        [Tip::entrypoint(merged_id, Some(a_ref.clone()))],
-        &*meta,
-        but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
-        standard_options(),
-    )
-    .expect_err("ref names must resolve to their tip id");
-
-    assert_eq!(
-        err.to_string(),
-        format!("explicit traversal tip ref {a_ref} points to {a_id}, not {merged_id}")
     );
     Ok(())
 }

@@ -3,7 +3,10 @@ use std::io::{self, Write as _};
 use anyhow::{Context as _, Result, bail, ensure};
 use but_graph::FirstParent;
 use but_graph::init::Tip;
-use gix::{odb::store::RefreshMode, reference::Category, revision::plumbing::Spec};
+use gix::{
+    odb::store::RefreshMode, prelude::ObjectIdExt as _, reference::Category,
+    revision::plumbing::Spec,
+};
 
 use crate::{
     args::{Args, LogArgs, MergeBaseArgs, RevisionArgs, RevisionGraphArgs, RevisionSubcommands},
@@ -183,19 +186,17 @@ fn graph_for_revisions(
         commits_limit_hint: None,
         ..Default::default()
     };
-    let tips = std::iter::once(Tip::entrypoint(first, None))
-        .chain(
-            commits
-                .iter()
-                .copied()
-                .skip(1)
-                .map(|id| Tip::reachable(id, None)),
-        )
+    let extra_tips = commits
+        .iter()
+        .copied()
+        .skip(1)
+        .map(|id| Tip::reachable(id, None))
         .chain(graph_tips);
 
-    but_graph::Graph::from_commit_traversal_tips(
-        repo,
-        tips,
+    but_graph::Graph::from_commit_traversal_with_extra_tips(
+        first.attach(repo),
+        None,
+        extra_tips,
         meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut setup::debug_db()?,

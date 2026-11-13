@@ -11,7 +11,7 @@ use but_core::{
     RefMetadata, WORKSPACE_REF_NAME, ref_metadata,
     ref_metadata::{StackId, StackKind, WorkspaceCommitRelation::Outside},
 };
-use but_graph::{Graph, init::Tip, workspace::WorkspaceKind};
+use but_graph::{Graph, workspace::WorkspaceKind};
 use but_testsupport::{
     CommandExt, InMemoryRefMetadata, git, graph_workspace, graph_workspace_determinisitcally,
     id_at, id_by_rev, sanitize_uuids_and_timestamps, visualize_commit_graph_all,
@@ -3458,10 +3458,9 @@ fn unapply_branch_from_detached_ad_hoc_workspace_is_an_error() -> anyhow::Result
 "#]]
     );
 
-    let a2_id = repo.rev_parse_single("A2")?.detach();
-    let ws = Graph::from_commit_traversal_tips(
+    git(&repo).args(["checkout", "--detach", "A2"]).run();
+    let ws = Graph::from_head(
         &repo,
-        [Tip::detached_entrypoint(a2_id)],
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
@@ -3477,7 +3476,7 @@ fn unapply_branch_from_detached_ad_hoc_workspace_is_an_error() -> anyhow::Result
     │   └── ·f1889e7 ►A2
     ├── :A1
     │   └── ·7de99e1
-    └── :main[🌳] <> origin/main
+    └── :main <> origin/main
         └── ❄️3183e43
 
 "#]]

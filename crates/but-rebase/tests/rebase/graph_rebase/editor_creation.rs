@@ -776,13 +776,10 @@ fn immutable_entrypoints_propogate_until_mutable_entrypoints() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_commit_traversal_tips(
-        &repo,
+    let graph = Graph::from_commit_traversal_with_extra_tips(
+        repo.rev_parse_single("refs/heads/implicit-mut")?,
+        Some("refs/heads/implicit-mut".try_into()?),
         [
-            Tip::entrypoint(
-                repo.rev_parse_single("refs/heads/implicit-mut")?.detach(),
-                Some("refs/heads/implicit-mut".try_into()?),
-            ),
             Tip::reachable(
                 repo.rev_parse_single("refs/heads/explicit-const")?.detach(),
                 Some("refs/heads/explicit-const".try_into()?),

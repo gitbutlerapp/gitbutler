@@ -46,7 +46,6 @@ pub(super) struct Context<'a> {
     pub inserted_proxy_segments: Vec<SegmentIndex>,
     pub refs_by_id: RefsById,
     pub hard_limit: bool,
-    pub detach_entrypoint: bool,
     pub dangerously_skip_postprocessing_for_debugging: bool,
     pub worktree_by_branch: WorktreeByBranch,
 }
@@ -66,7 +65,6 @@ impl Graph {
             inserted_proxy_segments,
             refs_by_id,
             hard_limit,
-            detach_entrypoint,
             dangerously_skip_postprocessing_for_debugging,
             worktree_by_branch,
         }: Context<'_>,
@@ -80,7 +78,7 @@ impl Graph {
         self.update_entrypoint_commit_id(tip);
 
         if dangerously_skip_postprocessing_for_debugging {
-            return self.finish_post_processing(detach_entrypoint);
+            return Ok(self);
         }
 
         // Before anything, cleanup the graph.
@@ -128,13 +126,6 @@ impl Graph {
         self.compute_generation_numbers();
 
         self.symbolic_remote_names = symbolic_remote_names.to_vec();
-        self.finish_post_processing(detach_entrypoint)
-    }
-
-    fn finish_post_processing(mut self, detach_entrypoint: bool) -> anyhow::Result<Self> {
-        if detach_entrypoint {
-            self.detach_entrypoint_segment()?;
-        }
         Ok(self)
     }
 
