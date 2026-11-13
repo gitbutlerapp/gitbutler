@@ -1,9 +1,12 @@
 use but_core::RefMetadata;
 use gix::bstr::ByteSlice;
 
+use but_testsupport::{CommandExt, git_at_dir};
+
 use crate::support::{
     assert_workspace_ref, checkout_branch_in_linked_worktree, create_empty_branch_above,
     persist_default_target, repo_with_feature_branch, undo, workspace_graph, writable_scenario,
+    write_file,
 };
 
 #[test]
@@ -545,5 +548,77 @@ fn branch_rename_out_of_a_directory_prefix() -> anyhow::Result<()> {
     );
     assert_eq!(repo.head_name()?.expect("HEAD is symbolic"), foo);
 
+    Ok(())
+}
+
+#[test]
+fn renaming_a_branch_the_workspace_doesnt_show_is_refused() -> anyhow::Result<()> {
+    let (repo, tmp) = repo_with_feature_branch()?;
+    persist_default_target(&repo)?;
+    // `outside` has a commit that nothing in the workspace reaches.
+    git_at_dir(tmp.path())
+        .args(["switch", "-c", "outside", "feature"])
+        .run();
+    write_file(tmp.path(), "outside.txt", "outside\n")?;
+    git_at_dir(tmp.path()).args(["add", "outside.txt"]).run();
+    git_at_dir(tmp.path())
+        .args(["commit", "-m", "outside"])
+        .run();
+    git_at_dir(tmp.path()).args(["switch", "main"]).run();
+    let outside_tip = repo.rev_parse_single("outside")?.detach();
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let outside = gix::refs::FullName::try_from("refs/heads/outside")?;
+
+    but_api::branch::branch_rename(&mut ctx, outside.clone(), "renamed".into())
+        .expect_err("the workspace doesn't show the branch");
+
+    let repo = ctx.repo.get()?;
+    assert_eq!(
+        repo.find_reference(outside.as_ref())?.id().detach(),
+        outside_tip,
+        "the branch is where it was"
+    );
+    assert!(repo.try_find_reference("refs/heads/renamed")?.is_none());
+    Ok(())
+}
+
+#[test]
+fn renaming_a_target_branch_that_moved_past_the_workspace_can_be_undone() -> anyhow::Result<()> {
+    let (repo, tmp) = writable_scenario("checkout-head-info");
+    persist_default_target(&repo)?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let feature = gix::refs::FullName::try_from("refs/heads/feature")?;
+    but_api::branch::apply_only(&mut ctx, feature.as_ref())?;
+    // No checkout reaches the commit `main` moves on to.
+    let ahead = git_at_dir(tmp.path())
+        .args(["commit-tree", "-p", "main", "-m", "ahead", "main^{tree}"])
+        .output()?;
+    let ahead = String::from_utf8(ahead.stdout)?.trim().to_owned();
+    git_at_dir(tmp.path())
+        .args(["update-ref", "refs/heads/main", &ahead])
+        .run();
+    let mut ctx =
+        but_ctx::Context::from_repo_for_testing(gix::open(tmp.path())?)?.with_memory_app_cache();
+    let main = gix::refs::FullName::try_from("refs/heads/main")?;
+    let renamed = gix::refs::FullName::try_from("refs/heads/renamed")?;
+    let target = |ctx: &but_ctx::Context, name: &gix::refs::FullName| -> anyhow::Result<_> {
+        Ok(ctx
+            .repo
+            .get()?
+            .try_find_reference(name.as_ref())?
+            .map(|reference| reference.id().to_string()))
+    };
+
+    but_api::branch::branch_rename(&mut ctx, main.clone(), "renamed".into())?;
+    assert_eq!(target(&ctx, &main)?, None, "the old name is gone");
+    assert_eq!(target(&ctx, &renamed)?.as_deref(), Some(ahead.as_str()));
+
+    undo(&mut ctx)?;
+    assert_eq!(
+        target(&ctx, &main)?.as_deref(),
+        Some(ahead.as_str()),
+        "undo brings it back"
+    );
+    assert_eq!(target(&ctx, &renamed)?, None, "undo deletes the new name");
     Ok(())
 }
