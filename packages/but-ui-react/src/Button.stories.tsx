@@ -74,6 +74,32 @@ export const Variants = meta.story({
 });
 
 /**
+ * The coloured outlines, each a count's next step in a row: Push beside the unpushed count in blue,
+ * Update beside what's behind in amber, Merge once checks pass in green. The number and the count's
+ * glyph say what the step acts on.
+ */
+export const Colours = meta.story({
+	render: () => (
+		<div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+			<Button size="small" variant="info" aria-label="Push 8 commits">
+				8
+				<Icon name="arrow-up" />
+			</Button>
+			<Button size="small" variant="warning" aria-label="Update 3 commits">
+				3
+				<Icon name="arrow-down" />
+			</Button>
+			<Button size="small" variant="success">
+				Merge
+			</Button>
+			<Button variant="info">Push</Button>
+			<Button variant="warning">Update</Button>
+			<Button variant="success">Merge</Button>
+		</div>
+	),
+});
+
+/**
  * Danger at both strengths: soft for a destructive act in a row or a toolbar, and `danger-solid`
  * for the answer to a confirmation that destroys something.
  */

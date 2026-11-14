@@ -13,6 +13,5 @@ pop badge is soft while the pop button is solid.
 **A badge is never pressed.** Its role is to label: it says what a thing is or
 how many there are, and it never acts. So it has no hover, no focus and no
 action, and a reader never has to guess which badges are buttons. An action on
-what a badge names belongs to its row or to a `Button` beside it. Something that
-looks like a badge and acts, as a count that pushes, is a `MetaCount` with
-`onPress` or a `StatusNote`, not a badge.
+what a badge names belongs to its row or to a `Button` beside it, as a count's
+next step does (see [Meta lines](meta-lines.md)).

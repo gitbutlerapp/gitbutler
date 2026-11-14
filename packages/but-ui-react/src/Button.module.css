@@ -155,6 +155,29 @@
 	--button-hover-bg: var(--but-danger-hover);
 }
 
+/* The coloured outlines: the colour's text and an edge of it at 30% at rest, and under the pointer
+   the colour at the hover opacity, as the neutral outline takes its text colour at it. The glyph
+   keeps danger's step up, as colour loses an icon at 0.7. */
+:where(.info, .warning, .success) {
+	--button-border: 1px solid color-mix(in srgb, var(--button-fg) 30%, transparent);
+	--button-bg: transparent;
+	--button-hover-bg: color-mix(in srgb, var(--button-fg) var(--but-opacity-bg-hover), transparent);
+	--button-icon-opacity: 0.8;
+	--button-hover-icon-opacity: 0.9;
+}
+
+:where(.info) {
+	--button-fg: var(--but-info-text);
+}
+
+:where(.warning) {
+	--button-fg: var(--but-warning-text);
+}
+
+:where(.success) {
+	--button-fg: var(--but-success-text);
+}
+
 :where(.ghost) {
 	--button-border: none;
 	--button-bg: transparent;

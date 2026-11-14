@@ -30,6 +30,12 @@ export type ButtonVariant =
 	| "danger"
 	/** `danger` at full strength, for the answer to a confirmation that destroys something. */
 	| "danger-solid"
+	/** `outline` in blue, for work to send: a branch's Push, with its unpushed count. */
+	| "info"
+	/** `outline` in amber, for work waiting on you: Update for what's behind, Resolve. */
+	| "warning"
+	/** `outline` in green, for what an agent or a check finished: Merge once it's green. */
+	| "success"
 	/** No ground, no border. For actions inside something already a container: a row, a toolbar, a popup. */
 	| "ghost"
 	/** `ghost` for a button on an inverted ground — a selected row, not dark mode. */
