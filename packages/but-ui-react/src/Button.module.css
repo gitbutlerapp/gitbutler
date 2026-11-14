@@ -160,7 +160,7 @@
 }
 
 /* The coloured outlines: the colour's text and an edge of it at 30% at rest, and under the pointer
-   the colour's surface, an opaque tint: a see-through one mixes with the gray under it into mud.
+   the colour's faintest see-through tint, its a2, as Radix's outline buttons hover.
    The glyph keeps danger's step up, as colour loses an icon at 0.7. */
 :where(.info, .warning, .success) {
 	--button-edge: 1px;
@@ -172,17 +172,17 @@
 
 :where(.info) {
 	--button-fg: var(--but-info-text);
-	--button-hover-bg: var(--but-info-surface);
+	--button-hover-bg: var(--but-info-outline-hover);
 }
 
 :where(.warning) {
 	--button-fg: var(--but-warning-text);
-	--button-hover-bg: var(--but-warning-surface);
+	--button-hover-bg: var(--but-warning-outline-hover);
 }
 
 :where(.success) {
 	--button-fg: var(--but-success-text);
-	--button-hover-bg: var(--but-success-surface);
+	--button-hover-bg: var(--but-success-outline-hover);
 }
 
 :where(.ghost) {

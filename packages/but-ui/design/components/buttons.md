@@ -18,8 +18,9 @@ to a quiet one.
 - **`danger-solid`** — danger at full strength, for the answer to a
   confirmation that destroys something (see [Modals](../patterns/modals.md)).
 - **`info`, `warning`, `success`** — `outline` in a colour: the colour's text,
-  an edge of it at 30%, and under the pointer the colour's opaque surface. For
-  the next step of a coloured count (see [Meta lines](meta-lines.md)).
+  an edge of it at 30%, and under the pointer its faintest see-through tint
+  (`--but-*-outline-hover`). For the next step of a coloured count (see
+  [Meta lines](meta-lines.md)).
 
 **A coloured outline is a count's next step, and only that.** Push beside an
 unpushed count is `info`, Update beside a behind count is `warning`, Merge once
@@ -40,8 +41,7 @@ see-through: it comes to step 3 on the page and blends with a card or a bar
 under it, so it reads as one tint wherever it sits. An area (a banner, a
 callout, a tile) is a ground itself and takes `--but-*-surface`, step 3 opaque,
 so a whole strip of it stays clean on any ground. Both carry
-`--but-*-soft-foreground`. A coloured outline's hover takes the surface too,
-though it is a control: over a gray ground its see-through tint turns muddy.
+`--but-*-soft-foreground`.
 
 **Mixing the quiet two.** Ghost and outline side by side tell kinds of control
 apart, never rank them; whichever is rarer in the group reads as distinct. In

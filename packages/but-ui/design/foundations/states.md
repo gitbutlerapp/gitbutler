@@ -21,9 +21,10 @@ lifting to 0.9: a coloured glyph is too faint at 0.7.
 **Hover changes the ground, never the text.** A label keeps its colour under
 the pointer, so it never fades and never jumps to another colour. A control
 drawn in a colour of its own, without a fill, as the coloured outline buttons
-(`info`, `warning`, `success`) are, takes its colour's surface under the
-pointer (`--but-*-surface`): a clean opaque tint, where a see-through one mixes
-with the gray under it into mud.
+(`info`, `warning`, `success`) are, takes its colour's faintest see-through
+tint under the pointer (`--but-*-outline-hover`, the ramp's a2), as Radix's
+outline buttons do: tuned per hue, so it stays clean where the text colour at a
+low opacity would mix with the gray under it into mud.
 
 **Focus is the one ring.** `--but-focus-ring` (1.5px of `--but-ring`) is the
 only focus outline. The host's global stylesheet puts it on every `button` and `a`
