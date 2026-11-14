@@ -45,9 +45,12 @@ toggle is an outline because it holds state, and Merge is the single pop.
 **Sizes.** Buttons on one row share a size, whatever their variant, so the
 row reads as one line of controls. A view header's pop action and its `⋯`
 menu are both `regular`. An icon-only button is no exception: it takes its
-neighbours' size, not a smaller one because it holds less. `small` is for a
-row denser than a toolbar, such as a list row or a file card's header, and
-every button in that row is small.
+neighbours' size, not a smaller one because it holds less. `medium` is for a
+dense header, a card's or a pane's, and for buttons beside a small
+`SegmentedControl` or a medium `ToggleGroup`, which share its height. `small`
+is for a row denser than that, such as a list row or a file card's header, and
+every button in that row is small. Fields stay `regular` whatever their
+neighbours: a field shorter than a regular button is too small to type in.
 
 **The inverted pair.** `ghost-inverted` and `outline-inverted` are for a
 button on an inverted ground — a selected row, where the text turns to

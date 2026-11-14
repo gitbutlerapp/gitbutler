@@ -72,6 +72,21 @@
 	}
 }
 
+:where(.medium) {
+	--button-gap: var(--but-button-medium-gap);
+	--button-height: var(--but-button-medium-height);
+	--button-padding-inline: calc(
+		var(--but-button-medium-padding-inline) + var(--but-density-padding)
+	);
+	--icon-size: var(--but-button-medium-icon-size);
+
+	/* 2px wider than tall, at any density. */
+	&:where(.iconOnly) {
+		--button-width: calc(var(--but-button-medium-height) + 2px);
+		--button-padding-inline: var(--but-button-medium-icon-only-padding-inline);
+	}
+}
+
 :where(.regular) {
 	--button-gap: var(--but-button-regular-gap);
 	--button-height: var(--but-button-regular-height);
