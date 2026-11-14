@@ -26,9 +26,7 @@ use crate::overlays::MenuItem;
 use crate::state::{
     NavigatorPlace, Prefs, ProjectEntry, ProjectId, ScopeLines, Store, TerminalRuns, TileDragFeel,
 };
-use crate::theme::{
-    Accent, Appearance, CodeSize, ColorScheme, Corners, Density, Ground, Shade, Theme, UiScale,
-};
+use crate::theme::{Accent, Appearance, CodeSize, Corners, Density, Ground, Shade, Theme, UiScale};
 use crate::ui::fold::{self, Folds};
 use crate::ui::modal::{ModalSize, modal};
 use crate::ui::scrollbar::{Scroll, scrolled};
@@ -656,8 +654,7 @@ impl SettingsView {
     fn look_rows(&self, window: &Window, cx: &Context<Self>) -> Vec<Row> {
         let theme = Theme::get(cx);
         let prefs = &self.store.read(cx).prefs;
-        let shade = prefs.appearance.shade(window.appearance());
-        let own_colours = matches!(prefs.scheme(shade), ColorScheme::GitButler);
+        let own_colours = theme.own_colours();
         let colours_note = "Only in GitButler's colours: a theme brings its own.";
         let (store, app) = (self.store.clone(), self.app.clone());
         let presets: Vec<_> = crate::theme::presets()
@@ -889,11 +886,13 @@ impl SettingsView {
             };
             let app = self.app.clone();
             let label = prefs.scheme(shade).label().to_owned();
-            let scheme = select(id, label, theme).on_click(move |_, window, cx| {
-                app.update_later(window, cx, move |app, window, cx| {
-                    app.pick_color_scheme(shade, window, cx)
-                })
-            });
+            let scheme = select(id, label.clone(), theme)
+                .aria_label(format!("{name} theme {label}"))
+                .on_click(move |_, window, cx| {
+                    app.update_later(window, cx, move |app, window, cx| {
+                        app.pick_color_scheme(shade, window, cx)
+                    })
+                });
             h_flex()
                 .gap(dp(8.))
                 .child(

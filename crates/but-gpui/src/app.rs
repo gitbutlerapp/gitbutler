@@ -755,7 +755,7 @@ impl AppView {
             .map(|scheme| {
                 let in_use = scheme == current;
                 let detail = match (&scheme, shade) {
-                    _ if in_use => Some("In use"),
+                    _ if in_use => Some("Current"),
                     (ColorScheme::GitButler, Shade::Light) => Some("GitButler's light colours"),
                     (ColorScheme::GitButler, Shade::Dark) => Some("GitButler's dark colours"),
                     (ColorScheme::Ghostty, Shade::Light) => {
@@ -5984,19 +5984,13 @@ pub(crate) fn place_traffic_lights(away: bool, window: &Window, cx: &App) {
 /// `previewed`, that scheme in its shade.
 fn theme_for(store: &Store, previewed: Option<&(Shade, ColorScheme)>, window: &Window) -> Theme {
     let prefs = &store.prefs;
-    let mut schemes = [&prefs.light_scheme, &prefs.dark_scheme];
-    let appearance = match previewed {
-        Some((Shade::Light, scheme)) => {
-            schemes[0] = scheme;
-            crate::theme::Appearance::Light
+    let (shade, scheme) = match previewed {
+        Some((shade, scheme)) => (*shade, scheme),
+        None => {
+            let shade = prefs.appearance.shade(window.appearance());
+            (shade, prefs.scheme(shade))
         }
-        Some((Shade::Dark, scheme)) => {
-            schemes[1] = scheme;
-            crate::theme::Appearance::Dark
-        }
-        None => prefs.appearance,
     };
-    let system = window.appearance();
     let ghostty = but_tty::Ghostty::load();
     let digit = |family: &str| crate::ui::digit_advance(family, window.text_system());
     let installed = |family: &str| digit(family).is_some();
@@ -6005,7 +5999,7 @@ fn theme_for(store: &Store, previewed: Option<&(Shade, ColorScheme)>, window: &W
         true => (prefs.ground, prefs.accent, prefs.corners, prefs.density),
         false => Default::default(),
     };
-    Theme::new(appearance, schemes, system, prefs.code_size, &ghostty)
+    Theme::new(shade, scheme, prefs.code_size, &ghostty)
         .with_ground(ground)
         .with_accent(accent, &prefs.accent_color)
         .with_corners(corners)
