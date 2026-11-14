@@ -272,13 +272,11 @@ pub fn create_similarity_lut<C: ChangesetCommit>(
                         let in_rx = in_rx.clone();
                         let out_tx = out_tx.clone();
                         let repo = repo.clone().into_sync();
-                        move || -> anyhow::Result<()> {
-                            let mut repo = repo.to_thread_local();
-                            repo.object_cache_size_if_unset(
-                                repo.compute_object_cache_size_for_tree_diffs(
-                                    &*repo.index_or_empty()?,
-                                ),
-                            );
+                        move || {
+                            // Workers run without an object cache. Commits next to each other
+                            // rarely go to the same worker, so a cache would seldom hit, and one
+                            // sized for a large index can grow to hundreds of megabytes per worker.
+                            let repo = repo.to_thread_local();
                             for (idx, lhs, rhs) in in_rx {
                                 let res = id_for_tree_diff(&repo, lhs, rhs)
                                     .map(|opt| opt.map(|cs_id| (idx, cs_id, rhs)));
@@ -286,7 +284,6 @@ pub fn create_similarity_lut<C: ChangesetCommit>(
                                     break;
                                 }
                             }
-                            Ok(())
                         }
                     })?;
             }
