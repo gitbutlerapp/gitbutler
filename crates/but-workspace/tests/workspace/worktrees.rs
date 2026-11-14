@@ -431,6 +431,52 @@ fn a_worktree_on_a_padding_commit_rests_on_the_lane_owning_it() -> Result<()> {
     Ok(())
 }
 
+/// The target moved past the workspace base: it fast-forwarded over stack `A` and gained a
+/// commit on top. History the target has is no lane's to rest on, even where another lane holds
+/// it, so worktrees made on it rest on the target.
+#[test]
+fn worktrees_on_history_the_target_has_rest_on_the_target() -> Result<()> {
+    let (repo, _tmp) = writable_scenario_slow("worktree-workspace");
+    but_testsupport::invoke_bash_at_dir(
+        r#"git update-ref refs/remotes/origin/main "$(git commit-tree -p A -m upstream 'A^{tree}')" &&
+           git worktree add -q -b one wt-one origin/main &&
+           git worktree add -q -b two wt-two origin/main &&
+           git -C wt-two commit -q --allow-empty -m two &&
+           git worktree add -q -b on-landed wt-on-landed A"#,
+        repo.workdir().expect("fixture has a working directory"),
+    );
+    let mut meta = but_meta::VirtualBranchesTomlMetadata::from_path(
+        repo.path().join("should-never-be-written.toml"),
+    )?;
+    add_workspace(&mut meta);
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
+    add_stack(&mut meta, 2, "B", StackState::InWorkspace);
+    let info = ref_info_with_worktree_tips(&repo, &meta)?;
+
+    let rests_on = |branch: &str| -> Vec<String> {
+        let branch = gix::refs::Category::LocalBranch
+            .to_full_name(branch)
+            .expect("valid branch name");
+        info.lane_chain(branch.as_ref())
+            .into_iter()
+            .skip(1)
+            .filter_map(|(lane, index)| lane.segments_from(index)[0].ref_name())
+            .map(|name| name.shorten().to_string())
+            .collect()
+    };
+    assert_eq!(
+        rests_on("two"),
+        Vec::<String>::new(),
+        "`one` holds the commit `two` was made on, but the target has it"
+    );
+    assert_eq!(
+        rests_on("on-landed"),
+        Vec::<String>::new(),
+        "`A` holds the commit `on-landed` was made on, but the target has it"
+    );
+    Ok(())
+}
+
 #[test]
 fn worktrees_are_empty_without_seeded_tips() -> Result<()> {
     let mut db = but_testsupport::in_memory_db();

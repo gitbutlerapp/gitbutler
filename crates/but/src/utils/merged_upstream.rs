@@ -65,6 +65,7 @@ impl MergedUpstream {
         if allow_merged.allow_merged {
             return this;
         }
+        let mut named_tips = gix::hashtable::HashSet::default();
         for segment in head_info.stacks.iter().flat_map(|stack| &stack.segments) {
             if segment_is_merged_upstream(segment)
                 && let Some(ref_info) = &segment.ref_info
@@ -76,18 +77,25 @@ impl MergedUpstream {
                     this.integrated_commits.insert(commit.id);
                 }
             }
+            if segment.ref_info.is_some()
+                && let Some(tip) = segment.commits.first()
+            {
+                named_tips.insert(tip.id);
+            }
         }
         // A branch checked out in a linked worktree is forked out of the stack
         // rows entirely and shown only here (see `Graph::worktree_tips` and
-        // `Graph::fork_out_worktree_checkout_refs`), so the loop above never
-        // sees its name. Its classification still lives on the stack segment
-        // that owns the commit, keyed only by commit id now - `integrated_commits`
-        // already has it from the pass above, so a worktree sitting exactly on
-        // one is exactly the merged-upstream case.
+        // `Graph::fork_out_refs_outside_lanes`), so the loop above never sees
+        // its name. Its commits stay in the stack without its name and keep
+        // their classification, keyed only by commit id now - so a worktree
+        // sitting exactly on one is exactly the merged-upstream case. Unless a
+        // branch still names that commit: it is that branch's, and a new branch
+        // made on it has nothing that landed.
         for worktree in &head_info.worktrees {
             if worktree.commits().next().is_none()
                 && let Some(ref_name) = &worktree.ref_name
                 && this.integrated_commits.contains(&worktree.head)
+                && !named_tips.contains(&worktree.head)
             {
                 this.merged_branches.insert(ref_name.clone());
             }
