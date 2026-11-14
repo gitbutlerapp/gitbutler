@@ -194,19 +194,6 @@ fn assert_locked_index_rejects_enter_edit_mode(symlink_index: bool) -> Result<()
     } else {
         index_path.clone()
     };
-    #[expect(deprecated)]
-    let git2_index_path = ctx
-        .git2_repo
-        .get()?
-        .index()?
-        .path()
-        .map(std::fs::canonicalize)
-        .transpose()?;
-    assert_eq!(
-        git2_index_path,
-        Some(index_path.canonicalize()?),
-        "the probe must lock the index that checkout writes"
-    );
     let index_before = std::fs::read(&index_path)?;
     let head_name_before = repo.head_name()?.context("symbolic HEAD")?;
     let head_id_before = repo.head_id()?.detach();
@@ -492,6 +479,20 @@ right
 
 "#]]
     );
+    // Finishing leaves the index at the workspace's tree, without conflict stages.
+    snapbox::assert_data_eq!(
+        but_testsupport::visualize_index(&*repo.open_index()?),
+        snapbox::str![[r#"
+100644:4527bbc conflict
+100644:6178079 file
+
+"#]]
+    );
+    assert_eq!(
+        but_testsupport::git_status(&repo)?,
+        "",
+        "the worktree matches the workspace"
+    );
 
     Ok(())
 }
@@ -711,4 +712,77 @@ Some(
     );
 
     Ok(())
+}
+
+/// Like Git's forced checkout, entering edit mode removes untracked files and keeps ignored
+/// ones, and records the conflict's stages in the index. Cancelling brings untracked files back.
+#[test]
+fn enter_and_cancel_keep_ignored_files_and_restore_untracked_ones() -> Result<()> {
+    let (mut ctx, _tempdir) = command_ctx("enter_edit_mode_with_conflicted_commit")?;
+    let repo = ctx.repo.get()?;
+    let conflicted_commit = repo
+        .find_reference("refs/tags/conflicted-target")?
+        .peel_to_commit()?
+        .id()
+        .detach();
+    let worktree = repo.workdir().context("non-bare")?.to_owned();
+    std::fs::write(repo.git_dir().join("info").join("exclude"), "*.log\n")?;
+    drop(repo);
+    std::fs::write(worktree.join("untracked.txt"), "untracked\n")?;
+    std::fs::write(worktree.join("ignored.log"), "ignored\n")?;
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let stack_id = {
+        let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+        stack_id(&ws)?
+    };
+    enter_edit_mode(
+        &mut ctx,
+        conflicted_commit,
+        stack_id,
+        guard.write_permission(),
+    )?;
+
+    let repo = ctx.repo.get()?;
+    // The conflict is recorded as stages only, like a merge in Git.
+    snapbox::assert_data_eq!(
+        but_testsupport::visualize_index(&*repo.open_index()?),
+        snapbox::str![[r#"
+100644:df967b9 conflict:1
+100644:45cf141 conflict:2
+100644:c376d89 conflict:3
+
+"#]]
+    );
+    // The untracked file is gone and the ignored one stays.
+    snapbox::assert_data_eq!(
+        status_with_ignored(&repo)?,
+        snapbox::str![[r#"
+UU conflict
+!! ignored.log
+
+"#]]
+    );
+    drop(repo);
+
+    abort_and_return_to_workspace(&mut ctx, true, guard.write_permission())?;
+    assert_eq!(
+        std::fs::read_to_string(worktree.join("untracked.txt"))?,
+        "untracked\n",
+        "cancelling restores the untracked file"
+    );
+    assert_eq!(
+        std::fs::read_to_string(worktree.join("ignored.log"))?,
+        "ignored\n",
+        "the ignored file was never touched"
+    );
+    Ok(())
+}
+
+fn status_with_ignored(repo: &gix::Repository) -> Result<String> {
+    let out = but_testsupport::git(repo)
+        .args(["status", "--porcelain", "--ignored"])
+        .output()?;
+    anyhow::ensure!(out.status.success(), "git status failed");
+    Ok(String::from_utf8(out.stdout)?)
 }

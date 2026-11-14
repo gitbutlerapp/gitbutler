@@ -60,12 +60,30 @@ pub(super) struct Plan {
 
 impl Plan {
     /// Plan the checkout of `trees` over an index that has `index`'s entries.
+    ///
+    /// Where a submodule is in conflict, the worktree gets no side, so the user can put the wanted
+    /// one in place. A submodule's directory stays if it has anything in it, as always.
     pub fn new(index: &gix::index::State, trees: &Trees, conflicts: Conflicts<'_>) -> Self {
-        let changes = changes(&trees.baseline, &trees.target);
+        let conflicts = conflict_stages(&trees.target, conflicts);
+        let mut changes = changes(&trees.baseline, &trees.target);
+        for conflict in conflicts
+            .iter()
+            .filter(|conflict| conflict.content.is_submodule())
+        {
+            if trees
+                .baseline
+                .entry_by_path(conflict.path.as_ref())
+                .is_some()
+            {
+                changes.insert(conflict.path.clone(), Change::Delete);
+            } else {
+                changes.remove(&conflict.path);
+            }
+        }
         Plan {
             records: already_in_worktree(trees, index, &changes),
             removals: deleted_by_new_head(trees, index),
-            conflicts: conflict_stages(conflicts),
+            conflicts,
             changes,
         }
     }
@@ -219,32 +237,33 @@ fn deleted_by_new_head(trees: &Trees, index: &gix::index::State) -> Vec<BString>
         .collect()
 }
 
-fn conflict_stages(conflicts: Conflicts<'_>) -> Vec<ConflictEntry> {
-    conflicts
-        .into_iter()
-        .flat_map(|outcome| outcome.conflicts.iter())
-        .filter(|conflict| conflict.is_unresolved(TreatAsUnresolved::git()))
-        .flat_map(|conflict| {
-            let path = conflict.ours.location();
-            let stages = [
-                ConflictStage::Base,
-                ConflictStage::Ours,
-                ConflictStage::Theirs,
-            ];
-            stages
-                .into_iter()
-                .zip(conflict.entries())
-                .filter_map(move |(stage, entry)| {
-                    let entry = entry?;
-                    Some(ConflictEntry {
-                        path: path.to_owned(),
-                        stage,
-                        content: Content {
-                            id: entry.id,
-                            mode: entry.mode.into(),
-                        },
-                    })
-                })
+/// The stages of the unresolved conflicts in `conflicts`, which produced `target`, at the paths
+/// Git records them, which for a side moved aside to make room is the path it moved to.
+fn conflict_stages(target: &gix::index::State, conflicts: Conflicts<'_>) -> Vec<ConflictEntry> {
+    let Some(outcome) = conflicts else {
+        return Vec::new();
+    };
+    let mut stages = target.clone();
+    outcome.index_changed_after_applying_conflicts(
+        &mut stages,
+        TreatAsUnresolved::git(),
+        gix::merge::tree::apply_index_entries::RemovalMode::Prune,
+    );
+    stages
+        .entries()
+        .iter()
+        .filter_map(|entry| {
+            let stage = match entry.stage() {
+                gix::index::entry::Stage::Unconflicted => return None,
+                gix::index::entry::Stage::Base => ConflictStage::Base,
+                gix::index::entry::Stage::Ours => ConflictStage::Ours,
+                gix::index::entry::Stage::Theirs => ConflictStage::Theirs,
+            };
+            Some(ConflictEntry {
+                path: entry.path(&stages).to_owned(),
+                stage,
+                content: Content::of(entry),
+            })
         })
         .collect()
 }

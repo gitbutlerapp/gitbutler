@@ -16,20 +16,16 @@ doctest = false
 but-graph.workspace = true
 but-rebase.workspace = true
 but-core.workspace = true
-but-oxidize.workspace = true
 but-ctx.workspace = true
 
 gitbutler-commit.workspace = true
 gitbutler-operating-modes.workspace = true
 gitbutler-oplog.workspace = true
-gitbutler-workspace.workspace = true
 
-git2.workspace = true
 gix.workspace = true
 anyhow.workspace = true
 bstr.workspace = true
 serde.workspace = true
-tracing.workspace = true
 schemars = { workspace = true, optional = true }
 but-schemars = { workspace = true, optional = true }
 git-meta-lib.workspace = true
