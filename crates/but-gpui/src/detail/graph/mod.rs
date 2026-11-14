@@ -52,6 +52,9 @@ actions!(graph, [StepUp, StepDown, StepLeft, StepRight]);
 
 /// How far apart rows are, in pixels at 100%.
 const ROW: f32 = 72.;
+/// How much further up the next row is from one with tags, which sit above its commits, so the
+/// turns crossing the gap there go over them.
+const TAGS: f32 = 26.;
 /// A commit up close: a pill with its title, taller nearer still, with who wrote it and when.
 const PILL: Size<f32> = Size {
     width: 224.,
@@ -103,6 +106,9 @@ struct Node {
     labels: Vec<Label>,
     /// Its centre, in pixels at 100% from the bottom of the middle column: up is negative.
     at: Point<f32>,
+    /// How far above its row's commits the gap up to the next row starts, past their tags, in
+    /// pixels at 100%.
+    tags: f32,
     /// Its first parent in the graph, which it grows out of when it's new.
     parent: Option<usize>,
     /// It has parents the graph stops above.
@@ -265,6 +271,8 @@ struct Bend {
     /// How much higher its turns cross their gaps, out of the parent and into the child, as
     /// parts of the gap.
     lift: [f32; 2],
+    /// How much more room the tags above its parent's row take, in the layout's units.
+    tags: f32,
 }
 
 impl Default for Bend {
@@ -272,6 +280,7 @@ impl Default for Bend {
         Bend {
             start: point(0., 0.),
             lift: [0., 0.],
+            tags: 0.,
         }
     }
 }
@@ -288,16 +297,18 @@ impl Bend {
                 self.lift[0] + other.lift[0] * left,
                 self.lift[1] + other.lift[1] * left,
             ],
+            tags: self.tags + other.tags * left,
         }
     }
 
-    /// `ends` with its parent's end where it's drawn, a unit `k` pixels.
+    /// `ends` with its parent's end and tags where they're drawn, a unit `k` pixels.
     fn on(self, ends: Ends, k: f32) -> Ends {
         Ends {
             start: point(
                 ends.start.x + self.start.x * k,
                 ends.start.y + self.start.y * k,
             ),
+            tags: ends.tags + self.tags * k,
             ..ends
         }
     }
@@ -891,8 +902,8 @@ impl GraphView {
                         old.edges.get(*old.edge_keys.get(key)?)?,
                         scene.edges.get(*ix)?,
                     );
-                    let same = (old.nodes.get(was.parent)?.key == scene.nodes.get(is.parent)?.key)
-                        .then_some(point(0., 0.));
+                    let (from, to) = (old.nodes.get(was.parent)?, scene.nodes.get(is.parent)?);
+                    let same = (from.key == to.key).then_some(point(0., 0.));
                     let start = match same {
                         Some(none) => none,
                         None => {
@@ -906,7 +917,8 @@ impl GraphView {
                         rise(was.tracks[0]) - rise(is.tracks[0]),
                         rise(was.tracks[1]) - rise(is.tracks[1]),
                     ];
-                    let bend = Bend { start, lift };
+                    let tags = from.tags - to.tags;
+                    let bend = Bend { start, lift, tags };
                     (bend != Bend::default()).then(|| (key.clone(), bend))
                 })
                 .collect();
@@ -1862,7 +1874,8 @@ fn build(mut graph: backend::graph::Graph, mut marks: Marks, history: usize) -> 
                 time: commit.time,
                 kind,
                 labels,
-                at: point(place.x, -(place.row as f32) * ROW),
+                at: point(place.x, 0.),
+                tags: 0.,
                 parent: input.parents.first().copied().flatten(),
                 cut: input.parents.iter().any(Option::is_none),
                 shape: match commit.parents.len() > 1 {
@@ -1886,13 +1899,41 @@ fn build(mut graph: backend::graph::Graph, mut marks: Marks, history: usize) -> 
             time: 0,
             kind: empty_kind(&empty),
             labels: empty.labels,
-            at: point(place.x, -(place.row as f32) * ROW),
+            at: point(place.x, 0.),
+            tags: 0.,
             parent: input.parents.first().copied().flatten(),
             cut: input.parents.iter().any(Option::is_none),
             shape: Shape::Empty,
             slot: None,
         }),
     );
+    // A row is higher where its commits have tags, which an empty branch's don't: they're
+    // where its commit would be.
+    let rows = (laid.places.iter())
+        .map(|place| place.row as usize + 1)
+        .max()
+        .unwrap_or(0);
+    let mut room = vec![0.; rows];
+    for (node, place) in nodes.iter().zip(&laid.places) {
+        if !node.labels.is_empty()
+            && node.shape != Shape::Empty
+            && let Some(row) = room.get_mut(place.row as usize)
+        {
+            *row = TAGS;
+        }
+    }
+    let ys: Vec<f32> = (room.iter())
+        .scan(0., |y, room| {
+            let at = *y;
+            *y -= ROW + room;
+            Some(at)
+        })
+        .collect();
+    for (node, place) in nodes.iter_mut().zip(&laid.places) {
+        let row = place.row as usize;
+        node.at.y = ys.get(row).copied().unwrap_or_default();
+        node.tags = room.get(row).copied().unwrap_or_default();
+    }
     let extent = extent_of(nodes.iter().map(|node| node.at))
         .unwrap_or_else(|| Bounds::new(point(0., 0.), size(0., 0.)));
     Scene {
@@ -2787,6 +2828,8 @@ struct Ends {
     start: Point<f32>,
     end: Point<f32>,
     halves: (f32, f32),
+    /// The room the tags above the parent's row take, in pixels.
+    tags: f32,
 }
 
 /// Where `edge` runs, with the layout's 0 drawn at `origin` and a unit `k` pixels.
@@ -2805,6 +2848,7 @@ fn edge_ends(
         start: point(origin.x + from.x * k, origin.y + from.y * k - halves.0),
         end: point(origin.x + to.x * k, origin.y + to.y * k + halves.1),
         halves,
+        tags: parent.tags * k,
     })
 }
 
@@ -2855,9 +2899,15 @@ fn stretches(
     spacing: Spacing,
     lift: [f32; 2],
 ) -> [Option<Stretch>; 3] {
-    let Ends { start, end, halves } = ends;
-    // The bottom of the gap above the parent's row, and of the one below the child's.
-    let above_parent = start.y + halves.0 - spacing.half;
+    let Ends {
+        start,
+        end,
+        halves,
+        tags,
+    } = ends;
+    // The bottom of the gap above the parent's row, over its tags, and of the one below the
+    // child's.
+    let above_parent = start.y + halves.0 - spacing.half - tags;
     let below_child = end.y - halves.1 + spacing.half + spacing.gap;
     let [out, into] = edge.tracks;
     match edge.route {
@@ -3587,8 +3637,9 @@ mod tests {
     use gpui::{SharedString, point};
 
     use super::{
-        Bend, Camera, MOVE, Marks, Move, TagSlides, Tip, bent, build, commonest, glided, held,
-        leans_right, names, placed, reflowed,
+        Bend, Camera, Ends, Label, Look, MOVE, Marks, Move, ROW, Route, Spacing, Stretch, TAGS,
+        TagSlides, Tip, bent, build, commonest, glided, held, layout, leans_right, names, placed,
+        reflowed, stretches,
     };
     use crate::backend::CommitId;
     use crate::backend::graph::{Graph, GraphCommit};
@@ -3655,6 +3706,69 @@ mod tests {
             places(&[a, merged_b, merged_a, b, base], lane),
             places(&[merged_b, merged_a, b, a, base], Marks::default()),
             "that A was a seed, read first, doesn't say where it goes"
+        );
+    }
+
+    #[test]
+    fn a_row_with_tags_leaves_room_for_them_above_it() {
+        let graph = Graph {
+            commits: Vec::from([commit(2, &[1]), commit(1, &[0]), commit(0, &[])]),
+            target: Some(id(2)),
+            ..Graph::default()
+        };
+        let marks = Marks {
+            labels: HashMap::from([(
+                id(1),
+                Vec::from([Label {
+                    text: "branch".into(),
+                    look: Look::Target,
+                }]),
+            )]),
+            ..Marks::default()
+        };
+        let scene = build(graph, marks, 100);
+        let y = |n: u8| (scene.nodes.iter().find(|node| node.id == id(n))).map(|node| node.at.y);
+        let (Some(bottom), Some(tagged), Some(top)) = (y(0), y(1), y(2)) else {
+            panic!("all three commits are drawn");
+        };
+        assert_eq!(
+            bottom - tagged,
+            ROW,
+            "a row without tags is a row below the next"
+        );
+        assert_eq!(
+            tagged - top,
+            ROW + TAGS,
+            "the tags on 1 sit in the gap above it, which grows by their room"
+        );
+    }
+
+    #[test]
+    fn a_turn_out_of_a_row_with_tags_crosses_over_them() {
+        // A fork out of a pill at 0 into one a tagged row up, at 100%.
+        let (half, gap) = (15., ROW - 30.);
+        let edge = layout::Edge {
+            child: 1,
+            parent: 0,
+            route: Route::Fork,
+            tracks: [None, None],
+            aside: 0.,
+        };
+        let ends = Ends {
+            start: point(0., -half),
+            end: point(100., -(ROW + TAGS) + half),
+            halves: (half, half),
+            tags: TAGS,
+        };
+        let spacing = Spacing { gap, half, k: 1. };
+        let [Some(Stretch::Turn(_, across)), ..] = stretches(&edge, ends, spacing, [0., 0.]) else {
+            panic!("a fork turns out of its parent first");
+        };
+        let tags_top = -half - TAGS;
+        assert!(
+            across < tags_top && across > ends.end.y,
+            "it crosses between the tags' top at {tags_top} and the child at {}, not at {across}",
+            ends.end.y
         );
     }
 
@@ -3742,6 +3856,7 @@ mod tests {
         let bend = Bend {
             start: point(0., 144.),
             lift: [0.25, 0.],
+            tags: TAGS,
         };
         let load = Move {
             edges: HashMap::from([(key.clone(), bend)]),
