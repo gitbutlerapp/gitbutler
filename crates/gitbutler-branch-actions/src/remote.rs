@@ -1,6 +1,5 @@
 use anyhow::Result;
 use but_serde::BStringForFrontend;
-use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr as _};
 use serde::Serialize;
 
 use but_workspace::ui::Author;
@@ -32,14 +31,18 @@ but_schemars::register_sdk_type!(RemoteCommit);
 
 pub(crate) fn commit_to_remote_commit(commit: &gix::Commit) -> Result<RemoteCommit> {
     let parent_ids = commit.parent_ids().map(|id| id.detach()).collect();
+    let but_commit = but_core::Commit::try_from(commit.clone())?;
     Ok(RemoteCommit {
         id: commit.id().to_string(),
-        description: commit.message_bstr().into(),
+        description: commit.message_raw()?.into(),
         authored_at: u128::try_from(commit.author()?.time()?.seconds).unwrap() * 1000,
         committed_at: u128::try_from(commit.time()?.seconds).unwrap() * 1000,
         author: commit.author()?.into(),
-        change_id: commit.change_id().map(|c| c.to_string()),
+        change_id: but_commit
+            .headers()
+            .and_then(|headers| headers.change_id)
+            .map(|c| c.to_string()),
         parent_ids,
-        conflicted: commit.is_conflicted(),
+        conflicted: but_commit.is_conflicted(),
     })
 }

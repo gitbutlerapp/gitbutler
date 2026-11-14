@@ -1196,7 +1196,6 @@ dependencies = [
  "fuzzy-matcher",
  "gitbutler-branch",
  "gitbutler-branch-actions",
- "gitbutler-commit",
  "gitbutler-edit-mode",
  "gitbutler-git",
  "gitbutler-operating-modes",
@@ -1337,7 +1336,6 @@ dependencies = [
  "futures",
  "gitbutler-branch",
  "gitbutler-branch-actions",
- "gitbutler-commit",
  "gitbutler-edit-mode",
  "gitbutler-git",
  "gitbutler-operating-modes",
@@ -1665,7 +1663,6 @@ dependencies = [
  "but-schemars",
  "but-testsupport",
  "chrono",
- "gitbutler-commit",
  "gix",
  "schemars 1.2.1",
  "serde",
@@ -2226,7 +2223,6 @@ dependencies = [
  "but-workspace",
  "chrono",
  "git2",
- "gitbutler-commit",
  "gitbutler-git",
  "gitbutler-reference",
  "gitbutler-repo",
@@ -4811,7 +4807,6 @@ dependencies = [
  "but-workspace",
  "ctor 0.6.3",
  "gitbutler-branch",
- "gitbutler-commit",
  "gitbutler-operating-modes",
  "gitbutler-oplog",
  "gitbutler-project",
@@ -4830,15 +4825,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gitbutler-commit"
-version = "0.0.0"
-dependencies = [
- "bstr",
- "but-core",
- "gix",
-]
-
-[[package]]
 name = "gitbutler-edit-mode"
 version = "0.0.0"
 dependencies = [
@@ -4854,7 +4840,6 @@ dependencies = [
  "but-testsupport",
  "git-meta-lib",
  "git2",
- "gitbutler-commit",
  "gitbutler-operating-modes",
  "gitbutler-oplog",
  "gitbutler-workspace",

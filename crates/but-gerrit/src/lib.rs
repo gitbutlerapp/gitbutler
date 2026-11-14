@@ -4,7 +4,6 @@ use bstr::{BString, ByteSlice};
 use but_core::{ChangeId, commit::Headers};
 use but_ctx::Context;
 use but_db::DbHandle;
-use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr as _};
 use serde::{Deserialize, Serialize};
 
 use crate::parse::PushOutput;
@@ -255,8 +254,9 @@ fn mappings(
     let mut mappings = vec![];
     let host = gerrit_host(repo);
     for id in candidate_ids {
-        let commit = repo.find_commit(id)?;
-        let msg = commit.message_bstr().to_string();
+        let commit = but_core::Commit::try_from(repo.find_commit(id)?)?;
+        let msg = commit.message.to_string();
+        let change_id = commit.headers().and_then(|headers| headers.change_id);
         let title = msg.lines().next().unwrap_or_default();
 
         let change_id_review_url = push_output
@@ -264,8 +264,8 @@ fn mappings(
             .iter()
             .find(|c| c.commit_title == title)
             .and_then(|c| {
-                commit
-                    .change_id()
+                change_id
+                    .clone()
                     .map(|change_id| (change_id, c.url.clone()))
             });
 
@@ -275,7 +275,7 @@ fn mappings(
                 change_id: change_id.to_string(),
                 review_url,
             });
-        } else if let (Some(change_id), Some(host)) = (commit.change_id(), host.as_ref()) {
+        } else if let (Some(change_id), Some(host)) = (change_id, host.as_ref()) {
             // Fallback: generate review URL if we have a change ID and a host
             let gerrit_change_id = GerritChangeId::from(&change_id);
             let review_url = format!("https://{host}/q/{gerrit_change_id}");

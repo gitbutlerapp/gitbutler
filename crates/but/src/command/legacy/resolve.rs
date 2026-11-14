@@ -10,7 +10,6 @@ use but_api::legacy::modes::{
 };
 use but_core::sync::RepoShared;
 use but_ctx::Context;
-use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr};
 use gitbutler_edit_mode::commands::changes_from_initial;
 use gitbutler_operating_modes::OperatingMode;
 
@@ -251,9 +250,10 @@ fn enter_resolution(
     let (commit_gix_oid, commit_ref) = parse_commit_id(ctx, commit_id_str)?;
 
     let repo = ctx.repo.get()?;
-    let commit = repo
-        .find_commit(commit_gix_oid)
-        .context("Failed to find commit")?;
+    let commit = but_core::Commit::try_from(
+        repo.find_commit(commit_gix_oid)
+            .context("Failed to find commit")?,
+    )?;
 
     if !commit.is_conflicted() {
         return Err(anyhow::anyhow!(
@@ -1612,14 +1612,14 @@ pub(crate) fn find_conflicted_commits(
 
     for (branch_name, commit_ids, worktree_lane) in branches {
         for oid in commit_ids {
-            let commit = repo.find_commit(oid)?;
+            let commit = but_core::Commit::try_from(repo.find_commit(oid)?)?;
 
             if commit.is_conflicted() {
                 // Commit messages can come from untrusted upstreams and
                 // end up on the terminal (pull summary, resolve listing).
                 let message = sanitize_terminal_text(
                     &commit
-                        .message_bstr()
+                        .message
                         .to_string()
                         .lines()
                         .next()
