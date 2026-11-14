@@ -3694,7 +3694,6 @@ impl Navigator {
                     .flex_grow(1.)
                     .min_w_0()
                     .truncate()
-                    .tooltip(Tooltip::text(path.display().to_string()))
                     .child(label.clone()),
             )
             .when(!open, |el| {
@@ -3860,7 +3859,6 @@ impl Navigator {
             .flex_grow(1.)
             .min_w_0()
             .gap(dp(6.))
-            .tooltip(stack_tooltip(self.store.clone(), item.clone()))
             .child(count_badge(branches.len(), theme).when(style.solid, |el| {
                 el.bg(theme.inverse_soft).text_color(quiet)
             }))
@@ -3947,18 +3945,6 @@ impl Navigator {
         let checks = (branch.review.as_ref())
             .filter(|review| store.review_state(id, review) != ReviewState::Merged)
             .and_then(|review| review.checks);
-        // A pull request's title names the row (see `branch_name`); its branch's name, number
-        // and how CI stands are in the tooltip, and on the branch's page. Else its name is, in
-        // full, as agents' branches can differ only at their end, past where the row cuts it.
-        let tip = (branch.review.as_ref())
-            .filter(|review| !review.title.is_empty())
-            .map(|review| {
-                let checks = checks
-                    .map(|checks| format!(" · {}", review::checks_summary(checks, theme).2))
-                    .unwrap_or_default();
-                format!("{name} · #{}{checks}", review.number)
-            })
-            .unwrap_or_else(|| name.to_owned());
         let key = (id.clone(), ref_name.cloned());
         let clicked = ClickOpened::Here(key.clone());
         let closed = !self.is_open(&clicked) && !branch.commits.is_empty();
@@ -4004,7 +3990,6 @@ impl Navigator {
                     None => branch_name(name, review, &style)
                         .id(ElementId::Name(format!("name-{id}-{row_id}").into()))
                         .flex_1()
-                        .tooltip(Tooltip::text(tip))
                         .into_any_element(),
                 })
                 // CI only while it runs or after it failed: passing is the usual state. Pressed,
@@ -4778,26 +4763,6 @@ fn same_place(old: &Row, new: &Row) -> bool {
     match (old, new) {
         (Row::Fewer(project, ref_name), Row::More(p, r, _)) => project == p && ref_name == r,
         _ => old == new,
-    }
-}
-
-/// A stack caption's tooltip, its branches top to bottom, worded only when it shows.
-fn stack_tooltip(
-    store: Entity<Store>,
-    caption: Selection,
-) -> impl Fn(&mut Window, &mut App) -> gpui::AnyView + 'static {
-    move |window, cx| {
-        let store = store.read(cx);
-        let id = caption.project();
-        let names = (store.lane_for(&caption))
-            .map(|(lane, _)| {
-                (store.after_deletes(id, &lane.branches).iter())
-                    .map(|branch| store.label_of(id, branch))
-                    .collect::<Vec<_>>()
-                    .join(" ← ")
-            })
-            .unwrap_or_default();
-        Tooltip::text(format!("Stack: {names}"))(window, cx)
     }
 }
 
