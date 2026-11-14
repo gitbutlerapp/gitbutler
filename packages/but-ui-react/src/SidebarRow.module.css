@@ -291,17 +291,17 @@
 	}
 }
 
+/* Counts sit flush: each carries its own side padding, so two of them are 6px apart glyph to glyph. */
 .meta {
 	display: flex;
-	column-gap: var(--but-space-md);
 	flex-shrink: 0;
 	align-items: center;
 }
 
-/* A TargetItem keeps Update beside its count rather than in its place: a step more room tells the
-   button from the count. */
+/* A TargetItem keeps Update beside its count rather than in its place: a gap on top of the count's
+   own padding tells the button from the count. */
 .target .meta {
-	column-gap: var(--but-space-lg);
+	column-gap: var(--but-space-sm);
 }
 
 /* Each picture tucks under the one before it, cut where that one sits with a sliver of gap, rather

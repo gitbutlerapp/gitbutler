@@ -70,6 +70,9 @@ type MetaCountProps = { type: MetaCountType } & (
  * `aria-label`. A long value, such as a branch's name, ends in an ellipsis once its row runs out
  * of room.
  *
+ * A count is a 20px box with 3px at its sides, so counts sit flush in a row, 6px apart from glyph to
+ * glyph, and a host puts no gap between them.
+ *
  * With `onPress` the count is the button for its next step: ↓ `behind` updates, ↑ `unpushed`
  * pushes. It looks the same at rest and takes up the same room; under the pointer it sits on its
  * own colour at 14% (a grey one on the hover ground) and keeps its text, and keyboard focus shows
