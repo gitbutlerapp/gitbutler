@@ -65,7 +65,10 @@ impl OpenAIClientProvider for OllamaProvider {
         let open_ai_config = OpenAIConfig::new()
             .with_api_base(self.config.api_base())
             .with_api_key("ollama");
-        Ok(async_openai::Client::with_config(open_ai_config))
+        Ok(async_openai::Client::build(
+            but_http::client_builder()?.build()?,
+            open_ai_config,
+        ))
     }
 }
 

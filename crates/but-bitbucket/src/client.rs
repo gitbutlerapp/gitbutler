@@ -42,7 +42,7 @@ impl BitbucketClient {
         auth_value.set_sensitive(true);
         headers.insert(AUTHORIZATION, auth_value);
 
-        let client = reqwest::Client::builder()
+        let client = but_http::client_builder()?
             .default_headers(headers)
             .timeout(BITBUCKET_REQUEST_TIMEOUT)
             .build()?;

@@ -10,6 +10,7 @@ description = "LLM client interface"
 
 [dependencies]
 but-core.workspace = true
+but-http.workspace = true
 but-secret.workspace = true
 but-tools.workspace = true
 async-openai.workspace = true

@@ -1,0 +1,20 @@
+[package]
+name = "but-http"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+publish = false
+rust-version.workspace = true
+description = "HTTP clients with platform and locally configured certificate trust"
+
+[lib]
+doctest = false
+
+[dependencies]
+reqwest.workspace = true
+rustls-native-certs.workspace = true
+rustls.workspace = true
+tracing.workspace = true
+
+[lints]
+workspace = true

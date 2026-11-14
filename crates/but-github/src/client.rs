@@ -77,7 +77,7 @@ impl GitHubClient {
             HeaderValue::from_str(&format!("Bearer {}", access_token.0))?,
         );
 
-        let client = reqwest::Client::builder()
+        let client = but_http::client_builder()?
             .default_headers(headers)
             .build()?;
 
@@ -122,7 +122,7 @@ impl GitHubClient {
             HeaderValue::from_str(&format!("Bearer {}", access_token.0))?,
         );
 
-        let client = reqwest::Client::builder()
+        let client = but_http::client_builder()?
             .default_headers(headers)
             .build()?;
 

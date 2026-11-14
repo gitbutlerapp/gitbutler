@@ -69,7 +69,10 @@ impl OpenAIClientProvider for OpenRouterProvider {
             .with_api_base(self.config.api_base.clone())
             .with_api_key(self.api_key.0.clone());
 
-        Ok(Client::with_config(open_ai_config))
+        Ok(Client::build(
+            but_http::client_builder()?.build()?,
+            open_ai_config,
+        ))
     }
 }
 

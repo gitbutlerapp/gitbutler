@@ -85,7 +85,7 @@ pub async fn init_github_device_oauth() -> Result<Verification> {
         reqwest::header::HeaderValue::from_static("application/json"),
     );
 
-    let client = reqwest::Client::new();
+    let client = but_http::client_builder()?.build()?;
     let res = client
         .post("https://github.com/login/device/code")
         .headers(headers)
@@ -132,7 +132,7 @@ pub async fn check_github_auth_status(
         reqwest::header::HeaderValue::from_static("application/json"),
     );
 
-    let client = reqwest::Client::new();
+    let client = but_http::client_builder()?.build()?;
     let res = client
         .post("https://github.com/login/oauth/access_token")
         .headers(headers)

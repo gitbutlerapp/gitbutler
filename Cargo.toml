@@ -16,6 +16,7 @@ members = [
     "crates/but-ctx",            # 📄Re-use of caches and db-connections, access to all data one would need to be GitButler.
     "crates/but-db",             # 📄Abstractions over Sqlite databases and Caches, with transaction and synchronization support.
     "crates/but-error",          # 📄Error codes to communicate specific failures; JSON Error for frontends.
+    "crates/but-http",           # 📄HTTP clients with platform and locally configured certificate trust.
     "crates/but-testsupport",    # 📄Despite lacking tests, it is the foundation for all tests.
     "crates/but-feedback",       # 📄It's very small and very special, but documented and well-enough tested.
     "crates/but-askpass",        # 📄Broker prompts from Git back to the application.
@@ -169,6 +170,7 @@ but-github = { path = "crates/but-github" }
 but-gitlab = { path = "crates/but-gitlab" }
 but-bitbucket = { path = "crates/but-bitbucket" }
 but-error = { path = "crates/but-error" }
+but-http = { path = "crates/but-http" }
 but-serde = { path = "crates/but-serde" }
 but-schemars = { path = "crates/but-schemars" }
 but-update = { path = "crates/but-update" }
@@ -267,6 +269,8 @@ reqwest = { version = "0.13.3", default-features = false, features = [
     "query",
     "stream",
 ] }
+rustls-native-certs = "0.8.4"
+rustls = { version = "0.23.41", default-features = false, features = ["std"] }
 rust-embed = { version = "8", features = ["axum"] }
 mime_guess = "2"
 chrono = { version = "0.4.42", default-features = false, features = ["std"] }

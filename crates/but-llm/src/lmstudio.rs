@@ -61,7 +61,10 @@ impl OpenAIClientProvider for LMStudioProvider {
             .with_api_base(self.config.api_base.clone())
             .with_api_key("lm-studio");
 
-        Ok(Client::with_config(open_ai_config))
+        Ok(Client::build(
+            but_http::client_builder()?.build()?,
+            open_ai_config,
+        ))
     }
 }
 

@@ -110,15 +110,16 @@ impl OpenAiProvider {
 
 impl OpenAIClientProvider for OpenAiProvider {
     fn client(&self) -> Result<Client<OpenAIConfig>> {
+        let http_builder = but_http::client_builder()?;
         match &self.credentials {
             (CredentialsKind::EnvVarOpenAiKey, _) => {
                 let config = self.configure_custom_endpoint(OpenAIConfig::new());
-                Ok(Client::with_config(config))
+                Ok(Client::build(http_builder.build()?, config))
             }
             (CredentialsKind::OwnOpenAiKey, key) => {
                 let config =
                     self.configure_custom_endpoint(OpenAIConfig::new().with_api_key(key.0.clone()));
-                Ok(Client::with_config(config))
+                Ok(Client::build(http_builder.build()?, config))
             }
 
             (CredentialsKind::GitButlerProxied, key) => {
@@ -132,10 +133,8 @@ impl OpenAIClientProvider for OpenAiProvider {
                     "X-Auth-Token",
                     key.0.parse().unwrap_or(HeaderValue::from_static("")),
                 );
-                let http_client = reqwest::Client::builder()
-                    .default_headers(headers)
-                    .build()?;
-                Ok(Client::with_config(config).with_http_client(http_client))
+                let http_client = http_builder.default_headers(headers).build()?;
+                Ok(Client::build(http_client, config))
             }
         }
     }
