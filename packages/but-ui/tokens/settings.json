@@ -225,6 +225,7 @@
 		"values": {
 			"compact": {
 				"size-control-sm": 18,
+				"size-control-md": 22,
 				"size-control": 24,
 				"size-bar": 32,
 				"size-row": 36,
@@ -233,6 +234,7 @@
 			},
 			"balanced": {
 				"size-control-sm": 20,
+				"size-control-md": 24,
 				"size-control": 28,
 				"size-bar": 36,
 				"size-row": 40,
@@ -241,6 +243,7 @@
 			},
 			"spacious": {
 				"size-control-sm": 22,
+				"size-control-md": 26,
 				"size-control": 32,
 				"size-bar": 40,
 				"size-row": 44,
