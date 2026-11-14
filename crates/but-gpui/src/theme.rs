@@ -256,11 +256,35 @@ pub enum CodeSize {
     Large,
 }
 
-/// Light, dark, or whichever macOS is set to.
+/// Always the light scheme, always the dark one, or whichever macOS is set to.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Appearance {
     #[default]
     System,
+    Light,
+    Dark,
+}
+
+impl Appearance {
+    /// The scheme this choice draws in while the system is `system`.
+    /// `GITBUTLER_GPUI_APPEARANCE=dark|light` overrides it, handy for screenshots.
+    pub fn shade(self, system: WindowAppearance) -> Shade {
+        match (std::env::var("GITBUTLER_GPUI_APPEARANCE").as_deref(), self) {
+            (Ok("dark"), _) => Shade::Dark,
+            (Ok("light"), _) => Shade::Light,
+            (_, Appearance::Dark) => Shade::Dark,
+            (_, Appearance::Light) => Shade::Light,
+            (_, Appearance::System) => match system {
+                WindowAppearance::Dark | WindowAppearance::VibrantDark => Shade::Dark,
+                WindowAppearance::Light | WindowAppearance::VibrantLight => Shade::Light,
+            },
+        }
+    }
+}
+
+/// Which of the two colour schemes Settings keeps: the one for light, or the one for dark.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Shade {
     Light,
     Dark,
 }
@@ -416,10 +440,11 @@ pub fn presets() -> impl Iterator<Item = (&'static str, Corners, Density)> {
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ColorScheme {
-    /// GitButler's own, in light or dark as `Appearance` says.
+    /// GitButler's own, light as the light scheme and dark as the dark one.
     #[default]
     GitButler,
-    /// The light and dark themes the user's Ghostty config sets, picked by `Appearance`.
+    /// The light or the dark theme the user's Ghostty config sets, as the scheme is light's
+    /// or dark's.
     Ghostty,
     /// One Ghostty theme, by name, which is light or dark by its background.
     Named(String),
@@ -648,37 +673,23 @@ impl Theme {
         Pixels::from(n * self.scale)
     }
 
+    /// Whether these are GitButler's own colours, which the accent and ground apply to.
+    pub fn own_colours(&self) -> bool {
+        self.own_colours.is_some()
+    }
+
     pub fn get(cx: &App) -> &Theme {
         cx.global::<Theme>()
     }
 
-    /// The theme `scheme` draws in, light or dark as `choice` says or, when the choice is to
-    /// follow it, as `system` is, with code in diffs at `code`. `ghostty` is the user's
-    /// Ghostty config, which colours the app and its terminals for [`ColorScheme::Ghostty`].
-    /// The terminals always draw in the scheme the app does. A scheme without a background and foreground, as a named theme that's gone, draws as
-    /// GitButler's.
-    pub fn new(
-        choice: Appearance,
-        scheme: &ColorScheme,
-        system: WindowAppearance,
-        code: CodeSize,
-        ghostty: &Ghostty,
-    ) -> Self {
-        // `GITBUTLER_GPUI_APPEARANCE=dark|light` and `GITBUTLER_GPUI_COLOR_SCHEME=gitbutler|
-        // ghostty|<theme name>` override the settings, handy for screenshots.
-        let dark = match (
-            std::env::var("GITBUTLER_GPUI_APPEARANCE").as_deref(),
-            choice,
-        ) {
-            (Ok("dark"), _) => true,
-            (Ok("light"), _) => false,
-            (_, Appearance::Dark) => true,
-            (_, Appearance::Light) => false,
-            (_, Appearance::System) => matches!(
-                system,
-                WindowAppearance::Dark | WindowAppearance::VibrantDark
-            ),
-        };
+    /// The theme `scheme` draws in as `shade`, with code in diffs at `code`. `ghostty` is the
+    /// user's Ghostty config, which colours the app and its terminals for
+    /// [`ColorScheme::Ghostty`]. The terminals always draw in the scheme the app does. A scheme
+    /// without a background and foreground, as a named theme that's gone, draws as GitButler's.
+    pub fn new(shade: Shade, scheme: &ColorScheme, code: CodeSize, ghostty: &Ghostty) -> Self {
+        let dark = shade == Shade::Dark;
+        // `GITBUTLER_GPUI_COLOR_SCHEME=gitbutler|ghostty|<theme name>` overrides the settings,
+        // handy for screenshots.
         let forced = std::env::var("GITBUTLER_GPUI_COLOR_SCHEME").ok();
         let forced = forced.map(|name| match name.as_str() {
             "gitbutler" => ColorScheme::GitButler,
@@ -1429,7 +1440,7 @@ mod tests {
     use gpui::{FontWeight, WindowAppearance};
 
     use super::{
-        Accent, Appearance, CodeSize, ColorScheme, Hue, Theme, WASHES, channels, contrast,
+        Accent, Appearance, CodeSize, ColorScheme, Hue, Shade, Theme, WASHES, channels, contrast,
         custom_accent, rgb_hex,
     };
 
@@ -1448,21 +1459,14 @@ mod tests {
     }
 
     /// The theme the Ghostty scheme gives when Ghostty's config colours both appearances as
-    /// `colors`, asked for in `choice`.
-    fn ghostty_theme(colors: Colors, choice: Appearance) -> Theme {
+    /// `colors`, asked for as `choice`.
+    fn ghostty_theme(colors: Colors, choice: Shade) -> Theme {
         let ghostty = Ghostty {
             light: colors.clone(),
             dark: colors,
             ..Ghostty::default()
         };
-        let system = WindowAppearance::Light;
-        Theme::new(
-            choice,
-            &ColorScheme::Ghostty,
-            system,
-            CodeSize::Medium,
-            &ghostty,
-        )
+        Theme::new(choice, &ColorScheme::Ghostty, CodeSize::Medium, &ghostty)
     }
 
     #[test]
@@ -1493,7 +1497,7 @@ mod tests {
             ("murky", palette(0x404040, 0x707070, [0x505050; 8])),
         ];
         for (name, colors) in schemes {
-            let theme = ghostty_theme(colors, Appearance::Dark);
+            let theme = ghostty_theme(colors, Shade::Dark);
             for ground in [theme.bg_1, theme.bg_2].map(rgb_hex) {
                 for (what, ink, ratio) in [
                     ("secondary text", theme.text_2, 4.5),
@@ -1561,11 +1565,10 @@ mod tests {
 
     #[test]
     fn a_warning_snackbars_glyph_reads_in_gitbutlers_colours() {
-        for appearance in [Appearance::Light, Appearance::Dark] {
+        for appearance in [Shade::Light, Shade::Dark] {
             let theme = Theme::new(
                 appearance,
                 &ColorScheme::GitButler,
-                WindowAppearance::Light,
                 CodeSize::Medium,
                 &Ghostty::default(),
             );
@@ -1600,8 +1603,8 @@ mod tests {
                 "gitbutler purple",
                 Theme::gitbutler(true, CodeSize::Medium).with_accent(Accent::Purple, ""),
             ),
-            ("catppuccin", ghostty_theme(catppuccin, Appearance::Dark)),
-            ("solarized", ghostty_theme(solarized, Appearance::Light)),
+            ("catppuccin", ghostty_theme(catppuccin, Shade::Dark)),
+            ("solarized", ghostty_theme(solarized, Shade::Light)),
         ];
         for (name, theme) in themes {
             for hue in [
@@ -1703,16 +1706,8 @@ mod tests {
                 Theme::gitbutler(true, CodeSize::Medium),
                 true,
             ),
-            (
-                "catppuccin",
-                ghostty_theme(catppuccin, Appearance::Dark),
-                true,
-            ),
-            (
-                "solarized",
-                ghostty_theme(solarized, Appearance::Light),
-                false,
-            ),
+            ("catppuccin", ghostty_theme(catppuccin, Shade::Dark), true),
+            ("solarized", ghostty_theme(solarized, Shade::Light), false),
         ];
         for (name, theme, keeps_hue) in themes {
             let ground = rgb_hex(theme.fill_gray);
@@ -1738,7 +1733,7 @@ mod tests {
     #[test]
     fn a_scheme_colours_the_app_and_the_terminals_whatever_the_appearance() {
         let solarized = palette(0xfdf6e3, 0x657b83, [0x073642; 8]);
-        let theme = ghostty_theme(solarized.clone(), Appearance::Dark);
+        let theme = ghostty_theme(solarized.clone(), Shade::Dark);
         assert_eq!(
             [theme.bg_1, theme.text_1].map(rgb_hex),
             [0xfdf6e3, 0x657b83],
@@ -1757,15 +1752,8 @@ mod tests {
             dark: palette(0x000000, 0xffffff, [0x123456; 8]),
             ..Ghostty::default()
         };
-        let system = WindowAppearance::Light;
-        for choice in [Appearance::Light, Appearance::Dark] {
-            let theme = Theme::new(
-                choice,
-                &ColorScheme::GitButler,
-                system,
-                CodeSize::Medium,
-                &ghostty,
-            );
+        for choice in [Shade::Light, Shade::Dark] {
+            let theme = Theme::new(choice, &ColorScheme::GitButler, CodeSize::Medium, &ghostty);
             let terminal = &theme.terminal;
             assert_eq!(
                 [terminal.background, terminal.foreground].map(|c| c.map(super::hex)),
@@ -1784,9 +1772,8 @@ mod tests {
 
     fn gitbutler_theme() -> Theme {
         Theme::new(
-            Appearance::Dark,
+            Shade::Dark,
             &ColorScheme::GitButler,
-            WindowAppearance::Light,
             CodeSize::Medium,
             &Ghostty::default(),
         )
@@ -1874,25 +1861,49 @@ mod tests {
     }
 
     #[test]
+    fn the_appearance_picks_the_light_or_the_dark_scheme() {
+        for (choice, system, shade, why) in [
+            (
+                Appearance::System,
+                WindowAppearance::Light,
+                Shade::Light,
+                "a light system draws light's",
+            ),
+            (
+                Appearance::System,
+                WindowAppearance::Dark,
+                Shade::Dark,
+                "a dark system draws dark's",
+            ),
+            (
+                Appearance::Light,
+                WindowAppearance::Dark,
+                Shade::Light,
+                "Light draws light's always",
+            ),
+            (
+                Appearance::Dark,
+                WindowAppearance::Light,
+                Shade::Dark,
+                "Dark draws dark's always",
+            ),
+        ] {
+            assert_eq!(choice.shade(system), shade, "{why}");
+        }
+    }
+
+    #[test]
     fn a_scheme_without_colours_draws_as_gitbutler() {
         let ghostty = Ghostty::default();
-        let system = WindowAppearance::Light;
         let gitbutler = Theme::new(
-            Appearance::Dark,
+            Shade::Dark,
             &ColorScheme::GitButler,
-            system,
             CodeSize::Medium,
             &ghostty,
         );
         let missing = ColorScheme::Named("No theme is called this".into());
-        let fallen_back = Theme::new(
-            Appearance::Dark,
-            &missing,
-            system,
-            CodeSize::Medium,
-            &ghostty,
-        );
-        let unset = ghostty_theme(Colors::default(), Appearance::Dark);
+        let fallen_back = Theme::new(Shade::Dark, &missing, CodeSize::Medium, &ghostty);
+        let unset = ghostty_theme(Colors::default(), Shade::Dark);
         for theme in [fallen_back, unset] {
             assert_eq!(
                 [theme.bg_1, theme.text_1, theme.pop].map(rgb_hex),

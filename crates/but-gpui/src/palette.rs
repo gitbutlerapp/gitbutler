@@ -33,7 +33,7 @@ use crate::state::{
     SelectionKind, Store, Tile, snack,
 };
 use crate::terminal::{NewTerminalWith, TerminalId};
-use crate::theme::{ColorScheme, Theme};
+use crate::theme::{ColorScheme, Shade, Theme};
 use crate::ui::file_icons::file_icon;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -90,8 +90,8 @@ pub struct Choice {
     status_of: Option<Selection>,
     /// It's in the selected project, so it comes before what's found as well elsewhere.
     in_selected_project: bool,
-    /// The colour scheme the window draws in while it's selected.
-    previews: Option<ColorScheme>,
+    /// The colour scheme the window draws in while it's selected, light or dark as its shade.
+    previews: Option<(Shade, ColorScheme)>,
     /// It's what's set now, so it's selected while nothing's typed.
     in_use: bool,
     /// A file to edit, found only by what's typed, as a checkout has thousands, unless the
@@ -180,9 +180,10 @@ impl Choice {
         self
     }
 
-    /// Draws the window in `scheme` while it's selected, which `in_use` says is the one set now.
-    pub(crate) fn previews(mut self, scheme: ColorScheme, in_use: bool) -> Choice {
-        self.previews = Some(scheme);
+    /// Draws the window in `scheme`, as `shade`, while it's selected, which `in_use` says is
+    /// the one set now.
+    pub(crate) fn previews(mut self, shade: Shade, scheme: ColorScheme, in_use: bool) -> Choice {
+        self.previews = Some((shade, scheme));
         self.in_use = in_use;
         self
     }

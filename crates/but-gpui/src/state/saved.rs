@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use super::{Seen, Selection, Store};
 use crate::backend::saved::Database;
 use crate::clock;
-use crate::theme::Appearance;
+use crate::theme::{Appearance, ColorScheme, Shade};
 use crate::ui::fold::Glide;
 
 /// How long a pane takes to slide back to its default width.
@@ -500,7 +500,10 @@ pub(super) struct SavedActivity {
 #[serde(default)]
 pub struct Prefs {
     pub appearance: Appearance,
-    pub color_scheme: crate::theme::ColorScheme,
+    /// The colour scheme the app draws in while it's light.
+    pub light_scheme: ColorScheme,
+    /// The colour scheme the app draws in while it's dark.
+    pub dark_scheme: ColorScheme,
     /// The colour GitButler's own colours pick things out in.
     pub accent: crate::theme::Accent,
     /// A custom accent, as typed, kept while another one is picked.
@@ -680,6 +683,21 @@ impl Prefs {
         }
     }
 
+    /// The colour scheme kept for `shade`.
+    pub fn scheme(&self, shade: Shade) -> &ColorScheme {
+        match shade {
+            Shade::Light => &self.light_scheme,
+            Shade::Dark => &self.dark_scheme,
+        }
+    }
+
+    pub fn set_scheme(&mut self, shade: Shade, scheme: ColorScheme) {
+        match shade {
+            Shade::Light => self.light_scheme = scheme,
+            Shade::Dark => self.dark_scheme = scheme,
+        }
+    }
+
     /// The commands "New terminal with command" offers.
     pub fn terminal_launchers(&self) -> Vec<String> {
         (self.terminal_launchers.clone())
@@ -747,6 +765,14 @@ impl Saved {
     /// What `value` saved, but for what this build can't read: a choice a newer build saved
     /// that this one doesn't know, as a new size, goes back to its default alone.
     fn parse(mut value: serde_json::Value) -> Self {
+        if let Some(prefs) = value.get_mut("prefs").and_then(|p| p.as_object_mut()) {
+            // One scheme was kept for both before each had its own.
+            if let Some(scheme) = prefs.remove("color_scheme") {
+                for key in ["light_scheme", "dark_scheme"] {
+                    prefs.entry(key).or_insert_with(|| scheme.clone());
+                }
+            }
+        }
         Self::deserialize(&value).unwrap_or_else(|err| {
             tracing::warn!("reading only some of the saved state: {err}");
             if let Some(prefs) = value.get_mut("prefs") {
@@ -778,6 +804,18 @@ mod tests {
         assert!(
             !saved.prefs.confirm_terminal_close,
             "what was saved before the setting closes at once"
+        );
+    }
+
+    #[test]
+    fn the_one_colour_scheme_kept_before_becomes_both() {
+        let older = r#"{ "prefs": { "color_scheme": { "Named": "Dracula" } } }"#;
+        let saved = Saved::parse(serde_json::from_str(older).expect("it's JSON"));
+        let dracula = crate::theme::ColorScheme::Named("Dracula".into());
+        assert_eq!(
+            [&saved.prefs.light_scheme, &saved.prefs.dark_scheme],
+            [&dracula; 2],
+            "the app draws as it did, light or dark"
         );
     }
 

@@ -30,7 +30,7 @@ use crate::state::{
     Tiling, Zones, along_edge, snack, tile_beside, up_to_date,
 };
 use crate::terminal::{NewTerminal, TerminalId};
-use crate::theme::{ColorScheme, Hue, Theme, UiScale};
+use crate::theme::{ColorScheme, Hue, Shade, Theme, UiScale};
 use crate::transfer::{
     Changes, Dragged, Move, Moving, Op, Place, ProjectDrag, TerminalDrag, Transfer,
     terminal_preview,
@@ -247,8 +247,9 @@ pub struct AppView {
     #[cfg(target_os = "macos")]
     lights_away: bool,
     pub palette: Option<Palette>,
-    /// The colour scheme selected in its picker, which the window draws in until that closes.
-    previewed_scheme: Option<ColorScheme>,
+    /// The colour scheme selected in its picker, and whether it's light's or dark's, which the
+    /// window draws in until that closes.
+    previewed_scheme: Option<(Shade, ColorScheme)>,
     /// The modal on screen, if any, what takes its keys, its card's own, which Tab keeps
     /// to, the subscription that closes it, and what had the keys before it opened, to give
     /// them back.
@@ -727,10 +728,11 @@ impl AppView {
         cx.refresh_windows();
     }
 
-    /// Draw the window in `scheme` without keeping it, or with none, in the one in use again.
+    /// Draw the window in `scheme`, light or dark as its shade is, without keeping it, or with
+    /// none, in the one in use again.
     pub fn preview_scheme(
         &mut self,
-        scheme: Option<ColorScheme>,
+        scheme: Option<(Shade, ColorScheme)>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -741,10 +743,10 @@ impl AppView {
     }
 
     /// List the colour schemes, GitButler's, the Ghostty config's and every Ghostty theme, to
-    /// pick one to draw the app and its terminals in. It opens on the one in use, and the
-    /// window draws in whichever is selected.
-    pub fn pick_color_scheme(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let current = self.store.read(cx).prefs.color_scheme.clone();
+    /// pick the one the app and its terminals draw in while they're `shade`. It opens on the one
+    /// kept for it, and the window draws in whichever is selected, as `shade` would.
+    pub fn pick_color_scheme(&mut self, shade: Shade, window: &mut Window, cx: &mut Context<Self>) {
+        let current = self.store.read(cx).prefs.scheme(shade).clone();
         let named = but_tty::Ghostty::themes()
             .into_iter()
             .map(ColorScheme::Named);
@@ -752,28 +754,38 @@ impl AppView {
             .chain(named)
             .map(|scheme| {
                 let in_use = scheme == current;
-                let detail = match &scheme {
-                    _ if in_use => Some("In use"),
-                    ColorScheme::GitButler => Some("Light or dark, as Appearance says"),
-                    ColorScheme::Ghostty => Some("The themes your Ghostty config sets"),
-                    ColorScheme::Named(_) => None,
+                let detail = match (&scheme, shade) {
+                    _ if in_use => Some("Current"),
+                    (ColorScheme::GitButler, Shade::Light) => Some("GitButler's light colours"),
+                    (ColorScheme::GitButler, Shade::Dark) => Some("GitButler's dark colours"),
+                    (ColorScheme::Ghostty, Shade::Light) => {
+                        Some("The light theme your Ghostty config sets")
+                    }
+                    (ColorScheme::Ghostty, Shade::Dark) => {
+                        Some("The dark theme your Ghostty config sets")
+                    }
+                    (ColorScheme::Named(_), _) => None,
                 };
                 let previews = scheme.clone();
                 let choice = Choice::new(scheme.label().to_owned(), move |app, window, cx| {
                     app.previewed_scheme = None;
                     (app.store).update(cx, |store, cx| {
-                        store.set_prefs(|prefs| prefs.color_scheme = scheme, cx)
+                        store.set_prefs(|prefs| prefs.set_scheme(shade, scheme), cx)
                     });
                     app.apply_appearance(window, cx);
                 })
-                .previews(previews, in_use);
+                .previews(shade, previews, in_use);
                 match detail {
                     Some(detail) => choice.detail(detail),
                     None => choice,
                 }
             })
             .collect();
-        self.open_picker(None, "Search colour schemes", "Use", choices, window, cx);
+        let prompt = match shade {
+            Shade::Light => "Search light themes",
+            Shade::Dark => "Search dark themes",
+        };
+        self.open_picker(None, prompt, "Use", choices, window, cx);
     }
 
     pub fn pick_diff_font(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -2307,8 +2319,15 @@ impl AppView {
         self.set_detail(!self.detail_open, window, cx);
     }
 
+    /// Pick the colour scheme the window draws in now, light's or dark's.
     fn change_theme(&mut self, _: &ChangeTheme, window: &mut Window, cx: &mut Context<Self>) {
-        self.pick_color_scheme(window, cx);
+        let shade = self
+            .store
+            .read(cx)
+            .prefs
+            .appearance
+            .shade(window.appearance());
+        self.pick_color_scheme(shade, window, cx);
     }
 
     fn command_palette(&mut self, _: &CommandPalette, window: &mut Window, cx: &mut Context<Self>) {
@@ -5961,14 +5980,17 @@ pub(crate) fn place_traffic_lights(away: bool, window: &Window, cx: &App) {
     window.set_traffic_light_position(point(left, top));
 }
 
-/// The theme the appearance setting and the system call for, in `previewed` over the scheme
-/// in use.
-fn theme_for(store: &Store, previewed: Option<&ColorScheme>, window: &Window) -> Theme {
+/// The theme the appearance setting and the system call for, or, while a scheme is
+/// `previewed`, that scheme in its shade.
+fn theme_for(store: &Store, previewed: Option<&(Shade, ColorScheme)>, window: &Window) -> Theme {
     let prefs = &store.prefs;
-    let (scheme, system) = (
-        previewed.unwrap_or(&prefs.color_scheme),
-        window.appearance(),
-    );
+    let (shade, scheme) = match previewed {
+        Some((shade, scheme)) => (*shade, scheme),
+        None => {
+            let shade = prefs.appearance.shade(window.appearance());
+            (shade, prefs.scheme(shade))
+        }
+    };
     let ghostty = but_tty::Ghostty::load();
     let digit = |family: &str| crate::ui::digit_advance(family, window.text_system());
     let installed = |family: &str| digit(family).is_some();
@@ -5977,7 +5999,7 @@ fn theme_for(store: &Store, previewed: Option<&ColorScheme>, window: &Window) ->
         true => (prefs.ground, prefs.accent, prefs.corners, prefs.density),
         false => Default::default(),
     };
-    Theme::new(prefs.appearance, scheme, system, prefs.code_size, &ghostty)
+    Theme::new(shade, scheme, prefs.code_size, &ghostty)
         .with_ground(ground)
         .with_accent(accent, &prefs.accent_color)
         .with_corners(corners)

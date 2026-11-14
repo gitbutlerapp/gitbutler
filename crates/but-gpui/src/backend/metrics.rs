@@ -327,6 +327,12 @@ pub fn viewed<'a>(view: &'static str, state: impl FnOnce() -> State<'a>) {
 fn settings(state: &State) -> Props {
     use crate::state::Part;
     use crate::theme::{Appearance, ColorScheme};
+    // Which kind of scheme, never a named one's name.
+    let scheme_kind = |scheme: &ColorScheme| match scheme {
+        ColorScheme::GitButler => "gitbutler",
+        ColorScheme::Ghostty => "ghostty",
+        ColorScheme::Named(_) => "named",
+    };
     let prefs = state.prefs;
     [
         // The desktop app's names and values.
@@ -338,18 +344,12 @@ fn settings(state: &State) -> Props {
                 Appearance::Dark => "dark",
             }),
         ),
-        (
-            "colorScheme",
-            json!(match prefs.color_scheme {
-                ColorScheme::GitButler => "gitbutler",
-                ColorScheme::Ghostty => "ghostty",
-                ColorScheme::Named(_) => "named",
-            }),
-        ),
         ("zoom", json!(f64::from(prefs.ui_scale.percent()) / 100.)),
         ("defaultCodeEditor", json!(prefs.editor)),
         ("diffLigatures", json!(prefs.ligatures)),
         // This app's own.
+        ("lightColorScheme", json!(scheme_kind(&prefs.light_scheme))),
+        ("darkColorScheme", json!(scheme_kind(&prefs.dark_scheme))),
         ("codeSize", json!(prefs.code_size)),
         ("splitDiff", json!(prefs.split)),
         ("wrapLines", json!(prefs.wrap)),
