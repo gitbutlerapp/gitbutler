@@ -1,0 +1,23 @@
+70 cases: 64 like `git checkout`, 3 like `git checkout -m`, 3 different
+
+## GitButler checks out where `git checkout` refuses (2)
+
+HEAD directory P, target file p; index staged file; worktree deleted
+  before:    index: p file staged; worktree: nothing
+  git:       refuses
+  git -m:    refuses
+  GitButler: index: p file target; worktree: p file target
+
+HEAD directory P, target file p; index staged file; worktree ignored directory
+  before:    index: p file staged; worktree: p/, p/y file worktree
+  git:       refuses
+  git -m:    refuses
+  GitButler: index: p file target; worktree: p file target
+
+## GitButler refuses where `git checkout` checks out (1)
+
+HEAD directory P, target directory p; index staged file; worktree clean
+  before:    index: p file staged; worktree: p file staged
+  git:       index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2
+  git -m:    index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2
+  GitButler: refuses

@@ -4,6 +4,8 @@
 //!
 //! The lists are the snapshots. Nothing reads them: a change to checkout changes them, so their
 //! diff shows which cases it changes. Run with `SNAPSHOTS=overwrite` to record them.
+//! Reference Git implementations differ on whether `checkout -m` merges staged changes;
+//! each comparison selects a complete snapshot using that behavior.
 //!
 //! In the lists, a file holds `head`, `target`, `staged`, `edited` or `worktree`, after where its
 //! content comes from, and a state says what the index and the worktree hold.
@@ -31,11 +33,19 @@ use but_testsupport::{invoke_bash_at_dir, open_repo};
 
 #[test]
 fn checkout_differs_from_git_only_where_listed() -> anyhow::Result<()> {
-    let cases = in_parallel(&Pair::all(), compare_with_git)?;
-    snapbox::assert_data_eq!(
-        report(cases.into_iter().flatten().collect()),
+    let cases: Vec<_> = in_parallel(&Pair::all(), compare_with_git)?
+        .into_iter()
+        .flatten()
+        .collect();
+    let snapshot = if cases
+        .iter()
+        .any(|case| case.index == Index::Staged && !case.git.checked_out && case.git_m.checked_out)
+    {
         snapbox::file!["snapshots/checkout_vs_git.txt"]
-    );
+    } else {
+        snapbox::file!["snapshots/checkout_vs_git_refuses_staged.txt"]
+    };
+    snapbox::assert_data_eq!(report(cases), snapshot);
     Ok(())
 }
 
@@ -45,11 +55,19 @@ fn checkout_of_paths_differing_in_case_differs_from_git_only_where_listed() -> a
     if !gix::fs::Capabilities::probe_dir(probe.path()).ignore_case {
         return Ok(());
     }
-    let cases = in_parallel(&Pair::differing_in_case(), compare_with_git)?;
-    snapbox::assert_data_eq!(
-        report(cases.into_iter().flatten().collect()),
+    let cases: Vec<_> = in_parallel(&Pair::differing_in_case(), compare_with_git)?
+        .into_iter()
+        .flatten()
+        .collect();
+    let snapshot = if cases
+        .iter()
+        .any(|case| case.index == Index::Staged && !case.git.checked_out && case.git_m.checked_out)
+    {
         snapbox::file!["snapshots/checkout_vs_git_differing_in_case.txt"]
-    );
+    } else {
+        snapbox::file!["snapshots/checkout_vs_git_differing_in_case_refuses_staged.txt"]
+    };
+    snapbox::assert_data_eq!(report(cases), snapshot);
     Ok(())
 }
 
@@ -405,6 +423,7 @@ fn change_worktree(worktree: Worktree, on_disk: OnDisk) -> &'static str {
 /// A combination, checked out three ways.
 struct Case {
     name: String,
+    index: Index,
     before: State,
     git: Checkout,
     git_m: Checkout,
@@ -441,18 +460,21 @@ else
 fi
 "#
             )?;
-            variants.push(format!(
-                "{}; index {}; worktree {}",
-                pair.describe(),
-                index.describe(),
-                worktree.describe()
+            variants.push((
+                format!(
+                    "{}; index {}; worktree {}",
+                    pair.describe(),
+                    index.describe(),
+                    worktree.describe()
+                ),
+                index,
             ));
         }
     }
     invoke_bash_at_dir(&script, tmp.path());
     let names = Names::read(tmp.path())?;
     let mut cases = Vec::new();
-    for (at, name) in variants.into_iter().enumerate() {
+    for (at, (name, index)) in variants.into_iter().enumerate() {
         let dir = tmp.path().join(at.to_string());
         let git = Checkout::by_git(&dir, "git", &names)?;
         // Where `git checkout` succeeds, `git checkout -m` does the same.
@@ -462,6 +484,7 @@ fi
         };
         cases.push(Case {
             name,
+            index,
             before: State::read(&dir.join("repo"), &names)?,
             git,
             git_m,

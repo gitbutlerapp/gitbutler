@@ -1,7 +1,7 @@
 //! Bring the editor's `HEAD` into a workspace with a workspace commit.
 
 use anyhow::Context as _;
-use but_core::{RefMetadata, WORKSPACE_REF_NAME};
+use but_core::WORKSPACE_REF_NAME;
 use but_error::bail_precondition;
 use but_rebase::graph_rebase::{
     Editor, LookupStep as _, Pick, Selector, Step, SuccessfulRebase, mutate::InsertSide,
@@ -11,10 +11,10 @@ use gix::{bstr::ByteSlice as _, refs::Category};
 use crate::{WorkspaceCommit, commit::Stack};
 
 /// Return the workspace commit, creating one if none is found.
-pub fn ensure_workspace_commit<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
+pub fn ensure_workspace_commit<'ws, 'meta>(
+    mut editor: Editor<'ws, 'meta>,
     workspace_reference: Selector,
-) -> anyhow::Result<(SuccessfulRebase<'ws, 'meta, M>, Selector)> {
+) -> anyhow::Result<(SuccessfulRebase<'ws, 'meta>, Selector)> {
     if let Some(workspace_commit) = editor.workspace_commit(workspace_reference) {
         return Ok((editor.rebase()?, workspace_commit));
     }
@@ -35,9 +35,9 @@ pub fn ensure_workspace_commit<'ws, 'meta, M: RefMetadata>(
 /// with a selector pointing to the workspace commit.
 ///
 /// Fail if `HEAD` is already on the workspace reference.
-pub fn switch_to_workspace<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
-) -> anyhow::Result<(SuccessfulRebase<'ws, 'meta, M>, Selector)> {
+pub fn switch_to_workspace<'ws, 'meta>(
+    mut editor: Editor<'ws, 'meta>,
+) -> anyhow::Result<(SuccessfulRebase<'ws, 'meta>, Selector)> {
     if editor.workspace_reference().is_some() {
         bail_precondition!("HEAD is already on the workspace reference");
     }
@@ -60,7 +60,7 @@ pub fn switch_to_workspace<'ws, 'meta, M: RefMetadata>(
 
 /// What the workspace `HEAD` is on merges, skipping steps removed from a lane and any lane that
 /// only reaches the target or its local branch. Empty if `HEAD` isn't on the workspace reference.
-pub fn workspace_tips<M: RefMetadata>(editor: &Editor<'_, '_, M>) -> anyhow::Result<Vec<Selector>> {
+pub fn workspace_tips(editor: &Editor<'_, '_>) -> anyhow::Result<Vec<Selector>> {
     let Some(workspace_reference) = editor.workspace_reference() else {
         return Ok(Vec::new());
     };
@@ -99,9 +99,9 @@ pub fn workspace_tips<M: RefMetadata>(editor: &Editor<'_, '_, M>) -> anyhow::Res
 /// The workspace stays if the tip isn't a branch, or if the destination's tree differs from what
 /// the workspace represents: its own tree, or the target's if it has no tips. There is nothing to
 /// do if `HEAD` isn't on it.
-pub fn leave_unnecessary_workspace<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
-) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+pub fn leave_unnecessary_workspace<'ws, 'meta>(
+    mut editor: Editor<'ws, 'meta>,
+) -> anyhow::Result<SuccessfulRebase<'ws, 'meta>> {
     let Some(workspace_reference) = editor.workspace_reference() else {
         return editor.rebase();
     };

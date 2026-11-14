@@ -34,6 +34,7 @@ libghostty-vt = { git = "https://github.com/uzaaft/libghostty-rs", rev = "9ede35
 tempfile.workspace = true
 
 [target.'cfg(unix)'.dev-dependencies]
+gix-testtools = { workspace = true, features = ["sha1", "sha256"] }
 # A signal for one thread, and the handler Tokio's child processes install, for the handover.
 nix = { workspace = true, features = ["pthread", "signal"] }
 signal-hook = "0.3.18"

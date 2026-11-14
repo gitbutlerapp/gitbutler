@@ -8,7 +8,7 @@ use std::collections::{HashMap, HashSet};
 
 use anyhow::Result;
 use but_core::{
-    RefMetadata, WORKSPACE_REF_NAME,
+    WORKSPACE_REF_NAME,
     branch::resolve_tracking_branch_ref_name,
     changeset::{
         ChangeIdMode, Identity, changeset_identifier, compute_upstream_commits_lut,
@@ -160,7 +160,7 @@ impl NodeSet {
     }
 }
 
-impl<M: RefMetadata> Editor<'_, '_, M> {
+impl Editor<'_, '_> {
     pub fn graph_workspace(&self) -> Result<GraphWorkspace> {
         let mut ws = self.graph_workspace_topology()?;
         // Every selector in the projection, so the status walks stay scoped to

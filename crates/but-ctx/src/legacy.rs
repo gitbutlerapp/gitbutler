@@ -1,6 +1,5 @@
-use but_core::{RepositoryExt, sync::RepoExclusive};
+use but_core::RepositoryExt;
 use but_settings::AppSettings;
-use tracing::instrument;
 
 use crate::{
     CacheMode, Context, LegacyProjectId, ProjectHandleOrLegacyProjectId, RepoOpenMode,
@@ -95,42 +94,5 @@ impl TryFrom<LegacyProjectId> for ThreadSafeContext {
     fn try_from(value: LegacyProjectId) -> Result<Self, Self::Error> {
         let ctx: Context = value.try_into()?;
         Ok(ctx.into_sync())
-    }
-}
-
-impl Context {
-    /// The write-permission is required to obtain an exclusive metadata instance, which is needed
-    /// to lock the workspace and its metadata for modification.
-    #[deprecated = "Prefer Context::workspace_from_head_for_editing()"]
-    #[instrument(
-        name = "DEPRECATED: Context::workspace_and_meta_from_head",
-        level = "debug",
-        skip_all,
-        err(Debug)
-    )]
-    pub fn workspace_and_meta_from_head(
-        &self,
-        _exclusive_access: &RepoExclusive,
-    ) -> anyhow::Result<(impl but_core::RefMetadata + 'static, but_graph::Workspace)> {
-        let ws = self.workspace_from_head()?;
-        Ok((self.meta()?, ws))
-    }
-
-    pub fn legacy_meta(&self) -> anyhow::Result<but_meta::VirtualBranchesTomlMetadata> {
-        but_meta::VirtualBranchesTomlMetadata::from_path(
-            self.project_data_dir().join("virtual_branches.toml"),
-        )
-    }
-
-    // TODO: remove _exclusive as we don't need it anymore with a DB based implementation as long as the instances
-    //       starts a transaction to isolate reads.
-    //       For a correct implementation, this would also have to hold on to `_exclusive`.
-    pub fn legacy_meta_mut(
-        &mut self,
-        _exclusive: &RepoExclusive,
-    ) -> anyhow::Result<but_meta::VirtualBranchesTomlMetadata> {
-        but_meta::VirtualBranchesTomlMetadata::from_path(
-            self.project_data_dir().join("virtual_branches.toml"),
-        )
     }
 }

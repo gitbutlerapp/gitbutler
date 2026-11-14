@@ -7,7 +7,7 @@ use but_api::{
     json::{ChangeIdString, HexHash},
 };
 use but_core::{
-    DiffSpec, DryRun, RefMetadata,
+    DiffSpec, DryRun,
     sync::{RepoExclusive, RepoExclusiveGuard},
 };
 use but_ctx::Context;
@@ -147,7 +147,7 @@ pub fn commit(
     current_dir: &Path,
 ) -> CliResult<(CommitOutcome, WorkspaceState)> {
     let guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
+
     let id_map = IdMap::new_from_context(ctx, guard.read_permission(), Some(invoked_from))?;
     let no_hooks = args.no_hooks;
 
@@ -168,7 +168,6 @@ pub fn commit(
     let run_hooks = !no_hooks && commit_selection.source() == ChangeSourceId::Head;
     let (mut outcome, ws) = run(
         ctx,
-        &mut meta,
         guard.write_permission(),
         commit_op,
         commit_selection,
@@ -415,7 +414,6 @@ fn unresolved_change_error(change: &CliIdArg, repo: &gix::Repository, id_map: &I
 /// the post-commit hook is up to the caller.
 pub fn run(
     ctx: &mut Context,
-    meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     mut commit_op: CommitOperation,
     commit_selection: CommitSelection,
@@ -473,7 +471,7 @@ pub fn run(
         let repo = ctx.repo.get()?;
         if repo.head()?.is_unborn() {
             drop(repo);
-            return run_in_unborn_repo(ctx, meta, perm, commit_op, changes, reword_op, run_hooks);
+            return run_in_unborn_repo(ctx, perm, commit_op, changes, reword_op, run_hooks);
         }
     }
 
@@ -509,7 +507,6 @@ pub fn run(
     let ((new_commit, branch_name), ws) = if let Some(sbm) = sbm {
         sbm.transaction_with_workspace_setup(
             ctx,
-            meta,
             snapshot_details,
             &snapshot_refs,
             perm,
@@ -529,7 +526,6 @@ pub fn run(
     } else {
         but_transaction::with_transaction_with_perm(
             ctx,
-            meta,
             perm,
             snapshot_details,
             &snapshot_refs,
@@ -560,7 +556,7 @@ pub fn run(
 }
 
 fn commit_with_transaction(
-    mut tx: Transaction<'_, '_, impl RefMetadata>,
+    mut tx: Transaction<'_, '_>,
     commit_op: CommitOperation,
     changes: Vec<DiffSpec>,
     source: ChangeSource<'_>,
@@ -1068,7 +1064,7 @@ impl CommitOperation {
 
     fn execute(
         self,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+        tx: &mut Transaction<'_, '_>,
         changes: Vec<DiffSpec>,
         source: ChangeSource<'_>,
         sbm: Option<&SingleBranchMode>,
@@ -1097,7 +1093,7 @@ impl CommitToNewBranchOperation {
 
     fn execute(
         self,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+        tx: &mut Transaction<'_, '_>,
         changes: Vec<DiffSpec>,
         source: ChangeSource<'_>,
         sbm: Option<&SingleBranchMode>,
@@ -1122,7 +1118,7 @@ impl CommitToNewBranchOperation {
 
     pub(crate) fn create_reference(
         self,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+        tx: &mut Transaction<'_, '_>,
         sbm: Option<&SingleBranchMode>,
     ) -> anyhow::Result<FullName> {
         let Self {
@@ -1151,7 +1147,7 @@ pub struct CommitAtOperation {
 impl CommitAtOperation {
     fn execute(
         self,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+        tx: &mut Transaction<'_, '_>,
         changes: Vec<DiffSpec>,
         source: ChangeSource<'_>,
         sbm: Option<&SingleBranchMode>,
@@ -1196,7 +1192,7 @@ impl CommitAtOperation {
 
     pub fn create_target(
         &self,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+        tx: &mut Transaction<'_, '_>,
         sbm: Option<&SingleBranchMode>,
     ) -> anyhow::Result<(RelativeTo, InsertSide, Option<BranchNameTarget>)> {
         Ok(match &self.target {
@@ -1343,7 +1339,6 @@ fn validate_branch_target_in_unborn_repo(
 
 pub fn run_in_unborn_repo(
     ctx: &mut Context,
-    meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     commit_op: CommitOperation,
     changes: Vec<DiffSpec>,
@@ -1460,7 +1455,6 @@ pub fn run_in_unborn_repo(
     let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
     let ws = WorkspaceState::from_workspace_with_db(
         &ws,
-        meta,
         &repo,
         Default::default(),
         Vec::new(),

@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::bail;
-use but_core::{RefMetadata, ref_metadata};
+use but_core::ref_metadata;
 use gix::{prelude::ReferenceExt, refs::Target};
 
 use crate::{
@@ -104,14 +104,11 @@ impl Overlay {
 }
 
 impl Overlay {
-    pub(crate) fn into_parts<'repo, 'meta, T>(
+    pub(crate) fn into_parts<'repo, 'meta, 'db>(
         self,
         repo: &'repo gix::Repository,
-        meta: &'meta T,
-    ) -> (OverlayRepo<'repo>, OverlayMetadata<'meta, T>, Entrypoint)
-    where
-        T: RefMetadata,
-    {
+        meta: &'meta but_db::Meta<'db>,
+    ) -> (OverlayRepo<'repo>, OverlayMetadata<'meta, 'db>, Entrypoint) {
         let Overlay {
             nonoverriding_references,
             overriding_references,
@@ -440,17 +437,14 @@ impl<'repo> OverlayRepo<'repo> {
     }
 }
 
-pub(crate) struct OverlayMetadata<'meta, T> {
-    inner: &'meta T,
+pub(crate) struct OverlayMetadata<'meta, 'db> {
+    inner: &'meta but_db::Meta<'db>,
     meta_branches: Vec<(gix::refs::FullName, ref_metadata::Branch)>,
     branch_stack_orders: Vec<Vec<gix::refs::FullName>>,
     workspace: Option<(gix::refs::FullName, ref_metadata::Workspace)>,
 }
 
-impl<T> OverlayMetadata<'_, T>
-where
-    T: RefMetadata,
-{
+impl OverlayMetadata<'_, '_> {
     pub fn iter_workspaces(
         &self,
     ) -> impl Iterator<Item = (gix::refs::FullName, ref_metadata::Workspace)> {

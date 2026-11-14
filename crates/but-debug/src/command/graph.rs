@@ -5,7 +5,6 @@ use gix::odb::store::RefreshMode;
 
 use crate::{
     args::{Args, GraphArgs},
-    metadata::EmptyRefMetadata,
     setup,
 };
 
@@ -38,7 +37,6 @@ pub(crate) fn run(
 
     let mut repo = setup::repo_from_args(args)?;
     repo.objects.refresh = RefreshMode::Never;
-    let meta = EmptyRefMetadata;
 
     let opts = but_graph::init::Options {
         collect_tags: true,
@@ -65,7 +63,6 @@ pub(crate) fn run(
     let graph = match graph_args.ref_name.as_deref() {
         None => but_graph::Graph::from_head(
             &repo,
-            &meta,
             but_core::ref_metadata::ProjectMeta::default(),
             &mut setup::debug_db()?,
             opts,
@@ -76,7 +73,6 @@ pub(crate) fn run(
             but_graph::Graph::from_commit_traversal(
                 id,
                 reference.name().to_owned(),
-                &meta,
                 but_core::ref_metadata::ProjectMeta::default(),
                 &mut setup::debug_db()?,
                 opts,

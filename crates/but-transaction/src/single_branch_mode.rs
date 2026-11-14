@@ -4,7 +4,7 @@
 use std::borrow::Cow;
 
 use but_core::{
-    DryRun, RefMetadata,
+    DryRun,
     ref_metadata::ProjectMeta,
     sync::{RepoExclusive, RepoShared},
 };
@@ -94,7 +94,7 @@ impl SingleBranchMode {
     }
 
     /// Run `callback` in a transaction recorded in the oplog as `snapshot_details`, naming
-    /// `snapshot_refs` so undo deletes those it creates, using `ctx`, `meta` and exclusive
+    /// `snapshot_refs` so undo deletes those it creates, using `ctx` and exclusive
     /// `perm`ission.
     ///
     /// In single-branch mode, or when it may check out a branch, a failure partway restores the
@@ -105,14 +105,9 @@ impl SingleBranchMode {
     /// workspace itself at the end when an operation makes a stack of its own beside the
     /// branch checked out, see [`Transaction::create_reference()`] and
     /// [`Transaction::tear_off_branch()`].
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "a transaction's own arguments, and what single-branch mode adds"
-    )]
-    pub fn transaction_with_workspace_setup<Meta, F, T>(
+    pub fn transaction_with_workspace_setup<F, T>(
         &self,
         ctx: &mut Context,
-        meta: &mut Meta,
         snapshot_details: SnapshotDetails,
         snapshot_refs: &[&FullNameRef],
         perm: &mut RepoExclusive,
@@ -120,14 +115,12 @@ impl SingleBranchMode {
         callback: F,
     ) -> anyhow::Result<T::Outcome>
     where
-        Meta: RefMetadata,
-        F: FnOnce(Transaction<'_, '_, Meta>) -> anyhow::Result<T>,
+        F: FnOnce(Transaction<'_, '_>) -> anyhow::Result<T>,
         T: TransactionOutcome,
     {
         let (Some(target), Some(_)) = (&self.target, &self.head_reference) else {
             return crate::with_transaction_with_perm(
                 ctx,
-                meta,
                 perm,
                 snapshot_details,
                 snapshot_refs,
@@ -142,7 +135,6 @@ impl SingleBranchMode {
         if !may_checkout {
             return crate::with_transaction_with_perm(
                 ctx,
-                meta,
                 perm,
                 snapshot_details,
                 snapshot_refs,
@@ -153,7 +145,6 @@ impl SingleBranchMode {
 
         // Switching can fail after materialization has consumed worktree changes,
         // even when no workspace setup was needed. Cover the whole operation.
-        let original_metadata = meta.workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?;
         let checkpoint = but_oplog::UnmaterializedOplogSnapshot::prepare_checkpoint(
             ctx,
             snapshot_details,
@@ -161,17 +152,13 @@ impl SingleBranchMode {
             perm.read_permission(),
         )?;
 
-        let outcome = crate::with_transaction_with_perm_only(ctx, meta, perm, DryRun::No, callback);
+        let outcome = crate::with_transaction_with_perm_only(ctx, perm, DryRun::No, callback);
         if let Ok((false, value)) = outcome {
             checkpoint.commit(ctx, perm)?;
             return Ok(value);
         }
 
-        // Restore the caller's metadata too: legacy handles write on drop and
-        // must not re-persist the failed operation after the checkpoint is restored.
-        let metadata_result = meta.set_workspace(&original_metadata);
         let rollback_result = checkpoint.rollback(ctx, perm);
-        let rollback_result = metadata_result.and(rollback_result);
         match outcome {
             Ok((_, value)) => {
                 rollback_result?;
@@ -196,9 +183,9 @@ impl SingleBranchMode {
     /// another branch checked out on its own, it starts where that branch leaves the target,
     /// and the transaction enters the workspace at the end to hold both. With `HEAD` detached
     /// and no switch, it's independent, which only the workspace takes.
-    pub fn create_unstacked_reference<M: RefMetadata>(
+    pub fn create_unstacked_reference(
         &self,
-        tx: &mut Transaction<'_, '_, M>,
+        tx: &mut Transaction<'_, '_>,
         new_ref: &FullNameRef,
         order: Option<usize>,
     ) -> anyhow::Result<()> {
@@ -228,9 +215,9 @@ impl SingleBranchMode {
 
     /// Create `new_ref` in `tx` at `position` of the branch `relative_to`, in its stack. Above
     /// the branch checked out on its own, it's checked out.
-    pub fn create_stacked_reference<M: RefMetadata>(
+    pub fn create_stacked_reference(
         &self,
-        tx: &mut Transaction<'_, '_, M>,
+        tx: &mut Transaction<'_, '_>,
         new_ref: &FullNameRef,
         relative_to: &FullNameRef,
         position: Position,

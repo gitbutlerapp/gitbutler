@@ -45,9 +45,8 @@ pub fn commit_cherry_pick_only_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitCherryPickResult> {
-    let mut meta = ctx.meta()?;
     let (_, (new_commits, workspace)) =
-        with_transaction_with_perm_only(ctx, &mut meta, perm, dry_run, |mut tx| {
+        with_transaction_with_perm_only(ctx, perm, dry_run, |mut tx| {
             let picked = tx.cherry_pick_commits(source_commit_ids, relative_to, side, false)?;
             Ok(Commit(picked.into_iter().map(|commit| commit.id).collect()))
         })?;

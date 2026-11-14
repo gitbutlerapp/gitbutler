@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::{Context as _, anyhow};
-use but_core::{DiffSpec, RefMetadata, ref_metadata::StackId, sync::RepoExclusive};
+use but_core::{DiffSpec, ref_metadata::StackId, sync::RepoExclusive};
 use but_db::DbHandle;
 use but_rebase::graph_rebase::{
     Editor, LookupStep as _,
@@ -41,7 +41,6 @@ pub(crate) fn handle_changes(
     repo: &gix::Repository,
     ws: &mut but_graph::Workspace,
     db: &mut DbHandle,
-    meta: &mut impl RefMetadata,
     context_lines: u32,
 ) -> anyhow::Result<Outcome> {
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
@@ -58,7 +57,7 @@ pub(crate) fn handle_changes(
         });
     }
 
-    let stacks = stacks_creating_if_none(repo, ws, meta, db, perm)?;
+    let stacks = stacks_creating_if_none(repo, ws, db, perm)?;
 
     let mut stack_assignments: HashMap<StackId, Vec<DiffSpec>> =
         stacks.iter().map(|s| (s.id, vec![])).collect();
@@ -111,7 +110,7 @@ pub(crate) fn handle_changes(
         let full_ref_name: gix::refs::FullName =
             format!("refs/heads/{stack_branch_name}").try_into()?;
 
-        let editor = Editor::create(ws, meta, repo, db)?;
+        let editor = Editor::create(ws, repo, db)?;
         let outcome = but_workspace::commit::commit_create(
             editor,
             diff_specs,
@@ -155,7 +154,6 @@ pub(crate) fn handle_changes(
 fn stacks_creating_if_none(
     repo: &gix::Repository,
     ws: &mut but_graph::Workspace,
-    meta: &mut impl RefMetadata,
     db: &mut DbHandle,
     _perm: &mut RepoExclusive,
 ) -> anyhow::Result<Vec<StackForAction>> {
@@ -165,7 +163,7 @@ fn stacks_creating_if_none(
     }
 
     let branch_name = but_core::branch::unique_canned_refname(repo)?;
-    let editor = Editor::create(ws, meta, repo, db)?;
+    let editor = Editor::create(ws, repo, db)?;
     but_workspace::branch::create_reference(editor, branch_name.as_ref(), None, None)?
         .into_rebase_in_workspace()?
         .materialize(Default::default())?;

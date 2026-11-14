@@ -3,7 +3,7 @@ use std::collections::hash_map::Entry;
 
 use anyhow::{Result, bail};
 use bstr::BString;
-use but_core::{DiffSpec, RefMetadata};
+use but_core::DiffSpec;
 use but_rebase::{
     commit::DateMode,
     graph_rebase::{Editor, LookupStep, Selector, SuccessfulRebase, ToCommitSelector},
@@ -12,8 +12,8 @@ use but_rebase::{
 use crate::tree_manipulation::{ChangesSource, create_tree_without_diff};
 
 #[derive(Debug)]
-pub struct UncommitChangesOutcome<'ws, 'meta, M: RefMetadata> {
-    pub rebase: SuccessfulRebase<'ws, 'meta, M>,
+pub struct UncommitChangesOutcome<'ws, 'meta> {
+    pub rebase: SuccessfulRebase<'ws, 'meta>,
     /// Selector pointing to the modified commit (with changes removed)
     pub commit_selector: Selector,
 }
@@ -41,9 +41,9 @@ pub struct UncommitChangesFailure {
 
 /// The result of uncommitting changes from multiple commits.
 #[derive(Debug)]
-pub struct UncommitChangesFromCommitsOutcome<'ws, 'meta, M: RefMetadata> {
+pub struct UncommitChangesFromCommitsOutcome<'ws, 'meta> {
     /// The successful rebase result, which rewrites nothing when no source was uncommitted.
-    pub rebase: SuccessfulRebase<'ws, 'meta, M>,
+    pub rebase: SuccessfulRebase<'ws, 'meta>,
     pub failures: Vec<UncommitChangesFailure>,
 }
 
@@ -57,12 +57,12 @@ struct GroupedUncommitChanges {
 ///
 /// The changes are removed from the commit's tree, effectively "uncommitting"
 /// them so they appear in the working directory as uncommitted changes.
-pub fn uncommit_changes<'ws, 'meta, M: RefMetadata>(
-    editor: Editor<'ws, 'meta, M>,
+pub fn uncommit_changes<'ws, 'meta>(
+    editor: Editor<'ws, 'meta>,
     commit: impl ToCommitSelector,
     changes: impl IntoIterator<Item = DiffSpec>,
     context_lines: u32,
-) -> Result<UncommitChangesOutcome<'ws, 'meta, M>> {
+) -> Result<UncommitChangesOutcome<'ws, 'meta>> {
     let (editor, commit_selector) =
         uncommit_changes_no_rebase(editor, commit, changes, context_lines)
             .map_err(|err| err.error)?;
@@ -80,11 +80,11 @@ pub fn uncommit_changes<'ws, 'meta, M: RefMetadata>(
 ///
 /// Invalid or inapplicable grouped sources are collected in `failures`. All
 /// successful replacements are rebased once at the end.
-pub fn uncommit_changes_from_commits<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
+pub fn uncommit_changes_from_commits<'ws, 'meta>(
+    mut editor: Editor<'ws, 'meta>,
     sources: impl IntoIterator<Item = UncommitChangesSource>,
     context_lines: u32,
-) -> Result<UncommitChangesFromCommitsOutcome<'ws, 'meta, M>> {
+) -> Result<UncommitChangesFromCommitsOutcome<'ws, 'meta>> {
     let groups = group_sources_by_commit(sources);
     if groups.is_empty() {
         bail!("No changes were provided to uncommit")
@@ -147,32 +147,29 @@ pub fn uncommit_changes_from_commits<'ws, 'meta, M: RefMetadata>(
     })
 }
 
-struct UncommitChangesNoRebaseError<'ws, 'meta, M: RefMetadata> {
-    into_editor: Editor<'ws, 'meta, M>,
+struct UncommitChangesNoRebaseError<'ws, 'meta> {
+    into_editor: Editor<'ws, 'meta>,
     error: anyhow::Error,
 }
 
-impl<M: RefMetadata> std::fmt::Display for UncommitChangesNoRebaseError<'_, '_, M> {
+impl std::fmt::Display for UncommitChangesNoRebaseError<'_, '_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.error.fmt(f)
     }
 }
 
-impl<M: RefMetadata> std::fmt::Debug for UncommitChangesNoRebaseError<'_, '_, M> {
+impl std::fmt::Debug for UncommitChangesNoRebaseError<'_, '_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.error.fmt(f)
     }
 }
 
-fn uncommit_changes_no_rebase<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
+fn uncommit_changes_no_rebase<'ws, 'meta>(
+    mut editor: Editor<'ws, 'meta>,
     commit: impl ToCommitSelector,
     changes: impl IntoIterator<Item = DiffSpec>,
     context_lines: u32,
-) -> std::result::Result<
-    (Editor<'ws, 'meta, M>, Selector),
-    UncommitChangesNoRebaseError<'ws, 'meta, M>,
-> {
+) -> std::result::Result<(Editor<'ws, 'meta>, Selector), UncommitChangesNoRebaseError<'ws, 'meta>> {
     match uncommit_changes_no_rebase_inner(&mut editor, commit, changes, context_lines) {
         Ok(selector) => Ok((editor, selector)),
         Err(error) => Err(UncommitChangesNoRebaseError {
@@ -182,8 +179,8 @@ fn uncommit_changes_no_rebase<'ws, 'meta, M: RefMetadata>(
     }
 }
 
-fn uncommit_changes_no_rebase_inner<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
+fn uncommit_changes_no_rebase_inner(
+    editor: &mut Editor<'_, '_>,
     commit: impl ToCommitSelector,
     changes: impl IntoIterator<Item = DiffSpec>,
     context_lines: u32,

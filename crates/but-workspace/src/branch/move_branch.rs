@@ -1,11 +1,10 @@
-use but_core::RefMetadata;
 use but_rebase::graph_rebase::SuccessfulRebase;
 use gix::refs::FullName;
 
 /// Returned by [`super::tear_off_branch()`].
-pub struct TearOffBranchOutcome<'ws, 'meta, M: RefMetadata> {
+pub struct TearOffBranchOutcome<'ws, 'meta> {
     /// The rebase that puts the branch in a stack of its own once materialized.
-    pub rebase: SuccessfulRebase<'ws, 'meta, M>,
+    pub rebase: SuccessfulRebase<'ws, 'meta>,
     /// Without a workspace commit, the stack `HEAD` no longer reaches, with the order it takes
     /// among the stacks once [`apply_stack()`](super::apply_stack()) applies it beside the one
     /// `HEAD` is on. That's the torn off branch, unless `HEAD` is on it and follows it, leaving
@@ -16,7 +15,6 @@ pub struct TearOffBranchOutcome<'ws, 'meta, M: RefMetadata> {
 
 pub(super) mod function {
 
-    use but_core::RefMetadata;
     use but_rebase::graph_rebase::mutate::SomeSelectors;
 
     use super::TearOffBranchOutcome;
@@ -47,11 +45,11 @@ pub(super) mod function {
     ///     Without a workspace commit, it's kept in [`TearOffBranchOutcome::unreachable_stack`].
     ///     A branch that's already a stack of its own only moves to `order` among the others,
     ///     and with `None` stays where it is.
-    pub fn tear_off_branch<'ws, 'meta, M: RefMetadata>(
-        editor: Editor<'ws, 'meta, M>,
+    pub fn tear_off_branch<'ws, 'meta>(
+        editor: Editor<'ws, 'meta>,
         subject_branch_name: &FullNameRef,
         order: impl Into<Option<usize>>,
-    ) -> anyhow::Result<TearOffBranchOutcome<'ws, 'meta, M>> {
+    ) -> anyhow::Result<TearOffBranchOutcome<'ws, 'meta>> {
         let order = order.into();
         let successful_rebase = editor.rebase()?;
         let workspace = successful_rebase.overlayed_graph()?.into_workspace()?;
@@ -217,12 +215,12 @@ pub(super) mod function {
     /// In the future, where we're not afraid of complex graphs, we've figured out UX and data wrangling,
     /// the concept of a segment might not hold, and hence we'll have to figure out a better way of determining
     /// what to cut (e.g. letting the clients decide what to cut).
-    pub fn move_branch<'ws, 'meta, M: RefMetadata>(
-        editor: Editor<'ws, 'meta, M>,
+    pub fn move_branch<'ws, 'meta>(
+        editor: Editor<'ws, 'meta>,
         subject_branch_name: &FullNameRef,
         relative_to: RelativeTo,
         side: InsertSide,
-    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta>> {
         let successful_rebase = editor.rebase()?;
         let workspace = successful_rebase.overlayed_graph()?.into_workspace()?;
 
@@ -243,7 +241,6 @@ pub(super) mod function {
                 successful_rebase,
                 source,
                 anchor,
-                subject_branch_name,
                 relative_to,
                 side,
             ),
@@ -264,14 +261,13 @@ pub(super) mod function {
     /// Move a branch in a single-branch (ad-hoc) workspace, where `HEAD` is on a plain local branch.
     ///
     /// `HEAD` follows the top of the reordered stack, so the whole stack stays projected.
-    fn move_branch_in_single_branch_mode<'ws, 'meta, M: RefMetadata>(
-        mut successful_rebase: SuccessfulRebase<'ws, 'meta, M>,
+    fn move_branch_in_single_branch_mode<'ws, 'meta>(
+        successful_rebase: SuccessfulRebase<'ws, 'meta>,
         source: SegmentInLane<'_>,
         anchor: Anchor<'_>,
-        subject_branch_name: &FullNameRef,
         relative_to: RelativeTo,
         side: InsertSide,
-    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta>> {
         let ((Lane::Stack(source_stack), subject_segment), Lane::Stack(destination_stack)) =
             (source, anchor.lane)
         else {
@@ -287,13 +283,6 @@ pub(super) mod function {
                 "Moving a non-empty branch in single-branch mode is not yet supported"
             );
         }
-        let (_repo, meta) = successful_rebase.repo_and_meta_mut();
-        if !meta.can_persist_branch_stack_order() {
-            bail!(
-                "Cannot reorder '{subject_branch_name}' in single-branch mode without branch order metadata"
-            );
-        }
-
         let mut editor = successful_rebase.into_editor();
         let target_selector = relative_to
             .to_selector(&editor)
@@ -326,14 +315,14 @@ pub(super) mod function {
     }
 
     /// Move a branch within a managed workspace (one backed by a workspace commit).
-    fn move_branch_in_managed_workspace<'ws, 'meta, M: RefMetadata>(
-        successful_rebase: SuccessfulRebase<'ws, 'meta, M>,
+    fn move_branch_in_managed_workspace<'ws, 'meta>(
+        successful_rebase: SuccessfulRebase<'ws, 'meta>,
         workspace: &but_graph::Workspace,
         source: SegmentInLane<'_>,
         subject_branch_name: &FullNameRef,
         relative_to: RelativeTo,
         side: InsertSide,
-    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta>> {
         let Some(workspace_head) = workspace.tip_commit().map(|commit| commit.id) else {
             bail!("Couldn't find workspace head.")
         };

@@ -44,7 +44,6 @@ pub fn on_uncommitted_changes(
 ) -> anyhow::Result<Outcome> {
     prepare_handle_changes(ctx, perm)?;
     let context_lines = ctx.settings.context_lines;
-    let mut meta = ctx.meta()?;
     let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     match handler {
         ActionHandler::HandleChangesSimple => simple::handle_changes(
@@ -55,7 +54,6 @@ pub fn on_uncommitted_changes(
             &repo,
             &mut ws,
             &mut db,
-            &mut meta,
             context_lines,
         ),
     }

@@ -50,12 +50,10 @@ pub fn commit_move_changes_between_only_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<MoveChangesResult> {
-    let mut meta = ctx.meta()?;
-    let (_, workspace) =
-        with_transaction_with_perm_only(ctx, &mut meta, perm, dry_run, |mut tx| {
-            tx.move_committed_changes_between(source_commit_id, destination_commit_id, changes)?;
-            Ok(())
-        })?;
+    let (_, workspace) = with_transaction_with_perm_only(ctx, perm, dry_run, |mut tx| {
+        tx.move_committed_changes_between(source_commit_id, destination_commit_id, changes)?;
+        Ok(())
+    })?;
 
     Ok(MoveChangesResult { workspace })
 }
