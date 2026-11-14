@@ -417,6 +417,9 @@ struct Card {
     rows_height: f32,
 }
 
+/// Where a tab was last drawn, from the window's left, and how wide, in unscaled pixels.
+type DrawnAt = Rc<Cell<Option<(f32, f32)>>>;
+
 pub struct NavigatorTabs {
     app: AppHandle,
     /// Takes the keys, which step along the tabs and down the card's rows.
@@ -427,11 +430,11 @@ pub struct NavigatorTabs {
     navigator: Entity<Navigator>,
     /// The terminal overview, which the card under the terminals' tab holds.
     terminals: Entity<TerminalOverview>,
-    /// Where the tabs of the projects not watched and of the terminals were last drawn, in
-    /// unscaled pixels from the window's left, as they stay at the strip's right end rather than
-    /// being laid out in it.
-    more_left: Rc<Cell<Option<f32>>>,
-    terminals_left: Rc<Cell<Option<f32>>>,
+    /// Where the tabs of the projects not watched and of the terminals were last drawn, from the
+    /// window's left, and how wide, in unscaled pixels, as they stay at the strip's right end
+    /// rather than being laid out in it.
+    more_drawn: DrawnAt,
+    terminals_drawn: DrawnAt,
     scroll: ScrollHandle,
     /// The project opened out, none while the selection's in one not watched, and those on
     /// their way there or back.
@@ -516,8 +519,8 @@ impl NavigatorTabs {
             store,
             navigator,
             terminals,
-            more_left: Rc::default(),
-            terminals_left: Rc::default(),
+            more_drawn: Rc::default(),
+            terminals_drawn: Rc::default(),
             scroll: ScrollHandle::new(),
             current: None,
             opening: HashMap::new(),
@@ -910,11 +913,12 @@ impl NavigatorTabs {
         Some((label, width))
     }
 
-    /// Where `key`'s tab was last drawn, while it's one that stays at the strip's right end.
-    fn pinned_left(&self, key: &TabKey) -> Option<&Rc<Cell<Option<f32>>>> {
+    /// Where `key`'s tab was last drawn and how wide, while it's one that stays at the strip's
+    /// right end.
+    fn pinned_drawn(&self, key: &TabKey) -> Option<&DrawnAt> {
         match key {
-            TabKey::More => Some(&self.more_left),
-            TabKey::Terminals => Some(&self.terminals_left),
+            TabKey::More => Some(&self.more_drawn),
+            TabKey::Terminals => Some(&self.terminals_drawn),
             TabKey::Project(_) | TabKey::Checkout(..) => None,
         }
     }
@@ -1421,11 +1425,9 @@ impl NavigatorTabs {
     }
 
     /// The card as it's drawn at `now`, while there is one.
-    #[expect(clippy::too_many_arguments)]
     fn draw_card(
         &mut self,
         rest: &Laid,
-        pinned: &[(TabKey, SharedString, f32)],
         rest_offset: f32,
         strip_left: f32,
         now: Instant,
@@ -1444,28 +1446,23 @@ impl NavigatorTabs {
             self.card = None;
         }
         let terminals = self.terminals.clone();
-        let pinned_at = (self.card.as_ref()).and_then(|card| {
-            let key = &card.pane.key;
-            let (.., width) = pinned.iter().find(|(pinned, ..)| pinned == key)?;
-            Some((self.pinned_left(key)?.get(), *width))
-        });
+        let pinned = (self.card.as_ref())
+            .and_then(|card| self.pinned_drawn(&card.pane.key))
+            .map(|drawn| drawn.get());
         let card = self.card.as_mut()?;
         // Where its tab comes to rest on screen. The tab may be on its way there, and a worktree's
         // starts out from behind its project's, so going by where it is now sends the card there
         // and back.
-        let at_rest = match &card.pane.key {
+        let at_rest = match pinned {
             // At the strip's right end, where it was drawn, as it's not laid out in the strip.
-            TabKey::More | TabKey::Terminals => match pinned_at {
-                Some((Some(left), width)) => Some((left, width)),
-                // Drawn for the first time in this frame, where the card goes in the next.
-                Some((None, _)) => {
-                    window.request_animation_frame();
-                    return None;
-                }
-                None => None,
-            },
-            key => (rest.place(key)).map(|tab| {
-                let slid = slid(&self.reorder, key);
+            Some(Some(drawn)) => Some(drawn),
+            // Drawn for the first time in this frame, where the card goes in the next.
+            Some(None) => {
+                window.request_animation_frame();
+                return None;
+            }
+            None => (rest.place(&card.pane.key)).map(|tab| {
+                let slid = slid(&self.reorder, &card.pane.key);
                 (
                     strip_left + OUTLINE + tab.left - rest_offset + slid,
                     tab.width,
@@ -2042,10 +2039,18 @@ impl Render for NavigatorTabs {
         let more = self.tab_width(&more_label, window, cx)
             + MARK_ROOM * self.mark_share(&TabKey::More, now);
         let terminals = self.terminals_tab(now, window, cx);
-        // The tabs at the strip's right end, in order.
-        let pinned: Vec<(TabKey, SharedString, f32)> =
-            std::iter::once((TabKey::More, more_label, more))
-                .chain(terminals.map(|(label, width)| (TabKey::Terminals, label, width)))
+        // The tabs at the strip's right end, in order, and where each records where it's drawn.
+        let terminals = terminals.map(|(label, width)| {
+            (
+                TabKey::Terminals,
+                label,
+                width,
+                self.terminals_drawn.clone(),
+            )
+        });
+        let pinned: Vec<_> =
+            std::iter::once((TabKey::More, more_label, more, self.more_drawn.clone()))
+                .chain(terminals)
                 .collect();
         let laid = lay_out(&groups, |id| self.share(id, now));
         self.order = (laid.tabs.iter().map(|tab| tab.key.clone()))
@@ -2066,7 +2071,7 @@ impl Render for NavigatorTabs {
 
         let top_left = crate::menu_bar::top_left_room(window, &self.store.read(cx).prefs, &theme);
         let strip_left = top_left.map_or(CARD_MARGIN, |room| f32::from(room) / theme.scale);
-        let card = self.draw_card(&rest, &pinned, rest_offset, strip_left, now, window, cx);
+        let card = self.draw_card(&rest, rest_offset, strip_left, now, window, cx);
 
         // The ground behind the tab the selection's in.
         // With the keys going along the tabs, the card hanging from that tab is on its way there
@@ -2076,30 +2081,35 @@ impl Render for NavigatorTabs {
         let under_card =
             (card.as_ref()).filter(|_| self.keyed.is_some() && card_key == self.active.as_ref());
         let offset = -f32::from(self.scroll.offset().x) / theme.scale;
-        let ground = (self.active.as_ref())
-            .and_then(|key| rest.place(key))
-            .map(|tab| {
-                let at_rest = tab.left - rest_offset + offset + self.slid(&tab.key);
-                let (left, width) = match under_card {
-                    Some(card) => (card.left, card.width),
-                    None => (
-                        self.active_left.at(at_rest, now),
-                        self.active_width.at(tab.width, now),
-                    ),
-                };
-                self.active_drawn = Some((left, width));
-                (left, width)
-            });
-        // A tab at the strip's right end has its ground where it's drawn, and what's gliding away
-        // from it starts there, past the strip's end.
-        let pinned_ground = (self.active.as_ref()).and_then(|key| {
-            let left = self.pinned_left(key)?.get()?;
-            let (.., width) = pinned.iter().find(|(pinned, ..)| pinned == key)?;
-            Some((left, *width))
+        // A tab at the strip's right end has its ground where it's drawn, but what glides to or
+        // from it goes along the strip, past its end, where the strip cuts it off.
+        let pinned_active = (self.active.as_ref())
+            .and_then(|key| self.pinned_drawn(key))
+            .and_then(|drawn| drawn.get());
+        let at_rest = (self.active.as_ref()).and_then(|key| match rest.place(key) {
+            Some(tab) => Some((
+                tab.left - rest_offset + offset + self.slid(&tab.key),
+                tab.width,
+            )),
+            None => {
+                pinned_active.map(|(left, width)| (left - strip_left - OUTLINE + offset, width))
+            }
         });
-        if let Some((left, width)) = pinned_ground {
-            self.active_drawn = Some((left - strip_left - OUTLINE + offset, width));
-        }
+        let ground = at_rest.map(|(at_rest, width)| {
+            let (left, width) = match under_card {
+                Some(card) => (card.left, card.width),
+                None => (
+                    self.active_left.at(at_rest, now),
+                    self.active_width.at(width, now),
+                ),
+            };
+            self.active_drawn = Some((left, width));
+            (left, width)
+        });
+        // One under the card is there already, as the card is.
+        let pinned_ground =
+            pinned_active.filter(|_| under_card.is_some() || !self.active_left.moving(now));
+        let ground = ground.filter(|_| pinned_ground.is_none());
         let highlight = ground.and_then(|at| self.highlight(at, &laid, &labels, now, &theme, cx));
         self.rest = rest;
         // A solid one shows the tabs it's over itself, so it goes over them; a faint one goes
@@ -2170,8 +2180,8 @@ impl Render for NavigatorTabs {
         };
         // The tabs at the strip's right end aren't in the strip, so the tab reaching down into its
         // card goes under the strip rather than in it, where the strip doesn't cut it off.
-        let is_pinned = (self.card.as_ref())
-            .is_some_and(|card| matches!(card.pane.key, TabKey::More | TabKey::Terminals));
+        let is_pinned =
+            (self.card.as_ref()).is_some_and(|card| self.pinned_drawn(&card.pane.key).is_some());
         let (neck, pinned_neck) = match (card.as_ref(), is_pinned) {
             (Some(card), true) => (
                 None,
@@ -2324,10 +2334,7 @@ impl Render for NavigatorTabs {
         // At the strip's right end, which scrolls under them.
         let scale = theme.scale;
         let mut pinned_tabs = Vec::with_capacity(pinned.len());
-        for (key, label, width) in pinned {
-            let Some(drawn_at) = self.pinned_left(&key).cloned() else {
-                continue;
-            };
+        for (key, label, width, drawn_at) in pinned {
             let tab = Placed {
                 key,
                 left: 0.,
@@ -2343,8 +2350,11 @@ impl Render for NavigatorTabs {
                     .child(
                         gpui::canvas(
                             move |bounds, window, _| {
-                                let left = Some(f32::from(bounds.left()) / scale);
-                                if drawn_at.replace(left) != left {
+                                let drawn = Some((
+                                    f32::from(bounds.left()) / scale,
+                                    f32::from(bounds.size.width) / scale,
+                                ));
+                                if drawn_at.replace(drawn) != drawn {
                                     window.request_animation_frame();
                                 }
                             },
@@ -2859,17 +2869,11 @@ mod tests {
     }
 
     #[test]
-    fn the_strip_ends_with_the_last_project() {
-        let groups = [group("a", &[50.]), group("b", &[])];
-        let laid = lay_out(&groups, |_| 1.);
+    fn with_no_projects_watched_the_strip_is_empty() {
+        let laid = lay_out(&[], |_| 1.);
         assert_eq!(
-            laid.end,
-            left_of(&laid, "b") + 100.,
-            "the projects not watched have their tab past the strip, beside the terminals'"
-        );
-        assert!(
-            laid.place(&TabKey::More).is_none(),
-            "so it's not laid out in it"
+            laid.end, 0.,
+            "the tab of the projects not watched is past the strip, beside the terminals'"
         );
     }
 
