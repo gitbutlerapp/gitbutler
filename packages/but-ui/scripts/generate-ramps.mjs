@@ -2,8 +2,8 @@
 // dark, on Radix Colors' curves through dittoTones, then nudged until the pairs the semantic
 // names make from them read. Steps keep Radix's jobs: 1–2 grounds, 3–5 tints (3 soft, 4 its
 // hover), 6–8 lines, 9 the solid fill and 10 its hover, 11 text, 12 strong text. Each colour
-// (not gray or a ground) also has a3 and a4, see-through, for the soft fills: half a step past
-// steps 3 and 4.
+// (not gray or a ground) also has a2, a3 and a4, see-through: a2 for a coloured outline's hover,
+// a3 and a4 for the soft fills, each half a step past steps 2, 3 and 4.
 //
 //   node scripts/generate-ramps.mjs          writes tokens/ramps.json and prints the report
 //   node scripts/generate-ramps.mjs --check  fails if tokens/ramps.json is out of date
@@ -210,8 +210,11 @@ for (const [hue, { seed, label, ground }] of Object.entries(HUES)) {
 		// come half a step past steps 3 and 4, toward 4 and 5. At step 3 itself a fill barely
 		// showed on a row's hover or a card. Its text reads on the fill over canvas, gray 3, the
 		// darkest ground it sits on; a hover there, for a moment, is let off.
+		// a2, half a step past step 2, is the faintest: a coloured outline button's hover, as Radix's
+		// outline hovers on its a2.
 		const alphas = gray
 			? {
+					a2: seeThrough(tint(s[2], s[1], SOFT_STEP), gray["1"]),
 					a3: seeThrough(tint(s[3], s[2], SOFT_STEP), gray["1"]),
 					a4: seeThrough(tint(s[4], s[3], SOFT_STEP), gray["1"]),
 				}
