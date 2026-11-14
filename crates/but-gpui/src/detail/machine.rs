@@ -9,8 +9,8 @@ use gpui::{AnyElement, App, Context, Div, SharedString, Window, div, prelude::*}
 
 use super::Detail;
 use super::panes::{
-    Crumb, Lane, and_more, grouped, meta_item, overview_heading, overview_row, overview_sections,
-    overview_split, overview_tiles, overview_title, worktree_lanes,
+    Crumb, Lane, and_more, grouped, meta_item, overview_body, overview_heading, overview_page,
+    overview_row, overview_sections, overview_split, overview_tiles, worktree_lanes,
 };
 use crate::backend::mesh::{self, Checkout};
 use crate::backend::{self, CommitId, DiffSource};
@@ -371,34 +371,20 @@ impl Detail {
             .children(file_rows)
             .children(and_more(changed.len().saturating_sub(SHOWN), theme));
 
-        v_flex()
-            .id("machines-overview")
-            .flex_1()
-            .h_full()
-            .min_w_0()
-            .overflow_y_scroll()
-            .child(
-                v_flex()
-                    .w_full()
-                    .px(dp(14.))
-                    .py(dp(16.))
-                    .gap(dp(6.))
-                    .child(overview_title(
-                        "Network worktrees",
-                        "From your mesh".to_owned(),
-                        theme,
-                    ))
-                    .child(overview_tiles(tiles, theme))
-                    .children(overview_split(parts, theme))
-                    // The lanes want the width a cell a day needs; the lists sit side by side
-                    // under them where they fit.
-                    .child(overview_sections([
-                        (Some(worktrees.into_any_element()), 880.),
-                        (Some(commits_section.into_any_element()), 340.),
-                        (Some(files_section.into_any_element()), 300.),
-                    ])),
-            )
-            .into_any_element()
+        overview_page(
+            "machines-overview",
+            overview_body("Network worktrees", "From your mesh".to_owned(), theme)
+                .child(overview_tiles(tiles, theme))
+                .children(overview_split(parts, theme))
+                // The lanes want the width a cell a day needs; the lists sit side by side
+                // under them where they fit.
+                .child(overview_sections([
+                    (Some(worktrees.into_any_element()), 880.),
+                    (Some(commits_section.into_any_element()), 340.),
+                    (Some(files_section.into_any_element()), 300.),
+                ])),
+        )
+        .into_any_element()
     }
 
     /// What the project's header counts of its checkouts on other machines, while it has any.

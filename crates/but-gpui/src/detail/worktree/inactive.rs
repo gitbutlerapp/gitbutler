@@ -7,11 +7,11 @@ use super::span_said;
 use crate::backend::{self, Branch, Checkout, CommitState, PushState};
 use crate::detail::Detail;
 use crate::detail::panes::{
-    Lane, grouped, overview_split, overview_tiles, overview_title, worktree_lanes,
+    Lane, grouped, overview_body, overview_page, overview_split, overview_tiles, worktree_lanes,
 };
 use crate::state::{ProjectId, Selection};
 use crate::theme::Theme;
-use crate::ui::{Icon, dp, v_flex};
+use crate::ui::Icon;
 
 /// What's left in a quiet worktree, which says whether it can go.
 enum Left {
@@ -141,27 +141,17 @@ impl Detail {
                 .collect(),
             changed: wt.updated_at,
         });
-        v_flex()
-            .id("inactive-overview")
-            .flex_1()
-            .h_full()
-            .min_w_0()
-            .overflow_y_scroll()
-            .child(
-                v_flex()
-                    .w_full()
-                    .px(dp(14.))
-                    .py(dp(16.))
-                    .gap(dp(6.))
-                    .child(overview_title(
-                        "Inactive worktrees",
-                        store.prefs.inactive_after.rule(),
-                        theme,
-                    ))
-                    .child(overview_tiles(tiles, theme))
-                    .children(overview_split(parts, theme))
-                    .child(worktree_lanes(lanes, worktrees.len(), theme, cx)),
+        overview_page(
+            "inactive-overview",
+            overview_body(
+                "Inactive worktrees",
+                store.prefs.inactive_after.rule(),
+                theme,
             )
-            .into_any_element()
+            .child(overview_tiles(tiles, theme))
+            .children(overview_split(parts, theme))
+            .child(worktree_lanes(lanes, worktrees.len(), theme, cx)),
+        )
+        .into_any_element()
     }
 }
