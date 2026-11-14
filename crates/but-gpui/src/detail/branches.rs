@@ -1,6 +1,5 @@
-//! The Branches page: branches outside the workspace, newest first, local ones and the ones
-//! only a remote has alike, each with what it would bring in, ready to apply or delete. Beside
-//! the list, an overview of the work under way until one is opened, then its diff.
+//! The Branches page: a complete remote inventory, or local branches, including the target
+//! and branches in use. Beside the list, an overview until a branch is opened, then its diff.
 
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
@@ -21,6 +20,8 @@ actions!(
         NewWorktreeFromBranch,
         EditDescription,
         ShowOnlyLocalBranches,
+        ShowRemoteBranches,
+        ShowBranchesWithoutCommits,
     ]
 );
 
@@ -57,9 +58,6 @@ pub(super) struct Branches {
     /// leaves the list as it is.
     seen: u64,
     list: Vec<OtherBranch>,
-    /// The workspace's applied branches, which the list leaves to the navigator and the
-    /// overview counts too.
-    applied: Vec<OtherBranch>,
     /// The selected branch, by ref, whose diff shows; none while the overview does.
     selected: Option<FullName>,
     /// The selection is the caption of `selected`'s stack, which names its top branch: that
@@ -125,8 +123,8 @@ impl Branches {
             .collect()
     }
 
-    /// `all` of `project`'s branches as read when its workspace was `seen`, the applied ones
-    /// apart, keeping what of `previous` still applies: the branch opened, those open and
+    /// `all` of `project`'s branches as read when its workspace was `seen`, keeping what of
+    /// `previous` still applies: the branch opened, those open and
     /// their commits, and the filters.
     fn read(
         project: ProjectId,
@@ -134,7 +132,7 @@ impl Branches {
         all: Vec<OtherBranch>,
         previous: Option<Branches>,
     ) -> Self {
-        let (applied, list): (Vec<_>, Vec<_>) = all.into_iter().partition(|b| b.applied);
+        let list = all;
         // The branch opened, while it's listed: once it goes, as an agent renamed or
         // deleted it, the overview shows rather than another branch in its place.
         let selected = (previous.as_ref())
@@ -164,7 +162,6 @@ impl Branches {
             project,
             seen,
             list,
-            applied,
             selected,
             stack,
             open,
@@ -272,7 +269,7 @@ enum Row {
 }
 
 impl Detail {
-    /// List `project`'s branches, the applied ones apart; unless `force`, only when its
+    /// List all of `project`'s local and remote branches; unless `force`, only when its
     /// workspace changed.
     pub(super) fn load_branches(
         &mut self,
@@ -313,8 +310,11 @@ impl Detail {
                 // One a linked worktree the navigator shows has checked out is in use there,
                 // as applied ones are in the workspace.
                 if let Some(ws) = this.store.read(cx).workspace(&project) {
-                    for b in all.iter_mut().filter(|b| b.local) {
-                        b.applied |= ws.checked_out_in(&b.ref_name).is_some();
+                    for b in &mut all {
+                        b.applied |= b
+                            .local_ref
+                            .as_ref()
+                            .is_some_and(|local| ws.checked_out_in(local).is_some());
                     }
                 }
                 let previous = this.branches.remove(&project);
@@ -335,16 +335,11 @@ impl Detail {
         });
     }
 
-    /// How many of `project`'s branches aren't applied, as its Branches page lists them at
-    /// first: with commits of their own, and no merged or closed pull request.
-    pub(super) fn unapplied(&self, project: &ProjectId) -> Option<usize> {
+    /// How many branches the current scope and filters list, including the target and those
+    /// in use locally.
+    pub(super) fn listed_branch_count(&self, project: &ProjectId, cx: &App) -> Option<usize> {
         let branches = self.branches_for(project)?;
-        Some(
-            (branches.list.iter())
-                .filter(|b| b.own_commits != Some(0))
-                .filter(|b| status_keeps(BranchStatus::NotMerged, b))
-                .count(),
-        )
+        Some(self.kept_in(branches, &branches.list, None, cx).len())
     }
 
     fn branches_for(&self, project: &ProjectId) -> Option<&Branches> {
@@ -653,12 +648,15 @@ impl Detail {
                 || self.branches_with_brief.as_ref() == Some(&branches.project);
             let has_brief = (store.brief_at(&branches.project, &branch.name))
                 .is_some_and(|known| known.found.is_some());
-            // One being deleted leaves at once, and one with no commits of its own shows only
-            // when its name is searched for.
+            // One being deleted leaves at once. Branches without unique commits stay visible
+            // by default; when hidden, searching by name still finds them.
             !store.hides_branch(&branches.project, &branch.ref_name)
                 && (!with_brief || has_brief)
-                && (with_brief || branch.own_commits != Some(0) || named)
-                && (branch.local || !prefs.branches_local_only)
+                && (with_brief
+                    || !prefs.branches_hide_empty
+                    || branch.own_commits != Some(0)
+                    || named)
+                && (branch.local == prefs.branches_local_only)
                 && found
                 && (with_brief
                     || skip == Some(Facet::Status)
@@ -682,14 +680,8 @@ impl Detail {
     fn branch_people(&self, branches: &Branches, cx: &App) -> Vec<(String, String, usize)> {
         let since = branches.recency.since(upstream::day_of(crate::ui::now()));
         let mut people: Vec<(String, String, usize)> = Vec::new();
-        // The applied ones too, as the overview counts them.
         let listed = self.kept_in(branches, &branches.list, Some(Facet::Who), cx);
-        let applied = self.kept_in(branches, &branches.applied, Some(Facet::Who), cx);
-        let listed = listed.into_iter().filter_map(|ix| branches.list.get(ix));
-        let applied = applied
-            .into_iter()
-            .filter_map(|ix| branches.applied.get(ix));
-        let kept = listed.chain(applied);
+        let kept = listed.into_iter().filter_map(|ix| branches.list.get(ix));
         for branch in kept {
             // Who wrote its commits in those days, each once, not everyone on a branch only
             // rebased then.
@@ -1008,16 +1000,19 @@ impl Detail {
         let Some(branch) = self.listed_branch(project, ref_name) else {
             return Vec::new();
         };
-        let local = branch.local;
-        let mut items = vec![
-            MenuItem::command(&ApplyBranch, cx),
+        let local = branch.local && !branch.applied && !branch.target;
+        let mut items = Vec::new();
+        if !branch.applied && !branch.target {
+            items.push(MenuItem::command(&ApplyBranch, cx));
+        }
+        items.extend([
             MenuItem::command(&NewWorktreeFromBranch, cx),
             MenuItem::command(&OpenPullRequest, cx),
             MenuItem::command(&CopyBranchName, cx).separated(),
-            MenuItem::command(&EditDescription, cx),
-        ];
+        ]);
         // Of this branch wherever the keys are: its ⋯ gives them to the diff.
         if local {
+            items.push(MenuItem::command(&EditDescription, cx));
             let (detail, project, ref_name) =
                 (cx.entity().downgrade(), project.clone(), ref_name.clone());
             let delete = MenuItem::keyed("Delete branch", &Discard, cx, move |_, window, cx| {
@@ -1111,7 +1106,10 @@ impl Detail {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(branch) = self.listed_branch(project, ref_name) else {
+        let Some(branch) = self
+            .listed_branch(project, ref_name)
+            .filter(|b| !b.applied && !b.target)
+        else {
             return;
         };
         // Applied, it would move under the archived worktree that has it checked out, leaving
@@ -1182,7 +1180,10 @@ impl Detail {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(branch) = self.listed_branch(project, ref_name).filter(|b| b.local) else {
+        let Some(branch) = self
+            .listed_branch(project, ref_name)
+            .filter(|b| b.local && !b.applied && !b.target)
+        else {
             return;
         };
         let ref_name = branch.ref_name.clone();
@@ -1349,9 +1350,6 @@ impl Detail {
             |head| rows_under(&self.branches_scroll, head, theme),
         );
         let people = self.branch_people_card(branches, window, cx);
-        let target = (self.store.read(cx).workspace(project))
-            .and_then(|ws| ws.target.as_ref())
-            .map(|target| target.name.clone());
         let brief_titles: HashMap<String, String> = (branches.list.iter())
             .filter(|_| self.branches_with_brief.as_ref() == Some(project))
             .filter_map(|branch| {
@@ -1492,10 +1490,12 @@ impl Detail {
                             let selected = is_selected(branches, row);
                             let ref_name = branch.ref_name.clone();
                             // The target has it all: merged, as a merged pull request shows.
-                            let is_merged = match &branch.review {
-                                Some(review) => review.state == ReviewState::Merged,
-                                None => branch.ahead == Some(0),
-                            };
+                            let is_merged = !branch.target
+                                && !branch.applied
+                                && match &branch.review {
+                                    Some(review) => review.state == ReviewState::Merged,
+                                    None => branch.ahead == Some(0),
+                                };
                             let (glyph, glyph_color) = match &branch.review {
                                 Some(review) => review::state_glyph(review.state, theme),
                                 None if is_merged => (Icon::BranchMerge, theme.purple),
@@ -1526,7 +1526,10 @@ impl Detail {
                             // What's asked for is what's been explained, by what it's called.
                             let shown = (brief_titles.get(&branch.name))
                                 .map(|title| Cow::Borrowed(title.as_str()))
-                                .unwrap_or_else(|| title(branch));
+                                .unwrap_or_else(|| match branch.local {
+                                    true => title(branch),
+                                    false => shown_name(branch),
+                                });
                             let name = div()
                                 .flex_1()
                                 .min_w_0()
@@ -1539,9 +1542,12 @@ impl Detail {
                                 .child(shown.into_owned());
                             // The target has it all: said, as the navigator says it of a branch
                             // that merged.
-                            let merged = (branch.ahead == Some(0)).then(|| {
-                                format!("in {}", target.as_deref().unwrap_or("the target"))
-                            });
+                            let standing = match (branch.target, branch.applied, branch.ahead) {
+                                (true, _, _) => Some("Target"),
+                                (_, true, _) => Some("In use"),
+                                (_, _, Some(0)) => Some("In target"),
+                                _ => None,
+                            };
                             let (project, menu_ref) = (branches.project.clone(), ref_name.clone());
                             // That someone wrote a brief for it, quietly, as nothing else here
                             // would say.
@@ -1568,8 +1574,8 @@ impl Detail {
                                 }))
                                 .child(name)
                                 .children(brief_mark)
-                                .when_some(merged, |el, merged| {
-                                    el.child(quiet(faint(merged, theme), on, theme))
+                                .when_some(standing, |el, standing| {
+                                    el.child(quiet(faint(standing, theme), on, theme))
                                 })
                                 // Who made its newest commit, to pick out a teammate's at a
                                 // glance; a click lists only theirs.
@@ -1654,9 +1660,10 @@ impl Detail {
             return el;
         };
         let opened = self.selected_other_branch(&project);
+        let can_apply = opened.is_some_and(|b| !b.applied && !b.target);
         let (name, local) = (
             opened.map(|b| b.name.clone()),
-            opened.is_some_and(|b| b.local),
+            opened.is_some_and(|b| b.local && !b.applied && !b.target),
         );
         let opened = opened.map(|b| b.ref_name.clone());
         let commit = self.selected_branch_commit(&project);
@@ -1674,9 +1681,11 @@ impl Detail {
         el.when_some(opened, |el, ref_name| {
             let (described, deleted, worktree) =
                 (project.clone(), project.clone(), project.clone());
-            el.on_action(cx.listener(move |this, _: &ApplyBranch, window, cx| {
-                this.apply_selected_branch(window, cx)
-            }))
+            el.when(can_apply, |el| {
+                el.on_action(cx.listener(move |this, _: &ApplyBranch, window, cx| {
+                    this.apply_selected_branch(window, cx)
+                }))
+            })
             .on_action(cx.listener(move |this, _: &NewWorktreeFromBranch, _, cx| {
                 let create = backend::worktrees::CreateWorktree::On(ref_name.clone());
                 (this.store).update(cx, |store, cx| store.create_worktree(&worktree, create, cx))
@@ -1712,8 +1721,9 @@ impl Detail {
         branches.who.is_some()
             || self.branches_with_brief.as_ref() == Some(&branches.project)
             || branches.recency != Recency::Any
-            || prefs.branches_status != BranchStatus::NotMerged
+            || prefs.branches_status != BranchStatus::Any
             || prefs.branches_local_only
+            || prefs.branches_hide_empty
     }
 
     /// List only the branches of `project` a brief is known of, or stop. They open on their briefs.
@@ -1770,10 +1780,10 @@ impl Detail {
         };
         let status = (STATUSES.iter())
             .find(|(status, _)| *status == prefs.branches_status)
-            .filter(|(status, _)| *status != BranchStatus::NotMerged)
+            .filter(|(status, _)| *status != BranchStatus::Any)
             .map(|(_, name)| {
                 chip("branches-status", (*name).to_owned()).on_click(
-                    cx.listener(|this, _, _, cx| this.filter_status(BranchStatus::NotMerged, cx)),
+                    cx.listener(|this, _, _, cx| this.filter_status(BranchStatus::Any, cx)),
                 )
             });
         let page_project = self
@@ -1791,12 +1801,26 @@ impl Detail {
                     (this.store).update(cx, |store, cx| {
                         store.set_prefs(|prefs| prefs.branches_local_only = false, cx)
                     });
+                    this.select_shown_branch(cx);
+                    cx.notify();
+                },
+            ))
+        });
+        let nonempty = prefs.branches_hide_empty.then(|| {
+            chip("branches-nonempty", "With unique commits".to_owned()).on_click(cx.listener(
+                |this, _, _, cx| {
+                    (this.store).update(cx, |store, cx| {
+                        store.set_prefs(|prefs| prefs.branches_hide_empty = false, cx)
+                    });
                     cx.notify();
                 },
             ))
         });
         // Not the person picked, whom the People card's Clear lets go of.
-        let chips: Vec<_> = [with_brief, status, local].into_iter().flatten().collect();
+        let chips: Vec<_> = [with_brief, status, local, nonempty]
+            .into_iter()
+            .flatten()
+            .collect();
         (!chips.is_empty()).then(|| {
             h_flex()
                 .flex_none()
@@ -1811,7 +1835,7 @@ impl Detail {
     /// filters hide them.
     fn no_branches(&self, branches: &Branches, theme: &Theme, cx: &Context<Self>) -> AnyElement {
         if branches.list.is_empty() {
-            let empty = "Every branch is applied".to_owned();
+            let empty = "No branches yet".to_owned();
             return list_empty(Illustration::Cactus, empty, "", theme, cx);
         }
         let query = self.branch_filter.read(cx).text();
@@ -1886,9 +1910,13 @@ impl Detail {
             });
         }
         items.push(
-            MenuItem::command(&ShowOnlyLocalBranches, cx)
-                .ticked(prefs.branches_local_only)
-                .separated(),
+            MenuItem::command(&ShowRemoteBranches, cx)
+                .ticked(!prefs.branches_local_only)
+                .under("Branches"),
+        );
+        items.push(MenuItem::command(&ShowOnlyLocalBranches, cx).ticked(prefs.branches_local_only));
+        items.push(
+            MenuItem::command(&ShowBranchesWithoutCommits, cx).ticked(!prefs.branches_hide_empty),
         );
         if self.store.read(cx).briefs {
             let on = self.branches_with_brief.as_ref() == Some(&branches.project);
@@ -2186,7 +2214,7 @@ fn is_picked(branches: &Branches, row: &Row) -> bool {
 /// `name`'s email, from any branch they made the newest commit of, filtered or not, applied
 /// or not.
 fn email_of(branches: &Branches, name: &str) -> String {
-    (branches.list.iter().chain(&branches.applied))
+    (branches.list.iter())
         .find(|b| b.author.as_deref() == Some(name))
         .and_then(|b| b.email.clone())
         .unwrap_or_default()
@@ -2222,5 +2250,50 @@ pub(super) fn status_keeps(status: BranchStatus, branch: &OtherBranch) -> bool {
         BranchStatus::Closed => state == Some(ReviewState::Closed),
         BranchStatus::NoPullRequest => state.is_none(),
         BranchStatus::Any => true,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Branches;
+    use crate::backend::CommitId;
+    use crate::backend::branches::OtherBranch;
+    use crate::backend::model::build::full;
+
+    #[test]
+    fn remote_inventory_keeps_the_current_branch_in_the_same_list() {
+        let all = [("main", false), ("xsh/dev", true), ("feature", false)]
+            .into_iter()
+            .map(|(name, applied)| OtherBranch {
+                ref_name: full(&format!("refs/remotes/origin/{name}")),
+                name: name.to_owned(),
+                local: false,
+                local_ref: None,
+                target: name == "main",
+                applied,
+                author: None,
+                people: Vec::new(),
+                commits: Vec::new(),
+                email: None,
+                agent: None,
+                time: None,
+                ahead: Some(0),
+                own_commits: Some(0),
+                stack: 0,
+                tip: CommitId(gix::ObjectId::null(gix::hash::Kind::Sha1)),
+                review: None,
+                description: None,
+            })
+            .collect();
+        let branches = Branches::read("project".into(), 0, all, None);
+        assert_eq!(
+            branches.list.len(),
+            3,
+            "the target, current branch and feature share one list"
+        );
+        assert!(
+            branches.list.iter().any(|b| b.applied),
+            "the current branch remains visible"
+        );
     }
 }

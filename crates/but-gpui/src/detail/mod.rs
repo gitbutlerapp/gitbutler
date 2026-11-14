@@ -17,7 +17,10 @@ mod file_tree;
 mod find;
 mod graph;
 mod key_panes;
-pub use branches::{ApplyBranch, EditDescription, NewWorktreeFromBranch, ShowOnlyLocalBranches};
+pub use branches::{
+    ApplyBranch, EditDescription, NewWorktreeFromBranch, ShowBranchesWithoutCommits,
+    ShowOnlyLocalBranches, ShowRemoteBranches,
+};
 pub use file_list::{MarkResolved, SplitIntoNewCommit, UncommitChanges};
 pub use find::FindInDiff;
 pub use history::RestoreOperation;

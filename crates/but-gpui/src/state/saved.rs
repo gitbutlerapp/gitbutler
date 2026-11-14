@@ -123,6 +123,7 @@ impl Store {
         prefs.project_icons.retain(|id, _| listed(id));
         prefs.merge_methods.retain(|id, _| listed(id));
         prefs.worktree_order.retain(|id, _| listed(id));
+        prefs.project_memberships.retain(|id, _| listed(id));
     }
 
     pub fn runs_hooks(&self, project: &super::ProjectId) -> bool {
@@ -160,6 +161,37 @@ impl Store {
             cx,
         );
         self.mesh_send_icon(project, icon.unwrap_or_default(), cx);
+    }
+
+    /// Move a repository to a sidebar group, watching it so the group's status stays current.
+    /// This is local presentation state; it makes no Git changes or operation-log entry.
+    pub(crate) fn move_to_project_group(
+        &mut self,
+        project: &super::ProjectId,
+        group: &str,
+        cx: &mut Context<Self>,
+    ) {
+        if self.project(project).is_none()
+            || (!group.is_empty() && !self.prefs.project_groups.iter().any(|g| g.id == group))
+        {
+            return;
+        }
+        self.set_prefs(
+            |prefs| {
+                if group.is_empty() {
+                    prefs.project_memberships.remove(project.as_ref());
+                    prefs.ungrouped_folded = false;
+                } else {
+                    prefs
+                        .project_memberships
+                        .insert(project.to_string(), group.to_owned());
+                }
+            },
+            cx,
+        );
+        if self.project(project).is_some_and(|p| !p.expanded) {
+            self.set_expanded(project, true, cx);
+        }
     }
 
     pub fn set_prefs(&mut self, update: impl FnOnce(&mut Prefs), cx: &mut Context<Self>) {
@@ -438,13 +470,13 @@ pub enum NavigatorPlace {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BranchStatus {
     /// Those under way: with an open or draft pull request, or none.
-    #[default]
     NotMerged,
     Open,
     Draft,
     Closed,
     NoPullRequest,
     /// Merged and closed ones too.
+    #[default]
     Any,
 }
 
@@ -492,6 +524,15 @@ pub(super) struct SavedActivity {
     pub(super) project: String,
     pub(super) worktree: Option<String>,
     pub(super) activity: super::Activity,
+}
+
+/// A local sidebar group. Its identity survives renaming; folding never stops its watchers.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ProjectGroup {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub folded: bool,
 }
 
 /// Choices from Settings, and how the navigator lists projects, that only this app keeps;
@@ -591,6 +632,11 @@ pub struct Prefs {
     /// Watched projects, by id, whose cards are folded to their row; they're still loaded and
     /// kept current.
     pub folded_projects: HashSet<String>,
+    /// Sidebar groups in display order, independent of the order of their repositories.
+    pub project_groups: Vec<ProjectGroup>,
+    /// A repository belongs to at most one group, by the group's stable id.
+    pub project_memberships: HashMap<String, String>,
+    pub ungrouped_folded: bool,
     /// Watched projects, by id, whose work on other machines shows under its heading; it
     /// starts folded.
     pub shown_mesh: HashSet<String>,
@@ -603,8 +649,11 @@ pub struct Prefs {
     /// Each project's linked worktrees by name, archived ones too, by project id, in the
     /// order the navigator lists them: as the user moved them, with new ones last.
     pub worktree_order: HashMap<String, Vec<String>>,
-    /// The Branches page leaves out the branches only a remote has.
+    /// The Branches page lists local branches instead of the complete remote inventory.
     pub branches_local_only: bool,
+    /// The Branches page leaves out branches without commits of their own, unless searched
+    /// for by name. Off by default so remote branches sharing a tip are listed too.
+    pub branches_hide_empty: bool,
     /// The common notes a click leaves on a brief, the stock ones if never changed.
     pub brief_shortcuts: Option<Vec<String>>,
     pub branches_status: BranchStatus,
@@ -662,6 +711,22 @@ pub enum Part {
 }
 
 impl Prefs {
+    /// The group a repository belongs to; stale membership falls back to Ungrouped.
+    pub fn project_group(&self, project: &str) -> Option<&str> {
+        let id = self.project_memberships.get(project)?;
+        self.project_groups
+            .iter()
+            .any(|group| group.id == *id)
+            .then_some(id.as_str())
+    }
+
+    /// Removing a group keeps every repository, making its members visible in Ungrouped.
+    pub fn remove_project_group(&mut self, id: &str) {
+        self.project_groups.retain(|group| group.id != id);
+        self.project_memberships.retain(|_, group| group != id);
+        self.ungrouped_folded = false;
+    }
+
     pub fn shows(&self, part: Part) -> bool {
         match part {
             Part::StatusBar => !self.hide_status_bar,
@@ -771,6 +836,121 @@ impl Saved {
 #[cfg(test)]
 mod tests {
     use super::Saved;
+
+    #[test]
+    fn project_groups_preserve_membership_and_folds_across_restarts() {
+        let saved = Saved::parse(serde_json::json!({ "prefs": {
+            "project_groups": [{ "id": "work", "name": "工作项目", "folded": true }],
+            "project_memberships": { "alpha": "work", "beta": "work" },
+            "ungrouped_folded": true,
+            "wrap": true
+        }}));
+        let restored = Saved::parse(serde_json::to_value(&saved).expect("saved state is JSON"));
+        assert_eq!(
+            restored.prefs, saved.prefs,
+            "groups coexist with the existing preferences"
+        );
+        assert_eq!(
+            restored.prefs.project_group("alpha"),
+            Some("work"),
+            "membership uses the group's identity"
+        );
+        assert!(
+            restored
+                .prefs
+                .project_groups
+                .first()
+                .expect("the group survived")
+                .folded,
+            "the group stays collapsed"
+        );
+    }
+
+    #[test]
+    fn project_groups_are_optional_for_existing_settings() {
+        let saved = Saved::parse(serde_json::json!({ "prefs": { "wrap": true }}));
+        assert!(
+            saved.prefs.project_groups.is_empty(),
+            "existing installations keep the flat list"
+        );
+        assert!(saved.prefs.wrap, "unrelated settings survive");
+    }
+
+    #[test]
+    fn project_groups_rename_without_losing_members_and_remove_without_losing_repositories() {
+        let mut saved = Saved::parse(serde_json::json!({ "prefs": {
+            "project_groups": [{ "id": "work", "name": "Work" }, { "id": "personal", "name": "Personal" }],
+            "project_memberships": { "alpha": "work", "beta": "personal", "stale": "missing" },
+            "ungrouped_folded": true
+        }}));
+        saved
+            .prefs
+            .project_groups
+            .first_mut()
+            .expect("work exists")
+            .name = "Team".into();
+        assert_eq!(
+            saved.prefs.project_group("alpha"),
+            Some("work"),
+            "renaming keeps membership"
+        );
+        assert_eq!(
+            saved.prefs.project_group("stale"),
+            None,
+            "unknown groups fall back to Ungrouped"
+        );
+        saved.prefs.remove_project_group("work");
+        assert_eq!(
+            saved.prefs.project_group("alpha"),
+            None,
+            "removed group's repositories become ungrouped"
+        );
+        assert_eq!(
+            saved.prefs.project_group("beta"),
+            Some("personal"),
+            "the other group stays intact"
+        );
+        assert!(
+            !saved.prefs.ungrouped_folded,
+            "the moved repositories are visible"
+        );
+    }
+
+    #[test]
+    fn branches_without_unique_commits_show_by_default() {
+        let saved = Saved::parse(
+            serde_json::from_str(r#"{ "prefs": { "wrap": true } }"#).expect("it's JSON"),
+        );
+        assert!(
+            !saved.prefs.branches_hide_empty,
+            "existing settings include branches without unique commits"
+        );
+        assert!(saved.prefs.wrap, "the existing preferences are kept");
+        assert_eq!(
+            saved.prefs.branches_status,
+            super::BranchStatus::Any,
+            "an unconfigured status filter includes every remote branch"
+        );
+        assert!(
+            !saved.prefs.branches_local_only,
+            "remote branches are the default scope"
+        );
+        assert!(
+            !Saved::default().prefs.branches_hide_empty,
+            "new installations include branches without unique commits too"
+        );
+    }
+
+    #[test]
+    fn hiding_branches_without_unique_commits_survives_a_restart() {
+        let mut saved = Saved::default();
+        saved.prefs.branches_hide_empty = true;
+        let saved = Saved::parse(serde_json::to_value(saved).expect("saved state is JSON"));
+        assert!(
+            saved.prefs.branches_hide_empty,
+            "the explicitly chosen filter is kept between launches"
+        );
+    }
 
     #[test]
     fn closing_a_terminal_asks_only_once_picked() {

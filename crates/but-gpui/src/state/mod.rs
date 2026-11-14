@@ -40,7 +40,7 @@ pub use mutation::{
 };
 pub use picks::Picks;
 pub use saved::{
-    BranchStatus, FileSort, FileView, NavigatorPlace, Pane, Part, Prefs, ScopeLines,
+    BranchStatus, FileSort, FileView, NavigatorPlace, Pane, Part, Prefs, ProjectGroup, ScopeLines,
     TerminalGrouping, TerminalRuns, WatchedOrder, screen_reader_on,
 };
 use saved::{Restored, Saved};
@@ -1218,6 +1218,23 @@ impl Store {
         if (self.moving.as_ref()).is_some_and(|moving| !moving.holds(&selection)) {
             cx.emit(StoreEvent::MoveToward(selection));
             return false;
+        }
+        // Only a deliberate navigation opens the group. Restoring the selected page on
+        // launch, or a watcher following a rewritten commit, keeps the saved folds.
+        let group = self
+            .prefs
+            .project_group(selection.project())
+            .map(str::to_owned);
+        let folded = self
+            .prefs
+            .project_groups
+            .iter_mut()
+            .find(|g| Some(&g.id) == group.as_ref())
+            .map(|g| &mut g.folded)
+            .unwrap_or(&mut self.prefs.ungrouped_folded);
+        if std::mem::take(folded) {
+            self.save_soon(cx);
+            cx.notify();
         }
         self.select(Some(selection), cx);
         true

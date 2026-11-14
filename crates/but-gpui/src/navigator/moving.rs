@@ -354,7 +354,8 @@ fn taken_away(
             Some(key @ RowKey::GhostBranch(_)) => !kept.contains(key),
             Some(key @ RowKey::Commit(..)) => ended && !kept.contains(key),
             Some(
-                RowKey::Item(_)
+                RowKey::Group(_)
+                | RowKey::Item(_)
                 | RowKey::Terminal(_)
                 | RowKey::RestsOn(_)
                 | RowKey::Fold(..)
@@ -914,6 +915,9 @@ impl Navigator {
                 if store.project(&project).is_some_and(|p| p.expanded) =>
             {
                 let order: Arc<[ProjectId]> = (self.watched(store).into_iter())
+                    .filter(|entry| {
+                        store.prefs.project_group(&entry.id) == store.prefs.project_group(&project)
+                    })
                     .map(|e| e.id.clone())
                     .collect();
                 (project, Moving::Project(order))
@@ -1576,9 +1580,25 @@ impl Navigator {
         // A card, a worktree or a terminal, already shown where it goes, goes there in the
         // order they keep.
         if let Some(order) = moving.project_order() {
+            // A group's keyboard move orders only its members. Leave the other groups'
+            // repositories in their existing order.
+            let mut reordered = order.iter();
+            let all: Vec<_> = self
+                .store
+                .read(cx)
+                .expanded_ids()
+                .into_iter()
+                .map(|id| {
+                    if order.contains(&id) {
+                        reordered.next().cloned().unwrap_or(id)
+                    } else {
+                        id
+                    }
+                })
+                .collect();
             return self
                 .store
-                .update(cx, |store, cx| store.order_watched(&order, cx));
+                .update(cx, |store, cx| store.order_watched(&all, cx));
         }
         if let (Moving::Worktree { name, .. }, Stop::Worktree(slot)) = (&moving.what, &moving.at) {
             let before = match slot {
