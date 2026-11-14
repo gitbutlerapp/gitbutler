@@ -2075,13 +2075,13 @@ wt wt-inside - [..]/worktrees/wt-inside
 "#]]);
 }
 
-/// A sandbox on `two-stacks` whose target, `origin/main`, has a commit adding `new` that
-/// `main` doesn't, as when a teammate pushed. Worktrees added before the first read start out
-/// archived.
+/// A sandbox on `two-stacks` whose target branch `main` has a commit adding `new` on top of
+/// `main^`, so worktrees made at `main^` are behind it. Worktrees added before the first read
+/// start out archived.
 fn sandbox_behind_the_target() -> Sandbox {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
-    commit_adding_on_main(&env, "new", "refs/remotes/origin/main");
+    commit_adding_on_main(&env, "new", "refs/heads/main");
     env
 }
 
@@ -2108,14 +2108,14 @@ fn recycle_reuses_the_newest_clean_archived_worktree_on_a_new_branch_at_the_targ
         &env,
         "older",
         "-b older",
-        "main",
+        "main^",
         "2000-01-03 00:00:00 +0000",
     );
     add_worktree_at(
         &env,
         "newer",
         "-b newer",
-        "main",
+        "main^",
         "2000-01-04 00:00:00 +0000",
     );
     env.invoke_git("config branch.newer.remote origin");
@@ -2134,7 +2134,7 @@ Recycled worktree newer on 'a-branch-1' from 02a88ad at [..]/worktrees/newer
     let checkout = env.app_data_dir().join("worktrees/newer");
     assert_eq!(
         env.invoke_git(&format!("-C {} rev-parse HEAD", checkout.display())),
-        env.invoke_git("rev-parse origin/main"),
+        env.invoke_git("rev-parse main"),
         "the recycled worktree is at the target's tip"
     );
     assert!(
@@ -2172,11 +2172,11 @@ older - [..]/worktrees/older
 }
 
 #[test]
-fn recycle_goes_to_the_local_target_when_it_is_ahead_of_its_upstream() {
+fn recycle_goes_to_the_local_target_when_its_upstream_is_ahead() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
     add_worktree_at(&env, "old", "-b old", "main", "2000-01-03 00:00:00 +0000");
-    commit_adding_on_main(&env, "new", "refs/heads/main");
+    commit_adding_on_main(&env, "new", "refs/remotes/origin/main");
 
     env.but("worktree recycle")
         .assert()
@@ -2191,38 +2191,11 @@ Recycled worktree old on 'a-branch-1' from [..] at [..]/worktrees/old
     assert_eq!(
         env.invoke_git(&format!("-C {} rev-parse HEAD", checkout.display())),
         env.invoke_git("rev-parse main"),
-        "`main` has everything `origin/main` has and more, so it's the newest target tip"
+        "the local target branch is the target's tip, even with its upstream ahead"
     );
     assert!(
-        checkout.join("new").is_file(),
-        "with the local commit's files checked out"
-    );
-}
-
-#[test]
-fn recycle_goes_to_the_upstream_when_the_local_target_diverged_from_it() {
-    let env = sandbox_behind_the_target();
-    add_worktree_at(&env, "old", "-b old", "main", "2000-01-03 00:00:00 +0000");
-    commit_adding_on_main(&env, "local", "refs/heads/main");
-
-    env.but("worktree recycle")
-        .assert()
-        .success()
-        .stderr_eq(snapbox::str![])
-        .stdout_eq(snapbox::str![[r#"
-Recycled worktree old on 'a-branch-1' from 02a88ad at [..]/worktrees/old
-
-"#]]);
-
-    let checkout = env.app_data_dir().join("worktrees/old");
-    assert_eq!(
-        env.invoke_git(&format!("-C {} rev-parse HEAD", checkout.display())),
-        env.invoke_git("rev-parse origin/main"),
-        "`main` and `origin/main` each have a commit the other lacks, so the upstream wins"
-    );
-    assert!(
-        checkout.join("new").is_file() && !checkout.join("local").exists(),
-        "with the upstream's files and not the unpushed local commit's"
+        !checkout.join("new").exists(),
+        "without the upstream's files that `main` lacks"
     );
 }
 

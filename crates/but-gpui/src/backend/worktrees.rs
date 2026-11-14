@@ -587,9 +587,9 @@ mod tests {
         });
     }
 
-    /// A repository targeting `origin/main`, which has a commit adding `new` that `main` doesn't,
-    /// with linked worktrees on branches `names` made at `main`, all archived, as a project
-    /// that predates GitButler's worktree support has them.
+    /// A repository targeting `main`, which gained a commit adding `new` after linked worktrees
+    /// on branches `names` were made at it, all archived, as a project that predates
+    /// GitButler's worktree support has them.
     fn behind_the_target(names: &[&str]) -> (tempfile::TempDir, tempfile::TempDir) {
         let dir = repo_with("one\n");
         let path = dir.path();
@@ -605,8 +605,8 @@ mod tests {
         git(path, &["checkout", "-q", "--detach"]);
         std::fs::write(path.join("new"), "new\n").unwrap();
         git(path, &["add", "new"]);
-        git(path, &["commit", "-q", "-m", "teammate"]);
-        git(path, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
+        git(path, &["commit", "-q", "-m", "new"]);
+        git(path, &["update-ref", "refs/heads/main", "HEAD"]);
         git(path, &["checkout", "-q", "main"]);
         assert_eq!(archived(path), names, "unadopted, they start out archived");
         (dir, outside)
@@ -645,7 +645,7 @@ mod tests {
             assert_ne!(branch, "agent", "it's on a new branch");
             assert_eq!(
                 git(&linked, &["rev-parse", "HEAD"]),
-                git(path, &["rev-parse", "origin/main"]),
+                git(path, &["rev-parse", "main"]),
                 "at the target's tip"
             );
             assert_eq!(
