@@ -17,9 +17,9 @@ use std::time::{Duration, Instant};
 use but_tty::Status;
 use gpui::{
     AnyElement, App, ClickEvent, Context, DispatchPhase, Div, DragMoveEvent, ElementId, Entity,
-    FocusHandle, Focusable, Hsla, MouseExitEvent, MouseMoveEvent, Pixels, Point, Render, Role,
-    ScrollHandle, SharedString, Stateful, StyleRefinement, Task, TextRun, Window, deferred, div,
-    font, linear_color_stop, linear_gradient, point, prelude::*, relative,
+    FocusHandle, Focusable, Hsla, MouseButton, MouseExitEvent, MouseMoveEvent, Pixels, Point,
+    Render, Role, ScrollHandle, SharedString, Stateful, StyleRefinement, Task, TextRun, Window,
+    deferred, div, font, linear_color_stop, linear_gradient, point, prelude::*, relative,
 };
 
 use super::order::moving_worktree;
@@ -28,7 +28,9 @@ use super::{
     MAIN_WORKTREE, Navigator, Row, RowStyle, TerminalOverview, drawer_title, project_glyph,
     status_mark, worktree_icon, worktrees_listed,
 };
-use crate::app::{AppHandle, Cancel, Collapse, Expand, SelectNext, SelectPrevious, ToggleFold};
+use crate::app::{
+    AppHandle, AppView, Cancel, Collapse, Expand, SelectNext, SelectPrevious, ToggleFold,
+};
 use crate::backend::Checkout;
 use crate::clock;
 use crate::overlays::OVERLAY;
@@ -458,9 +460,13 @@ pub struct NavigatorTabs {
     /// The tab under the pointer, and whether the card is.
     pointed: Option<TabKey>,
     over_card: bool,
-    /// The pointer's left the window. Hovers don't follow it out, so the two above still say
-    /// where it last was, until it moves in again ([`Self::pointing`]).
+    /// The pointer's left the window, or a menu opened from the card covered it. Hovers don't
+    /// follow it out, so the two above still say where it last was, until it moves again
+    /// ([`Self::pointing`]).
     outside: bool,
+    /// A right-click in the card opened a menu, which the card stays down under until it
+    /// closes ([`Self::follow_menu`]).
+    card_menu: bool,
     /// The card going to a tab once the pointer rests, or back once it's strayed.
     waiting: Option<(Option<TabKey>, Task<()>)>,
     /// Where the pointer was last, and a stride back, which say which way it's going.
@@ -536,6 +542,7 @@ impl NavigatorTabs {
             card: None,
             pointed: None,
             outside: false,
+            card_menu: false,
             over_card: false,
             waiting: None,
             pointer: Default::default(),
@@ -1053,8 +1060,27 @@ impl NavigatorTabs {
                 self.waiting = None;
                 self.show(key, cx);
             }
-            None if self.under_pointer().is_none() && !self.held => self.hide(window, cx),
+            None if self.under_pointer().is_none() && !self.held && !self.card_menu => {
+                self.hide(window, cx)
+            }
             None => {}
+        }
+    }
+
+    /// Keep the card down while a menu opened from it is open, as it covers the card and takes
+    /// its hover. Once it's closed, the card follows the pointer from its next move, which says
+    /// what it's over.
+    fn follow_menu(&mut self, window: &Window, cx: &App) {
+        if !self.card_menu {
+            return;
+        }
+        let open = window.root::<AppView>().flatten().is_some_and(|app| {
+            let app = app.read(cx);
+            app.menu.is_some() || app.pending_menu.is_some()
+        });
+        if !open {
+            self.card_menu = false;
+            self.outside = true;
         }
     }
 
@@ -1290,7 +1316,7 @@ impl NavigatorTabs {
     /// Have the card go where the pointer says: to the tab it's on at once, but for one it
     /// crossed on its way down into the card, and back once it's strayed from both.
     fn follow_pointer(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.scrolled_away || self.keyed.is_some() || self.held {
+        if self.scrolled_away || self.keyed.is_some() || self.held || self.card_menu {
             return;
         }
         let showing = (self.card.as_ref())
@@ -1649,6 +1675,15 @@ impl NavigatorTabs {
                 this.over_card = *hovered;
                 this.follow_pointer(window, cx);
             }))
+            .on_mouse_down(
+                MouseButton::Right,
+                cx.listener(|this, _, _, cx| {
+                    this.card_menu = true;
+                    this.waiting = None;
+                    // Drawn again, so `follow_menu` lets it go if no menu came of it.
+                    cx.notify();
+                }),
+            )
             .map(|el| (self.navigator).update(cx, |navigator, cx| navigator.takes_drags(el, cx)))
             .child(inert(
                 div()
@@ -2014,6 +2049,7 @@ impl Render for NavigatorTabs {
         let now = clock::now();
         let projects = self.watched(cx);
         self.follow_selection(&projects, now, cx);
+        self.follow_menu(window, cx);
         // First, as the keys going to what's being held leave the card down.
         self.follow_hold(window, cx);
         self.follow_keys(window, cx);
