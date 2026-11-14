@@ -28,7 +28,7 @@
 		"@playwright/test": "catalog:",
 		"@reduxjs/toolkit": "catalog:redux",
 		"@sveltejs/adapter-node": "^5.5.8",
-		"@sveltejs/adapter-vercel": "^6.3.3",
+		"@sveltejs/adapter-vercel": "^6.3.5",
 		"@sveltejs/kit": "catalog:svelte",
 		"@sveltejs/vite-plugin-svelte": "catalog:svelte",
 		"@testing-library/jest-dom": "^6.6.3",
