@@ -9,7 +9,7 @@ use gpui::{
 use super::Navigator;
 use crate::backend::{CommitId, FullName, short_ref};
 use crate::overlays::{branch_name_input, branch_went, on_branch_name};
-use crate::state::{ProjectId, Selection, snack};
+use crate::state::{ProjectId, Selection, Store, snack};
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
 use crate::ui::message_editor::{ToBody, joined, split};
@@ -22,6 +22,36 @@ pub(super) struct Renaming {
     item: Selection,
     input: Entity<TextInput>,
     _subscriptions: [Subscription; 3],
+}
+
+pub(super) fn terminal_name_input(current: &str, cx: &mut App) -> Entity<TextInput> {
+    cx.new(|cx| {
+        let mut input = TextInput::new("Terminal name", false, cx);
+        input.load(current.to_owned(), cx);
+        input.select_all_text(cx);
+        input
+    })
+}
+
+pub(super) fn on_terminal_name<T: 'static>(
+    input: &Entity<TextInput>,
+    store: Entity<Store>,
+    id: TerminalId,
+    end: impl Fn(&mut T, &mut Window, &mut Context<T>) + 'static,
+    window: &mut Window,
+    cx: &mut Context<T>,
+) -> Subscription {
+    cx.subscribe_in(input, window, move |this, input, event, window, cx| {
+        let name = match event {
+            InputEvent::Submit => Some(input.read(cx).text().to_owned()),
+            InputEvent::Cancel => None,
+            InputEvent::Changed => return,
+        };
+        end(this, window, cx);
+        if let Some(name) = name {
+            store.update(cx, |store, cx| store.name_terminal(id, &name, cx))
+        }
+    })
 }
 
 impl Navigator {
@@ -70,24 +100,18 @@ impl Navigator {
         let Some(current) = self.store.read(cx).terminals.title(id).cloned() else {
             return;
         };
-        let input = cx.new(|cx| {
-            let mut input = TextInput::new("Terminal name", false, cx);
-            input.load(current.to_string(), cx);
-            input.select_all_text(cx);
-            input
-        });
-        let typed = cx.subscribe_in(&input, window, move |this, input, event, window, cx| {
-            let name = match event {
-                InputEvent::Submit => Some(input.read(cx).text().to_owned()),
-                InputEvent::Cancel => None,
-                InputEvent::Changed => return,
-            };
-            this.renaming = None;
-            this.focus_list(window, cx);
-            if let Some(name) = name {
-                (this.store).update(cx, |store, cx| store.name_terminal(id, &name, cx))
-            }
-        });
+        let input = terminal_name_input(&current, cx);
+        let typed = on_terminal_name(
+            &input,
+            self.store.clone(),
+            id,
+            |this: &mut Self, window, cx| {
+                this.renaming = None;
+                this.focus_list(window, cx)
+            },
+            window,
+            cx,
+        );
         self.edit_in_row(Selection::Terminal(project, id), input, typed, window, cx)
     }
 

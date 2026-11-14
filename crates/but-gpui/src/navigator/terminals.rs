@@ -14,6 +14,7 @@ use gpui::{
     MouseButton, MouseDownEvent, Role, Subscription, Window, div, list, prelude::*, relative,
 };
 
+use super::rename::{on_terminal_name, terminal_name_input};
 use super::rows::{CARD_PADDING, GUIDE_AT as ICON_MIDDLE, ROW_LEFT};
 use super::{CARD_BAR_HEIGHT, CARD_BAR_INSET, RowStyle, card_bar, status_mark};
 use crate::app::{
@@ -28,7 +29,7 @@ use crate::state::{Axis, NavigatorPlace, ProjectId, Store, TerminalGrouping};
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
 use crate::ui::fold::{Folds, Place, clipped};
-use crate::ui::text_input::{InputEvent, TextInput};
+use crate::ui::text_input::TextInput;
 use crate::ui::{
     Icon, dp, faint, field, fixed, fold_button, guide, icon_button, section_label, small_icon,
     v_flex,
@@ -463,24 +464,18 @@ impl TerminalOverview {
         let Some(current) = self.store.read(cx).terminals.title(id).cloned() else {
             return;
         };
-        let input = cx.new(|cx| {
-            let mut input = TextInput::new("Terminal name", false, cx);
-            input.load(current.to_string(), cx);
-            input.select_all_text(cx);
-            input
-        });
-        let typed = cx.subscribe_in(&input, window, move |this, input, event, window, cx| {
-            let name = match event {
-                InputEvent::Submit => Some(input.read(cx).text().to_owned()),
-                InputEvent::Cancel => None,
-                InputEvent::Changed => return,
-            };
-            this.renaming = None;
-            window.focus(&this.focus, cx);
-            if let Some(name) = name {
-                (this.store).update(cx, |store, cx| store.name_terminal(id, &name, cx))
-            }
-        });
+        let input = terminal_name_input(&current, cx);
+        let typed = on_terminal_name(
+            &input,
+            self.store.clone(),
+            id,
+            |this: &mut Self, window, cx| {
+                this.renaming = None;
+                window.focus(&this.focus, cx)
+            },
+            window,
+            cx,
+        );
         // The keys go where the click went. GPUI blurs it as another app comes in front too,
         // which leaves it as it is for when the window's back.
         let left = cx.on_blur(&input.focus_handle(cx), window, |this, window, cx| {
