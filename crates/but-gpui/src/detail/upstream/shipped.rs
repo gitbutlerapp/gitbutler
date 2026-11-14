@@ -13,8 +13,8 @@ use crate::backend::upstream::{ACTIVITY_DAYS, Merge, Overview};
 use crate::detail::Detail;
 use crate::detail::panes::{
     OVERVIEW_COUNT_WIDTH, OVERVIEW_TIME_WIDTH, and_more, back_to_list, clear_button, grouped,
-    overview_column, overview_heading, overview_sections, overview_tiles, overview_title,
-    share_row,
+    overview_body, overview_column, overview_heading, overview_page, overview_sections,
+    overview_tiles, share_row,
 };
 use crate::overlays::has_keys;
 use crate::state::ProjectId;
@@ -175,49 +175,39 @@ impl Detail {
         ];
         let filtered = days.is_some() || who.is_some() || area.is_some();
         let solid = has_keys(&self.shipped_focus, window, cx);
-        v_flex()
-            .id("shipped")
-            .flex_1()
-            .h_full()
-            .min_w_0()
-            .overflow_y_scroll()
-            .track_focus(&self.shipped_focus)
-            .on_mouse_down_out(back_to_list(&self.shipped_focus, cx))
-            .child(
-                v_flex()
-                    .w_full()
-                    .px(dp(14.))
-                    .py(dp(16.))
-                    .gap(dp(6.))
-                    .child(overview_title(
-                        "Shipped",
-                        scope.into_iter().flatten().collect::<Vec<_>>().join(" · "),
-                        theme,
-                    ))
-                    .child(overview_tiles(tiles, theme))
-                    .when(kept.is_empty(), |el| {
-                        el.child(
-                            faint(
-                                match filtered {
-                                    true => "Nothing merged that the filters keep".to_owned(),
-                                    false => {
-                                        format!("Nothing merged in the last {ACTIVITY_DAYS} days")
-                                    }
-                                },
-                                theme,
-                            )
-                            .px(dp(14.))
-                            .py(dp(8.)),
-                        )
-                    })
-                    // Largest's titles want the most room, so it's the first to go under.
-                    .child(overview_sections([
-                        (self.releases(project, upstream, &kept_ids, theme, cx), 320.),
-                        (self.areas(project, &by_who, area, solid, cx), 420.),
-                        (self.largest(project, summary, &kept, theme, cx), 560.),
-                    ])),
+        overview_page(
+            "shipped",
+            overview_body(
+                "Shipped",
+                scope.into_iter().flatten().collect::<Vec<_>>().join(" · "),
+                theme,
             )
-            .into_any_element()
+            .child(overview_tiles(tiles, theme))
+            .when(kept.is_empty(), |el| {
+                el.child(
+                    faint(
+                        match filtered {
+                            true => "Nothing merged that the filters keep".to_owned(),
+                            false => {
+                                format!("Nothing merged in the last {ACTIVITY_DAYS} days")
+                            }
+                        },
+                        theme,
+                    )
+                    .px(dp(14.))
+                    .py(dp(8.)),
+                )
+            })
+            // Largest's titles want the most room, so it's the first to go under.
+            .child(overview_sections([
+                (self.releases(project, upstream, &kept_ids, theme, cx), 320.),
+                (self.areas(project, &by_who, area, solid, cx), 420.),
+                (self.largest(project, summary, &kept, theme, cx), 560.),
+            ])),
+        )
+        .track_focus(&self.shipped_focus)
+        .on_mouse_down_out(back_to_list(&self.shipped_focus, cx))
+        .into_any_element()
     }
 
     /// The newest releases of those in the days picked, each with how many pull requests it

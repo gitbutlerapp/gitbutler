@@ -2111,6 +2111,25 @@ impl Detail {
     }
 }
 
+pub(super) fn overview_page(id: &'static str, body: Div) -> Stateful<Div> {
+    v_flex()
+        .id(id)
+        .flex_1()
+        .h_full()
+        .min_w_0()
+        .overflow_y_scroll()
+        .child(body)
+}
+
+pub(super) fn overview_body(title: &'static str, scope: String, theme: &Theme) -> Div {
+    v_flex()
+        .w_full()
+        .px(dp(14.))
+        .py(dp(16.))
+        .gap(dp(6.))
+        .child(overview_title(title, scope, theme))
+}
+
 /// An overview's title, beside a list until something's opened: what it shows, and over what.
 pub(super) fn overview_title(title: &'static str, scope: String, theme: &Theme) -> Div {
     h_flex()
