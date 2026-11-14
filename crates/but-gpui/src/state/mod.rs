@@ -240,6 +240,12 @@ pub enum CodePlace {
     },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LinkFrom {
+    Outside,
+    LastRun,
+}
+
 #[derive(Debug)]
 pub enum StoreEvent {
     Loaded(ProjectId),
@@ -250,13 +256,18 @@ pub enum StoreEvent {
     /// A tab of the project being selected was asked for, as Go to anything does.
     TabAsked(ProjectTab),
     /// A place in the changes of the selection a `but://open` link is making was asked for:
-    /// their diff opens there once it's read, and says so if it lacks it.
-    FileAsked(Selection, CodePlace),
+    /// their diff opens there once it's read.
+    FileAsked {
+        selection: Selection,
+        place: CodePlace,
+        says_missing: bool,
+    },
     /// The project a `but://open` link names is open, for the window to go where `at` points in
     /// it.
     LinkOpened {
         project: ProjectId,
         at: Vec<(String, String)>,
+        from: LinkFrom,
     },
     /// A project's branch, by full ref, is gone by that name while its newest commit is on
     /// another now, as when an agent renames it.
@@ -458,6 +469,7 @@ pub struct Store {
     window: Option<saved::WindowPlace>,
     /// What was open when the app last quit, until the first project listing uses it.
     restored: Restored,
+    view: Option<crate::links::View>,
     /// Counts projects added and removed, as each starts and lands, so a listing begun
     /// before one doesn't put back what it removed or drop what it added.
     project_edits: u64,
@@ -705,7 +717,9 @@ impl Store {
                 selection: saved.selection,
                 handed: None,
                 fresh,
+                place: saved.place,
             },
+            view: None,
             project_edits: 0,
             saved_db,
             saves: 0,
@@ -1223,6 +1237,14 @@ impl Store {
         true
     }
 
+    pub(crate) fn keep_view(&mut self, view: Option<crate::links::View>, cx: &mut Context<Self>) {
+        if self.view == view {
+            return;
+        }
+        self.view = view;
+        self.save_soon(cx);
+    }
+
     /// Select `project` as the user asked, and have its page show `tab`. Says whether it was.
     /// The tab's asked for first, so the page opens on it rather than on the tab it was left on.
     pub fn show_tab(
@@ -1245,10 +1267,15 @@ impl Store {
         &mut self,
         selection: Selection,
         place: CodePlace,
+        says_missing: bool,
         cx: &mut Context<Self>,
     ) -> bool {
         if (self.moving.as_ref()).is_none_or(|moving| moving.holds(&selection)) {
-            cx.emit(StoreEvent::FileAsked(selection.clone(), place));
+            cx.emit(StoreEvent::FileAsked {
+                selection: selection.clone(),
+                place,
+                says_missing,
+            });
         }
         self.select_by_hand(selection, cx)
     }

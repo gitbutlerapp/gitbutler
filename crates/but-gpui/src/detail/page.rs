@@ -213,7 +213,7 @@ impl RowPlace {
 
 /// The line of its file's new side `row` of `files` shows: an unchanged one, or a hunk's that
 /// isn't removed.
-fn new_line_of(row: DiffRow, files: &[FileDiff]) -> Option<u32> {
+pub(super) fn new_line_of(row: DiffRow, files: &[FileDiff]) -> Option<u32> {
     match row {
         DiffRow::Context { new, .. } => Some(new),
         DiffRow::Line { file, hunk, line } => {

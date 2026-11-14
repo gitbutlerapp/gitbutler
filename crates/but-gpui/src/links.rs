@@ -20,8 +20,8 @@ use crate::backend::{Checkout, CommitId, FullName};
 use crate::detail::{PageTab, has_tabs, shows_its_diff};
 use crate::settings::{AppPage, Page};
 use crate::state::{
-    CodePlace, MeshPick, MeshPickKind, ProjectId, ProjectTab, Section, SectionKind, Selection,
-    SelectionKind,
+    CodePlace, LinkFrom, MeshPick, MeshPickKind, ProjectId, ProjectTab, Section, SectionKind,
+    Selection, SelectionKind,
 };
 
 /// Where a link takes the window.
@@ -43,6 +43,31 @@ pub enum Route {
 pub enum Tab {
     Project(ProjectTab),
     Page(PageTab),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct View {
+    pub selection: Selection,
+    pub tab: Option<Tab>,
+    pub place: Option<CodePlace>,
+}
+
+impl View {
+    pub fn new(selection: Selection, tab: Option<Tab>, place: Option<CodePlace>) -> View {
+        let tab = tab.filter(|tab| {
+            *tab != Tab::Project(ProjectTab::default()) && *tab != Tab::Page(PageTab::default())
+        });
+        let place = place.filter(|_| opens_file(&selection, tab));
+        View {
+            selection,
+            tab,
+            place,
+        }
+    }
+}
+
+fn opens_file(selection: &Selection, tab: Option<Tab>) -> bool {
+    matches!(tab, None | Some(Tab::Page(PageTab::Changes))) && shows_its_diff(selection)
 }
 
 /// `to=` for the app's settings and a project's, which aren't kinds of selection.
@@ -106,10 +131,9 @@ fn select_route<'a>(
         Some(_) => return None,
     };
     // A file opens in the diff, which the page's other tabs show in place of.
-    let in_diff = matches!(tab, None | Some(Tab::Page(PageTab::Changes)));
     let place = match get("file") {
         None => None,
-        Some(path) if in_diff && shows_its_diff(&selection) => Some(CodePlace::File {
+        Some(path) if opens_file(&selection, tab) => Some(CodePlace::File {
             path: path.to_owned(),
             // One that isn't a number opens the file at its top.
             line: get("line").and_then(|line| line.parse().ok()),
@@ -181,16 +205,98 @@ fn selection<'a>(
     })
 }
 
+pub fn write(route: &Route) -> Option<Vec<(String, String)>> {
+    let Route::Select {
+        selection,
+        tab,
+        place,
+        change,
+    } = route
+    else {
+        return None;
+    };
+    let mut at = select_params(selection)?;
+    if let Some(tab) = tab {
+        let tab: &'static str = match tab {
+            Tab::Project(tab) => tab.into(),
+            Tab::Page(tab) => tab.into(),
+        };
+        at.push(("tab", tab.to_owned()));
+    }
+    if let Some(CodePlace::File { path, line }) = place {
+        at.push(("file", path.clone()));
+        at.extend(line.map(|line| ("line", line.to_string())));
+    }
+    at.extend(change.clone().map(|change| ("change", change)));
+    Some(
+        at.into_iter()
+            .map(|(key, value)| (key.to_owned(), value))
+            .collect(),
+    )
+}
+
+fn select_params(selection: &Selection) -> Option<Vec<(&'static str, String)>> {
+    let to: &'static str = SelectionKind::from(selection).into();
+    let mut at = vec![("to", to.to_owned())];
+    let worktree = |checkout: &Checkout| match checkout {
+        Checkout::Main => None,
+        Checkout::Linked(name) => Some(("worktree", name.to_string())),
+    };
+    let commit = |id: &CommitId| ("commit", id.0.to_string());
+    match selection {
+        Selection::Project(_) => {}
+        Selection::Section(_, section) => {
+            let kind: &'static str = SectionKind::from(section).into();
+            at.push(("section", kind.to_owned()));
+            match section {
+                Section::Upstream(branch) => at.push(("branch", branch.to_string())),
+                Section::Inactive | Section::Mesh => {}
+            }
+        }
+        Selection::Checkout(_, checkout) | Selection::Uncommitted(_, checkout) => {
+            at.extend(worktree(checkout))
+        }
+        Selection::Terminal(..)
+        | Selection::Pending(..)
+        | Selection::Branch(_, None)
+        | Selection::Stack(_, None) => return None,
+        Selection::Branch(_, Some(branch)) | Selection::Stack(_, Some(branch)) => {
+            at.push(("branch", branch.to_string()))
+        }
+        Selection::Commit(_, id) => at.push(commit(id)),
+        Selection::Upstream(_, branch, id) => {
+            at.push(("branch", branch.to_string()));
+            at.push(commit(id));
+        }
+        Selection::Mesh(_, checkout, pick) => {
+            at.push(("checkout", checkout.to_string()));
+            let kind: &'static str = MeshPickKind::from(pick).into();
+            at.push(("pick", kind.to_owned()));
+            match pick {
+                MeshPick::Checkout => {}
+                MeshPick::Branch(name) => at.push(("name", name.clone())),
+                MeshPick::Commit(name, id) => {
+                    at.push(("name", name.clone()));
+                    at.push(commit(id));
+                }
+            }
+        }
+    }
+    Some(at)
+}
+
 /// Take `app`'s window where a link points in `project`, once the store has it open: `at`, as
 /// [`read`] reads it, or where the project opens by itself if `at` names nothing it can read,
-/// which it says.
+/// which it says unless it's `from` the last run.
 pub fn land(
     app: &mut AppView,
     project: ProjectId,
     at: &[(String, String)],
+    from: LinkFrom,
     window: &mut Window,
     cx: &mut Context<AppView>,
 ) {
+    let says = from == LinkFrom::Outside;
     let route = read(at, &project);
     let page_tab = match &route {
         Some(Route::Select {
@@ -198,6 +304,15 @@ pub fn land(
             tab: Some(Tab::Page(tab)),
             ..
         }) => Some((selection.clone(), *tab)),
+        _ => None,
+    };
+    let view = match &route {
+        Some(Route::Select {
+            selection,
+            tab,
+            place,
+            ..
+        }) => Some(View::new(selection.clone(), *tab, place.clone())),
         _ => None,
     };
     let settings = (app.store).update(cx, |store, cx| match route {
@@ -215,7 +330,7 @@ pub fn land(
             change,
             ..
         }) => {
-            let missing = missing(SelectionKind::from(&selection));
+            let missing = says.then(|| missing(SelectionKind::from(&selection)));
             store.select_linked(selection, change, place, missing, cx);
             None
         }
@@ -224,20 +339,26 @@ pub fn land(
             Some(page)
         }
         None => {
-            if !at.is_empty() {
+            if says && !at.is_empty() {
                 store.snack_warning("Couldn't read where the link points", cx);
             }
             store.select_opened(&project, cx);
             None
         }
     });
+    if view.is_some() {
+        (app.store).update(cx, |store, cx| store.keep_view(view, cx));
+    }
     // As the navigator's marks for a pull request and a brief open a page on its tab.
     if let Some((selection, tab)) = page_tab
         && app.store.read(cx).selection.as_ref() == Some(&selection)
     {
         (app.detail).update(cx, |detail, cx| {
             detail.follow_selection(window, cx);
-            detail.set_page_tab(tab, window, cx)
+            match from {
+                LinkFrom::Outside => detail.set_page_tab(tab, window, cx),
+                LinkFrom::LastRun => detail.set_page_tab_keeping_keys(tab, cx),
+            }
         });
     }
     if let Some(page) = settings {
@@ -537,6 +658,148 @@ mod tests {
             }),
             "on the Changes tab, which shows the diff"
         );
+    }
+
+    #[test]
+    fn every_place_writes_a_link_that_reads_back_as_it() {
+        let select = |selection: Selection, tab, place, change| Route::Select {
+            selection,
+            tab,
+            place,
+            change,
+        };
+        let branch = Selection::Branch(project(), Some(feature()));
+        let file = |line| {
+            Some(CodePlace::File {
+                path: "src/a b.rs".into(),
+                line,
+            })
+        };
+        let routes = (shapes().into_iter())
+            .map(|(_, selection)| select(selection, None, None, None))
+            .chain(ProjectTab::ALL.map(|tab| {
+                select(
+                    Selection::Project(project()),
+                    Some(Tab::Project(tab)),
+                    None,
+                    None,
+                )
+            }))
+            .chain(
+                PageTab::iter().map(|tab| select(branch.clone(), Some(Tab::Page(tab)), None, None)),
+            )
+            .chain([None, Some(4)].map(|line| select(branch.clone(), None, file(line), None)))
+            .chain([select(
+                Selection::Commit(project(), commit_id()),
+                None,
+                file(Some(4)),
+                Some(CHANGE.into()),
+            )]);
+        for route in routes {
+            let at = write(&route).expect("a link names it");
+            assert_eq!(
+                read(&at, &project()),
+                Some(route),
+                "{at:?} reads back as the place it was written from"
+            );
+        }
+    }
+
+    #[test]
+    fn kinds_no_link_names_write_nothing() {
+        let p = project();
+        for selection in [
+            Selection::Terminal(p.clone(), crate::terminal::TerminalId(1)),
+            Selection::Pending(p.clone(), 1, crate::state::NewAt::Top(feature())),
+            Selection::Branch(p.clone(), None),
+            Selection::Stack(p, None),
+        ] {
+            let route = Route::Select {
+                selection,
+                tab: None,
+                place: None,
+                change: None,
+            };
+            assert_eq!(
+                write(&route),
+                None,
+                "{route:?} has no link, so the project's page stands in for it"
+            );
+        }
+        for page in AppPage::ALL {
+            assert_eq!(
+                write(&Route::Settings(Page::App(page))),
+                None,
+                "settings aren't a place in a project to come back to"
+            );
+        }
+    }
+
+    #[test]
+    fn a_view_keeps_only_what_its_page_can_open() {
+        let branch = Selection::Branch(project(), Some(feature()));
+        let file = || {
+            Some(CodePlace::File {
+                path: "src/a.rs".into(),
+                line: Some(4),
+            })
+        };
+        let view = |selection, tab, place| View {
+            selection,
+            tab,
+            place,
+        };
+        let review = Some(Tab::Page(PageTab::Review));
+        let changes = Some(Tab::Page(PageTab::Changes));
+        let project_page = Selection::Project(project());
+        let checkout = Selection::Checkout(project(), Checkout::Main);
+        let uncommitted = Selection::Uncommitted(project(), Checkout::Main);
+        let cases = [
+            (
+                View::new(branch.clone(), review, file()),
+                view(branch.clone(), review, None),
+                "a file opens in the diff, which Review shows in place of",
+            ),
+            (
+                View::new(branch.clone(), changes, file()),
+                view(branch, None, file()),
+                "Changes is the tab a branch's page opens on",
+            ),
+            (
+                View::new(
+                    project_page.clone(),
+                    Some(Tab::Project(ProjectTab::Overview)),
+                    None,
+                ),
+                view(project_page, None, None),
+                "Overview is the tab a project's page opens on",
+            ),
+            (
+                View::new(checkout.clone(), None, file()),
+                view(checkout, None, None),
+                "a checkout's page shows no diff to open a file in",
+            ),
+            (
+                View::new(uncommitted.clone(), None, file()),
+                view(uncommitted, None, file()),
+                "uncommitted changes open at their file",
+            ),
+        ];
+        for (made, expected, why) in cases {
+            assert_eq!(made, expected, "{why}");
+            let route = Route::Select {
+                selection: made.selection,
+                tab: made.tab,
+                place: made.place,
+                change: None,
+            };
+            let at = write(&route).expect("a link names it");
+            assert_eq!(
+                read(&at, &project()),
+                Some(route),
+                "{at:?} reads back as the view it was written from"
+            );
+        }
     }
 
     #[test]
