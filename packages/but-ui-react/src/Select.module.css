@@ -8,6 +8,8 @@
 .trigger {
 	--button-gap: 8px;
 	--button-padding-inline: calc(8px + var(--but-density-padding));
+	/* Its edge stays on top of the padding, as a text field's does, so their text lines up. */
+	--button-edge: 0px;
 	--button-border: 1px solid var(--but-border);
 	--button-bg: var(--but-background);
 	--button-hover-bg: var(--but-background);

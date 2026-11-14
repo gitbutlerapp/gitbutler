@@ -7,7 +7,9 @@
 	align-items: center;
 	justify-content: center;
 	height: var(--button-height);
-	padding-inline: var(--button-padding-inline);
+	/* A border takes its width out of the padding, as Figma's inside stroke does, so an outline
+	   button is as wide as a ghost with the same label and its label sits where the drawing's does. */
+	padding-inline: calc(var(--button-padding-inline) - var(--button-edge, 0px));
 	border: var(--button-border);
 	border-radius: var(--but-radius-control);
 	background-color: var(--button-bg);
@@ -123,6 +125,7 @@
 }
 
 :where(.outline) {
+	--button-edge: 1px;
 	--button-border: 1px solid var(--but-input);
 	--button-bg: transparent;
 	--button-fg: var(--but-foreground);
@@ -130,6 +133,7 @@
 }
 
 :where(.outline-inverted) {
+	--button-edge: 1px;
 	--button-border: 1px solid color-mix(in srgb, var(--but-inverse-foreground) 26%, transparent);
 	--button-bg: transparent;
 	--button-fg: var(--but-inverse-foreground);
@@ -159,6 +163,7 @@
    the colour at the hover opacity, as the neutral outline takes its text colour at it. The glyph
    keeps danger's step up, as colour loses an icon at 0.7. */
 :where(.info, .warning, .success) {
+	--button-edge: 1px;
 	--button-border: 1px solid color-mix(in srgb, var(--button-fg) 30%, transparent);
 	--button-bg: transparent;
 	--button-hover-bg: color-mix(in srgb, var(--button-fg) var(--but-opacity-bg-hover), transparent);
