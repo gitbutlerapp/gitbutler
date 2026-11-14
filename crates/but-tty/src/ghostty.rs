@@ -7,7 +7,7 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use libghostty_vt::style::RgbColor;
+use libghostty_vt::color::Rgb as RgbColor;
 
 const CONFIG_FILES: [&str; 2] = ["config", "config.ghostty"];
 
