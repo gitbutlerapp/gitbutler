@@ -130,7 +130,7 @@ mod tests {
             (Appearance::Dark, ColorScheme::Ghostty),
         ] {
             let system = gpui::WindowAppearance::Light;
-            let theme = Theme::new(choice, &scheme, system, CodeSize::Medium, &ghostty);
+            let theme = Theme::new(choice, [&scheme; 2], system, CodeSize::Medium, &ghostty);
             for which in [
                 Illustration::Cactus,
                 Illustration::Papers,
