@@ -2183,7 +2183,7 @@ fn recycle_goes_to_the_local_target_when_its_upstream_is_ahead() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-Recycled worktree old on 'a-branch-1' from [..] at [..]/worktrees/old
+Recycled worktree old on 'a-branch-1' from 0dc3733 at [..]/worktrees/old
 
 "#]]);
 
@@ -2213,14 +2213,14 @@ fn recycle_creates_a_worktree_at_the_target_when_none_is_clean_and_behind() {
         &env,
         "dirty",
         "-b dirty",
-        "main",
+        "main^",
         "2000-01-04 00:00:00 +0000",
     );
     add_worktree_at(
         &env,
         "detached",
         "--detach",
-        "main",
+        "main^",
         "2000-01-05 00:00:00 +0000",
     );
     let at = |name: &str| env.app_data_dir().join("worktrees").join(name);
