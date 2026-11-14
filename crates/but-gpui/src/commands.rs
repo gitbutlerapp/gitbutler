@@ -389,6 +389,18 @@ commands! {
     crate::navigator::UnarchiveWorktree => "Unarchive worktree",
     crate::navigator::Reveal => (crate::ui::REVEAL),
     crate::navigator::OpenProjectSettings => "Project settings",
+    crate::navigator::OpenRepository => "Open repository in browser" {
+        aliases: &[
+            "Open on GitHub",
+            "Open on GitLab",
+            "Open on Bitbucket",
+            "Open on Azure",
+            "Open remote",
+            "View repository",
+        ],
+        // The forge it's on.
+        phrase: |app, cx| Some(format!("Open on {}", selected_workspace(app, cx)?.forge?.name())),
+    },
     crate::navigator::ArchiveWorktree => "Archive worktree" {
         phrase: |_, _| Some("Archive".to_owned()),
     },

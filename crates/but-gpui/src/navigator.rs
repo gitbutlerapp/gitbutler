@@ -52,7 +52,8 @@ mod account;
 mod drop;
 mod menu;
 pub(crate) use menu::{
-    ArchiveWorktree, OpenProjectSettings, Reveal, StopWatching, UnarchiveWorktree, Watch,
+    ArchiveWorktree, OpenProjectSettings, OpenRepository, Reveal, StopWatching, UnarchiveWorktree,
+    Watch,
 };
 pub(crate) use order::{
     ShowActiveProjects, ShowAllProjects, SortProjectsByActivity, SortProjectsByName,

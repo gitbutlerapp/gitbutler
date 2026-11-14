@@ -1,6 +1,6 @@
 //! Pull requests: what the forge cache knows about each branch's, what a new one would
-//! say, publishing it, and merging one. Calls to the forge go over the network, so these
-//! run off the UI thread like the rest.
+//! say, publishing it, and merging one, and the page of the repository they're on. Calls to
+//! the forge go over the network, so these run off the UI thread like the rest.
 
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -32,6 +32,14 @@ fn forge_from(ctx: &Context, overridden: Option<ForgeName>) -> Option<ForgeName>
 /// [`forge_from`] with the project's settings' pick.
 pub(super) fn forge_name(ctx: &Context) -> Option<ForgeName> {
     forge_from(ctx, saved_forge(ctx))
+}
+
+/// The page of the repository the project's target is on, as `https://github.com/owner/repo`.
+pub fn repository_url(path: &Path) -> Result<String> {
+    let ctx = open(path)?;
+    let info = forge::forge_info(&ctx)?;
+    info.map(|info| info.base_url)
+        .ok_or_else(|| anyhow::anyhow!("The target isn't on a forge"))
 }
 
 /// The forge the project's settings pick, for when nothing else names one.
@@ -793,7 +801,7 @@ mod tests {
         ForgeReviewThreadComment, ForgeReviewThreadSide, ForgeReviewUser,
     };
 
-    use super::{Remark, Verdict, excerpt, grouped, may_pass, remarks};
+    use super::{Remark, Verdict, excerpt, grouped, may_pass, remarks, repository_url};
     use crate::backend::ops::tests::{git, repo_with, target_origin_main};
     use crate::backend::{LineKind, Note, load_workspace, open};
 
@@ -836,6 +844,29 @@ mod tests {
             let err = err.context("Failed to list open pull requests");
             assert_eq!(may_pass(&err), passes, "{what}");
         }
+    }
+
+    #[test]
+    fn the_repository_opens_on_its_forges_web_page() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            assert_eq!(
+                repository_url(path).unwrap_err().to_string(),
+                "The target isn't on a forge",
+                "example.com is no forge, so there's no page to open"
+            );
+            git(
+                path,
+                &["remote", "set-url", "origin", "git@github.com:o/r.git"],
+            );
+            assert_eq!(
+                repository_url(path).unwrap(),
+                "https://github.com/o/r",
+                "an SSH remote opens its page over HTTPS"
+            );
+        });
     }
 
     #[test]
