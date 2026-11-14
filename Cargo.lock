@@ -1209,6 +1209,7 @@ dependencies = [
  "itertools",
  "minus",
  "nonempty",
+ "open",
  "posthog-rs",
  "quote",
  "rand 0.9.4",

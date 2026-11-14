@@ -303,6 +303,75 @@ pub fn set_review_template(
     Ok(())
 }
 
+/// Open the review URL(s) in the default web browser.
+/// If no selector is given, prompts the user to choose from reviews in the workspace.
+pub async fn open_review(
+    ctx: &mut Context,
+    selector: Option<String>,
+    out: &mut OutputChannel,
+) -> anyhow::Result<()> {
+    let review_ids = resolve_review_selection(ctx, selector, out)?;
+
+    if review_ids.is_empty() {
+        if let Some(out) = out.for_human() {
+            writeln!(out, "No reviews selected")?;
+        }
+        if let Some(out) = out.for_json() {
+            out.write_value(serde_json::json!([]))?;
+        }
+        return Ok(());
+    }
+
+    open_reviews(
+        &review_ids,
+        |review_id| but_api::legacy::forge::get_review(ctx, review_id),
+        |url| Ok(open::that(url)?),
+        out,
+    )
+}
+
+/// Look up each review, open its URL with `launch`, and report every opened review.
+/// The JSON output is one array, so a multi-review selection is still a single JSON document.
+fn open_reviews(
+    review_ids: &[usize],
+    mut get_review: impl FnMut(usize) -> anyhow::Result<but_forge::ForgeReview>,
+    mut launch: impl FnMut(&str) -> anyhow::Result<()>,
+    out: &mut OutputChannel,
+) -> anyhow::Result<()> {
+    let mut opened = Vec::with_capacity(review_ids.len());
+    for &review_id in review_ids {
+        let review =
+            get_review(review_id).with_context(|| format!("Failed to get review {review_id}"))?;
+        launch(&review.html_url)
+            .with_context(|| format!("Failed to open URL: {}", review.html_url))?;
+        if let Some(out) = out.for_human() {
+            let t = theme::get();
+            writeln!(
+                out,
+                "{} {}{}",
+                t.success.paint("Opened"),
+                t.pr_number.paint(&review.unit_symbol),
+                t.pr_number.paint(review.number.to_string())
+            )?;
+            writeln!(
+                out,
+                "  {} {}",
+                t.hint.paint("URL:"),
+                t.link.paint(&review.html_url)
+            )?;
+        }
+        opened.push(serde_json::json!({
+            "url": review.html_url,
+            "number": review.number,
+        }));
+    }
+    if let Some(out) = out.for_json() {
+        out.write_value(serde_json::Value::Array(opened))?;
+    }
+
+    Ok(())
+}
+
 /// If no branch is specified, prompts the user to select one.
 /// If there is only one branch without a review, asks for confirmation.
 #[expect(clippy::too_many_arguments)]
@@ -1373,6 +1442,98 @@ mod tests {
             [format!(
                 "Skipped 2 reviews because of reasons.\n{RETRY_REVIEW_ACTION}"
             )]
+        );
+    }
+
+    fn review_numbered(number: usize) -> but_forge::ForgeReview {
+        but_forge::ForgeReview {
+            html_url: format!("https://example.com/review/{number}"),
+            number: number as i64,
+            ..forge_review("B")
+        }
+    }
+
+    fn json_out() -> OutputChannel {
+        let mut out = OutputChannel::new(crate::args::OutputFormat::Json);
+        out.start_json_buffering();
+        out
+    }
+
+    #[test]
+    fn open_reviews_opens_each_url_and_emits_one_json_array() -> anyhow::Result<()> {
+        let mut out = json_out();
+        let mut launched = Vec::new();
+        open_reviews(
+            &[2, 3],
+            |id| Ok(review_numbered(id)),
+            |url| {
+                launched.push(url.to_owned());
+                Ok(())
+            },
+            &mut out,
+        )?;
+
+        assert_eq!(
+            launched,
+            [
+                "https://example.com/review/2",
+                "https://example.com/review/3"
+            ]
+        );
+        assert_eq!(
+            out.take_json_buffer(),
+            Some(serde_json::json!([
+                {"url": "https://example.com/review/2", "number": 2},
+                {"url": "https://example.com/review/3", "number": 3},
+            ])),
+            "a multi-review selection is a single JSON array"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn open_reviews_propagates_lookup_failure_without_reporting() {
+        let mut out = json_out();
+        let mut launched = 0;
+        let err = open_reviews(
+            &[2],
+            |_| anyhow::bail!("forge unavailable"),
+            |_| {
+                launched += 1;
+                Ok(())
+            },
+            &mut out,
+        )
+        .unwrap_err();
+
+        assert_eq!(err.to_string(), "Failed to get review 2");
+        assert_eq!(launched, 0, "nothing is opened when the lookup fails");
+        assert_eq!(
+            out.take_json_buffer(),
+            Some(serde_json::Value::Null),
+            "no success is reported"
+        );
+    }
+
+    #[test]
+    fn open_reviews_propagates_launch_failure_without_reporting() {
+        let mut out = json_out();
+        let err = open_reviews(
+            &[2, 3],
+            |id| Ok(review_numbered(id)),
+            |_| anyhow::bail!("no browser"),
+            &mut out,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err.to_string(),
+            "Failed to open URL: https://example.com/review/2"
+        );
+        assert_eq!(
+            out.take_json_buffer(),
+            Some(serde_json::Value::Null),
+            "no success is reported"
         );
     }
 
