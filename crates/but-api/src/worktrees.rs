@@ -410,10 +410,10 @@ pub enum RecycledWorktree {
 
 /// Show an archived worktree again in place of making a new one, keeping what its folder holds
 /// that Git doesn't, as built dependencies: the most recently used one on a branch outside the
-/// workspace that the target's tip has, with nothing uncommitted and no Git command partway
-/// through. It goes onto a new branch at that tip with a canned name, as a new worktree's, and
-/// its own branch stays as it was, with its upstream. Without one, make a new worktree there,
-/// or at the workspace's base without a target tip.
+/// workspace that the local target branch has, or its upstream without one, with nothing
+/// uncommitted and no Git command partway through. It goes onto a new branch at that tip with a
+/// canned name, as a new worktree's, and its own branch stays as it was, with its upstream.
+/// Without one, make a new worktree there, or at the workspace's base without a target tip.
 pub fn worktree_recycle_with_perm(
     ctx: &but_ctx::Context,
     perm: &mut RepoExclusive,
@@ -452,23 +452,20 @@ pub fn worktree_recycle_with_perm(
     }))
 }
 
-/// The newest tip of the target: the local target branch if it has all its upstream has, as
-/// when it was committed to or pulled into, else the upstream, so diverged local commits are
-/// left out. Either one stands in for the other that isn't there.
+/// The tip of the target: the local target branch, wherever it is relative to its upstream,
+/// or the upstream when there is no local branch.
 fn target_tip(ctx: &but_ctx::Context, perm: &RepoShared) -> Result<Option<gix::ObjectId>> {
     let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
     let meta = &ws.graph.project_meta;
     let Some(target) = meta.target_ref.as_ref() else {
         return Ok(None);
     };
-    let local = ref_tip(&repo, target.as_local_full_name_ref());
-    let upstream = meta
+    if let Some(local) = ref_tip(&repo, target.as_local_full_name_ref()) {
+        return Ok(Some(local));
+    }
+    Ok(meta
         .remote_target_ref(&repo)?
-        .and_then(|upstream| ref_tip(&repo, upstream.as_ref()));
-    Ok(match (local, upstream) {
-        (Some(local), Some(upstream)) if is_ancestor(&repo, upstream, local) => Some(local),
-        (local, upstream) => upstream.or(local),
-    })
+        .and_then(|upstream| ref_tip(&repo, upstream.as_ref())))
 }
 
 /// The archived worktree [`worktree_recycle_with_perm()`] shows again at `tip`, with its
@@ -485,7 +482,10 @@ fn recyclable(
         let Some(branch) = listed.ref_name.as_ref() else {
             continue;
         };
-        let behind = ref_tip(&repo, branch.as_ref()).is_some_and(|at| is_ancestor(&repo, at, tip));
+        let behind = ref_tip(&repo, branch.as_ref()).is_some_and(|at| {
+            repo.merge_base(at, tip)
+                .is_ok_and(|base| base.is_some_and(|base| base == at))
+        });
         if !behind || ws.refname_is_segment(branch.as_ref()) {
             continue;
         }
@@ -507,12 +507,6 @@ fn is_clean(checkout: &gix::Repository) -> bool {
         .is_none_or(|state| state == gix::state::InProgress::Bisect);
     idle && but_core::diff::worktree_changes(checkout)
         .is_ok_and(|changes| changes.changes.is_empty() && changes.index_conflicts.is_empty())
-}
-
-/// Whether `of` has `ancestor` in its history, or is it. One that can't be told isn't.
-fn is_ancestor(repo: &gix::Repository, ancestor: gix::ObjectId, of: gix::ObjectId) -> bool {
-    repo.merge_base(ancestor, of)
-        .is_ok_and(|base| base.is_some_and(|base| base == ancestor))
 }
 
 /// The commit `name` points at, if it's there.

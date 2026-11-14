@@ -83,7 +83,7 @@ Create a worktree on a new branch at the workspace base or above a commit, or on
 - `-A, --above <BRANCH_OR_COMMIT>` Start the new branch at BRANCH_OR_COMMIT instead of the workspace base. Accepts a branch by name or CLI ID, a commit by SHA or CLI ID, or any Git revision like origin/main. Conflicted commits and the GitButler workspace commit are refused.
 
 ### but worktree recycle
-Reuse an archived worktree on a new branch at the target's tip, or create one there
+Reuse an archived worktree on a new branch at the local target branch, or create one there
 
 ### but worktree archive <WORKTREE>
 Hide a worktree from the workspace until but runs inside it again
