@@ -54,7 +54,7 @@ catalogs:
     "@reduxjs/toolkit": 2.11.2
   svelte:
     "@sentry/sveltekit": 10.44.0
-    "@sveltejs/adapter-static": 3.0.10
+    "@sveltejs/adapter-static": 3.0.11
     "@sveltejs/kit": 2.52.2
     "@sveltejs/package": 2.5.7
     "@sveltejs/vite-plugin-svelte": 6.2.4
