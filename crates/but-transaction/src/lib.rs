@@ -25,7 +25,9 @@ use but_workspace::commit::{
     UncommitChangesFromCommitsOutcome, UncommitChangesSource,
     squash_commits::MessageCombinationStrategy,
 };
-use but_workspace::editor_workspace::{leave_unnecessary_workspace, workspace_tips};
+use but_workspace::editor_workspace::{
+    leave_unnecessary_workspace, switch_to_workspace, workspace_tips,
+};
 use gix::{
     ObjectId,
     refs::{
@@ -188,6 +190,7 @@ where
             pending_ref_changes: PendingRefChanges::default(),
             pending_checkout: None,
             pending_new_stacks: Vec::new(),
+            head_branch_removed: false,
             context_lines,
         };
 
@@ -212,6 +215,7 @@ where
             mut pending_ref_changes,
             pending_checkout,
             pending_new_stacks,
+            head_branch_removed,
             context_lines: _,
         } = inner;
         let rebase = rebase.take().expect("rebase is always Some(_)");
@@ -221,7 +225,9 @@ where
         let workspace = if should_rollback {
             Ok(None)
         } else {
-            apply_new_stacks(rebase, pending_new_stacks, pending_checkout.is_some())
+            let checking_out = pending_checkout.is_some();
+            keep_head_on_a_branch(rebase, head_branch_removed && !checking_out)
+                .and_then(|rebase| apply_new_stacks(rebase, pending_new_stacks, checking_out))
                 .and_then(|rebase| {
                     workspace_state_from_rebase(
                         rebase,
@@ -287,6 +293,10 @@ where
     // with them once the callback is done, rather than when they're made: a checkout later in
     // the transaction leaves `HEAD` on a branch of its own, which needs no workspace.
     pending_new_stacks: Vec<(FullName, Option<usize>)>,
+    // The branch `HEAD` was on alone, maybe only since leaving the workspace earlier in the
+    // transaction, was removed. `HEAD` is put on a branch again once the callback is done, as
+    // operations after the removal can still move commits under it.
+    head_branch_removed: bool,
     // Commits given to `squash_commits`, `reword_commit`, etc are allowed to be the original
     // commits from live repo. This is used to map those to the rebased in-memory commits.
     //
@@ -481,8 +491,11 @@ where
 
     pub fn remove_reference(&mut self, ref_name: &FullNameRef) -> anyhow::Result<()> {
         let checkout_is_pending = self.inner.pending_checkout.is_some();
-        self.rebase(|mut editor, _| {
+        let removes_head_branch = self.rebase(|mut editor, _| {
             let ref_selector = editor.select_reference(ref_name)?;
+            // Without a target there's no workspace to enter, as for a new stack beside the branch.
+            let removes_head_branch =
+                editor.head() == Some(ref_selector) && editor.target_ref().is_some();
 
             let must_disconnect_child = 'must_disconnect: {
                 let Some(target_selector) = editor.target_selector() else {
@@ -565,8 +578,9 @@ where
             } else {
                 leave_unnecessary_workspace(rebase.into_editor())?
             };
-            Ok(((), rebase))
+            Ok((removes_head_branch, rebase))
         })?;
+        self.inner.head_branch_removed |= removes_head_branch;
         let repo = self.repo().clone();
         self.inner
             .pending_ref_changes
@@ -1071,6 +1085,20 @@ where
             Ok((outcome, rebase))
         })
     }
+}
+
+/// With the branch `HEAD` was on alone removed, `HEAD` follows it to what's below, detached unless
+/// a branch points there. Entering the workspace there and leaving it puts `HEAD` on the local
+/// target or a branch below instead, or keeps the workspace if neither has the same files.
+fn keep_head_on_a_branch<'rebase, M: RefMetadata>(
+    rebase: SuccessfulRebase<'rebase, 'rebase, M>,
+    head_branch_removed: bool,
+) -> anyhow::Result<SuccessfulRebase<'rebase, 'rebase, M>> {
+    if !head_branch_removed {
+        return Ok(rebase);
+    }
+    let (rebase, _) = switch_to_workspace(rebase.into_editor())?;
+    leave_unnecessary_workspace(rebase.into_editor())
 }
 
 fn apply_new_stacks<'rebase, M: RefMetadata>(

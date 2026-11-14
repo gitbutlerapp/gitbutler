@@ -1438,6 +1438,114 @@ fn removing_the_last_two_stacks_together_leaves_the_workspace() {
 }
 
 #[test]
+fn removing_the_branch_checked_out_on_its_own_keeps_head_on_a_branch() {
+    for (main_moved, expected_head) in [(false, "main"), (true, "gitbutler/workspace")] {
+        let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+        env.invoke_git("checkout -b lone main");
+        env.invoke_git("branch -D gitbutler/workspace");
+        if main_moved {
+            env.invoke_git("branch -f main branch");
+        }
+
+        let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+        let mut ctx = Context::from_repo_for_testing(repo)
+            .map(Context::with_memory_app_cache)
+            .unwrap();
+        let mut meta = ctx.meta().unwrap();
+        let lone = FullName::try_from("refs/heads/lone").unwrap();
+
+        with_transaction(
+            &mut ctx,
+            &mut meta,
+            SnapshotDetails::new(OperationKind::DeleteBranch),
+            DryRun::No,
+            |mut tx| tx.remove_reference(lone.as_ref()),
+        )
+        .unwrap();
+
+        assert_eq!(
+            env.invoke_git("symbolic-ref --short HEAD"),
+            expected_head,
+            "HEAD goes to main where main is, else to a workspace there, never detached"
+        );
+        assert_eq!(
+            env.invoke_git("rev-parse HEAD^{tree}"),
+            env.invoke_git("rev-parse origin/main^{tree}"),
+            "the worktree stays at the target commit"
+        );
+    }
+}
+
+#[test]
+fn removing_the_last_two_stacks_one_after_the_other_keeps_head_on_a_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.invoke_bash("git branch -f main $(git commit-tree -p main -m moved A^{tree})");
+    let [a_tip, b_tip] = find_commits(&env, ["A", "B"]);
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let mut meta = ctx.meta().unwrap();
+    let a = FullName::try_from("refs/heads/A").unwrap();
+    let b = FullName::try_from("refs/heads/B").unwrap();
+
+    with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::DeleteBranch),
+        DryRun::No,
+        |mut tx| {
+            tx.discard_commits([a_tip, b_tip])?;
+            tx.remove_reference(a.as_ref())?;
+            tx.remove_reference(b.as_ref())
+        },
+    )
+    .unwrap();
+
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "gitbutler/workspace",
+        "removing A leaves the workspace for B, so removing B takes the branch HEAD is on, \
+         and main has other files"
+    );
+}
+
+#[test]
+fn removing_the_branch_checked_out_on_its_own_before_its_commits_keeps_head_below() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.invoke_bash("git checkout -q -b top branch && git branch -D gitbutler/workspace");
+    env.invoke_bash("echo top >top && git add top && git commit -q -m 'add top'");
+    let [top_commit] = find_commits(&env, ["top"]);
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let mut meta = ctx.meta().unwrap();
+    let top = FullName::try_from("refs/heads/top").unwrap();
+
+    with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::SquashCommit),
+        DryRun::No,
+        |mut tx| {
+            tx.remove_reference(top.as_ref())?;
+            tx.discard_commits([top_commit])
+        },
+    )
+    .unwrap();
+
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "branch",
+        "HEAD is placed once the commits removed after its branch are gone too, as squash removes the branch first"
+    );
+}
+
+#[test]
 fn remove_references() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["branch"]);
