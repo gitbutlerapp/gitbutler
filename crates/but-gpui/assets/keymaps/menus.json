@@ -135,6 +135,7 @@
       },
       "pr::OpenPullRequest",
       "copy::CopyPullRequestLink",
+      "navigator::OpenRepository",
       "-",
       "remote::UpdateFromTarget",
       "remote::UpdateWorkspace",

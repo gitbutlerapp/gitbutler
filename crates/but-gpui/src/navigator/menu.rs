@@ -34,6 +34,7 @@ actions!(
         UnarchiveWorktree,
         Reveal,
         OpenProjectSettings,
+        OpenRepository,
         ArchiveWorktree,
     ]
 );
@@ -41,19 +42,26 @@ actions!(
 impl AppView {
     /// Register what the selected row of the navigator offers beyond the edits: watching a
     /// project, a checkout's folder, archiving a worktree, and from anywhere in a project, its
-    /// archived worktrees.
+    /// archived worktrees and its repository on the forge.
     pub(crate) fn navigator_actions(&self, el: Stateful<Div>, cx: &Context<Self>) -> Stateful<Div> {
         let store = self.store.read(cx);
-        let unarchivable = (store.selection.as_ref())
-            .map(|selection| selection.project().clone())
-            .filter(|project| {
-                (store.workspace(project)).is_some_and(|ws| !ws.archived_worktrees.is_empty())
-            });
-        let el = el.when_some(unarchivable, |el, project| {
-            el.on_action(cx.listener(move |this, _: &UnarchiveWorktree, window, cx| {
-                this.unarchive_worktree(&project, window, cx)
-            }))
+        let selected = (store.selection.as_ref()).map(|selection| selection.project().clone());
+        let unarchivable = selected.clone().filter(|project| {
+            (store.workspace(project)).is_some_and(|ws| !ws.archived_worktrees.is_empty())
         });
+        let hosted = selected
+            .filter(|project| (store.workspace(project)).is_some_and(|ws| ws.forge.is_some()));
+        let el = el
+            .when_some(unarchivable, |el, project| {
+                el.on_action(cx.listener(move |this, _: &UnarchiveWorktree, window, cx| {
+                    this.unarchive_worktree(&project, window, cx)
+                }))
+            })
+            .when_some(hosted, |el, project| {
+                el.on_action(cx.listener(move |this, _: &OpenRepository, _, cx| {
+                    this.open_repository(&project, cx)
+                }))
+            });
         match store.selection.clone() {
             Some(Selection::Project(project)) => {
                 let expanded = store.project(&project).is_some_and(|p| p.expanded);
@@ -100,6 +108,24 @@ impl AppView {
             }
             _ => el,
         }
+    }
+
+    /// Open the page of `project`'s repository on its forge in the browser.
+    fn open_repository(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+        let Some(path) = self.store.read(cx).path(project) else {
+            return;
+        };
+        let store = self.store.clone();
+        cx.spawn(async move |_, cx| {
+            match crate::backend::run(move || crate::backend::reviews::repository_url(&path)).await
+            {
+                Ok(url) => cx.update(|cx| cx.open_url(&url)),
+                Err(err) => store.update(cx, |store, cx| {
+                    store.failed("Couldn't open the repository", &err, cx)
+                }),
+            }
+        })
+        .detach();
     }
 
     /// Offer the worktrees archived of `project`, to unarchive one.
@@ -368,6 +394,7 @@ impl Navigator {
                     command(&crate::open_in::OpenInEditor).separated(),
                     command(&crate::open_in::OpenInTerminal),
                     command(&Reveal),
+                    command(&OpenRepository),
                     // The note saying why the project can't be read may name a command to run.
                     command(&CopyErrorMessage),
                     command(&OpenProjectSettings).separated(),
