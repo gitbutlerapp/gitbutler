@@ -24,9 +24,8 @@
 	// `list_reviews` errors for forges without listing support (Bitbucket/
 	// Azure) or when no forge can be derived, so only refresh the listing
 	// when the forge actually supports it.
-	const canListReviews = $derived(
-		forgeInfoService.get(projectId).response?.capabilities.listService ?? false,
-	);
+	const forgeInfoQuery = $derived(forgeInfoService.get(projectId));
+	const canListReviews = $derived(forgeInfoQuery.response?.capabilities.listService ?? false);
 
 	const lastFetched = $derived(
 		fetchStatus.response?.lastSuccessfulMs
