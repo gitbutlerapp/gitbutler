@@ -884,6 +884,45 @@ but_schemars::register_sdk_type!(BranchListingDetails);
 #[cfg(test)]
 mod tests {
     #[test]
+    fn identity_strips_the_ref_prefix_and_the_longest_matching_remote() -> anyhow::Result<()> {
+        use gitbutler_branch::ReferenceExtGix as _;
+        let remotes: gix::remote::Names = ["origin", "Byron", "Byron/gitbutler"]
+            .into_iter()
+            .map(Into::into)
+            .collect();
+        let identity = |name: &str| -> anyhow::Result<String> {
+            let name = gix::refs::FullName::try_from(name)?;
+            Ok(name.as_ref().identity(&remotes)?.to_string())
+        };
+
+        assert_eq!(
+            identity("refs/heads/feat/one")?,
+            "feat/one",
+            "a local branch loses refs/heads/"
+        );
+        assert_eq!(
+            identity("refs/remotes/origin/feat/one")?,
+            "feat/one",
+            "a remote branch loses its remote"
+        );
+        assert_eq!(
+            identity("refs/remotes/Byron/gitbutler/feat/one")?,
+            "feat/one",
+            "the longest remote name wins when one remote name prefixes another"
+        );
+        assert_eq!(
+            identity("refs/remotes/Byron/feat/one")?,
+            "feat/one",
+            "the shorter remote still matches its own branches"
+        );
+        assert!(
+            identity("refs/remotes/unknown/feat/one").is_err(),
+            "a remote branch needs a known remote"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn listing_distinguishes_local_target_from_differently_named_upstream() -> anyhow::Result<()> {
         let (mut repo, _tmp) = but_testsupport::writable_scenario("local-target-upstream-ahead");
         let upstream = repo.rev_parse_single("origin/main")?.detach();
