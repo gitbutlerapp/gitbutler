@@ -4,7 +4,7 @@ use but_ctx::{
     Context,
     access::{RepoExclusive, RepoShared},
 };
-use but_oxidize::{ObjectIdExt, OidExt};
+use but_oxidize::ObjectIdExt;
 
 /// A snapshot of the workspace at a point in time.
 #[derive(Debug)]
@@ -71,49 +71,28 @@ impl WorkspaceState {
     }
 }
 
-/// Pass `None` for `old_uncommitted_changes` to transition the worktree via safe checkout;
-/// pass `Some(tree_id)` to move that materialized worktree tree between workspaces instead.
+/// Move the uncommitted changes in `worktree_id` from `old` onto `new` and check them out.
 pub fn update_uncommitted_changes_with_tree(
     ctx: &Context,
     old: WorkspaceState,
     new: WorkspaceState,
-    old_uncommitted_changes: Option<gix::ObjectId>,
-    always_checkout: Option<bool>,
+    worktree_id: gix::ObjectId,
     _perm: &mut RepoExclusive,
 ) -> Result<()> {
-    if let Some(worktree_id) = old_uncommitted_changes {
-        let gix_repo = ctx.clone_repo_for_merging()?;
-        #[expect(deprecated, reason = "checkout/index materialization boundary")]
-        let repo = &*ctx.git2_repo.get()?;
-        let mut new_uncommitted_changes =
-            move_tree_between_workspaces(repo, &gix_repo, worktree_id, &old, &new)?;
-
-        // If the new tree and old tree are the same, then we don't need to do anything
-        if !new_uncommitted_changes.has_conflicts() && !always_checkout.unwrap_or(false) {
-            let tree = new_uncommitted_changes.write_tree_to(repo)?.to_gix();
-            if tree == worktree_id {
-                return Ok(());
-            }
-        }
-
-        repo.checkout_index(
-            Some(&mut new_uncommitted_changes),
-            Some(
-                git2::build::CheckoutBuilder::new()
-                    .force()
-                    .remove_untracked(true)
-                    .conflict_style_diff3(true),
-            ),
-        )?;
-    } else {
-        let gix_repo = ctx.clone_repo_for_merging()?;
-        let new_tree_id = merge_workspace(&gix_repo, &new)?;
-        but_core::worktree::safe_checkout_from_head(
-            new_tree_id,
-            &gix_repo,
-            but_core::worktree::checkout::Options::default(),
-        )?;
-    }
+    let gix_repo = ctx.clone_repo_for_merging()?;
+    #[expect(deprecated, reason = "checkout/index materialization boundary")]
+    let repo = &*ctx.git2_repo.get()?;
+    let mut new_uncommitted_changes =
+        move_tree_between_workspaces(repo, &gix_repo, worktree_id, &old, &new)?;
+    repo.checkout_index(
+        Some(&mut new_uncommitted_changes),
+        Some(
+            git2::build::CheckoutBuilder::new()
+                .force()
+                .remove_untracked(true)
+                .conflict_style_diff3(true),
+        ),
+    )?;
     Ok(())
 }
 

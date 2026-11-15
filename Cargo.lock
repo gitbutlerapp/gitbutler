@@ -4812,7 +4812,6 @@ dependencies = [
  "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-repo",
- "gitbutler-workspace",
  "gix",
  "md5",
  "pretty_assertions",

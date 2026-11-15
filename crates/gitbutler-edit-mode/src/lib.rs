@@ -403,8 +403,7 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
         ctx,
         old_workspace,
         new_workspace,
-        Some(uncommtied_changes),
-        Some(true),
+        uncommtied_changes,
         perm,
     )?;
 
