@@ -25,12 +25,10 @@ use gpui::{
 use super::order::moving_worktree;
 use super::rows::{CARD_PADDING, Rows, listed_with};
 use super::{
-    MAIN_WORKTREE, Navigator, Row, RowStyle, RowsIn, TerminalOverview, drawer_title, project_glyph,
-    status_mark, worktree_icon, worktrees_listed,
+    MAIN_WORKTREE, Navigator, Row, RowAction, RowStyle, RowsIn, TerminalOverview, drawer_title,
+    project_glyph, row_actions, status_mark, worktree_icon, worktrees_listed,
 };
-use crate::app::{
-    AppHandle, AppView, Cancel, Collapse, Expand, SelectNext, SelectPrevious, ToggleFold,
-};
+use crate::app::{AppHandle, AppView, Cancel};
 use crate::backend::Checkout;
 use crate::clock;
 use crate::overlays::OVERLAY;
@@ -106,7 +104,7 @@ impl TabKey {
 
     /// What a click on the tab selects, if it's anything: the projects not watched and the
     /// terminals are only there to pick from.
-    fn selection(&self) -> Option<Selection> {
+    pub(super) fn selection(&self) -> Option<Selection> {
         match self {
             TabKey::Project(id) => Some(Selection::Project(id.clone())),
             TabKey::Checkout(id, checkout) => {
@@ -250,30 +248,6 @@ fn nearest_slot<T: Clone>(
     match off(left) < nearest.0 {
         true => Slot::End,
         false => nearest.1,
-    }
-}
-
-/// Where a step of the keys in a tab's card goes.
-#[derive(Debug, PartialEq, Eq)]
-enum CardStep {
-    /// Up off the card's first row, onto the tab.
-    Tab,
-    /// Nowhere: up from the tab, which is the strip's top.
-    Stay,
-    /// Through the card's rows, as a step through the navigator's goes.
-    Rows,
-}
-
-/// Where a step of `delta` goes from item `at` of a card's, or from off them, as from its tab,
-/// unless the keys are `on_bar`, or what's `moving` steps through where it can land. From the
-/// tab it's down into the card only: a step back from off the navigator's rows starts at their
-/// bottom, which here would take the keys round from the tab to the card's last row.
-fn card_step(at: Option<usize>, on_bar: bool, delta: isize, moving: bool) -> CardStep {
-    match at {
-        _ if moving || delta >= 0 => CardStep::Rows,
-        Some(0) => CardStep::Tab,
-        None if !on_bar => CardStep::Stay,
-        Some(_) | None => CardStep::Rows,
     }
 }
 
@@ -1177,38 +1151,30 @@ impl NavigatorTabs {
         self.scroll_to_current(cx);
     }
 
-    /// Step the keys down the card's rows, or back up them and on to the tab. Not while a
-    /// project or a worktree is being moved, which goes along the tabs ([`Self::step`]).
-    fn step_row(&mut self, delta: isize, window: &mut Window, cx: &mut Context<Self>) {
-        if moving_tab(self.store.read(cx)).is_some() {
-            return;
-        }
+    /// Do what a key does to the rows of the card the keys are on, as the navigator does to its
+    /// own, and scroll to where a step lands. A step goes nowhere while a project or a worktree
+    /// is being moved, which goes along the tabs ([`Self::step`]).
+    fn act_on_card_rows(&mut self, action: RowAction, window: &mut Window, cx: &mut Context<Self>) {
         let Some(key) = self.keyed.clone() else {
             return;
         };
-        // The overview's rows take the keys themselves.
-        if key == TabKey::Terminals {
-            return window.focus(&self.terminals.focus_handle(cx), cx);
-        }
-        let row = (self.navigator).update(cx, |navigator, cx| {
-            navigator.step_in(&key, delta, window, cx)
-        });
-        if let Some((row, card)) = row.zip(self.card.as_ref()) {
-            card.pane.scroll.scroll_to_item(row);
-        }
-    }
-
-    /// Fold or unfold the selected row of the card, as `fold` does the navigator's.
-    fn fold_row(
-        &mut self,
-        fold: impl FnOnce(&mut Navigator, &mut Window, &mut Context<Navigator>),
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if let Some(key) = self.keyed.clone().filter(|key| *key != TabKey::Terminals) {
-            (self.navigator).update(cx, |navigator, cx| {
-                navigator.in_scope(&key, cx, |navigator, cx| fold(navigator, window, cx))
-            });
+        let stepping = matches!(action, RowAction::Step(_));
+        match key {
+            _ if stepping && moving_tab(self.store.read(cx)).is_some() => {}
+            // The overview's rows take the keys themselves.
+            TabKey::Terminals if stepping => window.focus(&self.terminals.focus_handle(cx), cx),
+            TabKey::Terminals => {}
+            TabKey::Project(_) | TabKey::Checkout(..) | TabKey::More => {
+                let row = (self.navigator).update(cx, |navigator, cx| {
+                    navigator.in_scope(&key, cx, |navigator, cx| {
+                        navigator.act_on_rows(action, window, cx);
+                        navigator.selected_card_row(cx)
+                    })
+                });
+                if let Some((row, card)) = row.filter(|_| stepping).zip(self.card.as_ref()) {
+                    card.pane.scroll.scroll_to_item(row);
+                }
+            }
         }
     }
 
@@ -2446,31 +2412,7 @@ impl Render for NavigatorTabs {
                     .map(|el| {
                         (self.navigator).update(cx, |navigator, cx| navigator.key_actions(el, cx))
                     })
-                    .on_action(
-                        cx.listener(|this, _: &SelectNext, window, cx| {
-                            this.step_row(1, window, cx)
-                        }),
-                    )
-                    .on_action(cx.listener(|this, _: &SelectPrevious, window, cx| {
-                        this.step_row(-1, window, cx)
-                    }))
-                    .on_action(cx.listener(|this, action: &Expand, window, cx| {
-                        this.fold_row(|nav, window, cx| nav.expand(action, window, cx), window, cx)
-                    }))
-                    .on_action(cx.listener(|this, action: &Collapse, window, cx| {
-                        this.fold_row(
-                            |nav, window, cx| nav.collapse(action, window, cx),
-                            window,
-                            cx,
-                        )
-                    }))
-                    .on_action(cx.listener(|this, action: &ToggleFold, window, cx| {
-                        this.fold_row(
-                            |nav, window, cx| nav.toggle_fold(action, window, cx),
-                            window,
-                            cx,
-                        )
-                    }))
+                    .map(|el| row_actions(el, cx, NavigatorTabs::act_on_card_rows))
                     .on_action(cx.listener(|this, _: &Cancel, window, cx| {
                         // A move under way lets go first, as it does in the navigator.
                         match this.store.read(cx).moving.is_some() {
@@ -2615,37 +2557,15 @@ impl Navigator {
         })
     }
 
-    /// Step the selection `delta` through what `scope` shows, as a step through the navigator's
-    /// rows does, or from its first row back up to what the tab selects, as [`card_step`] says,
-    /// and say which of the card's rows that is.
-    pub(super) fn step_in(
-        &mut self,
-        scope: &TabKey,
-        delta: isize,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Option<usize> {
-        self.in_scope(scope, cx, |this, cx| {
-            let store = this.store.read(cx);
-            let at = (store.selection.as_ref())
-                .and_then(|selected| this.items().iter().position(|item| *item == selected));
-            let moving = store.moving.is_some();
-            match (
-                card_step(at, this.on_drawer_bar, delta, moving),
-                scope.selection(),
-            ) {
-                (CardStep::Tab, Some(tab)) => this.select(tab, window, cx),
-                (CardStep::Tab, None) | (CardStep::Stay, _) => {}
-                (CardStep::Rows, _) => this.step(delta, window, cx),
-            }
-            let selected = this.store.read(cx).selection.clone()?;
-            let row = |rows: &[Row]| {
-                let at = |row: &Row| matches!(row, Row::Item(item) if *item == selected);
-                rows.iter().position(at)
-            };
-            // The drawer's bar comes before its rows.
-            row(&this.rows).or_else(|| row(&this.drawer.rows).map(|row| row + 1))
-        })
+    /// Which of the card's rows the selection is, in [`Self::in_scope`].
+    pub(super) fn selected_card_row(&self, cx: &App) -> Option<usize> {
+        let selected = self.store.read(cx).selection.clone()?;
+        let row = |rows: &[Row]| {
+            let at = |row: &Row| matches!(row, Row::Item(item) if *item == selected);
+            rows.iter().position(at)
+        };
+        // The drawer's bar comes before its rows.
+        row(&self.rows).or_else(|| row(&self.drawer.rows).map(|row| row + 1))
     }
 
     /// What the navigator's header has but its filter, at the strip's right end.
@@ -2677,8 +2597,8 @@ mod tests {
     use gpui::point;
 
     use super::{
-        CardStep, Group, Laid, PROJECT_GAP, TabKey, WORKTREE_GAP, card_step, heading_down, lay_out,
-        nearest_slot, scrolled_to, stepped,
+        Group, Laid, PROJECT_GAP, TabKey, WORKTREE_GAP, heading_down, lay_out, nearest_slot,
+        scrolled_to, stepped,
     };
     use crate::backend::Checkout;
     use crate::state::ProjectId;
@@ -2732,35 +2652,6 @@ mod tests {
             tab,
             100. + whole / 2. - whole + WORKTREE_GAP,
             "what isn't out yet is still behind the project's tab"
-        );
-    }
-
-    #[test]
-    fn up_from_the_tab_stays_on_it() {
-        assert_eq!(
-            card_step(None, false, -1, false),
-            CardStep::Stay,
-            "the tab is the top, so the keys don't go round to the card's last row"
-        );
-        assert_eq!(
-            card_step(Some(0), false, -1, false),
-            CardStep::Tab,
-            "up off the first row is the tab"
-        );
-        assert_eq!(
-            card_step(None, false, 1, false),
-            CardStep::Rows,
-            "down from the tab goes into the card"
-        );
-        assert_eq!(
-            card_step(None, true, -1, false),
-            CardStep::Rows,
-            "on the drawer's bar the keys are in the card, though nothing's selected there"
-        );
-        assert_eq!(
-            card_step(None, false, -1, true),
-            CardStep::Rows,
-            "what's moving steps through where it can land"
         );
     }
 
