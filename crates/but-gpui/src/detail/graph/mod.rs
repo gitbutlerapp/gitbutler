@@ -579,7 +579,7 @@ impl GraphView {
             StoreEvent::SelectionChanged | StoreEvent::Loaded(_) => this.follow(cx),
             StoreEvent::Reopened
             | StoreEvent::TabAsked(_)
-            | StoreEvent::FileAsked(..)
+            | StoreEvent::FileAsked { .. }
             | StoreEvent::LinkOpened { .. }
             | StoreEvent::Renamed(..)
             | StoreEvent::MeshRead(_)

@@ -8,7 +8,8 @@ use std::time::{Duration, Instant};
 use futures::{StreamExt as _, channel::mpsc};
 use gpui::{Context, SharedString, Task, WindowId};
 
-use super::{CodePlace, ProjectEntry, ProjectId, Selection, Store, StoreEvent};
+use super::saved::{self, SavedPlace};
+use super::{CodePlace, LinkFrom, ProjectEntry, ProjectId, Selection, Store, StoreEvent};
 use crate::backend::watch::Watcher;
 use crate::backend::{
     self, Checkout, CommitId, Destination, FileChange, FullName, Project, Selected, Workspace,
@@ -289,6 +290,9 @@ impl Store {
             }
         }
         if first_load {
+            let place = saved::place_to_restore(&restored, |id| {
+                self.project(id).is_some_and(|entry| entry.expanded)
+            });
             let handed = (restored.handed).filter(|selection| {
                 (self.project(selection.project())).is_some_and(|entry| entry.expanded)
             });
@@ -297,8 +301,18 @@ impl Store {
                 .and_then(|id| self.project(&id).filter(|entry| entry.expanded))
                 .or_else(|| self.projects.iter().find(|entry| entry.expanded))
                 .map(|entry| Selection::Project(entry.id.clone()));
-            if let Some(selection) = handed.or(open) {
-                self.select(Some(selection), cx);
+            match (handed, place) {
+                (Some(selection), _) => self.select(Some(selection), cx),
+                (None, Some(SavedPlace { project, at })) => cx.emit(StoreEvent::LinkOpened {
+                    project: project.into(),
+                    at,
+                    from: LinkFrom::LastRun,
+                }),
+                (None, None) => {
+                    if let Some(selection) = open {
+                        self.select(Some(selection), cx);
+                    }
+                }
             }
         }
         cx.notify();
@@ -336,7 +350,11 @@ impl Store {
                     store.set_projects(projects, cx);
                     store.set_expanded(&id, true, cx);
                     if let Asked::Link(at) = asked {
-                        return cx.emit(StoreEvent::LinkOpened { project: id, at });
+                        return cx.emit(StoreEvent::LinkOpened {
+                            project: id,
+                            at,
+                            from: LinkFrom::Outside,
+                        });
                     }
                     store.select(Some(Selection::Project(id.clone())), cx);
                     match (existed, store.project(&id)) {
@@ -379,7 +397,7 @@ impl Store {
         mut selection: Selection,
         key: Option<String>,
         place: Option<CodePlace>,
-        missing: &'static str,
+        missing: Option<&'static str>,
         cx: &mut Context<Self>,
     ) {
         let project = selection.project().clone();
@@ -395,9 +413,11 @@ impl Store {
         if let Some(made) = &made {
             selection = Selection::Commit(project.clone(), made.id);
         }
-        self.linked = Some((selection.clone(), missing));
+        self.linked = missing.map(|missing| (selection.clone(), missing));
         match place {
-            Some(place) if self.still_there(&selection) => self.show_file(selection, place, cx),
+            Some(place) if self.still_there(&selection) => {
+                self.show_file(selection, place, missing.is_some(), cx)
+            }
             _ => self.select_by_hand(selection, cx),
         };
         self.made = made;

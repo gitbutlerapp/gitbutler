@@ -134,6 +134,13 @@ impl Detail {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.set_page_tab_keeping_keys(tab, cx);
+        if !self.tabs_focus.is_focused(window) {
+            self.focus_files(window, cx);
+        }
+    }
+
+    pub(crate) fn set_page_tab_keeping_keys(&mut self, tab: PageTab, cx: &mut Context<Self>) {
         if self.has_brief() {
             self.brief.first = tab == PageTab::Brief;
         }
@@ -154,10 +161,7 @@ impl Detail {
             };
             self.store.read(cx).count_view_named(view, &project);
         }
-        match self.tabs_focus.is_focused(window) {
-            true => cx.notify(),
-            false => self.focus_files(window, cx),
-        }
+        cx.notify();
         self.ask_forge(cx);
         self.ask_briefs(cx);
     }

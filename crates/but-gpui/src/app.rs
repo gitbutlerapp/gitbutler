@@ -541,8 +541,8 @@ impl AppView {
                     window,
                     cx,
                 ),
-                StoreEvent::LinkOpened { project, at } => {
-                    crate::links::land(this, project.clone(), at, window, cx)
+                StoreEvent::LinkOpened { project, at, from } => {
+                    crate::links::land(this, project.clone(), at, *from, window, cx)
                 }
                 StoreEvent::TilingChanged => {
                     this.drop_stale_tile_drag(cx);
@@ -638,6 +638,8 @@ impl AppView {
                         store.recheck_folders(cx);
                     });
                     crate::keymap::reload(cx);
+                } else {
+                    this.keep_view(cx);
                 }
             }),
             // Keys go to what's focused, so when it leaves the screen, as the Branches page's
@@ -884,6 +886,7 @@ impl AppView {
     /// ask instead, and quit on a yes: quitting would stop the operation partway and end what
     /// runs in the terminal.
     fn can_quit(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        self.keep_view(cx);
         let store = self.store.read(cx);
         let operations = match store.unfinished() {
             0 => None,
@@ -921,6 +924,16 @@ impl AppView {
             cx.quit()
         });
         false
+    }
+
+    fn keep_view(&mut self, cx: &mut Context<Self>) {
+        let view = self.detail.read(cx).current_view();
+        self.store.update(cx, |store, cx| store.keep_view(view, cx));
+    }
+
+    fn save_view(&mut self, cx: &mut Context<Self>) {
+        self.keep_view(cx);
+        self.store.update(cx, |store, _| store.save());
     }
 
     pub fn set_ui_scale(&mut self, scale: UiScale, cx: &mut Context<Self>) {
@@ -1090,13 +1103,14 @@ impl AppView {
             snack(&self.store, "Wait for the running operations to finish", cx);
             return;
         }
+        self.save_view(cx);
         let store = self.store.clone();
         let (sender, mut progress) = futures::channel::mpsc::unbounded();
         store.update(cx, |store, cx| {
             store.updating = Some(0);
             cx.notify();
         });
-        cx.spawn(async move |_, cx| {
+        cx.spawn(async move |this, cx| {
             // Off the UI thread: on Windows, starting a process can run the window's
             // message loop, which would enter the app again while this holds it.
             let installed = backend::run(move || {
@@ -1124,6 +1138,7 @@ impl AppView {
                     .timer(std::time::Duration::from_millis(100))
                     .await;
             }
+            this.update(cx, |app, cx| app.save_view(cx)).ok();
             // The Windows installer it started closes this app and starts the new one itself.
             if !cfg!(windows)
                 && let Err(err) = backend::run(|| Ok(crate::relaunch(false)?)).await
