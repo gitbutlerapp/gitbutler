@@ -11,7 +11,7 @@ use gix::{bstr::ByteSlice as _, refs::Category};
 use crate::{WorkspaceCommit, commit::Stack};
 
 /// Return the workspace commit, creating one if none is found.
-pub fn ensure_workspace_commit<'ws, 'meta, M: RefMetadata>(
+fn ensure_workspace_commit<'ws, 'meta, M: RefMetadata>(
     mut editor: Editor<'ws, 'meta, M>,
     workspace_reference: Selector,
 ) -> anyhow::Result<(SuccessfulRebase<'ws, 'meta, M>, Selector)> {
@@ -60,7 +60,7 @@ pub fn switch_to_workspace<'ws, 'meta, M: RefMetadata>(
 
 /// Return the workspace commit `HEAD` is on, first switching to a workspace if it isn't on one
 /// ([switch_to_workspace]), or giving the workspace reference a workspace commit if it has
-/// none ([ensure_workspace_commit]).
+/// none.
 pub fn enter_workspace<'ws, 'meta, M: RefMetadata>(
     editor: Editor<'ws, 'meta, M>,
 ) -> anyhow::Result<(SuccessfulRebase<'ws, 'meta, M>, Selector)> {
@@ -85,10 +85,7 @@ pub fn switch_to_branch<'ws, 'meta, M: RefMetadata>(
         (editor.repo().head_name()?).is_some_and(|name| name.as_bstr() == WORKSPACE_REF_NAME);
     let entered = editor.workspace_reference().filter(|_| !was_on_workspace);
     if let Some(workspace_reference) = entered {
-        if let Some(workspace_commit) = editor.workspace_commit(workspace_reference) {
-            editor.prune(workspace_commit)?;
-        }
-        editor.replace_with_none(workspace_reference)?;
+        dissolve_workspace(&mut editor, workspace_reference)?;
     }
     editor.switch_head(reference)?;
     editor.rebase()
@@ -103,30 +100,58 @@ pub fn workspace_tips<M: RefMetadata>(editor: &Editor<'_, '_, M>) -> anyhow::Res
     let top = editor
         .workspace_commit(workspace_reference)
         .unwrap_or(workspace_reference);
-    let target = editor.target_selector();
     let mut tips = Vec::new();
-    for (parent, _) in editor.direct_parents(top)? {
-        let mut step = Some(parent);
-        while let Some(selector) = step.filter(|selector| Some(*selector) != target) {
-            let is_passthrough = match editor.lookup_step(selector)? {
-                Step::None => true,
-                Step::Reference { refname, .. } => {
-                    editor.target_ref() == Some(refname.as_ref())
-                        || refname.as_bstr().starts_with_str("refs/heads/gitbutler/")
-                }
-                Step::Pick(_) => false,
-            };
-            if !is_passthrough {
-                tips.push(selector);
-                break;
-            }
-            step = editor
-                .direct_parents(selector)?
-                .first()
-                .map(|(parent, _)| *parent);
-        }
+    for (lane, _) in editor.direct_parents(top)? {
+        tips.extend(lane_tip(editor, lane)?);
     }
     Ok(tips)
+}
+
+/// The first step from `lane` down that a workspace merges for its own sake, skipping steps
+/// removed from the lane, the target's local branch and GitButler's own references. `None` if
+/// the lane only reaches the target.
+fn lane_tip<M: RefMetadata>(
+    editor: &Editor<'_, '_, M>,
+    lane: Selector,
+) -> anyhow::Result<Option<Selector>> {
+    let target = editor.target_selector();
+    let mut step = Some(lane);
+    while let Some(selector) = step.filter(|selector| Some(*selector) != target) {
+        let is_passthrough = match editor.lookup_step(selector)? {
+            Step::None => true,
+            Step::Reference { refname, .. } => {
+                editor.target_ref() == Some(refname.as_ref())
+                    || refname.as_bstr().starts_with_str("refs/heads/gitbutler/")
+            }
+            Step::Pick(_) => false,
+        };
+        if !is_passthrough {
+            return Ok(Some(selector));
+        }
+        step = editor
+            .direct_parents(selector)?
+            .first()
+            .map(|(parent, _)| *parent);
+    }
+    Ok(None)
+}
+
+/// Take `lane` out of the workspace commit `HEAD` is on if it has no [lane_tip], unless it's
+/// the only lane.
+pub(crate) fn remove_lane_without_tip<M: RefMetadata>(
+    editor: &mut Editor<'_, '_, M>,
+    lane: Selector,
+) -> anyhow::Result<()> {
+    let Some(workspace_commit) = editor
+        .workspace_reference()
+        .and_then(|workspace_reference| editor.workspace_commit(workspace_reference))
+    else {
+        return Ok(());
+    };
+    if editor.direct_parents(workspace_commit)?.len() > 1 && lane_tip(editor, lane)?.is_none() {
+        editor.remove_edges(workspace_commit, lane)?;
+    }
+    Ok(())
 }
 
 /// How many [workspace_tips] an editor had before an operation, and whether its workspace was
@@ -172,12 +197,20 @@ pub fn leave_unnecessary_workspace<'ws, 'meta, M: RefMetadata>(
     let Some((workspace_reference, checkout)) = way_out(&editor)? else {
         return editor.rebase();
     };
+    dissolve_workspace(&mut editor, workspace_reference)?;
+    editor.set_head_checkout(checkout)?;
+    editor.rebase()
+}
+
+pub(crate) fn dissolve_workspace<M: RefMetadata>(
+    editor: &mut Editor<'_, '_, M>,
+    workspace_reference: Selector,
+) -> anyhow::Result<()> {
     if let Some(workspace_commit) = editor.workspace_commit(workspace_reference) {
         editor.prune(workspace_commit)?;
     }
     editor.replace_with_none(workspace_reference)?;
-    editor.set_head_checkout(checkout)?;
-    editor.rebase()
+    Ok(())
 }
 
 /// The workspace reference `HEAD` is on and what [leave_unnecessary_workspace] would check out

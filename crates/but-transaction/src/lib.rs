@@ -170,19 +170,8 @@ where
             context_lines,
         };
 
-        let callback_outcome = {
-            let tx = Transaction { inner: &mut inner };
-            f(tx)
-        };
-
-        let callback_outcome = callback_outcome?;
-
-        let Inner {
-            mut rebase,
-            commit_mappings: _,
-            context_lines: _,
-        } = inner;
-        let rebase = rebase.take().expect("rebase is always Some(_)");
+        let callback_outcome = f(Transaction { inner: &mut inner })?;
+        let rebase = inner.rebase.take().expect("rebase is always Some(_)");
 
         let should_rollback = callback_outcome.should_rollback();
         // A rolled-back transaction never materializes, so it has no workspace to report.
@@ -441,13 +430,10 @@ where
         source_branch: &FullNameRef,
         order: impl Into<Option<usize>>,
     ) -> anyhow::Result<()> {
-        let order = order.into();
         self.rebase(|editor, _| {
             let rebase = but_workspace::branch::tear_off_branch(editor, source_branch, order)?;
             Ok(((), rebase))
-        })?;
-
-        Ok(())
+        })
     }
 
     /// Create a new local branch at a commit already present in the editor.
@@ -466,16 +452,8 @@ where
             ref_name.category() == Some(gix::refs::Category::LocalBranch),
             "Can only create local branches under refs/heads"
         );
-        // As `create_reference` refuses: a name a remote's branch has, which the new branch would
-        // take as its own, or one nesting with another, which a ref edit doesn't notice packed.
-        if but_core::branch::find_unique_refname(self.repo(), ref_name)?.as_ref() != ref_name {
-            but_error::bail_precondition!("Reference '{}' already exists", ref_name.shorten());
-        }
-        but_core::branch::refuse_colliding_refname(self.repo(), ref_name, None)?;
         self.rebase(|mut editor, commit_mappings| {
-            if editor.try_select_reference(ref_name).is_some() {
-                but_error::bail_precondition!("Reference '{}' already exists", ref_name.shorten());
-            }
+            but_workspace::branch::ensure_name_is_available(&editor, ref_name)?;
             let target = editor.select_commit(commit_mappings.current(commit_id)?)?;
             let reference = editor.add_step(Step::new_reference(ref_name.to_owned()))?;
             editor.add_edge(reference, target, 0)?;

@@ -626,7 +626,7 @@ pub mod remove_reference;
 pub use remove_reference::{drop_reference, remove_reference};
 
 pub mod create_reference;
-pub use create_reference::function::create_reference;
+pub use create_reference::function::{create_reference, ensure_name_is_available};
 
 pub mod name_segment;
 pub use name_segment::name_segment;

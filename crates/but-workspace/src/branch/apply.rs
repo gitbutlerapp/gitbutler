@@ -30,7 +30,7 @@ use crate::{
     WorkspaceCommit,
     branch::{anon_stacks, ensure_no_missing_stacks},
     commit::merge::Tip,
-    editor_workspace::{ensure_workspace_commit, switch_to_workspace},
+    editor_workspace::enter_workspace,
     ref_info::WorkspaceExt,
 };
 
@@ -255,8 +255,7 @@ pub fn apply_stack<'ws, 'meta, M: RefMetadata>(
         .map(|(_, target_commit)| target_commit.id);
 
     // If HEAD was not a parent of the workspace commit, it needs to be reported as applied. This
-    // duplicates some of the work in ensure_workspace_commit/switch_to_workspace. Figure out if
-    // this can be moved there.
+    // duplicates some of the work in enter_workspace. Figure out if this can be moved there.
     let head_name = match editor
         .head()
         .map(|head| editor.lookup_step(head))
@@ -274,18 +273,11 @@ pub fn apply_stack<'ws, 'meta, M: RefMetadata>(
         .into_iter()
         .collect();
 
-    let ((rebase, workspace_commit), workspace_commit_created) = match editor.workspace_reference()
-    {
-        Some(workspace_reference) => {
-            let workspace_commit_was_missing =
-                editor.workspace_commit(workspace_reference).is_none();
-            (
-                ensure_workspace_commit(editor, workspace_reference)?,
-                workspace_commit_was_missing,
-            )
-        }
-        None => (switch_to_workspace(editor)?, true),
-    };
+    let workspace_commit_created = editor
+        .workspace_reference()
+        .and_then(|workspace_reference| editor.workspace_commit(workspace_reference))
+        .is_none();
+    let (rebase, workspace_commit) = enter_workspace(editor)?;
     let mut editor = rebase.into_editor();
 
     let mut tracking = None;
@@ -348,8 +340,8 @@ pub fn apply_stack<'ws, 'meta, M: RefMetadata>(
             false
         };
     if already_applied {
-        // Branch is already applied, perhaps through ensure_workspace_commit() or
-        // switch_to_workspace() (or even before this function was invoked)
+        // Branch is already applied, perhaps through enter_workspace() (or even before this
+        // function was invoked)
         return Ok(ApplyStackOutcome {
             rebase: editor.rebase()?,
             status: if workspace_commit_created {

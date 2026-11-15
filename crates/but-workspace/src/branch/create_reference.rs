@@ -144,7 +144,9 @@ pub(super) mod function {
         editor.rebase()
     }
 
-    pub(in crate::branch) fn ensure_name_is_available<M: RefMetadata>(
+    /// Fail if `ref_name` is taken, in the repository, by a remote's branch or in `editor`, or
+    /// if it nests with another reference's name.
+    pub fn ensure_name_is_available<M: RefMetadata>(
         editor: &Editor<'_, '_, M>,
         ref_name: &gix::refs::FullNameRef,
     ) -> anyhow::Result<()> {
