@@ -351,12 +351,6 @@ impl From<but_core::WorktreeChanges> for WorktreeChanges {
     }
 }
 
-impl HunkAssignmentRequest {
-    pub fn matches_assignment(&self, assignment: &HunkAssignment) -> bool {
-        self.path_bytes == assignment.path_bytes && self.hunk_header == assignment.hunk_header
-    }
-}
-
 impl PartialEq for HunkAssignment {
     fn eq(&self, other: &Self) -> bool {
         self.hunk_header == other.hunk_header && self.path_bytes == other.path_bytes
@@ -641,29 +635,6 @@ fn requests_to_assignments(
         assignments.push(assignment);
     }
     Ok(assignments)
-}
-
-pub fn assignments_to_requests(assignments: Vec<HunkAssignment>) -> Vec<HunkAssignmentRequest> {
-    assignments
-        .into_iter()
-        .map(|assignment| {
-            let target = assignment
-                .branch_ref_bytes
-                .map(|branch_ref_bytes| HunkAssignmentTarget::Branch {
-                    branch_ref_bytes: BString::from(branch_ref_bytes.as_bstr()),
-                })
-                .or_else(|| {
-                    assignment
-                        .stack_id
-                        .map(|stack_id| HunkAssignmentTarget::Stack { stack_id })
-                });
-            HunkAssignmentRequest {
-                hunk_header: assignment.hunk_header,
-                path_bytes: assignment.path_bytes,
-                target,
-            }
-        })
-        .collect()
 }
 
 /// Convert hunks to DiffSpecs, one per file path.

@@ -316,27 +316,6 @@ impl Workspace {
         );
         Some(true)
     }
-
-    /// Like [`Self::insert_new_segment_above_anchor_if_not_present()`], but insert `branch` below `anchor`.
-    pub fn insert_new_segment_below_anchor_if_not_present(
-        &mut self,
-        branch: &FullNameRef,
-        anchor: &FullNameRef,
-    ) -> Option<bool> {
-        if self.contains_ref(branch, StackKind::AppliedAndUnapplied) {
-            return Some(false);
-        };
-        let (stack_idx, segment_idx) =
-            self.find_owner_indexes_by_name(anchor, StackKind::AppliedAndUnapplied)?;
-        self.stacks[stack_idx].branches.insert(
-            segment_idx + 1,
-            WorkspaceStackBranch {
-                ref_name: branch.to_owned(),
-                archived: false,
-            },
-        );
-        Some(true)
-    }
 }
 
 /// Return project metadata repaired for migration/recovery paths.
@@ -840,16 +819,6 @@ impl Workspace {
         })
     }
 
-    pub fn stacks_mut(&mut self, kind: StackKind) -> impl Iterator<Item = &mut WorkspaceStack> {
-        self.stacks.iter_mut().filter(move |s| {
-            if matches!(kind, StackKind::Applied) {
-                s.workspacecommit_relation.is_in_workspace()
-            } else {
-                true
-            }
-        })
-    }
-
     pub fn stack_names(&self, kind: StackKind) -> impl Iterator<Item = &gix::refs::FullNameRef> {
         self.stacks(kind)
             .filter_map(|s| s.ref_name().map(|rn| rn.as_ref()))
@@ -858,15 +827,6 @@ impl Workspace {
     pub fn contains_ref(&self, name: &gix::refs::FullNameRef, kind: StackKind) -> bool {
         self.stacks(kind)
             .any(|stack| stack.branches.iter().any(|b| b.ref_name == name))
-    }
-
-    pub fn find_branch_mut(
-        &mut self,
-        name: &gix::refs::FullNameRef,
-        kind: StackKind,
-    ) -> Option<&mut WorkspaceStackBranch> {
-        self.stacks_mut(kind)
-            .find_map(|stack| stack.branches.iter_mut().find(|b| b.ref_name == name))
     }
 
     pub fn find_branch(

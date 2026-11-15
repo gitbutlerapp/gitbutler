@@ -12,8 +12,6 @@ doctest = false
 
 [features]
 export-schema = ["dep:schemars", "dep:but-schemars"]
-## Make legacy functionality available.
-legacy = []
 
 [dependencies]
 but-error.workspace = true

@@ -15,7 +15,6 @@ doctest = false
 [dependencies]
 but-core.workspace = true
 but-db.workspace = true
-but-ctx.workspace = true
 
 
 anyhow.workspace = true
@@ -28,6 +27,7 @@ but-schemars = { workspace = true, optional = true }
 schemars = { workspace = true, optional = true }
 
 [dev-dependencies]
+but-ctx.workspace = true
 but-testsupport.workspace = true
 snapbox.workspace = true
 [lints]

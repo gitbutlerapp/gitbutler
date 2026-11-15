@@ -2,7 +2,6 @@ use std::fmt::Display;
 
 use bstr::{BString, ByteSlice};
 use but_core::{ChangeId, commit::Headers};
-use but_ctx::Context;
 use but_db::DbHandle;
 use serde::{Deserialize, Serialize};
 
@@ -147,52 +146,6 @@ fn with_change_id_trailer(msg: BString, change_id: ChangeId) -> BString {
     }
 
     result
-}
-
-pub fn record_push_metadata_with_context(
-    ctx: &Context,
-    candidate_ids: Vec<gix::ObjectId>,
-    push_output: PushOutput,
-) -> anyhow::Result<()> {
-    let repo = ctx.repo.get()?;
-    let mappings = mappings(&repo, candidate_ids, push_output)?;
-    let mut db = ctx.db.get_cache_mut()?;
-    let mut trans = db.transaction()?;
-
-    for mapping in mappings {
-        let existing = trans.gerrit_metadata().get(&mapping.change_id)?;
-        let now = chrono::Utc::now().naive_utc();
-        let commit_id_str = mapping.commit_id.to_string();
-
-        match existing {
-            Some(existing_meta) => {
-                if existing_meta.commit_id != commit_id_str {
-                    let updated_meta = but_db::GerritMeta {
-                        change_id: mapping.change_id,
-                        commit_id: commit_id_str,
-                        review_url: mapping.review_url,
-                        created_at: existing_meta.created_at, // Keep original creation time
-                        updated_at: now,
-                    };
-                    trans.gerrit_metadata_mut().update(updated_meta)?;
-                }
-                // If commit_id matches, do nothing
-            }
-            None => {
-                let new_meta = but_db::GerritMeta {
-                    change_id: mapping.change_id,
-                    commit_id: commit_id_str,
-                    review_url: mapping.review_url,
-                    created_at: now,
-                    updated_at: now,
-                };
-                trans.gerrit_metadata_mut().insert(new_meta)?;
-            }
-        }
-    }
-    trans.commit()?;
-
-    Ok(())
 }
 
 pub fn record_push_metadata(

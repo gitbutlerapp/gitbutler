@@ -148,30 +148,6 @@ pub fn hex_to_id(hex: &str) -> gix::ObjectId {
     gix::ObjectId::from_hex(hex.as_bytes()).expect("statically known to be valid")
 }
 
-/// Sets up an environment that assures commits are reproducible. This is particularly
-/// needed for `GITBUTLER_CHANGE_ID`.
-/// This needs the `testing` feature enabled in `but-core` as well to work.
-/// **This changes the process environment, be aware.**
-///
-/// ### DEPRECATION WARNING
-///
-/// Do not use this function unless it's interfacing with old code. Prefer [`open_repo()`] for instance.
-pub fn deprecated_stable_env_vars() {
-    let env = gix_testtools::Env::new()
-        // TODO(gix): once everything is ported, all these can be configured on `gix::Repository`.
-        //            CHANGE_ID now works with a single value.
-        //            Call `but_testsupport::open_repo()` for basic settings.
-        .set("GIT_AUTHOR_DATE", "2000-01-01 00:00:00 +0000")
-        .set("GIT_AUTHOR_EMAIL", "author@example.com")
-        .set("GIT_AUTHOR_NAME", "author (From Env)")
-        .set("GIT_COMMITTER_DATE", "2000-01-02 00:00:00 +0000")
-        .set("GIT_COMMITTER_EMAIL", "committer@example.com")
-        .set("GIT_COMMITTER_NAME", "committer (From Env)")
-        .set("GITBUTLER_CHANGE_ID", "change-id");
-    // assure it doesn't get racy.
-    _ = std::mem::ManuallyDrop::new(env);
-}
-
 /// Run `f` with `E2E_TEST_APP_DATA_DIR` pointing at a temporary directory, so code that
 /// resolves application-wide directories via `but_path` cannot read or write user-level files.
 ///
