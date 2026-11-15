@@ -141,6 +141,7 @@ pub fn default_key_binds() -> KeyBinds {
                 builder.details_jump_down().register();
 
                 builder.details_copy().register();
+                builder.details_toggle_wrap().register();
                 builder.copy_picker().register();
                 builder.details_top().register();
                 builder.details_bottom().register();
@@ -1185,6 +1186,14 @@ impl KeyBindsBuilder<'_> {
         })
         .hide_from_hotbar()
         .long_description("Copy current hunk to clipboard")
+    }
+
+    fn details_toggle_wrap(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("wrap lines", press().code(KeyCode::Char('z')), || {
+            Message::Details(DetailsMessage::ToggleWrap)
+        })
+        .hide_from_hotbar()
+        .long_description("Toggle wrapping long diff lines")
     }
 
     fn details_focus_status(&mut self) -> KeyBindsInModesBuilder<'_> {

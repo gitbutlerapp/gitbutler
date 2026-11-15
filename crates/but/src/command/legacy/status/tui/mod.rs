@@ -751,6 +751,7 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
                 | DetailsMessage::GotoBottom
                 | DetailsMessage::Discard
                 | DetailsMessage::Mark
+                | DetailsMessage::ToggleWrap
                 | DetailsMessage::DropToBeDiscarded => false,
             },
             Message::DetailsLayout(message) => match message {

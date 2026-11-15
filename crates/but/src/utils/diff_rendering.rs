@@ -332,9 +332,13 @@ fn syntax_highlight(
     }
 }
 
-fn expand_tabs_for_display(mut span: Span<'static>, visual_column: &mut usize) -> Span<'static> {
-    const TAB_WIDTH: usize = 4;
+/// How many columns a tab in a diff line is expanded to, at most.
+pub const TAB_WIDTH: usize = 4;
 
+/// Number of spans [`CodeLineNumbers::spans`] puts in front of the code of a line.
+pub const CODE_GUTTER_SPANS: usize = 6;
+
+fn expand_tabs_for_display(mut span: Span<'static>, visual_column: &mut usize) -> Span<'static> {
     if !span.content.contains('\t') {
         *visual_column += span.content.width();
         return span;
@@ -423,7 +427,11 @@ impl CodeLineNumbers {
         }
     }
 
-    pub fn spans(self, strings: &mut SharedStrings, theme: &'static Theme) -> [Span<'static>; 6] {
+    pub fn spans(
+        self,
+        strings: &mut SharedStrings,
+        theme: &'static Theme,
+    ) -> [Span<'static>; CODE_GUTTER_SPANS] {
         match self.kind {
             CodeLineKind::Addition { new_line } => [
                 Span::raw(strings.get_spaces(self.old_width as _)),
