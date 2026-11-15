@@ -1,6 +1,9 @@
 //! GitButler's design system on GPUI: the theme, read from but-ui's tokens, and the components
 //! that have a counterpart in `@gitbutler/but-ui-react`, each drawn as that one is. A component
 //! that reaches into an app (its store, its backend) stays in that app.
+//!
+//! Each component's module names its counterparts in its first doc paragraph, as
+//! "as but-ui-react's `Button`": the docs site reads that to mark those pages GPUI.
 // As the GPUI client, which this is built into: a panic here quits GitButler.
 #![deny(
     clippy::unwrap_used,

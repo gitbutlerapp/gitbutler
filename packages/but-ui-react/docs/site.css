@@ -405,7 +405,13 @@ body[data-layout="centered"] {
 	display: flex;
 	align-items: center;
 	padding: 12px;
+	gap: 12px;
 	border-top: 1px solid var(--but-border-subtle);
+}
+
+/* Why GPUI can't be picked, beside the switch, as a disabled segment asks. */
+.docs-page-card-hint {
+	color: var(--but-muted-foreground);
 }
 
 .docs-gpui-shot {

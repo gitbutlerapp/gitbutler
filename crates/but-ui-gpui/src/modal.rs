@@ -1,5 +1,5 @@
-//! Modals. The window hosts one at a time over a dimmed backdrop; a modal closes by
-//! emitting `DismissEvent`.
+//! Modals, as but-ui-react's `Modal`. The window hosts one at a time over a dimmed backdrop; a
+//! modal closes by emitting `DismissEvent`.
 
 use gpui::{Div, Styled as _};
 

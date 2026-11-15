@@ -1,3 +1,4 @@
+import { Badge } from "../src/Badge.tsx";
 import { Menu, MenuRadioGroup, MenuRadioItem } from "../src/Menu.tsx";
 import { PopupSearch } from "../src/Popup.tsx";
 import { ResizeHandle } from "../src/ResizeHandle.tsx";
@@ -187,6 +188,11 @@ const Navigation: FC<{ current: Page | undefined }> = ({ current }) => {
 													<NavItem
 														key={page.id}
 														name={pageName(page)}
+														meta={
+															page.gpui === true ? (
+																<Badge variant="lightGray">GPUI</Badge>
+															) : undefined
+														}
 														depth={1}
 														guides={pageGuides(group.length)[index]}
 														selected={page === current}

@@ -14,7 +14,7 @@ import { pageLink } from "./site.ts";
 import { GpuiView } from "./GpuiView.tsx";
 import { gpuiShots, type Renderer } from "./gpui.ts";
 import { Segment, SegmentedControl } from "../src/SegmentedControl.tsx";
-import { useState, type CSSProperties, type FC } from "react";
+import { useState, type CSSProperties, type FC, type ReactNode } from "react";
 
 /**
  * A component's page, drawn with the components themselves: its name and JSDoc, the design notes
@@ -36,7 +36,7 @@ export const ComponentPage: FC<{ page: Page; data: ComponentPageData }> = ({ pag
 				<Guidelines key={note} source={note} named={data.notes.length > 1} />
 			))}
 			{data.stories.map((entry) => (
-				<Example key={entry.id} entry={entry} framed={framed(entry)} />
+				<Example key={entry.id} entry={entry} framed={framed(entry)} gpui={page.gpui === true} />
 			))}
 			<Neighbours page={page} />
 		</div>
@@ -59,8 +59,36 @@ const Guidelines: FC<{ source: string; named: boolean }> = ({ source, named }) =
 	);
 };
 
-const Example: FC<{ entry: StoryEntry; framed: boolean }> = ({ entry, framed }) => {
+/**
+ * A story under its name. On the page of a component the GPUI client draws too (`gpui`), its card
+ * has a footer that switches it between the two: to the GPUI client's shot of the story, or, where
+ * there is none yet, a GPUI that can't be picked, with a hint beside it saying so.
+ */
+const Example: FC<{ entry: StoryEntry; framed: boolean; gpui: boolean }> = ({
+	entry,
+	framed,
+	gpui,
+}) => {
 	const { layout, width, height } = entry.story.parameters;
+	const shots = gpuiShots(entry.id);
+	const [renderer, pickRenderer] = useState<Renderer>("react");
+	const shot =
+		shots !== undefined && renderer === "gpui" ? (
+			<GpuiView name={entry.name} shots={shots} />
+		) : undefined;
+	const footer = gpui && (
+		<div className="docs-page-card-footer">
+			<SegmentedControl value={renderer} onValueChange={pickRenderer} aria-label="Drawn by">
+				<Segment value="react">React</Segment>
+				<Segment value="gpui" disabled={shots === undefined}>
+					GPUI
+				</Segment>
+			</SegmentedControl>
+			{shots === undefined && (
+				<span className="docs-page-card-hint text-12">Not drawn in GPUI yet</span>
+			)}
+		</div>
+	);
 	// A card is the story's size plus its border, centred on the column: a narrower one in it, a
 	// wider one reaching past both its edges. A ground keeps to the prose line and only grows, past
 	// both its edges, for a story wider than it.
@@ -84,22 +112,24 @@ const Example: FC<{ entry: StoryEntry; framed: boolean }> = ({ entry, framed }) 
 			{framed || layout === "bar" ? (
 				// A window or a bar the width of one: a bordered card, the window's edge.
 				<RowGroup style={sized}>
-					{framed ? (
-						<iframe
-							className="docs-page-frame"
-							title={entry.name}
-							src={`?story=${entry.id}`}
-							loading="lazy"
-							style={height === undefined ? undefined : { height }}
-						/>
-					) : (
-						<div className="docs-page-canvas-bar">
-							<entry.story.Component />
-						</div>
-					)}
+					{shot ??
+						(framed ? (
+							<iframe
+								className="docs-page-frame"
+								title={entry.name}
+								src={`?story=${entry.id}`}
+								loading="lazy"
+								style={height === undefined ? undefined : { height }}
+							/>
+						) : (
+							<div className="docs-page-canvas-bar">
+								<entry.story.Component />
+							</div>
+						))}
+					{footer}
 				</RowGroup>
 			) : (
-				<Ground entry={entry} style={ground} />
+				<Ground entry={entry} style={ground} shot={shot} footer={footer} />
 			)}
 		</section>
 	);
@@ -107,38 +137,31 @@ const Example: FC<{ entry: StoryEntry; framed: boolean }> = ({ entry, framed }) 
 
 /**
  * Anything not framed stands on a tinted ground with no border, so a component with a card of its
- * own, as a RowGroup, isn't drawn as a card within a card. A story the GPUI client draws too sits
- * in a card with a footer under its ground, which switches that card between the two.
+ * own, as a RowGroup, isn't drawn as a card within a card. With a `footer`, the ground sits in a
+ * card over it, and shows the GPUI client's `shot` in the story's place while that's picked.
  */
-const Ground: FC<{ entry: StoryEntry; style: CSSProperties | undefined }> = ({ entry, style }) => {
+const Ground: FC<{
+	entry: StoryEntry;
+	style: CSSProperties | undefined;
+	shot: ReactNode;
+	footer: ReactNode;
+}> = ({ entry, style, shot, footer }) => {
 	const { layout, width } = entry.story.parameters;
-	const shots = gpuiShots(entry.id);
-	const [renderer, pickRenderer] = useState<Renderer>("react");
+	const carded = footer !== false && footer !== undefined;
 	const canvas = (
-		<div
-			className="docs-page-canvas"
-			data-layout={layout}
-			style={shots === undefined ? style : undefined}
-		>
-			{shots !== undefined && renderer === "gpui" ? (
-				<GpuiView name={entry.name} shots={shots} />
-			) : (
+		<div className="docs-page-canvas" data-layout={layout} style={carded ? undefined : style}>
+			{shot ?? (
 				<div className="docs-page-stage" style={width === undefined ? undefined : { width }}>
 					<entry.story.Component />
 				</div>
 			)}
 		</div>
 	);
-	if (shots === undefined) return canvas;
+	if (!carded) return canvas;
 	return (
 		<div className="docs-page-card" data-layout={layout} style={style}>
 			{canvas}
-			<div className="docs-page-card-footer">
-				<SegmentedControl value={renderer} onValueChange={pickRenderer} aria-label="Drawn by">
-					<Segment value="react">React</Segment>
-					<Segment value="gpui">GPUI</Segment>
-				</SegmentedControl>
-			</div>
+			{footer}
 		</div>
 	);
 };

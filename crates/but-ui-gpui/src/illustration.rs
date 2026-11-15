@@ -1,5 +1,5 @@
-//! The design system's empty-state drawings, shared with but.dev and drawn as
-//! `@gitbutler/but-ui-react` draws them: each at the size it was drawn, never scaled, its outline
+//! The design system's empty-state drawings, as but-ui-react's `Illustration`. Shared with
+//! but.dev and drawn as it draws them: each at the size it was drawn, never scaled, its outline
 //! in `border-1` and its faces in the theme's own grounds.
 
 use std::cell::RefCell;
