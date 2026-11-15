@@ -227,7 +227,7 @@ fn check_state(check: &but_forge::CiCheck) -> CheckState {
 }
 
 pub struct RefreshedReviews {
-    /// A fingerprint of the pull requests the cache now knows, as
+    /// A fingerprint of the pull requests shown, as the cache now knows them, as
     /// [`Workspace::reviews`](super::Workspace::reviews).
     pub reviews: u64,
     /// When the last pull request the cache has merged, in seconds since the epoch.
@@ -235,9 +235,10 @@ pub struct RefreshedReviews {
 }
 
 /// Ask the forge about the project's pull requests, refreshing the cache that
-/// [`load_workspace`](super::load_workspace) reads, and say what it now knows and when the
-/// last of them merged. Fails when the project has no forge or no account for it.
-pub fn refresh_reviews(path: &Path) -> Result<RefreshedReviews> {
+/// [`load_workspace`](super::load_workspace) reads, and say what it now knows of those
+/// `shown` and when the last of them all merged. Fails when the project has no forge or no
+/// account for it.
+pub fn refresh_reviews(path: &Path, shown: &super::ShownReviews) -> Result<RefreshedReviews> {
     let started = std::time::Instant::now();
     tracing::debug!(path = %path.display(), "refreshing reviews");
     let ctx = open(path)?;
@@ -245,7 +246,7 @@ pub fn refresh_reviews(path: &Path) -> Result<RefreshedReviews> {
     tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "refreshed reviews");
     let cached = cached_reviews(&ctx);
     Ok(RefreshedReviews {
-        reviews: super::reviews_fingerprint(&cached),
+        reviews: super::reviews_fingerprint(&ctx, &cached, Some(shown)),
         last_merged: (cached.values())
             .filter_map(|review| timestamp(review.merged_at.as_deref()))
             .max(),
@@ -796,14 +797,18 @@ fn hunk_starts(header: &str) -> Option<(u32, u32)> {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use but_forge::{
         ForgeReviewComment, ForgeReviewReaction, ForgeReviewSubmission, ForgeReviewThread,
         ForgeReviewThreadComment, ForgeReviewThreadSide, ForgeReviewUser,
     };
 
-    use super::{Remark, Verdict, excerpt, grouped, may_pass, remarks, repository_url};
+    use super::{
+        Remark, Verdict, cached_reviews, excerpt, grouped, may_pass, remarks, repository_url,
+    };
     use crate::backend::ops::tests::{git, repo_with, target_origin_main};
-    use crate::backend::{LineKind, Note, load_workspace, open};
+    use crate::backend::{LineKind, Note, Workspace, load_workspace, open, reviews_fingerprint};
 
     #[test]
     fn the_minute_poll_asks_again_only_after_a_failure_that_may_pass() {
@@ -908,42 +913,114 @@ mod tests {
         })
     }
 
+    /// A repository with `alice/feature` checked out, a commit ahead of its target `origin/main`,
+    /// so the workspace shows it, and pushed to GitHub's `team/r` through a remote whose name
+    /// holds a slash, as one's can.
+    fn repo_on_feature() -> tempfile::TempDir {
+        let dir = repo_with("one\n");
+        let path = dir.path();
+        target_origin_main(path);
+        git(path, &["checkout", "-q", "-b", "alice/feature"]);
+        git(path, &["commit", "-q", "--allow-empty", "-m", "feature"]);
+        let team = "https://github.com/team/r.git";
+        git(path, &["remote", "add", "team/origin", team]);
+        let pushed = "refs/remotes/team/origin/alice/feature";
+        git(path, &["update-ref", pushed, "HEAD"]);
+        git(
+            path,
+            &["branch", "--set-upstream-to=team/origin/alice/feature"],
+        );
+        dir
+    }
+
+    /// Write `review` to `path`'s forge cache from a context of its own, as another process does.
+    fn cache(path: &Path, review: &but_forge::ForgeReview) {
+        let ctx = open(path).unwrap();
+        but_forge::cache_review(&mut ctx.db.get_cache_mut().unwrap(), review).unwrap();
+    }
+
+    /// Open pull request `number` from `branch` into `main`.
+    fn forge_review(number: i64, branch: &str) -> but_forge::ForgeReview {
+        but_forge::ForgeReview {
+            html_url: String::new(),
+            number,
+            title: "Title".into(),
+            body: Some("Body".into()),
+            author: None,
+            labels: Vec::new(),
+            draft: false,
+            source_branch: branch.into(),
+            target_branch: "main".into(),
+            sha: String::new(),
+            integration_commit_shas: Vec::new(),
+            created_at: None,
+            modified_at: Some("2026-11-03T10:00:00Z".into()),
+            merged_at: None,
+            closed_at: None,
+            repository_ssh_url: None,
+            repository_https_url: None,
+            repo_owner: None,
+            head_repo_is_fork: false,
+            reviewers: Vec::new(),
+            auto_merge_enabled: false,
+            unit_symbol: "#".into(),
+            last_sync_at: Default::default(),
+        }
+    }
+
+    #[test]
+    fn a_workspace_read_follows_only_the_pull_requests_it_shows() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_on_feature();
+            let path = dir.path();
+            let read = || load_workspace(path, Default::default()).unwrap();
+            // What the minute's poll compares a load with: what the cache knows now of the pull
+            // requests the load showed.
+            let polled = |loaded: &Workspace| {
+                let ctx = open(path).unwrap();
+                let shown = loaded.shown_reviews();
+                reviews_fingerprint(&ctx, &cached_reviews(&ctx), Some(&shown))
+            };
+            // Someone else's fork's `alice/feature`, which the branch shown doesn't track.
+            let mut elsewhere = forge_review(2, "alice/feature");
+            elsewhere.head_repo_is_fork = true;
+            elsewhere.repository_https_url = Some("https://github.com/someone/r.git".into());
+            cache(path, &elsewhere);
+            let loaded = read();
+
+            elsewhere.modified_at = Some("2026-11-03T10:01:00Z".into());
+            cache(path, &elsewhere);
+            assert_eq!(
+                polled(&loaded),
+                loaded.reviews,
+                "a busy repository's other pull requests change every minute, which mustn't reload it"
+            );
+            assert_ne!(
+                read().refs,
+                loaded.refs,
+                "the Branches page lists every branch's pull request, so the next load tells it"
+            );
+
+            cache(path, &forge_review(1, "alice/feature"));
+            assert_ne!(
+                polled(&loaded),
+                loaded.reviews,
+                "a pull request just opened for a branch shown reloads it"
+            );
+            let shown = (read().lanes.iter().flat_map(|lane| &lane.branches))
+                .find_map(|branch| branch.review.as_ref().map(|review| review.number));
+            assert_eq!(shown, Some(1), "and the reload shows it");
+        })
+    }
+
     #[test]
     fn a_workspace_read_tells_an_edit_from_a_sync_that_changed_nothing() {
         but_testsupport::isolated_app_data_dir(|| {
-            let dir = repo_with("one\n");
+            let dir = repo_on_feature();
             let path = dir.path();
             let read = || load_workspace(path, Default::default()).unwrap().reviews;
-            // A context of its own, as another process has.
-            let write = |review: &but_forge::ForgeReview| {
-                let ctx = open(path).unwrap();
-                but_forge::cache_review(&mut ctx.db.get_cache_mut().unwrap(), review).unwrap();
-            };
-            let mut review = but_forge::ForgeReview {
-                html_url: String::new(),
-                number: 1,
-                title: "Title".into(),
-                body: Some("Body".into()),
-                author: None,
-                labels: Vec::new(),
-                draft: false,
-                source_branch: "feature".into(),
-                target_branch: "main".into(),
-                sha: String::new(),
-                integration_commit_shas: Vec::new(),
-                created_at: None,
-                modified_at: Some("2026-11-03T10:00:00Z".into()),
-                merged_at: None,
-                closed_at: None,
-                repository_ssh_url: None,
-                repository_https_url: None,
-                repo_owner: None,
-                head_repo_is_fork: false,
-                reviewers: Vec::new(),
-                auto_merge_enabled: false,
-                unit_symbol: "#".into(),
-                last_sync_at: Default::default(),
-            };
+            let write = |review: &but_forge::ForgeReview| cache(path, review);
+            let mut review = forge_review(1, "alice/feature");
             write(&review);
             let synced = read();
 
