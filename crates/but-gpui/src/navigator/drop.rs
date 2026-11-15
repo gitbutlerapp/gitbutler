@@ -16,7 +16,9 @@ use super::rows::{CARD_EDGE, Row, card_ends, heads, span_height};
 use crate::backend::{Checkout, CommitId, Destination, FullName, Messages};
 use crate::state::{ProjectId, Section, Selection};
 use crate::theme::{Hue, Theme};
-use crate::transfer::{Changes, Dragged, Move, Moving, Op, Place, Stop, Target};
+use crate::transfer::{
+    Changes, Dragged, Move, Moving, Op, PageDrag, Place, ProjectDrag, Stop, Target, TerminalDrag,
+};
 use crate::ui::{Icon, dp, h_flex, small_icon};
 
 /// Where the pointer aims what's dragged: `depth` down rows `row` tall.
@@ -24,6 +26,37 @@ use crate::ui::{Icon, dp, h_flex, small_icon};
 struct Aim {
     depth: f32,
     row: f32,
+}
+
+/// Have `el` follow each kind of drag the navigator's rows take as it moves: rows, projects,
+/// terminals and pages, with where the pointer is and `el`'s bounds. GPUI counts nothing as
+/// hovered while dragging, so this is how the list and the card under a tab know what's
+/// dragged is over them, and a kind of drag added here reaches both.
+pub(super) fn on_any_drag_move<E: InteractiveElement, V: 'static>(
+    el: E,
+    cx: &mut Context<V>,
+    moved: fn(&mut V, Point<Pixels>, Bounds<Pixels>, &mut Window, &mut Context<V>),
+) -> E {
+    el.on_drag_move(
+        cx.listener(move |this, event: &DragMoveEvent<Dragged>, window, cx| {
+            moved(this, event.event.position, event.bounds, window, cx)
+        }),
+    )
+    .on_drag_move(cx.listener(
+        move |this, event: &DragMoveEvent<ProjectDrag>, window, cx| {
+            moved(this, event.event.position, event.bounds, window, cx)
+        },
+    ))
+    .on_drag_move(cx.listener(
+        move |this, event: &DragMoveEvent<TerminalDrag>, window, cx| {
+            moved(this, event.event.position, event.bounds, window, cx)
+        },
+    ))
+    .on_drag_move(
+        cx.listener(move |this, event: &DragMoveEvent<PageDrag>, window, cx| {
+            moved(this, event.event.position, event.bounds, window, cx)
+        }),
+    )
 }
 
 impl Navigator {

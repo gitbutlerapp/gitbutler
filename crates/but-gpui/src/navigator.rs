@@ -10,10 +10,10 @@ use std::time::Instant;
 
 use but_tty::Status;
 use gpui::{
-    AnyElement, App, Bounds, ClickEvent, Context, Div, DragMoveEvent, ElementId, Entity,
-    FocusHandle, Focusable, Hsla, ListAlignment, ListOffset, ListState, Modifiers, MouseButton,
-    MouseDownEvent, PathBuilder, Pixels, Point, Role, SharedString, Stateful, Subscription, Task,
-    Window, actions, canvas, div, fill, list, point, prelude::*, relative,
+    AnyElement, App, Bounds, ClickEvent, Context, Div, ElementId, Entity, FocusHandle, Focusable,
+    Hsla, ListAlignment, ListOffset, ListState, Modifiers, MouseButton, MouseDownEvent,
+    PathBuilder, Pixels, Point, Role, SharedString, Stateful, Subscription, Task, Window, actions,
+    canvas, div, fill, list, point, prelude::*, relative,
 };
 
 use crate::app::{AddProject, AppHandle, UpdateFromTarget};
@@ -29,8 +29,7 @@ use crate::state::{Prefs, ProjectId, Section, Selection, Store, StoreEvent, Tile
 use crate::terminal::TerminalId;
 use crate::theme::{Hue, Theme, tokens};
 use crate::transfer::{
-    Changes, Dragged, Move, Op, PageDrag, ProjectDrag, TerminalDrag, drag_preview, page_preview,
-    row_preview,
+    Changes, Dragged, Move, Op, PageDrag, drag_preview, page_preview, row_preview,
 };
 use crate::ui::emoji::ProjectIcon;
 use crate::ui::fold::{self, Folds, Reorder, clipped, curtain, inert, on_top, reordered, shifted};
@@ -64,6 +63,7 @@ mod rows;
 mod tabs;
 mod terminals;
 use cursor::row_actions;
+use drop::on_any_drag_move;
 use frame::{Built, RowsIn};
 pub(crate) use rows::{lists_changes, worktrees_listed};
 pub(crate) use tabs::NavigatorTabs;
@@ -4165,22 +4165,11 @@ impl Render for Navigator {
             .on_drag_move(cx.listener(Self::follow_worktree_drag))
             .on_drag_move(cx.listener(Self::follow_terminal_drag))
             .on_drag_move(cx.listener(Self::follow_dragged))
-            .on_drag_move(cx.listener(|this, event: &DragMoveEvent<Dragged>, _, cx| {
-                this.drag_moved(event.bounds.contains(&event.event.position), cx)
-            }))
-            .on_drag_move(
-                cx.listener(|this, event: &DragMoveEvent<ProjectDrag>, _, cx| {
-                    this.drag_moved(event.bounds.contains(&event.event.position), cx)
-                }),
-            )
-            .on_drag_move(
-                cx.listener(|this, event: &DragMoveEvent<TerminalDrag>, _, cx| {
-                    this.drag_moved(event.bounds.contains(&event.event.position), cx)
-                }),
-            )
-            .on_drag_move(cx.listener(|this, event: &DragMoveEvent<PageDrag>, _, cx| {
-                this.drag_moved(event.bounds.contains(&event.event.position), cx)
-            }))
+            .map(|el| {
+                on_any_drag_move(el, cx, |this, at, bounds, _, cx| {
+                    this.drag_moved(bounds.contains(&at), cx)
+                })
+            })
             // One for each kind of drag: GPUI panics on a second.
             .on_drop(cx.listener(Self::drop_project))
             .on_drop(cx.listener(Self::drop_dragged))
@@ -4242,24 +4231,7 @@ impl Render for Navigator {
                         // Ending level with the detail's cards, so what scrolls past is cut
                         // where they end.
                         .mb(dp(CARD_GAP))
-                        .on_drag_move(cx.listener(|this, event: &DragMoveEvent<Dragged>, w, cx| {
-                            this.scroll_near_edge(event.event.position, event.bounds, w, cx)
-                        }))
-                        .on_drag_move(cx.listener(
-                            |this, event: &DragMoveEvent<ProjectDrag>, w, cx| {
-                                this.scroll_near_edge(event.event.position, event.bounds, w, cx)
-                            },
-                        ))
-                        .on_drag_move(cx.listener(
-                            |this, event: &DragMoveEvent<TerminalDrag>, w, cx| {
-                                this.scroll_near_edge(event.event.position, event.bounds, w, cx)
-                            },
-                        ))
-                        .on_drag_move(cx.listener(
-                            |this, event: &DragMoveEvent<PageDrag>, w, cx| {
-                                this.scroll_near_edge(event.event.position, event.bounds, w, cx)
-                            },
-                        )),
+                        .map(|el| on_any_drag_move(el, cx, Navigator::scroll_near_edge)),
                     )
                 }
             })
