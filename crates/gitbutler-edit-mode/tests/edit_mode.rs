@@ -162,6 +162,44 @@ created during edit mode
 }
 
 #[test]
+fn uncommitted_workspace_changes_return_after_leaving_edit_mode() -> Result<()> {
+    let (mut ctx, _tempdir) = command_ctx("conficted_entries_get_written_when_leaving_edit_mode")?;
+    let repo = ctx.repo.get()?;
+    let foobar = repo.head_commit()?.decode()?.parents().next().unwrap();
+    let worktree_dir = repo.workdir().unwrap().to_owned();
+    drop(repo);
+
+    std::fs::write(worktree_dir.join("file"), "changed in the workspace\n")?;
+    std::fs::write(worktree_dir.join("untracked"), "added in the workspace\n")?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let stack_id = {
+        let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+        stack_id(&ws)?
+    };
+    enter_edit_mode(&mut ctx, foobar, stack_id, guard.write_permission())?;
+    assert!(
+        !worktree_dir.join("untracked").exists(),
+        "edit mode checks out the edited commit without the workspace's changes"
+    );
+
+    std::fs::write(worktree_dir.join("newfile"), "created during edit mode\n")?;
+    save_and_return_to_workspace(&mut ctx, guard.write_permission())?;
+
+    let read = |name: &str| std::fs::read_to_string(worktree_dir.join(name));
+    // The workspace's own changes are carried over the rewritten commit.
+    snapbox::assert_data_eq!(
+        read("file")? + &read("untracked")? + &read("newfile")?,
+        snapbox::str![[r#"
+changed in the workspace
+added in the workspace
+created during edit mode
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
 fn locked_index_rejects_enter_edit_mode_without_changes() -> Result<()> {
     assert_locked_index_rejects_enter_edit_mode(false)
 }

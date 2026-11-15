@@ -19,11 +19,12 @@ use gitbutler_operating_modes::{
     EDIT_BRANCH_REF, EditModeMetadata, INTEGRATION_BRANCH_REF, OperatingMode, WORKSPACE_BRANCH_REF,
     delete_edit_mode_metadata, operating_mode, read_edit_mode_metadata, write_edit_mode_metadata,
 };
-use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes_with_tree};
 use gix::prelude::ObjectIdExt as _;
 use serde::Serialize;
+use workspace_tree::{WorkspaceTrees, checkout_uncommitted_changes};
 
 pub mod commands;
+mod workspace_tree;
 
 const UNCOMMITTED_CHANGES_REF: &str = "refs/gitbutler/edit-uncommitted-changes";
 
@@ -319,19 +320,7 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     let repo = &*ctx.repo.get()?;
 
     #[allow(deprecated)]
-    let old_workspace_projection = workspace_from_workspace_ref(ctx)?;
-    let old_target_base_oid = old_workspace_projection
-        .target_commit
-        .as_ref()
-        .map(|target| target.commit_id)
-        .context("failed to get target base oid")?;
-    let old_head_oids = old_workspace_projection
-        .stacks
-        .iter()
-        .map(|stack| stack.tip_skip_empty().unwrap_or(old_target_base_oid))
-        .collect::<Vec<_>>();
-    let old_workspace =
-        WorkspaceState::create_from_heads_and_target(repo, &old_head_oids, old_target_base_oid)?;
+    let old_workspace = WorkspaceTrees::from_workspace(repo, &workspace_from_workspace_ref(ctx)?)?;
 
     let head_commit = repo.head_commit()?;
     let decoded_head_commit = head_commit.decode()?;
@@ -354,41 +343,40 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
         )?
     };
 
-    let workspace_commit = repo
-        .find_reference(WORKSPACE_BRANCH_REF)?
-        .peel_to_commit()?;
-    let mut meta = ctx.meta()?;
-    let mut db = ctx.db.get_cache_mut()?;
-    let mut workspace = but_graph::Graph::from_commit_traversal(
-        workspace_commit.id(),
-        Some(gix::refs::FullName::try_from(WORKSPACE_BRANCH_REF)?),
-        &meta,
-        ctx.project_meta()?,
-        &mut db,
-        but_graph::init::Options::limited(),
-    )?
-    .into_workspace()?;
-    let mut editor = Editor::create(&mut workspace, &mut meta, repo, &mut db)?;
-    let (target_selector, _commit) =
-        editor.find_selectable_commit(edit_mode_metadata.commit_oid)?;
+    {
+        let workspace_commit = repo
+            .find_reference(WORKSPACE_BRANCH_REF)?
+            .peel_to_commit()?;
+        let mut meta = ctx.meta()?;
+        let mut db = ctx.db.get_cache_mut()?;
+        let mut workspace = but_graph::Graph::from_commit_traversal(
+            workspace_commit.id(),
+            Some(gix::refs::FullName::try_from(WORKSPACE_BRANCH_REF)?),
+            &meta,
+            ctx.project_meta()?,
+            &mut db,
+            but_graph::init::Options::limited(),
+        )?
+        .into_workspace()?;
+        let mut editor = Editor::create(&mut workspace, &mut meta, repo, &mut db)?;
+        let (target_selector, _commit) =
+            editor.find_selectable_commit(edit_mode_metadata.commit_oid)?;
 
-    editor.update_pick(target_selector, |_editor, _pick| {
-        let mut pick = Pick::new_pick(new_commit_oid);
-        // Do not replace new_commit_oid's parents with the parents of
-        // edit_mode_metadata.commit_oid
-        pick.preserved_parents = Some(decoded_head_commit.parents().collect());
-        Ok(pick)
-    })?;
-    let outcome = editor.rebase()?;
-    // HEAD is EDIT_BRANCH_REF and we do not need to re-checkout it (we
-    // are checking out WORKSPACE_BRANCH_REF after this). As for needing to
-    // "cherry pick" uncommitted changes from the old HEAD, we do not need to,
-    // because there are none (they have been written to a tree earlier in this
-    // function). Therefore, use `materialize_without_checkout`.
-    outcome.materialize_without_checkout()?;
-    // Nothing below needs the database, and `WorkspaceState::create` re-enters `ctx`
-    // for a shared handle - which the exclusive one taken above would refuse.
-    drop(db);
+        editor.update_pick(target_selector, |_editor, _pick| {
+            let mut pick = Pick::new_pick(new_commit_oid);
+            // Do not replace new_commit_oid's parents with the parents of
+            // edit_mode_metadata.commit_oid
+            pick.preserved_parents = Some(decoded_head_commit.parents().collect());
+            Ok(pick)
+        })?;
+        let outcome = editor.rebase()?;
+        // HEAD is EDIT_BRANCH_REF and we do not need to re-checkout it (we
+        // are checking out WORKSPACE_BRANCH_REF after this). As for needing to
+        // "cherry pick" uncommitted changes from the old HEAD, we do not need to,
+        // because there are none (they have been written to a tree earlier in this
+        // function). Therefore, use `materialize_without_checkout`.
+        outcome.materialize_without_checkout()?;
+    }
     ctx.invalidate_workspace_cache()?;
 
     git2_repo
@@ -396,15 +384,16 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
         .context("Failed to set head reference")?;
     git2_repo.checkout_head(Some(CheckoutBuilder::new().force()))?;
 
-    let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-    let uncommtied_changes = get_uncommitted_changes(repo)?;
-
-    update_uncommitted_changes_with_tree(
+    let new_workspace = {
+        let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
+        WorkspaceTrees::from_workspace(repo, &ws)?
+    };
+    let uncommitted_changes = get_uncommitted_changes(repo)?;
+    checkout_uncommitted_changes(
         ctx,
-        old_workspace,
-        new_workspace,
-        Some(uncommtied_changes),
-        Some(true),
+        &old_workspace,
+        &new_workspace,
+        uncommitted_changes,
         perm,
     )?;
 
