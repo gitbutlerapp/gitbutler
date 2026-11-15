@@ -3,8 +3,8 @@
 
 use gpui::{Div, Styled as _};
 
-use super::dp;
-use super::popover;
+use crate::dp;
+use crate::popup::popover;
 use crate::theme::Theme;
 
 #[derive(Debug, Clone, Copy)]

@@ -8,17 +8,25 @@ Look at the UI with `scripts/drive.sh` (the `gpui-screenshots` skill), never by 
 app: `cargo run` and the plain binary open a window on the user's screen and take their keys.
 The skill also covers fixtures and measuring performance and power.
 
+## The design system
+
+The theme, the tokens, the icons, the fonts and every component with a counterpart in
+`packages/but-ui-react` live in `crates/but-ui-gpui`, which `ui` re-exports, so call sites
+write `ui::button` as before. A component goes there only if it reaches into nothing of the
+app's (`Store`, `backend`, `dev`), as one in but-ui-react takes everything from its props; the
+rest of `ui` is the app's own. Change a shared component there, and draw it as but-ui-react's.
+
 ## Fonts
 
-- Use only the font families the app embeds (`assets/fonts`, `theme.ui_font` and
+- Use only the font families the app embeds (`../but-ui-gpui/assets/fonts`, `theme.ui_font` and
   `theme.mono_font`). Any other resolves to whatever the machine has installed, and an
   installed variable font with an optical size axis (`opsz`) lays out many times slower. Only
   fonts the user picks leave them: `theme.diff_font` and `theme.terminal_font`, checked with
   `ui::digit_advance` first. Never load a user's font with `add_fonts`, which keeps a variable
   font at its default instance.
 - A character the embedded Inter lacks is drawn from another font, heavier and off the
-  baseline. Before writing a new symbol into the UI, check it's in `assets/fonts` and add it
-  from the full Inter if not. `assets/fonts/README.md` has the recipe.
+  baseline. Before writing a new symbol into the UI, check it's in `../but-ui-gpui/assets/fonts`
+  and add it from the full Inter if not. That folder's `README.md` has the recipe.
 
 ## Frame budget
 

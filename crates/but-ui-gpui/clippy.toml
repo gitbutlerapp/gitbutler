@@ -1,0 +1,85 @@
+# Sizes grow and shrink with the interface scale, so they go in `ui::dp`. What must stay put,
+# as a hairline, is `ui::fixed`.
+#
+# Disk, process and sleep calls block their thread, and on the UI thread a slow disk or a hung
+# network mount freezes the window. They go in `src/backend`, whose work `backend::run` runs off
+# the UI thread. Anywhere else, `#[expect]` says why the call can't block the UI. Tests, which
+# don't run on it, may call them anywhere (`lib.rs`).
+#
+# A colour comes from `Theme`, which reads but-ui's tokens, or a colour scheme, in `src/theme.rs`.
+# A tint is a token too, or a named strength there (`Theme::highlight`, `Theme::wash`), never
+# a share picked at the call site. Dimming a whole element is `Styled::opacity`, as CSS's
+# `opacity`. What isn't the app's own colour, as a terminal's or a GitHub label's, or a Theme
+# colour fading as it moves, says so with `#[expect]`.
+#
+# The clipboard is read and written in `src/clipboard.rs` alone, so each copy says what it took
+# the same way. Linux's primary selection and macOS's find pasteboard exist on one platform
+# each, so their paths are allowed not to resolve on the others.
+disallowed-methods = [
+    { path = "gpui::Hsla::opacity", reason = "colours come from Theme: a new one is a but-ui token, read in src/theme.rs" },
+    { path = "gpui::Hsla::fade_out", reason = "colours come from Theme: a new one is a but-ui token, read in src/theme.rs" },
+    { path = "gpui::Hsla::blend", reason = "colours come from Theme: a new one is a but-ui token, read in src/theme.rs" },
+    { path = "gpui::Hsla::alpha", reason = "colours come from Theme: a new one is a but-ui token, read in src/theme.rs" },
+    { path = "gpui::Hsla::grayscale", reason = "colours come from Theme: a new one is a but-ui token, read in src/theme.rs" },
+    { path = "gpui::Hsla::black", reason = "colours come from Theme: a new one is a but-ui token, read in src/theme.rs" },
+    { path = "gpui::Hsla::white", reason = "colours come from Theme: a new one is a but-ui token, read in src/theme.rs" },
+    { path = "gpui::Hsla::red", reason = "colours come from Theme: a new one is a but-ui token, read in src/theme.rs" },
+    { path = "gpui::Hsla::green", reason = "colours come from Theme: a new one is a but-ui token, read in src/theme.rs" },
+    { path = "gpui::Hsla::blue", reason = "colours come from Theme: a new one is a but-ui token, read in src/theme.rs" },
+    { path = "gpui::Rgba::opacity", reason = "colours come from Theme: a new one is a but-ui token, read in src/theme.rs" },
+    { path = "gpui::Rgba::alpha", reason = "colours come from Theme: a new one is a but-ui token, read in src/theme.rs" },
+    { path = "gpui::Rgba::blend", reason = "colours come from Theme: a new one is a but-ui token, read in src/theme.rs" },
+    { path = "gpui::opaque_grey", reason = "colours come from Theme: a new one is a but-ui token, read in src/theme.rs" },
+    { path = "gpui::rgb", reason = "colours come from Theme: a new one is a but-ui token, read in src/theme.rs" },
+    { path = "gpui::rgba", reason = "colours come from Theme: a new one is a but-ui token, read in src/theme.rs" },
+    { path = "gpui::hsla", reason = "colours come from Theme: a new one is a but-ui token, read in src/theme.rs" },
+    { path = "gpui::black", reason = "colours come from Theme: a new one is a but-ui token, read in src/theme.rs" },
+    { path = "gpui::white", reason = "colours come from Theme: a new one is a but-ui token, read in src/theme.rs" },
+    { path = "gpui::red", reason = "colours come from Theme: a new one is a but-ui token, read in src/theme.rs" },
+    { path = "gpui::green", reason = "colours come from Theme: a new one is a but-ui token, read in src/theme.rs" },
+    { path = "gpui::blue", reason = "colours come from Theme: a new one is a but-ui token, read in src/theme.rs" },
+    { path = "gpui::yellow", reason = "colours come from Theme: a new one is a but-ui token, read in src/theme.rs" },
+    { path = "gpui::px", reason = "use ui::dp, which follows the interface scale, or ui::fixed for what must stay put" },
+    { path = "gpui::App::write_to_clipboard", reason = "copy through crate::clipboard, which says what it copied" },
+    { path = "gpui::App::read_from_clipboard", reason = "paste through crate::clipboard" },
+    { path = "gpui::App::read_from_clipboard_async", reason = "paste through crate::clipboard" },
+    { path = "gpui::App::write_to_primary", reason = "copy through crate::clipboard", allow-invalid = true },
+    { path = "gpui::App::read_from_primary", reason = "paste through crate::clipboard", allow-invalid = true },
+    { path = "gpui::App::write_to_find_pasteboard", reason = "copy through crate::clipboard", allow-invalid = true },
+    { path = "gpui::App::read_from_find_pasteboard", reason = "paste through crate::clipboard", allow-invalid = true },
+    { path = "std::fs::read", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::read_to_string", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::write", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::read_dir", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::read_link", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::metadata", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::symlink_metadata", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::canonicalize", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::create_dir", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::create_dir_all", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::remove_file", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::remove_dir", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::remove_dir_all", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::copy", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::rename", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::File::open", reason = "blocks: do it in src/backend" },
+    { path = "std::fs::File::create", reason = "blocks: do it in src/backend" },
+    { path = "std::path::Path::exists", reason = "blocks: do it in src/backend" },
+    { path = "std::path::Path::try_exists", reason = "blocks: do it in src/backend" },
+    { path = "std::path::Path::is_file", reason = "blocks: do it in src/backend" },
+    { path = "std::path::Path::is_dir", reason = "blocks: do it in src/backend" },
+    { path = "std::path::Path::is_symlink", reason = "blocks: do it in src/backend" },
+    { path = "std::path::Path::metadata", reason = "blocks: do it in src/backend" },
+    { path = "std::path::Path::symlink_metadata", reason = "blocks: do it in src/backend" },
+    { path = "std::path::Path::read_dir", reason = "blocks: do it in src/backend" },
+    { path = "std::path::Path::canonicalize", reason = "blocks: do it in src/backend" },
+    { path = "std::process::Command::output", reason = "blocks: do it in src/backend" },
+    { path = "std::process::Command::status", reason = "blocks: do it in src/backend" },
+    { path = "std::process::Command::spawn", reason = "blocks: do it in src/backend" },
+    { path = "std::thread::sleep", reason = "blocks: do it in src/backend" },
+]
+
+# Tests may unwrap, expect and panic, which the crate denies elsewhere.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true

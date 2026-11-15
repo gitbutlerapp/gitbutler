@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use gpui::{App, Hsla, ImageSource, Img, RenderImage, Rgba, SvgRenderer, img, prelude::*};
 
-use super::dp;
+use crate::dp;
 use crate::theme::Theme;
 
 /// Which drawing, picked by what it means, as but-ui-react's empty states pick them.
@@ -28,22 +28,22 @@ impl Illustration {
     fn source(self) -> (&'static str, f32, f32) {
         match self {
             Illustration::Cactus => (
-                include_str!("../../../../packages/but-ui-react/src/illustrations/cactus.svg"),
+                include_str!("../../../packages/but-ui-react/src/illustrations/cactus.svg"),
                 96.,
                 82.,
             ),
             Illustration::Papers => (
-                include_str!("../../../../packages/but-ui-react/src/illustrations/papers.svg"),
+                include_str!("../../../packages/but-ui-react/src/illustrations/papers.svg"),
                 98.,
                 86.,
             ),
             Illustration::Waving => (
-                include_str!("../../../../packages/but-ui-react/src/illustrations/waving.svg"),
+                include_str!("../../../packages/but-ui-react/src/illustrations/waving.svg"),
                 186.,
                 215.,
             ),
             Illustration::Terminal => (
-                include_str!("../../../../packages/but-ui-react/src/illustrations/terminal.svg"),
+                include_str!("../../../packages/but-ui-react/src/illustrations/terminal.svg"),
                 79.,
                 59.,
             ),
@@ -112,7 +112,7 @@ mod tests {
     #[test]
     fn every_drawing_draws_in_every_theme() {
         use crate::theme::{CodeSize, ColorScheme, Shade, Theme};
-        let renderer = gpui::SvgRenderer::new(std::sync::Arc::new(crate::ui::Assets));
+        let renderer = gpui::SvgRenderer::new(std::sync::Arc::new(crate::Assets));
         let rgb = |r, g, b| but_tty::RgbColor { r, g, b };
         let dark_scheme = but_tty::Colors {
             background: Some(rgb(0x1e, 0x1e, 0x2e)),

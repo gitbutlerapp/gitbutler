@@ -15,16 +15,7 @@ use syntect::highlighting::{
 };
 use syntect::parsing::SyntaxSet;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Token {
-    Comment,
-    String,
-    Constant,
-    Keyword,
-    Function,
-    Type,
-    Tag,
-}
+pub use but_ui_gpui::theme::Token;
 
 const TOKENS: [(Token, &str); 7] = [
     (Token::Comment, "comment"),

@@ -1,0 +1,29 @@
+[package]
+name = "but-ui-gpui"
+version = "0.0.0"
+edition.workspace = true
+repository.workspace = true
+authors.workspace = true
+license-file = "../../LICENSE.md"
+description = "GitButler's design system on GPUI: the theme and the components but-ui-react has too"
+publish = false
+# GPUI follows Zed's toolchain.
+rust-version = "1.98"
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow.workspace = true
+gpui.workspace = true
+serde.workspace = true
+# The theme takes the app's colours from a Ghostty colour scheme, and gives its terminals theirs.
+but-tty.workspace = true
+
+[build-dependencies]
+# Reads but-ui's tokens, which the build script writes as constants.
+serde_json.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+snapbox.workspace = true
