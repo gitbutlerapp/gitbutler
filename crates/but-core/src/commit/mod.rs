@@ -616,31 +616,18 @@ impl ConflictEntries {
 /// unresolved conflict list from the merge outcome itself, which is important
 /// for force-resolved merges where Git would otherwise omit index stages.
 ///
-/// - `repo` - is the repository that owns `merged_tree_id` and provides the index
-///   machinery used to derive stage entries from the merge result.
-///
-/// - `merged_tree_id` - is the tree written from the merge result's auto-resolved
-///   output, which is reloaded so conflict stages can be inspected.
-///
 /// - `merge_result` - is the original `gix` merge outcome whose unresolved
 ///   conflicts are translated into GitButler conflict-entry metadata.
 ///
 /// - `treat_as_unresolved` - decides which conflicts should still be treated as
 ///   unresolved when scanning both staged entries and fallback conflict records.
 pub fn conflict_entries_from_merge_outcome(
-    repo: &gix::Repository,
-    merged_tree_id: gix::ObjectId,
     merge_result: &gix::merge::tree::Outcome<'_>,
     treat_as_unresolved: gix::merge::tree::TreatAsUnresolved,
 ) -> anyhow::Result<ConflictEntries> {
     use gix::index::entry::Stage;
 
-    let mut index = repo.index_from_tree(&merged_tree_id.attach(repo))?;
-    merge_result.index_changed_after_applying_conflicts(
-        &mut index,
-        treat_as_unresolved,
-        gix::merge::tree::apply_index_entries::RemovalMode::Mark,
-    );
+    let index = merge_result.index(treat_as_unresolved, None)?;
 
     let (mut ancestor_entries, mut our_entries, mut their_entries) =
         (Vec::new(), Vec::new(), Vec::new());

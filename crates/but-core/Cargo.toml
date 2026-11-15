@@ -38,6 +38,7 @@ smallvec.workspace = true
 # for V1 conflict commits
 toml.workspace = true
 chardetng = "0.1.17"
+encoding_rs = { version = "0.8.35", default-features = false, features = ["alloc"] }
 
 # for `id`
 uuid.workspace = true

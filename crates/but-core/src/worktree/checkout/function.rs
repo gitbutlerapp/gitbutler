@@ -1,5 +1,9 @@
 use but_error::bail_precondition;
-use gix::{merge::tree::TreatAsUnresolved, prelude::ObjectIdExt as _, refs::Target};
+use gix::{
+    merge::tree::{ResolutionFailure, TreatAsUnresolved},
+    prelude::ObjectIdExt as _,
+    refs::Target,
+};
 use tracing::instrument;
 
 use crate::{RepositoryExt, update_head_reference};
@@ -140,10 +144,14 @@ fn write_merged_worktree(
                 if !conflict.is_unresolved(unresolved) {
                     continue;
                 }
-                let [base, ours, theirs] = conflict.entries();
-                if base.is_some_and(|c| c.mode.is_tree())
-                    || ours.is_some_and(|c| c.mode.is_tree())
-                    || theirs.is_some_and(|c| c.mode.is_tree())
+                if matches!(
+                    conflict.resolution,
+                    Err(
+                        ResolutionFailure::OursModifiedTheirsDirectoryThenOursRenamed { .. }
+                            | ResolutionFailure::OursDirectoryTheirsNonDirectoryTheirsRenamed { .. }
+                    )
+                ) || conflict.ours.entry_mode().is_tree()
+                    || conflict.theirs.entry_mode().is_tree()
                 {
                     bail_precondition!(
                         "Cannot checkout file-directory conflict: {}",
