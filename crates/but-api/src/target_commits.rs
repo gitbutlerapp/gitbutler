@@ -151,7 +151,7 @@ fn present_first_parent(commit: &gix::Commit<'_>) -> Option<gix::ObjectId> {
         .parent_ids()
         .next()
         .map(|id| id.detach())
-        .filter(|id| commit.repo.has_object(id))
+        .filter(|id| commit.repo().has_object(id))
 }
 
 /// The first-parent line commit at which the base listing naturally ends: the

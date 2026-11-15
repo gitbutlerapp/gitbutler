@@ -533,7 +533,7 @@ fn reset_index_to_tree(
     if let Some(conflicts_tree_id) = conflicts_tree_id {
         restore_index_conflicts(&mut index, repo.find_tree(conflicts_tree_id)?.id())?;
     }
-    index.write(Default::default())?;
+    index.write(Default::default(), gix::fs::SharedPermissions::Umask)?;
     // Keep the legacy libgit2 handle in sync with the index written through gix.
     #[expect(deprecated, reason = "index cache compatibility boundary")]
     ctx.git2_repo.get()?.index()?.read(true)?;
@@ -1698,7 +1698,7 @@ fn write_conflicts_tree(repo: &gix::Repository) -> Result<gix::ObjectId> {
 /// we get the data from the blob entry and re-create a commit object from it,
 /// whose returned id should match the one we stored.
 fn deserialize_commit(commit_tree_id: gix::Id) -> Result<gix::ObjectId> {
-    let repo = commit_tree_id.repo;
+    let repo = commit_tree_id.repo();
     let commit_tree = repo
         .find_tree(commit_tree_id)
         .context("failed to convert commit tree entry to tree")?;

@@ -422,7 +422,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
 
         if let Some(head) = head {
             let target = head_target(head.target, head.ref_name);
-            if repo.find_reference("HEAD")?.inner.target != target {
+            if repo.find_reference("HEAD")?.inner().target != target {
                 let checked_out = match &target {
                     Target::Symbolic(refname) => refname.shorten().to_owned(),
                     Target::Object(id) => id.to_string().into(),

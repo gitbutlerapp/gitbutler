@@ -837,7 +837,7 @@ fn commit_byline(
 /// parents it doesn't have.
 fn present_first_parent(commit: &gix::Commit<'_>) -> Option<gix::ObjectId> {
     let parent = commit.parent_ids().next()?.detach();
-    commit.repo.has_object(parent).then_some(parent)
+    commit.repo().has_object(parent).then_some(parent)
 }
 
 fn commit_from(local: &but_workspace::ref_info::LocalCommit) -> Commit {

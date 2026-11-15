@@ -2294,7 +2294,7 @@ fn record_index_stat_with_mtime(
         .expect("tracked");
     index.entries_mut()[position].stat =
         gix::index::entry::Stat::from_fs(&gix::index::fs::Metadata::from_path_no_follow(&path)?)?;
-    index.write(Default::default())?;
+    index.write(Default::default(), gix::fs::SharedPermissions::Umask)?;
     Ok(())
 }
 
@@ -2798,6 +2798,129 @@ fn conflicting_untracked_binary_file_is_recorded_as_conflict() -> anyhow::Result
         git_status(&repo)?,
         "AA blob.bin\n",
         "the conflict is recorded in the index, so it can be resolved"
+    );
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn type_conflict_stages_follow_split_paths_and_preserve_unrelated_staging() -> anyhow::Result<()> {
+    use gix::index::entry::{Mode, Stage};
+
+    let (repo, _tmp) = writable_scenario("single-unsigned");
+    let workdir = repo.workdir().expect("the fixture has a worktree");
+    std::fs::write(workdir.join("base"), "staged\n")?;
+    git(&repo).args(["add", "base"]).run();
+    std::fs::write(workdir.join("base"), "base\n")?;
+    let before = repo.open_index()?;
+    let staged = before.entry_by_path("base".into()).expect("base is staged");
+    std::os::unix::fs::symlink("destination", workdir.join("a"))?;
+    let target = commit_files(&repo, "add a regular file", &[("a", Some("theirs\n"))])?;
+
+    let out = safe_checkout_from_head(
+        target,
+        &repo,
+        checkout::Options {
+            allow_uncommitted_changes_to_conflict_with_new_head: true,
+            ..Default::default()
+        },
+    )?;
+
+    assert!(out.conflict_occurred, "both types need to be resolved");
+    let index = repo.open_index()?;
+    let entries: Vec<_> = index
+        .entries()
+        .iter()
+        .map(|entry| (entry.path(&index), entry.stage(), entry.mode, entry.id))
+        .collect();
+    assert_eq!(
+        entries,
+        vec![
+            (
+                "a".into(),
+                Stage::Ours,
+                Mode::SYMLINK,
+                repo.write_blob("destination")?.detach(),
+            ),
+            (
+                "a~theirs".into(),
+                Stage::Theirs,
+                Mode::FILE,
+                repo.write_blob("theirs\n")?.detach(),
+            ),
+            ("base".into(), Stage::Unconflicted, Mode::FILE, staged.id),
+        ],
+        "the index records the actual split paths without replacing unrelated staged content"
+    );
+    assert_eq!(
+        index
+            .entry_by_path("base".into())
+            .expect("base remains staged")
+            .stat,
+        staged.stat,
+        "the unchanged index entry keeps its cached stat"
+    );
+    assert_eq!(
+        std::fs::read_link(workdir.join("a"))?,
+        std::path::Path::new("destination"),
+        "the worktree keeps its symlink"
+    );
+    assert_eq!(
+        std::fs::read_to_string(workdir.join("a~theirs"))?,
+        "theirs\n",
+        "the other file is available at its conflict path"
+    );
+    Ok(())
+}
+
+#[test]
+fn allowing_content_conflicts_still_refuses_file_directory_conflicts() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("single-unsigned");
+    let workdir = repo.workdir().expect("the fixture has a worktree");
+    std::fs::create_dir(workdir.join("a"))?;
+    std::fs::write(workdir.join("a/child"), "worktree\n")?;
+    let target = commit_files(
+        &repo,
+        "replace the worktree directory",
+        &[("a", Some("theirs\n"))],
+    )?;
+    let head = repo.head_id()?.detach();
+    let index = std::fs::read(repo.index_path())?;
+
+    let error = safe_checkout_from_head(
+        target,
+        &repo,
+        checkout::Options {
+            allow_uncommitted_changes_to_conflict_with_new_head: true,
+            ..Default::default()
+        },
+    )
+    .expect_err("allowing content conflicts does not permit a file/directory conflict");
+
+    assert!(
+        error
+            .to_string()
+            .contains("Cannot checkout file-directory conflict"),
+        "the structural refusal remains explicit: {error:#}"
+    );
+    assert_eq!(
+        repo.head_id()?.detach(),
+        head,
+        "refusal does not update HEAD"
+    );
+    assert_eq!(
+        std::fs::read(repo.index_path())?,
+        index,
+        "refusal leaves the index untouched"
+    );
+    assert_eq!(
+        std::fs::read_to_string(workdir.join("a/child"))?,
+        "worktree\n",
+        "refusal preserves the worktree directory"
+    );
+    assert!(
+        !workdir.join("a~theirs").exists(),
+        "refusal writes no relocated file"
     );
     Ok(())
 }

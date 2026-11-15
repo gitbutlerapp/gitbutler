@@ -454,7 +454,7 @@ impl<'repo> Commit<'repo> {
             return false;
         }
 
-        let Ok(tree) = self.id.repo.find_tree(self.inner.tree) else {
+        let Ok(tree) = self.id.repo().find_tree(self.inner.tree) else {
             return true;
         };
         tree.iter().any(|entry| {
@@ -484,14 +484,14 @@ impl<'repo> Commit<'repo> {
         Ok(if self.is_conflicted() {
             self.inner
                 .tree
-                .attach(self.id.repo)
+                .attach(self.id.repo())
                 .object()?
                 .into_tree()
                 .find_entry(kind.as_tree_entry_name())
                 .with_context(|| format!("Unexpected tree in conflicting commit {}", self.id))?
                 .id()
         } else {
-            self.inner.tree.attach(self.id.repo)
+            self.inner.tree.attach(self.id.repo())
         })
     }
 
@@ -502,7 +502,7 @@ impl<'repo> Commit<'repo> {
         if !self.is_conflicted() {
             return Ok(None);
         }
-        let tree = self.inner.tree.attach(self.id.repo).object()?.into_tree();
+        let tree = self.inner.tree.attach(self.id.repo()).object()?.into_tree();
         Ok(Some((
             tree.find_entry(TreeKind::Base.as_tree_entry_name())
                 .with_context(|| format!("No base tree in conflicting commit {}", self.id))?
@@ -521,7 +521,7 @@ impl<'repo> Commit<'repo> {
         if !self.is_conflicted() {
             return Ok(Vec::new());
         }
-        let tree = self.inner.tree.attach(self.id.repo).object()?.into_tree();
+        let tree = self.inner.tree.attach(self.id.repo()).object()?.into_tree();
         let mut ids = Vec::new();
         let mut i = 0;
         while let Some(entry) = tree.find_entry(format!("{CONFLICT_BASE_PREFIX}{i}")) {
@@ -536,7 +536,7 @@ impl<'repo> Commit<'repo> {
         if !self.is_conflicted() {
             return Ok(smallvec![self.inner.tree]);
         }
-        let tree = self.inner.tree.attach(self.id.repo).object()?.into_tree();
+        let tree = self.inner.tree.attach(self.id.repo()).object()?.into_tree();
         let mut ids = SmallVec::new();
         let mut i = 0;
         while let Some(entry) = tree.find_entry(format!("{CONFLICT_SIDE_PREFIX}{i}")) {
@@ -562,7 +562,7 @@ impl<'repo> Commit<'repo> {
 
 impl Commit<'_> {
     pub fn conflict_entries(&self) -> anyhow::Result<Option<ConflictEntries>> {
-        let repo = self.id.repo;
+        let repo = self.id.repo();
 
         if !self.is_conflicted() {
             return Ok(None);
@@ -611,16 +611,10 @@ impl ConflictEntries {
 ///
 /// This is the shared translation used when a merge is auto-resolved but still
 /// has unresolved conflicts that must be persisted in a conflicted commit/tree.
-/// It first asks `gix` to materialize conflict stages into an index view of the
-/// merged tree. If that yields no staged conflict paths, it falls back to the
+/// It first asks `gix` to construct the final index from the merge outcome.
+/// If that yields no staged conflict paths, it falls back to the
 /// unresolved conflict list from the merge outcome itself, which is important
 /// for force-resolved merges where Git would otherwise omit index stages.
-///
-/// - `repo` - is the repository that owns `merged_tree_id` and provides the index
-///   machinery used to derive stage entries from the merge result.
-///
-/// - `merged_tree_id` - is the tree written from the merge result's auto-resolved
-///   output, which is reloaded so conflict stages can be inspected.
 ///
 /// - `merge_result` - is the original `gix` merge outcome whose unresolved
 ///   conflicts are translated into GitButler conflict-entry metadata.
@@ -628,19 +622,12 @@ impl ConflictEntries {
 /// - `treat_as_unresolved` - decides which conflicts should still be treated as
 ///   unresolved when scanning both staged entries and fallback conflict records.
 pub fn conflict_entries_from_merge_outcome(
-    repo: &gix::Repository,
-    merged_tree_id: gix::ObjectId,
     merge_result: &gix::merge::tree::Outcome<'_>,
     treat_as_unresolved: gix::merge::tree::TreatAsUnresolved,
 ) -> anyhow::Result<ConflictEntries> {
     use gix::index::entry::Stage;
 
-    let mut index = repo.index_from_tree(&merged_tree_id.attach(repo))?;
-    merge_result.index_changed_after_applying_conflicts(
-        &mut index,
-        treat_as_unresolved,
-        gix::merge::tree::apply_index_entries::RemovalMode::Mark,
-    );
+    let index = merge_result.index(treat_as_unresolved, None)?;
 
     let (mut ancestor_entries, mut our_entries, mut their_entries) =
         (Vec::new(), Vec::new(), Vec::new());

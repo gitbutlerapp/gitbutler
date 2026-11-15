@@ -196,14 +196,14 @@ fn integration_graph_for_branch(
     let mut db = but_testsupport::in_memory_db();
     if let Some(target_ref_name) = target_ref_name {
         let head = repo.head()?;
-        let (head_id, head_ref_name) = match head.kind {
-            gix::head::Kind::Symbolic(reference) => {
+        let (head_id, head_ref_name) = match head.detach_repo() {
+            gix::HeadOwned::Symbolic(reference) => {
                 let ref_name = reference.name;
                 let head_id = repo.find_reference(ref_name.as_ref())?.id().detach();
                 (head_id, Some(ref_name))
             }
-            gix::head::Kind::Detached { target, peeled } => (peeled.unwrap_or(target), None),
-            gix::head::Kind::Unborn(_) => bail!("test repositories should not be unborn"),
+            gix::HeadOwned::Detached { target, peeled } => (peeled.unwrap_or(target), None),
+            gix::HeadOwned::Unborn(_) => bail!("test repositories should not be unborn"),
         };
         let target_id = repo.find_reference(target_ref_name)?.id().detach();
         let upstream_ref_name = resolve_tracking_branch_ref_name(ref_name, repo)?;
@@ -232,14 +232,14 @@ fn integration_graph_for_branch(
         )
     } else if let Ok(upstream_ref_name) = resolve_tracking_branch_ref_name(ref_name, repo) {
         let head = repo.head()?;
-        let (head_id, head_ref_name) = match head.kind {
-            gix::head::Kind::Symbolic(reference) => {
+        let (head_id, head_ref_name) = match head.detach_repo() {
+            gix::HeadOwned::Symbolic(reference) => {
                 let ref_name = reference.name;
                 let head_id = repo.find_reference(ref_name.as_ref())?.id().detach();
                 (head_id, Some(ref_name))
             }
-            gix::head::Kind::Detached { target, peeled } => (peeled.unwrap_or(target), None),
-            gix::head::Kind::Unborn(_) => bail!("test repositories should not be unborn"),
+            gix::HeadOwned::Detached { target, peeled } => (peeled.unwrap_or(target), None),
+            gix::HeadOwned::Unborn(_) => bail!("test repositories should not be unborn"),
         };
         let upstream_id = repo
             .find_reference(upstream_ref_name.as_ref())?

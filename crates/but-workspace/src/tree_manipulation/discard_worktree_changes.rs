@@ -167,7 +167,7 @@ pub fn discard_workspace_changes(
     }
 
     if edit.finish() {
-        index.write(Default::default())?;
+        index.write(Default::default(), gix::fs::SharedPermissions::Umask)?;
     }
     Ok(dropped)
 }
@@ -211,7 +211,7 @@ mod file {
         let mut update_index =
             || edit.upsert(rela_path, state.id, state.kind.into(), Stat::Unknown);
 
-        let repo = pipeline.repo;
+        let repo = pipeline.repo();
         let wt_root = path_check.inner.root().to_owned();
         let file_path = path_check.verified_path_allow_nonexisting(rela_path)?;
         match state.kind {
@@ -230,7 +230,7 @@ mod file {
                 gix::tempfile::create_dir::all(
                     file_path.parent().context("encountered strange filepath")?,
                     Retries::default(),
-                    0,
+                    gix::fs::SharedPermissions::Umask,
                 )?;
                 if let Err(err) = tempfile.persist(&file_path) {
                     if err.error.kind() == std::io::ErrorKind::IsADirectory {
@@ -521,7 +521,7 @@ mod hunk {
         index: &gix::index::State,
         context_lines: u32,
     ) -> anyhow::Result<()> {
-        let repo = pipeline.repo;
+        let repo = pipeline.repo();
         let state_in_worktree = ChangeState {
             id: repo.object_hash().null(),
             kind: previous_state.kind,

@@ -105,7 +105,7 @@ pub(super) mod function {
     ) -> anyhow::Result<Outcome> {
         // Assure this is a tree early.
         let head_tree = head_tree_id.object()?.into_tree();
-        let repo = head_tree_id.repo;
+        let repo = head_tree_id.repo();
         let mut changes_to_apply: Vec<_> = changes
             .changes
             .iter()

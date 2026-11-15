@@ -158,17 +158,14 @@ pub fn build_request(
     let mut outcome = repo.merge_trees(base, ours, theirs, merge_labels(), options.into())?;
     let merged_tree_id = outcome.tree.write()?.detach();
 
-    let mut index = repo.index_from_tree(&merged_tree_id)?;
-    if !outcome.index_changed_after_applying_conflicts(
-        &mut index,
-        gix::merge::tree::TreatAsUnresolved::git(),
-        gix::merge::tree::apply_index_entries::RemovalMode::Mark,
-    ) {
+    let conflict_kind = gix::merge::tree::TreatAsUnresolved::git();
+    if !outcome.index.has_unmerged_entries(conflict_kind) {
         bail!(
             "Re-merging the conflicting trees of commit {commit_id} yielded no conflicts to resolve"
         );
     }
 
+    let index = outcome.index(conflict_kind, None)?;
     let mut sides_by_path: std::collections::BTreeMap<BString, ConflictSides> = Default::default();
     for entry in index.entries() {
         use gix::index::entry::Stage;

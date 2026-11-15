@@ -126,7 +126,7 @@ fn graph_commit(mailmap: &gix::mailmap::Snapshot, commit: &gix::Commit<'_>) -> R
     let ((author, email), agent) = commit_byline(mailmap, commit)?;
     let parents = (commit.parent_ids())
         .map(|id| id.detach())
-        .filter(|id| commit.repo.has_object(id))
+        .filter(|id| commit.repo().has_object(id))
         .map(CommitId)
         .collect();
     Ok(GraphCommit {

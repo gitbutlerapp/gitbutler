@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use bstr::{BStr, BString, ByteSlice as _};
-use gix::{index::entry::Mode, merge::tree::TreatAsUnresolved};
+use gix::index::entry::{Mode, Stage};
 
 use super::{Conflicts, Trees, transaction::Placed};
 use crate::index::{ConflictStage, Edit, Stat};
@@ -222,29 +222,20 @@ fn deleted_by_new_head(trees: &Trees, index: &gix::index::State) -> Vec<BString>
 fn conflict_stages(conflicts: Conflicts<'_>) -> Vec<ConflictEntry> {
     conflicts
         .into_iter()
-        .flat_map(|outcome| outcome.conflicts.iter())
-        .filter(|conflict| conflict.is_unresolved(TreatAsUnresolved::git()))
-        .flat_map(|conflict| {
-            let path = conflict.ours.location();
-            let stages = [
-                ConflictStage::Base,
-                ConflictStage::Ours,
-                ConflictStage::Theirs,
-            ];
-            stages
-                .into_iter()
-                .zip(conflict.entries())
-                .filter_map(move |(stage, entry)| {
-                    let entry = entry?;
-                    Some(ConflictEntry {
-                        path: path.to_owned(),
-                        stage,
-                        content: Content {
-                            id: entry.id,
-                            mode: entry.mode.into(),
-                        },
-                    })
+        .flat_map(|index| {
+            index.entries().iter().filter_map(move |entry| {
+                let stage = match entry.stage() {
+                    Stage::Unconflicted => return None,
+                    Stage::Base => ConflictStage::Base,
+                    Stage::Ours => ConflictStage::Ours,
+                    Stage::Theirs => ConflictStage::Theirs,
+                };
+                Some(ConflictEntry {
+                    path: entry.path(index).to_owned(),
+                    stage,
+                    content: Content::of(entry),
                 })
+            })
         })
         .collect()
 }

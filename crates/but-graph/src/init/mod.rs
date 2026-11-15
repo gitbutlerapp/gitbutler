@@ -546,8 +546,8 @@ impl Graph {
         let worktree_tips = discover_worktree_tips(repo, db, options.worktrees)?;
         let head = repo.head()?;
         let mut is_detached = false;
-        let (tip, maybe_name) = match head.kind {
-            gix::head::Kind::Unborn(ref_name) => {
+        let (tip, maybe_name) = match head.detach_repo() {
+            gix::HeadOwned::Unborn(ref_name) => {
                 let mut graph = Graph {
                     target_upstream_ref: project_meta.remote_target_ref(repo)?,
                     project_meta,
@@ -576,14 +576,14 @@ impl Graph {
                 )?);
                 return Ok(graph);
             }
-            gix::head::Kind::Detached { target, peeled } => {
+            gix::HeadOwned::Detached { target, peeled } => {
                 is_detached = true;
                 (peeled.unwrap_or(target).attach(repo), None)
             }
-            gix::head::Kind::Symbolic(existing_reference) => {
+            gix::HeadOwned::Symbolic(existing_reference) => {
                 let mut existing_reference = existing_reference.attach(repo);
                 let tip = existing_reference.peel_to_id()?;
-                (tip, Some(existing_reference.inner.name))
+                (tip, Some(existing_reference.detach().name))
             }
         };
 
@@ -711,7 +711,7 @@ impl Graph {
         db: &mut but_db::DbHandle,
         options: Options,
     ) -> anyhow::Result<Self> {
-        let worktree_tips = discover_worktree_tips(tip.repo, db, options.worktrees)?;
+        let worktree_tips = discover_worktree_tips(tip.repo(), db, options.worktrees)?;
         Self::from_commit_traversal_inner(
             tip,
             ref_name,
@@ -734,7 +734,7 @@ impl Graph {
         worktree_tips: Vec<WorktreeTip>,
         options: Options,
     ) -> anyhow::Result<Self> {
-        let repo = tip.repo;
+        let repo = tip.repo();
         let tip = tip.detach();
         let (overlay_repo, overlay_meta, _entrypoint) = Overlay::default().into_parts(repo, meta);
         let ref_name = ref_name.into();

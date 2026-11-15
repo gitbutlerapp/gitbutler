@@ -528,7 +528,7 @@ pub fn ref_info(
     db: &mut but_db::DbHandle,
     opts: Options<'_>,
 ) -> anyhow::Result<RefInfo> {
-    let repo = existing_ref.repo;
+    let repo = existing_ref.repo();
     let ws = workspace(
         repo,
         meta,
@@ -559,7 +559,7 @@ pub fn workspace(
     let (seen_from_ref, seen_from_commit) = match seen_from {
         Some(mut reference) => {
             let id = reference.peel_to_id()?.detach();
-            (Some(reference.inner.name), Some(id))
+            (Some(reference.detach().name), Some(id))
         }
         None => {
             let head = repo.head()?;

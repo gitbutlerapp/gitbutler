@@ -1,5 +1,9 @@
 use but_error::bail_precondition;
-use gix::{merge::tree::TreatAsUnresolved, prelude::ObjectIdExt as _, refs::Target};
+use gix::{
+    merge::tree::{ResolutionFailure, TreatAsUnresolved},
+    prelude::ObjectIdExt as _,
+    refs::Target,
+};
 use tracing::instrument;
 
 use crate::{RepositoryExt, update_head_reference};
@@ -140,11 +144,13 @@ fn write_merged_worktree(
                 if !conflict.is_unresolved(unresolved) {
                     continue;
                 }
-                let [base, ours, theirs] = conflict.entries();
-                if base.is_some_and(|c| c.mode.is_tree())
-                    || ours.is_some_and(|c| c.mode.is_tree())
-                    || theirs.is_some_and(|c| c.mode.is_tree())
-                {
+                if matches!(
+                    conflict.resolution,
+                    Err(
+                        ResolutionFailure::OursDirectoryTheirsNonDirectoryTheirsRenamed { .. }
+                            | ResolutionFailure::OursModifiedTheirsDirectoryThenOursRenamed { .. }
+                    )
+                ) {
                     bail_precondition!(
                         "Cannot checkout file-directory conflict: {}",
                         conflict.ours.location()
@@ -165,7 +171,10 @@ fn write_merged_worktree(
     }
 
     let conflict_occurred = outcome.has_unresolved_conflicts(unresolved);
+    let conflicts = conflict_occurred
+        .then(|| outcome.index(unresolved, None))
+        .transpose()?;
     let trees = write::Trees::new(&repo, old_tree, new_tree, [wd_tree_id, checkout_target_id])?;
-    write::write_to_worktree(&repo, trees, conflict_occurred.then_some(&outcome), index)?;
+    write::write_to_worktree(&repo, trees, conflicts.as_ref(), index)?;
     Ok(conflict_occurred)
 }

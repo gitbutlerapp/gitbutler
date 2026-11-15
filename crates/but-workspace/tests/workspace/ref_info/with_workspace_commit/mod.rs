@@ -77,7 +77,7 @@ pub fn ref_info(
     mut opts: but_workspace::ref_info::Options,
 ) -> anyhow::Result<RefInfo> {
     if opts.project_meta == Default::default() {
-        opts.project_meta = utils::project_meta(existing_ref.repo)?;
+        opts.project_meta = utils::project_meta(existing_ref.repo())?;
     }
     but_workspace::ref_info(existing_ref, meta, db, opts)
 }
@@ -2408,7 +2408,7 @@ fn target_current_follows_the_recording_not_workspace_content() -> anyhow::Resul
     let mut entrypoint = repo.find_reference("A")?;
     let graph = but_graph::Graph::from_commit_traversal(
         entrypoint.peel_to_id()?,
-        entrypoint.inner.name,
+        entrypoint.detach().name,
         &*meta,
         opts.project_meta.clone(),
         &mut db,

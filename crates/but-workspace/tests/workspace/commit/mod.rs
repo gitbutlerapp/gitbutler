@@ -488,7 +488,7 @@ Outcome {
             &repo,
             &meta,
             Overlay::default().with_references_if_new([
-                repo.find_reference("unrelated")?.inner,
+                repo.find_reference("unrelated")?.detach(),
                 // The workspace ref is needed so the workspace and its stacks are iterated as well.
                 // Algorithms which work with simulation also have to be mindful about this.
                 gix::refs::Reference {
