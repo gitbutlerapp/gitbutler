@@ -22,11 +22,13 @@ use gpui::{
     deferred, div, font, linear_color_stop, linear_gradient, point, prelude::*, relative,
 };
 
+use super::cursor::{RowAction, row_actions};
+use super::frame::RowsIn;
 use super::order::moving_worktree;
 use super::rows::{CARD_PADDING, Rows, listed_with};
 use super::{
-    MAIN_WORKTREE, Navigator, Row, RowAction, RowStyle, RowsIn, TerminalOverview, drawer_title,
-    project_glyph, row_actions, status_mark, worktree_icon, worktrees_listed,
+    MAIN_WORKTREE, Navigator, Row, RowStyle, TerminalOverview, drawer_title, project_glyph,
+    status_mark, worktree_icon, worktrees_listed,
 };
 use crate::app::{AppHandle, AppView, Cancel};
 use crate::backend::Checkout;

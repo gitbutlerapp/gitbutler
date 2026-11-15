@@ -14,9 +14,10 @@ use gpui::{
     MouseButton, MouseDownEvent, Role, Subscription, Window, div, list, prelude::*, relative,
 };
 
+use super::cursor::{Step, step_to};
 use super::rename::{on_terminal_name, terminal_name_input};
 use super::rows::{CARD_PADDING, GUIDE_AT as ICON_MIDDLE, ROW_LEFT};
-use super::{CARD_BAR_HEIGHT, CARD_BAR_INSET, RowStyle, Step, card_bar, status_mark, step_to};
+use super::{CARD_BAR_HEIGHT, CARD_BAR_INSET, RowStyle, card_bar, status_mark};
 use crate::app::{
     AppHandle, AppView, Cancel, Confirm, FocusNavigator, SelectNext, SelectPrevious, SplitBelow,
     SplitRight,
