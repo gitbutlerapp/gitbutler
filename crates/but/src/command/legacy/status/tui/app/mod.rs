@@ -1934,8 +1934,11 @@ impl App {
                         committed_file: CommittedFileId { path, .. },
                         id: _,
                     } => Openable::try_from_relpath(&*ctx.repo.get()?, path.as_bstr()).map(Some),
+                    CliId::CommittedHunk(committed_hunk) => {
+                        Openable::try_from_hunk(&*ctx.repo.get()?, &committed_hunk.hunk, false)
+                            .map(Some)
+                    }
                     CliId::AnonymousSegment(..)
-                    | CliId::CommittedHunk(..)
                     | CliId::Commit { .. }
                     | CliId::Branch(_)
                     | CliId::PathPrefix { .. }
