@@ -1,8 +1,6 @@
-//! Helpers to keep virtual-branches metadata synchronized between TOML and the project database.
+//! Storage for virtual-branches metadata: the project database, plus a TOML copy for older clients.
 
-use std::{
-    cmp::Ordering, collections::HashMap, io::Read as _, path::Path, str::FromStr, time::UNIX_EPOCH,
-};
+use std::{collections::HashMap, io::Read as _, path::Path, str::FromStr, time::UNIX_EPOCH};
 
 use anyhow::{Context as _, anyhow, bail};
 use but_core::ref_metadata::{ProjectMeta, StackId, UnresolvedLegacyTargetRefError};
@@ -65,28 +63,22 @@ pub fn read_legacy_project_meta(
     }))
 }
 
-/// Read virtual-branches state using DB as runtime source of truth while synchronizing with TOML.
+/// Read virtual-branches state from the DB, which is the source of truth.
 ///
-/// The synchronization rules are:
-/// * if DB is uninitialized, TOML is imported if valid; otherwise DB is initialized with empty state.
-/// * if TOML is newer than DB metadata and valid, DB is overwritten with TOML.
-/// * if TOML is invalid, TOML is rewritten from DB state.
-/// * if TOML is missing, it is recreated from DB state.
+/// Only an uninitialized DB reads the TOML file: it imports the TOML if it is valid, and otherwise
+/// starts empty. After that, the TOML file is a write-only copy for older clients.
 pub fn read_synced_virtual_branches(path: &Path) -> anyhow::Result<VirtualBranches> {
     let mut db = db_handle_from_toml_path(path)?;
     let mut tx = db.immediate_transaction()?;
-    let state = ensure_vb_storage_in_sync(path, &mut tx)?;
+    let state = read_or_init_vb_storage(path, &mut tx)?;
     tx.commit()?;
     Ok(state)
 }
 
 /// Write virtual-branches `vb_state` to DB and TOML, keeping sync metadata up-to-date.
-///
-/// This always runs synchronization first to resolve any newer TOML changes before applying `data`.
 pub fn write_virtual_branches_and_sync(path: &Path, vb: &VirtualBranches) -> anyhow::Result<()> {
     let mut db = db_handle_from_toml_path(path)?;
     let mut tx = db.immediate_transaction()?;
-    ensure_vb_storage_in_sync(path, &mut tx)?;
     let mut db_state = snapshot_state(path, &tx)?.unwrap_or_default().state;
     if !db_state.initialized {
         db_state.initialized = true;
@@ -124,89 +116,32 @@ pub fn import_toml_into_db(path: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn ensure_vb_storage_in_sync(
+fn read_or_init_vb_storage(
     path: &Path,
     tx: &mut but_db::Transaction<'_>,
 ) -> anyhow::Result<VirtualBranches> {
     let snapshot = snapshot_state(path, tx)?.unwrap_or_default();
-    let toml_info = read_toml_info(path)?;
-
-    if !snapshot.state.initialized {
-        let mut state = snapshot.state;
-        state.initialized = true;
-        return match toml_info {
-            TomlInfo::Parsed(parsed) => {
-                parsed.update_last_seen_metadata_on(&mut state);
-                let db_snapshot = legacy_to_snapshot(&parsed.data, into_db_toml_file_info(state))?;
-                persist_snapshot(tx, db_snapshot)?;
-                Ok(parsed.data)
-            }
-            TomlInfo::Missing | TomlInfo::Invalid => {
-                let empty = VirtualBranches::default();
-                let info = write_toml(path, &empty)?;
-                info.update_last_seen_metadata_on(&mut state);
-                let db_snapshot = legacy_to_snapshot(&empty, into_db_toml_file_info(state))?;
-                persist_snapshot(tx, db_snapshot)?;
-                Ok(empty)
-            }
-        };
+    if snapshot.state.initialized {
+        return snapshot_to_legacy(&snapshot);
     }
 
-    match toml_info {
-        TomlInfo::Missing => {
-            let db_data = snapshot_to_legacy(&snapshot)?;
-            let info = write_toml(path, &db_data)?;
-            let mut updated = snapshot;
-            info.update_last_seen_metadata_on(&mut updated.state);
-            persist_snapshot(tx, updated)?;
-            Ok(db_data)
-        }
+    let mut state = snapshot.state;
+    state.initialized = true;
+    match read_toml_info(path)? {
         TomlInfo::Parsed(parsed) => {
-            match toml_compare(&snapshot.state, parsed.mtime_ns, &parsed.sha256_hexdigest) {
-                // Toml is newer
-                Ordering::Greater => {
-                    let mut state = snapshot.state;
-                    parsed.update_last_seen_metadata_on(&mut state);
-                    let db_snapshot =
-                        legacy_to_snapshot(&parsed.data, into_db_toml_file_info(state))?;
-                    persist_snapshot(tx, db_snapshot)?;
-                    Ok(parsed.data)
-                }
-                Ordering::Equal => Ok(snapshot_to_legacy(&snapshot)?),
-                // Toml is older
-                Ordering::Less => {
-                    let db_data = snapshot_to_legacy(&snapshot)?;
-                    let info = write_toml(path, &db_data)?;
-                    let mut updated = snapshot;
-                    info.update_last_seen_metadata_on(&mut updated.state);
-                    persist_snapshot(tx, updated)?;
-                    Ok(db_data)
-                }
-            }
+            parsed.update_last_seen_metadata_on(&mut state);
+            let db_snapshot = legacy_to_snapshot(&parsed.data, into_db_toml_file_info(state))?;
+            persist_snapshot(tx, db_snapshot)?;
+            Ok(parsed.data)
         }
-        TomlInfo::Invalid => {
-            let db_data = snapshot_to_legacy(&snapshot)?;
-            let info = write_toml(path, &db_data)?;
-            let mut updated = snapshot;
-            info.update_last_seen_metadata_on(&mut updated.state);
-            persist_snapshot(tx, updated)?;
-            Ok(db_data)
+        TomlInfo::Missing | TomlInfo::Invalid => {
+            let empty = VirtualBranches::default();
+            let info = write_toml(path, &empty)?;
+            info.update_last_seen_metadata_on(&mut state);
+            let db_snapshot = legacy_to_snapshot(&empty, into_db_toml_file_info(state))?;
+            persist_snapshot(tx, db_snapshot)?;
+            Ok(empty)
         }
-    }
-}
-
-/// Returns `Ordering::Greater` when TOML is newer than what DB has last seen.
-/// Returns `Ordering::Equal` when TOML has the same mtime and sha256 as last seen.
-/// Returns `Ordering::Less` when TOML is older than DB's last-seen metadata.
-fn toml_compare(state: &VbState, mtime_ns: i64, sha256: &str) -> Ordering {
-    match state.toml_last_seen_mtime_ns {
-        None => Ordering::Greater,
-        Some(last_seen) if mtime_ns > last_seen => Ordering::Greater,
-        Some(last_seen) if mtime_ns < last_seen => Ordering::Less,
-        Some(_last_seen_is_equal) => match state.toml_last_seen_sha256.as_deref() {
-            Some(last_seen_sha256) if last_seen_sha256 == sha256 => Ordering::Equal,
-            Some(_) | None => Ordering::Greater,
-        },
     }
 }
 

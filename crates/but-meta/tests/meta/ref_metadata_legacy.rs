@@ -81,6 +81,22 @@ fn read_only_store_does_not_write_on_drop() -> anyhow::Result<()> {
 }
 
 #[test]
+fn toml_edits_after_initialization_are_ignored() -> anyhow::Result<()> {
+    let (store, _tmp) = vb_store_rw("virtual-branches-01")?;
+    let toml_path = store.path().to_owned();
+    drop(store);
+
+    std::fs::write(&toml_path, "[branches]\n")?;
+    let store = VirtualBranchesTomlMetadata::from_path(&toml_path)?;
+    assert_eq!(
+        store.iter().count(),
+        15,
+        "the database is the source of truth, so the emptied TOML file is ignored"
+    );
+    Ok(())
+}
+
+#[test]
 fn managed_workspace_order_is_available_to_ad_hoc_workspaces() -> anyhow::Result<()> {
     let tmp = TempDir::new()?;
     let mut store =
