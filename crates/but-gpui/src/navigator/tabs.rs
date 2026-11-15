@@ -1161,8 +1161,10 @@ impl NavigatorTabs {
         let stepping = matches!(action, RowAction::Step(_));
         match key {
             _ if stepping && moving_tab(self.store.read(cx)).is_some() => {}
-            // The overview's rows take the keys themselves.
-            TabKey::Terminals if stepping => window.focus(&self.terminals.focus_handle(cx), cx),
+            // The overview's rows take the keys themselves, down from the tab, which is the top.
+            TabKey::Terminals if matches!(action, RowAction::Step(1..)) => {
+                window.focus(&self.terminals.focus_handle(cx), cx)
+            }
             TabKey::Terminals => {}
             TabKey::Project(_) | TabKey::Checkout(..) | TabKey::More => {
                 let row = (self.navigator).update(cx, |navigator, cx| {

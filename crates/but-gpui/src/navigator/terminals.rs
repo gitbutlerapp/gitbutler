@@ -16,7 +16,7 @@ use gpui::{
 
 use super::rename::{on_terminal_name, terminal_name_input};
 use super::rows::{CARD_PADDING, GUIDE_AT as ICON_MIDDLE, ROW_LEFT};
-use super::{CARD_BAR_HEIGHT, CARD_BAR_INSET, RowStyle, card_bar, status_mark};
+use super::{CARD_BAR_HEIGHT, CARD_BAR_INSET, RowStyle, Step, card_bar, status_mark, step_to};
 use crate::app::{
     AppHandle, AppView, Cancel, Confirm, FocusNavigator, SelectNext, SelectPrevious, SplitBelow,
     SplitRight,
@@ -365,8 +365,8 @@ impl TerminalOverview {
     }
 
     /// Step `delta` rows from the one selected, the keys staying here, as the navigator's rows
-    /// do: onto a terminal, showing it, or onto a heading, which shows nothing. From
-    /// none selected, forward starts at the top and back at the bottom.
+    /// do ([`step_to`]): onto a terminal, showing it, or onto a heading, which shows nothing. In
+    /// the card under its tab, up off the first row goes back onto the tab.
     fn step(&mut self, delta: isize, window: &mut Window, cx: &mut Context<Self>) {
         if self.folded_away(cx) {
             return;
@@ -377,15 +377,15 @@ impl TerminalOverview {
             (Item::Terminal(id), None) => Some(*id) == shown,
             (Item::Heading(..), None) | (Item::Terminal(_), Some(_)) => false,
         });
-        let last = self.items.len().saturating_sub(1);
-        let next = match at {
-            Some(at) => (at as isize + delta).clamp(0, last as isize) as usize,
-            None if delta > 0 => 0,
-            None => last,
+        let next = match step_to(at, self.items.len(), None, false, delta, self.in_tab(cx)) {
+            Some(Step::Item(next)) => next,
+            Some(Step::Tab) => {
+                return (self.app).update_later(window, cx, |app, window, cx| {
+                    app.focus_navigator(&FocusNavigator, window, cx)
+                });
+            }
+            Some(Step::Bar) | None => return,
         };
-        if Some(next) == at {
-            return;
-        }
         match self.items.get(next) {
             Some(Item::Heading(group, _)) => {
                 self.on_heading = Some(group.clone());
