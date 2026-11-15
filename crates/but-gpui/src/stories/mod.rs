@@ -6,6 +6,10 @@
 //!
 //! A story is a view of its own, which keeps whatever state trying its control needs. Add one
 //! as a module here and to [`Gallery::new`].
+//!
+//! A story draws but-ui-react's stories of its component as [`Example`]s, under the docs site's
+//! ids. `GITBUTLER_GPUI_STORY=<id>` opens one of them alone, the window fitted to it, which is
+//! how `packages/but-ui-react/scripts/gpui-shots.mjs` shoots it for the docs site.
 
 mod activity;
 mod avatar;
@@ -26,7 +30,7 @@ mod switch;
 mod toggle_group;
 
 use gpui::{
-    AnyElement, AnyView, App, Bounds, Context, Div, KeyBinding, Menu, MenuItem, QuitMode,
+    AnyElement, AnyView, App, Bounds, Context, Div, Hsla, KeyBinding, Menu, MenuItem, QuitMode,
     SharedString, Task, TitlebarOptions, Window, WindowAppearance, WindowBounds, WindowOptions,
     actions, div, point, prelude::*, size,
 };
@@ -106,10 +110,35 @@ struct Story {
     view: AnyView,
 }
 
+/// One of but-ui-react's stories, as this client draws it.
+#[derive(Clone, Copy)]
+struct Example {
+    /// The story's id on the docs site: `components-button--icon-only`.
+    id: &'static str,
+    /// The story's name there, its export's words: `Icon Only`.
+    name: &'static str,
+    draw: fn(&Theme) -> AnyElement,
+}
+
+/// Every story's examples.
+fn examples() -> impl Iterator<Item = Example> {
+    button::EXAMPLES.into_iter()
+}
+
+/// An example under its name, as the docs site titles it.
+fn example(example: Example, theme: &Theme) -> Div {
+    v_flex()
+        .gap(dp(12.))
+        .child(section_label(example.name, theme))
+        .child((example.draw)(theme))
+}
+
 /// The list of stories beside the one picked, and how the theme draws them.
 struct Gallery {
     stories: Vec<Story>,
     shown: usize,
+    /// An example drawn alone, in place of the gallery, to be shot.
+    solo: Option<Example>,
     dark: bool,
     scale: UiScale,
     density: Density,
@@ -171,6 +200,7 @@ impl Gallery {
                 (stories.iter()).position(|s| s.name.eq_ignore_ascii_case(&asked))
             })
             .unwrap_or_default();
+        let solo = (asked.as_deref()).and_then(|asked| examples().find(|e| e.id == asked));
         // As the app's theme: the variable first, handy for screenshots, then the system's.
         let dark = match std::env::var("GITBUTLER_GPUI_APPEARANCE").as_deref() {
             Ok("dark") => true,
@@ -184,6 +214,7 @@ impl Gallery {
             build: Build::default(),
             stories,
             shown,
+            solo,
             dark,
             scale: UiScale::default(),
             density: Density::default(),
@@ -366,6 +397,9 @@ impl Render for Gallery {
         // Every `dp` size is in rems, so this scales the whole window, as the app's does.
         window.set_rem_size(Theme::get(cx).scaled(ui::BASE_REM));
         let theme = Theme::get(cx).clone();
+        if let Some(example) = self.solo {
+            return solo(example, &theme, self.dark).into_any_element();
+        }
         let story = self.stories.get(self.shown);
         let name = story.map_or("", |story| story.name);
         h_flex()
@@ -391,7 +425,49 @@ impl Render for Gallery {
                             .children(story.map(|story| story.view.clone())),
                     ),
             )
+            .into_any_element()
     }
+}
+
+/// An example alone on the docs site's ground, with its 24px of room around it, and the window
+/// resized to just that, so a shot of the whole window is the example as the site would show it.
+fn solo(example: Example, theme: &Theme, dark: bool) -> Div {
+    h_flex()
+        .size_full()
+        .items_start()
+        .font_family(theme.ui_font.clone())
+        .text_size(dp(13.))
+        .text_color(theme.text_1)
+        .bg(docs_ground(dark))
+        .child(div().flex_none().p(dp(24.)).child((example.draw)(theme)))
+        .on_children_prepainted(|bounds, window, _| {
+            let Some(fits) = bounds.first().map(|bounds| bounds.size) else {
+                return;
+            };
+            let size = window.viewport_size();
+            let off = (size.width - fits.width).abs() + (size.height - fits.height).abs();
+            // Resized once laid out, and again only if the new width wraps it differently.
+            if off > fixed(0.5) {
+                window.on_next_frame(move |window, _| window.resize(fits));
+            }
+        })
+}
+
+/// The docs site's ground under an example, `.docs-page-canvas` in but-ui-react's
+/// `docs/site.css`: `--but-disabled`, and in dark 65% `--but-background` mixed into it.
+fn docs_ground(dark: bool) -> Hsla {
+    use crate::theme::tokens::{BACKGROUND, DISABLED};
+    // One of a token's red, green and blue, in this appearance; tokens are RGBA.
+    let channel = |[light, dark_value]: [u32; 2], shift: u32| {
+        let rgba = if dark { dark_value } else { light };
+        ((rgba >> (shift + 8)) & 0xff) as f32 / 255.
+    };
+    let share = if dark { 0.65 } else { 0. };
+    let [r, g, b] = [16, 8, 0].map(|shift| {
+        let (from, to) = (channel(DISABLED, shift), channel(BACKGROUND, shift));
+        from + (to - from) * share
+    });
+    gpui::Rgba { r, g, b, a: 1. }.into()
 }
 
 /// A story's sections, top to bottom.

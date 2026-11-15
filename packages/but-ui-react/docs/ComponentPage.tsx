@@ -11,7 +11,10 @@ import {
 	type StoryEntry,
 } from "./pages.ts";
 import { pageLink } from "./site.ts";
-import type { FC } from "react";
+import { GpuiView } from "./GpuiView.tsx";
+import { gpuiShots, type Renderer } from "./gpui.ts";
+import { Segment, SegmentedControl } from "../src/SegmentedControl.tsx";
+import { useState, type CSSProperties, type FC } from "react";
 
 /**
  * A component's page, drawn with the components themselves: its name and JSDoc, the design notes
@@ -96,15 +99,47 @@ const Example: FC<{ entry: StoryEntry; framed: boolean }> = ({ entry, framed }) 
 					)}
 				</RowGroup>
 			) : (
-				// Anything else stands on a tinted ground with no border, so a component with a card of
-				// its own, as a RowGroup, isn't drawn as a card within a card.
-				<div className="docs-page-canvas" data-layout={layout} style={ground}>
-					<div className="docs-page-stage" style={width === undefined ? undefined : { width }}>
-						<entry.story.Component />
-					</div>
-				</div>
+				<Ground entry={entry} style={ground} />
 			)}
 		</section>
+	);
+};
+
+/**
+ * Anything not framed stands on a tinted ground with no border, so a component with a card of its
+ * own, as a RowGroup, isn't drawn as a card within a card. A story the GPUI client draws too sits
+ * in a card with a footer under its ground, which switches that card between the two.
+ */
+const Ground: FC<{ entry: StoryEntry; style: CSSProperties | undefined }> = ({ entry, style }) => {
+	const { layout, width } = entry.story.parameters;
+	const shots = gpuiShots(entry.id);
+	const [renderer, pickRenderer] = useState<Renderer>("react");
+	const canvas = (
+		<div
+			className="docs-page-canvas"
+			data-layout={layout}
+			style={shots === undefined ? style : undefined}
+		>
+			{shots !== undefined && renderer === "gpui" ? (
+				<GpuiView name={entry.name} shots={shots} />
+			) : (
+				<div className="docs-page-stage" style={width === undefined ? undefined : { width }}>
+					<entry.story.Component />
+				</div>
+			)}
+		</div>
+	);
+	if (shots === undefined) return canvas;
+	return (
+		<div className="docs-page-card" data-layout={layout} style={style}>
+			{canvas}
+			<div className="docs-page-card-footer">
+				<SegmentedControl value={renderer} onValueChange={pickRenderer} aria-label="Drawn by">
+					<Segment value="react">React</Segment>
+					<Segment value="gpui">GPUI</Segment>
+				</SegmentedControl>
+			</div>
+		</div>
 	);
 };
 
