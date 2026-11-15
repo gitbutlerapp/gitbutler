@@ -109,8 +109,9 @@ pub struct Workspace {
     /// forge cache knows and of the branches linked worktrees shown have checked out, which
     /// the Branches page lists again when it changes.
     pub refs: u64,
-    /// A fingerprint of the pull requests the forge cache knew as this was read. A forge refresh
-    /// compares it with what the cache knows now, as `but` writes the cache too.
+    /// A fingerprint of the pull requests it shows ([`Workspace::shown_reviews`]) as the forge
+    /// cache knew them when this was read. A forge refresh compares it with what the cache
+    /// knows now, as `but` writes the cache too.
     pub reviews: u64,
     /// The same of the CI checks the forge cache knew as this was read.
     pub checks: u64,

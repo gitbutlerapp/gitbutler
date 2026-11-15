@@ -403,14 +403,17 @@ impl Store {
     ) -> Task<()> {
         cx.spawn(async move |this, cx| {
             while let Some(id) = requested.next().await {
-                let Ok(path) = this.update(cx, |store, _| {
+                let Ok(open) = this.update(cx, |store, _| {
                     store.forge_queued.remove(&id);
                     let open = store.project(&id).filter(|entry| entry.expanded);
-                    open.map(|entry| entry.project.path.clone())
+                    open.map(|entry| {
+                        let shown = entry.workspace.as_ref().map(|ws| ws.shown_reviews());
+                        (entry.project.path.clone(), shown.unwrap_or_default())
+                    })
                 }) else {
                     return;
                 };
-                let Some(path) = path else {
+                let Some((path, shown)) = open else {
                     continue;
                 };
                 let Ok(()) = this.update(cx, |store, cx| {
@@ -420,7 +423,8 @@ impl Store {
                     return;
                 };
                 let reviews_path = path.clone();
-                let refreshed = backend::run(move || backend::refresh_reviews(&reviews_path)).await;
+                let refreshed =
+                    backend::run(move || backend::refresh_reviews(&reviews_path, &shown)).await;
                 // The pull requests show without waiting for their checks.
                 let Ok(_) = this.update(cx, |store, cx| match &refreshed {
                     Ok(refreshed) => {

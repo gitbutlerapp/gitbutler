@@ -358,7 +358,6 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
     })?;
     let (uncommitted, refs) = side;
     let cached = reviews::cached_reviews(&ctx);
-    let reviews = reviews_fingerprint(&cached);
     let checks = reviews::checks_fingerprint(&ctx);
     let info = match view {
         Ok(info) => info,
@@ -368,7 +367,6 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
                 tree,
                 git_operation,
                 refs,
-                reviews,
                 checks,
                 editing: Some(editing),
                 ..Default::default()
@@ -412,7 +410,7 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
     // The oplog records a snapshot against the target, so without one set it records none.
     // One whose upstream went, or isn't there yet, still records, against its stored commit.
     let unrecorded = head.is_none() || tree.is_none() || target_branch.is_none();
-    Ok(Workspace {
+    let mut workspace = Workspace {
         target,
         lost_target,
         forge: reviews::forge_name(&ctx).map(reviews::app_forge),
@@ -426,19 +424,23 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         remoteless,
         editing: None,
         // The branches the worktrees shown have checked out, which the Branches page leaves off.
-        refs: (worktrees.iter()).fold(refs ^ reviews, |sum, w| {
+        refs: (worktrees.iter()).fold(refs, |sum, w| {
             use std::hash::{Hash as _, Hasher as _};
             let mut hasher = std::collections::hash_map::DefaultHasher::new();
             w.branch.hash(&mut hasher);
             sum ^ hasher.finish()
         }),
-        reviews,
+        reviews: 0,
         checks,
         worktrees,
         archived_worktrees,
         oplog: history::newest_entries(&ctx),
         oplog_at_start,
-    })
+    };
+    workspace.reviews = reviews_fingerprint(&ctx, &cached, Some(&workspace.shown_reviews()));
+    // The Branches page lists every branch's pull request.
+    workspace.refs ^= reviews_fingerprint(&ctx, &cached, None);
+    Ok(workspace)
 }
 
 /// The target as `info` and the project's `meta` have it, with its new commits named by the
@@ -530,13 +532,57 @@ fn worktree_branches(
         .collect()
 }
 
-/// A hash of the pull requests the forge cache knows, so a refresh that learns of one, or of
-/// a change to one, as its description edited, has the project read them again and the
-/// Branches page list them again.
-fn reviews_fingerprint(cached: &HashMap<u64, but_forge::ForgeReview>) -> u64 {
+/// The pull requests a workspace shows: those its branches and the target's new commits name,
+/// and any from a branch it has pushed, as one just opened is before the workspace names it.
+#[derive(Default)]
+pub struct ShownReviews {
+    numbers: HashSet<u64>,
+    /// The remote branches its branches track, as `origin/feature`.
+    pushed: Vec<String>,
+}
+
+impl Workspace {
+    /// The pull requests it shows, which [`Workspace::reviews`] covers.
+    pub fn shown_reviews(&self) -> ShownReviews {
+        let branches = self.lanes.iter().flat_map(|lane| &lane.branches);
+        let incoming = self.target.iter().flat_map(|target| &target.incoming);
+        let named = (branches.clone().filter_map(|branch| branch.review.as_ref()))
+            .chain(incoming.filter_map(|commit| commit.review.as_ref()));
+        ShownReviews {
+            numbers: named.map(|review| review.number).collect(),
+            pushed: branches
+                .filter_map(|branch| branch.remote.clone())
+                .collect(),
+        }
+    }
+}
+
+/// A hash of the pull requests in `cached`, only those `shown` has if given, so a refresh that
+/// learns of one, or of a change to one, as its description edited, has the project read them
+/// again. The forge's poll leaves the others out: on a busy repository some change every
+/// minute, and each would reload the project.
+fn reviews_fingerprint(
+    ctx: &Context,
+    cached: &HashMap<u64, but_forge::ForgeReview>,
+    shown: Option<&ShownReviews>,
+) -> u64 {
     use std::hash::{Hash as _, Hasher as _};
+    // Those it names, and any the load would attach to a remote branch one of its branches
+    // tracks, as a pull request just opened for it.
+    let numbers = shown.map(|shown| {
+        let by_head = (ctx.db.get_cache().ok())
+            .and_then(|db| but_forge::review_associations_by_head(&db, &*ctx.repo.get().ok()?).ok())
+            .unwrap_or_default();
+        let opened = (shown.pushed.iter()).filter_map(|tracked| by_head.get(tracked));
+        (shown.numbers.iter().copied())
+            .chain(opened.map(|&(number, ..)| number as u64))
+            .collect::<HashSet<_>>()
+    });
+    let shown = |review: &&but_forge::ForgeReview| {
+        (numbers.as_ref()).is_none_or(|numbers| numbers.contains(&(review.number as u64)))
+    };
     // Order-free, as the map's order isn't fixed.
-    cached.values().fold(0, |sum, review| {
+    cached.values().filter(shown).fold(0, |sum, review| {
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         let settled = (&review.merged_at, &review.closed_at);
         // When it changed rather than its description, which can be long.
