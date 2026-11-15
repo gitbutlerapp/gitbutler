@@ -415,7 +415,12 @@ pub mod git_credentials {
                 .credentials(&self.handle, None)
                 .map_err(|err| keyring::Error::PlatformFailure(err.into()))?;
             match cascade.invoke(get_action, prompt) {
-                Ok(Some(out)) => Ok(out.identity.password),
+                Ok(Some(out)) => match out.credentials {
+                    gix::sec::identity::Credentials::UsernamePassword { password, .. } => {
+                        Ok(password)
+                    }
+                    gix::sec::identity::Credentials::Encoded { .. } => Err(keyring::Error::NoEntry),
+                },
                 Ok(None) => Err(keyring::Error::NoEntry),
                 Err(err) => {
                     tracing::debug!(err = ?err, "credential-helper invoke failed - usually this means it wanted to prompt which is disabled");
@@ -485,5 +490,44 @@ pub mod git_credentials {
         let store = Arc::new(Store::from_globals()?);
         keyring::set_default_credential_builder(Box::new(Builder { store }));
         Ok(())
+    }
+
+    #[cfg(all(test, unix))]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn retrieves_passwords_without_treating_encoded_credentials_as_passwords() -> Result<()> {
+            for (fields, password) in [
+                (
+                    r"username=gitbutler-secrets\\npassword=stored-password\\n",
+                    Some("stored-password"),
+                ),
+                (
+                    r"capability[]=authtype\\nauthtype=Bearer\\ncredential=encoded-secret\\n",
+                    None,
+                ),
+            ] {
+                let config = format!(
+                    "[credential]\nhelper = \"!f() {{ cat >/dev/null; printf '{fields}'; }}; f\"\n"
+                );
+                let entry = Entry {
+                    handle: "isolated-test".into(),
+                    store: Arc::new(Store(gix::config::File::try_from(config.as_str())?)),
+                };
+                match password {
+                    Some(password) => assert_eq!(
+                        entry.get_password()?,
+                        password,
+                        "the helper's stored password survives the credentials API change"
+                    ),
+                    None => assert!(
+                        matches!(entry.get_password(), Err(keyring::Error::NoEntry)),
+                        "encoded authentication has no stored password to retrieve"
+                    ),
+                }
+            }
+            Ok(())
+        }
     }
 }

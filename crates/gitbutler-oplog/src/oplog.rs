@@ -533,7 +533,7 @@ fn reset_index_to_tree(
     if let Some(conflicts_tree_id) = conflicts_tree_id {
         restore_index_conflicts(&mut index, repo.find_tree(conflicts_tree_id)?.id())?;
     }
-    index.write(Default::default())?;
+    index.write(Default::default(), repo.refs.shared_repository_permissions)?;
     // Keep the legacy libgit2 handle in sync with the index written through gix.
     #[expect(deprecated, reason = "index cache compatibility boundary")]
     ctx.git2_repo.get()?.index()?.read(true)?;

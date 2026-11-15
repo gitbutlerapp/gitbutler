@@ -11,6 +11,37 @@ use snapbox::prelude::*;
 use crate::worktree::utils::{build_commit, commit_files};
 
 #[test]
+fn checkout_refuses_a_file_directory_conflict_before_writing() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-modification-the-target-deletes");
+    let target = commit_files(
+        &repo,
+        "replace the locally modified file with a directory",
+        &[("x", None), ("x/child", Some("target\n"))],
+    )?;
+    let before = repo_state(&repo)?;
+    let error = safe_checkout_from_head(
+        target,
+        &repo,
+        checkout::Options {
+            allow_uncommitted_changes_to_conflict_with_new_head: true,
+            ..Default::default()
+        },
+    )
+    .expect_err("a file-directory conflict must be refused even if file conflicts are allowed");
+
+    assert!(
+        error.to_string().contains("file-directory conflict"),
+        "{error:#}"
+    );
+    assert_eq!(
+        repo_state(&repo)?,
+        before,
+        "checkout leaves the repository intact"
+    );
+    Ok(())
+}
+
+#[test]
 fn update_unborn_head() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("unborn-empty");
     snapbox::assert_data_eq!(visualize_commit_graph_all(&repo)?, snapbox::str![""]);
@@ -2294,7 +2325,7 @@ fn record_index_stat_with_mtime(
         .expect("tracked");
     index.entries_mut()[position].stat =
         gix::index::entry::Stat::from_fs(&gix::index::fs::Metadata::from_path_no_follow(&path)?)?;
-    index.write(Default::default())?;
+    index.write(Default::default(), repo.refs.shared_repository_permissions)?;
     Ok(())
 }
 
