@@ -578,14 +578,14 @@ mod tests {
     fn a_kept_shell_answers_whoever_adopts_it() {
         let (pty, mut output) = Pty::spawn(&std::env::temp_dir(), SIZE, None, &[]).unwrap();
         pty.write(b"echo $$-$((40+2))\n").unwrap();
-        let before = wait_for_text(&mut output, "-42");
+        let before = wait_for_text(&mut output, "-42\r");
 
         let mut pty = pty;
         let kept = pty.keep().unwrap();
         drop(pty);
         let (pty, mut output) = Pty::adopt(kept).unwrap();
         pty.write(b"echo $$-$((50+8))\n").unwrap();
-        let after = wait_for_text(&mut output, "-58");
+        let after = wait_for_text(&mut output, "-58\r");
 
         let pid = |read: &str, sum: &str| {
             let end = read.find(&format!("-{sum}\r")).unwrap();
