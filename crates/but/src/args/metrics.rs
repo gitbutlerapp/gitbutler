@@ -105,8 +105,8 @@ impl CommandName {
 
     /// Sampling rate for successful events, in (0, 1].
     ///
-    /// Failures bypass this policy and are emitted with a rate of 1. In PostHog,
-    /// estimate successful command totals with
+    /// Most failures bypass this policy and are emitted with a rate of 1; `sample_props` names
+    /// the exception. In PostHog, estimate command totals, failures included, with
     /// `sum(1 / coalesce(samplingRate, 1))`.
     pub fn sample_rate(&self) -> f32 {
         match self {

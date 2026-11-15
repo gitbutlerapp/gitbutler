@@ -826,6 +826,28 @@ fn command_rejections_bypass_sampling() {
 }
 
 #[test]
+fn failures_outside_a_repository_use_the_command_rate() {
+    let result = Err::<(), CliError>(
+        bad_input("No git repository found")
+            .code(crate::setup::NO_GIT_REPOSITORY)
+            .into(),
+    );
+    let props = || Props::from_cli_error_result(std::time::Instant::now(), &result);
+
+    assert!(
+        sample_props(props(), CommandName::Status, true, 0.5).is_none(),
+        "a loop of `but status` outside a repository is sampled like successful runs"
+    );
+    let props = sample_props(props(), CommandName::Status, true, 0.005)
+        .expect("draw below the rate should capture");
+    assert_eq!(
+        props.values["samplingRate"],
+        serde_json::json!(0.01),
+        "the event carries the rate it was sampled at"
+    );
+}
+
+#[test]
 fn successful_sampled_events_can_be_dropped() {
     assert!(
         sample_props(Props::new(), CommandName::Status, false, 0.5).is_none(),

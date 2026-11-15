@@ -483,7 +483,15 @@ impl Props {
 }
 
 fn sample_props(mut props: Props, command: CommandName, failed: bool, draw: f32) -> Option<Props> {
-    let sampling_rate = if failed { 1.0 } else { command.sample_rate() };
+    // Running outside a repository fails the same way on every run, so a script that polls
+    // `but status` from the wrong directory is sampled like successful runs.
+    let outside_repo = props.values.get("errorCode").and_then(|code| code.as_str())
+        == Some(crate::setup::NO_GIT_REPOSITORY);
+    let sampling_rate = if failed && !outside_repo {
+        1.0
+    } else {
+        command.sample_rate()
+    };
     if sampling_rate < draw {
         return None;
     }
