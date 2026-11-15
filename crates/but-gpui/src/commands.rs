@@ -6,9 +6,9 @@ use gpui::{Action, App, Window};
 use crate::app::{
     ActualSize, AddProject, AppView, ChangeTheme, CheckForUpdates, CopySelection, Fetch,
     FocusChanges, FocusDiff, FocusNavigator, FocusTerminals, NewBranch, NewBranchOnTop,
-    OpenPullRequest, Pull, Push, Quit, Redo, StartAmend, StartCommit, ToggleDetail, ToggleFileTree,
-    ToggleNavigator, ToggleNavigatorPlace, ToggleTerminalOverview, Undo, UpdateFromTarget,
-    UpdateWorkspace, UpdateWorktrees, ZoomIn, ZoomOut,
+    OpenPullRequest, Pull, Push, Quit, Redo, RefreshProject, StartAmend, StartCommit, ToggleDetail,
+    ToggleFileTree, ToggleNavigator, ToggleNavigatorPlace, ToggleTerminalOverview, Undo,
+    UpdateFromTarget, UpdateWorkspace, UpdateWorktrees, ZoomIn, ZoomOut,
 };
 use crate::backend::{FullName, Workspace};
 use crate::detail::{FoldFile, NextFile, NextHunk, PreviousFile, PreviousHunk, UnfoldFile};
@@ -169,6 +169,10 @@ commands! {
     Push => "Push" risky { phrase: push_phrase, listed: pushable },
     OpenPullRequest => "Open pull request" { listed: has_pull_request },
     Fetch => "Fetch",
+    RefreshProject => "Refresh project" {
+        listed: |app, cx| app.selected_project(cx).is_some(),
+        aliases: &["Rescan repository", "Reload project"],
+    },
     Pull => "Pull",
     UpdateFromTarget => "Update workspace and worktrees" { listed: target_moved },
     UpdateWorkspace => "Update workspace" { listed: has_target },

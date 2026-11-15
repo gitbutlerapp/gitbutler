@@ -11,7 +11,7 @@ use gix::{
     bstr::ByteSlice as _,
     notify::{Changes, Outcome, RepositoryMonitor, Scope, WorktreeChange, plumbing},
 };
-use tokio::sync::oneshot;
+use tokio::sync::mpsc;
 
 /// A repository monitor plus GitButler's refresh and compatibility signals.
 ///
@@ -38,14 +38,15 @@ impl FileMonitor {
         })
     }
 
-    /// Establish coverage, publish initial invalidations, and monitor until `stop` is sent or dropped.
+    /// Establish coverage and monitor until every sender of `rescans` is dropped.
+    /// Sending `()` requests a full rescan of every monitored checkout.
     ///
     /// Every outcome is forwarded whole, including simultaneous errors and invalidations. Native
     /// resources are shut down on their workers before this returns. The callback should only signal
     /// its consumer; filesystem registration, inventory and ignore filtering run off the executor.
     pub async fn run(
         self,
-        mut stop: oneshot::Receiver<()>,
+        mut rescans: mpsc::UnboundedReceiver<()>,
         mut on_change: impl FnMut(Outcome),
     ) -> Result<()> {
         let Self {
@@ -57,6 +58,7 @@ impl FileMonitor {
         let git_dir = monitor.layout().git_dir.clone();
         let retry_interval = monitor.options().retry_interval;
         let mut refresh_signals = true;
+        let mut reset_signals = false;
         let mut retry = None;
 
         let (result, monitor) = loop {
@@ -74,21 +76,22 @@ impl FileMonitor {
             monitor = next;
 
             let batch = signals.drain(plumbing::Budget::default());
-            let signal_changed = batch.loss.is_some()
-                || batch
-                    .events
+            let mut signal_changed = batch.loss.is_some();
+            let mut layout_changed = signal_changed;
+            for changed in batch.events.iter().flat_map(|event| &event.paths) {
+                if paths
                     .iter()
-                    .flat_map(|event| &event.paths)
-                    .any(|changed| {
-                        paths
-                            .iter()
-                            .any(|signal| changed == signal || signal.starts_with(changed))
-                    });
+                    .any(|signal| changed == signal || signal.starts_with(changed))
+                {
+                    signal_changed = true;
+                    layout_changed |= paths.last() != Some(changed);
+                }
+            }
             refresh_signals |=
-                signal_changed || outcome.changes.configuration || outcome.changes.layout;
+                layout_changed || outcome.changes.configuration || outcome.changes.layout;
             if signal_changed {
                 outcome.changes.references = true;
-                outcome.changes.layout = true;
+                outcome.changes.layout |= layout_changed;
             }
             if let Some(error) = batch.error {
                 outcome.errors.push(error);
@@ -99,33 +102,50 @@ impl FileMonitor {
             let options = open_options.clone_without_trust();
             let prepare_signals =
                 refresh_signals && retry.is_none_or(|deadline| deadline <= Instant::now());
-            let work = tokio::task::spawn_blocking(move || {
-                filter_outcome(&open_at, &options, &mut outcome);
-                let prepared = prepare_signals.then(|| {
-                    let repo = gix::open_opts(&open_at, options)?;
-                    let paths = signal_paths(&repo)?;
-                    let watches = signal_watches(&paths)?;
-                    Ok::<_, anyhow::Error>((paths, watches))
+            let has_paths = |changes: &Changes| matches!(&changes.worktree, Some(Scope::Paths(_)));
+            let filter_needed = has_paths(&outcome.changes)
+                || outcome.other_worktrees.iter().any(|worktree| {
+                    matches!(&worktree.kind, WorktreeChange::Changed(changes) if has_paths(changes))
                 });
-                (outcome, prepared)
-            })
-            .await;
-            let (mut outcome, prepared) = match work {
-                Ok(result) => result,
-                Err(err) => {
-                    break (
-                        Err(err).context("Preparing repository invalidations"),
-                        Some(monitor),
-                    );
+            let (mut outcome, prepared) = if prepare_signals || filter_needed {
+                match tokio::task::spawn_blocking(move || {
+                    filter_outcome(&open_at, &options, &mut outcome);
+                    let prepared = prepare_signals.then(|| {
+                        let repo = gix::open_opts(&open_at, options)?;
+                        let paths = signal_paths(&repo)?;
+                        let watches = signal_watches(&paths)?;
+                        Ok::<_, anyhow::Error>((paths, watches))
+                    });
+                    (outcome, prepared)
+                })
+                .await
+                {
+                    Ok(result) => result,
+                    Err(err) => {
+                        break (
+                            Err(err).context("Preparing repository invalidations"),
+                            Some(monitor),
+                        );
+                    }
                 }
+            } else {
+                (outcome, None)
             };
             if let Some(prepared) = prepared {
                 match prepared {
                     Ok((next_paths, next_watches)) => {
                         paths = next_paths;
-                        match async { signals.replace(next_watches)?.await }.await {
+                        match async {
+                            if reset_signals {
+                                signals.replace([])?.await?;
+                            }
+                            signals.replace(next_watches)?.await
+                        }
+                        .await
+                        {
                             Ok(()) => {
                                 refresh_signals = false;
+                                reset_signals = false;
                                 retry = None;
                             }
                             Err(error) => {
@@ -151,7 +171,16 @@ impl FileMonitor {
 
             tokio::select! {
                 biased;
-                _ = &mut stop => break (Ok(()), Some(monitor)),
+                rescan = rescans.recv() => match rescan {
+                    Some(()) => {
+                        while rescans.try_recv().is_ok() {}
+                        monitor.rescan();
+                        refresh_signals = true;
+                        reset_signals = true;
+                        retry = None;
+                    }
+                    None => break (Ok(()), Some(monitor)),
+                },
                 _ = monitor.ready_async() => {},
                 _ = signals.ready() => {},
                 _ = async {
@@ -175,6 +204,7 @@ fn signal_paths(repo: &gix::Repository) -> Result<Vec<PathBuf>> {
     let sentinel = Path::new(but_project_handle::REFRESH_SENTINEL_PATH)
         .file_name()
         .context("Refresh sentinel has a filename")?;
+    // Only an exact change to the last signal, the reflog, can avoid a layout reload.
     [
         but_project_handle::gitbutler_storage_path(repo)?.join(sentinel),
         repo.git_dir().join("GB_FLUSH"),

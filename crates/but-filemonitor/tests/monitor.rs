@@ -5,7 +5,7 @@ use std::{path::Path, time::Duration};
 use anyhow::{Context as _, Result};
 use but_filemonitor::FileMonitor;
 use gix::notify::{Outcome, Scope, WorktreeChange};
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::mpsc;
 
 async fn expect_outcome(
     events: &mut mpsc::UnboundedReceiver<Outcome>,
@@ -28,6 +28,18 @@ async fn expect_outcome(
     })
     .await
     .context("waiting for repository invalidation")?
+}
+
+async fn settle(events: &mut mpsc::UnboundedReceiver<Outcome>) {
+    while let Ok(Some(outcome)) =
+        tokio::time::timeout(Duration::from_millis(300), events.recv()).await
+    {
+        assert!(
+            outcome.errors.is_empty(),
+            "monitoring settles without failures: {:?}",
+            outcome.errors
+        );
+    }
 }
 
 fn git(path: &Path, args: &[&str]) {
@@ -62,17 +74,17 @@ fn repository(path: &Path) -> Result<gix::Repository> {
 
 #[expect(
     clippy::type_complexity,
-    reason = "the test owns the stop signal, outcome stream and task"
+    reason = "the test owns the control channel, outcome stream and task"
 )]
 fn start(
     repo: &gix::Repository,
 ) -> Result<(
-    oneshot::Sender<()>,
+    mpsc::UnboundedSender<()>,
     mpsc::UnboundedReceiver<Outcome>,
     tokio::task::JoinHandle<Result<()>>,
 )> {
     let monitor = FileMonitor::new(repo)?;
-    let (stop, stopped) = oneshot::channel();
+    let (stop, stopped) = mpsc::unbounded_channel();
     let (events, received) = mpsc::unbounded_channel();
     let task = tokio::spawn(monitor.run(stopped, move |outcome| {
         events.send(outcome).ok();
@@ -135,7 +147,10 @@ async fn files_refresh_sentinel_and_idle_shutdown() -> Result<()> {
         .await?;
 
         std::fs::write(repo.git_dir().join("GB_FLUSH"), "flush")?;
-        expect_outcome(&mut events, |outcome| outcome.changes.references).await?;
+        expect_outcome(&mut events, |outcome| {
+            outcome.changes.references && outcome.changes.layout
+        })
+        .await?;
 
         drop(stop);
         tokio::time::timeout(Duration::from_secs(10), task).await???;
@@ -233,6 +248,103 @@ async fn linked_worktree_add_edit_move_remove() -> Result<()> {
     }
 
     drop(stop);
+    tokio::time::timeout(Duration::from_secs(10), task).await???;
+    Ok(())
+}
+
+#[tokio::test]
+async fn manual_rescan_refreshes_every_checkout_without_writes() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let main = tmp.path().join("main");
+    std::fs::create_dir(&main)?;
+    let repo = repository(&main)?;
+    let linked = tmp.path().join("linked");
+    git(
+        &main,
+        &[
+            "worktree",
+            "add",
+            "-b",
+            "linked",
+            linked.to_str().expect("temporary path is UTF-8"),
+        ],
+    );
+    let identity = gix::open_opts(&linked, gix::open::Options::isolated())?
+        .git_dir()
+        .canonicalize()?;
+    let (control, mut events, task) = start(&repo)?;
+    expect_outcome(&mut events, |outcome| {
+        matches!(outcome.changes.worktree, Some(Scope::All))
+            && outcome.other_worktrees.iter().any(|other| {
+                other.git_dir == identity && matches!(other.kind, WorktreeChange::Added)
+            })
+    })
+    .await?;
+    // Drain startup verification so a queued initial baseline cannot satisfy the rescan assertion.
+    settle(&mut events).await;
+
+    control.send(())?;
+    expect_outcome(&mut events, |outcome| {
+        outcome.changes.references
+            && matches!(outcome.changes.worktree, Some(Scope::All))
+            && outcome.other_worktrees.iter().any(|other| {
+                other.git_dir == identity
+                    && matches!(&other.kind, WorktreeChange::Changed(changes) if matches!(changes.worktree, Some(Scope::All)))
+            })
+    })
+    .await?;
+
+    settle(&mut events).await;
+    std::fs::write(linked.join("file"), "monitored after rescan")?;
+    expect_outcome(&mut events, |outcome| {
+        outcome.other_worktrees.iter().any(|other| {
+            other.git_dir == identity
+                && matches!(&other.kind, WorktreeChange::Changed(changes) if invalidates(&changes.worktree, "file"))
+        })
+    })
+    .await?;
+
+    settle(&mut events).await;
+    let storage = but_project_handle::gitbutler_storage_path(&repo)?;
+    std::fs::create_dir_all(&storage)?;
+    std::fs::write(storage.join("REFRESH"), "after rescan")?;
+    expect_outcome(&mut events, |outcome| {
+        outcome.changes.references && outcome.changes.layout
+    })
+    .await?;
+    settle(&mut events).await;
+    std::fs::write(repo.git_dir().join("GB_FLUSH"), "after rescan")?;
+    expect_outcome(&mut events, |outcome| {
+        outcome.changes.references && outcome.changes.layout
+    })
+    .await?;
+    drop(control);
+    tokio::time::timeout(Duration::from_secs(10), task).await???;
+    assert!(
+        events.is_closed(),
+        "dropping the control sender shuts down the monitor"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn reflog_changes_refresh_references_without_relisting_worktrees() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let repo = repository(tmp.path())?;
+    let (control, mut events, task) = start(&repo)?;
+    expect_outcome(&mut events, |outcome| {
+        matches!(outcome.changes.worktree, Some(Scope::All))
+    })
+    .await?;
+    settle(&mut events).await;
+
+    std::fs::write(repo.git_dir().join("logs/HEAD"), "only the reflog changed")?;
+    let outcome = expect_outcome(&mut events, |outcome| outcome.changes.references).await?;
+    assert!(
+        !outcome.changes.layout,
+        "a reflog edit refreshes references without relisting worktrees"
+    );
+    drop(control);
     tokio::time::timeout(Duration::from_secs(10), task).await???;
     Ok(())
 }
