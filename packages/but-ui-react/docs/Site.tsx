@@ -1,3 +1,4 @@
+import { Badge } from "../src/Badge.tsx";
 import { Menu, MenuRadioGroup, MenuRadioItem } from "../src/Menu.tsx";
 import { PopupSearch } from "../src/Popup.tsx";
 import { ResizeHandle } from "../src/ResizeHandle.tsx";
@@ -78,7 +79,7 @@ const PageView: FC<{ page: Page }> = ({ page }) => {
 	return data.kind === "design" ? (
 		<DesignPage source={data.source} folder={page.file.split("/").at(-2) ?? ""} />
 	) : (
-		<ComponentPage page={page} data={data} />
+		<ComponentPage key={page.id} page={page} data={data} />
 	);
 };
 
@@ -187,6 +188,11 @@ const Navigation: FC<{ current: Page | undefined }> = ({ current }) => {
 													<NavItem
 														key={page.id}
 														name={pageName(page)}
+														meta={
+															page.gpui === true ? (
+																<Badge variant="lightGray">GPUI</Badge>
+															) : undefined
+														}
 														depth={1}
 														guides={pageGuides(group.length)[index]}
 														selected={page === current}

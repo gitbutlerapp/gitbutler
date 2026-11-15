@@ -1,6 +1,4 @@
-//! The design system's empty-state drawings, shared with but.dev and drawn as
-//! `@gitbutler/but-ui-react` draws them: each at the size it was drawn, never scaled, its outline
-//! in `border-1` and its faces in the theme's own grounds.
+//! The design system's empty-state drawings, as but-ui-react's `Illustration`.
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -8,10 +6,9 @@ use std::sync::Arc;
 
 use gpui::{App, Hsla, ImageSource, Img, RenderImage, Rgba, SvgRenderer, img, prelude::*};
 
-use super::dp;
+use crate::dp;
 use crate::theme::Theme;
 
-/// Which drawing, picked by what it means, as but-ui-react's empty states pick them.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Illustration {
     /// A list with nothing in it.
@@ -24,26 +21,26 @@ pub enum Illustration {
 }
 
 impl Illustration {
-    /// The drawing, and the width and height it was drawn at.
+    /// The SVG, and the width and height it was drawn at.
     fn source(self) -> (&'static str, f32, f32) {
         match self {
             Illustration::Cactus => (
-                include_str!("../../../../packages/but-ui-react/src/illustrations/cactus.svg"),
+                include_str!("../../../packages/but-ui-react/src/illustrations/cactus.svg"),
                 96.,
                 82.,
             ),
             Illustration::Papers => (
-                include_str!("../../../../packages/but-ui-react/src/illustrations/papers.svg"),
+                include_str!("../../../packages/but-ui-react/src/illustrations/papers.svg"),
                 98.,
                 86.,
             ),
             Illustration::Waving => (
-                include_str!("../../../../packages/but-ui-react/src/illustrations/waving.svg"),
+                include_str!("../../../packages/but-ui-react/src/illustrations/waving.svg"),
                 186.,
                 215.,
             ),
             Illustration::Terminal => (
-                include_str!("../../../../packages/but-ui-react/src/illustrations/terminal.svg"),
+                include_str!("../../../packages/but-ui-react/src/illustrations/terminal.svg"),
                 79.,
                 59.,
             ),
@@ -52,7 +49,7 @@ impl Illustration {
 }
 
 thread_local! {
-    /// Each drawing in each theme, drawn the first time it's needed there.
+    /// Each drawing per theme, keyed by the theme's ground.
     static DRAWN: RefCell<HashMap<(Illustration, u32), Arc<RenderImage>>> = RefCell::default();
 }
 
@@ -68,16 +65,14 @@ pub fn illustration(which: Illustration, theme: &Theme, cx: &App) -> Img {
     img(ImageSource::Render(drawn))
         .w(dp(width))
         .h(dp(height))
-        // Smaller, and whole, where there's no room for it: `img` draws it contained.
+        // `img` draws it contained, so it shrinks whole where there's no room.
         .flex_shrink(1.)
         .min_h_0()
         .max_w_full()
 }
 
-/// `which` in `theme`'s colours, for the roles but-ui-react's drawings are made of: the outline is
-/// `currentColor`, set to `--but-border-hover`; enclosed areas the paper, `--but-background`;
-/// shaded faces the ground, `--but-muted`; a darker face `--but-border`; and what stands for text
-/// `--but-muted-foreground`.
+/// `which` with the CSS colours but-ui-react styles its drawings by swapped for `theme`'s; there,
+/// `currentColor` is `--but-border-hover`.
 #[expect(
     clippy::expect_used,
     reason = "the drawings are compiled in, and a test draws each"
@@ -112,7 +107,7 @@ mod tests {
     #[test]
     fn every_drawing_draws_in_every_theme() {
         use crate::theme::{CodeSize, ColorScheme, Shade, Theme};
-        let renderer = gpui::SvgRenderer::new(std::sync::Arc::new(crate::ui::Assets));
+        let renderer = gpui::SvgRenderer::new(std::sync::Arc::new(crate::Assets));
         let rgb = |r, g, b| but_tty::RgbColor { r, g, b };
         let dark_scheme = but_tty::Colors {
             background: Some(rgb(0x1e, 0x1e, 0x2e)),

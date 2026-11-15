@@ -64,12 +64,12 @@ jobs:
               - *rust
               - 'crates/**'
             # Only gitbutler-tauri's `builtin-gpui` feature links the GPUI client, and only
-            # test-rust-windows builds with it. A change to just the GPUI client or its
-            # terminals (but-tty) can't affect any other crate, so jobs that never build it can
-            # skip it.
+            # test-rust-windows builds with it. A change to just the GPUI client, its design
+            # system (but-ui-gpui) or its terminals (but-tty) can't affect any other crate, so
+            # jobs that never build it can skip it.
             rust_core:
               - *rust
-              - 'crates/!(but-gpui|but-tty)/**'
+              - 'crates/!(but-gpui|but-ui-gpui|but-tty)/**'
             but_installer:
               - 'Cargo.lock'
               - 'Cargo.toml'
@@ -92,6 +92,7 @@ jobs:
             # quality.but.dev doesn't build on Windows, so the Windows jobs run for these too.
             gpui:
               - 'crates/but-gpui/**'
+              - 'crates/but-ui-gpui/**'
               - 'crates/but-tty/**'
             # oxlint checks only this package, and nothing else lints it before merge.
             but_ui_react:
@@ -374,8 +375,8 @@ jobs:
       - name: "cargo check"
         run: cargo check --workspace --all-targets --features windows
       # The GPUI client's Windows code: the lint job runs on Linux, which builds it as a stub.
-      - name: "cargo clippy -p but-gpui -p but-tty"
-        run: cargo clippy -p but-gpui -p but-tty --all-targets -- -D warnings
+      - name: "cargo clippy -p but-gpui -p but-ui-gpui -p but-tty"
+        run: cargo clippy -p but-gpui -p but-ui-gpui -p but-tty --all-targets -- -D warnings
 
   # Separate from check-rust-windows and build-tauri-windows so the three run side by side:
   # each builds different code, so they share little of their work or their cache.

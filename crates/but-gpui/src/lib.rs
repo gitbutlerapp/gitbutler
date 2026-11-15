@@ -57,10 +57,6 @@ mod status_bar;
 #[cfg(feature = "stories")]
 mod stories;
 mod terminal;
-#[expect(
-    clippy::disallowed_methods,
-    reason = "where colours are made, from but-ui's tokens or a colour scheme"
-)]
 mod theme;
 mod transfer;
 mod ui;

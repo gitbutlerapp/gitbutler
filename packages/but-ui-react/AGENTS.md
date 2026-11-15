@@ -189,6 +189,15 @@ dependency sets a variable at runtime that the script can't see, or a
 component reads a knob its host may set, add it to `KNOWN_RUNTIME` in the
 script with who sets it.
 
+### The GPUI client's components
+
+`crates/but-ui-gpui` draws some of these components for the GPUI client, with
+the same variants and sizes. `check` runs `scripts/check-gpui-parity.mjs`,
+whose table says how that crate draws each value of a component's variant
+and size types, or `null` where it doesn't yet. A new value here fails until
+the table says how GPUI draws it, and a new variant there fails until a value
+here maps to it; the gaps are printed on every run.
+
 ### Design notes
 
 A design note names a token, a component, a file or a prop rather than writing

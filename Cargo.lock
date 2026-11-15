@@ -1740,6 +1740,7 @@ dependencies = [
  "but-transaction",
  "but-tty",
  "but-ui-control",
+ "but-ui-gpui",
  "but-workspace",
  "chrono",
  "deltoids",
@@ -2168,6 +2169,18 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+]
+
+[[package]]
+name = "but-ui-gpui"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-tty",
+ "gpui",
+ "serde",
+ "serde_json",
+ "snapbox",
 ]
 
 [[package]]

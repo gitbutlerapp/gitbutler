@@ -1,8 +1,17 @@
 import { isStory, storyId, storyName, type Story } from "./stories.ts";
 import { pageList } from "./page-list.ts";
 
-/** A page: a design note, or a component's stories with the notes its JSDoc names (`notes`). */
-export type Page = { id: string; title: string; file: string; notes?: Array<string> };
+/**
+ * A page: a design note, or a component's stories with the notes its JSDoc names (`notes`), and
+ * whether the GPUI client draws that component too (`gpui`, from `crates/but-ui-gpui`).
+ */
+export type Page = {
+	id: string;
+	title: string;
+	file: string;
+	notes?: Array<string>;
+	gpui?: boolean;
+};
 export const pages: Array<Page> = pageList;
 
 export const isDesignPage = (page: Page) => page.id.startsWith("design-");

@@ -38,6 +38,27 @@ const componentNotes = (jsdoc: string) =>
 		([, note]) => (note === undefined ? [] : [`../but-ui/${note}`]),
 	);
 
+/** Where the GPUI client's design system is, whose components the docs site marks GPUI. */
+const gpuiSource = "../../crates/but-ui-gpui/src";
+
+/**
+ * The components the GPUI client draws too: each module of `but-ui-gpui` names its
+ * counterparts in its first doc paragraph ("as but-ui-react's `Button` and `DropdownButton`").
+ */
+const gpuiComponents = (read: (file: string) => string) =>
+	new Set(
+		readdirSync(gpuiSource)
+			.filter((file) => file.endsWith(".rs"))
+			.flatMap((file) => {
+				const docs = (/^(?:\/\/!.*\n)+/.exec(read(`${gpuiSource}/${file}`))?.[0] ?? "")
+					.replaceAll("//!", "")
+					.split(/\n\s*\n/);
+				const doc = (docs[0] ?? "").replace(/\s+/g, " ");
+				const named = /but-ui-react's ([^.]*)/.exec(doc)?.[1] ?? "";
+				return [...named.matchAll(/`(\w+)`/g)].flatMap(([, name]) => name ?? []);
+			}),
+	);
+
 const capitalise = (words: string) =>
 	words.charAt(0).toUpperCase() + words.slice(1).replaceAll("-", " ");
 
@@ -68,6 +89,7 @@ const docsPages = (): Plugin => ({
 					})),
 			),
 		];
+		const gpui = gpuiComponents(read);
 		const components = readdirSync("src")
 			.filter((file) => file.endsWith(".stories.tsx"))
 			.map((file) => {
@@ -88,11 +110,13 @@ const docsPages = (): Plugin => ({
 						: (new RegExp(
 								String.raw`(\/\*\*(?:(?!\*\/)[\s\S])*\*\/)\s*export (?:const|function|class) ${component}\b`,
 							).exec(read(`src/${from}`))?.[1] ?? "");
+				const title = /\btitle: "([^"]+)"/.exec(source)?.[1] ?? file;
 				return {
 					id: /\bid: "([^"]+)"/.exec(source)?.[1] ?? file,
-					title: /\btitle: "([^"]+)"/.exec(source)?.[1] ?? file,
+					title,
 					file,
 					notes: componentNotes(jsdoc),
+					...(gpui.has(title.split("/").at(-1) ?? "") ? { gpui: true } : {}),
 				};
 			});
 		const group = (title: string) => groups.indexOf(title.split("/").slice(-2, -1)[0] ?? "");

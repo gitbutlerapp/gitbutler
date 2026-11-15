@@ -19,6 +19,7 @@ for what you are building, not all of them; each stands on its own.
 | Page                                                                                       | Read it when                                                     |
 | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
 | [Build from the library](../but-ui-react/design/getting-started/build-from-the-library.md) | Starting any UI in a React app, or the library seems to lack one |
+| [Build in Rust](../but-ui-react/design/getting-started/build-in-rust.md)                   | Building UI in the GPUI client, or reading a page's GPUI badge   |
 
 ## Foundations
 

@@ -1,0 +1,1850 @@
+//! Colour and type tokens from `@gitbutler/but-ui`, or from a Ghostty colour scheme that the
+//! embedded terminals draw with too.
+
+use but_tty::{Colors, Ghostty, RgbColor};
+use gpui::{
+    App, Font, FontFeatures, FontWeight, Global, Hsla, Pixels, Rgba, SharedString,
+    WindowAppearance, rgb, rgba,
+};
+use serde::{Deserialize, Serialize};
+
+/// but-ui's tokens as its build resolves them (`packages/but-ui/tokens/tokens.json`): each
+/// colour `[light, dark]` as `0xRRGGBBAA`, each length in px.
+pub mod tokens {
+    include!(concat!(env!("OUT_DIR"), "/color_tokens.rs"));
+}
+
+/// A syntax-highlighting class in diffs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Token {
+    Comment,
+    String,
+    Constant,
+    Keyword,
+    Function,
+    Type,
+    Tag,
+}
+
+#[derive(Clone)]
+pub struct Theme {
+    /// The content surface; `bg_2` is the recessed one (navigator, diff ground).
+    pub bg_1: Hsla,
+    pub bg_2: Hsla,
+    pub text_1: Hsla,
+    pub text_2: Hsla,
+    pub text_3: Hsla,
+    pub border_1: Hsla,
+    pub border_2: Hsla,
+    pub border_3: Hsla,
+    /// The solid gray of a focused selection, which the `*_on_solid` colours read on.
+    pub fill_gray: Hsla,
+    pub text_inverted: Hsla,
+    pub hover: Hsla,
+    pub selected_unfocused: Hsla,
+    pub focus_border: Hsla,
+    pub control_border: Hsla,
+    pub secondary: Hsla,
+    pub muted: Hsla,
+    pub muted_hover: Hsla,
+    pub muted_on_solid: Hsla,
+    pub hover_on_solid: Hsla,
+    pub inverse_soft: Hsla,
+    pub inverse_soft_hover: Hsla,
+    pub scrollbar: Hsla,
+    pub scrollbar_hover: Hsla,
+    pub overlay: Hsla,
+    pub shadow: Hsla,
+    pub pop: Hsla,
+    pub pop_bg: Hsla,
+    pub pop_button: Hsla,
+    pub pop_hover: Hsla,
+    pub on_pop: Hsla,
+    pub blue: Hsla,
+    pub safe: Hsla,
+    pub warn: Hsla,
+    pub danger: Hsla,
+    pub purple: Hsla,
+    /// Each hue's soft ground, see-through, for a mark or a control sitting on a ground.
+    pub pop_soft: Hsla,
+    pub pop_soft_hover: Hsla,
+    pub blue_soft: Hsla,
+    pub blue_soft_hover: Hsla,
+    pub safe_soft: Hsla,
+    pub safe_soft_hover: Hsla,
+    pub warn_soft: Hsla,
+    pub warn_soft_hover: Hsla,
+    pub danger_soft: Hsla,
+    pub danger_soft_hover: Hsla,
+    pub purple_soft: Hsla,
+    pub purple_soft_hover: Hsla,
+    /// Each hue's soft ground as an opaque area, so a banner or tile stays clean on any ground.
+    pub pop_surface: Hsla,
+    pub pop_surface_hover: Hsla,
+    pub blue_surface: Hsla,
+    pub blue_surface_hover: Hsla,
+    pub safe_surface: Hsla,
+    pub safe_surface_hover: Hsla,
+    pub warn_surface: Hsla,
+    pub warn_surface_hover: Hsla,
+    pub danger_surface: Hsla,
+    pub danger_surface_hover: Hsla,
+    pub purple_surface: Hsla,
+    pub purple_surface_hover: Hsla,
+    /// Each hue laid over what must still show through it.
+    pub pop_wash: Hsla,
+    pub pop_wash_strong: Hsla,
+    pub blue_wash: Hsla,
+    pub blue_wash_strong: Hsla,
+    pub safe_wash: Hsla,
+    pub safe_wash_strong: Hsla,
+    pub warn_wash: Hsla,
+    pub warn_wash_strong: Hsla,
+    pub danger_wash: Hsla,
+    pub danger_wash_strong: Hsla,
+    pub purple_wash: Hsla,
+    pub purple_wash_strong: Hsla,
+    pub warn_bg: Hsla,
+    pub on_warn: Hsla,
+    pub warn_edge: Hsla,
+    pub blue_edge: Hsla,
+    pub safe_on_solid: Hsla,
+    pub danger_on_solid: Hsla,
+    /// For glyphs only: it reads at 3:1, not 4.5:1.
+    pub purple_on_solid: Hsla,
+    pub snackbar_bg: Hsla,
+    pub snackbar_border: Hsla,
+    pub snackbar_text: Hsla,
+    /// For glyphs only: it reads at 3:1 on `snackbar_bg`.
+    pub snackbar_warn: Hsla,
+    pub snackbar_divider: Hsla,
+    pub snackbar_hover: Hsla,
+    pub diff_added: Hsla,
+    pub diff_removed: Hsla,
+    pub diff_added_bg: Hsla,
+    pub diff_removed_bg: Hsla,
+    pub diff_added_emph: Hsla,
+    pub diff_removed_emph: Hsla,
+    pub diff_muted: Hsla,
+    /// Added, modified, deleted and renamed, in that order.
+    pub change_status: [Hsla; 4],
+    /// Grounds for people without a picture, drawn under their initial in `text_1`.
+    pub person: [Hsla; 5],
+    pub ui_font: SharedString,
+    pub mono_font: SharedString,
+    pub diff_font: SharedString,
+    /// A digit's width in `diff_font`, in ems.
+    pub diff_digit: f32,
+    pub diff_features: FontFeatures,
+    pub terminal_font: Font,
+    pub terminal_bold: FontWeight,
+    pub code_text: f32,
+    pub code_line: f32,
+    /// The interface scale, 1 at 100%.
+    pub scale: f32,
+    pub terminal: Colors,
+    syntax: [Hsla; 7],
+    pub shape: Shape,
+    pub sizes: Sizes,
+    /// `Some(dark)` while these are GitButler's own colours, which an accent applies to.
+    own_colours: Option<bool>,
+}
+
+impl Global for Theme {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Hue {
+    Pop,
+    Blue,
+    Safe,
+    Warn,
+    Danger,
+    Purple,
+    Gray,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Highlight {
+    Selected,
+    SelectedUnfocused,
+    /// Selected words in a diff's line, or a line being edited there.
+    Words,
+    /// A search's matches, and the current one.
+    Found,
+    FoundHere,
+    /// New since it was last read.
+    Fresh,
+    /// What a comment is about, and while it's pointed at or written.
+    Said,
+    Saying,
+    /// What an unsent comment is about, and while it's pointed at or written.
+    Draft,
+    SayingDraft,
+    /// Blinks over a diff's rows and headers as they're copied.
+    Copy,
+    /// A diff's line number picked for a selection.
+    Picked,
+    /// The words that changed on a commit's side of a conflict.
+    Incoming,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CodeSize {
+    Small,
+    #[default]
+    Medium,
+    Large,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Appearance {
+    #[default]
+    System,
+    Light,
+    Dark,
+}
+
+impl Appearance {
+    /// `GITBUTLER_GPUI_APPEARANCE=dark|light` overrides the choice, handy for screenshots.
+    pub fn shade(self, system: WindowAppearance) -> Shade {
+        match (std::env::var("GITBUTLER_GPUI_APPEARANCE").as_deref(), self) {
+            (Ok("dark"), _) => Shade::Dark,
+            (Ok("light"), _) => Shade::Light,
+            (_, Appearance::Dark) => Shade::Dark,
+            (_, Appearance::Light) => Shade::Light,
+            (_, Appearance::System) => match system {
+                WindowAppearance::Dark | WindowAppearance::VibrantDark => Shade::Dark,
+                WindowAppearance::Light | WindowAppearance::VibrantLight => Shade::Light,
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Shade {
+    Light,
+    Dark,
+}
+
+/// Corner radii in px as designed, before the interface scale.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Shape {
+    pub xs: f32,
+    pub control: f32,
+    pub card: f32,
+    pub popup: f32,
+}
+
+impl Default for Shape {
+    fn default() -> Self {
+        Shape {
+            xs: tokens::RADIUS_XS,
+            control: tokens::RADIUS_CONTROL,
+            card: tokens::RADIUS_CARD,
+            popup: tokens::RADIUS_POPUP,
+        }
+    }
+}
+
+/// Control and bar heights in px as designed, before the interface scale.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Sizes {
+    pub control: f32,
+    /// A small button or segment is 4px taller than this.
+    pub control_sm: f32,
+    /// A bar inside a popup, as its search row or footer.
+    pub bar: f32,
+    /// Added to a control's side padding; 0 at Balanced.
+    pub padding: f32,
+}
+
+impl Default for Sizes {
+    fn default() -> Self {
+        Sizes {
+            control: tokens::SIZE_CONTROL,
+            control_sm: tokens::SIZE_CONTROL_SM,
+            bar: tokens::SIZE_BAR,
+            padding: 0.,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Accent {
+    #[default]
+    Teal,
+    Blue,
+    Purple,
+    /// The colour in `Prefs::accent_color`.
+    Custom,
+}
+
+impl Accent {
+    /// Its name in but-ui's settings.
+    fn name(self) -> &'static str {
+        match self {
+            Accent::Teal => "teal",
+            Accent::Blue => "blue",
+            Accent::Purple => "purple",
+            Accent::Custom => "custom",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Ground {
+    #[default]
+    Gray,
+    Slate,
+    Sage,
+    Sand,
+}
+
+impl Ground {
+    /// Its name in but-ui's settings.
+    fn name(self) -> &'static str {
+        match self {
+            Ground::Gray => "gray",
+            Ground::Slate => "slate",
+            Ground::Sage => "sage",
+            Ground::Sand => "sand",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Corners {
+    Sharp,
+    #[default]
+    Soft,
+    Round,
+}
+
+impl Corners {
+    /// Its name in but-ui's settings.
+    pub fn name(self) -> &'static str {
+        match self {
+            Corners::Sharp => "sharp",
+            Corners::Soft => "soft",
+            Corners::Round => "round",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Density {
+    Compact,
+    #[default]
+    Balanced,
+    Spacious,
+}
+
+impl Density {
+    /// Its name in but-ui's settings.
+    pub fn name(self) -> &'static str {
+        match self {
+            Density::Compact => "compact",
+            Density::Balanced => "balanced",
+            Density::Spacious => "spacious",
+        }
+    }
+}
+
+/// but-ui's presets: each one's name, corners and density.
+pub fn presets() -> impl Iterator<Item = (&'static str, Corners, Density)> {
+    (tokens::PRESETS.iter()).filter_map(|&(_, name, corners, density)| {
+        let corners = [Corners::Sharp, Corners::Soft, Corners::Round]
+            .into_iter()
+            .find(|c| c.name() == corners)?;
+        let density = [Density::Compact, Density::Balanced, Density::Spacious]
+            .into_iter()
+            .find(|d| d.name() == density)?;
+        Some((name, corners, density))
+    })
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ColorScheme {
+    #[default]
+    GitButler,
+    /// The light or dark theme the user's Ghostty config sets, by the shade.
+    Ghostty,
+    /// One Ghostty theme by name, light or dark by its background.
+    Named(String),
+}
+
+impl ColorScheme {
+    pub fn label(&self) -> &str {
+        match self {
+            ColorScheme::GitButler => "GitButler",
+            ColorScheme::Ghostty => "Ghostty",
+            ColorScheme::Named(name) => name,
+        }
+    }
+}
+
+/// The interface zoom, in percent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct UiScale(u16);
+
+impl Default for UiScale {
+    fn default() -> Self {
+        Self(100)
+    }
+}
+
+impl UiScale {
+    /// The ⌘+ and ⌘− steps, as Chrome's.
+    pub const STEPS: [UiScale; 9] = [
+        Self(75),
+        Self(80),
+        Self(90),
+        Self(100),
+        Self(110),
+        Self(125),
+        Self(150),
+        Self(175),
+        Self(200),
+    ];
+
+    pub fn percent(self) -> u16 {
+        self.0
+    }
+
+    fn factor(self) -> f32 {
+        f32::from(self.clamp(Self::STEPS[0], Self::STEPS[8]).0) / 100.
+    }
+
+    pub fn larger(self) -> Self {
+        (Self::STEPS.into_iter())
+            .find(|&step| step > self)
+            .unwrap_or(Self::STEPS[8])
+    }
+
+    pub fn smaller(self) -> Self {
+        (Self::STEPS.into_iter().rev())
+            .find(|&step| step < self)
+            .unwrap_or(Self::STEPS[0])
+    }
+}
+
+impl CodeSize {
+    /// The code size and line height, in px.
+    fn metrics(self) -> (f32, f32) {
+        match self {
+            CodeSize::Small => (11., 18.),
+            CodeSize::Medium => (12., 20.),
+            CodeSize::Large => (14., 23.),
+        }
+    }
+}
+
+impl Theme {
+    pub fn with_code(mut self, size: CodeSize) -> Self {
+        (self.code_text, self.code_line) = size.metrics();
+        self
+    }
+
+    /// `digit` gives a family's digit width in ems, or `None` when the machine hasn't got it,
+    /// which keeps the current font.
+    pub fn with_diff_font(
+        mut self,
+        family: Option<&str>,
+        digit: impl Fn(&str) -> Option<f32>,
+    ) -> Self {
+        if let Some((family, width)) = family.and_then(|family| Some((family, digit(family)?))) {
+            self.diff_font = family.to_owned().into();
+            self.diff_digit = width;
+        }
+        self
+    }
+
+    pub fn with_ligatures(mut self, on: bool) -> Self {
+        let off = [("liga".to_owned(), 0), ("calt".to_owned(), 0)];
+        self.diff_features = FontFeatures(if on { vec![] } else { off.to_vec() }.into());
+        self
+    }
+
+    pub fn with_terminal_font(
+        mut self,
+        family: Option<&str>,
+        ghostty: &Ghostty,
+        installed: impl Fn(&str) -> bool,
+    ) -> Self {
+        let configured = (ghostty.font_families.iter()).map(String::as_str);
+        if let Some(found) = family.into_iter().chain(configured).find(|f| installed(f)) {
+            self.terminal_font = gpui::font(found.to_owned());
+        }
+        if family.is_none() {
+            self.terminal_font.features = FontFeatures(ghostty.font_features.clone().into());
+            if ghostty.bold_disabled {
+                self.terminal_bold = self.terminal_font.weight;
+            }
+        }
+        self
+    }
+
+    /// `custom` is `#rrggbb` or `#rgb`, for [`Accent::Custom`].
+    pub fn with_accent(mut self, accent: Accent, custom: &str) -> Self {
+        let Some(dark) = self.own_colours else {
+            return self;
+        };
+        let pick = |[light, dark_value]: [u32; 2]| if dark { dark_value } else { light };
+        let family: Vec<(&str, u32)> = match accent {
+            Accent::Custom => custom_accent(custom, dark),
+            named => (tokens::ACCENTS.iter())
+                .find(|(name, _)| *name == named.name())
+                .map(|(_, family)| (family.iter()).map(|(token, modes)| (*token, pick(*modes))))
+                .into_iter()
+                .flatten()
+                .collect(),
+        };
+        // The soft fills are see-through, so these carry alpha.
+        let token = |name: &str| {
+            family
+                .iter()
+                .find(|(token, _)| *token == name)
+                .map(|&(_, c)| Hsla::from(rgba(c)))
+        };
+        if let Some(primary) = token("primary") {
+            (self.pop_bg, self.pop_button) = (primary, primary);
+            let [wash, strong] = WASHES;
+            (self.pop_wash, self.pop_wash_strong) =
+                (primary.opacity(wash), primary.opacity(strong));
+        }
+        if let Some(text) = token("primary-text") {
+            self.pop = text;
+        }
+        if let Some(hover) = token("primary-hover") {
+            self.pop_hover = hover;
+        }
+        if let Some(soft) = token("primary-soft") {
+            self.pop_soft = soft;
+        }
+        if let Some(soft) = token("primary-soft-hover") {
+            self.pop_soft_hover = soft;
+        }
+        if let Some(surface) = token("primary-surface") {
+            self.pop_surface = surface;
+        }
+        if let Some(surface) = token("primary-surface-hover") {
+            self.pop_surface_hover = surface;
+        }
+        self
+    }
+
+    /// Draws GitButler's colours again, so call it before any other `with_*`.
+    pub fn with_ground(self, ground: Ground) -> Self {
+        let Some(dark) = self.own_colours else {
+            return self;
+        };
+        Theme {
+            code_text: self.code_text,
+            code_line: self.code_line,
+            ..Self::gitbutler_on(dark, CodeSize::default(), ground)
+        }
+    }
+
+    pub fn with_corners(mut self, corners: Corners) -> Self {
+        if let Some((_, [xs, control, card, popup])) =
+            (tokens::CORNERS.iter()).find(|(name, _)| *name == corners.name())
+        {
+            self.shape = Shape {
+                xs: *xs,
+                control: *control,
+                card: *card,
+                popup: *popup,
+            };
+        }
+        self
+    }
+
+    pub fn with_density(mut self, density: Density) -> Self {
+        if let Some((_, [control, control_sm, bar, padding])) =
+            (tokens::DENSITIES.iter()).find(|(name, _)| *name == density.name())
+        {
+            self.sizes = Sizes {
+                control: *control,
+                control_sm: *control_sm,
+                bar: *bar,
+                padding: *padding,
+            };
+        }
+        self
+    }
+
+    pub fn with_scale(mut self, scale: UiScale) -> Self {
+        self.scale = scale.factor();
+        self
+    }
+
+    pub fn scaled(&self, n: f32) -> Pixels {
+        Pixels::from(n * self.scale)
+    }
+
+    /// Whether these are GitButler's own colours, which an accent and ground apply to.
+    pub fn own_colours(&self) -> bool {
+        self.own_colours.is_some()
+    }
+
+    pub fn get(cx: &App) -> &Theme {
+        cx.global::<Theme>()
+    }
+
+    /// A scheme without a background and foreground, as a named theme that's gone, draws as
+    /// GitButler's.
+    pub fn new(shade: Shade, scheme: &ColorScheme, code: CodeSize, ghostty: &Ghostty) -> Self {
+        let dark = shade == Shade::Dark;
+        // The environment overrides the settings, handy for screenshots.
+        let forced = std::env::var("GITBUTLER_GPUI_COLOR_SCHEME").ok();
+        let forced = forced.map(|name| match name.as_str() {
+            "gitbutler" => ColorScheme::GitButler,
+            "ghostty" => ColorScheme::Ghostty,
+            _ => ColorScheme::Named(name),
+        });
+        let palette = match forced.as_ref().unwrap_or(scheme) {
+            ColorScheme::GitButler => None,
+            ColorScheme::Ghostty => Some(ghostty.colors(dark).clone()),
+            ColorScheme::Named(name) => Ghostty::theme(name),
+        };
+        let gitbutler = Self::gitbutler(dark, code);
+        match palette {
+            Some(palette) => gitbutler.painted(palette),
+            None => gitbutler,
+        }
+    }
+
+    pub fn gitbutler(dark: bool, code: CodeSize) -> Self {
+        Self::gitbutler_on(dark, code, Ground::Gray)
+    }
+
+    fn gitbutler_on(dark: bool, code: CodeSize, ground: Ground) -> Self {
+        // Only the tokens that differ from gray's.
+        let on_ground = (tokens::GROUNDS.iter())
+            .find(|(name, _)| *name == ground.name())
+            .map_or(&[][..], |(_, colors)| *colors);
+        let grounded = |name: &str, gray: [u32; 2]| {
+            (on_ground.iter())
+                .find(|(token, _)| *token == name)
+                .map_or(gray, |(_, colors)| *colors)
+        };
+        macro_rules! on_ground {
+            ($token:ident) => {
+                grounded(stringify!($token), tokens::$token)
+            };
+        }
+        let pick = |light: u32, dark_value: u32| -> Hsla {
+            rgb(if dark { dark_value } else { light }).into()
+        };
+        let token = |[light, dark_value]: [u32; 2]| -> Hsla {
+            rgba(if dark { dark_value } else { light }).into()
+        };
+        // As CSS's `color-mix` at 50%.
+        let halfway = |a: [u32; 2], b: [u32; 2]| -> Hsla {
+            let pick = |[light, dark_value]: [u32; 2]| (if dark { dark_value } else { light }) >> 8;
+            color(mix(pick(a), pick(b), 0.5))
+        };
+        let (code_text, code_line) = code.metrics();
+        // GitHub's light and dark, which but.dev's diffs take their colours from.
+        let added = pick(0x28a745, 0x34d058);
+        let removed = pick(0xd73a49, 0xea4a5a);
+        let [safe, danger] = [on_ground!(SUCCESS_TEXT), on_ground!(DANGER_TEXT)].map(token);
+        let [fill_gray, text_inverted] =
+            [on_ground!(INVERSE), on_ground!(INVERSE_FOREGROUND)].map(token);
+        let [done_light, done_dark] = on_ground!(DONE_TEXT);
+        let on_solid = |accent| {
+            color(readable_on(
+                rgb_hex(accent),
+                rgb_hex(text_inverted),
+                rgb_hex(fill_gray),
+            ))
+        };
+        Theme {
+            code_text,
+            code_line,
+            scale: 1.,
+            bg_1: token(on_ground!(BACKGROUND)),
+            bg_2: token(on_ground!(CANVAS)),
+            text_1: token(on_ground!(FOREGROUND)),
+            text_2: token(on_ground!(MUTED_FOREGROUND)),
+            text_3: token(on_ground!(SUBTLE_FOREGROUND)),
+            border_1: token(on_ground!(BORDER_HOVER)),
+            border_2: token(on_ground!(BORDER)),
+            border_3: token(on_ground!(BORDER_SUBTLE)),
+            fill_gray,
+            text_inverted,
+            hover: token(on_ground!(HOVER)),
+            selected_unfocused: token(on_ground!(SELECTED_INACTIVE)),
+            focus_border: token(on_ground!(RING)),
+            control_border: token(on_ground!(INPUT)),
+            secondary: token(on_ground!(SECONDARY)),
+            muted: token(on_ground!(MUTED)),
+            muted_hover: halfway(on_ground!(MUTED), on_ground!(MUTED_NESTED)),
+            muted_on_solid: token(on_ground!(INVERSE_MUTED_FOREGROUND)),
+            hover_on_solid: token(on_ground!(INVERSE_GHOST_HOVER)),
+            inverse_soft: token(on_ground!(INVERSE_SOFT)),
+            inverse_soft_hover: token(on_ground!(INVERSE_SOFT_HOVER)),
+            scrollbar: token(on_ground!(SCROLLBAR_THUMB)),
+            scrollbar_hover: token(on_ground!(SCROLLBAR_THUMB_HOVER)),
+            overlay: token(on_ground!(OVERLAY)),
+            shadow: token(on_ground!(SHADOW)),
+            pop: token(on_ground!(PRIMARY_TEXT)),
+            pop_bg: token(on_ground!(PRIMARY)),
+            pop_button: token(on_ground!(PRIMARY)),
+            pop_hover: token(on_ground!(PRIMARY_HOVER)),
+            on_pop: token(on_ground!(PRIMARY_FOREGROUND)),
+            blue: token(on_ground!(INFO_TEXT)),
+            safe,
+            warn: token(on_ground!(WARNING_TEXT)),
+            danger,
+            purple: token([done_light, done_dark]),
+            pop_soft: token(on_ground!(PRIMARY_SOFT)),
+            pop_soft_hover: token(on_ground!(PRIMARY_SOFT_HOVER)),
+            blue_soft: token(on_ground!(INFO_SOFT)),
+            blue_soft_hover: token(on_ground!(INFO_SOFT_HOVER)),
+            safe_soft: token(on_ground!(SUCCESS_SOFT)),
+            safe_soft_hover: token(on_ground!(SUCCESS_SOFT_HOVER)),
+            warn_soft: token(on_ground!(WARNING_SOFT)),
+            warn_soft_hover: token(on_ground!(WARNING_SOFT_HOVER)),
+            danger_soft: token(on_ground!(DANGER_SOFT)),
+            danger_soft_hover: token(on_ground!(DANGER_SOFT_HOVER)),
+            purple_soft: token(on_ground!(DONE_SOFT)),
+            purple_soft_hover: token(on_ground!(DONE_SOFT_HOVER)),
+            pop_surface: token(on_ground!(PRIMARY_SURFACE)),
+            pop_surface_hover: token(on_ground!(PRIMARY_SURFACE_HOVER)),
+            blue_surface: token(on_ground!(INFO_SURFACE)),
+            blue_surface_hover: token(on_ground!(INFO_SURFACE_HOVER)),
+            safe_surface: token(on_ground!(SUCCESS_SURFACE)),
+            safe_surface_hover: token(on_ground!(SUCCESS_SURFACE_HOVER)),
+            warn_surface: token(on_ground!(WARNING_SURFACE)),
+            warn_surface_hover: token(on_ground!(WARNING_SURFACE_HOVER)),
+            danger_surface: token(on_ground!(DANGER_SURFACE)),
+            danger_surface_hover: token(on_ground!(DANGER_SURFACE_HOVER)),
+            purple_surface: token(on_ground!(DONE_SURFACE)),
+            purple_surface_hover: token(on_ground!(DONE_SURFACE_HOVER)),
+            pop_wash: token(on_ground!(PRIMARY_WASH)),
+            pop_wash_strong: token(on_ground!(PRIMARY_WASH_STRONG)),
+            blue_wash: token(on_ground!(INFO_WASH)),
+            blue_wash_strong: token(on_ground!(INFO_WASH_STRONG)),
+            safe_wash: token(on_ground!(SUCCESS_WASH)),
+            safe_wash_strong: token(on_ground!(SUCCESS_WASH_STRONG)),
+            warn_wash: token(on_ground!(WARNING_WASH)),
+            warn_wash_strong: token(on_ground!(WARNING_WASH_STRONG)),
+            danger_wash: token(on_ground!(DANGER_WASH)),
+            danger_wash_strong: token(on_ground!(DANGER_WASH_STRONG)),
+            purple_wash: token(on_ground!(DONE_WASH)),
+            purple_wash_strong: token(on_ground!(DONE_WASH_STRONG)),
+            warn_bg: token(on_ground!(WARNING)),
+            on_warn: token(on_ground!(WARNING_FOREGROUND)),
+            warn_edge: token(on_ground!(AMBER_7)),
+            blue_edge: token(on_ground!(BLUE_7)),
+            safe_on_solid: on_solid(safe),
+            danger_on_solid: on_solid(danger),
+            purple_on_solid: token([done_dark, done_light]),
+            snackbar_bg: token(on_ground!(SNACKBAR)),
+            snackbar_border: token(on_ground!(SNACKBAR_BORDER)),
+            snackbar_text: token(on_ground!(SNACKBAR_FOREGROUND)),
+            snackbar_warn: token(on_ground!(WARNING)),
+            snackbar_divider: token(on_ground!(SNACKBAR_DIVIDER)),
+            snackbar_hover: token(on_ground!(SNACKBAR_HOVER)),
+            diff_added: added,
+            diff_removed: removed,
+            diff_added_bg: pick(0xeef7ee, 0x2c3f35),
+            diff_removed_bg: pick(0xffeeed, 0x413134),
+            diff_added_emph: added.opacity(if dark { 0.2 } else { 0.15 }),
+            diff_removed_emph: removed.opacity(if dark { 0.2 } else { 0.15 }),
+            diff_muted: pick(0x696c70, 0x999da1),
+            change_status: [
+                on_ground!(CHANGE_STATUS_ADDITION),
+                on_ground!(CHANGE_STATUS_MODIFICATION),
+                on_ground!(CHANGE_STATUS_DELETION),
+                on_ground!(CHANGE_STATUS_RENAME),
+            ]
+            .map(token),
+            person: [
+                on_ground!(CATEGORY_1),
+                on_ground!(CATEGORY_2),
+                on_ground!(CATEGORY_3),
+                on_ground!(CATEGORY_4),
+                on_ground!(CATEGORY_5),
+            ]
+            .map(token),
+            // Embedded by `ui::fonts`.
+            ui_font: "Inter".into(),
+            mono_font: "GeistMono Nerd Font Mono".into(),
+            diff_font: "GeistMono Nerd Font Mono".into(),
+            diff_digit: 0.6,
+            diff_features: FontFeatures::default(),
+            terminal_font: gpui::font("GeistMono Nerd Font Mono"),
+            terminal_bold: FontWeight::SEMIBOLD,
+            // Shiki's GitHub light and dark, as but.dev highlights diffs, in `Token` order.
+            syntax: [
+                pick(0x6a737d, 0x6a737d),
+                pick(0x032f62, 0x9ecbff),
+                pick(0x005cc5, 0x79b8ff),
+                pick(0xd73a49, 0xf97583),
+                pick(0x6f42c1, 0xb392f0),
+                pick(0x6f42c1, 0xb392f0),
+                pick(0x22863a, 0x85e89d),
+            ],
+            terminal: Colors::default(),
+            own_colours: Some(dark),
+            shape: Shape::default(),
+            sizes: Sizes::default(),
+        }
+        .with_own_terminal(dark)
+    }
+
+    /// ANSI black and white are its grays, so both read on the ground.
+    fn with_own_terminal(mut self, dark: bool) -> Self {
+        let [bg, fg] = [self.bg_1, self.text_1].map(rgb_hex);
+        let black = rgb_hex(if dark { self.border_3 } else { self.text_1 });
+        let accents = [
+            self.danger,
+            self.safe,
+            self.warn,
+            self.blue,
+            self.purple,
+            self.pop,
+        ]
+        .map(rgb_hex);
+        let normal = (std::iter::once(black))
+            .chain(accents)
+            .chain([rgb_hex(self.text_2)]);
+        let bright = (std::iter::once(rgb_hex(self.text_3)))
+            .chain(accents.map(|accent| mix(accent, fg, 0.25)))
+            .chain([fg]);
+        self.terminal = Colors {
+            background: Some(rgb_color(bg)),
+            foreground: Some(rgb_color(fg)),
+            cursor: Some(rgb_color(fg)),
+            selection_background: Some(rgb_color(mix(bg, rgb_hex(self.blue), 0.3))),
+            selection_foreground: None,
+            palette: (0..).zip(normal.chain(bright).map(rgb_color)).collect(),
+        };
+        self
+    }
+
+    fn painted(self, palette: Colors) -> Self {
+        let (Some(bg), Some(fg)) = (palette.background, palette.foreground) else {
+            return self;
+        };
+        let (bg, fg) = (hex(bg), hex(fg));
+        let dark = contrast(bg, 0xffffff) > contrast(bg, 0x000000);
+        let given = |index: u8| {
+            (palette.palette.iter())
+                .find(|(at, _)| *at == index)
+                .map(|(_, color)| hex(*color))
+        };
+        let ansi = |index: u8| {
+            given(index)
+                .or_else(|| GHOSTTY_ANSI.get(usize::from(index)).copied())
+                .unwrap_or(fg)
+        };
+        let bg_2 = mix(bg, 0x000000, if dark { 0.25 } else { 0.05 });
+        // As but-ui's opaque grays: muted, and halfway on to muted-nested.
+        let gray = |share: f32| mix(bg, fg, share);
+        let muted = gray(if dark { 0.09 } else { 0.06 });
+        let muted_hover = gray(if dark { 0.105 } else { 0.077 });
+        let grounds = [bg, bg_2, muted, muted_hover];
+        let ink = if dark { 0xffffff } else { 0x000000 };
+        let soft = |hue: u32| mix(bg, hue, if dark { 0.18 } else { 0.12 });
+        let soft_hover = |hue: u32| mix(bg, hue, if dark { 0.22 } else { 0.17 });
+        let text_on = |from: u32, ratio: f32, also: &[u32]| {
+            let grounds: Vec<u32> = grounds.iter().chain(also).copied().collect();
+            (reaching(from, fg, &grounds, ratio))
+                .or_else(|| reaching(fg, ink, &grounds, ratio))
+                .unwrap_or(ink)
+        };
+        let text = |from: u32, ratio: f32| text_on(from, ratio, &[]);
+        let hue_text = |hue: u32| text_on(hue, 4.5, &[soft(hue), soft_hover(hue)]);
+        // A snackbar's ground is the foreground.
+        let snackbar_ink = match contrast(fg, 0xffffff) > contrast(fg, 0x000000) {
+            true => 0xffffff,
+            false => 0x000000,
+        };
+        // The first of cyan, blue, magenta and their bright ones that isn't gray, so the accent
+        // stays a colour. Not the cursor, which is often yellow or red, as warn and danger are.
+        let pop = [6, 4, 5, 14, 12, 13]
+            .map(given)
+            .into_iter()
+            .flatten()
+            .find(|&hue| chroma(hue) >= 40.)
+            .unwrap_or_else(|| ansi(6));
+        // At its own hue, as stepping toward a gray foreground would leave a pale one gray.
+        let also = [soft(pop), soft_hover(pop)];
+        let pop_text = toned(pop, ink, &[&grounds[..], &also].concat(), 4.5).unwrap_or(ink);
+        let ink_on = |fill: u32| {
+            [0xffffff, bg, 0x000000]
+                .into_iter()
+                .find(|&ink| contrast(ink, fill) >= 4.5)
+                .unwrap_or(0x000000)
+        };
+        let (on_pop, on_warn) = (ink_on(pop), ink_on(ansi(3)));
+        let washed = |hue: u32, strength: usize| {
+            let share = WASHES.get(strength).copied().unwrap_or(0.);
+            color(hue).opacity(share)
+        };
+        let text_3 = text(mix(bg, fg, 0.45), 3.);
+        let [safe, blue, danger, purple] = [2, 4, 1, 5].map(|index| hue_text(ansi(index)));
+        let [added, removed] = [2, 1].map(|index| text(ansi(index), 3.));
+        let veil = |share: f32| color(fg).opacity(share);
+        Theme {
+            bg_1: color(bg),
+            bg_2: color(bg_2),
+            text_1: color(fg),
+            text_2: color(text(mix(bg, fg, 0.65), 4.5)),
+            text_3: color(text_3),
+            border_1: color(mix(bg, fg, 0.45)),
+            border_2: color(mix(bg, fg, 0.3)),
+            border_3: color(mix(bg, fg, 0.18)),
+            fill_gray: color(fg),
+            text_inverted: color(bg),
+            hover: veil(0.05),
+            selected_unfocused: veil(0.1),
+            focus_border: veil(0.7),
+            control_border: veil(0.26),
+            secondary: veil(0.08),
+            muted: color(muted),
+            muted_hover: color(muted_hover),
+            muted_on_solid: color(bg).opacity(0.6),
+            hover_on_solid: color(bg).opacity(0.05),
+            inverse_soft: color(bg).opacity(0.15),
+            inverse_soft_hover: color(bg).opacity(0.22),
+            scrollbar: veil(0.15),
+            scrollbar_hover: veil(0.25),
+            overlay: match dark {
+                true => color(0x000000).opacity(0.5),
+                false => color(gray(0.15)).opacity(0.45),
+            },
+            shadow: color(0x000000).opacity(if dark { 0.5 } else { 0.1 }),
+            pop: color(pop_text),
+            pop_bg: color(pop),
+            pop_button: color(pop),
+            pop_hover: color(mix(pop, 0x000000, 0.08)),
+            on_pop: color(on_pop),
+            blue: color(blue),
+            safe: color(safe),
+            warn: color(hue_text(ansi(3))),
+            danger: color(danger),
+            purple: color(purple),
+            pop_soft: color(soft(pop)),
+            pop_soft_hover: color(soft_hover(pop)),
+            blue_soft: color(soft(ansi(4))),
+            blue_soft_hover: color(soft_hover(ansi(4))),
+            safe_soft: color(soft(ansi(2))),
+            safe_soft_hover: color(soft_hover(ansi(2))),
+            warn_soft: color(soft(ansi(3))),
+            warn_soft_hover: color(soft_hover(ansi(3))),
+            danger_soft: color(soft(ansi(1))),
+            danger_soft_hover: color(soft_hover(ansi(1))),
+            purple_soft: color(soft(ansi(5))),
+            purple_soft_hover: color(soft_hover(ansi(5))),
+            // A scheme's soft grounds are opaque already, so they serve as its areas too.
+            pop_surface: color(soft(pop)),
+            pop_surface_hover: color(soft_hover(pop)),
+            blue_surface: color(soft(ansi(4))),
+            blue_surface_hover: color(soft_hover(ansi(4))),
+            safe_surface: color(soft(ansi(2))),
+            safe_surface_hover: color(soft_hover(ansi(2))),
+            warn_surface: color(soft(ansi(3))),
+            warn_surface_hover: color(soft_hover(ansi(3))),
+            danger_surface: color(soft(ansi(1))),
+            danger_surface_hover: color(soft_hover(ansi(1))),
+            purple_surface: color(soft(ansi(5))),
+            purple_surface_hover: color(soft_hover(ansi(5))),
+            pop_wash: washed(pop, 0),
+            pop_wash_strong: washed(pop, 1),
+            blue_wash: washed(ansi(4), 0),
+            blue_wash_strong: washed(ansi(4), 1),
+            safe_wash: washed(ansi(2), 0),
+            safe_wash_strong: washed(ansi(2), 1),
+            warn_wash: washed(ansi(3), 0),
+            warn_wash_strong: washed(ansi(3), 1),
+            danger_wash: washed(ansi(1), 0),
+            danger_wash_strong: washed(ansi(1), 1),
+            purple_wash: washed(ansi(5), 0),
+            purple_wash_strong: washed(ansi(5), 1),
+            warn_bg: color(ansi(3)),
+            on_warn: color(on_warn),
+            warn_edge: color(mix(bg, ansi(3), 0.5)),
+            blue_edge: color(mix(bg, ansi(4), 0.5)),
+            safe_on_solid: color(readable_on(safe, bg, fg)),
+            danger_on_solid: color(readable_on(danger, bg, fg)),
+            purple_on_solid: color(readable_on(purple, bg, fg)),
+            snackbar_bg: color(fg),
+            snackbar_border: gpui::transparent_black(),
+            snackbar_text: color(bg),
+            snackbar_warn: color(
+                reaching(ansi(3), snackbar_ink, &[fg], 3.).unwrap_or(snackbar_ink),
+            ),
+            snackbar_divider: color(mix(bg, fg, 0.18)).opacity(0.3),
+            snackbar_hover: color(bg).opacity(0.05),
+            diff_added: color(added),
+            diff_removed: color(removed),
+            diff_added_bg: color(soft(ansi(2))),
+            diff_removed_bg: color(soft(ansi(1))),
+            diff_added_emph: color(added).opacity(if dark { 0.2 } else { 0.15 }),
+            diff_removed_emph: color(removed).opacity(if dark { 0.2 } else { 0.15 }),
+            diff_muted: color(text_3),
+            change_status: [safe, blue, danger, purple].map(color),
+            person: [6, 5, 2, 3, 1].map(|index| color(mix(bg, ansi(index), 0.55))),
+            syntax: [
+                text_3,
+                text(ansi(2), 4.5),
+                text(ansi(6), 4.5),
+                text(ansi(5), 4.5),
+                text(ansi(4), 4.5),
+                text(ansi(3), 4.5),
+                text(ansi(1), 4.5),
+            ]
+            .map(color),
+            terminal: palette,
+            own_colours: None,
+            ..self
+        }
+    }
+
+    pub fn token(&self, token: Token) -> Hsla {
+        let [comment, string, constant, keyword, function, ty, tag] = self.syntax;
+        match token {
+            Token::Comment => comment,
+            Token::String => string,
+            Token::Constant => constant,
+            Token::Keyword => keyword,
+            Token::Function => function,
+            Token::Type => ty,
+            Token::Tag => tag,
+        }
+    }
+
+    /// The focused field's ring made opaque, so it looks the same drawn over a card's edge.
+    pub fn focus_edge(&self) -> Hsla {
+        self.bg_1.blend(self.focus_border)
+    }
+
+    /// `selected_unfocused` made opaque on a card, for a sticky header over its content.
+    pub fn selected_on_card(&self) -> Hsla {
+        self.bg_1.blend(self.selected_unfocused)
+    }
+
+    /// A passage set off from the page, not a panel.
+    pub fn passage(&self) -> Hsla {
+        self.bg_1.blend(self.bg_2.opacity(0.5))
+    }
+
+    pub fn hue(&self, hue: Hue) -> Hsla {
+        match hue {
+            Hue::Pop => self.pop,
+            Hue::Blue => self.blue,
+            Hue::Safe => self.safe,
+            Hue::Warn => self.warn,
+            Hue::Danger => self.danger,
+            Hue::Purple => self.purple,
+            Hue::Gray => self.text_2,
+        }
+    }
+
+    pub fn soft(&self, hue: Hue) -> Hsla {
+        match hue {
+            Hue::Pop => self.pop_soft,
+            Hue::Blue => self.blue_soft,
+            Hue::Safe => self.safe_soft,
+            Hue::Warn => self.warn_soft,
+            Hue::Danger => self.danger_soft,
+            Hue::Purple => self.purple_soft,
+            Hue::Gray => self.muted,
+        }
+    }
+
+    pub fn soft_hover(&self, hue: Hue) -> Hsla {
+        match hue {
+            Hue::Pop => self.pop_soft_hover,
+            Hue::Blue => self.blue_soft_hover,
+            Hue::Safe => self.safe_soft_hover,
+            Hue::Warn => self.warn_soft_hover,
+            Hue::Danger => self.danger_soft_hover,
+            Hue::Purple => self.purple_soft_hover,
+            Hue::Gray => self.muted_hover,
+        }
+    }
+
+    pub fn surface(&self, hue: Hue) -> Hsla {
+        match hue {
+            Hue::Pop => self.pop_surface,
+            Hue::Blue => self.blue_surface,
+            Hue::Safe => self.safe_surface,
+            Hue::Warn => self.warn_surface,
+            Hue::Danger => self.danger_surface,
+            Hue::Purple => self.purple_surface,
+            Hue::Gray => self.muted,
+        }
+    }
+
+    pub fn surface_hover(&self, hue: Hue) -> Hsla {
+        match hue {
+            Hue::Pop => self.pop_surface_hover,
+            Hue::Blue => self.blue_surface_hover,
+            Hue::Safe => self.safe_surface_hover,
+            Hue::Warn => self.warn_surface_hover,
+            Hue::Danger => self.danger_surface_hover,
+            Hue::Purple => self.purple_surface_hover,
+            Hue::Gray => self.muted_hover,
+        }
+    }
+
+    pub fn wash(&self, hue: Hue) -> Hsla {
+        match hue {
+            Hue::Pop => self.pop_wash,
+            Hue::Blue => self.blue_wash,
+            Hue::Safe => self.safe_wash,
+            Hue::Warn => self.warn_wash,
+            Hue::Danger => self.danger_wash,
+            Hue::Purple => self.purple_wash,
+            Hue::Gray => self.hover,
+        }
+    }
+
+    pub fn wash_strong(&self, hue: Hue) -> Hsla {
+        match hue {
+            Hue::Pop => self.pop_wash_strong,
+            Hue::Blue => self.blue_wash_strong,
+            Hue::Safe => self.safe_wash_strong,
+            Hue::Warn => self.warn_wash_strong,
+            Hue::Danger => self.danger_wash_strong,
+            Hue::Purple => self.purple_wash_strong,
+            Hue::Gray => self.selected_unfocused,
+        }
+    }
+
+    /// `FoundHere` is solid, with [`Theme::on_warn`] as its text.
+    pub fn highlight(&self, highlight: Highlight) -> Hsla {
+        match highlight {
+            Highlight::Selected | Highlight::Fresh | Highlight::Copy => self.pop_wash_strong,
+            Highlight::SelectedUnfocused | Highlight::Picked => self.pop_wash,
+            Highlight::Words | Highlight::SayingDraft | Highlight::Incoming => {
+                self.blue_wash_strong
+            }
+            Highlight::Draft => self.blue_wash,
+            Highlight::Found | Highlight::Saying => self.warn_wash_strong,
+            Highlight::Said => self.warn_wash,
+            Highlight::FoundHere => self.warn_bg,
+        }
+    }
+}
+
+/// but-ui's `--but-opacity-wash(-strong)`, read from its primary washes' alpha.
+const WASHES: [f32; 2] = [
+    alpha(tokens::PRIMARY_WASH),
+    alpha(tokens::PRIMARY_WASH_STRONG),
+];
+
+const fn alpha([light, _]: [u32; 2]) -> f32 {
+    (light & 0xff) as f32 / 255.
+}
+
+/// Ghostty's default 16 colours, for those a theme leaves unset.
+const GHOSTTY_ANSI: [u32; 16] = [
+    0x1d1f21, 0xcc6666, 0xb5bd68, 0xf0c674, 0x81a2be, 0xb294bb, 0x8abeb7, 0xc5c8c6, 0x666666,
+    0xd54e53, 0xb9ca4a, 0xe7c547, 0x7aa6da, 0xc397d8, 0x70c0b1, 0xeaeaea,
+];
+
+/// The custom accent's tokens as `0xRRGGBBAA`, computed from `pick` as but-ui's tokens.css
+/// does: in OKLCH, clipped into sRGB as a browser does.
+fn custom_accent(pick: &str, dark: bool) -> Vec<(&'static str, u32)> {
+    let [light, dark_value] = tokens::CUSTOM_ACCENT_FALLBACK;
+    let fallback = if dark { dark_value } else { light } >> 8;
+    let (_, chroma, hue) = oklch(parse_hex(pick).unwrap_or(fallback));
+    let chroma = chroma.min(tokens::CUSTOM_ACCENT_CHROMA_CAP);
+    (tokens::CUSTOM_ACCENT.iter())
+        .map(|&(token, [light, dark_modes])| {
+            let (lightness, share, alpha) = if dark { dark_modes } else { light };
+            #[expect(
+                clippy::cast_possible_truncation,
+                clippy::cast_sign_loss,
+                reason = "clamped to 0–255 first"
+            )]
+            let alpha = (alpha.clamp(0., 1.) * 255.).round() as u32;
+            (
+                token,
+                from_oklch(lightness, chroma * share, hue) << 8 | alpha,
+            )
+        })
+        .collect()
+}
+
+/// `#rrggbb` or `#rgb`, the `#` optional, as `0xRRGGBB`.
+pub fn parse_hex(text: &str) -> Option<u32> {
+    let text = text.trim();
+    let digits = text.strip_prefix('#').unwrap_or(text);
+    let value = u32::from_str_radix(digits, 16).ok()?;
+    match digits.len() {
+        6 => Some(value),
+        3 => {
+            let [r, g, b] = [value >> 8, value >> 4 & 0xf, value & 0xf].map(|c| c * 0x11);
+            Some(r << 16 | g << 8 | b)
+        }
+        _ => None,
+    }
+}
+
+/// Lightness, chroma and hue in degrees.
+fn oklch(hex: u32) -> (f32, f32, f32) {
+    let [r, g, b] = channels(hex).map(|c| {
+        let c = c / 255.;
+        if c <= 0.04045 {
+            c / 12.92
+        } else {
+            ((c + 0.055) / 1.055).powf(2.4)
+        }
+    });
+    let l = (0.412_221_46 * r + 0.536_332_55 * g + 0.051_445_995 * b).cbrt();
+    let m = (0.211_903_5 * r + 0.680_699_5 * g + 0.107_396_96 * b).cbrt();
+    let s = (0.088_302_46 * r + 0.281_718_85 * g + 0.629_978_7 * b).cbrt();
+    let lightness = 0.210_454_26 * l + 0.793_617_8 * m - 0.004_072_047 * s;
+    let a = 1.977_998_5 * l - 2.428_592_2 * m + 0.450_593_7 * s;
+    let b = 0.025_904_037 * l + 0.782_771_77 * m - 0.808_675_77 * s;
+    (lightness, a.hypot(b), b.atan2(a).to_degrees())
+}
+
+/// Hue in degrees; each channel is clipped into sRGB.
+fn from_oklch(lightness: f32, chroma: f32, hue: f32) -> u32 {
+    let (a, b) = (
+        chroma * hue.to_radians().cos(),
+        chroma * hue.to_radians().sin(),
+    );
+    let l = (lightness + 0.396_337_78 * a + 0.215_803_76 * b).powi(3);
+    let m = (lightness - 0.105_561_346 * a - 0.063_854_17 * b).powi(3);
+    let s = (lightness - 0.089_484_18 * a - 1.291_485_5 * b).powi(3);
+    let linear = [
+        4.076_741_7 * l - 3.307_711_6 * m + 0.230_969_94 * s,
+        -1.268_438 * l + 2.609_757_4 * m - 0.341_319_38 * s,
+        -0.004_196_086_3 * l - 0.703_418_6 * m + 1.707_614_7 * s,
+    ];
+    let [r, g, b] = linear.map(|c| {
+        let c = if c <= 0.003_130_8 {
+            12.92 * c
+        } else {
+            1.055 * c.powf(1. / 2.4) - 0.055
+        };
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "clamped to 0–255 first"
+        )]
+        let byte = (c.clamp(0., 1.) * 255.).round() as u32;
+        byte
+    });
+    r << 16 | g << 8 | b
+}
+
+fn hex(color: RgbColor) -> u32 {
+    u32::from(color.r) << 16 | u32::from(color.g) << 8 | u32::from(color.b)
+}
+
+fn color(hex: u32) -> Hsla {
+    rgb(hex).into()
+}
+
+fn channels(hex: u32) -> [f32; 3] {
+    [16, 8, 0].map(|shift| ((hex >> shift) & 0xff) as f32)
+}
+
+fn mix(a: u32, b: u32, t: f32) -> u32 {
+    let [a, b] = [channels(a), channels(b)];
+    (a.iter().zip(b))
+        .map(|(a, b)| (a + (b - a) * t).round() as u32)
+        .fold(0, |hex, channel| hex << 8 | channel)
+}
+
+/// WCAG's relative luminance.
+fn luminance(hex: u32) -> f32 {
+    let [r, g, b] = channels(hex).map(|channel| {
+        let c = channel / 255.;
+        match c <= 0.04045 {
+            true => c / 12.92,
+            false => ((c + 0.055) / 1.055).powf(2.4),
+        }
+    });
+    0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+/// WCAG's contrast ratio, from 1 to 21.
+fn contrast(a: u32, b: u32) -> f32 {
+    let [a, b] = [luminance(a), luminance(b)];
+    (a.max(b) + 0.05) / (a.min(b) + 0.05)
+}
+
+/// The first of 20 steps from `from` toward `toward` that reads at `ratio` on every ground.
+fn reaching(from: u32, toward: u32, grounds: &[u32], ratio: f32) -> Option<u32> {
+    (0..=20)
+        .map(|step| mix(from, toward, step as f32 / 20.))
+        .find(|&color| {
+            grounds
+                .iter()
+                .all(|&ground| contrast(color, ground) >= ratio)
+        })
+}
+
+/// Like [`reaching`], but moving only the lightness, toward `ink`'s.
+fn toned(from: u32, ink: u32, grounds: &[u32], ratio: f32) -> Option<u32> {
+    let (from, target) = (color(from), color(ink).l);
+    (0..=20)
+        .map(|step| {
+            let l = from.l + (target - from.l) * step as f32 / 20.;
+            rgb_hex(Hsla { l, ..from })
+        })
+        .find(|&color| {
+            grounds
+                .iter()
+                .all(|&ground| contrast(color, ground) >= ratio)
+        })
+}
+
+/// How far `hex` is from a gray, 0 to 255.
+fn chroma(hex: u32) -> f32 {
+    let [r, g, b] = channels(hex);
+    r.max(g).max(b) - r.min(g).min(b)
+}
+
+fn readable_on(accent: u32, ink: u32, ground: u32) -> u32 {
+    reaching(accent, ink, &[ground], 4.5).unwrap_or(ink)
+}
+
+fn rgb_color(hex: u32) -> RgbColor {
+    let [_, r, g, b] = hex.to_be_bytes();
+    RgbColor { r, g, b }
+}
+
+fn rgb_hex(color: Hsla) -> u32 {
+    let Rgba { r, g, b, .. } = color.into();
+    [r, g, b]
+        .map(|channel| (channel * 255.).round() as u32)
+        .into_iter()
+        .fold(0, |hex, channel| hex << 8 | channel)
+}
+
+#[cfg(test)]
+mod tests {
+    use but_tty::{Colors, Ghostty, RgbColor};
+    use gpui::{FontWeight, WindowAppearance};
+
+    use super::{
+        Accent, Appearance, CodeSize, ColorScheme, Hue, Shade, Theme, WASHES, channels, chroma,
+        contrast, custom_accent, rgb_hex,
+    };
+
+    fn rgb(hex: u32) -> RgbColor {
+        let [_, r, g, b] = hex.to_be_bytes();
+        RgbColor { r, g, b }
+    }
+
+    fn palette(background: u32, foreground: u32, ansi: [u32; 8]) -> Colors {
+        Colors {
+            background: Some(rgb(background)),
+            foreground: Some(rgb(foreground)),
+            palette: (0..).zip(ansi.map(rgb)).collect(),
+            ..Colors::default()
+        }
+    }
+
+    fn ghostty_theme(colors: Colors, choice: Shade) -> Theme {
+        let ghostty = Ghostty {
+            light: colors.clone(),
+            dark: colors,
+            ..Ghostty::default()
+        };
+        Theme::new(choice, &ColorScheme::Ghostty, CodeSize::Medium, &ghostty)
+    }
+
+    #[test]
+    fn a_pale_accent_keeps_its_hue() {
+        // 3024 Day, whose cyan reads at under 2:1 on its ground.
+        let colors = palette(
+            0xf7f7f7,
+            0x4a4543,
+            [
+                0x090300, 0xdb2d20, 0x01a252, 0xcaba00, 0x01a0e4, 0xa16a94, 0x8fbece, 0xa5a2a2,
+            ],
+        );
+        let theme = ghostty_theme(colors, Shade::Light);
+        let cyan = gpui::Hsla::from(gpui::rgb(0x8fbece));
+        assert!(
+            chroma(rgb_hex(theme.pop)) > 60.,
+            "the cyan is darkened, not grayed: {:06x}",
+            rgb_hex(theme.pop)
+        );
+        assert!(
+            (theme.pop.h - cyan.h).abs() < 0.02,
+            "the accent is still the scheme's cyan: {:06x}",
+            rgb_hex(theme.pop)
+        );
+    }
+
+    #[test]
+    fn a_gray_cyan_gives_way_to_a_colour() {
+        let colors = palette(
+            0xfdf6e3,
+            0x657b83,
+            [
+                0x073642, 0xdc322f, 0x859900, 0xb58900, 0x268bd2, 0xd33682, 0x888888, 0xeee8d5,
+            ],
+        );
+        let theme = ghostty_theme(colors, Shade::Light);
+        let blue = gpui::Hsla::from(gpui::rgb(0x268bd2));
+        assert!(
+            (theme.pop.h - blue.h).abs() < 0.02,
+            "the blue stands in for the gray cyan: {:06x}",
+            rgb_hex(theme.pop)
+        );
+        assert_eq!(
+            rgb_hex(theme.pop_button),
+            0x268bd2,
+            "buttons fill with the blue as the scheme gives it"
+        );
+    }
+
+    #[test]
+    fn derived_text_reads_on_both_grounds() {
+        let schemes = [
+            (
+                "dark",
+                palette(
+                    0x1e1e2e,
+                    0xcdd6f4,
+                    [
+                        0x45475a, 0xf38ba8, 0xa6e3a1, 0xf9e2af, 0x89b4fa, 0xf5c2e7, 0x94e2d5,
+                        0xbac2de,
+                    ],
+                ),
+            ),
+            (
+                "light",
+                palette(
+                    0xfdf6e3,
+                    0x657b83,
+                    [
+                        0x073642, 0xdc322f, 0x859900, 0xb58900, 0x268bd2, 0xd33682, 0x2aa198,
+                        0xeee8d5,
+                    ],
+                ),
+            ),
+            ("murky", palette(0x404040, 0x707070, [0x505050; 8])),
+        ];
+        for (name, colors) in schemes {
+            let theme = ghostty_theme(colors, Shade::Dark);
+            for ground in [theme.bg_1, theme.bg_2].map(rgb_hex) {
+                for (what, ink, ratio) in [
+                    ("secondary text", theme.text_2, 4.5),
+                    ("faint text", theme.text_3, 3.),
+                    ("danger", theme.danger, 4.5),
+                    ("pop", theme.pop, 4.5),
+                ] {
+                    let reads = contrast(rgb_hex(ink), ground);
+                    assert!(
+                        reads >= ratio,
+                        "{name}: {what} reads at {reads}, under {ratio}"
+                    );
+                }
+            }
+            let label = contrast(rgb_hex(theme.on_pop), rgb_hex(theme.pop_button));
+            assert!(
+                label >= 4.5,
+                "{name}: a pop button's label reads at {label}"
+            );
+            let glyph = contrast(rgb_hex(theme.snackbar_warn), rgb_hex(theme.snackbar_bg));
+            assert!(
+                glyph >= 3.,
+                "{name}: a warning snackbar's glyph reads at {glyph}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_custom_accent_draws_as_the_web_draws_it() {
+        // What but-ui's build resolves the custom accent to, as a browser would.
+        let samples: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../packages/but-ui/tokens/accent-samples.json"
+        ))
+        .unwrap();
+        let mut off = Vec::new();
+        for sample in samples["samples"].as_array().unwrap() {
+            let pick = sample["color"].as_str().unwrap();
+            for (mode, dark) in [("light", false), ("dark", true)] {
+                for (token, drawn) in custom_accent(pick, dark) {
+                    let web = sample["tokens"][token][mode].as_str().unwrap();
+                    let digits = web.trim_start_matches('#');
+                    let web = u32::from_str_radix(digits, 16).unwrap();
+                    let web = if digits.len() == 6 {
+                        web << 8 | 0xff
+                    } else {
+                        web
+                    };
+                    let alpha = |c: u32| (c & 0xff) as f32;
+                    let apart = (channels(drawn >> 8).into_iter().zip(channels(web >> 8)))
+                        .map(|(a, b)| (a - b).abs())
+                        .fold((alpha(drawn) - alpha(web)).abs(), f32::max);
+                    if apart > 1. {
+                        off.push(format!("{pick} {mode} {token}: {drawn:08x}, web {web:08x}"));
+                    }
+                }
+            }
+        }
+        assert!(
+            off.is_empty(),
+            "each channel within 1 of the web's:\n{}",
+            off.join("\n")
+        );
+    }
+
+    #[test]
+    fn a_warning_snackbars_glyph_reads_in_gitbutlers_colours() {
+        for appearance in [Shade::Light, Shade::Dark] {
+            let theme = Theme::new(
+                appearance,
+                &ColorScheme::GitButler,
+                CodeSize::Medium,
+                &Ghostty::default(),
+            );
+            let glyph = contrast(rgb_hex(theme.snackbar_warn), rgb_hex(theme.snackbar_bg));
+            assert!(
+                glyph >= 3.,
+                "{appearance:?}: a warning snackbar's glyph reads at {glyph}, under 3:1"
+            );
+        }
+    }
+
+    #[test]
+    fn each_hue_reads_on_its_soft_ground() {
+        let catppuccin = palette(
+            0x1e1e2e,
+            0xcdd6f4,
+            [
+                0x45475a, 0xf38ba8, 0xa6e3a1, 0xf9e2af, 0x89b4fa, 0xf5c2e7, 0x94e2d5, 0xbac2de,
+            ],
+        );
+        let solarized = palette(
+            0xfdf6e3,
+            0x657b83,
+            [
+                0x073642, 0xdc322f, 0x859900, 0xb58900, 0x268bd2, 0xd33682, 0x2aa198, 0xeee8d5,
+            ],
+        );
+        let themes = [
+            ("gitbutler light", Theme::gitbutler(false, CodeSize::Medium)),
+            ("gitbutler dark", Theme::gitbutler(true, CodeSize::Medium)),
+            (
+                "gitbutler purple",
+                Theme::gitbutler(true, CodeSize::Medium).with_accent(Accent::Purple, ""),
+            ),
+            ("catppuccin", ghostty_theme(catppuccin, Shade::Dark)),
+            ("solarized", ghostty_theme(solarized, Shade::Light)),
+        ];
+        for (name, theme) in themes {
+            for hue in [
+                Hue::Pop,
+                Hue::Blue,
+                Hue::Safe,
+                Hue::Warn,
+                Hue::Danger,
+                Hue::Purple,
+                Hue::Gray,
+            ] {
+                let ink = rgb_hex(theme.hue(hue));
+                // Soft fills are see-through, so each is checked on what it sits on, as
+                // but-ui checks.
+                for (what, ground, unders) in [
+                    ("soft", theme.soft(hue), vec![theme.bg_1, theme.bg_2]),
+                    (
+                        "soft under the pointer",
+                        theme.soft_hover(hue),
+                        vec![theme.bg_1],
+                    ),
+                    // Opaque, so the ground under it doesn't change it.
+                    ("surface", theme.surface(hue), vec![theme.bg_1]),
+                    (
+                        "surface under the pointer",
+                        theme.surface_hover(hue),
+                        vec![theme.bg_1],
+                    ),
+                ] {
+                    for under in unders {
+                        let reads = contrast(ink, rgb_hex(under.blend(ground)));
+                        assert!(
+                            reads >= 4.5,
+                            "{name}: {hue:?} reads at {reads} on its {what} ground"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn an_accents_washes_follow_it() {
+        let teal = Theme::gitbutler(false, CodeSize::Medium);
+        let purple = teal.clone().with_accent(Accent::Purple, "");
+        for (what, wash, strong) in [
+            ("teal", teal.pop_wash, teal.pop_wash_strong),
+            ("purple", purple.pop_wash, purple.pop_wash_strong),
+        ] {
+            let ground = if what == "teal" {
+                teal.pop_bg
+            } else {
+                purple.pop_bg
+            };
+            for (name, wash, share) in [("wash", wash, WASHES[0]), ("strong", strong, WASHES[1])] {
+                assert_eq!(
+                    (wash.h, wash.s, wash.l),
+                    (ground.h, ground.s, ground.l),
+                    "{what}: its {name} is its primary"
+                );
+                assert!(
+                    (wash.a - share).abs() < 0.01,
+                    "{what}: its {name} is at but-ui's strength, {} not {share}",
+                    wash.a
+                );
+            }
+        }
+        assert_ne!(
+            teal.pop_wash, purple.pop_wash,
+            "another accent washes in its own colour"
+        );
+    }
+
+    #[test]
+    fn line_counts_read_on_a_solid_selection() {
+        let catppuccin = palette(
+            0x1e1e2e,
+            0xcdd6f4,
+            [
+                0x45475a, 0xf38ba8, 0xa6e3a1, 0xf9e2af, 0x89b4fa, 0xf5c2e7, 0x94e2d5, 0xbac2de,
+            ],
+        );
+        let solarized = palette(
+            0xfdf6e3,
+            0x657b83,
+            [
+                0x073642, 0xdc322f, 0x859900, 0xb58900, 0x268bd2, 0xd33682, 0x2aa198, 0xeee8d5,
+            ],
+        );
+        // Solarized's own selected text reads under 4.5:1, so its counts can only match it.
+        let themes = [
+            (
+                "gitbutler light",
+                Theme::gitbutler(false, CodeSize::Medium),
+                true,
+            ),
+            (
+                "gitbutler dark",
+                Theme::gitbutler(true, CodeSize::Medium),
+                true,
+            ),
+            ("catppuccin", ghostty_theme(catppuccin, Shade::Dark), true),
+            ("solarized", ghostty_theme(solarized, Shade::Light), false),
+        ];
+        for (name, theme, keeps_hue) in themes {
+            let ground = rgb_hex(theme.fill_gray);
+            let label = contrast(rgb_hex(theme.text_inverted), ground);
+            for (what, ink) in [
+                ("added", theme.safe_on_solid),
+                ("removed", theme.danger_on_solid),
+            ] {
+                let reads = contrast(rgb_hex(ink), ground);
+                assert!(
+                    reads >= label.min(4.5),
+                    "{name}: {what} reads at {reads} on the selection"
+                );
+                assert_eq!(
+                    ink != theme.text_inverted,
+                    keeps_hue,
+                    "{name}: {what} keeps its hue only where it can read"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_scheme_colours_the_app_and_the_terminals_whatever_the_appearance() {
+        let solarized = palette(0xfdf6e3, 0x657b83, [0x073642; 8]);
+        let theme = ghostty_theme(solarized.clone(), Shade::Dark);
+        assert_eq!(
+            [theme.bg_1, theme.text_1].map(rgb_hex),
+            [0xfdf6e3, 0x657b83],
+            "a light scheme draws light though the appearance asks for dark"
+        );
+        assert_eq!(
+            theme.terminal, solarized,
+            "the terminals draw in the scheme too"
+        );
+    }
+
+    #[test]
+    fn gitbutlers_terminals_draw_in_its_colours_whatever_ghostty_sets() {
+        let ghostty = Ghostty {
+            light: palette(0x000000, 0xffffff, [0x123456; 8]),
+            dark: palette(0x000000, 0xffffff, [0x123456; 8]),
+            ..Ghostty::default()
+        };
+        for choice in [Shade::Light, Shade::Dark] {
+            let theme = Theme::new(choice, &ColorScheme::GitButler, CodeSize::Medium, &ghostty);
+            let terminal = &theme.terminal;
+            assert_eq!(
+                [terminal.background, terminal.foreground].map(|c| c.map(super::hex)),
+                [theme.bg_1, theme.text_1].map(|c| Some(rgb_hex(c))),
+                "the terminal's ground and text are the app's"
+            );
+            let red = terminal.palette.iter().find(|(index, _)| *index == 1);
+            assert_eq!(
+                red.map(|(_, color)| super::hex(*color)),
+                Some(rgb_hex(theme.danger)),
+                "red is the app's danger, not Ghostty's"
+            );
+            assert_eq!(terminal.palette.len(), 16, "every ANSI colour is set");
+        }
+    }
+
+    fn gitbutler_theme() -> Theme {
+        Theme::new(
+            Shade::Dark,
+            &ColorScheme::GitButler,
+            CodeSize::Medium,
+            &Ghostty::default(),
+        )
+    }
+
+    #[test]
+    fn diffs_show_a_picked_font_only_when_the_machine_has_it() {
+        let digit = |family: &str| (family == "Menlo").then_some(0.5);
+        let picked = gitbutler_theme().with_diff_font(Some("Menlo"), digit);
+        assert_eq!(
+            (picked.diff_font.as_ref(), picked.diff_digit),
+            ("Menlo", 0.5),
+            "the picked font draws, with its own digit width"
+        );
+        let gone = gitbutler_theme().with_diff_font(Some("Gone"), digit);
+        assert_eq!(
+            (gone.diff_font, gone.diff_digit),
+            (gone.mono_font, 0.6),
+            "a font that's gone keeps the app's own, and its width"
+        );
+    }
+
+    #[test]
+    fn terminals_follow_ghostty_until_a_font_is_picked() {
+        let ghostty = Ghostty {
+            font_families: vec!["Gone".into(), "Menlo".into()],
+            font_features: vec![("calt".into(), 0)],
+            ..Ghostty::default()
+        };
+        let installed = |family: &str| family != "Gone";
+
+        let followed = gitbutler_theme().with_terminal_font(None, &ghostty, installed);
+        assert_eq!(
+            (
+                followed.terminal_font.family.as_ref(),
+                followed.terminal_font.features.tag_value_list()
+            ),
+            ("Menlo", &[("calt".to_owned(), 0)][..]),
+            "the first family the machine has, with Ghostty's features"
+        );
+
+        let picked = gitbutler_theme().with_terminal_font(Some("Monaco"), &ghostty, installed);
+        assert_eq!(
+            (
+                picked.terminal_font.family.as_ref(),
+                picked.terminal_font.features.tag_value_list()
+            ),
+            ("Monaco", &[][..]),
+            "a picked font wins, and Ghostty's features were written for Ghostty's font"
+        );
+
+        let nothing = Ghostty {
+            font_families: vec!["Gone".into()],
+            ..Ghostty::default()
+        };
+        let fallen_back = gitbutler_theme().with_terminal_font(None, &nothing, installed);
+        assert_eq!(
+            fallen_back.terminal_font.family,
+            gitbutler_theme().terminal_font.family,
+            "with none of Ghostty's fonts here, the app's own"
+        );
+    }
+
+    #[test]
+    fn terminals_draw_bold_in_the_regular_weight_when_ghostty_turns_it_off() {
+        let ghostty = Ghostty {
+            font_families: vec!["Menlo".into()],
+            bold_disabled: true,
+            ..Ghostty::default()
+        };
+        let installed = |family: &str| family == "Menlo";
+
+        let followed = gitbutler_theme().with_terminal_font(None, &ghostty, installed);
+        assert_eq!(
+            followed.terminal_bold, followed.terminal_font.weight,
+            "bold text draws as regular text does"
+        );
+
+        let picked = gitbutler_theme().with_terminal_font(Some("Menlo"), &ghostty, installed);
+        assert_eq!(
+            picked.terminal_bold,
+            FontWeight::SEMIBOLD,
+            "a picked font draws bold as the app does, as with Ghostty's features"
+        );
+    }
+
+    #[test]
+    fn the_appearance_picks_the_light_or_the_dark_scheme() {
+        for (choice, system, shade, why) in [
+            (
+                Appearance::System,
+                WindowAppearance::Light,
+                Shade::Light,
+                "a light system draws light's",
+            ),
+            (
+                Appearance::System,
+                WindowAppearance::Dark,
+                Shade::Dark,
+                "a dark system draws dark's",
+            ),
+            (
+                Appearance::Light,
+                WindowAppearance::Dark,
+                Shade::Light,
+                "Light draws light's always",
+            ),
+            (
+                Appearance::Dark,
+                WindowAppearance::Light,
+                Shade::Dark,
+                "Dark draws dark's always",
+            ),
+        ] {
+            assert_eq!(choice.shade(system), shade, "{why}");
+        }
+    }
+
+    #[test]
+    fn a_scheme_without_colours_draws_as_gitbutler() {
+        let ghostty = Ghostty::default();
+        let gitbutler = Theme::new(
+            Shade::Dark,
+            &ColorScheme::GitButler,
+            CodeSize::Medium,
+            &ghostty,
+        );
+        let missing = ColorScheme::Named("No theme is called this".into());
+        let fallen_back = Theme::new(Shade::Dark, &missing, CodeSize::Medium, &ghostty);
+        let unset = ghostty_theme(Colors::default(), Shade::Dark);
+        for theme in [fallen_back, unset] {
+            assert_eq!(
+                [theme.bg_1, theme.text_1, theme.pop].map(rgb_hex),
+                [gitbutler.bg_1, gitbutler.text_1, gitbutler.pop].map(rgb_hex),
+                "with nothing to draw in, GitButler's own colours stay"
+            );
+        }
+    }
+}

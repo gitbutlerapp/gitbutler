@@ -114,7 +114,9 @@ gitbutler-project.workspace = true
 gitbutler-repo.workspace = true
 gitbutler-filemonitor.workspace = true
 
-gpui = { git = "https://github.com/zed-industries/zed", rev = "28d0a3547f16b9609b301b48ab363bfca649c864" }
+gpui.workspace = true
+# The theme and the components but-ui-react has too.
+but-ui-gpui.workspace = true
 # On Linux, windows on Wayland or X11, whichever the session runs.
 gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "28d0a3547f16b9609b301b48ab363bfca649c864", features = ["font-kit", "wayland", "x11"] }
 # Only the parsing and the dumps two-face embeds: no YAML or plist loading.
@@ -136,8 +138,6 @@ shell-words.workspace = true
 [build-dependencies]
 # The Windows executable's icon; it adds nothing to builds for elsewhere.
 embed-resource = "3.0.9"
-# Reads but-ui's tokens, which the build script writes as constants.
-serde_json.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
