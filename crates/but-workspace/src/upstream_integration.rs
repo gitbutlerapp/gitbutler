@@ -638,7 +638,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
 
     let mut project_meta = project_meta;
     project_meta.target_commit_id = Some(target_ref_commit.detach());
-    let mut rebase = tips.rebase_leaving_workspace_if_fewer(editor)?;
+    let mut rebase = tips.rebase_leaving_unnecessary_workspace(editor)?;
     // Materializing re-projects the workspace from the graph's own project meta, and the
     // dry-run overlay reads its target from there too. Without this the outcome is projected
     // against the old base, with the target's commits folded into the stacks as integrated.

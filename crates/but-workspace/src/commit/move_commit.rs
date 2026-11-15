@@ -42,5 +42,5 @@ pub fn move_commits<'ws, 'meta, M: RefMetadata>(
         editor.move_pick(selector, relative_to.clone(), side)?;
     }
 
-    tips.rebase_leaving_workspace_if_fewer(editor)
+    tips.rebase_leaving_unnecessary_workspace(editor)
 }

@@ -32,5 +32,5 @@ pub fn discard_commits<'ws, 'meta, M: RefMetadata>(
         bail!("no commit IDs provided for discard");
     }
 
-    tips.rebase_leaving_workspace_if_fewer(editor)
+    tips.rebase_leaving_unnecessary_workspace(editor)
 }

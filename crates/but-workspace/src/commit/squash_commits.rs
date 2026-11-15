@@ -193,7 +193,7 @@ pub fn squash_commits<'ws, 'meta, M: RefMetadata, S: ToCommitSelector, T: ToComm
     editor.amend_pick(target_commit_selector, new_commit)?;
 
     Ok(SquashCommitsOutcome {
-        rebase: tips.rebase_leaving_workspace_if_fewer(editor)?,
+        rebase: tips.rebase_leaving_unnecessary_workspace(editor)?,
         commit_selector: target_commit_selector,
     })
 }

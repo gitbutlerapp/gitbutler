@@ -351,7 +351,7 @@ pub(super) mod function {
         }
         editor.insert_segment(target_selector, subject_delimiter, side)?;
 
-        tips.rebase_leaving_workspace_if_fewer(editor)
+        tips.rebase_leaving_unnecessary_workspace(editor)
     }
 
     /// A segment and the lane holding it.

@@ -154,30 +154,31 @@ pub(crate) fn remove_lane_without_tip<M: RefMetadata>(
     Ok(())
 }
 
-/// How many [workspace_tips] an editor had before an operation, and whether its workspace was
-/// needed then, to tell if the operation made it unnecessary.
+/// How many [workspace_tips] an editor had before an operation, and whether it was on a
+/// workspace that was unnecessary already, to tell if the operation made it unnecessary.
 pub struct TipCount {
     tips: usize,
-    needed: bool,
+    was_unnecessary: bool,
 }
 
 impl TipCount {
     /// Count the [workspace_tips] of `editor`, and see if [leave_unnecessary_workspace] would
-    /// keep its workspace.
+    /// leave its workspace.
     pub fn of<M: RefMetadata>(editor: &Editor<'_, '_, M>) -> anyhow::Result<Self> {
         Ok(Self {
             tips: workspace_tips(editor)?.len(),
-            needed: editor.workspace_reference().is_some() && way_out(editor)?.is_none(),
+            was_unnecessary: way_out(editor)?.is_some(),
         })
     }
 
-    /// Rebase `editor`, and [leave_unnecessary_workspace] if it has fewer [workspace_tips] now,
-    /// or its workspace was needed before.
-    pub fn rebase_leaving_workspace_if_fewer<'ws, 'meta, M: RefMetadata>(
+    /// Rebase `editor`, and [leave_unnecessary_workspace] unless the workspace was unnecessary
+    /// before and has lost none of its [workspace_tips].
+    pub fn rebase_leaving_unnecessary_workspace<'ws, 'meta, M: RefMetadata>(
         self,
         editor: Editor<'ws, 'meta, M>,
     ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
-        if self.needed || workspace_tips(&editor)?.len() < self.tips {
+        let lost_a_tip = workspace_tips(&editor)?.len() < self.tips;
+        if editor.workspace_reference().is_some() && (lost_a_tip || !self.was_unnecessary) {
             leave_unnecessary_workspace(editor.rebase()?.into_editor())
         } else {
             editor.rebase()
