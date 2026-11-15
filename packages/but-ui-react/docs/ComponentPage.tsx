@@ -72,10 +72,12 @@ const Example: FC<{ entry: StoryEntry; framed: boolean; gpui: boolean }> = ({
 	const { layout, width, height } = entry.story.parameters;
 	const shots = gpuiShots(entry.id);
 	const [renderer, pickRenderer] = useState<Renderer>("react");
-	const shot =
-		shots !== undefined && renderer === "gpui" ? (
-			<GpuiView name={entry.name} shots={shots} />
-		) : undefined;
+	const showShot = shots !== undefined && renderer === "gpui";
+	// Mounted from the start, hidden while React is picked, so the shot has loaded and holds its
+	// height by the time it's picked rather than collapsing the card while it loads.
+	const shot = shots !== undefined && (
+		<GpuiView name={entry.name} shots={shots} hidden={!showShot} />
+	);
 	const footer = gpui && (
 		<div className="docs-page-card-footer">
 			<SegmentedControl value={renderer} onValueChange={pickRenderer} aria-label="Drawn by">
@@ -112,24 +114,25 @@ const Example: FC<{ entry: StoryEntry; framed: boolean; gpui: boolean }> = ({
 			{framed || layout === "bar" ? (
 				// A window or a bar the width of one: a bordered card, the window's edge.
 				<RowGroup style={sized}>
-					{shot ??
-						(framed ? (
-							<iframe
-								className="docs-page-frame"
-								title={entry.name}
-								src={`?story=${entry.id}`}
-								loading="lazy"
-								style={height === undefined ? undefined : { height }}
-							/>
-						) : (
-							<div className="docs-page-canvas-bar">
-								<entry.story.Component />
-							</div>
-						))}
+					{shot}
+					{framed ? (
+						<iframe
+							className="docs-page-frame"
+							title={entry.name}
+							src={`?story=${entry.id}`}
+							loading="lazy"
+							hidden={showShot}
+							style={height === undefined ? undefined : { height }}
+						/>
+					) : (
+						<div className="docs-page-canvas-bar" hidden={showShot}>
+							<entry.story.Component />
+						</div>
+					)}
 					{footer}
 				</RowGroup>
 			) : (
-				<Ground entry={entry} style={ground} shot={shot} footer={footer} />
+				<Ground entry={entry} style={ground} shot={shot} showShot={showShot} footer={footer} />
 			)}
 		</section>
 	);
@@ -138,23 +141,28 @@ const Example: FC<{ entry: StoryEntry; framed: boolean; gpui: boolean }> = ({
 /**
  * Anything not framed stands on a tinted ground with no border, so a component with a card of its
  * own, as a RowGroup, isn't drawn as a card within a card. With a `footer`, the ground sits in a
- * card over it, and shows the GPUI client's `shot` in the story's place while that's picked.
+ * card over it, and shows the GPUI client's `shot` in the story's place while that's picked
+ * (`showShot`).
  */
 const Ground: FC<{
 	entry: StoryEntry;
 	style: CSSProperties | undefined;
 	shot: ReactNode;
+	showShot: boolean;
 	footer: ReactNode;
-}> = ({ entry, style, shot, footer }) => {
+}> = ({ entry, style, shot, showShot, footer }) => {
 	const { layout, width } = entry.story.parameters;
 	const carded = footer !== false && footer !== undefined;
 	const canvas = (
 		<div className="docs-page-canvas" data-layout={layout} style={carded ? undefined : style}>
-			{shot ?? (
-				<div className="docs-page-stage" style={width === undefined ? undefined : { width }}>
-					<entry.story.Component />
-				</div>
-			)}
+			{shot}
+			<div
+				className="docs-page-stage"
+				hidden={showShot}
+				style={width === undefined ? undefined : { width }}
+			>
+				<entry.story.Component />
+			</div>
 		</div>
 	);
 	if (!carded) return canvas;

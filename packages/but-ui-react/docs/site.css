@@ -396,9 +396,17 @@ body[data-layout="centered"] {
 
 	/* The shot is the example on this ground with its own 24px of room, so it takes the padding's
 	   place. */
-	& > .docs-page-canvas:has(> .docs-gpui-shot) {
+	& > .docs-page-canvas:has(> .docs-gpui-shot:not([hidden])) {
 		padding: 0;
 	}
+}
+
+/* The view that isn't picked: both stay mounted, so switching doesn't wait on the shot loading. */
+.docs-gpui-shot[hidden],
+.docs-page-stage[hidden],
+.docs-page-frame[hidden],
+.docs-page-canvas-bar[hidden] {
+	display: none;
 }
 
 .docs-page-card-footer {
