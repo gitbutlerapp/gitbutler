@@ -199,6 +199,16 @@ enum Step {
     Bar,
 }
 
+/// What draws the rows this frame, which decides what else the frame does with them: see
+/// [`Navigator::prepare`].
+#[derive(Clone, Copy)]
+pub(super) enum RowsIn {
+    /// The navigator's own list, beside the detail or out over it.
+    List,
+    /// The card under a tab across the top, where the navigator itself isn't drawn.
+    Card,
+}
+
 /// Where a step of `delta` goes from item `at` of `items`, or from the drawer's bar while
 /// `on_bar`, with `bar` how many items are above the bar, if it's a stop. From off the list, a
 /// step forward starts at the top and one back at the bottom. Past an end it's `None`, rather
@@ -1703,8 +1713,8 @@ impl Navigator {
         }
     }
 
-    /// Build the rows and bring the list up to date, as a frame does, for what reads them while
-    /// the navigator isn't drawn.
+    /// Build the rows and bring the list up to date, as [`Self::prepare`] does for a frame but
+    /// without going on to one, for what reads them while nothing draws them.
     pub(crate) fn catch_up_rows(&mut self, window: &Window, cx: &App) {
         let Rows {
             rows,
@@ -2117,17 +2127,51 @@ impl Navigator {
         }
     }
 
-    /// Bring the rows up to date for a frame of the card, where the navigator itself isn't
-    /// drawn, saying whether they go on sliding, and which to scroll to.
-    pub(super) fn frame_for_card(&mut self, window: &Window, cx: &App) -> (bool, Option<usize>) {
+    /// Go on to the frame being drawn and bring the rows up to date for it, whatever draws
+    /// them, saying whether they go on folding or sliding after it. One frame's work for both,
+    /// so the card under a tab does what the list does but what only a list can.
+    pub(super) fn prepare(&mut self, rows_in: RowsIn, window: &Window, cx: &App) -> bool {
+        self.row = Theme::get(cx).sizes.control;
         self.next_frame();
+        // As the list drew it, before the rows change, which a reorder doesn't do by much.
+        let last_listed = match rows_in {
+            RowsIn::List => {
+                // The card says where its first row is as it draws it, and isn't drawn.
+                self.card_top.set(None);
+                let inset = Theme::get(cx).scaled(LIST_TOP);
+                (self.list.logical_scroll_top().item_ix..self.rows.len())
+                    .take_while(|ix| fold::listed(&self.list, inset, *ix))
+                    .last()
+            }
+            RowsIn::Card => None,
+        };
         self.catch_up_rows(window, cx);
+        self.held_card = self.held_card(self.store.read(cx));
+        self.held_worktree = self.held_worktree(self.store.read(cx));
         self.end_crossing();
+        match rows_in {
+            RowsIn::List => {
+                self.slide_edges = self.reorder.any().then(|| {
+                    let first = self.list.logical_scroll_top().item_ix;
+                    let below =
+                        last_listed.map_or(first, |last| last.saturating_sub(ABOVE_LAST_LISTED));
+                    (first, below.max(first))
+                });
+                self.fit_folds(cx);
+            }
+            // A card holds all its rows in view, so they slide and fold all the way.
+            RowsIn::Card => {}
+        }
+        self.folds.any() || self.reorder.any()
+    }
+
+    /// Which of the card's rows to scroll to, once the selection changed or where it'd be
+    /// moved did, as the list scrolls to it as it brings its rows up to date.
+    pub(super) fn take_card_reveal(&mut self, cx: &App) -> Option<usize> {
         self.reveal_source = false;
-        let reveal = std::mem::take(&mut self.reveal_selection)
+        std::mem::take(&mut self.reveal_selection)
             .then(|| self.card_reveal(cx))
-            .flatten();
-        (self.reorder.any(), reveal)
+            .flatten()
     }
 
     /// Which row a reveal goes to in the card: where what's moving lands, else the selection.
@@ -5010,45 +5054,12 @@ fn shows_where_it_lands(store: &Store, row: &Row) -> bool {
 
 impl Render for Navigator {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        self.row = Theme::get(cx).sizes.control;
-        self.card_top.set(None);
-        self.next_frame();
-        // A fold that just opened or shut is drawn moving from this frame on.
-        let Rows {
-            rows,
-            insets,
-            guides,
-            moving,
-            first_hit,
-            drawer,
-            ..
-        } = self.rows_now(cx);
-        self.moving = moving;
-        // As the list drew it, before the rows change, which a reorder doesn't do by much.
-        let inset = Theme::get(cx).scaled(LIST_TOP);
-        let last_listed = (self.list.logical_scroll_top().item_ix..self.rows.len())
-            .take_while(|ix| fold::listed(&self.list, inset, *ix))
-            .last();
-        self.sync_list(rows, drawer, window, cx);
-        // After the rows, whose stand-ins are set in and guided as they were drawn.
-        self.insets = insets;
-        self.guides = guides;
-        self.held_card = self.held_card(self.store.read(cx));
-        self.held_worktree = self.held_worktree(self.store.read(cx));
-        self.end_crossing();
-        self.slide_edges = self.reorder.any().then(|| {
-            let first = self.list.logical_scroll_top().item_ix;
-            let below = last_listed.map_or(first, |last| last.saturating_sub(ABOVE_LAST_LISTED));
-            (first, below.max(first))
-        });
-        self.fit_folds(cx);
         // After the rows are up to date, as a reorder of them starts sliding there, and nothing
         // else may draw the next frame, which what waits for the list's height needs too.
-        if self.folds.any() || self.reorder.any() || !self.list_drawn() {
+        if self.prepare(RowsIn::List, window, cx) || !self.list_drawn() {
             window.request_animation_frame();
         }
         let theme = Theme::get(cx).clone();
-        self.first_hit = first_hit;
         let store = self.store.read(cx);
         let empty = store.projects_loaded && store.projects.is_empty();
         let detail_shown = self.detail_shown.get();

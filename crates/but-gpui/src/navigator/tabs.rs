@@ -25,7 +25,7 @@ use gpui::{
 use super::order::moving_worktree;
 use super::rows::{CARD_PADDING, Rows, listed_with};
 use super::{
-    MAIN_WORKTREE, Navigator, Row, RowStyle, TerminalOverview, drawer_title, project_glyph,
+    MAIN_WORKTREE, Navigator, Row, RowStyle, RowsIn, TerminalOverview, drawer_title, project_glyph,
     status_mark, worktree_icon, worktrees_listed,
 };
 use crate::app::{
@@ -2057,12 +2057,16 @@ impl Render for NavigatorTabs {
         let key = (self.card.as_ref()).filter(|card| card.open);
         let key = key.map(|card| card.pane.key.clone());
         (self.navigator).update(cx, |navigator, _| navigator.set_card_key(key));
-        // On until they've stopped, as what lands ends the hold just as the rows start closing up.
+        // While a card shows rows, even only hovered or on its way out, or the keys or a hold need
+        // them, and on until they've stopped, as what lands ends the hold just as the rows start
+        // closing up.
         let rows_sliding = self.navigator.read(cx).reorder.any();
-        if self.keyed.is_some() || self.held || rows_sliding {
-            let (sliding, reveal) =
-                (self.navigator).update(cx, |navigator, cx| navigator.frame_for_card(window, cx));
-            if sliding {
+        if self.card.is_some() || self.keyed.is_some() || self.held || rows_sliding {
+            let (moving, reveal) = (self.navigator).update(cx, |navigator, cx| {
+                let moving = navigator.prepare(RowsIn::Card, window, cx);
+                (moving, navigator.take_card_reveal(cx))
+            });
+            if moving {
                 window.request_animation_frame();
             }
             if let Some((row, card)) = reveal.zip(self.card.as_ref()) {
