@@ -17,9 +17,10 @@ use std::time::{Duration, Instant};
 use but_tty::Status;
 use gpui::{
     AnyElement, App, ClickEvent, Context, DispatchPhase, Div, DragMoveEvent, ElementId, Entity,
-    FocusHandle, Focusable, Hsla, MouseButton, MouseExitEvent, MouseMoveEvent, Pixels, Point,
-    Render, Role, ScrollHandle, SharedString, Stateful, StyleRefinement, Task, TextRun, Window,
-    deferred, div, font, linear_color_stop, linear_gradient, point, prelude::*, relative,
+    FocusHandle, Focusable, Hsla, MouseButton, MouseDownEvent, MouseExitEvent, MouseMoveEvent,
+    Pixels, Point, Render, Role, ScrollHandle, SharedString, Stateful, StyleRefinement, Task,
+    TextRun, Window, deferred, div, font, linear_color_stop, linear_gradient, point, prelude::*,
+    relative,
 };
 
 use super::cursor::{RowAction, row_actions};
@@ -1044,6 +1045,14 @@ impl NavigatorTabs {
         }
     }
 
+    /// Keep the card down under the menu a right-click in it or on its tab opens.
+    fn keep_card_for_menu(&mut self, cx: &mut Context<Self>) {
+        self.card_menu = true;
+        self.waiting = None;
+        // Drawn again, so `follow_menu` lets it go if no menu came of it.
+        cx.notify();
+    }
+
     /// Keep the card down while a menu opened from it is open, as it covers the card and takes
     /// its hover. Once it's closed, the card follows the pointer from its next move, which says
     /// what it's over.
@@ -1655,12 +1664,7 @@ impl NavigatorTabs {
             }))
             .on_mouse_down(
                 MouseButton::Right,
-                cx.listener(|this, _, _, cx| {
-                    this.card_menu = true;
-                    this.waiting = None;
-                    // Drawn again, so `follow_menu` lets it go if no menu came of it.
-                    cx.notify();
-                }),
+                cx.listener(|this, _, _, cx| this.keep_card_for_menu(cx)),
             )
             .map(|el| (self.navigator).update(cx, |navigator, cx| navigator.takes_drags(el, cx)))
             // GPUI takes its hover away as a drag begins and gives it back only once the pointer
@@ -1815,7 +1819,7 @@ impl NavigatorTabs {
     ) -> impl IntoElement + use<> {
         let key = tab.key.clone();
         let current = self.active.as_ref() == Some(&key);
-        let (hovered, clicked) = (key.clone(), key.clone());
+        let (hovered, clicked, right_clicked) = (key.clone(), key.clone(), key.clone());
         let tab_drag = |el, navigator: &mut Navigator, cx: &mut Context<Navigator>| {
             navigator.tab_drag(el, &key, label.clone(), cx)
         };
@@ -1840,6 +1844,29 @@ impl NavigatorTabs {
                     });
                 }
             }))
+            // What the row it names offers in the navigator, the card staying down under it.
+            .on_mouse_down(
+                MouseButton::Right,
+                cx.listener(move |this, event: &MouseDownEvent, window, cx| {
+                    let Some(target) = right_clicked.selection() else {
+                        return;
+                    };
+                    // The keys go on the strip, as they go on the rows right-clicked in the
+                    // side's navigator, so the menu offers what they do there, as Move. The card
+                    // goes to the tab, from the one they were on.
+                    if this.store.read(cx).moving.is_none() {
+                        window.focus(&this.focus, cx);
+                        this.keyed = Some(right_clicked.clone());
+                        this.show(right_clicked.clone(), cx);
+                    }
+                    let strip = this.focus.is_focused(window);
+                    (this.navigator).update(cx, |navigator, cx| {
+                        navigator.strip_has_keys = strip;
+                        navigator.open_row_menu(&target, event.position, window, cx)
+                    });
+                    this.keep_card_for_menu(cx);
+                }),
+            )
             .map(|el| (self.navigator).update(cx, |navigator, cx| tab_drag(el, navigator, cx)))
             .map(|el| Self::takes_drops(el, cx))
     }

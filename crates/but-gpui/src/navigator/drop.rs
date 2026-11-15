@@ -72,31 +72,39 @@ impl Navigator {
             .on_mouse_down(
                 MouseButton::Right,
                 cx.listener(move |this, event: &MouseDownEvent, window, cx| {
-                    // No menu while something is being moved, which is all a click can do then.
-                    if this.store.read(cx).moving.is_some() {
-                        return this.nudge_move(cx);
-                    }
-                    if this.row_menu_items(&menu_target, cx).is_empty() {
-                        return;
-                    }
-                    let picked = matches!(&menu_target,
-                        Selection::Commit(project, id) if this.store.read(cx).is_picked(project, *id));
-                    if picked {
-                        // The picks' actions are the navigator's, dispatched from focus.
-                        window.focus(&this.focus, cx);
-                    } else {
-                        this.select(menu_target.clone(), window, cx);
-                    }
-                    // After selecting, which reads a commit, so its menu offers to unread it.
-                    let target = menu_target.clone();
-                    this.open_menu(
-                        event.position,
-                        move |this, cx| this.row_menu_items(&target, cx),
-                        cx,
-                    );
+                    this.open_row_menu(&menu_target, event.position, window, cx)
                 }),
             )
             .into_any_element()
+    }
+
+    /// Right-clicking the row `target`, here or its tab along the top: select it and open what
+    /// it offers at `at`.
+    pub(super) fn open_row_menu(
+        &mut self,
+        target: &Selection,
+        at: Point<Pixels>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        // No menu while something is being moved, which is all a click can do then.
+        if self.store.read(cx).moving.is_some() {
+            return self.nudge_move(cx);
+        }
+        if self.row_menu_items(target, cx).is_empty() {
+            return;
+        }
+        let picked = matches!(target,
+            Selection::Commit(project, id) if self.store.read(cx).is_picked(project, *id));
+        if picked {
+            // The picks' actions are the navigator's, dispatched from focus.
+            window.focus(&self.focus, cx);
+        } else {
+            self.select(target.clone(), window, cx);
+        }
+        // After selecting, which reads a commit, so its menu offers to unread it.
+        let target = target.clone();
+        self.open_menu(at, move |this, cx| this.row_menu_items(&target, cx), cx);
     }
 
     /// Have what's dragged be at the stop under the pointer, as the keys would step it there.
