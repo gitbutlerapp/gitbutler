@@ -34,7 +34,7 @@ use crate::clock;
 use crate::overlays::OVERLAY;
 use crate::state::{NavigatorPlace, Part, ProjectId, Selection, Store, WatchedOrder};
 use crate::theme::Theme;
-use crate::transfer::{Dragged, Moving, Op, ProjectDrag, Slot};
+use crate::transfer::{Dragged, Moving, Op, PageDrag, ProjectDrag, Slot, TerminalDrag};
 use crate::ui::fold::{FOLD, Glide, Reorder, Slide, inert};
 use crate::ui::{HEADER_HEIGHT, Icon, above_drag, dp, fixed, h_flex, icon_at, popover, v_flex};
 
@@ -1651,6 +1651,7 @@ impl NavigatorTabs {
                 }),
             )
             .map(|el| (self.navigator).update(cx, |navigator, cx| navigator.takes_drags(el, cx)))
+            .map(|el| NavigatorTabs::follows_drags(el, cx))
             .child(inert(
                 div()
                     .relative()
@@ -1836,6 +1837,23 @@ impl NavigatorTabs {
                 navigator.drop_worktree(drag, window, cx)
             })
         }))
+    }
+
+    /// Have the card `el` follow whether what's dragged from its rows is over it. GPUI takes its
+    /// hover away as a drag begins and gives it back only once the pointer moves after the drop,
+    /// so a drop on the card would otherwise read as the pointer having left it, and close it.
+    fn follows_drags<E: InteractiveElement>(el: E, cx: &mut Context<Self>) -> E {
+        el.on_drag_move(cx.listener(|this, event: &DragMoveEvent<Dragged>, _, _| {
+            this.over_card = event.bounds.contains(&event.event.position);
+        }))
+        .on_drag_move(cx.listener(|this, event: &DragMoveEvent<PageDrag>, _, _| {
+            this.over_card = event.bounds.contains(&event.event.position);
+        }))
+        .on_drag_move(
+            cx.listener(|this, event: &DragMoveEvent<TerminalDrag>, _, _| {
+                this.over_card = event.bounds.contains(&event.event.position);
+            }),
+        )
     }
 
     /// How far along the tabs the pointer of `event` is, while it's over the strip.
