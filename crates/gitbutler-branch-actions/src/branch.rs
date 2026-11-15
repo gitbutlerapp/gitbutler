@@ -13,12 +13,99 @@ use but_core::{
 };
 use but_ctx::Context;
 use but_serde::BStringForFrontend;
-use gitbutler_branch::{BranchIdentity, ReferenceExtGix};
 use gitbutler_reference::normalize_branch_name;
 use gix::{prelude::TreeDiffChangeExt, reference::Category};
 use serde::{Deserialize, Serialize};
 
 use crate::gravatar::gravatar_url_from_email;
+
+/// The identity of a branch as to allow to group similar branches together.
+///
+/// * For *local* branches, it is what's left without the standard prefix, like `refs/heads`, e.g. `main`
+///   for `refs/heads/main` or `feat/one` for `refs/heads/feat/one`.
+/// * For *remote* branches, it is what's without the prefix and remote name, like `main` for `refs/remotes/origin/main`.
+///   or `feat/one` for `refs/remotes/my/special/remote/feat/one`.
+/// * For virtual branches, it's either the above if there is a `source_refname` or an `upstream`, or it's the normalized
+///   name of the virtual branch.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+pub struct BranchIdentity(
+    /// The identity is always a valid reference name, full or partial.
+    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
+    pub gix::refs::PartialName,
+);
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(BranchIdentity);
+
+impl Serialize for BranchIdentity {
+    fn serialize<S>(&self, s: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.0.as_ref().as_bstr().to_str_lossy().serialize(s)
+    }
+}
+
+impl std::ops::Deref for BranchIdentity {
+    type Target = bstr::BStr;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.as_ref().as_bstr()
+    }
+}
+
+impl TryFrom<String> for BranchIdentity {
+    type Error = gix::refs::name::Error;
+
+    fn try_from(value: String) -> std::result::Result<Self, Self::Error> {
+        gix::refs::PartialName::try_from(value).map(BranchIdentity)
+    }
+}
+
+impl From<&str> for BranchIdentity {
+    fn from(value: &str) -> Self {
+        gix::refs::PartialName::try_from(value)
+            .map(BranchIdentity)
+            .expect("BUG: value must be valid ref name")
+    }
+}
+
+impl TryFrom<&bstr::BStr> for BranchIdentity {
+    type Error = gix::refs::name::Error;
+
+    fn try_from(value: &bstr::BStr) -> std::result::Result<Self, Self::Error> {
+        gix::refs::PartialName::try_from(value.to_owned()).map(BranchIdentity)
+    }
+}
+
+fn ref_identity(
+    name: &gix::refs::FullNameRef,
+    remotes: &gix::remote::Names,
+) -> Result<BranchIdentity> {
+    let (category, shorthand_name) = name
+        .category_and_short_name()
+        .context("Branch could not be categorized")?;
+    if !matches!(category, Category::RemoteBranch) {
+        return Ok(shorthand_name.try_into()?);
+    }
+
+    let longest_remote = remotes
+        .iter()
+        .rfind(|reference_name| shorthand_name.starts_with(reference_name))
+        .ok_or(anyhow::anyhow!(
+            "Failed to find remote branch's corresponding remote"
+        ))?;
+
+    let shorthand_name: &bstr::BStr = shorthand_name
+        .strip_prefix(longest_remote.as_bytes())
+        .and_then(|str| str.strip_prefix(b"/"))
+        .ok_or(anyhow::anyhow!(
+            "Failed to cut remote name {longest_remote} off of shorthand name {shorthand_name}"
+        ))?
+        .into();
+
+    Ok(shorthand_name.try_into()?)
+}
 
 pub fn list_branches(
     ctx: &Context,
@@ -287,8 +374,7 @@ fn branch_group_to_branch(
 
     if virtual_branch.is_none()
         && local_branches.iter().any(|b| {
-            b.name()
-                .identity(remotes)
+            ref_identity(b.name(), remotes)
                 .as_deref()
                 .ok()
                 .is_some_and(|identity| identity == &**target_branch_identity)
@@ -494,7 +580,7 @@ impl GroupBranch<'_> {
     fn identity(&self, remotes: &gix::remote::Names) -> Option<BranchIdentity> {
         match self {
             GroupBranch::Local(branch) | GroupBranch::Remote(branch) => {
-                branch.name().identity(remotes).ok()
+                ref_identity(branch.name(), remotes).ok()
             }
             // The identity of a Virtual branch is derived from the source refname, upstream or the branch given name, in that order
             GroupBranch::Virtual(branch) => {
@@ -883,6 +969,44 @@ but_schemars::register_sdk_type!(BranchListingDetails);
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn identity_strips_the_ref_prefix_and_the_longest_matching_remote() -> anyhow::Result<()> {
+        let remotes: gix::remote::Names = ["origin", "Byron", "Byron/gitbutler"]
+            .into_iter()
+            .map(Into::into)
+            .collect();
+        let identity = |name: &str| -> anyhow::Result<String> {
+            let name = gix::refs::FullName::try_from(name)?;
+            Ok(super::ref_identity(name.as_ref(), &remotes)?.to_string())
+        };
+
+        assert_eq!(
+            identity("refs/heads/feat/one")?,
+            "feat/one",
+            "a local branch loses refs/heads/"
+        );
+        assert_eq!(
+            identity("refs/remotes/origin/feat/one")?,
+            "feat/one",
+            "a remote branch loses its remote"
+        );
+        assert_eq!(
+            identity("refs/remotes/Byron/gitbutler/feat/one")?,
+            "feat/one",
+            "the longest remote name wins when one remote name prefixes another"
+        );
+        assert_eq!(
+            identity("refs/remotes/Byron/feat/one")?,
+            "feat/one",
+            "the shorter remote still matches its own branches"
+        );
+        assert!(
+            identity("refs/remotes/unknown/feat/one").is_err(),
+            "a remote branch needs a known remote"
+        );
+        Ok(())
+    }
+
     #[test]
     fn listing_distinguishes_local_target_from_differently_named_upstream() -> anyhow::Result<()> {
         let (mut repo, _tmp) = but_testsupport::writable_scenario("local-target-upstream-ahead");

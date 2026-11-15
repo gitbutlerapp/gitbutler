@@ -13,6 +13,6 @@ mod gravatar;
 
 mod branch;
 pub use branch::{
-    Author, BranchListing, BranchListingDetails, BranchListingFilter, get_branch_listing_details,
-    list_branches,
+    Author, BranchIdentity, BranchListing, BranchListingDetails, BranchListingFilter,
+    get_branch_listing_details, list_branches,
 };

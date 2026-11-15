@@ -85,7 +85,7 @@ fn target_remote_can_be_missing_from_git_config() -> Result<()> {
 mod util {
     use anyhow::Result;
     use but_ctx::Context;
-    use gitbutler_branch::BranchIdentity;
+    use gitbutler_branch_actions::BranchIdentity;
     use gitbutler_branch_actions::{BranchListing, BranchListingFilter};
 
     /// A flattened and simplified mirror of `BranchListing` for comparing the actual and expected data.

@@ -16,7 +16,6 @@ use but_rebase::graph_rebase::{
     mutate::{InsertSide, RelativeToRef},
 };
 use but_workspace::branch::unapply::WorkspaceDisposition;
-use gitbutler_branch::BranchUpdateRequest;
 use gitbutler_branch_actions::{
     BaseBranch, BranchListing, BranchListingDetails, BranchListingFilter,
 };
@@ -26,7 +25,14 @@ use gitbutler_oplog::OplogExt;
 use gitbutler_project::FetchResult;
 use gitbutler_reference::Refname;
 use gix::reference::Category;
+use serde::Deserialize;
 use tracing::instrument;
+
+#[derive(Debug, Deserialize)]
+pub struct BranchUpdateRequest {
+    pub id: Option<StackId>,
+    pub order: Option<usize>,
+}
 
 #[but_api]
 #[instrument(err(Debug))]
