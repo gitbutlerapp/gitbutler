@@ -938,17 +938,21 @@ impl Theme {
     /// This theme in `palette`'s colours, its sizes and fonts kept, or as it is when the
     /// palette has no background or foreground. Text steps toward the foreground until it reads
     /// on both grounds and on a gray control's: secondary text and colours used as text at
-    /// 4.5:1, faint text and marks at 3:1.
+    /// 4.5:1, faint text and marks at 3:1. The accent darkens or lightens at its own hue
+    /// instead, so a pale one stays a colour.
     fn painted(self, palette: Colors) -> Self {
         let (Some(bg), Some(fg)) = (palette.background, palette.foreground) else {
             return self;
         };
         let (bg, fg) = (hex(bg), hex(fg));
         let dark = contrast(bg, 0xffffff) > contrast(bg, 0x000000);
-        let ansi = |index: u8| {
+        let given = |index: u8| {
             (palette.palette.iter())
                 .find(|(at, _)| *at == index)
                 .map(|(_, color)| hex(*color))
+        };
+        let ansi = |index: u8| {
+            given(index)
                 .or_else(|| GHOSTTY_ANSI.get(usize::from(index)).copied())
                 .unwrap_or(fg)
         };
@@ -960,9 +964,9 @@ impl Theme {
         let muted_hover = gray(if dark { 0.105 } else { 0.077 });
         let grounds = [bg, bg_2, muted, muted_hover];
         let ink = if dark { 0xffffff } else { 0x000000 };
-        // An ANSI colour's soft ground and that under the pointer, a step further toward it.
-        let soft = |index: u8| mix(bg, ansi(index), if dark { 0.18 } else { 0.12 });
-        let soft_hover = |index: u8| mix(bg, ansi(index), if dark { 0.22 } else { 0.17 });
+        // A colour's soft ground and that under the pointer, a step further toward it.
+        let soft = |hue: u32| mix(bg, hue, if dark { 0.18 } else { 0.12 });
+        let soft_hover = |hue: u32| mix(bg, hue, if dark { 0.22 } else { 0.17 });
         let text_on = |from: u32, ratio: f32, also: &[u32]| {
             let grounds: Vec<u32> = grounds.iter().chain(also).copied().collect();
             (reaching(from, fg, &grounds, ratio))
@@ -970,15 +974,27 @@ impl Theme {
                 .unwrap_or(ink)
         };
         let text = |from: u32, ratio: f32| text_on(from, ratio, &[]);
-        // An ANSI colour as text, which reads on its soft grounds too.
-        let hue_text = |index: u8| text_on(ansi(index), 4.5, &[soft(index), soft_hover(index)]);
+        // A colour as text, which reads on its soft grounds too.
+        let hue_text = |hue: u32| text_on(hue, 4.5, &[soft(hue), soft_hover(hue)]);
         // A snackbar's ground is the foreground, so its glyph steps toward whichever of black
         // and white reads there.
         let snackbar_ink = match contrast(fg, 0xffffff) > contrast(fg, 0x000000) {
             true => 0xffffff,
             false => 0x000000,
         };
-        let pop = ansi(6);
+        // The scheme's cyan, or where that's a gray, the first of its blue, magenta and their
+        // bright ones that isn't, so the accent stays a colour. Not the cursor, which is often
+        // the scheme's yellow or red, as warn and danger are.
+        let pop = [6, 4, 5, 14, 12, 13]
+            .map(given)
+            .into_iter()
+            .flatten()
+            .find(|&hue| chroma(hue) >= 40.)
+            .unwrap_or_else(|| ansi(6));
+        // As text it darkens or lightens at its own hue, as stepping toward a gray foreground
+        // would leave a pale one gray.
+        let also = [soft(pop), soft_hover(pop)];
+        let pop_text = toned(pop, ink, &[&grounds[..], &also].concat(), 4.5).unwrap_or(ink);
         // What reads at 4.5:1 on a solid fill of `fill`: white, the ground, or black.
         let ink_on = |fill: u32| {
             [0xffffff, bg, 0x000000]
@@ -987,13 +1003,13 @@ impl Theme {
                 .unwrap_or(0x000000)
         };
         let (on_pop, on_warn) = (ink_on(pop), ink_on(ansi(3)));
-        // An ANSI colour laid over what shows through, at but-ui's wash strengths.
-        let washed = |index: u8, strength: usize| {
+        // A colour laid over what shows through, at but-ui's wash strengths.
+        let washed = |hue: u32, strength: usize| {
             let share = WASHES.get(strength).copied().unwrap_or(0.);
-            color(ansi(index)).opacity(share)
+            color(hue).opacity(share)
         };
         let text_3 = text(mix(bg, fg, 0.45), 3.);
-        let [safe, blue, danger, purple] = [2, 4, 1, 5].map(hue_text);
+        let [safe, blue, danger, purple] = [2, 4, 1, 5].map(|index| hue_text(ansi(index)));
         let [added, removed] = [2, 1].map(|index| text(ansi(index), 3.));
         // `fg` laid over the ground at `share`, as but-ui's grays are the foreground's.
         let veil = |share: f32| color(fg).opacity(share);
@@ -1026,53 +1042,53 @@ impl Theme {
                 false => color(gray(0.15)).opacity(0.45),
             },
             shadow: color(0x000000).opacity(if dark { 0.5 } else { 0.1 }),
-            pop: color(hue_text(6)),
+            pop: color(pop_text),
             pop_bg: color(pop),
             pop_button: color(pop),
             pop_hover: color(mix(pop, 0x000000, 0.08)),
             on_pop: color(on_pop),
             blue: color(blue),
             safe: color(safe),
-            warn: color(hue_text(3)),
+            warn: color(hue_text(ansi(3))),
             danger: color(danger),
             purple: color(purple),
-            pop_soft: color(soft(6)),
-            pop_soft_hover: color(soft_hover(6)),
-            blue_soft: color(soft(4)),
-            blue_soft_hover: color(soft_hover(4)),
-            safe_soft: color(soft(2)),
-            safe_soft_hover: color(soft_hover(2)),
-            warn_soft: color(soft(3)),
-            warn_soft_hover: color(soft_hover(3)),
-            danger_soft: color(soft(1)),
-            danger_soft_hover: color(soft_hover(1)),
-            purple_soft: color(soft(5)),
-            purple_soft_hover: color(soft_hover(5)),
+            pop_soft: color(soft(pop)),
+            pop_soft_hover: color(soft_hover(pop)),
+            blue_soft: color(soft(ansi(4))),
+            blue_soft_hover: color(soft_hover(ansi(4))),
+            safe_soft: color(soft(ansi(2))),
+            safe_soft_hover: color(soft_hover(ansi(2))),
+            warn_soft: color(soft(ansi(3))),
+            warn_soft_hover: color(soft_hover(ansi(3))),
+            danger_soft: color(soft(ansi(1))),
+            danger_soft_hover: color(soft_hover(ansi(1))),
+            purple_soft: color(soft(ansi(5))),
+            purple_soft_hover: color(soft_hover(ansi(5))),
             // A scheme's soft grounds are opaque already, so they serve as its areas too.
-            pop_surface: color(soft(6)),
-            pop_surface_hover: color(soft_hover(6)),
-            blue_surface: color(soft(4)),
-            blue_surface_hover: color(soft_hover(4)),
-            safe_surface: color(soft(2)),
-            safe_surface_hover: color(soft_hover(2)),
-            warn_surface: color(soft(3)),
-            warn_surface_hover: color(soft_hover(3)),
-            danger_surface: color(soft(1)),
-            danger_surface_hover: color(soft_hover(1)),
-            purple_surface: color(soft(5)),
-            purple_surface_hover: color(soft_hover(5)),
-            pop_wash: washed(6, 0),
-            pop_wash_strong: washed(6, 1),
-            blue_wash: washed(4, 0),
-            blue_wash_strong: washed(4, 1),
-            safe_wash: washed(2, 0),
-            safe_wash_strong: washed(2, 1),
-            warn_wash: washed(3, 0),
-            warn_wash_strong: washed(3, 1),
-            danger_wash: washed(1, 0),
-            danger_wash_strong: washed(1, 1),
-            purple_wash: washed(5, 0),
-            purple_wash_strong: washed(5, 1),
+            pop_surface: color(soft(pop)),
+            pop_surface_hover: color(soft_hover(pop)),
+            blue_surface: color(soft(ansi(4))),
+            blue_surface_hover: color(soft_hover(ansi(4))),
+            safe_surface: color(soft(ansi(2))),
+            safe_surface_hover: color(soft_hover(ansi(2))),
+            warn_surface: color(soft(ansi(3))),
+            warn_surface_hover: color(soft_hover(ansi(3))),
+            danger_surface: color(soft(ansi(1))),
+            danger_surface_hover: color(soft_hover(ansi(1))),
+            purple_surface: color(soft(ansi(5))),
+            purple_surface_hover: color(soft_hover(ansi(5))),
+            pop_wash: washed(pop, 0),
+            pop_wash_strong: washed(pop, 1),
+            blue_wash: washed(ansi(4), 0),
+            blue_wash_strong: washed(ansi(4), 1),
+            safe_wash: washed(ansi(2), 0),
+            safe_wash_strong: washed(ansi(2), 1),
+            warn_wash: washed(ansi(3), 0),
+            warn_wash_strong: washed(ansi(3), 1),
+            danger_wash: washed(ansi(1), 0),
+            danger_wash_strong: washed(ansi(1), 1),
+            purple_wash: washed(ansi(5), 0),
+            purple_wash_strong: washed(ansi(5), 1),
             warn_bg: color(ansi(3)),
             on_warn: color(on_warn),
             warn_edge: color(mix(bg, ansi(3), 0.5)),
@@ -1090,8 +1106,8 @@ impl Theme {
             snackbar_hover: color(bg).opacity(0.05),
             diff_added: color(added),
             diff_removed: color(removed),
-            diff_added_bg: color(soft(2)),
-            diff_removed_bg: color(soft(1)),
+            diff_added_bg: color(soft(ansi(2))),
+            diff_removed_bg: color(soft(ansi(1))),
             diff_added_emph: color(added).opacity(if dark { 0.2 } else { 0.15 }),
             diff_removed_emph: color(removed).opacity(if dark { 0.2 } else { 0.15 }),
             diff_muted: color(text_3),
@@ -1415,6 +1431,28 @@ fn reaching(from: u32, toward: u32, grounds: &[u32], ratio: f32) -> Option<u32> 
         })
 }
 
+/// `from` at its own hue and saturation, made the first step of the 20 toward `ink`'s
+/// lightness that reads at `ratio` on every one of `grounds`, if one does.
+fn toned(from: u32, ink: u32, grounds: &[u32], ratio: f32) -> Option<u32> {
+    let (from, target) = (color(from), color(ink).l);
+    (0..=20)
+        .map(|step| {
+            let l = from.l + (target - from.l) * step as f32 / 20.;
+            rgb_hex(Hsla { l, ..from })
+        })
+        .find(|&color| {
+            grounds
+                .iter()
+                .all(|&ground| contrast(color, ground) >= ratio)
+        })
+}
+
+/// How far `hex` is from a gray, from 0 to 255.
+fn chroma(hex: u32) -> f32 {
+    let [r, g, b] = channels(hex);
+    r.max(g).max(b) - r.min(g).min(b)
+}
+
 /// `accent` stepped toward `ink` until it reads as text on `ground`, or `ink` if it never does.
 fn readable_on(accent: u32, ink: u32, ground: u32) -> u32 {
     reaching(accent, ink, &[ground], 4.5).unwrap_or(ink)
@@ -1440,8 +1478,8 @@ mod tests {
     use gpui::{FontWeight, WindowAppearance};
 
     use super::{
-        Accent, Appearance, CodeSize, ColorScheme, Hue, Shade, Theme, WASHES, channels, contrast,
-        custom_accent, rgb_hex,
+        Accent, Appearance, CodeSize, ColorScheme, Hue, Shade, Theme, WASHES, channels, chroma,
+        contrast, custom_accent, rgb_hex,
     };
 
     fn rgb(hex: u32) -> RgbColor {
@@ -1467,6 +1505,53 @@ mod tests {
             ..Ghostty::default()
         };
         Theme::new(choice, &ColorScheme::Ghostty, CodeSize::Medium, &ghostty)
+    }
+
+    #[test]
+    fn a_pale_accent_keeps_its_hue() {
+        // 3024 Day, whose cyan reads at under 2:1 on its ground.
+        let colors = palette(
+            0xf7f7f7,
+            0x4a4543,
+            [
+                0x090300, 0xdb2d20, 0x01a252, 0xcaba00, 0x01a0e4, 0xa16a94, 0x8fbece, 0xa5a2a2,
+            ],
+        );
+        let theme = ghostty_theme(colors, Shade::Light);
+        let cyan = gpui::Hsla::from(gpui::rgb(0x8fbece));
+        assert!(
+            chroma(rgb_hex(theme.pop)) > 60.,
+            "the cyan is darkened, not grayed: {:06x}",
+            rgb_hex(theme.pop)
+        );
+        assert!(
+            (theme.pop.h - cyan.h).abs() < 0.02,
+            "the accent is still the scheme's cyan: {:06x}",
+            rgb_hex(theme.pop)
+        );
+    }
+
+    #[test]
+    fn a_gray_cyan_gives_way_to_a_colour() {
+        let colors = palette(
+            0xfdf6e3,
+            0x657b83,
+            [
+                0x073642, 0xdc322f, 0x859900, 0xb58900, 0x268bd2, 0xd33682, 0x888888, 0xeee8d5,
+            ],
+        );
+        let theme = ghostty_theme(colors, Shade::Light);
+        let blue = gpui::Hsla::from(gpui::rgb(0x268bd2));
+        assert!(
+            (theme.pop.h - blue.h).abs() < 0.02,
+            "the blue stands in for the gray cyan: {:06x}",
+            rgb_hex(theme.pop)
+        );
+        assert_eq!(
+            rgb_hex(theme.pop_button),
+            0x268bd2,
+            "buttons fill with the blue as the scheme gives it"
+        );
     }
 
     #[test]
