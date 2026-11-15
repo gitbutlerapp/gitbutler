@@ -371,3 +371,44 @@ body[data-layout="centered"] {
 	gap: 12px;
 	border-top: 1px solid var(--but-border-subtle);
 }
+
+/* A story the GPUI client draws too: its ground in a bordered card, over a footer that switches
+   between the two. The card keeps to the prose line as a ground does. */
+.docs-page-card {
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	align-self: center;
+	width: 100%;
+	overflow: hidden;
+	border: 1px solid var(--but-border-subtle);
+	border-radius: var(--but-radius-card);
+	background-color: var(--but-background);
+
+	&:not([data-layout="wide"]) {
+		max-width: var(--but-size-prose);
+	}
+
+	& > .docs-page-canvas {
+		max-width: none;
+		border-radius: 0;
+	}
+
+	/* The shot is the example on this ground with its own 24px of room, so it takes the padding's
+	   place. */
+	& > .docs-page-canvas:has(> .docs-gpui-shot) {
+		padding: 0;
+	}
+}
+
+.docs-page-card-footer {
+	display: flex;
+	align-items: center;
+	padding: 12px;
+	border-top: 1px solid var(--but-border-subtle);
+}
+
+.docs-gpui-shot {
+	display: block;
+	max-width: none;
+}
