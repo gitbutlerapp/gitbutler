@@ -213,7 +213,7 @@
 	"2613:8797": {
 		"component": "StatusLed",
 		"file": "StatusLed.tsx",
-		"description": "A machine's online light: lit green while it is connected, grey once it isn't. Say when it was last seen in a `Tooltip` around it.\n\nIt names itself Online or Offline to a screen reader. Where the words beside it already say so (\"live\", \"all online\"), pass `aria-hidden` so they aren't read twice.\n\nCode: StatusLed in @gitbutler/but-ui-react/StatusLed.tsx"
+		"description": "A small light for whether something is up, as a machine's online light. Say more, such as when it was last seen, in a `Tooltip` around it.\n\nGive it an `aria-label` that says what it shows (\"Online\", \"Offline\"). Where the words beside it already say so (\"live\", \"all online\"), pass `aria-hidden` instead so they aren't read twice.\n\nvariant:\n- safe: Lit green: up and fine, as a machine that is online.\n- warning: Lit amber: up but needs a look, as a machine that is reconnecting.\n- gray: Unlit: not there, as a machine that is offline.\n\nCode: StatusLed in @gitbutler/but-ui-react/StatusLed.tsx"
 	},
 	"4686:216442": {
 		"component": "Steps",
