@@ -98,8 +98,6 @@ export type AppSettings = {
   extraCsp: ExtraCsp;
   /** Settings related to fetching. */
   fetch: Fetch;
-  /** Settings related to Claude Code. */
-  claude: Claude;
   /** Settings related to code reviews and pull requests. */
   reviews: Reviews;
   /** UI settings. */
@@ -508,21 +506,6 @@ export type CiStatus = "inProgress" | "queued" | "unknown" | {
     conclusion: CiConclusion;
     completed_at: string | null;
   };
-};
-
-export type Claude = {
-  /** Path to the Claude Code executable. Defaults to "claude" if not set. */
-  executable: string;
-  /** Whether to show notifications when Claude Code finishes. */
-  notifyOnCompletion: boolean;
-  /** Whether to show notifications when Claude Code needs permission. */
-  notifyOnPermissionRequest: boolean;
-  /** Whether to dangerously allow all permissions without prompting. */
-  dangerouslyAllowAllPermissions: boolean;
-  /** Whether to automatically commit changes and rename branches after completion. */
-  autoCommitAfterCompletion: boolean;
-  /** Whether to use the configured model in .claude/settings.json instead of passing --model. */
-  useConfiguredModel: boolean;
 };
 
 /**

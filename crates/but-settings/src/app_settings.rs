@@ -96,24 +96,6 @@ but_schemars::register_sdk_type!(Fetch);
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct Claude {
-    /// Path to the Claude Code executable. Defaults to "claude" if not set.
-    pub executable: String,
-    /// Whether to show notifications when Claude Code finishes.
-    pub notify_on_completion: bool,
-    /// Whether to show notifications when Claude Code needs permission.
-    pub notify_on_permission_request: bool,
-    /// Whether to dangerously allow all permissions without prompting.
-    pub dangerously_allow_all_permissions: bool,
-    /// Whether to automatically commit changes and rename branches after completion.
-    pub auto_commit_after_completion: bool,
-    /// Whether to use the configured model in .claude/settings.json instead of passing --model.
-    pub use_configured_model: bool,
-}
-but_schemars::register_sdk_type!(Claude);
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
-#[serde(rename_all = "camelCase")]
 pub struct Reviews {
     /// Whether to auto-fill PR title and description from the first commit when a branch has only one commit.
     pub auto_fill_pr_description_from_commit: bool,

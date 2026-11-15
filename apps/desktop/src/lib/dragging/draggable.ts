@@ -14,9 +14,9 @@ const DRAGGING_CLASS = "dragging";
 // Minimum movement before drag starts (prevents accidental drags)
 const MIN_MOVEMENT_BEFORE_DRAG_START_PX = 3;
 
-type chipType = "file" | "folder" | "hunk" | "ai-session" | "branch";
+type chipType = "file" | "folder" | "hunk" | "branch";
 
-type DragCloneType = "branch" | "commit" | "file" | "folder" | "hunk" | "ai-session";
+type DragCloneType = "branch" | "commit" | "file" | "folder" | "hunk";
 
 interface DragCloneProps {
 	type: DragCloneType;

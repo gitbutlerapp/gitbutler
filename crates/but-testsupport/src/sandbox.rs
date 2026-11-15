@@ -480,8 +480,8 @@ impl Sandbox {
         use but_settings::{
             AppSettings,
             app_settings::{
-                Claude, ExtraCsp, FeatureFlags, Fetch, GitHubOAuthAppSettings, Reviews,
-                TelemetrySettings, UiSettings,
+                ExtraCsp, FeatureFlags, Fetch, GitHubOAuthAppSettings, Reviews, TelemetrySettings,
+                UiSettings,
             },
         };
         let settings = AppSettings {
@@ -511,14 +511,6 @@ impl Sandbox {
             },
             fetch: Fetch {
                 auto_fetch_interval_minutes: 0,
-            },
-            claude: Claude {
-                executable: "".to_string(),
-                notify_on_completion: false,
-                notify_on_permission_request: false,
-                dangerously_allow_all_permissions: false,
-                auto_commit_after_completion: false,
-                use_configured_model: false,
             },
             reviews: Reviews {
                 auto_fill_pr_description_from_commit: false,

@@ -348,8 +348,6 @@
 		height: unset;
 		padding: 0;
 		border-radius: var(--radius-ml);
-		/* codegen icon */
-		--clr-codegen-star: currentColor;
 		--clr-history-outline: currentColor;
 		--clr-history-arrows: currentColor;
 	}
@@ -371,11 +369,6 @@
 		--clr-history-outline: #e98959;
 		/* settings icon */
 		--clr-settings-bg: var(--label-clr);
-		/* claude icon */
-		--clr-claude-bg: #da6742;
-		/* codegen icon */
-		--clr-codegen-bg: url(#ai-gradient);
-		--clr-codegen-star: #ffffff;
 	}
 
 	:global(.sidebar .faded-btn) {
