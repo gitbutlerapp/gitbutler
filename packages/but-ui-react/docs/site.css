@@ -274,12 +274,20 @@ body[data-layout="centered"] {
 	font-family: var(--but-font-family-base);
 }
 
+/* The title over the Specs and Examples tabs. The tabs leave 10px below them, so the underline
+   sits on the header's rule, as Tabs asks of a header holding them. */
 .docs-page-header {
 	display: flex;
 	flex-direction: column;
-	padding-bottom: 32px;
-	gap: 12px;
+	padding-bottom: 10px;
+	gap: 16px;
 	border-bottom: 1px solid var(--but-border-subtle);
+}
+
+.docs-page-description {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
 }
 
 /* The title, a story's name and the text are set as the design notes' Markdown sets them, on its
@@ -290,16 +298,15 @@ body[data-layout="centered"] {
 	margin: 0;
 }
 
-/* The component's design notes, under its description and ruled off from the examples as it is. */
+/* The component's design notes, under its description on the Specs tab. */
 .docs-page-guidelines {
 	display: flex;
 	flex-direction: column;
-	padding-bottom: 32px;
 	gap: 12px;
-	border-bottom: 1px solid var(--but-border-subtle);
 }
 
 .docs-page-header,
+.docs-page-description,
 .docs-page-guidelines,
 .docs-page-example > :is(.docs-page-example-title, .docs-page-prose) {
 	box-sizing: border-box;

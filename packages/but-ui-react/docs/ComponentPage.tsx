@@ -13,14 +13,32 @@ import {
 import { pageLink } from "./site.ts";
 import { GpuiView } from "./GpuiView.tsx";
 import { gpuiShots, type Renderer } from "./gpui.ts";
+import { Icon } from "../src/Icon.tsx";
 import { Segment, SegmentedControl } from "../src/SegmentedControl.tsx";
+import { Tab, Tabs } from "../src/Tabs.tsx";
 import { useState, type CSSProperties, type FC, type ReactNode } from "react";
 
+type PageTab = "specs" | "examples";
+
+/** The tab the address names, `&tab=specs`, or Examples. */
+const tabInAddress = (): PageTab =>
+	new URLSearchParams(window.location.search).get("tab") === "specs" ? "specs" : "examples";
+
 /**
- * A component's page, drawn with the components themselves: its name and JSDoc, the design notes
- * its `@see` tags name, then each story under its name, then the pages before and after it.
+ * A component's page, drawn with the components themselves: its name over two tabs, Examples
+ * (each story under its name) and Specs (its JSDoc and the design notes its `@see` tags name),
+ * then the pages before and after it. The tab picked goes in the address, so a link can open
+ * either.
  */
 export const ComponentPage: FC<{ page: Page; data: ComponentPageData }> = ({ page, data }) => {
+	const [tab, setTab] = useState(tabInAddress);
+	const pickTab = (next: PageTab) => {
+		setTab(next);
+		const address = new URL(window.location.href);
+		if (next === "examples") address.searchParams.delete("tab");
+		else address.searchParams.set("tab", next);
+		window.history.replaceState(null, "", address);
+	};
 	// An overlay's stories render open and a full view fills the window: each gets a frame of
 	// its own, so it opens inside its card rather than over the page.
 	const framed = (entry: StoryEntry) =>
@@ -30,14 +48,31 @@ export const ComponentPage: FC<{ page: Page; data: ComponentPageData }> = ({ pag
 		<div className="docs-page">
 			<header className="docs-page-header">
 				<h1 className="docs-page-title text-h1">{pageName(page)}</h1>
-				{data.description !== undefined && <Prose text={data.description} />}
+				<Tabs value={tab} onValueChange={pickTab} aria-label={pageName(page)}>
+					<Tab value="examples" icon={<Icon name="slideshow" />} count={data.stories.length}>
+						Examples
+					</Tab>
+					<Tab value="specs" icon={<Icon name="file-text" />}>
+						Specs
+					</Tab>
+				</Tabs>
 			</header>
-			{data.notes.map((note) => (
-				<Guidelines key={note} source={note} named={data.notes.length > 1} />
-			))}
-			{data.stories.map((entry) => (
-				<Example key={entry.id} entry={entry} framed={framed(entry)} gpui={page.gpui === true} />
-			))}
+			{tab === "specs" ? (
+				<>
+					{data.description !== undefined && (
+						<div className="docs-page-description">
+							<Prose text={data.description} />
+						</div>
+					)}
+					{data.notes.map((note) => (
+						<Guidelines key={note} source={note} named={data.notes.length > 1} />
+					))}
+				</>
+			) : (
+				data.stories.map((entry) => (
+					<Example key={entry.id} entry={entry} framed={framed(entry)} gpui={page.gpui === true} />
+				))
+			)}
 			<Neighbours page={page} />
 		</div>
 	);

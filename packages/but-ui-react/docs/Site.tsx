@@ -79,7 +79,7 @@ const PageView: FC<{ page: Page }> = ({ page }) => {
 	return data.kind === "design" ? (
 		<DesignPage source={data.source} folder={page.file.split("/").at(-2) ?? ""} />
 	) : (
-		<ComponentPage page={page} data={data} />
+		<ComponentPage key={page.id} page={page} data={data} />
 	);
 };
 
