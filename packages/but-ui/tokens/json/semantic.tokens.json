@@ -649,6 +649,17 @@
             }
           }
         }
+      },
+      "outline-hover": {
+        "$type": "color",
+        "$value": "{ramps.amber.a2}",
+        "$description": "The warning colour's faintest tint, see-through: a coloured outline button (warning) under the pointer.",
+        "$extensions": {
+          "mode": {
+            "light": "{ramps.amber.a2}",
+            "dark": "{ramps.amber.a2}"
+          }
+        }
       }
     },
     "success": {
@@ -792,6 +803,17 @@
               "light": "{ramps.green.4}",
               "dark": "{ramps.green.4}"
             }
+          }
+        }
+      },
+      "outline-hover": {
+        "$type": "color",
+        "$value": "{ramps.green.a2}",
+        "$description": "The success colour's faintest tint, see-through: a coloured outline button (success) under the pointer.",
+        "$extensions": {
+          "mode": {
+            "light": "{ramps.green.a2}",
+            "dark": "{ramps.green.a2}"
           }
         }
       }
@@ -1104,6 +1126,17 @@
               "light": "{ramps.blue.4}",
               "dark": "{ramps.blue.4}"
             }
+          }
+        }
+      },
+      "outline-hover": {
+        "$type": "color",
+        "$value": "{ramps.blue.a2}",
+        "$description": "The info colour's faintest tint, see-through: a coloured outline button (info) under the pointer.",
+        "$extensions": {
+          "mode": {
+            "light": "{ramps.blue.a2}",
+            "dark": "{ramps.blue.a2}"
           }
         }
       }
@@ -1863,7 +1896,7 @@
           "semantic",
           "ramps"
         ],
-        "createdAt": "2026-11-13T11:17:47.713Z"
+        "createdAt": "2026-11-14T23:56:28.334Z"
       }
     }
   }

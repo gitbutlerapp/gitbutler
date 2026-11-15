@@ -17,12 +17,18 @@ to a quiet one.
   ladder.
 - **`danger-solid`** — danger at full strength, for the answer to a
   confirmation that destroys something (see [Modals](../patterns/modals.md)).
+- **`info`, `warning`, `success`** — `outline` in a colour: the colour's text,
+  an edge of it at 30%, and under the pointer its faintest see-through tint
+  (`--but-*-outline-hover`). For the next step of a coloured count (see
+  [Meta lines](meta-lines.md)).
 
-**Danger is the only status a button takes.** Warning, success, info and done
-colour badges, banners and labels, never a button: going ahead despite a risk
-is said in the words around the button, and an act that lands the work is
-pop. Danger takes pop's place rather than standing beside it, so a surface
-still has one coloured button.
+**A coloured outline is a count's next step, and only that.** Push beside an
+unpushed count is `info`, Update beside a behind count is `warning`, Merge once
+the checks pass is `success`: the step takes the colour of what it acts on, so
+the two read as one. Anywhere else a button doesn't take a status: going ahead
+despite a risk is said in the words around the button, and an act that lands
+the work on a surface is pop. Danger takes pop's place rather than standing
+beside it, so a surface still has one solid coloured button.
 
 **Two weights of a colour.** Every colour has the same two: soft, a pale tint
 (step 3) with coloured text (step 11); and solid (step 9, with its
@@ -30,12 +36,12 @@ still has one coloured button.
 a button acts, so a pop badge is soft while the pop button is solid.
 
 **Soft comes two ways, by size.** A mark or a control that sits on a ground (a
-badge, a status note, a count's hover, the soft `danger` button) takes
-`--but-*-soft`, which is see-through: it comes to step 3 on the page and blends
-with a card or a bar under it, so it reads as one tint wherever it sits. An
-area (a banner, a callout, a tile) is a ground itself and takes
-`--but-*-surface`, step 3 opaque, so a whole strip of it stays clean on any
-ground. Both carry `--but-*-soft-foreground`.
+badge, a status note, the soft `danger` button) takes `--but-*-soft`, which is
+see-through: it comes to step 3 on the page and blends with a card or a bar
+under it, so it reads as one tint wherever it sits. An area (a banner, a
+callout, a tile) is a ground itself and takes `--but-*-surface`, step 3 opaque,
+so a whole strip of it stays clean on any ground. Both carry
+`--but-*-soft-foreground`.
 
 **Mixing the quiet two.** Ghost and outline side by side tell kinds of control
 apart, never rank them; whichever is rarer in the group reads as distinct. In
@@ -45,9 +51,12 @@ toggle is an outline because it holds state, and Merge is the single pop.
 **Sizes.** Buttons on one row share a size, whatever their variant, so the
 row reads as one line of controls. A view header's pop action and its `⋯`
 menu are both `regular`. An icon-only button is no exception: it takes its
-neighbours' size, not a smaller one because it holds less. `small` is for a
-row denser than a toolbar, such as a list row or a file card's header, and
-every button in that row is small.
+neighbours' size, not a smaller one because it holds less. `medium` is for a
+dense header, a card's or a pane's, and for buttons beside a small
+`SegmentedControl` or a medium `ToggleGroup`, which share its height. `small`
+is for a row denser than that, such as a list row or a file card's header, and
+every button in that row is small. Fields stay `regular` whatever their
+neighbours: a field shorter than a regular button is too small to type in.
 
 **The inverted pair.** `ghost-inverted` and `outline-inverted` are for a
 button on an inverted ground — a selected row, where the text turns to

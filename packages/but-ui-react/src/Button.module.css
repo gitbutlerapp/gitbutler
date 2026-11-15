@@ -7,7 +7,9 @@
 	align-items: center;
 	justify-content: center;
 	height: var(--button-height);
-	padding-inline: var(--button-padding-inline);
+	/* A border takes its width out of the padding, as Figma's inside stroke does, so an outline
+	   button is as wide as a ghost with the same label and its label sits where the drawing's does. */
+	padding-inline: calc(var(--button-padding-inline) - var(--button-edge, 0px));
 	border: var(--button-border);
 	border-radius: var(--but-radius-control);
 	background-color: var(--button-bg);
@@ -72,6 +74,21 @@
 	}
 }
 
+:where(.medium) {
+	--button-gap: var(--but-button-medium-gap);
+	--button-height: var(--but-button-medium-height);
+	--button-padding-inline: calc(
+		var(--but-button-medium-padding-inline) + var(--but-density-padding)
+	);
+	--icon-size: var(--but-button-medium-icon-size);
+
+	/* 2px wider than tall, at any density. */
+	&:where(.iconOnly) {
+		--button-width: calc(var(--but-button-medium-height) + 2px);
+		--button-padding-inline: var(--but-button-medium-icon-only-padding-inline);
+	}
+}
+
 :where(.regular) {
 	--button-gap: var(--but-button-regular-gap);
 	--button-height: var(--but-button-regular-height);
@@ -108,6 +125,7 @@
 }
 
 :where(.outline) {
+	--button-edge: 1px;
 	--button-border: 1px solid var(--but-input);
 	--button-bg: transparent;
 	--button-fg: var(--but-foreground);
@@ -115,6 +133,7 @@
 }
 
 :where(.outline-inverted) {
+	--button-edge: 1px;
 	--button-border: 1px solid color-mix(in srgb, var(--but-inverse-foreground) 26%, transparent);
 	--button-bg: transparent;
 	--button-fg: var(--but-inverse-foreground);
@@ -138,6 +157,32 @@
 	--button-icon-opacity: 0.8;
 	--button-hover-icon-opacity: 0.9;
 	--button-hover-bg: var(--but-danger-hover);
+}
+
+/* The coloured outlines: the colour's text and an edge of it at 30% at rest, and under the pointer
+   the colour's faintest see-through tint, its a2, as Radix's outline buttons hover.
+   The glyph keeps danger's step up, as colour loses an icon at 0.7. */
+:where(.info, .warning, .success) {
+	--button-edge: 1px;
+	--button-border: 1px solid color-mix(in srgb, var(--button-fg) 30%, transparent);
+	--button-bg: transparent;
+	--button-icon-opacity: 0.8;
+	--button-hover-icon-opacity: 0.9;
+}
+
+:where(.info) {
+	--button-fg: var(--but-info-text);
+	--button-hover-bg: var(--but-info-outline-hover);
+}
+
+:where(.warning) {
+	--button-fg: var(--but-warning-text);
+	--button-hover-bg: var(--but-warning-outline-hover);
+}
+
+:where(.success) {
+	--button-fg: var(--but-success-text);
+	--button-hover-bg: var(--but-success-outline-hover);
 }
 
 :where(.ghost) {

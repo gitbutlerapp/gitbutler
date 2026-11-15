@@ -58,7 +58,8 @@ const placeGround = (track: HTMLElement | null) => {
  * - Controlled with `value` and `onValueChange`, or left to itself with `defaultValue`. Pressing
  *   the picked segment again keeps it picked.
  * - The arrow keys move between the segments.
- * - `size="small"` is 24px tall, for a header or a popup; it leaves a `count` room around it.
+ * - `size="small"` is 24px tall, a medium `Button`'s height, for a header or a popup; it leaves a
+ *   `count` room around it.
  * - `fill` stretches it across its container, the segments sharing the width evenly: for a control
  *   that is a pane's own setting, as a theme switch at the foot of a sidebar.
  * - Name it with `aria-label`, or `aria-labelledby` when a visible label already says what it picks.

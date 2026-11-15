@@ -12,7 +12,7 @@ import { px, rem, settingBlocks } from "./setting-blocks.mjs";
 const DENSITIES = { compact: -1, balanced: 0, spacious: 1 };
 
 /** The heights a density moves. */
-const HEIGHTS = ["control-sm", "control", "bar", "row", "header"];
+const HEIGHTS = ["control-sm", "control-md", "control", "bar", "row", "header"];
 
 /** How far each setting moves the side padding of controls and rows: buttons, segments, fields,
  * tabs and popup rows add it to their own padding, so rows and the headings over them stay

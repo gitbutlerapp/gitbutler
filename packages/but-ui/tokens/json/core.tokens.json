@@ -250,6 +250,17 @@
         "$extensions": {
           "mode": {}
         }
+      },
+      "control-md": {
+        "$type": "dimension",
+        "$value": {
+          "value": 24,
+          "unit": "px"
+        },
+        "$description": "Height of a medium control: a medium button, a toggle group's or a small segmented control, where a row of them sits in a dense header or beside a count. Between size/control-sm and size/control; fields stay at size/control.",
+        "$extensions": {
+          "mode": {}
+        }
       }
     },
     "space": {
@@ -774,7 +785,7 @@
           "semantic",
           "ramps"
         ],
-        "createdAt": "2026-11-13T11:17:47.713Z"
+        "createdAt": "2026-11-14T23:56:28.334Z"
       }
     }
   }

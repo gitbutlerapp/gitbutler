@@ -28,6 +28,33 @@
 					"$description": "A small button's icon."
 				}
 			},
+			"medium": {
+				"height": {
+					"$type": "dimension",
+					"$value": "{core.size.control-md}",
+					"$description": "A medium button's height, for a row of buttons in a dense header or beside a small segmented control. It follows the density setting through size/control-md."
+				},
+				"gap": {
+					"$type": "dimension",
+					"$value": { "value": 4, "unit": "px" },
+					"$description": "Between a medium button's icon and its label."
+				},
+				"padding-inline": {
+					"$type": "dimension",
+					"$value": { "value": 8, "unit": "px" },
+					"$description": "Beside a medium button's label, before the density step (--but-density-padding), which every app adds. A small segmented control's segments take the same, so the two line up in a row."
+				},
+				"icon-only-padding-inline": {
+					"$type": "dimension",
+					"$value": { "value": 5, "unit": "px" },
+					"$description": "Beside a medium button's icon when it has no label. The button is 2px wider than tall."
+				},
+				"icon-size": {
+					"$type": "dimension",
+					"$value": { "value": 14, "unit": "px" },
+					"$description": "A medium button's icon."
+				}
+			},
 			"regular": {
 				"height": {
 					"$type": "dimension",

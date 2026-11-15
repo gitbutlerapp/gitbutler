@@ -15,14 +15,16 @@ shows no hover.
 lift to 0.8 on hover, so the label leads at rest and the button answers the
 pointer beyond its ground. One opacity rather than a muted colour per variant,
 because it works on every ground — gray, pop and danger have no quieter text
-token to reach for. Danger is the one exception, 0.8 lifting to 0.9: red on
-its pink ground is too faint at 0.7.
+token to reach for. Danger and the coloured outlines are the exception, 0.8
+lifting to 0.9: a coloured glyph is too faint at 0.7.
 
 **Hover changes the ground, never the text.** A label keeps its colour under
 the pointer, so it never fades and never jumps to another colour. A control
-drawn in a colour of its own, without a fill, as a pressable `MetaCount` is,
-takes that colour's soft fill under the pointer (`--but-*-soft-hover`): a tint
-its `-text` colour still reads on, as Radix's and shadcn's soft buttons do.
+drawn in a colour of its own, without a fill, as the coloured outline buttons
+(`info`, `warning`, `success`) are, takes its colour's faintest see-through
+tint under the pointer (`--but-*-outline-hover`, the ramp's a2), as Radix's
+outline buttons do: tuned per hue, so it stays clean where the text colour at a
+low opacity would mix with the gray under it into mud.
 
 **Focus is the one ring.** `--but-focus-ring` (1.5px of `--but-ring`) is the
 only focus outline. The host's global stylesheet puts it on every `button` and `a`

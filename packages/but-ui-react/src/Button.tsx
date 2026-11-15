@@ -30,12 +30,24 @@ export type ButtonVariant =
 	| "danger"
 	/** `danger` at full strength, for the answer to a confirmation that destroys something. */
 	| "danger-solid"
+	/** `outline` in blue, for work to send: a branch's Push, with its unpushed count. */
+	| "info"
+	/** `outline` in amber, for work waiting on you: Update for what's behind, Resolve. */
+	| "warning"
+	/** `outline` in green, for what an agent or a check finished: Merge once it's green. */
+	| "success"
 	/** No ground, no border. For actions inside something already a container: a row, a toolbar, a popup. */
 	| "ghost"
 	/** `ghost` for a button on an inverted ground — a selected row, not dark mode. */
 	| "ghost-inverted";
 /** @public */
-export type ButtonSize = "regular" | "small";
+export type ButtonSize =
+	/** The default, 28px: a form's buttons, a toolbar, a modal's footer. */
+	| "regular"
+	/** 24px: a row of buttons in a dense header, or beside a small `SegmentedControl` at its height. */
+	| "medium"
+	/** 20px: a button inside a row or a line of text, beside counts and badges. */
+	| "small";
 
 /** @public */
 export type ButtonStyleProps = {
@@ -58,6 +70,7 @@ export const getButtonClassName = ({
 		styles[variant],
 		Match.value(size).pipe(
 			Match.when("small", () => classes(styles.small, "text-12")),
+			Match.when("medium", () => classes(styles.medium, "text-12")),
 			Match.when("regular", () => classes(styles.regular, "text-13")),
 			Match.exhaustive,
 		),

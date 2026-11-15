@@ -2,6 +2,9 @@ import { stories } from "../docs/stories.ts";
 import { Button, type ButtonProps } from "./Button.tsx";
 import { Icon } from "./Icon.tsx";
 import { Kbd } from "./Kbd.tsx";
+import { Segment, SegmentedControl } from "./SegmentedControl.tsx";
+import { ToggleGroupStyles, ToggleStyles } from "./ToggleGroup.tsx";
+import { Toggle, ToggleGroup } from "@base-ui/react";
 import React from "react";
 
 const meta = stories({
@@ -66,6 +69,32 @@ export const Variants = meta.story({
 				<Button variant="ghost-inverted">Button</Button>
 			</div>
 			<Button variant="danger">Button</Button>
+		</div>
+	),
+});
+
+/**
+ * The coloured outlines, each a count's next step in a row: Push beside the unpushed count in blue,
+ * Update beside what's behind in amber, Merge once checks pass in green. The number and the count's
+ * glyph say what the step acts on.
+ */
+export const Colours = meta.story({
+	render: () => (
+		<div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+			<Button size="small" variant="info" aria-label="Push 8 commits">
+				8
+				<Icon name="arrow-up" />
+			</Button>
+			<Button size="small" variant="warning" aria-label="Update 3 commits">
+				3
+				<Icon name="arrow-down" />
+			</Button>
+			<Button size="small" variant="success">
+				Merge
+			</Button>
+			<Button variant="info">Push</Button>
+			<Button variant="warning">Update</Button>
+			<Button variant="success">Merge</Button>
 		</div>
 	),
 });
@@ -141,7 +170,7 @@ const kbdExamples = [
 export const WithKbd = meta.story({
 	render: () => (
 		<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-			{(["regular", "small"] as const).map((size) => (
+			{(["regular", "medium", "small"] as const).map((size) => (
 				<div key={size} style={{ display: "flex", gap: 12, alignItems: "center" }}>
 					{kbdExamples.map(({ variant, label, hotkey }) => (
 						<Button key={variant} variant={variant} size={size}>
@@ -151,6 +180,37 @@ export const WithKbd = meta.story({
 					))}
 				</div>
 			))}
+		</div>
+	),
+});
+
+/**
+ * A dense header's controls, all 24px: a small `SegmentedControl`, a `ToggleGroup` of medium
+ * toggles and medium buttons, so the row reads as one line.
+ */
+export const DenseHeader = meta.story({
+	render: () => (
+		<div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+			<SegmentedControl size="small" aria-label="Range" defaultValue="24h">
+				<Segment value="1h">1h</Segment>
+				<Segment value="24h">24h</Segment>
+				<Segment value="7d">7d</Segment>
+			</SegmentedControl>
+			<ToggleGroup render={<ToggleGroupStyles />} defaultValue={["humans"]} aria-label="Show">
+				<Toggle render={<ToggleStyles size="medium" />} value="humans">
+					Humans
+				</Toggle>
+				<Toggle render={<ToggleStyles size="medium" />} value="agents">
+					Agents
+				</Toggle>
+			</ToggleGroup>
+			<Button variant="outline" size="medium">
+				<Icon name="plus" />
+				New branch
+			</Button>
+			<Button variant="ghost" size="medium" iconOnly aria-label="More">
+				<Icon name="kebab" />
+			</Button>
 		</div>
 	),
 });

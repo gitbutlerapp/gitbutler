@@ -1,4 +1,4 @@
-import type { ComponentProps, FC, MouseEventHandler } from "react";
+import type { ComponentProps, FC } from "react";
 import { classes } from "./classes.ts";
 import { Icon } from "./Icon.tsx";
 import type { IconName } from "./iconNames.ts";
@@ -46,11 +46,7 @@ const glyph: Record<MetaCountType, IconName> = {
 	"cpu-danger": "cpu-danger",
 };
 
-type MetaCountProps = { type: MetaCountType } & (
-	| ({ onPress?: undefined } & ComponentProps<"span">)
-	// A button's own `type` (submit, reset) would clash with what the count counts.
-	| ({ onPress: MouseEventHandler<HTMLButtonElement> } & Omit<ComponentProps<"button">, "type">)
-);
+type MetaCountProps = { type: MetaCountType } & ComponentProps<"span">;
 
 /**
  * A glyph and a short value in a row's meta: a count, an age, a branch's name. The type sets both.
@@ -70,56 +66,26 @@ type MetaCountProps = { type: MetaCountType } & (
  * `aria-label`. A long value, such as a branch's name, ends in an ellipsis once its row runs out
  * of room.
  *
- * With `onPress` the count is the button for its next step: ↓ `behind` updates, ↑ `unpushed`
- * pushes. It looks the same at rest and takes up the same room; under the pointer it sits on its
- * own colour at 14% (a grey one on the hover ground) and keeps its text, and keyboard focus shows
- * the ring.
- * Its `Tooltip` then says what pressing it does ("Push 4 commits"), not what it counts. The row
- * under it still gets the click, so a host that selects rows stops it there. `onPress` rather than
- * `onClick`, because a `Tooltip` hands its trigger an `onClick` of its own: a count that only
- * explains itself on hover stays a plain count.
+ * A count is a 20px box with 3px at its sides, so counts sit flush in a row, 6px apart from glyph to
+ * glyph, and a host puts no gap between them.
  *
- * @figma `state=hover` is the drawing's only: what it draws under the pointer when it has
- * `onPress`.
+ * A count is never pressed: it says how much, and the step that acts on it is a small `Button` in
+ * the count's colour beside the counts, or in its place, as an `info` Push is for ↑ `unpushed` and
+ * a `warning` Update for ↓ `behind`.
+ *
  * @see packages/but-ui/design/components/meta-lines.md
  * @import import { MetaCount } from "@gitbutler/but-ui-react/MetaCount.tsx";
  */
-export const MetaCount: FC<MetaCountProps> = (props) => {
-	const { type, children } = props;
-	const content = (
-		<>
-			{type === "agent-working" ? (
-				<WorkingRobot />
-			) : (
-				<Icon name={glyph[type]} size={14} className={styles.glyph} />
-			)}
-			<span className={styles.value}>{children}</span>
-		</>
-	);
-	const className = classes(props.className, "text-13", styles.count, styles[type]);
-	if (props.onPress === undefined) {
-		const { type: _type, children: _children, onPress: _onPress, ...rest } = props;
-		return (
-			<span {...rest} className={className}>
-				{content}
-			</span>
-		);
-	}
-	const { type: _type, children: _children, onPress, ...rest } = props;
-	return (
-		<button
-			type="button"
-			{...rest}
-			onClick={(event) => {
-				rest.onClick?.(event);
-				onPress(event);
-			}}
-			className={classes(className, styles.pressable)}
-		>
-			{content}
-		</button>
-	);
-};
+export const MetaCount: FC<MetaCountProps> = ({ type, children, ...props }) => (
+	<span {...props} className={classes(props.className, "text-13", styles.count, styles[type])}>
+		{type === "agent-working" ? (
+			<WorkingRobot />
+		) : (
+			<Icon name={glyph[type]} size={14} className={styles.glyph} />
+		)}
+		<span className={styles.value}>{children}</span>
+	</span>
+);
 
 /**
  * The robot of an agent at work, on a loop: after a second of its face, its eyes become two bars

@@ -29,6 +29,13 @@ row lacks, so each part says what it counts, and stays short:
 
 A row's `MetaCount` keeps only the glyph and the number.
 
+**A count is never pressed.** It says how much and doesn't act, so it has no
+hover and no focus, and a reader never has to guess which numbers are buttons.
+When a count has a next step, as pushing what's unpushed or updating what's
+behind, the step is a small `Button` in the count's colour in its place (`info`
+for unpushed, `warning` for behind): the number, then the count's glyph, with a
+tooltip saying what it does ("Push 5 commits").
+
 **A narrow pane keeps what the glyph can't say.** In a pane under 640px wide, a
 part drops to what its glyph doesn't already say, as a row does: 4 for
 4 unpushed, 1/3 for 1/3 in stack, branch-a for Followed by branch-a, 2m for

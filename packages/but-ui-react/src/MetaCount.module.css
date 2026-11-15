@@ -1,9 +1,12 @@
+/* A 20px box, the small controls' height, so counts line up with the buttons beside them. Counts sit
+   flush, 6px from glyph to glyph through the two paddings. */
 .count {
 	display: inline-flex;
 	column-gap: 4px;
 	align-items: center;
 	/* A long value (a branch's name) gives way before the counts beside it, down to its glyph. */
-	min-width: 14px;
+	min-width: 20px;
+	padding: 2px 3px;
 	color: var(--but-muted-foreground);
 	line-height: 16px;
 	white-space: nowrap;
@@ -197,32 +200,6 @@
 	text-overflow: ellipsis;
 }
 
-/* A count with something to do. Its ground reaches past the glyph and the value by the padding,
-   and the margin gives that back, so a pressable count sits exactly where a plain one does and the
-   row doesn't move when one turns into the other. Under the pointer its ground is its own colour at
-   14%, a tint its text still reads on, and the text keeps its colour. */
-.pressable {
-	margin: -2px -4px;
-	padding: 2px 4px;
-	border: none;
-	border-radius: var(--but-radius-control);
-	background-color: transparent;
-	font-family: inherit;
-	transition: var(--transition-button);
-
-	&:not(:disabled):hover {
-		background-color: var(--count-hover-bg, var(--but-hover));
-
-		& .glyph {
-			opacity: 0.8;
-		}
-	}
-
-	&:disabled {
-		opacity: 0.5;
-	}
-}
-
 /* The robot fills its 14px edge to edge where the other glyphs leave air around them, so it keeps
    1px more from the count before it. */
 .agent-working,
@@ -230,12 +207,10 @@
 	margin-inline-start: 1px;
 }
 
-/* A coloured count takes its colour's soft fill under the pointer. */
 .behind,
 .uncommitted,
 .agent-waiting,
 .working {
-	--count-hover-bg: var(--but-warning-soft-hover);
 	color: var(--but-warning-text);
 }
 
@@ -245,20 +220,17 @@
 }
 
 .unpushed {
-	--count-hover-bg: var(--but-info-soft-hover);
 	color: var(--but-info-text);
 }
 
 .agent-working,
 .cpu,
 .passed {
-	--count-hover-bg: var(--but-success-soft-hover);
 	color: var(--but-success-text);
 }
 
 .conflicts,
 .cpu-danger,
 .failed {
-	--count-hover-bg: var(--but-danger-soft-hover);
 	color: var(--but-danger-text);
 }
