@@ -16,6 +16,21 @@ write `ui::button` as before. A component goes there only if it reaches into not
 app's (`Store`, `backend`, `dev`), as one in but-ui-react takes everything from its props; the
 rest of `ui` is the app's own. Change a shared component there, and draw it as but-ui-react's.
 
+To use a component:
+
+- Find it in `crates/but-ui-gpui/src`, one file per component, its first doc line naming its
+  but-ui-react counterpart.
+- Copy its use from its story in `src/stories`, which draws but-ui-react's stories of it under
+  the docs site's ids, written as the app would write them. `scripts/drive.sh run --stories`
+  drives that window.
+- Pick its variant and size by but-ui-react's docs, not by look: the JSDoc on the React
+  component's types (`ButtonVariant`) and the notes its `@see` tags name in
+  `packages/but-ui/design`. That guidance is written once, there.
+- A variant React has and GPUI doesn't is listed as a gap in
+  `packages/but-ui-react/scripts/check-gpui-parity.mjs`. Add it to the crate rather than
+  imitating it in the app.
+- Check what you built with the `gpui-screenshots` skill.
+
 ## Fonts
 
 - Use only the font families the app embeds (`../but-ui-gpui/assets/fonts`, `theme.ui_font` and
