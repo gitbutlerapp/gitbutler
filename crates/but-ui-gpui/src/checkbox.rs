@@ -5,7 +5,6 @@ use gpui::{Div, ElementId, Role, Stateful, Toggled, div, prelude::*};
 use crate::theme::Theme;
 use crate::*;
 
-/// A checkbox, ticked, empty or, for a group partly checked, a dash.
 pub fn checkbox(id: impl Into<ElementId>, check: Toggled, theme: &Theme) -> Stateful<Div> {
     let on = check != Toggled::False;
     div()

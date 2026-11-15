@@ -1,5 +1,5 @@
-//! Compiles in but-ui's colour tokens and lengths (`packages/but-ui/tokens`) as constants, so the
-//! theme draws in the colours but.dev does.
+//! Compiles in but-ui's tokens (`packages/but-ui/tokens`) as constants, so the theme draws in
+//! the colours but.dev does.
 #![expect(
     clippy::disallowed_methods,
     reason = "it runs while building, with no UI to block"
@@ -12,9 +12,6 @@ fn main() {
     color_tokens(Path::new(&out));
 }
 
-/// Write but-ui's tokens as constants, from the data its build resolves them to: each colour
-/// `[light, dark]` as `0xRRGGBBAA`, named as the token is, `primary-text` as `PRIMARY_TEXT`, and
-/// each length in px.
 /// A token the theme reads that but-ui drops then fails the build.
 fn color_tokens(out: &Path) {
     let path = Path::new("../../packages/but-ui/tokens/tokens.json");
@@ -40,7 +37,6 @@ fn color_tokens(out: &Path) {
     fs::write(out.join("color_tokens.rs"), consts).expect("OUT_DIR is writable");
 }
 
-/// but-ui's lengths, in px as designed, named as the token is: `radius-card` as `RADIUS_CARD`.
 fn lengths(tokens: &serde_json::Value) -> String {
     (tokens["lengths"].as_object())
         .expect("tokens.json has lengths")
@@ -55,7 +51,6 @@ fn lengths(tokens: &serde_json::Value) -> String {
         .collect()
 }
 
-/// but-ui's settings, as its build writes them.
 fn settings() -> serde_json::Value {
     let path = Path::new("../../packages/but-ui/tokens/settings.json");
     println!("cargo:rerun-if-changed={}", path.display());
@@ -63,7 +58,6 @@ fn settings() -> serde_json::Value {
     serde_json::from_str(&settings).expect("settings.json is JSON")
 }
 
-/// `#rrggbb` or `#rrggbbaa` for `light` and `dark` as Rust's `[light, dark]`.
 fn modes(token: &str, modes: &serde_json::Value) -> String {
     let [light, dark] = ["light", "dark"].map(|mode| {
         (modes[mode].as_str().and_then(rgba))
@@ -72,8 +66,7 @@ fn modes(token: &str, modes: &serde_json::Value) -> String {
     format!("[{light:#010x}, {dark:#010x}]")
 }
 
-/// The grounds a person can pick, each as the colours that come out differently on it than on
-/// gray, named as their constants are.
+/// The grounds a person can pick, each with only the colours that differ from gray's.
 fn grounds(tokens: &serde_json::Value) -> String {
     let grounds: String = (tokens["grounds"].as_object())
         .expect("tokens.json has grounds")
@@ -93,9 +86,6 @@ fn grounds(tokens: &serde_json::Value) -> String {
     format!("pub const GROUNDS: &[(&str, Family)] = &[\n{grounds}];\n")
 }
 
-/// Each corner setting as the shape's roles `[xs, control, card, popup]`, which follow the steps
-/// the roles name; each density as `[control, control-sm, bar, padding]`; and the presets as
-/// `(id, name, corners, density)`.
 fn shapes(tokens: &serde_json::Value) -> String {
     let settings = settings();
     let steps = |setting: &str, names: &[&str]| -> String {
@@ -153,8 +143,6 @@ fn shapes(tokens: &serde_json::Value) -> String {
     )
 }
 
-/// The accents a person can pick, from but-ui's settings: each named one's primary family as
-/// `[light, dark]`, resolved through `tokens`, and the numbers the any-colour one is drawn by.
 fn accents(tokens: &serde_json::Value) -> String {
     let settings = settings();
     let accent = &settings["accent"];
@@ -191,7 +179,6 @@ fn accents(tokens: &serde_json::Value) -> String {
                     (modes[mode][key].as_f64())
                         .unwrap_or_else(|| panic!("{token} has a {mode} {key}"))
                 };
-                // A see-through step, as the soft fills are, has an alpha; the rest are opaque.
                 let alpha = modes[mode]["alpha"].as_f64().unwrap_or(1.);
                 format!(
                     "({:?}, {:?}, {:?})",
@@ -222,7 +209,6 @@ fn accents(tokens: &serde_json::Value) -> String {
     )
 }
 
-/// `#rrggbb` or `#rrggbbaa` as `0xRRGGBBAA`, opaque when it has no alpha.
 fn rgba(hex: &str) -> Option<u32> {
     let digits = hex.strip_prefix('#')?;
     let value = u32::from_str_radix(digits, 16).ok()?;

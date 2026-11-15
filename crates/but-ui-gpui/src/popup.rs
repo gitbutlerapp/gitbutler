@@ -5,7 +5,6 @@ use gpui::{Div, prelude::*};
 use crate::theme::Theme;
 use crate::*;
 
-/// The card that menus, dialogs, toasts and tooltips float on.
 pub fn popover(theme: &Theme) -> Div {
     v_flex()
         .rounded(dp(theme.shape.popup))

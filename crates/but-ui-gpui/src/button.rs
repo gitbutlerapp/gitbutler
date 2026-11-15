@@ -10,15 +10,11 @@ use crate::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ButtonStyle {
-    /// No ground; for actions inside a row, header or card.
     Ghost,
-    /// The quiet default on open ground.
     Outline,
-    /// Lifts one button above its neighbours without spending colour.
     Gray,
     /// The one primary action of a surface.
     Pop,
-    /// For an act the user can't take back: deleting, discarding.
     Danger,
 }
 
@@ -27,27 +23,22 @@ pub struct Button {
     id: ElementId,
     label: Option<SharedString>,
     icon: Option<Icon>,
-    /// Sized by the caller, as a person's picture, in place of an icon: then it is the control
-    /// itself, round, and dims under the pointer.
     picture: Option<AnyElement>,
     style: ButtonStyle,
-    /// Why it can't be pressed now, shown in place of its tooltip.
+    /// Why it can't be pressed, shown in place of its tooltip.
     disabled: Option<SharedString>,
     small: bool,
-    /// At least this wide, its label centred.
     min_width: Option<Rems>,
-    /// On an inverted ground, like a selected row.
     inverted: bool,
-    /// The colour of the ground it sits on, as a banner's action takes its banner's.
+    /// The hue of the ground it sits on, as a banner's action takes its banner's.
     tint: Option<Hue>,
     on_click: Option<ClickHandler>,
     tooltip: Option<SharedString>,
     tooltip_key: Option<SharedString>,
     /// The action whose keys the tooltip shows when it names none.
     tooltip_action: Option<Box<dyn Action>>,
-    /// Which half of a [`dropdown_button`] it is, squared where the halves meet.
+    /// Which half of a [`dropdown_button`] it is.
     half: Option<Half>,
-    /// Narrower than its label when its row has no room to spare: see [`Button::shrinks`].
     shrinks: bool,
 }
 
@@ -89,8 +80,7 @@ pub fn icon_button(id: impl Into<ElementId>, icon: Icon) -> Button {
     }
 }
 
-/// A picture as the control itself, as the account's avatar is: round, with no button around
-/// it, dimming under the pointer, its focus ring circling it. As with an icon, its tooltip
+/// A picture, sized by the caller, as the round control itself. As with an icon, its tooltip
 /// names it.
 pub fn picture_button(id: impl Into<ElementId>, picture: impl IntoElement) -> Button {
     Button {
@@ -112,7 +102,6 @@ impl Button {
         self
     }
 
-    /// Filled in while it's the chosen one of a few.
     pub fn selected(self, selected: bool) -> Self {
         self.style(if selected {
             ButtonStyle::Gray
@@ -121,8 +110,7 @@ impl Button {
         })
     }
 
-    /// Unpressable for the reason given, if any, which its tooltip says instead. `None`
-    /// keeps an earlier reason.
+    /// Unpressable, with `why` as its tooltip; `None` keeps an earlier reason.
     pub fn disabled_because(mut self, why: Option<impl Into<SharedString>>) -> Self {
         self.disabled = why.map(Into::into).or(self.disabled);
         self
@@ -133,8 +121,7 @@ impl Button {
         self
     }
 
-    /// Narrower than its label when its row has no room to spare, which it then cuts short with
-    /// an ellipsis, as a long branch name in it would otherwise push its row past its edge.
+    /// Narrower than its label, cut short with an ellipsis, when its row has no room to spare.
     /// Buttons that shrink share what the row lacks; the rest keep their width.
     pub fn shrinks(mut self) -> Self {
         self.shrinks = true;
@@ -172,7 +159,7 @@ impl Button {
         self
     }
 
-    /// A tooltip of `tooltip` with the keys bound to `action`, looked up when it shows.
+    /// A tooltip with the keys bound to `action`, looked up when it shows.
     pub fn tooltip_for(mut self, tooltip: impl Into<SharedString>, action: &dyn Action) -> Self {
         self.tooltip = Some(tooltip.into());
         self.tooltip_action = Some(action.boxed_clone());
@@ -187,8 +174,7 @@ impl Button {
         self
     }
 
-    /// Dispatch `action` when clicked, as its keys would, which the tooltip shows unless it
-    /// names others.
+    /// Dispatches `action` on click; the tooltip shows its keys unless it names others.
     pub fn dispatch(mut self, action: &dyn Action) -> Self {
         self.tooltip_action = Some(action.boxed_clone());
         let action = action.boxed_clone();
@@ -211,8 +197,6 @@ impl RenderOnce for Button {
                 theme.danger_soft_hover,
             ),
         };
-        // A filled button keeps its fill under the pointer, a step stronger; one without
-        // takes the fill there.
         let (fg, bg, hover) = match self.tint {
             Some(tint) => (
                 theme.hue(tint),
@@ -232,10 +216,8 @@ impl RenderOnce for Button {
             ),
             None => (fg, bg, hover),
         };
-        // but-ui's button tokens (`packages/but-ui/components/button.tokens.json`), as
-        // but-ui-react reads them. The heights are `size-control(-sm)`, which `theme.sizes` moves
-        // with density, as it does the padding beside a label. An icon alone is 2px wider than
-        // tall when small, and square otherwise.
+        // but-ui's button tokens (`packages/but-ui/components/button.tokens.json`); the heights
+        // are `size-control(-sm)`, which `theme.sizes` moves with density.
         let sizes = theme.sizes;
         let (height, width, gap, padding, icon_size) = match self.small {
             true => (
@@ -256,7 +238,6 @@ impl RenderOnce for Button {
         let has_label = self.label.is_some();
         let pictured = self.picture.is_some();
         let shrinks = self.shrinks;
-        // What a screen reader calls it: its text, or for an icon its tooltip.
         let name = self.label.clone().or_else(|| self.tooltip.clone());
         h_flex()
             .id(self.id)
@@ -266,7 +247,7 @@ impl RenderOnce for Button {
                 true => el.min_w_0(),
                 false => el.flex_none(),
             })
-            // A picture is the control itself, with room around it for the focus ring.
+            // Room around a picture for the focus ring.
             .map(|el| match pictured {
                 true => el.p(dp(2.)),
                 false => el.h(dp(height)),
@@ -283,8 +264,7 @@ impl RenderOnce for Button {
             .text_color(fg)
             .when_some(bg, |el, bg| el.bg(bg))
             .when_some(border, |el, border| el.border_1().border_color(border))
-            // The halves meet square, split by a seam: an outline's border, or a faint rule
-            // across a fill.
+            // Across a fill, the seam between the halves is a rule in the ground's colour.
             .map(|el| match self.half {
                 None if pictured => el.rounded_full(),
                 None => el.rounded(dp(theme.shape.control)),
@@ -293,7 +273,6 @@ impl RenderOnce for Button {
                     .border_color(border.unwrap_or(theme.bg_1)),
             })
             .when(self.disabled.is_none(), |el| {
-                // A picture dims under the pointer rather than sitting in a ground.
                 el.map(|el| match pictured {
                     true => el.hover(|el| el.opacity(0.85)),
                     false => el.hover(move |el| el.bg(hover)),
@@ -331,8 +310,8 @@ impl RenderOnce for Button {
     }
 }
 
-/// `action` joined to a chevron that opens its menu, as but-ui-react's `DropdownButton`: one
-/// control split by a seam. The chevron, called `menu_label`, is disabled with the action.
+/// `action` joined to a chevron that opens its menu. The chevron, named `menu_label`, is
+/// disabled with the action.
 pub fn dropdown_button(
     action: Button,
     menu_label: impl Into<SharedString>,

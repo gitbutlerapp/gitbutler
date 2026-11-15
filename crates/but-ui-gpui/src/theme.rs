@@ -1,6 +1,5 @@
-//! Colour and type tokens, taken from `@gitbutler/but-ui` so this app reads like
-//! the rest of GitButler, or from a Ghostty colour scheme, which the embedded terminals then
-//! draw with too.
+//! Colour and type tokens from `@gitbutler/but-ui`, or from a Ghostty colour scheme that the
+//! embedded terminals draw with too.
 
 use but_tty::{Colors, Ghostty, RgbColor};
 use gpui::{
@@ -9,14 +8,13 @@ use gpui::{
 };
 use serde::{Deserialize, Serialize};
 
-/// but-ui's tokens as its build resolves them (`packages/but-ui/tokens/tokens.json`), which the
-/// build script writes as constants: each colour `[light, dark]` as `0xRRGGBBAA`, and each length
-/// in px, named as the token is.
+/// but-ui's tokens as its build resolves them (`packages/but-ui/tokens/tokens.json`): each
+/// colour `[light, dark]` as `0xRRGGBBAA`, each length in px.
 pub mod tokens {
     include!(concat!(env!("OUT_DIR"), "/color_tokens.rs"));
 }
 
-/// What a stretch of code is, as the diffs colour it.
+/// A syntax-highlighting class in diffs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Token {
     Comment,
@@ -30,65 +28,44 @@ pub enum Token {
 
 #[derive(Clone)]
 pub struct Theme {
-    /// Surfaces: content and recessed (navigator, diff ground).
+    /// The content surface; `bg_2` is the recessed one (navigator, diff ground).
     pub bg_1: Hsla,
     pub bg_2: Hsla,
     pub text_1: Hsla,
     pub text_2: Hsla,
     pub text_3: Hsla,
-    /// The strongest rule, then stronger and softer ones.
     pub border_1: Hsla,
     pub border_2: Hsla,
     pub border_3: Hsla,
-    /// The solid gray of a focused selection; hover and unfocused selection are tints of it.
+    /// The solid gray of a focused selection, which the `*_on_solid` colours read on.
     pub fill_gray: Hsla,
     pub text_inverted: Hsla,
-    /// What the pointer is over, as but-ui's `--but-hover`.
     pub hover: Hsla,
-    /// Selection ground while the list does not have focus, as `--but-selected-inactive`.
     pub selected_unfocused: Hsla,
-    /// The ring of a focused field, as `--but-ring`.
     pub focus_border: Hsla,
-    /// The border of a control, as `--but-input`.
     pub control_border: Hsla,
-    /// A faint gray well, as code blocks and table heads sit in: `--but-secondary`.
     pub secondary: Hsla,
-    /// A gray control's ground and that under the pointer, as but-ui-react's Gray button and
-    /// inline code: `--but-muted`, and halfway to `--but-muted-nested`.
     pub muted: Hsla,
     pub muted_hover: Hsla,
-    /// Secondary text and icons on a solid selection, as `text_2` is on open ground.
     pub muted_on_solid: Hsla,
-    /// What the pointer is over on a solid selection, as `--but-inverse-ghost-hover`.
     pub hover_on_solid: Hsla,
-    /// A faint ground, rule or track on a solid selection, as `secondary` and `border_3` are on
-    /// open ground, and that under the pointer: `--but-inverse-soft(-hover)`.
     pub inverse_soft: Hsla,
     pub inverse_soft_hover: Hsla,
-    /// A scrollbar's thumb, and while it's held or pointed at.
     pub scrollbar: Hsla,
     pub scrollbar_hover: Hsla,
-    /// What dims the window behind a modal.
     pub overlay: Hsla,
-    /// What a floating window casts.
     pub shadow: Hsla,
     pub pop: Hsla,
     pub pop_bg: Hsla,
-    /// A Pop button's ground, darker than `pop_bg` so its white label reads at 4.5:1, and
-    /// under the pointer.
     pub pop_button: Hsla,
     pub pop_hover: Hsla,
-    /// Labels, ticks and dashes on `pop_button` and `pop_bg`.
     pub on_pop: Hsla,
     pub blue: Hsla,
     pub safe: Hsla,
     pub warn: Hsla,
     pub danger: Hsla,
     pub purple: Hsla,
-    /// Each hue's soft ground, which its own colour reads on as text, and that under the
-    /// pointer, as but-ui-react's Badge and soft buttons draw them: `--but-*-soft(-hover)`.
-    /// See-through, for a mark or a control sitting on a ground. [`Theme::soft`] picks one by
-    /// [`Hue`].
+    /// Each hue's soft ground, see-through, for a mark or a control sitting on a ground.
     pub pop_soft: Hsla,
     pub pop_soft_hover: Hsla,
     pub blue_soft: Hsla,
@@ -101,9 +78,7 @@ pub struct Theme {
     pub danger_soft_hover: Hsla,
     pub purple_soft: Hsla,
     pub purple_soft_hover: Hsla,
-    /// Each hue's soft ground as an area, opaque, so a banner, a callout or a tile stays clean
-    /// on any ground, and that under the pointer: `--but-*-surface(-hover)`.
-    /// [`Theme::surface`] picks one by [`Hue`].
+    /// Each hue's soft ground as an opaque area, so a banner or tile stays clean on any ground.
     pub pop_surface: Hsla,
     pub pop_surface_hover: Hsla,
     pub blue_surface: Hsla,
@@ -116,9 +91,7 @@ pub struct Theme {
     pub danger_surface_hover: Hsla,
     pub purple_surface: Hsla,
     pub purple_surface_hover: Hsla,
-    /// Each hue laid over what must still show through it, and stronger for what's matched,
-    /// selected or being written now: `--but-*-wash(-strong)`. [`Theme::wash`] picks one by
-    /// [`Hue`], [`Theme::highlight`] by what it marks.
+    /// Each hue laid over what must still show through it.
     pub pop_wash: Hsla,
     pub pop_wash_strong: Hsla,
     pub blue_wash: Hsla,
@@ -131,87 +104,54 @@ pub struct Theme {
     pub danger_wash_strong: Hsla,
     pub purple_wash: Hsla,
     pub purple_wash_strong: Hsla,
-    /// Warning as a solid fill, and the text on it: the search match the keys are on.
     pub warn_bg: Hsla,
     pub on_warn: Hsla,
-    /// The edge of something marked as a warning or as not sent yet: amber's and blue's
-    /// border step.
     pub warn_edge: Hsla,
     pub blue_edge: Hsla,
-    /// `safe` and `danger` on a solid selection: each stepped toward `text_inverted` until it
-    /// reads on `fill_gray`, so it keeps what hue it can.
     pub safe_on_solid: Hsla,
     pub danger_on_solid: Hsla,
-    /// `purple` on a solid selection: the other appearance's, as but.dev's is. For glyphs, which
-    /// need 3:1.
+    /// For glyphs only: it reads at 3:1, not 4.5:1.
     pub purple_on_solid: Hsla,
-    /// A snackbar's ground, edge and text, as but-ui's snackbar tokens have them: inverted in
-    /// light, so it reads as a passing note over the window, and in dark a step above a popover's
-    /// ground, with a popover's edge.
     pub snackbar_bg: Hsla,
     pub snackbar_border: Hsla,
     pub snackbar_text: Hsla,
-    /// A warning snackbar's glyph, which says it went but not quite as asked. For a glyph, so
-    /// 3:1 on `snackbar_bg`.
+    /// For glyphs only: it reads at 3:1 on `snackbar_bg`.
     pub snackbar_warn: Hsla,
-    /// The line between a snackbar's sentence and its button, and that button under the
-    /// pointer.
     pub snackbar_divider: Hsla,
     pub snackbar_hover: Hsla,
-    /// A diff's changed lines as @pierre/diffs colours them in but.dev: the line numbers and
-    /// the bar beside them, the ground of the line and its numbers, and behind the words that
-    /// changed within it.
     pub diff_added: Hsla,
     pub diff_removed: Hsla,
     pub diff_added_bg: Hsla,
     pub diff_removed_bg: Hsla,
     pub diff_added_emph: Hsla,
     pub diff_removed_emph: Hsla,
-    /// The text of the box that stands for the unchanged lines between hunks, which an
-    /// unchanged line's number shares.
     pub diff_muted: Hsla,
-    /// The letter for an added, modified, deleted and renamed file: but-ui's
-    /// change-status colours.
+    /// Added, modified, deleted and renamed, in that order.
     pub change_status: [Hsla; 4],
-    /// The colours a person without a picture can be, as but.dev draws them, under their
-    /// initial in `text_1`.
+    /// Grounds for people without a picture, drawn under their initial in `text_1`.
     pub person: [Hsla; 5],
     pub ui_font: SharedString,
     pub mono_font: SharedString,
-    /// What code in diffs shows in: `mono_font` unless another was picked.
     pub diff_font: SharedString,
-    /// How wide a digit of `diff_font` is, in ems.
+    /// A digit's width in `diff_font`, in ems.
     pub diff_digit: f32,
-    /// What turns `diff_font`'s ligatures off, if they are.
     pub diff_features: FontFeatures,
-    /// What terminals show in: Geist Mono with Nerd Font icons and box drawing, for TUIs, unless
-    /// another was picked or Ghostty has one.
     pub terminal_font: Font,
     pub terminal_bold: FontWeight,
-    /// Code in diffs: its size and the height of a line of it.
     pub code_text: f32,
     pub code_line: f32,
-    /// The interface scale, 1 at 100%: the window's rem follows it, and [`Theme::scaled`]
-    /// gives sizes the layout doesn't, as for scroll and pointer maths.
+    /// The interface scale, 1 at 100%.
     pub scale: f32,
-    /// What the embedded terminals draw with: the scheme's palette, or for GitButler's, its
-    /// own grounds, text and accents. A part unset takes `bg_1` or `text_1`, or the
-    /// terminal's own default.
     pub terminal: Colors,
     syntax: [Hsla; 7],
-    /// How round corners are, by what they're on.
     pub shape: Shape,
-    /// How tall controls and bars are, and how far their side padding moves, by density.
     pub sizes: Sizes,
-    /// Whether these are GitButler's own colours, and dark ones: an accent applies only to
-    /// them, as a colour scheme brings its own.
+    /// `Some(dark)` while these are GitButler's own colours, which an accent applies to.
     own_colours: Option<bool>,
 }
 
 impl Global for Theme {}
 
-/// A colour something is tinted in by what it is: a move's mark, a pull request's state, a
-/// button's tint. [`Theme`] gives each as text, as a soft ground and as a wash over rows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Hue {
     Pop,
@@ -220,32 +160,27 @@ pub enum Hue {
     Warn,
     Danger,
     Purple,
-    /// Secondary text, on gray.
     Gray,
 }
 
-/// What's marked over text or rows, which must let what's under it show: a diff's green and
-/// red lines, a search's tint under a selection. Each is a token's colour at a set strength.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Highlight {
-    /// Selected text in a field with the keys, and in one without.
     Selected,
     SelectedUnfocused,
-    /// Selected words in a diff's line, or a line being edited there, as the diff selects.
+    /// Selected words in a diff's line, or a line being edited there.
     Words,
-    /// A search's matches, and the one it's on.
+    /// A search's matches, and the current one.
     Found,
     FoundHere,
-    /// What's new since it was last read.
+    /// New since it was last read.
     Fresh,
-    /// What a comment is about, and while that comment is pointed at or written.
+    /// What a comment is about, and while it's pointed at or written.
     Said,
     Saying,
-    /// What a comment not sent yet is about, and while it's pointed at or written.
+    /// What an unsent comment is about, and while it's pointed at or written.
     Draft,
     SayingDraft,
-    /// What blinks over a diff's rows and headers as they're copied: a light wash of pop,
-    /// which shows on green and red lines without drowning them out.
+    /// Blinks over a diff's rows and headers as they're copied.
     Copy,
     /// A diff's line number picked for a selection.
     Picked,
@@ -253,7 +188,6 @@ pub enum Highlight {
     Incoming,
 }
 
-/// How large code shows in diffs.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CodeSize {
     Small,
@@ -262,7 +196,6 @@ pub enum CodeSize {
     Large,
 }
 
-/// Always the light scheme, always the dark one, or whichever macOS is set to.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Appearance {
     #[default]
@@ -272,8 +205,7 @@ pub enum Appearance {
 }
 
 impl Appearance {
-    /// The scheme this choice draws in while the system is `system`.
-    /// `GITBUTLER_GPUI_APPEARANCE=dark|light` overrides it, handy for screenshots.
+    /// `GITBUTLER_GPUI_APPEARANCE=dark|light` overrides the choice, handy for screenshots.
     pub fn shade(self, system: WindowAppearance) -> Shade {
         match (std::env::var("GITBUTLER_GPUI_APPEARANCE").as_deref(), self) {
             (Ok("dark"), _) => Shade::Dark,
@@ -288,23 +220,18 @@ impl Appearance {
     }
 }
 
-/// Which of the two colour schemes Settings keeps: the one for light, or the one for dark.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Shade {
     Light,
     Dark,
 }
 
-/// How round corners are, by role, in px as designed, from but-ui's radius tokens.
+/// Corner radii in px as designed, before the interface scale.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Shape {
-    /// The smallest marks: a checkbox, a keycap.
     pub xs: f32,
-    /// A control or a row: a button, a field, a segment, a tag.
     pub control: f32,
-    /// A card: a tile, a file's or a hunk's header, a menu's rows.
     pub card: f32,
-    /// What floats over the window: a popover, a modal, a snackbar.
     pub popup: f32,
 }
 
@@ -319,17 +246,15 @@ impl Default for Shape {
     }
 }
 
-/// How tall controls and bars are, in px as designed, from but-ui's size tokens, and how far a
-/// density moves their side padding: nothing at Balanced, Figma's.
+/// Control and bar heights in px as designed, before the interface scale.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Sizes {
-    /// A button, a select, a segmented control or a toggle group.
     pub control: f32,
-    /// A small one; a small button or segment is 4px taller than this, for its line.
+    /// A small button or segment is 4px taller than this.
     pub control_sm: f32,
-    /// A bar inside a popup: its search row or its footer.
+    /// A bar inside a popup, as its search row or footer.
     pub bar: f32,
-    /// Added to a control's side padding.
+    /// Added to a control's side padding; 0 at Balanced.
     pub padding: f32,
 }
 
@@ -344,8 +269,6 @@ impl Default for Sizes {
     }
 }
 
-/// The colour GitButler's own theme picks things out in: its primary buttons, ticks and the
-/// accent's text. One of but-ui's accents, or any colour, drawn so it still reads.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Accent {
     #[default]
@@ -368,8 +291,6 @@ impl Accent {
     }
 }
 
-/// The gray GitButler's own colours are built on: gray, or one of but-ui's tinted grays, at
-/// gray's lightness step for step, so everything reads as it does on gray.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Ground {
     #[default]
@@ -391,7 +312,6 @@ impl Ground {
     }
 }
 
-/// How round corners are: but-ui's scale moved sharper or rounder, Soft its own.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Corners {
     Sharp,
@@ -411,7 +331,6 @@ impl Corners {
     }
 }
 
-/// How tall controls are: but-ui's sizes a step shorter or taller, Balanced its own.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Density {
     Compact,
@@ -431,7 +350,7 @@ impl Density {
     }
 }
 
-/// but-ui's presets, each a corner setting and a density by one name.
+/// but-ui's presets: each one's name, corners and density.
 pub fn presets() -> impl Iterator<Item = (&'static str, Corners, Density)> {
     (tokens::PRESETS.iter()).filter_map(|&(_, name, corners, density)| {
         let corners = [Corners::Sharp, Corners::Soft, Corners::Round]
@@ -446,18 +365,15 @@ pub fn presets() -> impl Iterator<Item = (&'static str, Corners, Density)> {
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ColorScheme {
-    /// GitButler's own, light as the light scheme and dark as the dark one.
     #[default]
     GitButler,
-    /// The light or the dark theme the user's Ghostty config sets, as the scheme is light's
-    /// or dark's.
+    /// The light or dark theme the user's Ghostty config sets, by the shade.
     Ghostty,
-    /// One Ghostty theme, by name, which is light or dark by its background.
+    /// One Ghostty theme by name, light or dark by its background.
     Named(String),
 }
 
 impl ColorScheme {
-    /// What the picker shows it as.
     pub fn label(&self) -> &str {
         match self {
             ColorScheme::GitButler => "GitButler",
@@ -467,8 +383,7 @@ impl ColorScheme {
     }
 }
 
-/// How large the whole interface draws, in percent, as a browser zooms a page: every size
-/// the app gives in [`crate::dp`] grows or shrinks with it.
+/// The interface zoom, in percent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct UiScale(u16);
@@ -480,7 +395,7 @@ impl Default for UiScale {
 }
 
 impl UiScale {
-    /// The steps ⌘+ and ⌘− go through, as Chrome's.
+    /// The ⌘+ and ⌘− steps, as Chrome's.
     pub const STEPS: [UiScale; 9] = [
         Self(75),
         Self(80),
@@ -497,19 +412,16 @@ impl UiScale {
         self.0
     }
 
-    /// How many times 100% it is, kept within the steps.
     fn factor(self) -> f32 {
         f32::from(self.clamp(Self::STEPS[0], Self::STEPS[8]).0) / 100.
     }
 
-    /// The next step up, or the largest.
     pub fn larger(self) -> Self {
         (Self::STEPS.into_iter())
             .find(|&step| step > self)
             .unwrap_or(Self::STEPS[8])
     }
 
-    /// The next step down, or the smallest.
     pub fn smaller(self) -> Self {
         (Self::STEPS.into_iter().rev())
             .find(|&step| step < self)
@@ -518,7 +430,7 @@ impl UiScale {
 }
 
 impl CodeSize {
-    /// The size of code in diffs and the height of a line of it.
+    /// The code size and line height, in px.
     fn metrics(self) -> (f32, f32) {
         match self {
             CodeSize::Small => (11., 18.),
@@ -534,8 +446,8 @@ impl Theme {
         self
     }
 
-    /// This theme with code in diffs in `family`, unless `digit`, which gives how wide a family's
-    /// digits are in ems, finds the machine hasn't got it.
+    /// `digit` gives a family's digit width in ems, or `None` when the machine hasn't got it,
+    /// which keeps the current font.
     pub fn with_diff_font(
         mut self,
         family: Option<&str>,
@@ -548,16 +460,12 @@ impl Theme {
         self
     }
 
-    /// This theme with `diff_font`'s ligatures on or off. Fonts keep them under `liga` or `calt`.
     pub fn with_ligatures(mut self, on: bool) -> Self {
         let off = [("liga".to_owned(), 0), ("calt".to_owned(), 0)];
         self.diff_features = FontFeatures(if on { vec![] } else { off.to_vec() }.into());
         self
     }
 
-    /// This theme with terminals in `family`, or with none picked, in the first family of
-    /// `ghostty`'s that `installed` says the machine has, with `ghostty`'s font features and
-    /// bold.
     pub fn with_terminal_font(
         mut self,
         family: Option<&str>,
@@ -577,8 +485,7 @@ impl Theme {
         self
     }
 
-    /// This theme picking things out in `accent`, `custom` (`#rrggbb` or `#rgb`) for a custom
-    /// one, when it's in GitButler's own colours; a colour scheme keeps its own.
+    /// `custom` is `#rrggbb` or `#rgb`, for [`Accent::Custom`].
     pub fn with_accent(mut self, accent: Accent, custom: &str) -> Self {
         let Some(dark) = self.own_colours else {
             return self;
@@ -593,7 +500,7 @@ impl Theme {
                 .flatten()
                 .collect(),
         };
-        // As `0xRRGGBBAA`: the soft fills are see-through.
+        // The soft fills are see-through, so these carry alpha.
         let token = |name: &str| {
             family
                 .iter()
@@ -602,7 +509,6 @@ impl Theme {
         };
         if let Some(primary) = token("primary") {
             (self.pop_bg, self.pop_button) = (primary, primary);
-            // The washes are the accent's primary at but-ui's strengths, as CSS mixes them.
             let [wash, strong] = WASHES;
             (self.pop_wash, self.pop_wash_strong) =
                 (primary.opacity(wash), primary.opacity(strong));
@@ -628,8 +534,7 @@ impl Theme {
         self
     }
 
-    /// This theme on `ground`, when it's in GitButler's own colours; a colour scheme keeps its
-    /// own. Called before anything else changes it, as it draws GitButler's colours again.
+    /// Draws GitButler's colours again, so call it before any other `with_*`.
     pub fn with_ground(self, ground: Ground) -> Self {
         let Some(dark) = self.own_colours else {
             return self;
@@ -674,12 +579,11 @@ impl Theme {
         self
     }
 
-    /// `n` pixels as designed, at the interface scale: what [`crate::dp`] lays out as.
     pub fn scaled(&self, n: f32) -> Pixels {
         Pixels::from(n * self.scale)
     }
 
-    /// Whether these are GitButler's own colours, which the accent and ground apply to.
+    /// Whether these are GitButler's own colours, which an accent and ground apply to.
     pub fn own_colours(&self) -> bool {
         self.own_colours.is_some()
     }
@@ -688,14 +592,11 @@ impl Theme {
         cx.global::<Theme>()
     }
 
-    /// The theme `scheme` draws in as `shade`, with code in diffs at `code`. `ghostty` is the
-    /// user's Ghostty config, which colours the app and its terminals for
-    /// [`ColorScheme::Ghostty`]. The terminals always draw in the scheme the app does. A scheme
-    /// without a background and foreground, as a named theme that's gone, draws as GitButler's.
+    /// A scheme without a background and foreground, as a named theme that's gone, draws as
+    /// GitButler's.
     pub fn new(shade: Shade, scheme: &ColorScheme, code: CodeSize, ghostty: &Ghostty) -> Self {
         let dark = shade == Shade::Dark;
-        // `GITBUTLER_GPUI_COLOR_SCHEME=gitbutler|ghostty|<theme name>` overrides the settings,
-        // handy for screenshots.
+        // The environment overrides the settings, handy for screenshots.
         let forced = std::env::var("GITBUTLER_GPUI_COLOR_SCHEME").ok();
         let forced = forced.map(|name| match name.as_str() {
             "gitbutler" => ColorScheme::GitButler,
@@ -714,14 +615,12 @@ impl Theme {
         }
     }
 
-    /// GitButler's own colours, light or dark, the terminals' too.
     pub fn gitbutler(dark: bool, code: CodeSize) -> Self {
         Self::gitbutler_on(dark, code, Ground::Gray)
     }
 
-    /// GitButler's own colours on `ground`, light or dark, the terminals' too.
     fn gitbutler_on(dark: bool, code: CodeSize, ground: Ground) -> Self {
-        // The colours that come out differently on the ground than on gray.
+        // Only the tokens that differ from gray's.
         let on_ground = (tokens::GROUNDS.iter())
             .find(|(name, _)| *name == ground.name())
             .map_or(&[][..], |(_, colors)| *colors);
@@ -730,7 +629,6 @@ impl Theme {
                 .find(|(token, _)| *token == name)
                 .map_or(gray, |(_, colors)| *colors)
         };
-        // A but-ui token, as it comes out on the ground.
         macro_rules! on_ground {
             ($token:ident) => {
                 grounded(stringify!($token), tokens::$token)
@@ -739,11 +637,10 @@ impl Theme {
         let pick = |light: u32, dark_value: u32| -> Hsla {
             rgb(if dark { dark_value } else { light }).into()
         };
-        // A but-ui token in this appearance.
         let token = |[light, dark_value]: [u32; 2]| -> Hsla {
             rgba(if dark { dark_value } else { light }).into()
         };
-        // Halfway from one opaque but-ui token to another, as CSS's `color-mix` at 50%.
+        // As CSS's `color-mix` at 50%.
         let halfway = |a: [u32; 2], b: [u32; 2]| -> Hsla {
             let pick = |[light, dark_value]: [u32; 2]| (if dark { dark_value } else { light }) >> 8;
             color(mix(pick(a), pick(b), 0.5))
@@ -752,7 +649,6 @@ impl Theme {
         // GitHub's light and dark, which but.dev's diffs take their colours from.
         let added = pick(0x28a745, 0x34d058);
         let removed = pick(0xd73a49, 0xea4a5a);
-        // Coloured text is a hue's step 11, which reads at 4.5:1 on the gray grounds.
         let [safe, danger] = [on_ground!(SUCCESS_TEXT), on_ground!(DANGER_TEXT)].map(token);
         let [fill_gray, text_inverted] =
             [on_ground!(INVERSE), on_ground!(INVERSE_FOREGROUND)].map(token);
@@ -768,11 +664,8 @@ impl Theme {
             code_text,
             code_line,
             scale: 1.,
-            // The cards and panes, and the window's ground.
             bg_1: token(on_ground!(BACKGROUND)),
             bg_2: token(on_ground!(CANVAS)),
-            // Secondary text meets WCAG AA (4.5:1), faint text the 3:1 for de-emphasised
-            // details, on both grounds.
             text_1: token(on_ground!(FOREGROUND)),
             text_2: token(on_ground!(MUTED_FOREGROUND)),
             text_3: token(on_ground!(SUBTLE_FOREGROUND)),
@@ -796,8 +689,6 @@ impl Theme {
             scrollbar_hover: token(on_ground!(SCROLLBAR_THUMB_HOVER)),
             overlay: token(on_ground!(OVERLAY)),
             shadow: token(on_ground!(SHADOW)),
-            // The accent as text, and as the ground its label and tick read on at 4.5:1, in
-            // both themes.
             pop: token(on_ground!(PRIMARY_TEXT)),
             pop_bg: token(on_ground!(PRIMARY)),
             pop_button: token(on_ground!(PRIMARY)),
@@ -846,7 +737,6 @@ impl Theme {
             purple_wash_strong: token(on_ground!(DONE_WASH_STRONG)),
             warn_bg: token(on_ground!(WARNING)),
             on_warn: token(on_ground!(WARNING_FOREGROUND)),
-            // Amber's and blue's step 7, the scales' border.
             warn_edge: token(on_ground!(AMBER_7)),
             blue_edge: token(on_ground!(BLUE_7)),
             safe_on_solid: on_solid(safe),
@@ -865,7 +755,6 @@ impl Theme {
             diff_added_emph: added.opacity(if dark { 0.2 } else { 0.15 }),
             diff_removed_emph: removed.opacity(if dark { 0.2 } else { 0.15 }),
             diff_muted: pick(0x696c70, 0x999da1),
-            // Each hue's step 9.
             change_status: [
                 on_ground!(CHANGE_STATUS_ADDITION),
                 on_ground!(CHANGE_STATUS_MODIFICATION),
@@ -873,7 +762,6 @@ impl Theme {
                 on_ground!(CHANGE_STATUS_RENAME),
             ]
             .map(token),
-            // Teal, purple, green, amber and red at step 7.
             person: [
                 on_ground!(CATEGORY_1),
                 on_ground!(CATEGORY_2),
@@ -890,8 +778,7 @@ impl Theme {
             diff_features: FontFeatures::default(),
             terminal_font: gpui::font("GeistMono Nerd Font Mono"),
             terminal_bold: FontWeight::SEMIBOLD,
-            // Shiki's GitHub light and dark, as but.dev highlights diffs. In `Token` order:
-            // comment, string, constant, keyword, function, type, tag.
+            // Shiki's GitHub light and dark, as but.dev highlights diffs, in `Token` order.
             syntax: [
                 pick(0x6a737d, 0x6a737d),
                 pick(0x032f62, 0x9ecbff),
@@ -909,9 +796,7 @@ impl Theme {
         .with_own_terminal(dark)
     }
 
-    /// This theme with terminals in its own colours: its ground and text, and its accents for
-    /// the ANSI colours, the bright ones a step toward the text. Black and white are its
-    /// greys, so both read on the ground, as programs write bright white as strong text.
+    /// ANSI black and white are its grays, so both read on the ground.
     fn with_own_terminal(mut self, dark: bool) -> Self {
         let [bg, fg] = [self.bg_1, self.text_1].map(rgb_hex);
         let black = rgb_hex(if dark { self.border_3 } else { self.text_1 });
@@ -941,11 +826,6 @@ impl Theme {
         self
     }
 
-    /// This theme in `palette`'s colours, its sizes and fonts kept, or as it is when the
-    /// palette has no background or foreground. Text steps toward the foreground until it reads
-    /// on both grounds and on a gray control's: secondary text and colours used as text at
-    /// 4.5:1, faint text and marks at 3:1. The accent darkens or lightens at its own hue
-    /// instead, so a pale one stays a colour.
     fn painted(self, palette: Colors) -> Self {
         let (Some(bg), Some(fg)) = (palette.background, palette.foreground) else {
             return self;
@@ -963,14 +843,12 @@ impl Theme {
                 .unwrap_or(fg)
         };
         let bg_2 = mix(bg, 0x000000, if dark { 0.25 } else { 0.05 });
-        // A step of the foreground into the ground, as but-ui's opaque grays: muted, and
-        // halfway on to muted-nested.
+        // As but-ui's opaque grays: muted, and halfway on to muted-nested.
         let gray = |share: f32| mix(bg, fg, share);
         let muted = gray(if dark { 0.09 } else { 0.06 });
         let muted_hover = gray(if dark { 0.105 } else { 0.077 });
         let grounds = [bg, bg_2, muted, muted_hover];
         let ink = if dark { 0xffffff } else { 0x000000 };
-        // A colour's soft ground and that under the pointer, a step further toward it.
         let soft = |hue: u32| mix(bg, hue, if dark { 0.18 } else { 0.12 });
         let soft_hover = |hue: u32| mix(bg, hue, if dark { 0.22 } else { 0.17 });
         let text_on = |from: u32, ratio: f32, also: &[u32]| {
@@ -980,28 +858,23 @@ impl Theme {
                 .unwrap_or(ink)
         };
         let text = |from: u32, ratio: f32| text_on(from, ratio, &[]);
-        // A colour as text, which reads on its soft grounds too.
         let hue_text = |hue: u32| text_on(hue, 4.5, &[soft(hue), soft_hover(hue)]);
-        // A snackbar's ground is the foreground, so its glyph steps toward whichever of black
-        // and white reads there.
+        // A snackbar's ground is the foreground.
         let snackbar_ink = match contrast(fg, 0xffffff) > contrast(fg, 0x000000) {
             true => 0xffffff,
             false => 0x000000,
         };
-        // The scheme's cyan, or where that's a gray, the first of its blue, magenta and their
-        // bright ones that isn't, so the accent stays a colour. Not the cursor, which is often
-        // the scheme's yellow or red, as warn and danger are.
+        // The first of cyan, blue, magenta and their bright ones that isn't gray, so the accent
+        // stays a colour. Not the cursor, which is often yellow or red, as warn and danger are.
         let pop = [6, 4, 5, 14, 12, 13]
             .map(given)
             .into_iter()
             .flatten()
             .find(|&hue| chroma(hue) >= 40.)
             .unwrap_or_else(|| ansi(6));
-        // As text it darkens or lightens at its own hue, as stepping toward a gray foreground
-        // would leave a pale one gray.
+        // At its own hue, as stepping toward a gray foreground would leave a pale one gray.
         let also = [soft(pop), soft_hover(pop)];
         let pop_text = toned(pop, ink, &[&grounds[..], &also].concat(), 4.5).unwrap_or(ink);
-        // What reads at 4.5:1 on a solid fill of `fill`: white, the ground, or black.
         let ink_on = |fill: u32| {
             [0xffffff, bg, 0x000000]
                 .into_iter()
@@ -1009,7 +882,6 @@ impl Theme {
                 .unwrap_or(0x000000)
         };
         let (on_pop, on_warn) = (ink_on(pop), ink_on(ansi(3)));
-        // A colour laid over what shows through, at but-ui's wash strengths.
         let washed = |hue: u32, strength: usize| {
             let share = WASHES.get(strength).copied().unwrap_or(0.);
             color(hue).opacity(share)
@@ -1017,7 +889,6 @@ impl Theme {
         let text_3 = text(mix(bg, fg, 0.45), 3.);
         let [safe, blue, danger, purple] = [2, 4, 1, 5].map(|index| hue_text(ansi(index)));
         let [added, removed] = [2, 1].map(|index| text(ansi(index), 3.));
-        // `fg` laid over the ground at `share`, as but-ui's grays are the foreground's.
         let veil = |share: f32| color(fg).opacity(share);
         Theme {
             bg_1: color(bg),
@@ -1148,26 +1019,21 @@ impl Theme {
         }
     }
 
-    /// The edge of the card with the keys, the tile's or the navigator's: a focused field's
-    /// ring, as it reads on the field's ground, the cards'. Opaque, so it's the same gray drawn
-    /// over a card's own edge as in its place, or twice over.
+    /// The focused field's ring made opaque, so it looks the same drawn over a card's edge.
     pub fn focus_edge(&self) -> Hsla {
         self.bg_1.blend(self.focus_border)
     }
 
-    /// The unfocused selection as it shows on a card, opaque, for what's drawn over the
-    /// card's content, as a sticky header.
+    /// `selected_unfocused` made opaque on a card, for a sticky header over its content.
     pub fn selected_on_card(&self) -> Hsla {
         self.bg_1.blend(self.selected_unfocused)
     }
 
-    /// Halfway from the page to the first gray step: a passage set off from the page, not a
-    /// panel.
+    /// A passage set off from the page, not a panel.
     pub fn passage(&self) -> Hsla {
         self.bg_1.blend(self.bg_2.opacity(0.5))
     }
 
-    /// `hue` as text and marks.
     pub fn hue(&self, hue: Hue) -> Hsla {
         match hue {
             Hue::Pop => self.pop,
@@ -1180,7 +1046,6 @@ impl Theme {
         }
     }
 
-    /// `hue`'s soft ground, which it reads on as text.
     pub fn soft(&self, hue: Hue) -> Hsla {
         match hue {
             Hue::Pop => self.pop_soft,
@@ -1193,7 +1058,6 @@ impl Theme {
         }
     }
 
-    /// `hue`'s soft ground under the pointer.
     pub fn soft_hover(&self, hue: Hue) -> Hsla {
         match hue {
             Hue::Pop => self.pop_soft_hover,
@@ -1206,7 +1070,6 @@ impl Theme {
         }
     }
 
-    /// `hue`'s ground as an area, opaque: a banner, a callout, a tile.
     pub fn surface(&self, hue: Hue) -> Hsla {
         match hue {
             Hue::Pop => self.pop_surface,
@@ -1219,7 +1082,6 @@ impl Theme {
         }
     }
 
-    /// `hue`'s area under the pointer.
     pub fn surface_hover(&self, hue: Hue) -> Hsla {
         match hue {
             Hue::Pop => self.pop_surface_hover,
@@ -1232,8 +1094,6 @@ impl Theme {
         }
     }
 
-    /// `hue` washed over rows, which still show through: a move's mark, a drop target, a mark
-    /// under the pointer.
     pub fn wash(&self, hue: Hue) -> Hsla {
         match hue {
             Hue::Pop => self.pop_wash,
@@ -1246,7 +1106,6 @@ impl Theme {
         }
     }
 
-    /// A stronger [`Theme::wash`], for the one the pointer is over.
     pub fn wash_strong(&self, hue: Hue) -> Hsla {
         match hue {
             Hue::Pop => self.pop_wash_strong,
@@ -1259,8 +1118,7 @@ impl Theme {
         }
     }
 
-    /// What marks `highlight`, over what's under it. The search match the keys are on is solid,
-    /// with [`Theme::on_warn`] as its text.
+    /// `FoundHere` is solid, with [`Theme::on_warn`] as its text.
     pub fn highlight(&self, highlight: Highlight) -> Hsla {
         match highlight {
             Highlight::Selected | Highlight::Fresh | Highlight::Copy => self.pop_wash_strong,
@@ -1276,28 +1134,24 @@ impl Theme {
     }
 }
 
-/// but-ui's wash strengths, `--but-opacity-wash(-strong)`, read from the alpha of its primary
-/// washes, for what mixes them itself: another accent, a colour scheme.
+/// but-ui's `--but-opacity-wash(-strong)`, read from its primary washes' alpha.
 const WASHES: [f32; 2] = [
     alpha(tokens::PRIMARY_WASH),
     alpha(tokens::PRIMARY_WASH_STRONG),
 ];
 
-/// The alpha of a `[light, dark]` token, as a share, from its light value.
 const fn alpha([light, _]: [u32; 2]) -> f32 {
     (light & 0xff) as f32 / 255.
 }
 
-/// Ghostty's own 16 colours, for the ones a theme leaves unset.
+/// Ghostty's default 16 colours, for those a theme leaves unset.
 const GHOSTTY_ANSI: [u32; 16] = [
     0x1d1f21, 0xcc6666, 0xb5bd68, 0xf0c674, 0x81a2be, 0xb294bb, 0x8abeb7, 0xc5c8c6, 0x666666,
     0xd54e53, 0xb9ca4a, 0xe7c547, 0x7aa6da, 0xc397d8, 0x70c0b1, 0xeaeaea,
 ];
 
-/// The custom accent's family drawn from `pick`, `#rrggbb` or `#rgb`, as but-ui's tokens.css draws
-/// it: each token is the pick's hue, its chroma capped and taken at a share, at a lightness, in
-/// OKLCH, then clipped into sRGB as a browser does, and see-through where the step is, as
-/// `0xRRGGBBAA`. A pick that isn't a colour draws as teal.
+/// The custom accent's tokens as `0xRRGGBBAA`, computed from `pick` as but-ui's tokens.css
+/// does: in OKLCH, clipped into sRGB as a browser does.
 fn custom_accent(pick: &str, dark: bool) -> Vec<(&'static str, u32)> {
     let [light, dark_value] = tokens::CUSTOM_ACCENT_FALLBACK;
     let fallback = if dark { dark_value } else { light } >> 8;
@@ -1320,8 +1174,7 @@ fn custom_accent(pick: &str, dark: bool) -> Vec<(&'static str, u32)> {
         .collect()
 }
 
-/// `#rrggbb` or `#rgb` as `0xRRGGBB`, the `#` left out or not, as a colour pasted from
-/// elsewhere may come without it.
+/// `#rrggbb` or `#rgb`, the `#` optional, as `0xRRGGBB`.
 pub fn parse_hex(text: &str) -> Option<u32> {
     let text = text.trim();
     let digits = text.strip_prefix('#').unwrap_or(text);
@@ -1336,7 +1189,7 @@ pub fn parse_hex(text: &str) -> Option<u32> {
     }
 }
 
-/// `hex` in OKLCH: its lightness, chroma and hue in degrees.
+/// Lightness, chroma and hue in degrees.
 fn oklch(hex: u32) -> (f32, f32, f32) {
     let [r, g, b] = channels(hex).map(|c| {
         let c = c / 255.;
@@ -1355,8 +1208,7 @@ fn oklch(hex: u32) -> (f32, f32, f32) {
     (lightness, a.hypot(b), b.atan2(a).to_degrees())
 }
 
-/// The colour at `lightness`, `chroma` and `hue` (degrees) in OKLCH, each channel clipped into
-/// sRGB, as `0xRRGGBB`.
+/// Hue in degrees; each channel is clipped into sRGB.
 fn from_oklch(lightness: f32, chroma: f32, hue: f32) -> u32 {
     let (a, b) = (
         chroma * hue.to_radians().cos(),
@@ -1399,7 +1251,6 @@ fn channels(hex: u32) -> [f32; 3] {
     [16, 8, 0].map(|shift| ((hex >> shift) & 0xff) as f32)
 }
 
-/// `a` taken `t` of the way to `b`.
 fn mix(a: u32, b: u32, t: f32) -> u32 {
     let [a, b] = [channels(a), channels(b)];
     (a.iter().zip(b))
@@ -1425,8 +1276,7 @@ fn contrast(a: u32, b: u32) -> f32 {
     (a.max(b) + 0.05) / (a.min(b) + 0.05)
 }
 
-/// `from`, or the first step from it toward `toward` that reads at `ratio` on every one of
-/// `grounds`, if one does.
+/// The first of 20 steps from `from` toward `toward` that reads at `ratio` on every ground.
 fn reaching(from: u32, toward: u32, grounds: &[u32], ratio: f32) -> Option<u32> {
     (0..=20)
         .map(|step| mix(from, toward, step as f32 / 20.))
@@ -1437,8 +1287,7 @@ fn reaching(from: u32, toward: u32, grounds: &[u32], ratio: f32) -> Option<u32> 
         })
 }
 
-/// `from` at its own hue and saturation, made the first step of the 20 toward `ink`'s
-/// lightness that reads at `ratio` on every one of `grounds`, if one does.
+/// Like [`reaching`], but moving only the lightness, toward `ink`'s.
 fn toned(from: u32, ink: u32, grounds: &[u32], ratio: f32) -> Option<u32> {
     let (from, target) = (color(from), color(ink).l);
     (0..=20)
@@ -1453,13 +1302,12 @@ fn toned(from: u32, ink: u32, grounds: &[u32], ratio: f32) -> Option<u32> {
         })
 }
 
-/// How far `hex` is from a gray, from 0 to 255.
+/// How far `hex` is from a gray, 0 to 255.
 fn chroma(hex: u32) -> f32 {
     let [r, g, b] = channels(hex);
     r.max(g).max(b) - r.min(g).min(b)
 }
 
-/// `accent` stepped toward `ink` until it reads as text on `ground`, or `ink` if it never does.
 fn readable_on(accent: u32, ink: u32, ground: u32) -> u32 {
     reaching(accent, ink, &[ground], 4.5).unwrap_or(ink)
 }
@@ -1469,7 +1317,6 @@ fn rgb_color(hex: u32) -> RgbColor {
     RgbColor { r, g, b }
 }
 
-/// A colour as the `#rrggbb` it was made from.
 fn rgb_hex(color: Hsla) -> u32 {
     let Rgba { r, g, b, .. } = color.into();
     [r, g, b]
@@ -1502,8 +1349,6 @@ mod tests {
         }
     }
 
-    /// The theme the Ghostty scheme gives when Ghostty's config colours both appearances as
-    /// `colors`, asked for as `choice`.
     fn ghostty_theme(colors: Colors, choice: Shade) -> Theme {
         let ghostty = Ghostty {
             light: colors.clone(),
@@ -1618,7 +1463,7 @@ mod tests {
 
     #[test]
     fn a_custom_accent_draws_as_the_web_draws_it() {
-        // What but-ui's build resolves the custom accent to, for 25 picks, as a browser would.
+        // What but-ui's build resolves the custom accent to, as a browser would.
         let samples: serde_json::Value = serde_json::from_str(include_str!(
             "../../../packages/but-ui/tokens/accent-samples.json"
         ))
@@ -1628,7 +1473,6 @@ mod tests {
             let pick = sample["color"].as_str().unwrap();
             for (mode, dark) in [("light", false), ("dark", true)] {
                 for (token, drawn) in custom_accent(pick, dark) {
-                    // `#rrggbb`, or `#rrggbbaa` for a see-through step.
                     let web = sample["tokens"][token][mode].as_str().unwrap();
                     let digits = web.trim_start_matches('#');
                     let web = u32::from_str_radix(digits, 16).unwrap();
@@ -1708,8 +1552,8 @@ mod tests {
                 Hue::Gray,
             ] {
                 let ink = rgb_hex(theme.hue(hue));
-                // The soft fills are see-through, so each is laid on what it sits on: the
-                // content, and for the fill at rest the recessed ground too, as but-ui checks.
+                // Soft fills are see-through, so each is checked on what it sits on, as
+                // but-ui checks.
                 for (what, ground, unders) in [
                     ("soft", theme.soft(hue), vec![theme.bg_1, theme.bg_2]),
                     (

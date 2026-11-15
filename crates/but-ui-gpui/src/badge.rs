@@ -5,7 +5,7 @@ use gpui::{Div, div, prelude::*};
 use crate::theme::Theme;
 use crate::*;
 
-/// How many, in a small grey pill, as but-ui-react's light grey `Badge`.
+/// As but-ui-react's light grey `Badge`.
 pub fn count_badge(count: usize, theme: &Theme) -> Div {
     div()
         .flex_none()

@@ -8,9 +8,8 @@ use gpui::{SharedString, Svg, prelude::*, svg};
 
 use crate::*;
 
-/// Every icon, compiled in from `packages/but-ui-react` so they're the ones but.dev draws, and
-/// a build fails if one goes. The client draws none of its own: a glyph it needs is drawn in
-/// 🍑 But UI and exported there, so the two can't drift.
+/// The icons of `packages/but-ui-react`, so they're the ones but.dev draws. A glyph the client
+/// needs is drawn in 🍑 But UI and exported there, never added here.
 macro_rules! icons {
     ($($variant:ident => $name:literal),* $(,)?) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -115,12 +114,11 @@ icons! {
     Warning => "warning",
 }
 
-/// How wide the icons are drawn in Figma, and their viewBox.
+/// The size the icons are drawn at in Figma, and their viewBox.
 const ICON_PX: f32 = 16.;
 
 impl Icon {
-    /// The icon's path when it's drawn `px` across: its own at the size it's designed at, and
-    /// with the size on the end otherwise, for [`Assets`] to keep its strokes as wide.
+    /// Off its designed size, the path carries the size for [`Assets`] to keep its strokes as wide.
     pub fn path_at(self, px: f32) -> SharedString {
         if px == ICON_PX {
             self.path().into()
@@ -130,8 +128,8 @@ impl Icon {
     }
 }
 
-/// Serves the icons compiled into the binary, those asked for at a size (`icons/x.svg@12`) with
-/// their strokes kept as wide (see `keep_strokes`).
+/// Serves the compiled-in icons, those asked for at a size (`icons/x.svg@12`) through
+/// `keep_strokes`.
 pub struct Assets;
 
 impl AssetSource for Assets {
@@ -149,10 +147,8 @@ impl AssetSource for Assets {
     }
 }
 
-/// `svg` with each stroke `vector-effect="non-scaling-stroke"` marks rewidened so that drawn
-/// `px` across, it's as wide as at the viewBox's own size, as a browser keeps it. GPUI's
-/// renderer ignores `vector-effect` and scales every stroke with the icon, so a 1.5px stroke
-/// would be 1.125px in a 12px icon.
+/// Rewidens strokes marked `vector-effect="non-scaling-stroke"` for an icon drawn `px` across,
+/// as a browser keeps them: GPUI's renderer ignores `vector-effect`.
 fn keep_strokes(svg: &str, px: f32) -> String {
     let Some(scale) = view_box_width(svg).map(|width| width / px) else {
         return svg.to_owned();
@@ -177,7 +173,6 @@ fn keep_strokes(svg: &str, px: f32) -> String {
     out
 }
 
-/// One tag of an icon, its stroke `scale` times as wide if it's kept from scaling.
 fn scaled_stroke(tag: &str, scale: f32) -> Cow<'_, str> {
     const KEPT: &str = r#" vector-effect="non-scaling-stroke""#;
     if !tag.contains(KEPT) {
@@ -192,7 +187,7 @@ fn scaled_stroke(tag: &str, scale: f32) -> Cow<'_, str> {
             width * scale
         ));
     }
-    // A stroke without a width is 1 wide; a tag kept that has no stroke only fills.
+    // An unset stroke width is 1; a tag with no stroke only fills.
     let stroked = (tag.split_once(r#" stroke=""#)).is_some_and(|(_, v)| !v.starts_with("none\""));
     if stroked {
         Cow::Owned(tag.replacen(KEPT, &format!(r#" stroke-width="{scale}"{KEPT}"#), 1))
@@ -201,7 +196,6 @@ fn scaled_stroke(tag: &str, scale: f32) -> Cow<'_, str> {
     }
 }
 
-/// The width of the icon's viewBox, what its strokes are measured against.
 fn view_box_width(svg: &str) -> Option<f32> {
     let (_, rest) = svg.split_once(r#"viewBox=""#)?;
     let (values, _) = rest.split_once('"')?;
@@ -236,8 +230,8 @@ mod tests {
             r#"<path d="M3 3" stroke="currentColor" stroke-width="1.5"/>"#,
             "</svg>",
         );
-        // 16px across a 16-wide viewBox is 1:1, so a 12px icon's strokes are 16/12 as wide in
-        // its viewBox; one without a width is 1 wide; fills and strokes that scale stay.
+        // A 12px icon's kept strokes are 16/12 as wide, one without a width as if it were 1;
+        // fills and strokes that scale stay.
         snapbox::assert_data_eq!(
             keep_strokes(svg, 12.),
             snapbox::str![[
@@ -268,8 +262,6 @@ mod tests {
 
     #[test]
     fn button_heights_are_the_control_heights_density_moves() {
-        // `Button` draws its heights from `theme.sizes`, which density moves, so they must stay
-        // the size tokens but-ui's button tokens name.
         let tokens: serde_json::Value =
             serde_json::from_str(include_str!("../../../packages/but-ui/tokens/tokens.json"))
                 .unwrap();

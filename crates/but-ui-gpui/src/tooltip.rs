@@ -5,7 +5,6 @@ use gpui::{App, Pixels, Point, SharedString, Window, div, prelude::*};
 use crate::theme::{Theme, tokens};
 use crate::*;
 
-/// A plain text tooltip, with the keys that do the same thing at its end.
 pub struct Tooltip {
     text: SharedString,
     key: Option<SharedString>,
@@ -13,10 +12,9 @@ pub struct Tooltip {
     shown: Option<(u64, Point<Pixels>)>,
 }
 
-/// What covers the window, as a menu, picker, prompt or modal does: how many times something
-/// came to, and where the pointer was when the one up now came. A tooltip gpui showed for an
-/// element under it, or was about to, as a click opened it, stays until the pointer leaves the
-/// element; this tells the tooltip to hide meanwhile.
+/// What covers the window, as a menu, picker, prompt or modal does: how many times one came up,
+/// and where the pointer was when the current one did. gpui keeps a tooltip shown for an element
+/// under it until the pointer leaves the element; this tells the tooltip to hide meanwhile.
 #[derive(Default)]
 pub struct Covered {
     times: u64,
@@ -91,7 +89,7 @@ impl Render for Tooltip {
             .text_color(theme.text_1)
             .font_family(theme.ui_font.clone())
             .gap(dp(tokens::GAP_TOOLTIP))
-            // Within the cap, a long one wraps, a path between its characters.
+            // A long one, even a path, wraps within the cap.
             .child(div().min_w_0().child(self.text.clone()))
             .when_some(self.key.clone(), |el, key| {
                 el.child(keycap(&key, theme).flex_none())

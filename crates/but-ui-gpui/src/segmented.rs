@@ -5,9 +5,7 @@ use gpui::{Div, Role, Stateful, div, prelude::*};
 use crate::theme::Theme;
 use crate::*;
 
-/// A choice of one, as but-ui-react's `SegmentedControl`: `segments` with whether each is the
-/// picked one, on a recessed track. The picked one is raised on the content ground, and a short
-/// rule parts two that aren't.
+/// `segments`, each with whether it's the picked one.
 pub fn segmented(
     small: bool,
     theme: &Theme,

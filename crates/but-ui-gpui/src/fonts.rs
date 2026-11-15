@@ -4,7 +4,6 @@ use std::borrow::Cow;
 
 use crate::*;
 
-/// GitButler's fonts, compiled into the binary so the client looks the same everywhere.
 pub fn fonts() -> Vec<Cow<'static, [u8]>> {
     macro_rules! fonts {
         ($($name:literal),* $(,)?) => {
@@ -20,8 +19,8 @@ pub fn fonts() -> Vec<Cow<'static, [u8]>> {
     )
 }
 
-/// How wide a digit of `family` is in ems, or `None` when the machine hasn't got it, as GPUI
-/// would quietly draw it in its own fallback.
+/// How wide a digit of `family` is in ems, or `None` when it isn't installed and GPUI would
+/// quietly fall back.
 pub fn digit_advance(family: &str, text_system: &gpui::TextSystem) -> Option<f32> {
     let id = text_system.resolve_font(&gpui::font(family.to_owned()));
     (text_system.get_font_for_id(id)?.family == family).then_some(())?;
@@ -30,9 +29,8 @@ pub fn digit_advance(family: &str, text_system: &gpui::TextSystem) -> Option<f32
     Some(advance.width / size)
 }
 
-/// Match each of `fonts`' faces against the installed fonts in the background, as Zed does.
-/// cosmic-text otherwise does it on the main thread the first time it lays out text in a face,
-/// and it walks every installed font to do so.
+/// Match the faces against the installed fonts in the background, as Zed does: cosmic-text
+/// otherwise walks every installed font on the main thread the first time it uses a face.
 #[cfg(target_os = "linux")]
 pub fn prewarm_fonts(cx: &gpui::App) {
     use gpui::{AppContext as _, FontWeight};

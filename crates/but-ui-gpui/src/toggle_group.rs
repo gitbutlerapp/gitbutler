@@ -5,8 +5,7 @@ use gpui::{Div, ElementId, Role, SharedString, Stateful, div, prelude::*};
 use crate::theme::Theme;
 use crate::*;
 
-/// Icon toggles joined in a row, as but-ui-react's `ToggleGroupStyles` of outline toggles: one
-/// border round them and a rule between.
+/// As but-ui-react's `ToggleGroupStyles` of outline toggles.
 pub fn toggle_group(theme: &Theme, toggles: impl IntoIterator<Item = Stateful<Div>>) -> Div {
     let line = theme.control_border;
     let toggles: Vec<_> = toggles.into_iter().collect();
@@ -26,7 +25,7 @@ pub fn toggle_group(theme: &Theme, toggles: impl IntoIterator<Item = Stateful<Di
         }))
 }
 
-/// One of a [`toggle_group`]'s toggles, on the recessed ground while `pressed`.
+/// One of a [`toggle_group`]'s toggles.
 pub fn icon_toggle(
     id: impl Into<ElementId>,
     glyph: Icon,

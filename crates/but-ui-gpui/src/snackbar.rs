@@ -5,10 +5,7 @@ use gpui::{AnyElement, Div, ElementId, Role, SharedString, Stateful, Svg, div, p
 use crate::theme::{Theme, tokens};
 use crate::*;
 
-/// A snackbar: a sentence on the inverse ground, led by a warning glyph when it went but not
-/// quite as asked, with at most one button, `action`, behind a line: Undo, from
-/// [`snackbar_undo`]. Figma's has a close button instead for one that waits to be dismissed, never
-/// both, but this app's all leave on their own.
+/// Figma's close button is left out: every snackbar here leaves on its own.
 pub fn snackbar(
     id: impl Into<ElementId>,
     message: SharedString,
@@ -20,9 +17,7 @@ pub fn snackbar(
         .id(id)
         .role(Role::Alert)
         .aria_label(message.clone())
-        // As but-ui's: the start padding before a glyph and the end padding before bare words;
-        // the end padding after the words, or after a button the block padding, as above and
-        // below it. Each a pixel less here, for the border.
+        // but-ui's paddings, each a pixel less for the border.
         .h(dp(tokens::SIZE_SNACKBAR))
         .pl(dp(match warning {
             true => tokens::PADDING_SNACKBAR_START,
@@ -45,8 +40,6 @@ pub fn snackbar(
         })
         .child(message)
         .when_some(action, |el, action| {
-            // The line sits 12px after the words and 8px before the button, whose own padding
-            // puts its glyph 14px past the line.
             el.child(
                 div()
                     .flex_none()
@@ -57,7 +50,6 @@ pub fn snackbar(
         })
 }
 
-/// A snackbar's Undo, which takes back what it says happened.
 pub fn snackbar_undo(id: impl Into<ElementId>, theme: &Theme) -> Stateful<Div> {
     h_flex()
         .id(id)
@@ -71,7 +63,6 @@ pub fn snackbar_undo(id: impl Into<ElementId>, theme: &Theme) -> Stateful<Div> {
         .child("Undo")
 }
 
-/// A glyph in a snackbar, 14px as Figma's.
 fn snackbar_icon(icon: Icon) -> Svg {
     icon_at(icon, 14.)
 }

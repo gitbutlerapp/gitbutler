@@ -1,5 +1,4 @@
-//! Modals, as but-ui-react's `Modal`. The window hosts one at a time over a dimmed backdrop; a
-//! modal closes by emitting `DismissEvent`.
+//! Modals, as but-ui-react's `Modal`. A modal closes by emitting `DismissEvent`.
 
 use gpui::{Div, Styled as _};
 
@@ -9,16 +8,12 @@ use crate::theme::Theme;
 
 #[derive(Debug, Clone, Copy)]
 pub enum ModalSize {
-    /// A form around one task, like a pull request's title and description.
     Medium,
-    /// Settings, the conflict resolver: more than one group.
     Large,
 }
 
-/// The card a modal is drawn on, as wide as its size says but never wider than the window
-/// leaves it (see `render_modal`). Clipping its content keeps it in the card's square, not
-/// its rounded corners: a part with a ground of its own along an edge rounds those corners
-/// itself, by the theme's popup radius less the border.
+/// Content is clipped to the card's square, not its rounded corners: a part with a ground of its
+/// own along an edge rounds those corners itself, by the popup radius less the border.
 pub fn modal(size: ModalSize, theme: &Theme) -> Div {
     let width = match size {
         ModalSize::Medium => 520.,

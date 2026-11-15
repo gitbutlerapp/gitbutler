@@ -5,15 +5,15 @@ use gpui::{App, Div, Hsla, SharedString, Window, div, prelude::*};
 use crate::theme::Theme;
 use crate::*;
 
-/// The keys bound to `action`, as macOS writes them, like `⌘⇧P`: [`keycap`] and [`keys_text`]
-/// show them as the platform does.
+/// The keys bound to `action` as macOS writes them (`⌘⇧P`) on every platform: [`keycap`] and
+/// [`keys_text`] show them as the platform does.
 pub fn shortcut(action: &dyn gpui::Action, cx: &App) -> Option<SharedString> {
     let keymap = cx.key_bindings();
     let keymap = keymap.borrow();
     Some(keys_of(keymap.bindings_for_action(action).next_back()?))
 }
 
-/// Every key that runs `action`, as [`shortcut`] writes keys, with the context it works in.
+/// Every binding of `action`, with the context it works in.
 pub fn bindings_of(action: &dyn gpui::Action, cx: &App) -> Vec<(SharedString, Option<String>)> {
     let keymap = cx.key_bindings();
     let keymap = keymap.borrow();
@@ -22,9 +22,8 @@ pub fn bindings_of(action: &dyn gpui::Action, cx: &App) -> Vec<(SharedString, Op
         .collect()
 }
 
-/// The keys that run `action` where the keys go now, unless the same keys do something else
-/// there, as [`shortcut`] writes them. Keys bound to several actions there run the first one
-/// handled, so one with no handler here doesn't take them: r is Reword's on a commit and Rename
+/// The keys that run `action` where focus is now, unless they do something else there. Keys
+/// bound to several actions run the first one handled: r is Reword's on a commit and Rename
 /// branch's on a branch.
 pub fn shortcut_here(action: &dyn gpui::Action, window: &Window, cx: &App) -> Option<SharedString> {
     window.focused(cx)?;
@@ -50,7 +49,7 @@ pub fn keys_of(binding: &gpui::KeyBinding) -> SharedString {
     keys.join(" ").into()
 }
 
-/// `keys`, as a keymap writes them, as [`shortcut`] writes keys.
+/// `keys` in keymap syntax (`cmd-shift-p`), as [`shortcut`] writes keys.
 pub fn keys_written(keys: &str) -> SharedString {
     let strokes: Vec<String> = (keys.split_whitespace())
         .map(|stroke| match gpui::Keystroke::parse(stroke) {
@@ -96,8 +95,7 @@ fn key_text(m: &gpui::Modifiers, key: &str) -> String {
     text
 }
 
-/// What Windows calls the keys macOS writes as symbols. The app's ⌘ keys are ctrl there, and a
-/// modifier's name ends in `+`, as it's written before the key.
+/// Off macOS, the app's ⌘ keys are ctrl.
 #[cfg(not(target_os = "macos"))]
 const KEY_NAMES: [(char, &str); 8] = [
     ('⌘', "Ctrl+"),
@@ -110,8 +108,7 @@ const KEY_NAMES: [(char, &str); 8] = [
     ('⇥', "Tab"),
 ];
 
-/// `text` with the keys in it, written as macOS writes them (`⌘⇧P`), as the platform writes
-/// them: unchanged on macOS, `Ctrl+Shift+P` on Windows.
+/// `text`'s macOS key symbols (`⌘⇧P`) as the platform writes them: `Ctrl+Shift+P` on Windows.
 pub fn keys_text(text: &str) -> String {
     #[cfg(target_os = "macos")]
     return text.to_owned();
@@ -126,13 +123,12 @@ pub fn keys_text(text: &str) -> String {
         .collect()
 }
 
-/// Keys as but-ui-react's `Kbd` draws them: a small box per key, like `⌘` `⇧` `P`, or `Ctrl` `Shift`
-/// `P` on Windows. `text` writes them as macOS does.
+/// A box per key, as but-ui-react's `Kbd`; `text` writes them as macOS does.
 pub fn keycap(text: &str, theme: &Theme) -> Div {
     keycaps(text, 16., 11., theme.text_2, theme)
 }
 
-/// `keycap` for a table of keys, where they're what's being read.
+/// For a table of keys, where they're what's being read.
 pub fn keycap_large(text: &str, theme: &Theme) -> Div {
     keycaps(text, 20., 13., theme.text_1, theme)
 }

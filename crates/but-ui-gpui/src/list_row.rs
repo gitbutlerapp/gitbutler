@@ -5,7 +5,6 @@ use gpui::{Div, ElementId, Role, Stateful, prelude::*};
 use crate::theme::Theme;
 use crate::*;
 
-/// A row of a list or menu, shaded when `selected` and otherwise under the pointer.
 pub fn list_row(id: impl Into<ElementId>, selected: bool, theme: &Theme) -> Stateful<Div> {
     h_flex()
         .id(id)

@@ -5,9 +5,8 @@ use gpui::{Div, MouseButton, Pixels, Stateful, prelude::*};
 use crate::theme::Theme;
 use crate::*;
 
-/// `el` in the window's tab order, ringed while Tab gave it the keys, as a dialog's controls
-/// are on macOS. A click leaves the keys where they were, as clicking a button does there,
-/// so a list keeps its arrows and Return doesn't press it again.
+/// A click leaves the keys where they were, as on macOS, so a list keeps its arrows and Return
+/// doesn't press the control again.
 pub fn tab_stop(el: Stateful<Div>, theme: &Theme) -> Stateful<Div> {
     // Inside its edge: a shadow spread outside it fills a control without a ground of its own.
     let ring = gpui::BoxShadow::new(fixed(0.), fixed(0.), theme.focus_border)
@@ -21,19 +20,16 @@ pub fn tab_stop(el: Stateful<Div>, theme: &Theme) -> Stateful<Div> {
 gpui::actions!(
     ui,
     [
-        /// Scroll what Tab just focused into view, sent where the keys are.
+        /// Scroll what Tab just focused into view.
         ShowFocused
     ]
 );
 
-/// Where the control Tab just focused was drawn, from it to the `ui::scrollbar::scrolled` list
-/// it's in, as [`ShowFocused`] goes up from one to the other.
+/// Where the control Tab just focused was drawn, for the `ui::scrollbar::scrolled` list it's in.
 pub struct FocusedAt(pub gpui::Bounds<Pixels>);
 
 impl gpui::Global for FocusedAt {}
 
-/// `el`, which tells the scrolled list around it where it was drawn when Tab focuses it, so
-/// the list can scroll it into view.
 pub fn shown_when_focused(el: Stateful<Div>) -> Stateful<Div> {
     let drawn = std::rc::Rc::new(std::cell::Cell::new(None));
     let record = drawn.clone();
