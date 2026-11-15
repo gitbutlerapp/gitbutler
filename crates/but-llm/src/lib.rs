@@ -216,21 +216,6 @@ impl LLMProvider {
         .to_string()
     }
 
-    /// Uses credentials from the environment, typically GB credentials or `OPENAI_API_KEY`.
-    pub fn default_openai() -> Option<Self> {
-        Self::new(LLMProviderConfig::OpenAi(None))
-    }
-
-    /// Uses credentials from the environment, typically GB credentials or `ANTHROPIC_API_KEY`.
-    pub fn default_anthropic() -> Option<Self> {
-        Self::new(LLMProviderConfig::Anthropic(None))
-    }
-
-    /// Reads `LM_STUDIO_API_BASE` and `LM_API_TOKEN` from the environment.
-    pub fn default_lmstudio() -> Option<Self> {
-        Self::new(LLMProviderConfig::LMStudio(None))
-    }
-
     /// Lets the model call tools from `tool_set` until it answers without tool calls, streaming
     /// all text it produces through `on_token`.
     ///

@@ -1,9 +1,6 @@
 //! A crate with various utilities to make the migration to `gitoxide` less cumbersome and repetitive.
 
-use std::{borrow::Borrow, path::Path};
-
-use anyhow::Context as _;
-use gix::bstr::ByteSlice;
+use std::path::Path;
 
 /// Open the repository at `git_dir` with `git2` so that it finds every tree `gix` refers to.
 ///
@@ -32,10 +29,6 @@ pub fn open_git2_repo(git_dir: &Path) -> anyhow::Result<git2::Repository> {
 
 fn store_empty_tree(repo: &git2::Repository) -> Result<git2::Oid, git2::Error> {
     repo.treebuilder(None)?.write()
-}
-
-pub fn gix_time_to_git2(time: gix::date::Time) -> git2::Time {
-    git2::Time::new(time.seconds, time.offset / 60)
 }
 
 fn git2_to_gix_object_id(id: git2::Oid) -> gix::ObjectId {
@@ -104,41 +97,6 @@ impl RepoExt for &git2::Repository {
         let repo = gix::open_opts(self.path(), gix::open::Options::isolated())?;
         Ok(repo)
     }
-}
-
-pub fn git2_signature_to_gix_signature<'a>(
-    input: impl Borrow<git2::Signature<'a>>,
-) -> gix::actor::Signature {
-    let input = input.borrow();
-    gix::actor::Signature {
-        name: input.name_bytes().into(),
-        email: input.email_bytes().into(),
-        time: gix::date::Time {
-            seconds: input.when().seconds(),
-            offset: input.when().offset_minutes() * 60,
-        },
-    }
-}
-
-/// Convert `actor` to a `git2` representation or fail if that's not possible.
-/// Note that the current time as provided by `gix` is also used as it.
-pub fn gix_to_git2_signature(
-    actor: gix::actor::SignatureRef<'_>,
-) -> anyhow::Result<git2::Signature<'static>> {
-    let time = actor.time()?;
-    let offset_in_minutes = time.offset / 60;
-    let time = git2::Time::new(time.seconds, offset_in_minutes);
-    Ok(git2::Signature::new(
-        actor
-            .name
-            .to_str()
-            .with_context(|| format!("Could not process actor name: {}", actor.name))?,
-        actor
-            .email
-            .to_str()
-            .with_context(|| format!("Could not process actor email: {}", actor.email))?,
-        &time,
-    )?)
 }
 
 /// Convert a `gix` index into a `git2` one, while skipping over entries that are marked for removal.

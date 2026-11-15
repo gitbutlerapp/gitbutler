@@ -9,7 +9,7 @@ use petgraph::{
     Direction,
     prelude::EdgeRef,
     stable_graph::EdgeReference,
-    visit::{IntoEdgeReferences, NodeIndexable, Visitable},
+    visit::{IntoEdgeReferences, NodeIndexable},
 };
 
 use crate::{
@@ -830,18 +830,6 @@ impl Graph {
         self.hard_limit_hit = true;
     }
 
-    pub fn lookup_sibling_segment(&self, sidx: SegmentIndex) -> Option<&Segment> {
-        self.inner.node_weight(sidx)?.sibling_segment(self)
-    }
-
-    pub fn lookup_remote_tracking_branch_segment(&self, sidx: SegmentIndex) -> Option<&Segment> {
-        self.inner.node_weight(
-            self.inner
-                .node_weight(sidx)?
-                .remote_tracking_branch_segment_id?,
-        )
-    }
-
     /// Return all segments which have no other segments *above* them, making them tips.
     ///
     /// Typically, there is only one, but there *can* be multiple technically.
@@ -958,14 +946,6 @@ impl Graph {
     ) {
         let mut scratch = SegmentVisitScratch::new(self);
         scratch.visit_excluding_start_until(self, start, direction, visit_and_prune);
-    }
-}
-
-/// The query relies on the segmentation of the graph being as advertised, something we assure as part
-/// of the initial creation.
-impl Graph {
-    pub fn topo_walk(&self) -> petgraph::visit::Topo<SegmentIndex, <PetGraph as Visitable>::Map> {
-        petgraph::visit::Topo::new(&self.inner)
     }
 }
 

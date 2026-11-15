@@ -773,23 +773,6 @@ mod tests {
     }
 
     #[test]
-    fn a_worktree_branch_keeps_its_review_in_the_forge_cache_only() -> Result<()> {
-        let (ctx, _tmp) = context_with_worktree_on_reviewed_stack()?;
-        let w: gix::refs::FullName = "refs/heads/W".try_into()?;
-
-        assert!(
-            but_core::ref_metadata::ValueInfo::is_default(&ctx.meta()?.branch(w.as_ref())?),
-            "workspace metadata holds no entry for a branch only a worktree holds"
-        );
-        assert_eq!(
-            local_branch_for_review(&ctx, 3)?,
-            w,
-            "the cache alone associates the worktree branch with its review"
-        );
-        Ok(())
-    }
-
-    #[test]
     fn a_new_review_targets_the_nearest_reviewed_branch_beneath_it() -> Result<()> {
         let (ctx, _tmp) = context_with_worktree_on_reviewed_stack()?;
         let target = |branch: &str| -> Result<String> {
@@ -1995,23 +1978,6 @@ pub async fn sync_review_stacks_after_push(
     sync_review_update_groups(ctx, updates).await
 }
 
-/// Find the local ref associated with `review_number` and synchronize its complete review stack.
-pub async fn sync_review_stack_for_review(
-    ctx: ThreadSafeContext,
-    review_number: i64,
-) -> but_forge::ReviewSyncOutcome {
-    let branch = {
-        let ctx = ctx.clone().into_thread_local();
-        local_branch_for_review(&ctx, review_number)
-    };
-    match branch {
-        Ok(branch) => sync_review_stack_for_branch(ctx, branch).await,
-        Err(err) => but_forge::ReviewSyncOutcome::Failed {
-            message: err.to_string(),
-        },
-    }
-}
-
 /// Synchronize the complete workspace review stack containing a newly-created review.
 ///
 /// A review alone in its group has no stack to link or describe, and was created with the
@@ -2404,25 +2370,6 @@ fn remote_contains(
     Ok(repo
         .merge_base(ancestor, descendant)?
         .is_some_and(|base| base == ancestor))
-}
-
-fn local_branch_for_review(ctx: &Context, wanted: i64) -> Result<gix::refs::FullName> {
-    let info = crate::legacy::workspace::head_info(ctx)?;
-    let open_reviews = open_review_numbers(ctx)?;
-    info.lanes()
-        .flat_map(|lane| lane.segments)
-        .find_map(|segment| {
-            // Via review_number so a settled review's number cannot resolve
-            // into review-sync targets.
-            if review_number(segment, &open_reviews)? == wanted {
-                segment.ref_name().map(ToOwned::to_owned)
-            } else {
-                None
-            }
-        })
-        .with_context(|| {
-            format!("Review #{wanted} is not associated with a local workspace branch")
-        })
 }
 
 /// Warm up the CI checks cache for all applied branches with PRs.

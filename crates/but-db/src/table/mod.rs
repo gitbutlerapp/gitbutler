@@ -3,9 +3,7 @@ use crate::{M, SchemaVersion};
 pub(crate) mod branch_order;
 pub(crate) mod butler_actions;
 pub(crate) mod ci_checks;
-pub(crate) mod claude;
 pub(crate) mod fetch_status;
-pub(crate) mod file_write_locks;
 pub(crate) mod forge_reviews;
 pub(crate) mod gerrit_metadata;
 pub(crate) mod hunk_assignments;
@@ -100,6 +98,108 @@ DROP TABLE IF EXISTS workspace_rules;",
 	`input_commits` TEXT NOT NULL,
 	`output_commits` TEXT NOT NULL,
 	`summary` TEXT
+);",
+    ),
+    M::up(
+        20250703203544,
+        SchemaVersion::Zero,
+        "CREATE TABLE `claude_code_sessions`(
+	`id` TEXT NOT NULL PRIMARY KEY,
+	`created_at` TIMESTAMP NOT NULL,
+	`stack_id` TEXT NOT NULL
+);",
+    ),
+    M::up(
+        20250811130145,
+        SchemaVersion::Zero,
+        "CREATE TABLE `claude_sessions`(
+	`id` TEXT NOT NULL PRIMARY KEY,
+	`current_id` TEXT NOT NULL UNIQUE,
+	`created_at` TIMESTAMP NOT NULL,
+	`updated_at` TIMESTAMP NOT NULL
+);
+
+CREATE INDEX index_claude_sessions_on_current_id ON claude_sessions (current_id);
+
+CREATE TABLE `claude_messages`(
+	`id` TEXT NOT NULL PRIMARY KEY,
+	`session_id` TEXT NOT NULL REFERENCES claude_sessions(id),
+	`created_at` TIMESTAMP NOT NULL,
+	`content_type` TEXT NOT NULL,
+	`content` TEXT NOT NULL
+);
+
+CREATE INDEX index_claude_messages_on_session_id ON claude_messages (session_id);
+CREATE INDEX index_claude_messages_on_created_at ON claude_messages (created_at);",
+    ),
+    M::up(
+        20250812093543,
+        SchemaVersion::Zero,
+        "DROP TABLE IF EXISTS `claude_code_sessions`;",
+    ),
+    M::up(
+        20250817195624,
+        SchemaVersion::Zero,
+        "CREATE TABLE `claude_permission_requests`(
+	`id` TEXT NOT NULL PRIMARY KEY,
+	`created_at` TIMESTAMP NOT NULL,
+	`updated_at` TIMESTAMP NOT NULL,
+	`tool_name` TEXT NOT NULL,
+	`input` TEXT NOT NULL,
+	`approved` BOOL
+);",
+    ),
+    M::up(
+        20250821095340,
+        SchemaVersion::Zero,
+        "ALTER TABLE claude_sessions ADD COLUMN in_gui BOOLEAN NOT NULL DEFAULT FALSE;",
+    ),
+    M::up(
+        20250821142109,
+        SchemaVersion::Zero,
+        "-- Add session_ids column to claude_sessions table to track all session IDs used
+ALTER TABLE claude_sessions ADD COLUMN session_ids TEXT NOT NULL DEFAULT '[]';
+
+-- Initialize existing sessions with their current_id in the session_ids array
+UPDATE claude_sessions SET session_ids = json_array(current_id);",
+    ),
+    M::up(
+        20251106102333,
+        SchemaVersion::Zero,
+        r#"-- Replace approved (bool) and scope (text) with a single decision (text) column
+ALTER TABLE `claude_permission_requests` ADD COLUMN `decision` TEXT;
+
+-- Migrate existing data: approved=true -> allowSession, approved=false -> denySession
+UPDATE `claude_permission_requests`
+SET `decision` = CASE
+    WHEN `approved` = 1 THEN '"allowSession"'
+    WHEN `approved` = 0 THEN '"denySession"'
+    ELSE NULL
+END;
+
+-- Drop the old columns
+ALTER TABLE `claude_permission_requests` DROP COLUMN `approved`;"#,
+    ),
+    M::up(
+        20251107134016,
+        SchemaVersion::Zero,
+        "-- Add permissions columns to claude_sessions table to track approved and denied permissions
+ALTER TABLE claude_sessions ADD COLUMN approved_permissions TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE claude_sessions ADD COLUMN denied_permissions TEXT NOT NULL DEFAULT '[]';",
+    ),
+    M::up(
+        20251110103940,
+        SchemaVersion::Zero,
+        "-- Add use_wildcard column to claude_permission_requests table
+ALTER TABLE `claude_permission_requests` ADD COLUMN `use_wildcard` BOOLEAN NOT NULL DEFAULT 0;",
+    ),
+    M::up(
+        20250704130757,
+        SchemaVersion::Zero,
+        "CREATE TABLE `file_write_locks`(
+	`path` TEXT NOT NULL PRIMARY KEY,
+	`created_at` TIMESTAMP NOT NULL,
+	`owner` TEXT NOT NULL
 );",
     ),
 ];

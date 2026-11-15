@@ -2053,14 +2053,6 @@ impl CliId {
             | CliId::UncommittedArea { .. } => None,
         }
     }
-
-    pub fn as_uncommitted_hunk_or_file(&self) -> Option<&UncommittedHunkOrFile> {
-        if let Self::UncommittedHunkOrFile(hunk) = self {
-            Some(hunk)
-        } else {
-            None
-        }
-    }
 }
 
 #[derive(Debug, Clone)]

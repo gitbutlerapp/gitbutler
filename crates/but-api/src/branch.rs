@@ -5,7 +5,7 @@ use anyhow::{Context as _, bail};
 use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_core::{
-    DryRun, RefMetadata, WORKSPACE_REF_NAME,
+    DryRun, RefMetadata,
     branch::{refuse_colliding_refname, unique_canned_refname},
     ref_metadata::{ProjectMeta, UnresolvedLegacyTargetRefError},
     sync::{RepoExclusive, RepoShared},
@@ -1443,14 +1443,6 @@ pub fn branch_checkout(
 ) -> anyhow::Result<BranchCheckoutResult> {
     let mut guard = ctx.exclusive_worktree_access();
     branch_checkout_with_perm(ctx, branch, guard.write_permission())
-}
-
-pub fn workspace_checkout_with_perm_only(
-    ctx: &mut but_ctx::Context,
-    perm: &mut RepoExclusive,
-) -> anyhow::Result<BranchCheckoutResult> {
-    let workspace_ref: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
-    branch_checkout_with_perm_only(ctx, workspace_ref, perm)
 }
 
 /// See [`branch_checkout()`] for the accepted branch names.

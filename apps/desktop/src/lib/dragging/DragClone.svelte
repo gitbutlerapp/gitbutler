@@ -8,7 +8,7 @@
 	import type { PushStatus } from "@gitbutler/but-sdk";
 
 	type Props = {
-		type: "branch" | "commit" | "file" | "folder" | "hunk" | "ai-session";
+		type: "branch" | "commit" | "file" | "folder" | "hunk";
 		label?: string;
 		filePath?: string;
 		commitType?: CommitStatusType;
@@ -87,19 +87,6 @@
 			<div class="draggable-commit-indicator"></div>
 			<div class="truncate text-13 text-semibold draggable-commit-label">
 				{label || "Empty commit"}
-			</div>
-		</div>
-	</div>
-{:else if type === "ai-session"}
-	<div class="dragchip-container">
-		<div class="drag-animation-wrapper" class:activated={$dropLabel !== undefined}>
-			{@render dropLabelSnippet({ label: $dropLabel, amount: childrenAmount })}
-			<div class="dragchip-ai-session-container">
-				<Icon name="ai" />
-				{#if label}
-					<span class="text-12 text-semibold truncate dragchip-ai-session-label">{label}</span>
-				{/if}
-				<Icon name="drag-square" />
 			</div>
 		</div>
 	</div>
@@ -302,28 +289,6 @@
 
 	.dragchip-hunk-label {
 		padding: 6px 7px;
-	}
-
-	/* AI SESSION DRAG */
-	.dragchip-container {
-		& .drag-animation-wrapper:has(.dragchip-ai-session-container) {
-			width: auto;
-		}
-	}
-
-	.dragchip-ai-session-container {
-		display: flex;
-		align-items: center;
-		height: var(--size-tag);
-		padding: 0 4px;
-		gap: 4px;
-		border: none;
-		border-radius: var(--radius-m);
-		background-position: 0% 50%;
-		background-size: 200% 200%;
-		background: var(--codegen-gradient);
-		box-shadow: var(--chip-shadow);
-		color: var(--codegen-color);
 	}
 
 	/* BRANCH DRAG CARD */

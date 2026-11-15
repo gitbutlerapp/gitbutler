@@ -241,13 +241,6 @@ impl Workspace {
         self.commits().find(|commit| commit.id == oid)
     }
 
-    /// Like [`Self::find_commit()`], but fails with an error.
-    pub fn try_find_commit(&self, oid: impl Into<gix::ObjectId>) -> anyhow::Result<&StackCommit> {
-        let oid = oid.into();
-        self.find_commit(oid)
-            .with_context(|| format!("Commit {oid} isn't part of the workspace"))
-    }
-
     /// Return whether `name` is the configured local target or its derived upstream.
     /// Repository configuration errors propagate.
     pub fn is_target_or_upstream(

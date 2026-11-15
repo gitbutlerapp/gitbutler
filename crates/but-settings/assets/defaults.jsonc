@@ -49,21 +49,6 @@
 	  // The frequency at which the app will automatically fetch. A negative value (e.g. -1) disables auto fetching.
 		"autoFetchIntervalMinutes": 15
 	},
-	// Settings related to Claude Code.
-	"claude": {
-		// Path to the Claude Code executable. Defaults to "claude" if not set.
-		"executable": "claude",
-		// Whether to show notifications when Claude Code finishes.
-		"notifyOnCompletion": false,
-		// Whether to show notifications when Claude Code needs permission.
-		"notifyOnPermissionRequest": false,
-		// Whether to dangerously allow all permissions without prompting.
-		"dangerouslyAllowAllPermissions": false,
-		// Whether to automatically commit changes and rename branches after completion.
-		"autoCommitAfterCompletion": true,
-		// Whether to use the configured model in .claude/settings.json instead of passing --model.
-		"useConfiguredModel": false
-	},
 	// Settings related to code reviews and pull requests.
 	"reviews": {
 		// Whether to auto-fill PR title and description from the first commit when a branch has only one commit.

@@ -272,4 +272,30 @@ mod tests {
         assert_eq!(saved["telemetry"]["appMetricsEnabled"], json!(false));
         assert_eq!(saved["telemetry"].get("appNonAnonMetricsEnabled"), None);
     }
+
+    #[test]
+    fn settings_with_the_removed_claude_block_still_load() {
+        let (_temp_dir, config_path, _legacy_path) = create_test_env();
+
+        std::fs::write(
+            &config_path,
+            r#"{
+                "telemetry": {
+                    "migratedFromLegacy": true
+                },
+                "claude": {
+                    "executable": "/usr/local/bin/claude",
+                    "notifyOnCompletion": true
+                },
+                "contextLines": 5
+            }"#,
+        )
+        .unwrap();
+
+        let settings = AppSettings::load(&config_path, None).unwrap();
+        assert_eq!(
+            settings.context_lines, 5,
+            "unknown keys left in a user's file are ignored"
+        );
+    }
 }
