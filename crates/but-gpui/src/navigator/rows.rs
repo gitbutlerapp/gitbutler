@@ -11,7 +11,8 @@ use gpui::{App, SharedString};
 use super::moving::{landing_at, left_behind};
 use super::{BranchKey, ClickOpened, MERGE_GUIDE, Navigator, STEP, UPSTREAM_GUIDE};
 use crate::backend::{
-    Branch, Checkout, Commit, CommitId, Destination, FullName, Lane, Workspace, Worktree,
+    Branch, Checkout, Commit, CommitId, Destination, FullName, InactiveAfter, Lane, Workspace,
+    Worktree,
 };
 use crate::state::{NewAt, NewCommit, ProjectEntry, ProjectId, Section, Selection, Store};
 use crate::terminal::TerminalId;
@@ -1059,16 +1060,26 @@ fn worktrees_shown<'a>(
     worktrees
 }
 
-/// Project `id`'s linked worktrees the navigator lists, in the order [`worktrees_shown`] gives:
-/// all but those an operation under way takes away.
+/// Project `id`'s linked worktrees the navigator lists: all but those an operation under way
+/// takes away, in the order [`worktrees_shown`] gives but the active ones first, as the
+/// inactive ones wait under their heading after them. The rows, the tabs across the top and
+/// Go to anything all list them so.
 pub(crate) fn worktrees_listed<'a>(
     store: &Store,
     id: &ProjectId,
     workspace: &'a Workspace,
 ) -> Vec<&'a Worktree> {
-    (worktrees_shown(store, id, workspace).into_iter())
+    let listed = (worktrees_shown(store, id, workspace).into_iter())
         .filter(|wt| !store.hides_worktree(id, wt.name.as_ref()))
-        .collect()
+        .collect();
+    active_first(listed, store.prefs.inactive_after)
+}
+
+/// `worktrees` in their order, but the active ones before the inactive ones.
+fn active_first(worktrees: Vec<&Worktree>, after: InactiveAfter) -> Vec<&Worktree> {
+    let (active, inactive): (Vec<_>, Vec<_>) =
+        (worktrees.into_iter()).partition(|wt| !wt.is_inactive(after));
+    active.into_iter().chain(inactive).collect()
 }
 
 /// The linked worktrees of `project` listed with `name`, as they're listed now: the active
@@ -1233,6 +1244,41 @@ fn holds(text: &str, term: &str) -> bool {
         true => (text.as_bytes().windows(term.len()))
             .any(|window| window.eq_ignore_ascii_case(term.as_bytes())),
         false => text.to_lowercase().contains(term),
+    }
+}
+
+#[cfg(test)]
+mod active_first_tests {
+    use super::active_first;
+    use crate::backend::{InactiveAfter, Worktree};
+
+    /// Worktree `name`, last moved at `updated_at`, with nothing uncommitted.
+    fn worktree(name: &str, updated_at: Option<i64>) -> Worktree {
+        Worktree {
+            name: name.into(),
+            path: name.into(),
+            branch: None,
+            uncommitted: Vec::new(),
+            git_operation: None,
+            tree: None,
+            updated_at,
+        }
+    }
+
+    #[test]
+    fn inactive_worktrees_go_after_the_active_ones() {
+        let (old, new) = (worktree("old", Some(0)), worktree("new", None));
+        let (older, newer) = (worktree("older", Some(0)), worktree("newer", None));
+        let listed = active_first(
+            Vec::from([&old, &new, &older, &newer]),
+            InactiveAfter::TwoDays,
+        );
+        let names: Vec<String> = listed.iter().map(|wt| wt.name.to_string()).collect();
+        assert_eq!(
+            names,
+            ["new", "newer", "old", "older"],
+            "each keeps its place among its own, as the rows list the inactive under their heading"
+        );
     }
 }
 

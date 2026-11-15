@@ -4,38 +4,32 @@
 use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::f32::consts::PI;
-use std::ops::Range;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
 
 use but_tty::Status;
 use gpui::{
-    AnyElement, App, Bounds, ClickEvent, Context, Div, DragMoveEvent, ElementId, Entity,
-    FocusHandle, Focusable, Hsla, ListAlignment, ListOffset, ListState, Modifiers, MouseButton,
-    MouseDownEvent, PathBuilder, Pixels, Point, Role, SharedString, Stateful, Subscription, Task,
-    Window, actions, canvas, div, fill, list, point, prelude::*, relative,
+    AnyElement, App, Bounds, ClickEvent, Context, Div, ElementId, Entity, FocusHandle, Focusable,
+    Hsla, ListAlignment, ListOffset, ListState, Modifiers, MouseButton, MouseDownEvent,
+    PathBuilder, Pixels, Point, Role, SharedString, Stateful, Subscription, Task, Window, actions,
+    canvas, div, fill, list, point, prelude::*, relative,
 };
 
-use crate::app::{
-    AddProject, AppHandle, Collapse, Confirm, Expand, SelectNext, SelectPrevious, ToggleFold,
-    UpdateFromTarget,
-};
+use crate::app::{AddProject, AppHandle, UpdateFromTarget};
 use crate::backend::rebuild::Rebuild;
 use crate::backend::upstream::UpdateScope;
 use crate::backend::{
     Branch, Checkout, Commit, CommitId, CommitState, FileChange, FullName, PushState, Review,
     ReviewState, Target, Workspace,
 };
-use crate::clock;
 use crate::detail::{ChecksChanged, Detail, PageTab, oldest_conflict};
 use crate::overlays::{MenuItem, keys_at};
 use crate::state::{Prefs, ProjectId, Section, Selection, Store, StoreEvent, Tile, WatchedOrder};
 use crate::terminal::TerminalId;
 use crate::theme::{Hue, Theme, tokens};
 use crate::transfer::{
-    Changes, Dragged, Move, Op, PageDrag, ProjectDrag, Stop, TerminalDrag, drag_preview,
-    page_preview, row_preview,
+    Changes, Dragged, Move, Op, PageDrag, drag_preview, page_preview, row_preview,
 };
 use crate::ui::emoji::ProjectIcon;
 use crate::ui::fold::{self, Folds, Reorder, clipped, curtain, inert, on_top, reordered, shifted};
@@ -49,7 +43,9 @@ use crate::ui::{
 };
 
 mod account;
+mod cursor;
 mod drop;
+mod frame;
 mod menu;
 pub(crate) use menu::{
     ArchiveWorktree, OpenProjectSettings, OpenRepository, Reveal, StopWatching, UnarchiveWorktree,
@@ -66,15 +62,17 @@ mod rename;
 mod rows;
 mod tabs;
 mod terminals;
+use cursor::row_actions;
+use drop::on_any_drag_move;
+use frame::{Built, RowsIn};
 pub(crate) use rows::{lists_changes, worktrees_listed};
 pub(crate) use tabs::NavigatorTabs;
 pub(crate) use terminals::TerminalOverview;
 
 use moving::Mark;
 use rows::{
-    CARD_EDGE, CARD_PADDING, COMMIT_INDENT, Drawer, Fold, HEADING_HEIGHT, Moving, ROW_LEFT, Row,
-    RowKey, Rows, caption, card_ends, checkout_holds, in_checkout, in_inactive, inactive_open,
-    row_keys, span_height,
+    CARD_EDGE, CARD_PADDING, COMMIT_INDENT, Drawer, Fold, HEADING_HEIGHT, ROW_LEFT, Row, RowKey,
+    caption, card_ends, checkout_holds, in_checkout, in_inactive, inactive_open, span_height,
 };
 
 /// The room a pressable mark has around it for its tint under the pointer. A negative margin
@@ -188,47 +186,6 @@ enum Blink {
     Copied,
     /// Where the move under way would land, as a click it can't use reminds the user of it.
     Move,
-}
-
-/// Where a step of the keys lands.
-#[derive(Debug, PartialEq, Eq)]
-enum Step {
-    /// The item at this index of those listed.
-    Item(usize),
-    /// The drawer's bar, between the cards' rows and its own.
-    Bar,
-}
-
-/// Where a step of `delta` goes from item `at` of `items`, or from the drawer's bar while
-/// `on_bar`, with `bar` how many items are above the bar, if it's a stop. From off the list, a
-/// step forward starts at the top and one back at the bottom. Past an end it's `None`, rather
-/// than picking the row again, which would take its page back to how it opens on every repeat
-/// of a held key.
-fn step_to(
-    at: Option<usize>,
-    items: usize,
-    bar: Option<usize>,
-    on_bar: bool,
-    delta: isize,
-) -> Option<Step> {
-    let stops = (items + usize::from(bar.is_some())) as isize;
-    let from = match (bar.filter(|_| on_bar), at) {
-        (Some(bar), _) => bar as isize,
-        (None, Some(ix)) if bar.is_some_and(|bar| ix >= bar) => ix as isize + 1,
-        (None, Some(ix)) => ix as isize,
-        (None, None) if delta > 0 => -1,
-        (None, None) => stops,
-    };
-    let next = (from + delta).clamp(0, stops - 1);
-    if next == from {
-        return None;
-    }
-    let next = next as usize;
-    Some(match bar {
-        Some(bar) if next == bar => Step::Bar,
-        Some(bar) if next > bar => Step::Item(next - 1),
-        Some(_) | None => Step::Item(next),
-    })
 }
 
 /// How far a branch's remote's commits sit in: a step in from their heading, which is under
@@ -548,19 +505,14 @@ pub struct Navigator {
     store: Entity<Store>,
     detail: Entity<Detail>,
     focus: FocusHandle,
-    /// The rows as last drawn, which the list draws as they scroll into view.
-    rows: Vec<Row>,
+    /// The rows as last built, and what's worked out from them: see [`Built`].
+    built: Built,
     /// How tall a row is, in design pixels, as the density draws it: the theme's control
     /// height, taken as the navigator draws, so its row maths and its rows agree.
     row: f32,
-    insets: Vec<f32>,
-    guides: Vec<Vec<f32>>,
-    /// Each row's place in the fold it moves with, while one does.
-    moving: Vec<Option<Moving>>,
     folds: Folds<Fold>,
-    /// The rows sliding to where a reorder put them, and each row's key, to tell which.
+    /// The rows sliding to where a reorder put them.
     reorder: Reorder<RowKey>,
-    row_keys: Vec<Option<RowKey>>,
     /// Rows a move just took away, drawn where they were while the rows close over them.
     stand_ins: Vec<moving::StandIn>,
     /// The terminal sliding from one card to another, which floats over the cards on its way
@@ -570,8 +522,7 @@ pub struct Navigator {
     /// which opened or shut since.
     folds_seen: HashMap<Fold, bool>,
     pub(crate) list: ListState,
-    /// The projects not watched as last drawn, and the list the drawer draws them in.
-    drawer: Drawer,
+    /// The list the drawer draws the projects not watched in.
     pub(crate) drawer_list: ListState,
     /// The room above the drawer at the list's end, and its card's height, as last worked out:
     /// see [`Self::fit_footer`].
@@ -582,7 +533,7 @@ pub struct Navigator {
     pub(crate) drawn_height: Cell<Pixels>,
     listed_height: Cell<Pixels>,
     /// The keys stepped onto the drawer's bar, which folds but is nothing to select, so the
-    /// selection and its page stay as they were: see [`Step`].
+    /// selection and its page stay as they were: see [`cursor::Step`].
     on_drawer_bar: bool,
     /// The selection changed, or where it'd be moved: scroll to it once the rows are up to
     /// date, to the copies of commits being moved where they'd land rather than to them.
@@ -662,21 +613,12 @@ pub struct Navigator {
     held_order: Option<Vec<ProjectId>>,
     /// The project whose watch button the pointer is on, which shows what a click makes it.
     watch_hovered: Option<ProjectId>,
-    /// The rows of the card being moved, dragged by its heading or with the keys, as last
-    /// drawn, which show it held.
-    held_card: Option<Range<usize>>,
-    /// The rows of the card the selection's in, while the navigator has the keys, which edge
-    /// it as the tile with them is: see [`Self::find_focused_card`].
-    focused_card: std::cell::RefCell<Option<Range<usize>>>,
     /// The project whose card is held, kept once it's let go of until the cards stop sliding,
     /// so it stays over the cards it passes going back.
     held_project: Option<ProjectId>,
     /// The linked worktree being dragged by its heading, by its project and name, which goes
     /// where it's let go, but over its own rows where it was, where what it carries lands.
     dragged_worktree: Option<(ProjectId, bstr::BString)>,
-    /// The rows of the linked worktree being moved, dragged by its heading or with the keys, as
-    /// last drawn, which go over the rows they pass.
-    held_worktree: Option<Range<usize>>,
     /// The linked worktree whose rows are held, by its project and name, kept once it's let go
     /// of until the rows stop sliding, so it stays over the rows it passes going back.
     held_worktree_name: Option<(ProjectId, bstr::BString)>,
@@ -811,20 +753,15 @@ impl Navigator {
             store,
             detail,
             focus: cx.focus_handle(),
-            rows: Vec::new(),
+            built: Built::default(),
             row: Theme::get(cx).sizes.control,
-            insets: Vec::new(),
-            guides: Vec::new(),
-            moving: Vec::new(),
             folds: Folds::default(),
             reorder: Reorder::default(),
-            row_keys: Vec::new(),
             stand_ins: Vec::new(),
             crossing: None,
             folds_seen: HashMap::new(),
             // Its last item, after the rows, is the drawer: see `drawer_footer`.
             list: ListState::new(1, ListAlignment::Top, fixed(56.)),
-            drawer: Drawer::default(),
             drawer_list: ListState::new(0, ListAlignment::Top, fixed(56.)),
             footer: Cell::new((0., 0.)),
             drawn_height: Cell::new(Pixels::ZERO),
@@ -859,11 +796,8 @@ impl Navigator {
             detail_shown: Cell::new(1.),
             held_order: None,
             watch_hovered: None,
-            held_card: None,
-            focused_card: Default::default(),
             held_project: None,
             dragged_worktree: None,
-            held_worktree: None,
             held_worktree_name: None,
             slide_edges: None,
             hold_still: false,
@@ -1087,26 +1021,6 @@ impl Navigator {
         }
     }
 
-    /// The rows that can be selected, in order: the cards', then the drawer's, but not
-    /// those a fold closing takes away.
-    fn items(&self) -> Vec<&Selection> {
-        self.staying(&self.rows, &self.moving, &self.drawer.rows)
-    }
-
-    /// The items of `rows`, which move as `moving` says, then of `drawer`, without those on
-    /// their way out.
-    fn staying<'a>(
-        &self,
-        rows: &'a [Row],
-        moving: &[Option<Moving>],
-        drawer: &'a [Row],
-    ) -> Vec<&'a Selection> {
-        let closing = |m: &Option<Moving>| m.as_ref().is_some_and(|m| self.folds.closing(&m.fold));
-        let cards = (rows.iter().zip(moving)).filter(|(_, m)| !closing(m));
-        let drawer = drawer.iter().filter(|_| !self.folds.closing(&Fold::Drawer));
-        items(cards.map(|(row, _)| row).chain(drawer))
-    }
-
     /// Space at the end of a commit's diff: on to the next unread commit, in any branch or
     /// project, going on from the top past the end, as a feed reader goes on to the next unread
     /// article, until there are none.
@@ -1133,69 +1047,6 @@ impl Navigator {
         }
     }
 
-    fn step(&mut self, delta: isize, window: &mut Window, cx: &mut Context<Self>) {
-        // While commits move, the keys step through where they can land.
-        if self.store.read(cx).moving.is_some() {
-            return self.step_move(delta, cx);
-        }
-        // ↓ onto a fold of commits shows the rest and goes on into them, as a feed loads more:
-        // the fold is no stop of its own.
-        let unfolds = delta > 0 && !self.on_drawer_bar && self.unfold_after_selection(cx);
-        let built = unfolds.then(|| self.build_rows(cx));
-        let items = match &built {
-            Some(built) => self.staying(&built.rows, &built.moving, &built.drawer.rows),
-            None => self.items(),
-        };
-        if items.is_empty() {
-            return;
-        }
-        let current = self.store.read(cx).selection.clone();
-        let at = (current.as_ref()).and_then(|s| items.iter().position(|item| *item == s));
-        let bar = self.drawer_toggles(cx).then(|| match &built {
-            Some(built) => self.staying(&built.rows, &built.moving, &[]).len(),
-            None => self.staying(&self.rows, &self.moving, &[]).len(),
-        });
-        let next = match step_to(at, items.len(), bar, self.on_drawer_bar, delta) {
-            Some(Step::Bar) => return self.enter_drawer_bar(cx),
-            Some(Step::Item(next)) => next,
-            None => return,
-        };
-        let Some(next) = items.get(next).map(|item| (*item).clone()) else {
-            return;
-        };
-        // Back on the row it left, whose page stays as it was, not back to how it opens.
-        if self.on_drawer_bar && current.as_ref() == Some(&next) {
-            return self.leave_drawer_bar(cx);
-        }
-        self.select(next, window, cx);
-    }
-
-    /// Whether the drawer's bar opens and closes it, and so is a stop for the keys: with no
-    /// cards it's always open, and while the filter lists what it finds, they show as they
-    /// are, as cards don't fold.
-    fn drawer_toggles(&self, cx: &App) -> bool {
-        // Under its tab the card shows it whole, with nothing to fold.
-        self.scope.is_none()
-            && (self.drawer.total > 0 && !self.rows.is_empty() && !self.filtering(cx))
-    }
-
-    /// Give the drawer's bar the keys, in view.
-    fn enter_drawer_bar(&mut self, cx: &mut Context<Navigator>) {
-        self.on_drawer_bar = true;
-        let theme = Theme::get(cx);
-        let (spacer, _) = self.footer.get();
-        let top = theme.scaled(spacer + CARD_MARGIN);
-        self.reveal_in_footer(top, theme.scaled(DRAWER_CHROME));
-        cx.notify();
-    }
-
-    /// Give the keys back to the selection's row, if the drawer's bar has them.
-    fn leave_drawer_bar(&mut self, cx: &mut Context<Navigator>) {
-        if std::mem::take(&mut self.on_drawer_bar) {
-            cx.notify();
-        }
-    }
-
     fn set_drawer_folded(&mut self, folded: bool, cx: &mut Context<Navigator>) {
         if self.store.read(cx).prefs.projects_folded != folded {
             (self.store).update(cx, |store, cx| {
@@ -1209,125 +1060,19 @@ impl Navigator {
         self.set_drawer_folded(!folded, cx);
     }
 
-    /// Unfold the branch's "N more" right under the selection, saying whether there was one.
-    fn unfold_after_selection(&mut self, cx: &App) -> bool {
-        let selection = self.store.read(cx).selection.as_ref();
-        let at = (self.rows.iter())
-            .position(|row| matches!(row, Row::Item(item) if Some(item) == selection));
-        let Some(Row::More(project, ref_name, _)) = at.and_then(|at| self.rows.get(at + 1)) else {
-            return false;
-        };
-        self.set_unfolded((project.clone(), ref_name.clone()), true);
-        true
-    }
-
-    /// Step `delta` commits from the selected one, picking the run as ⇧-click does. Off a
-    /// commit, it's a plain step.
-    fn pick_step(&mut self, delta: isize, window: &mut Window, cx: &mut Context<Self>) {
-        let store = self.store.read(cx);
-        // What's moving was picked when the move started.
-        if store.moving.is_some() {
-            return;
-        }
-        let (project, id) = match &store.selection {
-            Some(Selection::Commit(project, id)) => (project.clone(), *id),
-            _ => return self.step(delta, window, cx),
-        };
-        let order = self.commit_order(&project, id, cx);
-        let next = (order.iter().position(|commit| *commit == id))
-            .and_then(|at| order.get(at.checked_add_signed(delta)?).copied());
-        if let Some(next) = next {
-            (self.store).update(cx, |store, cx| store.pick(&project, next, Some(order), cx));
-        }
-    }
-
     /// The commits of `project` that can be picked along with commit `id`, as shown: its
     /// stack's, or linked worktree's, not those folded away.
     fn commit_order(&self, project: &ProjectId, id: CommitId, cx: &App) -> Vec<CommitId> {
         let lane = (self.store.read(cx).workspace(project))
             .and_then(|ws| ws.lane_commits(id))
             .unwrap_or_default();
-        (self.rows.iter())
+        (self.built.rows.iter())
             .filter_map(|row| match row {
                 Row::Item(Selection::Commit(p, commit)) if p == project => Some(*commit),
                 _ => None,
             })
             .filter(|commit| lane.contains(commit))
             .collect()
-    }
-
-    /// Select the first item before (`forward` false) or after the selection that starts a
-    /// section: a project or a branch.
-    fn jump_section(&mut self, forward: bool, window: &mut Window, cx: &mut Context<Self>) {
-        if self.store.read(cx).moving.is_some() {
-            return self.jump_move(forward, cx);
-        }
-        let items = self.items();
-        let current = self.store.read(cx).selection.clone();
-        let at = current.and_then(|s| items.iter().position(|item| **item == s));
-        let heads =
-            |item: &&&Selection| matches!(item, Selection::Project(_) | Selection::Branch(..));
-        let next = match (at, forward) {
-            (Some(at), true) => items.iter().skip(at + 1).find(heads),
-            (Some(at), false) => items.iter().take(at).rev().find(heads),
-            (None, true) => items.iter().find(heads),
-            (None, false) => items.iter().rev().find(heads),
-        };
-        if let Some(next) = next.map(|item| (*item).clone()) {
-            self.select(next, window, cx);
-        }
-    }
-
-    /// Select the project after (`forward`) or before the one the selection's in, past what's
-    /// left of its card, as the keys go from tile to tile, at the row it was left on. Not while
-    /// something's being moved. Whether there was a project that way.
-    pub(crate) fn step_project(
-        &mut self,
-        forward: bool,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> bool {
-        let store = self.store.read(cx);
-        if store.moving.is_some() {
-            return true;
-        }
-        let items = self.items();
-        let projects: Vec<&ProjectId> = (items.iter())
-            .filter_map(|item| match item {
-                Selection::Project(id) => Some(id),
-                _ => None,
-            })
-            .collect();
-        if projects.is_empty() {
-            return false;
-        }
-        let at = (store.selection.as_ref())
-            .and_then(|s| projects.iter().position(|project| *project == s.project()));
-        let delta = if forward { 1 } else { -1 };
-        let Some(Step::Item(next)) = step_to(at, projects.len(), None, false, delta) else {
-            return false;
-        };
-        let Some(next) = projects.get(next).map(|project| (*project).clone()) else {
-            return false;
-        };
-        self.select(self.left_in_project(&next, cx), window, cx);
-        true
-    }
-
-    /// What going back to `project` selects: the row it was left on, else its own.
-    pub(super) fn left_in_project(&self, project: &ProjectId, cx: &App) -> Selection {
-        let store = self.store.read(cx);
-        // Selecting a row holds its folds open, but a folded card stays folded, as tabs have no
-        // card to fold. A project in the drawer has no rows, and the filter lists only what it
-        // finds.
-        let folded = store.prefs.navigator_place != crate::state::NavigatorPlace::Top
-            && store.prefs.folded_projects.contains(project.as_ref());
-        let rows =
-            !self.filtering(cx) && !folded && store.project(project).is_some_and(|p| p.expanded);
-        (store.left_on.get(project))
-            .filter(|row| rows && store.still_there(row))
-            .cloned()
-            .unwrap_or_else(|| Selection::Project(project.clone()))
     }
 
     /// Whether `branch` shows its commits: as Settings start branches, unless folded or
@@ -1417,213 +1162,6 @@ impl Navigator {
             || Self::upstream_selected(store, id, ref_name)
     }
 
-    fn expand(&mut self, _: &Expand, window: &mut Window, cx: &mut Context<Self>) {
-        if self.on_drawer_bar {
-            return self.set_drawer_folded(false, cx);
-        }
-        let store = self.store.read(cx);
-        match store.selection.clone() {
-            // A folded card opens; an unwatched project is watched.
-            Some(Selection::Project(id)) => self.store.update(cx, |store, cx| {
-                let folded = store.project(&id).is_some_and(|p| p.expanded)
-                    && store.prefs.folded_projects.contains(id.as_ref());
-                match folded {
-                    true => store.set_project_folded(&id, false, cx),
-                    false => store.set_expanded(&id, true, cx),
-                }
-            }),
-            Some(Selection::Branch(project, ref_name)) => {
-                self.set_open(ClickOpened::Here((project, ref_name)), true, cx)
-            }
-            Some(heading @ (Selection::Checkout(..) | Selection::Stack(..))) => {
-                self.folded.remove(&heading);
-                cx.notify();
-            }
-            Some(Selection::Mesh(project, id, pick)) => self.expand_mesh(project, id, pick, cx),
-            Some(Selection::Section(project, section)) => {
-                if !self.heading_open(&project, &section, cx) {
-                    self.toggle_heading(project, section, false, window, cx)
-                }
-            }
-            // A remote's merge unfolds the commits it brought in.
-            Some(Selection::Upstream(project, ref_name, id))
-                if !self.open_merges.contains(&id)
-                    && (store.workspace(&project))
-                        .and_then(|ws| ws.upstream(&ref_name).iter().find(|c| c.id == id))
-                        .is_some_and(|commit| commit.merge) =>
-            {
-                self.toggle_merge(&project, ref_name, id, window, cx)
-            }
-            _ => {}
-        }
-    }
-
-    /// Step out the way a tree does: a commit to its branch, an open branch, stack or worktree
-    /// closed, a branch up to its stack or worktree, and anything else up to its project.
-    /// While the filter lists what it finds, nothing folds, so ⇧← only goes up.
-    fn collapse(&mut self, _: &Collapse, window: &mut Window, cx: &mut Context<Self>) {
-        if self.on_drawer_bar {
-            return self.set_drawer_folded(true, cx);
-        }
-        let filtering = self.filtering(cx);
-        let store = self.store.read(cx);
-        let selection = store.selection.clone();
-        // A commit a remote's merge brought in goes up to the merge.
-        if let Some(Selection::Upstream(project, ref_name, id)) = &selection
-            && let Some((merge, _)) = store.merged_upstream(project, ref_name, *id)
-        {
-            let up = Selection::Upstream(project.clone(), ref_name.clone(), merge);
-            return self.select(up, window, cx);
-        }
-        let closes = !filtering
-            && matches!(&selection, Some(item @ Selection::Branch(project, ref_name))
-                if store.branch_for(item).is_some_and(|branch| !branch.commits.is_empty())
-                    && self.is_open(&ClickOpened::Here((project.clone(), ref_name.clone()))));
-        let folds = !filtering
-            && (self.rows.iter())
-                .position(|row| matches!(row, Row::Item(item) if Some(item) == selection.as_ref()))
-                .is_some_and(|ix| self.section_open(ix));
-        match selection {
-            Some(Selection::Project(_)) if filtering => {}
-            // An open card folds; a folded one stops being watched.
-            Some(Selection::Project(id)) => self.store.update(cx, |store, cx| {
-                let open = store.project(&id).is_some_and(|p| p.expanded)
-                    && !store.prefs.folded_projects.contains(id.as_ref());
-                match open {
-                    true => store.set_project_folded(&id, true, cx),
-                    false => store.set_expanded(&id, false, cx),
-                }
-            }),
-            Some(Selection::Branch(project, ref_name)) if closes => {
-                self.set_open(ClickOpened::Here((project, ref_name)), false, cx)
-            }
-            Some(Selection::Commit(project, id)) => {
-                let branch = store
-                    .find_commit(&project, id)
-                    .and_then(|(b, _)| b.ref_name.clone());
-                if let Some(ref_name) = branch {
-                    self.select(Selection::Branch(project, Some(ref_name)), window, cx);
-                }
-            }
-            // An open merge folds; a remote's commits go up to their heading.
-            Some(Selection::Upstream(project, ref_name, id)) if self.open_merges.contains(&id) => {
-                self.toggle_merge(&project, ref_name, id, window, cx)
-            }
-            Some(Selection::Upstream(project, ref_name, _)) => {
-                let heading = Selection::Section(project, Section::Upstream(ref_name));
-                self.select(heading, window, cx)
-            }
-            Some(Selection::Checkout(project, checkout)) if folds => {
-                self.toggle_section(&project, checkout, true, window, cx)
-            }
-            Some(caption @ Selection::Stack(..)) if folds => {
-                self.toggle_stack(caption, true, window, cx)
-            }
-            Some(Selection::Checkout(project, Checkout::Linked(name)))
-                if (store.workspace(&project))
-                    .and_then(|ws| ws.find_worktree(name.as_ref()))
-                    .is_some_and(|wt| wt.is_inactive(store.prefs.inactive_after)) =>
-            {
-                let heading = Selection::Section(project, Section::Inactive);
-                self.select(heading, window, cx)
-            }
-            Some(Selection::Mesh(project, id, pick)) => {
-                self.collapse_mesh(project, id, pick, window, cx)
-            }
-            Some(Selection::Section(project, section)) if !filtering => {
-                match self.heading_open(&project, &section, cx) {
-                    true => self.toggle_heading(project, section, true, window, cx),
-                    false => {
-                        let up = match section {
-                            Section::Upstream(ref_name) => {
-                                Selection::Branch(project, Some(ref_name))
-                            }
-                            Section::Inactive | Section::Mesh => Selection::Project(project),
-                        };
-                        self.select(up, window, cx)
-                    }
-                }
-            }
-            // Jump up, like closing a folder in a tree.
-            Some(selection) => {
-                let up = parent(store, &selection)
-                    .unwrap_or_else(|| Selection::Project(selection.project().clone()));
-                self.select(up, window, cx)
-            }
-            None => {}
-        }
-    }
-
-    /// Return in GitButler's keymap: as in the TUI's, except that uncommitted changes start a
-    /// commit, placed as c places it.
-    fn confirm(&mut self, _: &Confirm, window: &mut Window, cx: &mut Context<Self>) {
-        let selection = self.store.read(cx).selection.clone();
-        match selection {
-            Some(Selection::Uncommitted(..)) if !self.on_drawer_bar => {
-                window.dispatch_action(Box::new(crate::app::StartCommit), cx)
-            }
-            _ => self.toggle_fold(&ToggleFold, window, cx),
-        }
-    }
-
-    /// Go into the selected terminal, to type in, once the update running now is over.
-    fn enter_terminal(&self, window: &mut Window, cx: &mut Context<Self>) {
-        (self.app).update_later(window, cx, |app, window, cx| {
-            app.enter_terminal(window, cx);
-            // A row with tiles gives the keys back to the one that had them last.
-            app.focus_last_tile(window, cx);
-        });
-    }
-
-    /// Return in the TUI's keymap: fold or unfold the rows the selected one heads, as its
-    /// chevron does, go into a terminal, or start watching a project. Any other row that heads
-    /// none stays as it is, as every row does under the filter.
-    fn toggle_fold(&mut self, _: &ToggleFold, window: &mut Window, cx: &mut Context<Self>) {
-        if self.on_drawer_bar {
-            return self.toggle_drawer(cx);
-        }
-        let Some(selection) = self.store.read(cx).selection.clone() else {
-            return;
-        };
-        if let Selection::Terminal(..) = selection {
-            return self.enter_terminal(window, cx);
-        }
-        if let Selection::Project(id) = &selection
-            && (self.store.read(cx).project(id)).is_some_and(|entry| !entry.expanded)
-        {
-            return self.toggle_project(id, cx);
-        }
-        let fold = Fold::Under(selection.clone());
-        let Some(open) = (self.build_rows(cx).folds.into_iter())
-            .find_map(|(f, open, _)| (f == fold).then_some(open))
-        else {
-            return;
-        };
-        match selection {
-            Selection::Project(id) => self.toggle_project(&id, cx),
-            Selection::Section(project, section) => {
-                self.toggle_heading(project, section, open, window, cx)
-            }
-            Selection::Branch(project, ref_name) => {
-                self.set_open(ClickOpened::Here((project, ref_name)), !open, cx)
-            }
-            Selection::Checkout(project, checkout) => {
-                self.toggle_section(&project, checkout, open, window, cx)
-            }
-            caption @ Selection::Stack(..) => self.toggle_stack(caption, open, window, cx),
-            Selection::Mesh(project, id, pick) => {
-                self.toggle_mesh(project, id, pick, open, window, cx)
-            }
-            Selection::Upstream(project, ref_name, id) => {
-                self.toggle_merge(&project, ref_name, id, window, cx)
-            }
-            Selection::Commit(..)
-            | Selection::Pending(..)
-            | Selection::Uncommitted(..)
-            | Selection::Terminal(..) => {}
-        }
-    }
-
     /// Enter or a double-click on project `id`, or its card's chevron: a watched project's
     /// card folds or unfolds, as a folder does, still watched, and another starts being
     /// watched. While the filter lists what it finds, cards don't fold.
@@ -1638,267 +1176,8 @@ impl Navigator {
         })
     }
 
-    /// Set moving the folds `seen` building the rows that opened or shut since they were last
-    /// built ([`folds_changed`]), saying whether any did. Only one whose rows start on screen
-    /// moves: elsewhere it would move only what's in view. Under the filter, which lists what it
-    /// finds whatever's folded, none do.
-    fn follow_folds(&mut self, seen: &[(Fold, bool, Option<usize>)], cx: &App) -> bool {
-        if self.filtering(cx) {
-            self.folds_seen.clear();
-            self.folds.stop_all();
-            return false;
-        }
-        // Where the rows above them were drawn, which is where they'll be. A card's rows are
-        // all in view, and aren't in the list here, which isn't drawn while they're a card's.
-        let in_card = self.rows_scope(cx).is_some();
-        let list = &self.list;
-        let view = list.viewport_bounds();
-        let on_screen = |above: Option<usize>| {
-            in_card
-                || above.is_none_or(|ix| {
-                    (list.bounds_for_item(ix)).is_some_and(|row| {
-                        row.bottom() > view.top() && row.bottom() < view.bottom()
-                    })
-                })
-        };
-        let mut started = false;
-        for (fold, open, above) in folds_changed(&mut self.folds_seen, seen) {
-            if on_screen(*above) {
-                self.folds.start(fold.clone(), *open, cx);
-                started = true;
-            }
-        }
-        started
-    }
-
-    /// The rows as they're built now, any fold that opened or shut since they were last built
-    /// set moving first, which changes what they hold.
-    fn rows_now(&mut self, cx: &App) -> Rows {
-        let built = self.build_rows(cx);
-        match self.follow_folds(&built.folds, cx) {
-            true => self.build_rows(cx),
-            false => built,
-        }
-    }
-
-    /// Have each moving fold move only as far as the list shows it, from the row above it as
-    /// last drawn: the rows past the list's bottom go or come at once, so what's seen moves
-    /// all the way. Here, as a row can't ask the list while it draws.
-    fn fit_folds(&mut self, cx: &App) {
-        if !self.folds.any() {
-            return;
-        }
-        let (list, scale) = (&self.list, Theme::get(cx).scale);
-        let view = list.viewport_bounds();
-        let room = |above: Option<usize>| {
-            (above.and_then(|ix| list.bounds_for_item(ix)))
-                .map(|row| f32::from(view.bottom() - row.bottom()).max(0.) / scale)
-        };
-        let mut rooms = HashMap::new();
-        for m in self.moving.iter_mut().flatten() {
-            let room = *rooms.entry(m.above).or_insert_with(|| room(m.above));
-            if let Some(room) = room {
-                m.extent = m.extent.min(room);
-            }
-        }
-    }
-
-    /// Build the rows and bring the list up to date, as a frame does, for what reads them while
-    /// the navigator isn't drawn.
-    pub(crate) fn catch_up_rows(&mut self, window: &Window, cx: &App) {
-        let Rows {
-            rows,
-            insets,
-            guides,
-            moving,
-            drawer,
-            first_hit,
-            ..
-        } = self.rows_now(cx);
-        self.moving = moving;
-        self.sync_list(rows, drawer, window, cx);
-        self.insets = insets;
-        self.guides = guides;
-        self.first_hit = first_hit;
-    }
-
-    /// Bring the lists up to date with `rows` and `drawer`, and show the selection if it just
-    /// changed. Rows that didn't change keep their place on screen. When a load changed the
-    /// cards' while the pointer is over them, so does the row under it: rows added above it,
-    /// like an agent's new commit, push the rows above it up rather than it down.
-    fn sync_list(&mut self, rows: Vec<Row>, drawer: Drawer, window: &Window, cx: &App) {
-        // Rows not drawn yet count as one row tall, which a project's row is.
-        let row = Theme::get(cx).scaled(self.row);
-        // At the very top a list stays there, showing what's added, as the diff does: rows
-        // added above the first one count as added above the top, which would leave it
-        // scrolled to their end, as the drawer's rows are when it opens.
-        let drawer_at_top = at_top(&self.drawer_list);
-        if splice(&self.drawer_list, &self.drawer.rows, &drawer.rows, 0).is_some() {
-            self.drawer_list.clone().with_uniform_item_height(row);
-            if drawer_at_top {
-                self.drawer_list.scroll_to(ListOffset::default());
-            }
-        }
-        self.drawer = drawer;
-        // Scrolled, the row under the pointer stays where it is.
-        let at_top = at_top(&self.list);
-        let hovered = (std::mem::take(&mut self.hold_still) && !at_top)
-            .then(|| self.hovered_row(window))
-            .flatten();
-        // The hovered row's index before and after, and how far below the top it is.
-        let anchor = hovered.and_then(|(old_ix, offset)| {
-            let old = self.rows.get(old_ix)?;
-            let (new_ix, _) = (rows.iter().enumerate())
-                .filter(|(_, row)| same_place(old, row))
-                .min_by_key(|(ix, _)| ix.abs_diff(old_ix))?;
-            Some((old_ix, new_ix, offset))
-        });
-        let halves = anchor.and_then(|(old_ix, new_ix, _)| {
-            Some((
-                self.rows.split_at_checked(old_ix)?,
-                rows.split_at_checked(new_ix)?,
-            ))
-        });
-        let top = self.list.logical_scroll_top();
-        let changed = match halves {
-            // Below the hovered row first, so the indexes above it still hold.
-            Some(((old_above, old_below), (new_above, new_below))) => {
-                let below = splice(&self.list, old_below, new_below, old_above.len());
-                splice(&self.list, old_above, new_above, 0).is_some() || below.is_some()
-            }
-            None => {
-                let spliced = splice(&self.list, &self.rows, &rows, 0);
-                // Cards or linked worktrees trading places, as one dragged by its heading does,
-                // leave the list where it is, rather than at the first row they moved, where a
-                // splice of the list's top would.
-                if let Some(old) = &spliced
-                    && old.contains(&top.item_ix)
-                    && headings_reordered(&self.rows, &rows)
-                {
-                    let theme = Theme::get(cx);
-                    (self.list)
-                        .scroll_to(as_deep(&self.rows, &rows, old.start, top, theme, self.row));
-                }
-                spliced.is_some()
-            }
-        };
-        if at_top && changed {
-            self.list.scroll_to(ListOffset::default());
-        }
-        // While something's being moved or landing, and as that ends, every row slides from
-        // where it was, so the room the copies take or leave opens and closes rather than jumps.
-        let store = self.store.read(cx);
-        let op = (store.moving.as_ref().or_else(|| store.landing())).map(|moving| moving.op);
-        let was = std::mem::replace(&mut self.shown_op, op);
-        let every = op.is_some() || was.is_some();
-        // A squash just ended: landed, what it took goes.
-        let ended = matches!(was, Some(Op::Squash(_))) && store.moving.is_none();
-        // A move Return landed, until the reload after it, and as that shows where it went. Not
-        // a cherry-pick, whose commits stay where they are, as when a move ends without landing,
-        // while the copies shown give way to the new commits in their place.
-        let leaving = (store.landing()).is_some_and(|landing| landing.op != Op::CherryPick);
-        let landing = std::mem::replace(&mut self.shown_landing, leaving) || leaving;
-        // The outline of what a squash goes into, or of the branch dragged files start a commit
-        // in, slides there from where it was before, first
-        // from around what it's of where it started, its edges coming together as it leaves
-        // that, and going apart as it grows back around it.
-        let home = (store.moving.as_ref()).is_some_and(|moving| {
-            !moving.dragged(store)
-                && matches!(moving.at, Stop::Into(_))
-                && !moving.shows_landing(store)
-        });
-        let outline = moving::SquashOutline::of(&rows, store, home, self.row);
-        if let (Some(was), Some(is)) = (&self.squash_outline, &outline)
-            && was.row != is.row
-        {
-            let (top, bottom) = is.slide(was);
-            let offsets = HashMap::from([(RowKey::SquashTop, top), (RowKey::SquashBottom, bottom)]);
-            self.reorder.start(offsets, cx);
-        }
-        self.squash_outline = outline;
-        // While a move's shown, the rows' keys change with it where the rows don't, as what's
-        // moving is keyed apart as the move starts and ends.
-        let reordered = self.rows != rows;
-        let keys = (reordered || every)
-            .then(|| row_keys(&rows, self.store.read(cx)))
-            .filter(|keys| reordered || *keys != self.row_keys);
-        if let Some(keys) = keys {
-            let held = anchor.map(|(old_ix, new_ix, _)| (old_ix, new_ix));
-            // Those still being closed over stay while the rows they're under do, as when the
-            // reload after a move lands partway.
-            let mut stand_ins = std::mem::take(&mut self.stand_ins);
-            stand_ins.retain(|stand_in| keys.iter().flatten().any(|key| *key == stand_in.under));
-            let store = self.store.read(cx);
-            let taken = self.stand_ins(&keys, was, (ended, landing), clock::now(), store);
-            stand_ins.extend(taken);
-            self.stand_ins = stand_ins;
-            // Room made or left above the list's top moves nothing in view, as the list keeps
-            // its top row where it is, so nothing slides.
-            let room = room_came_or_went(&self.rows, &rows);
-            let above_view = room && top.item_ix != self.list.logical_scroll_top().item_ix;
-            let offsets = match above_view {
-                true => HashMap::new(),
-                false => self.slides(&rows, &keys, held, every || room, landing),
-            };
-            self.reorder.start(offsets, cx);
-            if let Some(id) = crossed_cards(&self.rows, &rows) {
-                self.crossing = Some(RowKey::Terminal(id));
-            }
-            self.row_keys = keys;
-        }
-        self.rows = rows;
-        // The bar goes with the rows that made it a stop, or once something moves.
-        self.on_drawer_bar &= self.drawer_toggles(cx) && self.store.read(cx).moving.is_none();
-        if changed {
-            // The clone shares the list's state.
-            self.list.clone().with_uniform_item_height(row);
-            if let Some((_, item_ix, offset)) = anchor {
-                self.list.scroll_to(ListOffset {
-                    item_ix,
-                    offset_in_item: Pixels::ZERO,
-                });
-                self.list.scroll_by(-offset);
-            }
-        }
-        let store = self.store.read(cx);
-        let ghost = |row: &Row| shows_where_it_lands(store, row);
-        // Not drawn yet, the list has no height to scroll a row into, which would leave the row
-        // just above its top, so what's to show waits for the frame after its first.
-        let drawn = self.list_drawn();
-        if drawn
-            && std::mem::take(&mut self.reveal_selection)
-            && let Some(selection) = store.selection.clone()
-        {
-            let selected = |row: &Row| matches!(row, Row::Item(it) if *it == selection);
-            if std::mem::take(&mut self.reveal_source) {
-                self.scroll_to_row(selected, row);
-            }
-            if !self.scroll_to_row(ghost, row) && !self.scroll_to_row(selected, row) {
-                // A project just added has its rows once it's loaded.
-                self.reveal_selection =
-                    (store.project(selection.project())).is_some_and(|entry| entry.is_loading())
-            }
-        }
-        // Up from where Go to anything goes, as ⇧← steps, to the first row listed.
-        let going_row = (self.going_to.clone()).and_then(|to| {
-            std::iter::successors(Some(to), |item| holder(store, item))
-                .find(|item| self.listed(item))
-        });
-        if drawn && going_row != self.going_row {
-            if let Some(item) = &going_row {
-                self.scroll_to_row(|row| matches!(row, Row::Item(it) if it == item), row);
-            }
-            self.going_row = going_row;
-        }
-    }
-
-    /// Whether the list has been drawn, which gives it its height.
-    fn list_drawn(&self) -> bool {
-        self.list.viewport_bounds().size.height > Pixels::ZERO
-    }
-
-    /// What the rows' keys do besides step and fold, there being a row for them to act on, for
-    /// the rows here and in the card under a tab alike.
+    /// What the rows' keys do besides going through them and folding them ([`row_actions`]):
+    /// moving and squashing what's selected, and the filter.
     pub(super) fn key_actions<E>(&self, el: E, cx: &mut Context<Self>) -> E
     where
         E: InteractiveElement + gpui::prelude::FluentBuilder,
@@ -1937,29 +1216,12 @@ impl Navigator {
         // Commits or a branch being moved squash instead, and being squashed, move instead;
         // files only squash.
         let moves_commits = (store.moving.as_ref()).is_some_and(Move::of_commits);
-        el.on_action(
-            cx.listener(|this, _: &SelectFirst, window, cx| this.step(isize::MIN / 2, window, cx)),
-        )
-        .on_action(
-            cx.listener(|this, _: &SelectLast, window, cx| this.step(isize::MAX / 2, window, cx)),
-        )
-        .on_action(cx.listener(|this, _: &PickPrevious, window, cx| this.pick_step(-1, window, cx)))
-        .on_action(cx.listener(|this, _: &PickNext, window, cx| this.pick_step(1, window, cx)))
-        .on_action(
-            cx.listener(|this, _: &PreviousSection, window, cx| {
-                this.jump_section(false, window, cx)
-            }),
-        )
-        .on_action(
-            cx.listener(|this, _: &NextSection, window, cx| this.jump_section(true, window, cx)),
-        )
-        .on_action(cx.listener(|this, _: &FocusFilter, window, cx| {
+        el.on_action(cx.listener(|this, _: &FocusFilter, window, cx| {
             this.filter
                 .update(cx, |input, cx| input.select_all_text(cx));
             window.focus(&this.filter.focus_handle(cx), cx);
             cx.notify();
         }))
-        .on_action(cx.listener(Self::confirm))
         .when((movable && !moving) || (squashing && moves_commits), |el| {
             el.on_action(cx.listener(Self::start_move))
         })
@@ -2101,55 +1363,13 @@ impl Navigator {
             || self.filter_has_keys(window, cx)
     }
 
-    /// Go on to the frame being drawn, here or in the card under a tab: what folds and slides,
-    /// and what stands in for rows that went, which fades as they close over it.
-    fn next_frame(&mut self) {
-        self.folds.frame();
-        self.reorder.frame();
-        let now = clock::now();
-        self.stand_ins.retain_mut(|stand_in| stand_in.fade(now));
-    }
-
-    /// With the rows at rest, a terminal crossing to another card has got there.
-    fn end_crossing(&mut self) {
-        if !self.reorder.any() {
-            self.crossing = None;
-        }
-    }
-
-    /// Bring the rows up to date for a frame of the card, where the navigator itself isn't
-    /// drawn, saying whether they go on sliding, and which to scroll to.
-    pub(super) fn frame_for_card(&mut self, window: &Window, cx: &App) -> (bool, Option<usize>) {
-        self.next_frame();
-        self.catch_up_rows(window, cx);
-        self.end_crossing();
-        self.reveal_source = false;
-        let reveal = std::mem::take(&mut self.reveal_selection)
-            .then(|| self.card_reveal(cx))
-            .flatten();
-        (self.reorder.any(), reveal)
-    }
-
-    /// Which row a reveal goes to in the card: where what's moving lands, else the selection.
-    fn card_reveal(&self, cx: &App) -> Option<usize> {
-        let store = self.store.read(cx);
-        let selection = store.selection.as_ref()?;
-        (self
-            .rows
-            .iter()
-            .position(|row| shows_where_it_lands(store, row)))
-        .or_else(|| {
-            (self.rows.iter()).position(|row| matches!(row, Row::Item(it) if it == selection))
-        })
-    }
-
     /// Where `item`'s row, in the cards or the drawer, was last drawn while it shows.
     pub(crate) fn row_bounds(&self, item: &Selection) -> Option<Bounds<Pixels>> {
         let at = |rows: &[Row]| {
             rows.iter()
                 .position(|row| matches!(row, Row::Item(it) if it == item))
         };
-        match (at(&self.rows), at(&self.drawer.rows)) {
+        match (at(&self.built.rows), at(&self.built.drawer.rows)) {
             (Some(ix), _) => crate::ui::shown_row(&self.list, ix),
             (None, Some(ix)) => crate::ui::shown_row(&self.drawer_list, ix),
             (None, None) => None,
@@ -2158,7 +1378,7 @@ impl Navigator {
 
     /// Whether `item` has a row in the cards or the drawer.
     fn listed(&self, item: &Selection) -> bool {
-        (self.rows.iter().chain(&self.drawer.rows))
+        (self.built.rows.iter().chain(&self.built.drawer.rows))
             .any(|row| matches!(row, Row::Item(it) if it == item))
     }
 
@@ -2166,7 +1386,7 @@ impl Navigator {
     /// `row` tall until drawn, saying whether it found one.
     fn scroll_to_row(&self, wanted: impl Fn(&Row) -> bool, row: Pixels) -> bool {
         let at = |rows: &[Row]| rows.iter().position(&wanted);
-        match (at(&self.rows), at(&self.drawer.rows)) {
+        match (at(&self.built.rows), at(&self.built.drawer.rows)) {
             (Some(ix), _) => {
                 // Rows not drawn since the list's width changed, as zooming changes it,
                 // count as one row tall rather than none, so the reveal lands on it.
@@ -2186,7 +1406,7 @@ impl Navigator {
     /// Scroll the drawer's row `ix`, `row` tall, into the column: the list does, as the drawer's
     /// as tall as its rows under the cards.
     fn reveal_in_drawer(&self, ix: usize, row: Pixels) {
-        if self.rows.is_empty() {
+        if self.built.rows.is_empty() {
             return;
         }
         let (spacer, _) = self.footer.get();
@@ -2197,7 +1417,7 @@ impl Navigator {
 
     /// Scroll what's `top` down the list's last item, `height` tall, into the column.
     fn reveal_in_footer(&self, top: Pixels, height: Pixels) {
-        let footer = self.rows.len();
+        let footer = self.built.rows.len();
         let Some(bounds) = self.list.bounds_for_item(footer) else {
             return self.list.scroll_to(ListOffset {
                 item_ix: footer,
@@ -2233,7 +1453,10 @@ impl Navigator {
                 .zip(rows.iter().map(|r| r.height(row)))
                 .collect()
         };
-        let (old, new) = (sized(&self.row_keys, &self.rows), sized(keys, rows));
+        let (old, new) = (
+            sized(&self.built.row_keys, &self.built.rows),
+            sized(keys, rows),
+        );
         let mut offsets = match every {
             true => shifted(&old, &new),
             false => reordered(&old, &new),
@@ -2250,23 +1473,23 @@ impl Navigator {
         };
         for (is, key) in keys.iter().enumerate() {
             let from = match key {
-                Some(left @ RowKey::Left(own)) if at(&self.row_keys, left).is_none() => {
-                    at(&self.row_keys, own).map(|was| (left.clone(), was))
+                Some(left @ RowKey::Left(own)) if at(&self.built.row_keys, left).is_none() => {
+                    at(&self.built.row_keys, own).map(|was| (left.clone(), was))
                 }
                 Some(RowKey::Left(own)) if at(keys, own).is_none() => {
-                    at(&self.row_keys, own).map(|was| ((**own).clone(), was))
+                    at(&self.built.row_keys, own).map(|was| ((**own).clone(), was))
                 }
                 Some(RowKey::Left(_)) | None => None,
                 Some(own) => {
                     let left = RowKey::Left(Box::new(own.clone()));
-                    let was = at(&self.row_keys, own);
+                    let was = at(&self.built.row_keys, own);
                     let from_left = match rows.get(is) {
                         Some(Row::Item(_)) => !landing,
                         // Moved instead of squashed, its copy shows where it'd land at once,
                         // as the squash's outline went, rather than coming out from its row.
                         Some(Row::Ghost(_))
                             if was.is_some_and(|was| {
-                                matches!(self.rows.get(was), Some(Row::Item(_)))
+                                matches!(self.built.rows.get(was), Some(Row::Item(_)))
                             }) =>
                         {
                             offsets.remove(own);
@@ -2274,17 +1497,17 @@ impl Navigator {
                         }
                         _ => was.is_none(),
                     };
-                    (from_left.then(|| at(&self.row_keys, &left)).flatten())
+                    (from_left.then(|| at(&self.built.row_keys, &left)).flatten())
                         .map(|was| (own.clone(), was))
                 }
             };
             if let Some((key, was)) = from {
-                offsets.insert(key, top(&self.rows, was) - top(rows, is));
+                offsets.insert(key, top(&self.built.rows, was) - top(rows, is));
             }
         }
         if let Some((old_ix, new_ix)) = held.filter(|_| !offsets.is_empty()) {
-            let scrolled = top(rows, new_ix) - top(&self.rows, old_ix);
-            let before: HashSet<&RowKey> = self.row_keys.iter().flatten().collect();
+            let scrolled = top(rows, new_ix) - top(&self.built.rows, old_ix);
+            let before: HashSet<&RowKey> = self.built.row_keys.iter().flatten().collect();
             for key in keys.iter().flatten().filter(|key| before.contains(key)) {
                 *offsets.entry(key.clone()).or_default() += scrolled;
             }
@@ -2299,7 +1522,7 @@ impl Navigator {
         }
         let pointer = window.mouse_position();
         let top = self.list.viewport_bounds().top();
-        (self.list.logical_scroll_top().item_ix..self.rows.len())
+        (self.list.logical_scroll_top().item_ix..self.built.rows.len())
             .map_while(|ix| Some((ix, self.list.bounds_for_item(ix)?)))
             .find(|(_, bounds)| bounds.contains(&pointer))
             .map(|(ix, bounds)| (ix, bounds.top() - top))
@@ -2309,7 +1532,7 @@ impl Navigator {
     /// rows slide, those sliding into view from past its top or bottom are drawn by the first
     /// row it draws and by one near its last ([`Self::slide_edges`]).
     fn render_row(&self, ix: usize, window: &Window, cx: &Context<Self>) -> AnyElement {
-        if ix == self.rows.len() {
+        if ix == self.built.rows.len() {
             return self.drawer_footer(window, Theme::get(cx), cx);
         }
         let row = self.row_in_card(ix, window, cx);
@@ -2337,12 +1560,12 @@ impl Navigator {
                 true => (ABOVE_LAST_LISTED + 3) as f32 * self.row,
                 false => 0.,
             };
-        let height = |ix: usize| self.rows.get(ix).map_or(0., |r| r.height(self.row));
+        let height = |ix: usize| self.built.rows.get(ix).map_or(0., |r| r.height(self.row));
         let mut far = 0.;
         let rows = match down {
             true => {
                 let mut to = ix + 1;
-                while to < self.rows.len() && far < reach {
+                while to < self.built.rows.len() && far < reach {
                     far += height(to);
                     to += 1;
                 }
@@ -2386,11 +1609,11 @@ impl Navigator {
         // selection's in.
         let sliding =
             self.reorder.any() && (self.scope.is_none() || self.scope == self.top_scope(cx));
-        let inset = self.insets.get(ix).copied().unwrap_or_default();
+        let inset = self.built.insets.get(ix).copied().unwrap_or_default();
         // A row a fold is moving shows as far as the fold's open: inside its card, so the
         // card's edges stay where they are, and taking no clicks while it goes. Under the
         // curtain, it isn't drawn at all.
-        let folding = (self.moving.get(ix).and_then(Option::as_ref)).and_then(|m| {
+        let folding = (self.built.moving.get(ix).and_then(Option::as_ref)).and_then(|m| {
             let open = self.folds.openness(&m.fold)?;
             Some((
                 curtain(open, m.extent, m.top, m.height),
@@ -2404,10 +1627,10 @@ impl Navigator {
             let at = ROW_LEFT + COMMIT_INDENT;
             fold_row((id, ix), glyph, at, at + 12. + 10., theme)
         };
-        let el = match self.rows.get(ix) {
+        let el = match self.built.rows.get(ix) {
             None | Some(Row::Gap) => return div().h(dp(CARD_GAP)).into_any_element(),
             _ if hidden => div().into_any_element(),
-            Some(Row::Item(_)) => self.render_item(&self.rows, ix, inset, window, theme, cx),
+            Some(Row::Item(_)) => self.render_item(&self.built.rows, ix, inset, window, theme, cx),
             // A dashed line, as but-ui-react's WorktreeDivider.
             Some(Row::WorktreeDivider) => h_flex()
                 .h(dp(12.))
@@ -2446,7 +1669,7 @@ impl Navigator {
             Some(Row::NewBranch(_)) => self.new_branch_zone(ix, theme),
             Some(Row::Ghost(item)) => {
                 // Copies of commits moving together are outlined as one.
-                let ghost = |ix: usize| matches!(self.rows.get(ix), Some(Row::Ghost(_)));
+                let ghost = |ix: usize| matches!(self.built.rows.get(ix), Some(Row::Ghost(_)));
                 let with = (ix > 0 && ghost(ix - 1), ghost(ix + 1));
                 let blink = self.blinking(Blink::Move);
                 moving::ghost_row(item, inset, with, blink, self.store.read(cx), theme)
@@ -2499,21 +1722,24 @@ impl Navigator {
         // Items and the copies of what's moving step in by their style, keeping the highlight
         // full width; the rest as a whole.
         let full_width = matches!(
-            self.rows.get(ix),
+            self.built.rows.get(ix),
             Some(Row::Item(_) | Row::Ghost(..) | Row::GhostBranch(..) | Row::NewCommit(_))
         );
         let el = match inset > 0. && !full_width {
             true => div().pl(dp(inset)).child(el).into_any_element(),
             false => el,
         };
-        let (first, last) = card_ends(&self.rows, ix);
+        let (first, last) = card_ends(&self.built.rows, ix);
         // A guide for each row it's under, joining those of the rows above and below into
         // one line, as but.dev's sidebar draws them.
-        let guides = || (self.guides.get(ix).into_iter().flatten()).map(|at| guide(*at, theme));
+        let guides =
+            || (self.built.guides.get(ix).into_iter().flatten()).map(|at| guide(*at, theme));
         // The card dragged by its heading is edged as what's moving is where it would land.
-        let held = (self.held_card.as_ref()).is_some_and(|card| card.contains(&ix));
-        let held_worktree = (self.held_worktree.as_ref()).is_some_and(|rows| rows.contains(&ix));
-        let focused = (self.focused_card.borrow().as_ref()).is_some_and(|card| card.contains(&ix));
+        let held = (self.built.held_card.as_ref()).is_some_and(|card| card.contains(&ix));
+        let held_worktree =
+            (self.built.held_worktree.as_ref()).is_some_and(|rows| rows.contains(&ix));
+        let focused =
+            (self.built.focused_card.borrow().as_ref()).is_some_and(|card| card.contains(&ix));
         let edge = match (held, focused) {
             (true, _) => theme.pop,
             (false, true) => theme.focus_edge(),
@@ -2521,19 +1747,19 @@ impl Navigator {
         };
         // How far row `ix` is drawn from where it's laid out: as far as a reorder slid it, but
         // not while a fold moves it, which draws it as far as the fold's open.
-        let drawn_at = |ix: usize| match self.moving.get(ix).and_then(Option::as_ref) {
+        let drawn_at = |ix: usize| match self.built.moving.get(ix).and_then(Option::as_ref) {
             Some(m) if self.folds.openness(&m.fold).is_some() => 0.,
-            _ => (self.row_keys.get(ix).and_then(Option::as_ref))
+            _ => (self.built.row_keys.get(ix).and_then(Option::as_ref))
                 .map_or(0., |key| self.reorder.offset(key)),
         };
         // How far the card after row `ix`, its card's last, is drawn from where it's laid out.
-        let next_card_at = |ix: usize| match self.rows.get(ix + 1) {
+        let next_card_at = |ix: usize| match self.built.rows.get(ix + 1) {
             Some(Row::Gap) => Some(drawn_at(ix + 2)),
             _ => None,
         };
         let crossing_at = |ix: usize| {
             self.crossing.is_some()
-                && self.row_keys.get(ix).and_then(Option::as_ref) == self.crossing.as_ref()
+                && self.built.row_keys.get(ix).and_then(Option::as_ref) == self.crossing.as_ref()
         };
         // A terminal crossing to another card leaves its slice where it's laid out, the card it's
         // going to closing around that, and floats over the cards. Last in its card, the slice
@@ -2560,21 +1786,23 @@ impl Navigator {
                 (next_card_at(ix).unwrap_or_default() - slid).max(0.)
             }
             true if sliding => {
-                let card = (0..ix).rev().map_while(|above| match self.rows.get(above) {
-                    Some(Row::Gap) | None => None,
-                    Some(_) => Some(slid_at(above)),
-                });
+                let card = (0..ix)
+                    .rev()
+                    .map_while(|above| match self.built.rows.get(above) {
+                        Some(Row::Gap) | None => None,
+                        Some(_) => Some(slid_at(above)),
+                    });
                 past_last_row(card, slid)
             }
             true => 0.,
             false => {
-                let room = card_beyond(&self.rows, ix, true, -slid, self.row);
+                let room = card_beyond(&self.built.rows, ix, true, -slid, self.row);
                 (slid_at(ix + 1) - slid).max(room).max(0.)
             }
         };
         let above = match first {
             true => 0.,
-            false => card_beyond(&self.rows, ix, false, slid, self.row).max(0.),
+            false => card_beyond(&self.built.rows, ix, false, slid, self.row).max(0.),
         };
         // What's in the card being dragged goes over everything, as it goes over the cards it
         // passes (see below), and so do the rows of a linked worktree being moved, over those of
@@ -2584,7 +1812,7 @@ impl Navigator {
         // rather than over what's about to.
         let store = self.store.read(cx);
         let selection = store.selection.as_ref();
-        let over_rank = match self.rows.get(ix) {
+        let over_rank = match self.built.rows.get(ix) {
             _ if held || held_worktree || crossing => 3,
             Some(Row::Item(item)) if matches!(moving::mark(store, item), Some(Mark::Held(_))) => 3,
             Some(Row::Ghost(..) | Row::NewCommit(_)) => 2,
@@ -2594,7 +1822,7 @@ impl Navigator {
         // What a move just took away from under this row stays there, moving with it, while
         // the rows after it close over it: only while rows slide, as only then do they draw
         // over it.
-        let key = self.row_keys.get(ix).and_then(Option::as_ref);
+        let key = self.built.row_keys.get(ix).and_then(Option::as_ref);
         let stand_ins = (self.stand_ins.iter())
             .filter(|stand_in| sliding && key == Some(&stand_in.under))
             .map(|stand_in| {
@@ -2607,12 +1835,12 @@ impl Navigator {
         // What's being moved has its copy drawn over it while the move is at where it is, over
         // everything, as the copies elsewhere are, sliding out to them and back by its key, as
         // the copy keyed so would. Copies of commits moving together are outlined as one.
-        let copy = match (self.rows.get(ix), key) {
+        let copy = match (self.built.rows.get(ix), key) {
             (Some(Row::Item(item)), Some(RowKey::Left(own))) => {
                 let store = self.store.read(cx);
                 let copied =
                     |item: &Selection| matches!(moving::mark(store, item), Some(Mark::Copied(_)));
-                let copied_at = |ix: usize| matches!(self.rows.get(ix), Some(Row::Item(other)) if copied(other));
+                let copied_at = |ix: usize| matches!(self.built.rows.get(ix), Some(Row::Item(other)) if copied(other));
                 copied(item).then(|| {
                     let with = (ix > 0 && copied_at(ix - 1), copied_at(ix + 1));
                     let copy = div()
@@ -3054,7 +2282,7 @@ impl Navigator {
     /// How tall the drawer's rows are: each one row tall, and opening or closing, as tall as
     /// it's open.
     fn drawer_rows_height(&self) -> f32 {
-        let full = match self.drawer.rows.len() {
+        let full = match self.built.drawer.rows.len() {
             0 => 0.,
             n => n as f32 * self.row + DRAWER_PADDING,
         };
@@ -3107,12 +2335,12 @@ impl Navigator {
             let past = (height - was) - (was_spacer - spacer);
             if opening && spacer == 0. && past > 0. {
                 let past = Theme::get(cx).scaled(past);
-                let above = (self.list.bounds_for_item(self.rows.len()))
+                let above = (self.list.bounds_for_item(self.built.rows.len()))
                     .map_or(past, |footer| footer.top() - view.top());
                 self.list.scroll_by(past.min(above).max(fixed(0.)));
             }
             self.footer.set((spacer, height));
-            let at = self.rows.len();
+            let at = self.built.rows.len();
             self.list.remeasure_items(at..at + 1);
             // After this draw, as a notify during it draws nothing.
             cx.defer_in(window, |_, _, cx| cx.notify());
@@ -3138,15 +2366,18 @@ impl Navigator {
         let keys = !self.on_drawer_bar && self.rows_have_keys(window, cx);
         let selection = self.store.read(cx).selection.as_ref();
         let at = selection.filter(|_| keys).and_then(|selection| {
-            (self.rows.iter()).position(|row| matches!(row, Row::Item(item) if item == selection))
+            (self.built.rows.iter())
+                .position(|row| matches!(row, Row::Item(item) if item == selection))
         });
         let card = at.map(|at| {
-            let gap = |ix: &usize| matches!(self.rows.get(*ix), Some(Row::Gap));
+            let gap = |ix: &usize| matches!(self.built.rows.get(*ix), Some(Row::Gap));
             let start = (0..at).rev().find(gap).map_or(0, |ix| ix + 1);
-            let end = (at..self.rows.len()).find(gap).unwrap_or(self.rows.len());
+            let end = (at..self.built.rows.len())
+                .find(gap)
+                .unwrap_or(self.built.rows.len());
             start..end
         });
-        *self.focused_card.borrow_mut() = card;
+        *self.built.focused_card.borrow_mut() = card;
     }
 
     /// How tall the cards are drawn in this frame, from the list's top: each row as tall as it
@@ -3160,8 +2391,8 @@ impl Navigator {
     /// Each row, and how tall it's drawn in this frame: as tall as it is, or one a fold is
     /// moving as far as the fold's open.
     fn drawn_heights(&self) -> impl Iterator<Item = (&Row, f32)> {
-        self.rows.iter().enumerate().map(|(ix, row)| {
-            let moving = self.moving.get(ix).and_then(Option::as_ref);
+        self.built.rows.iter().enumerate().map(|(ix, row)| {
+            let moving = self.built.moving.get(ix).and_then(Option::as_ref);
             let open = moving.and_then(|m| Some((m, self.folds.openness(&m.fold)?)));
             let height = match open {
                 Some((m, open)) => curtain(open, m.extent, m.top, m.height),
@@ -3204,8 +2435,8 @@ impl Navigator {
                 })
         };
         // Which card the selection's, while it's edged, counting them as `cards` does.
-        let focused = (self.focused_card.borrow().as_ref()).map(|rows| {
-            (self.rows.iter().take(rows.start))
+        let focused = (self.built.focused_card.borrow().as_ref()).map(|rows| {
+            (self.built.rows.iter().take(rows.start))
                 .filter(|row| matches!(row, Row::Gap))
                 .count()
         });
@@ -3328,7 +2559,7 @@ impl Navigator {
         theme: &Theme,
         cx: &Context<Self>,
     ) -> impl IntoElement {
-        let Drawer { listed, total, .. } = self.drawer;
+        let Drawer { listed, total, .. } = self.built.drawer;
         let title = drawer_title(alone);
         let count = match listed == total {
             true => total.to_string(),
@@ -3366,9 +2597,9 @@ impl Navigator {
     /// Row `ix` of the drawer, set in as a card's rows are.
     fn render_drawer_row(&self, ix: usize, window: &Window, cx: &Context<Self>) -> AnyElement {
         let theme = Theme::get(cx);
-        let el = match self.drawer.rows.get(ix) {
+        let el = match self.built.drawer.rows.get(ix) {
             Some(Row::Note(text, is_error)) => note_row(text, *is_error, theme),
-            _ => self.render_item(&self.drawer.rows, ix, 0., window, theme, cx),
+            _ => self.render_item(&self.built.drawer.rows, ix, 0., window, theme, cx),
         };
         div().child(el).into_any_element()
     }
@@ -3811,8 +3042,8 @@ impl Navigator {
 
     /// Whether row `ix` heads rows stepped in under it that show: an open worktree or stack.
     fn section_open(&self, ix: usize) -> bool {
-        let next = self.insets.get(ix + 1);
-        (next.zip(self.insets.get(ix))).is_some_and(|(next, this)| next > this)
+        let next = self.built.insets.get(ix + 1);
+        (next.zip(self.built.insets.get(ix))).is_some_and(|(next, this)| next > this)
     }
 
     /// Over a stack of two or more branches, as ui-react's StackCaption: its glyph, which folds
@@ -4590,25 +3821,6 @@ fn note_row(text: &SharedString, is_error: bool, theme: &Theme) -> AnyElement {
         .into_any_element()
 }
 
-/// Tell `list` its rows from `at` changed from `old` to `new`: the ones between what both
-/// start and end with, which it measures again. The rows of `old` they were, if any changed.
-fn splice(list: &ListState, old: &[Row], new: &[Row], at: usize) -> Option<Range<usize>> {
-    let head = old.iter().zip(new).take_while(|(a, b)| a == b).count();
-    let (old, new) = (
-        old.get(head..).unwrap_or_default(),
-        new.get(head..).unwrap_or_default(),
-    );
-    let tail = (old.iter().rev().zip(new.iter().rev()))
-        .take_while(|(a, b)| a == b)
-        .count();
-    let changed = old.len() > tail || new.len() > tail;
-    let spliced = at + head..at + head + old.len() - tail;
-    changed.then(|| {
-        list.splice(spliced.clone(), new.len() - tail);
-        spliced
-    })
-}
-
 /// How far a card goes on below its last row, drawn `slid` from where it's laid out, given how
 /// far the rows `above` it are: down to where the card ends, while that row's above its place
 /// and another's below its own, as rows trading places leave the card as long as it was. Else
@@ -4642,111 +3854,6 @@ fn card_beyond(rows: &[Row], ix: usize, down: bool, room: f32, row: f32) -> f32 
     }
 }
 
-/// The terminal `new` lists under another project than `old` does, if one is.
-fn crossed_cards(old: &[Row], new: &[Row]) -> Option<TerminalId> {
-    let terminals = |rows: &'_ [Row]| -> HashMap<TerminalId, ProjectId> {
-        (rows.iter())
-            .filter_map(|row| match row {
-                Row::Item(Selection::Terminal(project, id)) => Some((*id, project.clone())),
-                _ => None,
-            })
-            .collect()
-    };
-    let was = terminals(old);
-    (terminals(new).into_iter())
-        .find(|(id, project)| was.get(id).is_some_and(|from| from != project))
-        .map(|(id, _)| id)
-}
-
-/// Whether `old` and `new` list the same cards, and the same linked worktrees in them, in
-/// another order.
-fn headings_reordered(old: &[Row], new: &[Row]) -> bool {
-    fn headings(rows: &[Row]) -> Vec<&Selection> {
-        (rows.iter())
-            .filter_map(|row| match row {
-                Row::Item(
-                    heading @ (Selection::Project(_) | Selection::Checkout(_, Checkout::Linked(_))),
-                ) => Some(heading),
-                _ => None,
-            })
-            .collect()
-    }
-    let (old, new) = (headings(old), headings(new));
-    old != new && old.len() == new.len() && old.iter().all(|heading| new.contains(heading))
-}
-
-/// Where the list's `top` in `old` goes in `new`, their rows the same up to `from`: as far
-/// down past `from`, as the rows count their heights ([`span_height`]).
-fn as_deep(
-    old: &[Row],
-    new: &[Row],
-    from: usize,
-    top: ListOffset,
-    theme: &Theme,
-    row: f32,
-) -> ListOffset {
-    let depth =
-        span_height(old, from..top.item_ix, row) + f32::from(top.offset_in_item) / theme.scale;
-    let mut above = 0.;
-    for (ix, item) in new.iter().enumerate().skip(from) {
-        let height = item.height(row);
-        if above + height > depth {
-            return ListOffset {
-                item_ix: ix,
-                offset_in_item: theme.scaled(depth - above),
-            };
-        }
-        above += height;
-    }
-    ListOffset {
-        item_ix: new.len(),
-        offset_in_item: Pixels::ZERO,
-    }
-}
-
-/// Record how each fold one build of the rows went through is now, as `seen` says, and give
-/// those that opened or shut since `record` last had them. One seen for the first time is
-/// recorded as it is. Across the top, the rows of each card drawn and of the selection's tab
-/// are built each frame, each with folds of its own, so the folds a build didn't go through
-/// keep what another recorded.
-fn folds_changed<'a>(
-    record: &mut HashMap<Fold, bool>,
-    seen: &'a [(Fold, bool, Option<usize>)],
-) -> Vec<&'a (Fold, bool, Option<usize>)> {
-    (seen.iter())
-        .filter(|(fold, open, _)| match record.get_mut(fold) {
-            Some(was) if was == open => false,
-            Some(was) => {
-                *was = *open;
-                true
-            }
-            None => {
-                record.insert(fold.clone(), *open);
-                false
-            }
-        })
-        .collect()
-}
-
-/// Whether going from `old` to `new` only lists or unlists checkouts' uncommitted changes, or
-/// the zone for a new branch, which a drag brings before it's a move.
-fn room_came_or_went(old: &[Row], new: &[Row]) -> bool {
-    fn others(rows: &[Row]) -> impl Iterator<Item = &Row> {
-        (rows.iter()).filter(|row| {
-            !matches!(
-                row,
-                Row::Item(Selection::Uncommitted(..)) | Row::NewBranch(_)
-            )
-        })
-    }
-    old.len() != new.len() && others(old).eq(others(new))
-}
-
-fn at_top(list: &ListState) -> bool {
-    let top = list.logical_scroll_top();
-    top.item_ix == 0 && top.offset_in_item == Pixels::ZERO
-}
-
 /// The rows of `rows` that can be selected, in order.
 fn items<'a>(rows: impl IntoIterator<Item = &'a Row>) -> Vec<&'a Selection> {
     (rows.into_iter())
@@ -4755,15 +3862,6 @@ fn items<'a>(rows: impl IntoIterator<Item = &'a Row>) -> Vec<&'a Selection> {
             _ => None,
         })
         .collect()
-}
-
-/// Whether `new` stands where `old` did, to keep it under the pointer: the same row, or the
-/// other side of a fold, as "Show fewer" becomes "N more".
-fn same_place(old: &Row, new: &Row) -> bool {
-    match (old, new) {
-        (Row::Fewer(project, ref_name), Row::More(p, r, _)) => project == p && ref_name == r,
-        _ => old == new,
-    }
 }
 
 /// What ⇧← goes up to from `selection`: a branch in a stack its stack's caption, and a stack,
@@ -5010,45 +4108,12 @@ fn shows_where_it_lands(store: &Store, row: &Row) -> bool {
 
 impl Render for Navigator {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        self.row = Theme::get(cx).sizes.control;
-        self.card_top.set(None);
-        self.next_frame();
-        // A fold that just opened or shut is drawn moving from this frame on.
-        let Rows {
-            rows,
-            insets,
-            guides,
-            moving,
-            first_hit,
-            drawer,
-            ..
-        } = self.rows_now(cx);
-        self.moving = moving;
-        // As the list drew it, before the rows change, which a reorder doesn't do by much.
-        let inset = Theme::get(cx).scaled(LIST_TOP);
-        let last_listed = (self.list.logical_scroll_top().item_ix..self.rows.len())
-            .take_while(|ix| fold::listed(&self.list, inset, *ix))
-            .last();
-        self.sync_list(rows, drawer, window, cx);
-        // After the rows, whose stand-ins are set in and guided as they were drawn.
-        self.insets = insets;
-        self.guides = guides;
-        self.held_card = self.held_card(self.store.read(cx));
-        self.held_worktree = self.held_worktree(self.store.read(cx));
-        self.end_crossing();
-        self.slide_edges = self.reorder.any().then(|| {
-            let first = self.list.logical_scroll_top().item_ix;
-            let below = last_listed.map_or(first, |last| last.saturating_sub(ABOVE_LAST_LISTED));
-            (first, below.max(first))
-        });
-        self.fit_folds(cx);
         // After the rows are up to date, as a reorder of them starts sliding there, and nothing
         // else may draw the next frame, which what waits for the list's height needs too.
-        if self.folds.any() || self.reorder.any() || !self.list_drawn() {
+        if self.prepare(RowsIn::List, window, cx) || !self.list_drawn() {
             window.request_animation_frame();
         }
         let theme = Theme::get(cx).clone();
-        self.first_hit = first_hit;
         let store = self.store.read(cx);
         let empty = store.projects_loaded && store.projects.is_empty();
         let detail_shown = self.detail_shown.get();
@@ -5100,22 +4165,11 @@ impl Render for Navigator {
             .on_drag_move(cx.listener(Self::follow_worktree_drag))
             .on_drag_move(cx.listener(Self::follow_terminal_drag))
             .on_drag_move(cx.listener(Self::follow_dragged))
-            .on_drag_move(cx.listener(|this, event: &DragMoveEvent<Dragged>, _, cx| {
-                this.drag_moved(event.bounds.contains(&event.event.position), cx)
-            }))
-            .on_drag_move(
-                cx.listener(|this, event: &DragMoveEvent<ProjectDrag>, _, cx| {
-                    this.drag_moved(event.bounds.contains(&event.event.position), cx)
-                }),
-            )
-            .on_drag_move(
-                cx.listener(|this, event: &DragMoveEvent<TerminalDrag>, _, cx| {
-                    this.drag_moved(event.bounds.contains(&event.event.position), cx)
-                }),
-            )
-            .on_drag_move(cx.listener(|this, event: &DragMoveEvent<PageDrag>, _, cx| {
-                this.drag_moved(event.bounds.contains(&event.event.position), cx)
-            }))
+            .map(|el| {
+                on_any_drag_move(el, cx, |this, at, bounds, _, cx| {
+                    this.drag_moved(bounds.contains(&at), cx)
+                })
+            })
             // One for each kind of drag: GPUI panics on a second.
             .on_drop(cx.listener(Self::drop_project))
             .on_drop(cx.listener(Self::drop_dragged))
@@ -5128,13 +4182,7 @@ impl Render for Navigator {
                 this.hold_order(*hovered || cx.has_active_drag(), cx);
                 cx.notify();
             }))
-            .on_action(
-                cx.listener(|this, _: &SelectPrevious, window, cx| this.step(-1, window, cx)),
-            )
-            .on_action(cx.listener(|this, _: &SelectNext, window, cx| this.step(1, window, cx)))
-            .on_action(cx.listener(Self::expand))
-            .on_action(cx.listener(Self::collapse))
-            .on_action(cx.listener(Self::toggle_fold))
+            .map(|el| row_actions(el, cx, Navigator::act_on_rows))
             .map(|el| self.key_actions(el, cx))
             .size_full()
             .relative()
@@ -5153,7 +4201,7 @@ impl Render for Navigator {
                 // With no projects, the welcome beside it says what to do.
                 if empty {
                     el
-                } else if self.rows.is_empty() {
+                } else if self.built.rows.is_empty() {
                     el.child(self.drawer(window, &theme, cx))
                 } else {
                     let rows = list(
@@ -5183,24 +4231,7 @@ impl Render for Navigator {
                         // Ending level with the detail's cards, so what scrolls past is cut
                         // where they end.
                         .mb(dp(CARD_GAP))
-                        .on_drag_move(cx.listener(|this, event: &DragMoveEvent<Dragged>, w, cx| {
-                            this.scroll_near_edge(event.event.position, event.bounds, w, cx)
-                        }))
-                        .on_drag_move(cx.listener(
-                            |this, event: &DragMoveEvent<ProjectDrag>, w, cx| {
-                                this.scroll_near_edge(event.event.position, event.bounds, w, cx)
-                            },
-                        ))
-                        .on_drag_move(cx.listener(
-                            |this, event: &DragMoveEvent<TerminalDrag>, w, cx| {
-                                this.scroll_near_edge(event.event.position, event.bounds, w, cx)
-                            },
-                        ))
-                        .on_drag_move(cx.listener(
-                            |this, event: &DragMoveEvent<PageDrag>, w, cx| {
-                                this.scroll_near_edge(event.event.position, event.bounds, w, cx)
-                            },
-                        )),
+                        .map(|el| on_any_drag_move(el, cx, Navigator::scroll_near_edge)),
                     )
                 }
             })
@@ -5211,155 +4242,7 @@ impl Render for Navigator {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
-    use super::{
-        Fold, Row, Step, folds_changed, headings_reordered, past_last_row, room_came_or_went,
-        step_to,
-    };
-    use crate::backend::Checkout;
-    use crate::state::{ProjectId, Selection};
-
-    #[test]
-    fn a_fold_shut_between_builds_of_other_rows_is_a_change() {
-        let id = ProjectId::from("p");
-        let worktree = Fold::Under(Selection::Checkout(id.clone(), Checkout::Main));
-        let project = Fold::Under(Selection::Project(id));
-        let mut record = HashMap::new();
-        // Across the top, a project's card and the selection's worktree tab are built in turn,
-        // each with folds of its own.
-        folds_changed(&mut record, &[(worktree.clone(), true, None)]);
-        folds_changed(&mut record, &[(project.clone(), true, None)]);
-        let shut = [(worktree.clone(), false, None)];
-        let changed = folds_changed(&mut record, &shut);
-        assert!(
-            matches!(changed.as_slice(), [(fold, false, _)] if *fold == worktree),
-            "the worktree's fold shut since its card was last built"
-        );
-        assert!(
-            folds_changed(&mut record, &[(project, true, None)]).is_empty(),
-            "the project's fold is as its card last saw it"
-        );
-    }
-
-    #[test]
-    fn a_fold_seen_for_the_first_time_is_no_change() {
-        let fold = Fold::Under(Selection::Project(ProjectId::from("p")));
-        let mut record = HashMap::new();
-        assert!(
-            folds_changed(&mut record, &[(fold, false, None)]).is_empty(),
-            "a fold that wasn't built before comes as it is"
-        );
-    }
-
-    #[test]
-    fn a_step_down_from_the_last_card_row_lands_on_the_bar() {
-        assert_eq!(
-            step_to(Some(2), 3, Some(3), false, 1),
-            Some(Step::Bar),
-            "the folded drawer's bar comes after the cards' rows"
-        );
-    }
-
-    #[test]
-    fn a_step_down_from_the_folded_bar_stays_put() {
-        assert_eq!(
-            step_to(Some(2), 3, Some(3), true, 1),
-            None,
-            "a held key doesn't open the drawer"
-        );
-    }
-
-    #[test]
-    fn a_step_down_from_the_open_bar_goes_to_its_first_project() {
-        assert_eq!(
-            step_to(Some(2), 5, Some(3), true, 1),
-            Some(Step::Item(3)),
-            "the drawer's rows follow its bar"
-        );
-    }
-
-    #[test]
-    fn a_step_up_from_the_bar_goes_to_the_last_card_row() {
-        assert_eq!(
-            step_to(Some(4), 5, Some(3), true, -1),
-            Some(Step::Item(2)),
-            "from the bar, wherever the selection stayed"
-        );
-    }
-
-    #[test]
-    fn a_step_up_from_the_drawers_first_project_lands_on_the_bar() {
-        assert_eq!(
-            step_to(Some(3), 5, Some(3), false, -1),
-            Some(Step::Bar),
-            "the bar is above the drawer's rows"
-        );
-    }
-
-    #[test]
-    fn a_step_within_the_drawer_counts_the_bar_above_it() {
-        assert_eq!(
-            step_to(Some(3), 5, Some(3), false, 1),
-            Some(Step::Item(4)),
-            "the bar is a stop, not an item"
-        );
-    }
-
-    #[test]
-    fn selecting_the_last_lands_on_the_folded_bar() {
-        assert_eq!(
-            step_to(Some(0), 3, Some(3), false, isize::MAX / 2),
-            Some(Step::Bar),
-            "it's the last stop while the drawer's folded"
-        );
-    }
-
-    #[test]
-    fn selecting_the_last_passes_the_open_bar() {
-        assert_eq!(
-            step_to(Some(0), 5, Some(3), false, isize::MAX / 2),
-            Some(Step::Item(4)),
-            "the drawer's last project is the last stop"
-        );
-    }
-
-    #[test]
-    fn selecting_the_first_leaves_the_bar_for_the_top() {
-        assert_eq!(
-            step_to(Some(2), 3, Some(3), true, isize::MIN / 2),
-            Some(Step::Item(0)),
-            "from the bar too"
-        );
-    }
-
-    #[test]
-    fn without_a_bar_a_step_stops_at_the_last_item() {
-        assert_eq!(
-            step_to(Some(2), 3, None, false, 1),
-            None,
-            "a drawer that can't fold is no stop"
-        );
-    }
-
-    #[test]
-    fn a_bar_that_stopped_being_a_stop_steps_from_the_selection() {
-        assert_eq!(
-            step_to(Some(1), 3, None, true, 1),
-            Some(Step::Item(2)),
-            "the filter took the bar away before the rows were drawn"
-        );
-    }
-
-    #[test]
-    fn from_off_the_list_a_step_back_starts_at_the_bottom() {
-        assert_eq!(
-            step_to(None, 3, None, false, -1),
-            Some(Step::Item(2)),
-            "and forward, at the top"
-        );
-        assert_eq!(step_to(None, 3, None, false, 1), Some(Step::Item(0)));
-    }
+    use super::past_last_row;
 
     #[test]
     fn a_card_moving_whole_keeps_its_edge_on_its_last_row() {
@@ -5403,87 +4286,6 @@ mod tests {
             past_last_row([28., 0.].into_iter(), 28.),
             0.,
             "the card shrinks as the rows close up"
-        );
-    }
-
-    #[test]
-    fn a_drag_s_zone_coming_or_going_makes_room_as_changes_do() {
-        let id = ProjectId::from("a");
-        let card = || Row::Item(Selection::Project(id.clone()));
-        let worktree = || {
-            Row::Item(Selection::Checkout(
-                id.clone(),
-                Checkout::Linked("x".into()),
-            ))
-        };
-        let zone = || Row::NewBranch(id.clone());
-        let at_rest = [card(), worktree()];
-        let dragging = [card(), zone(), worktree()];
-        assert!(
-            room_came_or_went(&at_rest, &dragging),
-            "the rows under the zone slide down as a drag starts"
-        );
-        assert!(
-            room_came_or_went(&dragging, &at_rest),
-            "and back up as it ends"
-        );
-        assert!(
-            !room_came_or_went(&at_rest, &[worktree(), zone(), card()]),
-            "the zone coming as the rows reorder is a reorder"
-        );
-    }
-
-    #[test]
-    fn cards_or_worktrees_trading_places_are_a_reorder() {
-        let (a, b) = (ProjectId::from("a"), ProjectId::from("b"));
-        let card = |id: &ProjectId| Row::Item(Selection::Project(id.clone()));
-        let worktree = |name: &str| {
-            Row::Item(Selection::Checkout(
-                a.clone(),
-                Checkout::Linked(name.into()),
-            ))
-        };
-        let commit = || Row::Item(Selection::Uncommitted(a.clone(), Checkout::Main));
-        let listed = [
-            card(&a),
-            worktree("x"),
-            commit(),
-            worktree("y"),
-            Row::Gap,
-            card(&b),
-        ];
-        let swapped = [
-            card(&a),
-            worktree("y"),
-            worktree("x"),
-            commit(),
-            Row::Gap,
-            card(&b),
-        ];
-        assert!(
-            headings_reordered(&listed, &swapped),
-            "worktrees trading places keep the list where it is, as cards do"
-        );
-        let cards = [
-            card(&b),
-            Row::Gap,
-            card(&a),
-            worktree("x"),
-            commit(),
-            worktree("y"),
-        ];
-        assert!(
-            headings_reordered(&listed, &cards),
-            "and cards trading places"
-        );
-        let gone = [card(&a), worktree("y"), Row::Gap, card(&b)];
-        assert!(
-            !headings_reordered(&listed, &gone),
-            "a worktree going is no reorder"
-        );
-        assert!(
-            !headings_reordered(&listed, &listed),
-            "nor rows that stay in order"
         );
     }
 }

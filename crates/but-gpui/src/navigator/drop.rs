@@ -16,7 +16,9 @@ use super::rows::{CARD_EDGE, Row, card_ends, heads, span_height};
 use crate::backend::{Checkout, CommitId, Destination, FullName, Messages};
 use crate::state::{ProjectId, Section, Selection};
 use crate::theme::{Hue, Theme};
-use crate::transfer::{Changes, Dragged, Move, Moving, Op, Place, Stop, Target};
+use crate::transfer::{
+    Changes, Dragged, Move, Moving, Op, PageDrag, Place, ProjectDrag, Stop, Target, TerminalDrag,
+};
 use crate::ui::{Icon, dp, h_flex, small_icon};
 
 /// Where the pointer aims what's dragged: `depth` down rows `row` tall.
@@ -24,6 +26,37 @@ use crate::ui::{Icon, dp, h_flex, small_icon};
 struct Aim {
     depth: f32,
     row: f32,
+}
+
+/// Have `el` follow each kind of drag the navigator's rows take as it moves: rows, projects,
+/// terminals and pages, with where the pointer is and `el`'s bounds. GPUI counts nothing as
+/// hovered while dragging, so this is how the list and the card under a tab know what's
+/// dragged is over them, and a kind of drag added here reaches both.
+pub(super) fn on_any_drag_move<E: InteractiveElement, V: 'static>(
+    el: E,
+    cx: &mut Context<V>,
+    moved: fn(&mut V, Point<Pixels>, Bounds<Pixels>, &mut Window, &mut Context<V>),
+) -> E {
+    el.on_drag_move(
+        cx.listener(move |this, event: &DragMoveEvent<Dragged>, window, cx| {
+            moved(this, event.event.position, event.bounds, window, cx)
+        }),
+    )
+    .on_drag_move(cx.listener(
+        move |this, event: &DragMoveEvent<ProjectDrag>, window, cx| {
+            moved(this, event.event.position, event.bounds, window, cx)
+        },
+    ))
+    .on_drag_move(cx.listener(
+        move |this, event: &DragMoveEvent<TerminalDrag>, window, cx| {
+            moved(this, event.event.position, event.bounds, window, cx)
+        },
+    ))
+    .on_drag_move(
+        cx.listener(move |this, event: &DragMoveEvent<PageDrag>, window, cx| {
+            moved(this, event.event.position, event.bounds, window, cx)
+        }),
+    )
 }
 
 impl Navigator {
@@ -125,7 +158,7 @@ impl Navigator {
             depth,
             row: self.row,
         };
-        let (at, op) = match drag_zone(&self.rows, &project, &what, aim, takes) {
+        let (at, op) = match drag_zone(&self.built.rows, &project, &what, aim, takes) {
             Some(landing) => landing,
             None => self.dragged_from(&project, &what, cx)?,
         };
@@ -166,25 +199,30 @@ impl Navigator {
         let moving = (store.moving.as_ref())
             .filter(|moving| moving.dragged(store) && moving.lands(store))?;
         // A branch joining a stack has it outlined, and the line too where it goes into it.
-        if self.squash_outline.is_some() && !joins_stack(&self.rows, moving) {
+        if self.squash_outline.is_some() && !joins_stack(&self.built.rows, moving) {
             return None;
         }
-        let line = divider_at(&self.rows, &moving.project, &moving.at)?;
+        let line = divider_at(&self.built.rows, &moving.project, &moving.at)?;
         let (ix, above) = (line.row, line.place == Place::Above);
-        let inset = self.insets.get(line.inset_of).copied().unwrap_or_default();
+        let inset = self
+            .built
+            .insets
+            .get(line.inset_of)
+            .copied()
+            .unwrap_or_default();
         // In the card under a tab, from the top of its rows, all of which are drawn.
         let (edge, (left, right)) = match self.card_top.get() {
             Some(_) => {
                 let rows = 0..ix + usize::from(!above);
                 (
-                    theme.scaled(span_height(&self.rows, rows, self.row)),
+                    theme.scaled(span_height(&self.built.rows, rows, self.row)),
                     (0., 0.),
                 )
             }
             None => {
                 let row = self.list.bounds_for_item(ix)?;
                 // A card's first and last rows hold its edge, which the line stays inside.
-                let (first, last) = card_ends(&self.rows, ix);
+                let (first, last) = card_ends(&self.built.rows, ix);
                 let edge = match above {
                     true if first => row.top() + theme.scaled(CARD_EDGE),
                     true => row.top(),

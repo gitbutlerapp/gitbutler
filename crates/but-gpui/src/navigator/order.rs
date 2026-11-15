@@ -303,8 +303,8 @@ impl Navigator {
             .then(|| self.depth_at(at, Theme::get(cx)))
             .flatten();
         let slot = depth.map(|depth| {
-            let cards: Vec<(&ProjectId, f32)> = (cards(&self.rows).into_iter())
-                .map(|(id, span)| (id, span_height(&self.rows, span, self.row)))
+            let cards: Vec<(&ProjectId, f32)> = (cards(&self.built.rows).into_iter())
+                .map(|(id, span)| (id, span_height(&self.built.rows, span, self.row)))
                 .collect();
             nearest_slot(&cards, &dragged, depth)
         });
@@ -403,7 +403,7 @@ impl Navigator {
             .then(|| self.depth_at(at, Theme::get(cx)))
             .flatten();
         let slot = (depth.zip(order)).and_then(|(depth, order)| {
-            worktree_slot(&self.rows, project, name, &order, depth, self.row)
+            worktree_slot(&self.built.rows, project, name, &order, depth, self.row)
         });
         self.hold_worktree(project, name.as_ref(), slot, cx);
     }
@@ -472,7 +472,7 @@ impl Navigator {
         }
         let stop = self.depth_at(at, Theme::get(cx)).and_then(|depth| {
             let lists = self.listed_terminals(self.store.read(cx));
-            terminal_slot(&self.rows, id, &lists, depth, self.row)
+            terminal_slot(&self.built.rows, id, &lists, depth, self.row)
         });
         if stop.is_some() {
             self.hold_terminal(&project, id, stop, cx);
@@ -504,7 +504,7 @@ impl Navigator {
             None => {}
         }
         let held = self.held_project.as_ref()?;
-        (cards(&self.rows).into_iter())
+        (cards(&self.built.rows).into_iter())
             .find(|(id, _)| *id == held)
             .map(|(_, span)| span)
     }
@@ -522,10 +522,10 @@ impl Navigator {
             None => {}
         }
         let (project, name) = self.held_worktree_name.as_ref()?;
-        let heading = (self.rows.iter()).position(
+        let heading = (self.built.rows.iter()).position(
             |row| matches!(row, Row::Item(Selection::Checkout(p, Checkout::Linked(n))) if p == project && n == name),
         )?;
-        Some(heading..worktree_end(&self.rows, heading))
+        Some(heading..worktree_end(&self.built.rows, heading))
     }
 
     /// How far down the cards' rows `at` is, from the top of the first, as the rows count
@@ -536,7 +536,7 @@ impl Navigator {
             return Some(f32::from(at.y - top) / theme.scale);
         }
         let list = &self.list;
-        let mut drawn = (list.logical_scroll_top().item_ix..self.rows.len())
+        let mut drawn = (list.logical_scroll_top().item_ix..self.built.rows.len())
             .map_while(|ix| Some((ix, list.bounds_for_item(ix)?)));
         let (mut ix, mut bounds) = drawn.next()?;
         for (next, next_bounds) in drawn {
@@ -545,7 +545,7 @@ impl Navigator {
             }
             (ix, bounds) = (next, next_bounds);
         }
-        let above = span_height(&self.rows, 0..ix, self.row);
+        let above = span_height(&self.built.rows, 0..ix, self.row);
         Some(above + f32::from(at.y - bounds.top()) / theme.scale)
     }
 }
