@@ -1154,15 +1154,22 @@ impl NavigatorTabs {
     }
 
     /// Do what a key does to the rows of the card the keys are on, as the navigator does to its
-    /// own, and scroll to where a step lands. A step goes nowhere while a project or a worktree
-    /// is being moved, which goes along the tabs ([`Self::step`]).
+    /// own, and scroll to where the keys go. A step of one row goes nowhere while a project or a
+    /// worktree is being moved, which goes along the tabs ([`Self::step`]).
     fn act_on_card_rows(&mut self, action: RowAction, window: &mut Window, cx: &mut Context<Self>) {
         let Some(key) = self.keyed.clone() else {
             return;
         };
-        let stepping = matches!(action, RowAction::Step(_));
+        let going = match action {
+            RowAction::Step(_) | RowAction::Pick(_) | RowAction::Section { .. } => true,
+            RowAction::Expand
+            | RowAction::Collapse
+            | RowAction::ToggleFold
+            | RowAction::Confirm => false,
+        };
         match key {
-            _ if stepping && moving_tab(self.store.read(cx)).is_some() => {}
+            _ if matches!(action, RowAction::Step(-1 | 1))
+                && moving_tab(self.store.read(cx)).is_some() => {}
             // The overview's rows take the keys themselves, down from the tab, which is the top.
             TabKey::Terminals if matches!(action, RowAction::Step(1..)) => {
                 window.focus(&self.terminals.focus_handle(cx), cx)
@@ -1175,7 +1182,7 @@ impl NavigatorTabs {
                         navigator.selected_card_row(cx)
                     })
                 });
-                if let Some((row, card)) = row.filter(|_| stepping).zip(self.card.as_ref()) {
+                if let Some((row, card)) = row.filter(|_| going).zip(self.card.as_ref()) {
                     card.pane.scroll.scroll_to_item(row);
                 }
             }

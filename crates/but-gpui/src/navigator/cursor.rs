@@ -4,7 +4,10 @@
 use gpui::{App, Context, InteractiveElement, Window};
 
 use super::rows::{Fold, Moving, Row};
-use super::{CARD_MARGIN, ClickOpened, DRAWER_CHROME, Navigator, items, parent, tabs};
+use super::{
+    CARD_MARGIN, ClickOpened, DRAWER_CHROME, Navigator, NextSection, PickNext, PickPrevious,
+    PreviousSection, SelectFirst, SelectLast, items, parent, tabs,
+};
 use crate::app::{Collapse, Confirm, Expand, SelectNext, SelectPrevious, ToggleFold};
 use crate::backend::Checkout;
 use crate::state::{ProjectId, Section, Selection};
@@ -25,14 +28,23 @@ pub(super) enum Step {
 /// [`row_actions`].
 #[derive(Clone, Copy)]
 pub(super) enum RowAction {
+    /// By `delta` rows, or to the first or the last with a step past either end.
     Step(isize),
+    /// To the commit before or after, picking it.
+    Pick(isize),
+    /// To the next section's heading, or the one before.
+    Section {
+        forward: bool,
+    },
     Expand,
     Collapse,
     ToggleFold,
+    Confirm,
 }
 
-/// Have `el` take the keys that step and fold the rows, each going to `act` with what it does,
-/// so the list and the card under a tab take the same ones.
+/// Have `el` take the keys that go through the rows and fold them, each going to `act` with
+/// what it does, so the list and the card under a tab take the same ones, and the card works on
+/// its own rows with every one of them.
 pub(super) fn row_actions<E: InteractiveElement, V: 'static>(
     el: E,
     cx: &mut Context<V>,
@@ -55,6 +67,29 @@ pub(super) fn row_actions<E: InteractiveElement, V: 'static>(
     .on_action(cx.listener(move |this, _: &ToggleFold, window, cx| {
         act(this, RowAction::ToggleFold, window, cx)
     }))
+    .on_action(cx.listener(move |this, _: &SelectFirst, window, cx| {
+        act(this, RowAction::Step(isize::MIN / 2), window, cx)
+    }))
+    .on_action(cx.listener(move |this, _: &SelectLast, window, cx| {
+        act(this, RowAction::Step(isize::MAX / 2), window, cx)
+    }))
+    .on_action(cx.listener(move |this, _: &PickPrevious, window, cx| {
+        act(this, RowAction::Pick(-1), window, cx)
+    }))
+    .on_action(
+        cx.listener(move |this, _: &PickNext, window, cx| {
+            act(this, RowAction::Pick(1), window, cx)
+        }),
+    )
+    .on_action(cx.listener(move |this, _: &PreviousSection, window, cx| {
+        act(this, RowAction::Section { forward: false }, window, cx)
+    }))
+    .on_action(cx.listener(move |this, _: &NextSection, window, cx| {
+        act(this, RowAction::Section { forward: true }, window, cx)
+    }))
+    .on_action(
+        cx.listener(move |this, _: &Confirm, window, cx| act(this, RowAction::Confirm, window, cx)),
+    )
 }
 
 /// Where a step of `delta` goes from item `at` of `items`, or from the drawer's bar while
@@ -62,7 +97,8 @@ pub(super) fn row_actions<E: InteractiveElement, V: 'static>(
 /// step forward starts at the top and one back at the bottom. Past an end it's `None`, rather
 /// than picking the row again, which would take its page back to how it opens on every repeat
 /// of a held key. Under a `tab`, off the list is on the tab, the top, so from there it's down
-/// into the rows only, and up from the first row goes back to it.
+/// into the rows only, and a step up from the first row goes back to it, though not one to the
+/// first row, which is there already.
 pub(super) fn step_to(
     at: Option<usize>,
     items: usize,
@@ -80,7 +116,7 @@ pub(super) fn step_to(
         (None, None) if tab && !on_bar => return None,
         (None, None) => stops,
     };
-    if tab && from == 0 && delta < 0 {
+    if tab && from == 0 && delta == -1 {
         return Some(Step::Tab);
     }
     let next = (from + delta).clamp(0, stops - 1);
@@ -105,9 +141,12 @@ impl Navigator {
     ) {
         match action {
             RowAction::Step(delta) => self.step(delta, window, cx),
+            RowAction::Pick(delta) => self.pick_step(delta, window, cx),
+            RowAction::Section { forward } => self.jump_section(forward, window, cx),
             RowAction::Expand => self.expand(&Expand, window, cx),
             RowAction::Collapse => self.collapse(&Collapse, window, cx),
             RowAction::ToggleFold => self.toggle_fold(&ToggleFold, window, cx),
+            RowAction::Confirm => self.confirm(&Confirm, window, cx),
         }
     }
 
@@ -664,6 +703,15 @@ mod tests {
             step_to(None, 3, None, true, -1, true),
             Some(Step::Item(2)),
             "on the drawer's bar the keys are in the card, though nothing's selected there"
+        );
+    }
+
+    #[test]
+    fn selecting_the_first_under_a_tab_from_its_first_row_stays_put() {
+        assert_eq!(
+            step_to(Some(0), 3, None, false, isize::MIN / 2, true),
+            None,
+            "Home goes to the first row, not past it onto the tab"
         );
     }
 

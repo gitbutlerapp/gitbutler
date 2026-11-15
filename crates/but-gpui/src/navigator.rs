@@ -1176,8 +1176,8 @@ impl Navigator {
         })
     }
 
-    /// What the rows' keys do besides step and fold, there being a row for them to act on, for
-    /// the rows here and in the card under a tab alike.
+    /// What the rows' keys do besides going through them and folding them ([`row_actions`]):
+    /// moving and squashing what's selected, and the filter.
     pub(super) fn key_actions<E>(&self, el: E, cx: &mut Context<Self>) -> E
     where
         E: InteractiveElement + gpui::prelude::FluentBuilder,
@@ -1216,29 +1216,12 @@ impl Navigator {
         // Commits or a branch being moved squash instead, and being squashed, move instead;
         // files only squash.
         let moves_commits = (store.moving.as_ref()).is_some_and(Move::of_commits);
-        el.on_action(
-            cx.listener(|this, _: &SelectFirst, window, cx| this.step(isize::MIN / 2, window, cx)),
-        )
-        .on_action(
-            cx.listener(|this, _: &SelectLast, window, cx| this.step(isize::MAX / 2, window, cx)),
-        )
-        .on_action(cx.listener(|this, _: &PickPrevious, window, cx| this.pick_step(-1, window, cx)))
-        .on_action(cx.listener(|this, _: &PickNext, window, cx| this.pick_step(1, window, cx)))
-        .on_action(
-            cx.listener(|this, _: &PreviousSection, window, cx| {
-                this.jump_section(false, window, cx)
-            }),
-        )
-        .on_action(
-            cx.listener(|this, _: &NextSection, window, cx| this.jump_section(true, window, cx)),
-        )
-        .on_action(cx.listener(|this, _: &FocusFilter, window, cx| {
+        el.on_action(cx.listener(|this, _: &FocusFilter, window, cx| {
             this.filter
                 .update(cx, |input, cx| input.select_all_text(cx));
             window.focus(&this.filter.focus_handle(cx), cx);
             cx.notify();
         }))
-        .on_action(cx.listener(Self::confirm))
         .when((movable && !moving) || (squashing && moves_commits), |el| {
             el.on_action(cx.listener(Self::start_move))
         })
