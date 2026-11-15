@@ -69,32 +69,20 @@ impl Subcommands {
             Subcommands::Help { .. } => Help,
             Subcommands::Onboarding => Onboarding,
             Subcommands::Setup { .. } => Setup,
-            #[cfg(feature = "legacy")]
             Subcommands::Init(_) => Init,
             Subcommands::AgentLog { .. } => AgentLog,
-            #[cfg(feature = "legacy")]
             Subcommands::Actions(_) => Actions,
-            #[cfg(feature = "legacy")]
             Subcommands::Status { .. } => Status,
-            #[cfg(feature = "legacy")]
             Subcommands::Tui { .. } => Tui,
-            #[cfg(feature = "legacy")]
             Subcommands::Diff(..) => Diff,
-            #[cfg(feature = "legacy")]
             Subcommands::Show { .. } => Show,
-            #[cfg(feature = "legacy")]
             Subcommands::Pull { .. } => Pull,
-            #[cfg(feature = "legacy")]
             Subcommands::Fetch => Pull,
             Subcommands::Branch(branch::Platform { cmd }) => match cmd {
                 None => BranchList,
-                #[cfg(feature = "legacy")]
                 Some(branch::Subcommands::List { .. }) => BranchList,
-                #[cfg(feature = "legacy")]
                 Some(branch::Subcommands::New { .. }) => BranchNew,
-                #[cfg(feature = "legacy")]
                 Some(branch::Subcommands::Delete { .. }) => BranchDelete,
-                #[cfg(feature = "legacy")]
                 Some(branch::Subcommands::Show { .. }) => BranchShow,
                 Some(branch::Subcommands::Update { .. }) => BranchUpdate,
                 Some(branch::Subcommands::Move { .. }) => BranchMove,
@@ -107,37 +95,25 @@ impl Subcommands {
                 Some(worktree::Subcommands::New { .. }) => WorktreeNew,
                 Some(worktree::Subcommands::Recycle) => WorktreeRecycle,
             },
-            #[cfg(feature = "legacy")]
             Subcommands::Unapply { .. } => BranchUnapply,
-            #[cfg(feature = "legacy")]
             Subcommands::Apply { .. } => BranchApply,
-            #[cfg(feature = "legacy")]
             Subcommands::Switch(..) => Switch,
             Subcommands::Gui { .. } => Gui,
             #[cfg(feature = "nightly")]
             Subcommands::_Open { .. } => Open,
-            #[cfg(feature = "legacy")]
             Subcommands::Commit(..) => Commit,
-            #[cfg(feature = "legacy")]
             Subcommands::Push(_) => Push,
-            #[cfg(feature = "legacy")]
             Subcommands::Reword { .. } | Subcommands::_Reword2(..) => Reword,
-            #[cfg(feature = "legacy")]
             Subcommands::Oplog(crate::args::oplog::Platform { cmd }) => match cmd {
                 None => OplogList,
                 Some(crate::args::oplog::Subcommands::List { .. }) => OplogList,
                 Some(crate::args::oplog::Subcommands::Snapshot { .. }) => OplogSnapshot,
                 Some(crate::args::oplog::Subcommands::Restore { .. }) => Restore,
             },
-            #[cfg(feature = "legacy")]
             Subcommands::Undo(..) => Undo,
-            #[cfg(feature = "legacy")]
             Subcommands::Redo(..) => Redo,
-            #[cfg(feature = "legacy")]
             Subcommands::Absorb { .. } => Absorb,
-            #[cfg(feature = "legacy")]
             Subcommands::Discard(..) => Discard,
-            #[cfg(feature = "legacy")]
             Subcommands::Pr(forge::pr::Platform { cmd, .. }) => match cmd {
                 None | Some(forge::pr::Subcommands::New { .. }) => PrNew,
                 Some(forge::pr::Subcommands::Template { .. }) => PrTemplate,
@@ -151,7 +127,6 @@ impl Subcommands {
                 Some(forge::pr::Subcommands::SetDraft { .. }) => SetReviewDraft,
                 Some(forge::pr::Subcommands::SetReady { .. }) => SetReviewReady,
             },
-            #[cfg(feature = "legacy")]
             Subcommands::Teardown { .. } => Teardown,
             Subcommands::Config(config::Platform { cmd }) => match cmd {
                 Some(config::Subcommands::Forge {
@@ -178,24 +153,15 @@ impl Subcommands {
                 #[cfg(all(unix, not(feature = "packaged-but-distribution")))]
                 update::Subcommands::Install { .. } => UpdateInstall,
             },
-            #[cfg(feature = "legacy")]
             Subcommands::RefreshRemoteData { .. } => RefreshRemoteData,
-            #[cfg(feature = "legacy")]
             Subcommands::Resolve { .. } => Resolve,
-            #[cfg(feature = "legacy")]
             Subcommands::Uncommit { .. } => Uncommit,
-            #[cfg(feature = "legacy")]
             Subcommands::Amend(..) => Amend,
-            #[cfg(feature = "legacy")]
             Subcommands::Squash(..) => Squash,
-            #[cfg(feature = "legacy")]
             Subcommands::Move(..) => Move,
-            #[cfg(feature = "legacy")]
             Subcommands::Split(..) => Split,
-            #[cfg(feature = "legacy")]
             // Preserve the original event name for metrics continuity, including the `land` alias.
             Subcommands::Merge { .. } => Land,
-            #[cfg(feature = "legacy")]
             Subcommands::Pick(..) => Pick,
             Subcommands::Skill(skill::Platform { cmd, .. }) => match cmd {
                 Some(skill::Subcommands::Install { .. }) => SkillInstall,
@@ -208,7 +174,6 @@ impl Subcommands {
                 Some(agent::Subcommands::Uninstall) => AgentUninstall,
             },
             Subcommands::Edit { .. } => Edit,
-            #[cfg(feature = "legacy")]
             Subcommands::Clean { .. } => Clean,
             Subcommands::External(_) => External,
         }
@@ -219,13 +184,11 @@ impl Subcommands {
     /// `sourceKind` and `targetKind` describe the kind a command expects, not a
     /// resolved runtime ID.
     pub(crate) fn to_metrics_extra_props(&self) -> Vec<(String, serde_json::Value)> {
-        #[cfg(feature = "legacy")]
         use crate::args::commit;
         use crate::args::skill;
 
         let mut props = Vec::new();
         match self {
-            #[cfg(feature = "legacy")]
             Subcommands::Commit(commit::Platform {
                 branch,
                 empty,
@@ -254,21 +217,17 @@ impl Subcommands {
                 push_prop(&mut props, "targetMode", target_mode);
                 push_prop(&mut props, "selectionMode", selection_mode);
             }
-            #[cfg(feature = "legacy")]
             Subcommands::Uncommit(..) => {
                 push_prop(&mut props, "sourceKind", "commitOrCommittedFile");
             }
-            #[cfg(feature = "legacy")]
             Subcommands::Amend(..) => {
                 push_prop(&mut props, "sourceKind", "fileOrHunk");
                 push_prop(&mut props, "targetKind", "commitOrBranch");
             }
-            #[cfg(feature = "legacy")]
             Subcommands::Squash(..) => {
                 push_prop(&mut props, "sourceKind", "commitOrBranch");
                 push_prop(&mut props, "targetKind", "commit");
             }
-            #[cfg(feature = "legacy")]
             Subcommands::Move(..) => {
                 push_prop(&mut props, "sourceKind", "commitOrBranch");
                 push_prop(&mut props, "targetKind", "commitOrBranchOrUnassigned");
@@ -365,7 +324,6 @@ fn command_outcome_props(outcome: &CommandOutcome) -> Vec<(String, serde_json::V
                 *manual_instructions_required,
             );
         }
-        #[cfg(feature = "legacy")]
         CommandOutcome::Commit(outcome) => {
             use crate::command::legacy::commit::BranchNameTarget;
 
@@ -489,10 +447,7 @@ impl Props {
     }
 
     fn insert_internal_error_details(&mut self, error: &anyhow::Error) {
-        #[cfg(feature = "legacy")]
         let is_explained_rejection = error.is::<crate::utils::rejection::ExplainedRejection>();
-        #[cfg(not(feature = "legacy"))]
-        let is_explained_rejection = false;
         if is_explained_rejection {
             self.insert("error", "Command rejection");
             self.insert("errorKind", "commandRejection");

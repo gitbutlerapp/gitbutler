@@ -93,7 +93,6 @@ mod tests {
     use super::*;
 
     #[test]
-    #[cfg(feature = "legacy")] // only works when these commands are implemented.
     fn is_known_subcommand_() {
         assert!(is_known_subcommand("status"));
         assert!(is_known_subcommand("commit"));

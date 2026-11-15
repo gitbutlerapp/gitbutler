@@ -3,84 +3,52 @@
 //! Ideally they *show* the initial state, and the *post* state, to validate the commands actually do what they claim.
 //! **Only** test the *happy path* of a typical user journey, while keeping details in unit tests with private module access.
 
-#[cfg(feature = "legacy")]
 mod absorb;
 mod agent;
 mod alias;
-#[cfg(feature = "legacy")]
 mod amend;
-#[cfg(feature = "legacy")]
 mod branch;
-#[cfg(feature = "legacy")]
 mod clean;
-#[cfg(feature = "legacy")]
 mod comment;
-#[cfg(feature = "legacy")]
 mod commit;
 mod config;
-#[cfg(feature = "legacy")]
 mod diff;
-#[cfg(feature = "legacy")]
 mod discard;
-#[cfg(feature = "legacy")]
 #[cfg(feature = "nightly")]
 mod expand;
 #[cfg(unix)]
 mod external;
-#[cfg(feature = "legacy")]
 mod filters;
 mod format;
 mod gui;
 mod help;
-#[cfg(feature = "legacy")]
 mod init;
-#[cfg(feature = "legacy")]
 mod merge;
-#[cfg(feature = "legacy")]
 mod r#move;
 mod onboarding;
-#[cfg(feature = "legacy")]
 #[cfg(feature = "nightly")]
 mod open;
-#[cfg(feature = "legacy")]
 mod path_spellings;
-#[cfg(feature = "legacy")]
 mod pick;
-#[cfg(feature = "legacy")]
 mod pr;
-#[cfg(feature = "legacy")]
 mod pull;
-#[cfg(feature = "legacy")]
 mod push;
-#[cfg(feature = "legacy")]
 mod resolve;
-#[cfg(feature = "legacy")]
 mod reword;
-#[cfg(feature = "legacy")]
 mod reword2;
-#[cfg(feature = "legacy")]
 mod sha256;
 mod skill;
-#[cfg(feature = "legacy")]
 mod split;
-#[cfg(feature = "legacy")]
 mod squash;
-#[cfg(feature = "legacy")]
 mod status;
-#[cfg(feature = "legacy")]
 mod switch;
-#[cfg(feature = "legacy")]
 mod teardown;
 #[cfg(feature = "nightly")]
 #[cfg(unix)]
 mod ui;
-#[cfg(feature = "legacy")]
 mod uncommit;
-#[cfg(feature = "legacy")]
 mod undo;
-#[cfg(feature = "legacy")]
 mod worktree;
-#[cfg(feature = "legacy")]
 mod util {
     use crate::utils::{CommandExt as _, Sandbox};
 

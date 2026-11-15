@@ -69,7 +69,6 @@ fn json_mode_is_silent_but_marks_complete() {
 
 // Branches made from origin/main, like with `git worktree add -b <name> <path> origin/main`, track
 // it too, but main is named as the branch on the remote, so it's the one to migrate to.
-#[cfg(feature = "legacy")]
 #[test]
 fn migration_to_local_target_ref_picks_tracking_branch_named_as_on_remote() {
     let env = Sandbox::open_with_default_settings("single-branch-mode");
@@ -100,7 +99,6 @@ Hint: run `but branch new` to create a new branch to work on
 "#]]);
 }
 
-#[cfg(feature = "legacy")]
 #[test]
 fn migration_from_virtual_branches_toml_picks_tracking_branch_named_as_on_remote() {
     let env = Sandbox::open_with_default_settings("single-branch-mode");
@@ -141,13 +139,11 @@ Hint: run `but branch new` to create a new branch to work on
 
 /// Make `trunk` and `agent-worktree` track `origin/main`, so none of the branches tracking it is
 /// named as the branch on the remote.
-#[cfg(feature = "legacy")]
 fn tracking_branches_not_named_as_on_remote(env: &Sandbox) {
     env.invoke_git("branch -m main trunk");
     env.invoke_git("branch --track agent-worktree origin/main");
 }
 
-#[cfg(feature = "legacy")]
 #[test]
 fn migration_to_local_target_ref_with_multiple_tracking_branches() {
     let env = Sandbox::open_with_default_settings("single-branch-mode");
@@ -188,7 +184,6 @@ Hint: run `but branch new` to create a new branch to work on
 "#]]);
 }
 
-#[cfg(feature = "legacy")]
 #[test]
 fn migration_from_virtual_branches_toml_with_multiple_tracking_branches() {
     let env = Sandbox::open_with_default_settings("single-branch-mode");
@@ -234,7 +229,6 @@ Hint: run `but branch new` to create a new branch to work on
 }
 
 /// Make a local `4.7` that tracks `mycompany/4.7`, so no local branch tracks `origin/4.7`.
-#[cfg(feature = "legacy")]
 fn local_branch_tracking_another_remote(env: &Sandbox) {
     env.invoke_git("branch -m main 4.7");
     env.invoke_git("update-ref refs/remotes/origin/4.7 refs/heads/4.7");
@@ -245,7 +239,6 @@ fn local_branch_tracking_another_remote(env: &Sandbox) {
 }
 
 // regression test for https://github.com/gitbutlerapp/gitbutler/pull/16437#issuecomment-6340526957
-#[cfg(feature = "legacy")]
 #[test]
 fn migration_to_local_target_ref_without_tracking_branch() {
     let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
@@ -326,7 +319,6 @@ Hint: run `but branch new` to create a new branch to work on
 "#]]);
 }
 
-#[cfg(feature = "legacy")]
 #[test]
 fn migration_from_virtual_branches_toml_without_tracking_branch() {
     let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
@@ -389,7 +381,6 @@ Hint: run `but branch new` to create a new branch to work on
 // pulls coming from the project, as they did before the migration.
 //
 // regression test for the fork follow-up to https://github.com/gitbutlerapp/gitbutler/pull/16437#issuecomment-6340526957
-#[cfg(feature = "legacy")]
 #[test]
 fn migration_with_local_branch_tracking_fork_hints_to_track_legacy_target() {
     let env = Sandbox::open_with_default_settings("single-branch-mode");
@@ -483,7 +474,6 @@ To undo this operation:
 
 // An older GitButler stored the target origin/main for a main pushed without `-u`, so nothing
 // tracks it. main is named as it and tracks nothing else, so it's made to track it.
-#[cfg(feature = "legacy")]
 #[test]
 fn migration_makes_untracked_branch_named_as_legacy_target_track_it() {
     let env = Sandbox::open_with_default_settings("single-branch-mode");
@@ -517,7 +507,6 @@ Hint: run `but branch new` to create a new branch to work on
     );
 }
 
-#[cfg(feature = "legacy")]
 #[test]
 fn migration_creates_missing_branch_named_as_legacy_target() {
     let env = Sandbox::open_with_default_settings("single-branch-mode");
@@ -552,7 +541,6 @@ Hint: run `but help` for all commands
 }
 
 // main tracking a local branch has an upstream that no refspec maps, which is still an upstream.
-#[cfg(feature = "legacy")]
 #[test]
 fn migration_leaves_branch_tracking_a_local_branch_alone() {
     // a legacy target a remote fetches, and one no remote fetches
@@ -607,7 +595,6 @@ Hint: Choose a local target branch with `but config target <branch>`
 
 // An older GitButler gave a repository without a remote a gb-local remote with only a URL, and
 // the target gb-local/main. That remote fetches nothing, so main becomes the target itself.
-#[cfg(feature = "legacy")]
 #[test]
 fn migration_of_gb_local_target_picks_branch_named_as_it() {
     let env = Sandbox::open_with_default_settings("repo-no-remote");

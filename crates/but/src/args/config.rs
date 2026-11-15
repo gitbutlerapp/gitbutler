@@ -486,7 +486,6 @@ pub enum ForgeSubcommand {
     ///
     /// This is an opt-in GitHub private-preview feature. The setting is stored in the
     /// repository-local Git config and shared with the GitButler desktop application.
-    #[cfg(feature = "legacy")]
     GithubStacks {
         /// Enable, disable, or auto-detect native GitHub stacked pull requests.
         #[clap(value_enum)]
@@ -495,7 +494,6 @@ pub enum ForgeSubcommand {
 }
 
 /// Values for the native GitHub stacks project setting.
-#[cfg(feature = "legacy")]
 #[derive(Debug, Clone, Copy, clap::ValueEnum)]
 pub enum GitHubStacksStatus {
     /// Use native stacks when the repository supports them (the default).

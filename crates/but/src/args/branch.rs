@@ -1,4 +1,3 @@
-#[cfg(feature = "legacy")]
 use crate::args::atoms::{AllowMergedArg, BranchArg, CliIdArg};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum, Default)]
@@ -24,13 +23,11 @@ pub struct Platform {
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     New(NewPlatform),
 
     /// Delete branches and their commits from the workspace, or local branches that aren't applied
     ///
-    #[cfg(feature = "legacy")]
     #[clap(short_flag = 'd')]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Delete {
@@ -61,7 +58,6 @@ pub enum Subcommands {
     /// of the base branch. You can disable this with `--no-ahead` to
     /// make the command faster.
     ///
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     List {
         /// Filter branches by name (case-insensitive substring match)
@@ -100,7 +96,6 @@ pub enum Subcommands {
     /// an AI summary of the branch changes, and check if the branch
     /// merges cleanly into upstream.
     ///
-    #[cfg(feature = "legacy")]
     Show {
         /// CLI ID or name of the branch to show
         branch: CliIdArg,
@@ -155,7 +150,6 @@ pub enum Subcommands {
 /// branch in the workspace, which is refused when run from a linked worktree.
 ///
 /// For more details about CLI IDs, see `but help cli-ids`.
-#[cfg(feature = "legacy")]
 #[derive(Debug, clap::Parser)]
 #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
 pub struct NewPlatform {

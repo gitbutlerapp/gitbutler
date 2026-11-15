@@ -114,7 +114,6 @@ Error: Failed to initialize Git repository at .
     );
 }
 
-#[cfg(feature = "legacy")]
 #[test]
 fn broken_git_path_is_reported_without_suggesting_init() {
     let dangling_file = Sandbox::empty();
@@ -147,7 +146,7 @@ fn broken_git_path_is_reported_without_suggesting_init() {
     }
 }
 
-#[cfg(all(feature = "legacy", unix))]
+#[cfg(unix)]
 #[test]
 fn deleted_directory_is_reported_without_suggesting_init() {
     let env = Sandbox::empty();

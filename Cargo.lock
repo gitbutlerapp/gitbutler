@@ -1185,7 +1185,6 @@ dependencies = [
  "but-update",
  "but-utils",
  "but-workspace",
- "cfg-if",
  "chrono",
  "clap",
  "clap_complete",

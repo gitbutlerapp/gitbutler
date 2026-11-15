@@ -265,7 +265,7 @@ jobs:
       matrix:
         include:
           # quality.but.dev runs this only on master, so pull requests still get it here. The
-          # main test run and `make test-modern-but` are on quality.but.dev.
+          # main test run is on quality.but.dev.
           - name: without nightly
             run: cargo nextest run --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --profile ci
     name: rust-test-variants (${{ matrix.name }})

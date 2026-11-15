@@ -214,7 +214,6 @@ impl BranchArg {
     /// Try to resolve the branch to a stack that exists in the workspace.
     ///
     /// Returns `None` if the branch can't be found which might be caused it not being applied.
-    #[cfg(feature = "legacy")]
     pub fn try_resolve_stack(
         &self,
         ctx: &but_ctx::Context,
@@ -231,7 +230,6 @@ impl BranchArg {
     /// This preserves exact-name behavior while restoring the removed alias that lets a bare branch
     /// name map to a unique remote-tracking branch. When multiple remotes provide the same branch
     /// identity, the original input is preserved so the shared apply command keeps its current error.
-    #[cfg(feature = "legacy")]
     pub fn resolve_legacy_top_level_apply_branch_name(
         &self,
         repo: &gix::Repository,

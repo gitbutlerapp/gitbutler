@@ -10,7 +10,6 @@ pub(super) fn relative_agent_skill_path(agent_dir: &str) -> std::path::PathBuf {
         .join("gitbutler")
 }
 
-#[cfg(feature = "legacy")]
 fn disable_agent_skill_notices(env: &Sandbox) {
     let settings_path = env.app_data_dir().join("gitbutler/settings.json");
     let mut settings: serde_json::Value = serde_json::from_str(
@@ -190,7 +189,6 @@ fn agent_skill_notice_gating() {
 }
 
 #[test]
-#[cfg(feature = "legacy")]
 fn agent_skill_notices_can_be_disabled_in_persisted_settings() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
@@ -440,7 +438,6 @@ fn agent_skill_notice_repairs_another_agents_stale_global_skill() {
 }
 
 #[test]
-#[cfg(feature = "legacy")]
 fn json_agent_command_repairs_stale_global_skill_without_wrapping_stdout() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);

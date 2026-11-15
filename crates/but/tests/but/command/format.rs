@@ -11,40 +11,36 @@ fn json_flag_can_be_placed_before_or_after_subcommand() {
 
     env.but("completions --help --json").assert().success();
 
-    #[cfg(feature = "legacy")]
-    {
-        use snapbox::str;
+    use snapbox::str;
 
-        use crate::utils::CommandExt;
-        // Test with actual commands that need a repo (they'll fail but should accept the flag)
-        // Before subcommand
-        env.but("--json status")
-            .allow_json()
-            .assert()
-            .failure()
-            .stderr_eq(str![[r#"
+    use crate::utils::CommandExt;
+    // Test with actual commands that need a repo (they'll fail but should accept the flag)
+    // Before subcommand
+    env.but("--json status")
+        .allow_json()
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
 Error: No git repository found at .git
 
 Hint: Run `but init` to initialize a Git repository.
 
 "#]]);
 
-        // After subcommand
-        env.but("status --json")
-            .allow_json()
-            .assert()
-            .failure()
-            .stderr_eq(str![[r#"
+    // After subcommand
+    env.but("status --json")
+        .allow_json()
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
 Error: No git repository found at .git
 
 Hint: Run `but init` to initialize a Git repository.
 
 "#]]);
-    }
 }
 
 #[test]
-#[cfg(feature = "legacy")]
 fn default_command_respects_c_flag_for_setup_checks() {
     let env = Sandbox::empty();
     env.invoke_bash("git init repo");
@@ -64,7 +60,6 @@ Hint: run `but commit` to create the initial commit
 }
 
 #[test]
-#[cfg(feature = "legacy")]
 fn default_alias_can_provide_c_flag_for_implicit_default_command() {
     let env = Sandbox::empty();
     env.invoke_bash(
@@ -90,7 +85,6 @@ Hint: run `but commit` to create the initial commit
 }
 
 #[test]
-#[cfg(feature = "legacy")]
 fn explicit_c_flag_overrides_default_alias_c_flag() {
     let env = Sandbox::empty();
     env.invoke_bash(

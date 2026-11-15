@@ -16,7 +16,6 @@ pub enum Subcommands {
     ///
     /// You can use `but oplog restore <oplog-sha>` to restore to a specific state.
     ///
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     List {
         /// Start from this oplog SHA instead of the head
@@ -34,7 +33,6 @@ pub enum Subcommands {
     ///
     /// You can provide an optional message to describe the snapshot.
     ///
-    #[cfg(feature = "legacy")]
     Snapshot {
         /// Message to include with the snapshot
         #[clap(short = 'm', long = "message")]
@@ -49,7 +47,6 @@ pub enum Subcommands {
     /// You need to provide the SHA of the oplog entry you want to restore to,
     /// which you can find by running `but oplog` or `but oplog list`.
     ///
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Restore {
         /// Oplog SHA to restore to

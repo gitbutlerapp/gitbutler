@@ -1,6 +1,5 @@
 use crate::utils::Sandbox;
 
-#[cfg(feature = "legacy")]
 use snapbox::str;
 
 #[test]
@@ -66,7 +65,6 @@ Error: Local Git configuration requires a git repository
 "#]]);
 }
 
-#[cfg(feature = "legacy")]
 #[test]
 fn can_invoke_alias() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
@@ -84,7 +82,6 @@ active  ✓ *A          26y ago    author
         .stderr_eq(str![[]]);
 }
 
-#[cfg(feature = "legacy")]
 #[test]
 fn can_invoke_alias_with_root_flags() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
@@ -111,7 +108,6 @@ fn can_invoke_alias_with_root_flags() {
     );
 }
 
-#[cfg(feature = "legacy")]
 #[test]
 fn can_invoke_alias_with_root_flags_with_args() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
@@ -136,7 +132,6 @@ active  ✓ *A          26y ago    author
 }
 
 #[cfg(unix)]
-#[cfg(feature = "legacy")]
 #[test]
 /// We allow aliases to shadow external commands. This is mostly for the sake of simplicity. There's
 /// no particular security concern with this as aliases can only be defined in trusted files, so
@@ -183,7 +178,6 @@ active  ✓ *A          26y ago    author
 }
 
 #[cfg(unix)]
-#[cfg(feature = "legacy")]
 #[test]
 fn alias_expansion_failure_falls_back_to_original_args() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
@@ -208,7 +202,6 @@ For more information, try '--help'.
 }
 
 #[cfg(unix)]
-#[cfg(feature = "legacy")]
 #[test]
 /// `but alias add branch help` rejects aliases that conflict with known commands, but a user
 /// can still write such an alias into git config directly. Known subcommands must not expand!

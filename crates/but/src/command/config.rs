@@ -1,7 +1,6 @@
 use std::fmt::{Display, Write};
 
 use anyhow::{Context as _, Result};
-#[cfg(feature = "legacy")]
 use but_core::{GitConfigSettings, GitHubStackingMode};
 use but_core::{
     RepositoryExt,
@@ -20,11 +19,9 @@ use but_settings::{
     AppSettingsWithDiskSync,
     api::{FeatureFlagsUpdate, TelemetryUpdate},
 };
-use cfg_if::cfg_if;
 use serde::Serialize;
 
 use super::git_config::edit_git_config;
-#[cfg(feature = "legacy")]
 use crate::args::config::GitHubStacksStatus;
 use crate::{
     CliResult,
@@ -88,7 +85,6 @@ pub async fn exec(
             push_remote,
         }) => target_config(ctx, out, branch, push_remote).await?,
         Some(Subcommands::PushRemote { remote }) => push_remote_config(ctx, out, remote)?,
-        #[cfg(feature = "legacy")]
         Some(Subcommands::Forge {
             cmd: Some(ForgeSubcommand::GithubStacks { status }),
         }) => github_stacks_config(ctx, out, status)?,
@@ -139,15 +135,10 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
         get_user_config_info(&config)
     };
 
-    cfg_if! {
-        if #[cfg(feature = "legacy")] {
-            let mut guard = ctx.exclusive_worktree_access();
-            let target_branch = but_api::legacy::virtual_branches::get_base_branch_data(ctx, guard.write_permission())?
-                                    .map(|b| b.branch_name);
-        } else {
-            let target_branch = None::<String>;
-        }
-    };
+    let mut guard = ctx.exclusive_worktree_access();
+    let target_branch =
+        but_api::legacy::virtual_branches::get_base_branch_data(ctx, guard.write_permission())?
+            .map(|b| b.branch_name);
 
     let known_accounts = but_api::github::list_known_github_accounts()?;
     let forge_accounts: Vec<ForgeAccountInfo> = known_accounts
@@ -598,7 +589,6 @@ pub(crate) async fn forge_config(
         Some(ForgeSubcommand::Auth) => forge_auth(out).await?,
         Some(ForgeSubcommand::ListUsers) => forge_show_overview(out).await?,
         Some(ForgeSubcommand::Forget { username }) => forge_forget(username, out).await?,
-        #[cfg(feature = "legacy")]
         Some(ForgeSubcommand::GithubStacks { .. }) => {
             return Err(
                 anyhow::anyhow!("GitHub stacks configuration requires a repository").into(),
@@ -609,7 +599,6 @@ pub(crate) async fn forge_config(
     Ok(())
 }
 
-#[cfg(feature = "legacy")]
 pub(crate) fn github_stacks_config(
     ctx: &mut Context,
     out: &mut OutputChannel,
@@ -1767,62 +1756,59 @@ async fn target_config(
     let t = theme::get();
     match branch {
         None => {
-            #[cfg(feature = "legacy")]
-            {
-                let target = {
-                    let mut guard = ctx.exclusive_worktree_access();
-                    but_api::legacy::virtual_branches::get_base_branch_data(
-                        ctx,
-                        guard.write_permission(),
-                    )?
-                };
+            let target = {
+                let mut guard = ctx.exclusive_worktree_access();
+                but_api::legacy::virtual_branches::get_base_branch_data(
+                    ctx,
+                    guard.write_permission(),
+                )?
+            };
 
-                if let Some(target_branch) = target {
-                    if let Some(out) = out.for_human() {
-                        writeln!(out, "{}", t.hint.paint("Used to determine common base to calculate commits unique to each branch (not yet integrated)\n"))?;
-                        writeln!(out, "{}:", t.important.paint("Target Branch"))?;
-                        writeln!(
-                            out,
-                            "\n  {}",
-                            t.config_value.paint(&target_branch.branch_name)
-                        )?;
-                        writeln!(out)?;
-                        if let Some(remote_url) = &target_branch.remote_url {
-                            writeln!(out, "  {}: {}", t.hint.paint("Remote"), remote_url)?;
-                        }
-                        writeln!(
-                            out,
-                            "  {}:    {}",
-                            t.hint.paint("SHA"),
-                            target_branch.base_sha
-                        )?;
-                        writeln!(
+            if let Some(target_branch) = target {
+                if let Some(out) = out.for_human() {
+                    writeln!(out, "{}", t.hint.paint("Used to determine common base to calculate commits unique to each branch (not yet integrated)\n"))?;
+                    writeln!(out, "{}:", t.important.paint("Target Branch"))?;
+                    writeln!(
+                        out,
+                        "\n  {}",
+                        t.config_value.paint(&target_branch.branch_name)
+                    )?;
+                    writeln!(out)?;
+                    if let Some(remote_url) = &target_branch.remote_url {
+                        writeln!(out, "  {}: {}", t.hint.paint("Remote"), remote_url)?;
+                    }
+                    writeln!(
+                        out,
+                        "  {}:    {}",
+                        t.hint.paint("SHA"),
+                        target_branch.base_sha
+                    )?;
+                    writeln!(
                             out,
                             "\n{}",
                             t.hint.paint(
                                 "New commits on the remote arrive via `but pull` — the target setting is not what makes the workspace current."
                             )
                         )?;
-                        writeln!(
-                            out,
-                            "{}:",
-                            t.hint
-                                .paint("To point the workspace at a different branch entirely")
-                        )?;
-                        writeln!(
-                            out,
-                            "  {}",
-                            t.command_suggestion
-                                .paint("but config target <branch_name>")
-                        )?;
-                    } else if let Some(out) = out.for_json() {
-                        out.write_value(serde_json::json!({
-                            "branch": target_branch.branch_name,
-                            "remote_url": target_branch.remote_url,
-                            "sha": target_branch.base_sha.to_string(),
-                        }))?;
-                    } // View current target
-                }
+                    writeln!(
+                        out,
+                        "{}:",
+                        t.hint
+                            .paint("To point the workspace at a different branch entirely")
+                    )?;
+                    writeln!(
+                        out,
+                        "  {}",
+                        t.command_suggestion
+                            .paint("but config target <branch_name>")
+                    )?;
+                } else if let Some(out) = out.for_json() {
+                    out.write_value(serde_json::json!({
+                        "branch": target_branch.branch_name,
+                        "remote_url": target_branch.remote_url,
+                        "sha": target_branch.base_sha.to_string(),
+                    }))?;
+                } // View current target
             }
         }
         Some(new_branch) => {

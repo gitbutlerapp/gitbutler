@@ -1,7 +1,6 @@
 use crate::utils::{CommandExt as _, Sandbox};
 use snapbox::str;
 
-#[cfg(feature = "legacy")]
 #[test]
 fn github_stacks_configuration_is_repository_local() {
     let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
@@ -65,7 +64,6 @@ They are used when the repository is enrolled in GitHub's stacked pull requests 
     );
 }
 
-#[cfg(feature = "legacy")]
 #[test]
 fn github_stacks_configuration_requires_a_repository() {
     Sandbox::empty()
@@ -80,7 +78,6 @@ Hint: Run `but init` to initialize a Git repository.
 "#]]);
 }
 
-#[cfg(feature = "legacy")]
 #[test]
 fn target_configures_distinct_push_remote_for_fork() {
     let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
@@ -104,7 +101,6 @@ fn target_configures_distinct_push_remote_for_fork() {
 }
 
 // regression test for https://linear.app/gitbutler/issue/GB-2242
-#[cfg(feature = "legacy")]
 #[test]
 fn target_remote_shorthand_without_tracking_branch_hints_to_track_it() {
     let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
@@ -141,7 +137,6 @@ Hint: Make a local branch track upstream/main with `git branch --set-upstream-to
 }
 
 // regression test for https://linear.app/gitbutler/issue/GB-2244
-#[cfg(feature = "legacy")]
 #[test]
 fn target_remote_shorthand_without_namesake_creates_it_tracking_that_remote() {
     let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
@@ -171,7 +166,6 @@ Hint: Run `but config target <remote>/<branch>` to configure one
     env.but("status").assert().success();
 }
 
-#[cfg(feature = "legacy")]
 #[test]
 fn target_remote_head_without_tracking_branch_hints_to_choose_one() {
     let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
@@ -189,7 +183,6 @@ Hint: Choose a local target branch with `but config target <branch>`
 "#]]);
 }
 
-#[cfg(feature = "legacy")]
 #[test]
 fn target_accepts_local_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
@@ -205,7 +198,6 @@ fn target_accepts_local_branch() {
 // cutoff to its unpublished commit. Choosing it again makes it track origin/main, as
 // `git branch --set-upstream-to=origin/main main` would, with the cutoff back on origin/main, so
 // pulls don't take the unpublished commit for integrated.
-#[cfg(feature = "legacy")]
 #[test]
 fn target_untracked_local_branch_tracks_remote_branch_named_as_it() {
     let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
@@ -228,7 +220,6 @@ fn target_untracked_local_branch_tracks_remote_branch_named_as_it() {
     );
 }
 
-#[cfg(feature = "legacy")]
 #[test]
 fn target_prefers_local_branch_over_remote_shorthand() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
@@ -241,7 +232,6 @@ fn target_prefers_local_branch_over_remote_shorthand() {
     );
 }
 
-#[cfg(feature = "legacy")]
 #[test]
 fn target_accepts_qualified_remote_despite_local_name_collision() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");

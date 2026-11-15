@@ -829,14 +829,11 @@ impl ForgeRepository {
         let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
         let remote_url = project_meta.target_remote_url(&repo)?;
-        #[cfg(feature = "legacy")]
         let override_forge = ctx
             .legacy_project
             .forge_override
             .as_deref()
             .and_then(but_forge::ForgeName::from_override_str);
-        #[cfg(not(feature = "legacy"))]
-        let override_forge = None;
         let repository = but_forge::derive_forge_repo_info(&remote_url, override_forge.clone())
             .context("Could not determine a supported forge for this repository")?;
         let accounts = but_forge::get_all_forge_accounts()
@@ -845,10 +842,7 @@ impl ForgeRepository {
         let display = but_forge::forge_info(&remote_url, &accounts, override_forge)
             .context("Could not determine forge display information")?;
         let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
-        #[cfg(feature = "legacy")]
         let preferred_user = ctx.legacy_project.preferred_forge_user.clone();
-        #[cfg(not(feature = "legacy"))]
-        let preferred_user = None;
 
         Ok(Self {
             preferred_user,
