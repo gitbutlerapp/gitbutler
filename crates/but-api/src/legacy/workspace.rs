@@ -13,7 +13,6 @@ use but_rebase::{
     },
 };
 use but_workspace::commit_engine;
-use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oplog::{
     OplogExt, SnapshotExt,
     entry::{OperationKind, SnapshotDetails},
@@ -128,9 +127,9 @@ fn handle_gerrit(
     for commit in branch.commits.iter_mut() {
         let change_id = repo
             .find_commit(commit.id)
-            .map_err(anyhow::Error::from)
-            .and_then(|c| c.change_id().ok_or(anyhow::anyhow!("no change-id")));
-        if let Ok(change_id) = change_id
+            .ok()
+            .and_then(|c| but_core::Commit::try_from(c).ok()?.headers()?.change_id);
+        if let Some(change_id) = change_id
             && let Some(meta) = db.get(&change_id.to_string())?
         {
             commit.gerrit_review_url = Some(meta.review_url.clone());

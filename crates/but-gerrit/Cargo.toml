@@ -17,7 +17,6 @@ but-core.workspace = true
 but-db.workspace = true
 but-ctx.workspace = true
 
-gitbutler-commit.workspace = true
 
 anyhow.workspace = true
 bstr.workspace = true

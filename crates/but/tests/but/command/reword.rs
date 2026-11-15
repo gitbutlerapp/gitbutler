@@ -1,4 +1,3 @@
-use gitbutler_commit::commit_ext::CommitMessageBstr as _;
 use snapbox::str;
 
 use super::util::add_worktree_with_commit;
@@ -234,7 +233,8 @@ Updated commit message for [..]
             .object()
             .unwrap()
             .into_commit()
-            .message_bstr(),
+            .message_raw()
+            .unwrap(),
         "First line\n\n\tSecond paragraph with details"
     );
 }

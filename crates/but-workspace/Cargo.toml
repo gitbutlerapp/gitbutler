@@ -74,9 +74,6 @@ but-askpass.workspace = true
 # `detailed_graph_workspace` rows to box-drawing in tests.
 sapling-renderdag.workspace = true
 snapbox.workspace = true
-# for stable hashes in `gitbuter-` crates while we use them.
-# TODO: remove once `gitbutler-repo` isn't needed anymore.
-gitbutler-commit = { workspace = true, features = ["testing"] }
 gitbutler-reference.workspace = true
 chrono.workspace = true
 

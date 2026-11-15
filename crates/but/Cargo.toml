@@ -31,7 +31,6 @@ legacy = [
     "dep:but-hunk-dependency",
     "dep:but-gerrit",
     "dep:gitbutler-project",
-    "dep:gitbutler-commit",
     "dep:gitbutler-branch",
     "dep:gitbutler-branch-actions",
     "dep:gitbutler-oplog",
@@ -85,7 +84,6 @@ but-action = { workspace = true, optional = true }
 but-hunk-assignment.workspace = true
 but-gerrit = { workspace = true, optional = true }
 gitbutler-project = { workspace = true, optional = true }
-gitbutler-commit = { workspace = true, optional = true }
 gitbutler-branch = { workspace = true, optional = true }
 gitbutler-branch-actions = { workspace = true, optional = true }
 gitbutler-oplog = { workspace = true, optional = true }

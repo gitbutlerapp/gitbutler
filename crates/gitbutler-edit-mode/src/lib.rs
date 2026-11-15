@@ -15,7 +15,6 @@ use but_ctx::{
 use but_oxidize::{ObjectIdExt as _, gix_to_git2_index};
 use but_rebase::graph_rebase::{Editor, Pick};
 use git2::build::CheckoutBuilder;
-use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr};
 use gitbutler_operating_modes::{
     EDIT_BRANCH_REF, EditModeMetadata, INTEGRATION_BRANCH_REF, OperatingMode, WORKSPACE_BRANCH_REF,
     delete_edit_mode_metadata, operating_mode, read_edit_mode_metadata, write_edit_mode_metadata,
@@ -28,9 +27,9 @@ pub mod commands;
 
 const UNCOMMITTED_CHANGES_REF: &str = "refs/gitbutler/edit-uncommitted-changes";
 
-fn commit_title_to_merge_conflict_label(commit: &gix::Commit<'_>) -> String {
-    gix::objs::commit::MessageRef::from_bytes(
-        but_core::commit::strip_conflict_markers(commit.message_bstr()).as_ref(),
+fn commit_title_to_merge_conflict_label(commit: &gix::Commit<'_>) -> Result<String> {
+    Ok(gix::objs::commit::MessageRef::from_bytes(
+        but_core::commit::strip_conflict_markers(commit.message_raw()?).as_ref(),
     )
     .title
     // For some reason, the title sometimes contains newlines at the end, so trim it.
@@ -38,7 +37,7 @@ fn commit_title_to_merge_conflict_label(commit: &gix::Commit<'_>) -> String {
     .to_str_lossy()
     .chars()
     .take(80)
-    .collect()
+    .collect())
 }
 
 /// Returns an index of the tree of `commit` if it is unconflicted, *or* produce a merged tree
@@ -89,13 +88,13 @@ fn find_or_create_base_commit(
     commit_id: gix::ObjectId,
 ) -> Result<gix::ObjectId> {
     let commit = repo.find_commit(commit_id)?;
+    let but_commit = but_core::Commit::try_from(commit.clone())?;
 
-    if !commit.is_conflicted() {
+    if !but_commit.is_conflicted() {
         return Ok(commit_id);
     };
 
-    let base_tree = but_core::Commit::try_from(commit.clone())?
-        .tree_id_or_kind(but_core::commit::TreeKind::Ours)?;
+    let base_tree = but_commit.tree_id_or_kind(but_core::commit::TreeKind::Ours)?;
 
     let concrete_commit = gix::objs::Commit::try_from(commit.decode()?)?;
     let extra_headers: Vec<(BString, BString)> = Headers::try_from_commit(&concrete_commit)
@@ -165,13 +164,13 @@ fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
     // TODO this may not be necessary if the commit is unconflicted
     let mut index = get_commit_index(ctx, commit_id)?;
 
-    let their_commit_msg = commit_title_to_merge_conflict_label(&commit);
+    let their_commit_msg = commit_title_to_merge_conflict_label(&commit)?;
     let their_label = format!("Current commit: {their_commit_msg}");
 
     let commit_parent_id = base_commit.parent_ids().next();
     let our_label = if let Some(commit_parent_id) = commit_parent_id {
         let our_commit_msg =
-            commit_title_to_merge_conflict_label(&commit_parent_id.object()?.try_into_commit()?);
+            commit_title_to_merge_conflict_label(&commit_parent_id.object()?.try_into_commit()?)?;
         format!("New base: {our_commit_msg}")
     } else {
         "New base: (no commit)".to_string()
@@ -451,8 +450,9 @@ pub(crate) fn starting_index_state(
 
     let repo = &*ctx.repo.get()?;
     let commit = repo.find_commit(metadata.commit_oid)?;
-    let commit_parent_tree = if commit.is_conflicted() {
-        but_core::Commit::try_from(commit.clone())?
+    let but_commit = but_core::Commit::try_from(commit.clone())?;
+    let commit_parent_tree = if but_commit.is_conflicted() {
+        but_commit
             .tree_id_or_kind(but_core::commit::TreeKind::Base)?
             .detach()
     } else {
