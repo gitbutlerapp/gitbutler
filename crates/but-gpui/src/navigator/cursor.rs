@@ -92,34 +92,39 @@ pub(super) fn row_actions<E: InteractiveElement, V: 'static>(
     )
 }
 
-/// Where a step of `delta` goes from item `at` of `items`, or from the drawer's bar while
-/// `on_bar`, with `bar` how many items are above the bar, if it's a stop. From off the list, a
+/// What a step of the keys stops on besides the items ([`step_to`]).
+#[derive(Clone, Copy, Default)]
+pub(super) struct Stops {
+    /// The drawer's bar, after this many items, while it's a stop.
+    pub(super) bar: Option<usize>,
+    /// The keys are on the drawer's bar.
+    pub(super) on_bar: bool,
+    /// Across the top, the tab the rows hang from, above them.
+    pub(super) tab: bool,
+}
+
+/// Where a step of `delta` goes from item `at` of `items`, or from what else `stops` has the keys
+/// on. From off the list, a
 /// step forward starts at the top and one back at the bottom. Past an end it's `None`, rather
 /// than picking the row again, which would take its page back to how it opens on every repeat
-/// of a held key. Under a `tab`, off the list is on the tab, the top, so from there it's down
+/// of a held key. Under a tab, off the list is on the tab, the top, so from there it's down
 /// into the rows only, and a step up from the first row goes back to it, though not one to the
 /// first row, which is there already.
-pub(super) fn step_to(
-    at: Option<usize>,
-    items: usize,
-    bar: Option<usize>,
-    on_bar: bool,
-    delta: isize,
-    tab: bool,
-) -> Option<Step> {
-    let stops = (items + usize::from(bar.is_some())) as isize;
+pub(super) fn step_to(at: Option<usize>, items: usize, stops: Stops, delta: isize) -> Option<Step> {
+    let Stops { bar, on_bar, tab } = stops;
+    let count = (items + usize::from(bar.is_some())) as isize;
     let from = match (bar.filter(|_| on_bar), at) {
         (Some(bar), _) => bar as isize,
         (None, Some(ix)) if bar.is_some_and(|bar| ix >= bar) => ix as isize + 1,
         (None, Some(ix)) => ix as isize,
         (None, None) if delta > 0 => -1,
         (None, None) if tab && !on_bar => return None,
-        (None, None) => stops,
+        (None, None) => count,
     };
     if tab && from == 0 && delta == -1 {
         return Some(Step::Tab);
     }
-    let next = (from + delta).clamp(0, stops - 1);
+    let next = (from + delta).clamp(0, count - 1);
     if next == from {
         return None;
     }
@@ -175,7 +180,16 @@ impl Navigator {
                 .len(),
         });
         let tab = self.scope.is_some();
-        let next = match step_to(at, items.len(), bar, self.on_drawer_bar, delta, tab) {
+        let next = match step_to(
+            at,
+            items.len(),
+            Stops {
+                bar,
+                on_bar: self.on_drawer_bar,
+                tab,
+            },
+            delta,
+        ) {
             Some(Step::Bar) => return self.enter_drawer_bar(cx),
             // The projects not watched and the terminals have nothing for their tab to select.
             Some(Step::Tab) => match self.scope.as_ref().and_then(tabs::TabKey::selection) {
@@ -307,7 +321,7 @@ impl Navigator {
         let at = (store.selection.as_ref())
             .and_then(|s| projects.iter().position(|project| *project == s.project()));
         let delta = if forward { 1 } else { -1 };
-        let Some(Step::Item(next)) = step_to(at, projects.len(), None, false, delta, false) else {
+        let Some(Step::Item(next)) = step_to(at, projects.len(), Stops::default(), delta) else {
             return false;
         };
         let Some(next) = projects.get(next).map(|project| (*project).clone()) else {
@@ -572,12 +586,43 @@ impl Navigator {
 
 #[cfg(test)]
 mod tests {
-    use super::{Step, step_to};
+    use super::{Step, Stops, step_to};
+
+    const PLAIN: Stops = Stops {
+        bar: None,
+        on_bar: false,
+        tab: false,
+    };
+    const UNDER_TAB: Stops = Stops { tab: true, ..PLAIN };
+
+    /// The drawer's bar after `items` items, a stop.
+    fn bar(items: usize) -> Stops {
+        Stops {
+            bar: Some(items),
+            ..PLAIN
+        }
+    }
+
+    /// The drawer's bar after `items` items, with the keys on it.
+    fn on_bar(items: usize) -> Stops {
+        Stops {
+            on_bar: true,
+            ..bar(items)
+        }
+    }
 
     #[test]
     fn a_bar_that_stopped_being_a_stop_steps_from_the_selection() {
         assert_eq!(
-            step_to(Some(1), 3, None, true, 1, false),
+            step_to(
+                Some(1),
+                3,
+                Stops {
+                    on_bar: true,
+                    ..PLAIN
+                },
+                1
+            ),
             Some(Step::Item(2)),
             "the filter took the bar away before the rows were drawn"
         );
@@ -586,7 +631,7 @@ mod tests {
     #[test]
     fn a_step_down_from_the_folded_bar_stays_put() {
         assert_eq!(
-            step_to(Some(2), 3, Some(3), true, 1, false),
+            step_to(Some(2), 3, on_bar(3), 1),
             None,
             "a held key doesn't open the drawer"
         );
@@ -595,7 +640,7 @@ mod tests {
     #[test]
     fn a_step_down_from_the_last_card_row_lands_on_the_bar() {
         assert_eq!(
-            step_to(Some(2), 3, Some(3), false, 1, false),
+            step_to(Some(2), 3, bar(3), 1),
             Some(Step::Bar),
             "the folded drawer's bar comes after the cards' rows"
         );
@@ -604,7 +649,7 @@ mod tests {
     #[test]
     fn a_step_down_from_the_open_bar_goes_to_its_first_project() {
         assert_eq!(
-            step_to(Some(2), 5, Some(3), true, 1, false),
+            step_to(Some(2), 5, on_bar(3), 1),
             Some(Step::Item(3)),
             "the drawer's rows follow its bar"
         );
@@ -613,7 +658,7 @@ mod tests {
     #[test]
     fn a_step_up_from_the_bar_goes_to_the_last_card_row() {
         assert_eq!(
-            step_to(Some(4), 5, Some(3), true, -1, false),
+            step_to(Some(4), 5, on_bar(3), -1),
             Some(Step::Item(2)),
             "from the bar, wherever the selection stayed"
         );
@@ -622,7 +667,7 @@ mod tests {
     #[test]
     fn a_step_up_from_the_drawers_first_project_lands_on_the_bar() {
         assert_eq!(
-            step_to(Some(3), 5, Some(3), false, -1, false),
+            step_to(Some(3), 5, bar(3), -1),
             Some(Step::Bar),
             "the bar is above the drawer's rows"
         );
@@ -631,7 +676,7 @@ mod tests {
     #[test]
     fn a_step_within_the_drawer_counts_the_bar_above_it() {
         assert_eq!(
-            step_to(Some(3), 5, Some(3), false, 1, false),
+            step_to(Some(3), 5, bar(3), 1),
             Some(Step::Item(4)),
             "the bar is a stop, not an item"
         );
@@ -639,13 +684,13 @@ mod tests {
 
     #[test]
     fn down_from_a_tab_goes_into_its_first_row() {
-        assert_eq!(step_to(None, 3, None, false, 1, true), Some(Step::Item(0)));
+        assert_eq!(step_to(None, 3, UNDER_TAB, 1), Some(Step::Item(0)));
     }
 
     #[test]
     fn down_from_the_last_row_under_a_tab_stays_put() {
         assert_eq!(
-            step_to(Some(2), 3, None, false, 1, true),
+            step_to(Some(2), 3, UNDER_TAB, 1),
             None,
             "the card's rows end there, as the navigator's do"
         );
@@ -654,17 +699,17 @@ mod tests {
     #[test]
     fn from_off_the_list_a_step_back_starts_at_the_bottom() {
         assert_eq!(
-            step_to(None, 3, None, false, -1, false),
+            step_to(None, 3, PLAIN, -1),
             Some(Step::Item(2)),
             "and forward, at the top"
         );
-        assert_eq!(step_to(None, 3, None, false, 1, false), Some(Step::Item(0)));
+        assert_eq!(step_to(None, 3, PLAIN, 1), Some(Step::Item(0)));
     }
 
     #[test]
     fn selecting_the_first_leaves_the_bar_for_the_top() {
         assert_eq!(
-            step_to(Some(2), 3, Some(3), true, isize::MIN / 2, false),
+            step_to(Some(2), 3, on_bar(3), isize::MIN / 2),
             Some(Step::Item(0)),
             "from the bar too"
         );
@@ -673,7 +718,7 @@ mod tests {
     #[test]
     fn selecting_the_last_lands_on_the_folded_bar() {
         assert_eq!(
-            step_to(Some(0), 3, Some(3), false, isize::MAX / 2, false),
+            step_to(Some(0), 3, bar(3), isize::MAX / 2),
             Some(Step::Bar),
             "it's the last stop while the drawer's folded"
         );
@@ -682,7 +727,7 @@ mod tests {
     #[test]
     fn selecting_the_last_passes_the_open_bar() {
         assert_eq!(
-            step_to(Some(0), 5, Some(3), false, isize::MAX / 2, false),
+            step_to(Some(0), 5, bar(3), isize::MAX / 2),
             Some(Step::Item(4)),
             "the drawer's last project is the last stop"
         );
@@ -691,7 +736,7 @@ mod tests {
     #[test]
     fn up_from_a_tab_stays_on_it() {
         assert_eq!(
-            step_to(None, 3, None, false, -1, true),
+            step_to(None, 3, UNDER_TAB, -1),
             None,
             "the tab is the top, so the keys don't go round to the card's last row"
         );
@@ -700,7 +745,15 @@ mod tests {
     #[test]
     fn up_from_the_drawers_bar_under_a_tab_stays_in_the_card() {
         assert_eq!(
-            step_to(None, 3, None, true, -1, true),
+            step_to(
+                None,
+                3,
+                Stops {
+                    on_bar: true,
+                    ..UNDER_TAB
+                },
+                -1
+            ),
             Some(Step::Item(2)),
             "on the drawer's bar the keys are in the card, though nothing's selected there"
         );
@@ -709,7 +762,7 @@ mod tests {
     #[test]
     fn selecting_the_first_under_a_tab_from_its_first_row_stays_put() {
         assert_eq!(
-            step_to(Some(0), 3, None, false, isize::MIN / 2, true),
+            step_to(Some(0), 3, UNDER_TAB, isize::MIN / 2),
             None,
             "Home goes to the first row, not past it onto the tab"
         );
@@ -717,13 +770,13 @@ mod tests {
 
     #[test]
     fn up_off_the_first_row_under_a_tab_goes_to_the_tab() {
-        assert_eq!(step_to(Some(0), 3, None, false, -1, true), Some(Step::Tab));
+        assert_eq!(step_to(Some(0), 3, UNDER_TAB, -1), Some(Step::Tab));
     }
 
     #[test]
     fn without_a_bar_a_step_stops_at_the_last_item() {
         assert_eq!(
-            step_to(Some(2), 3, None, false, 1, false),
+            step_to(Some(2), 3, PLAIN, 1),
             None,
             "a drawer that can't fold is no stop"
         );

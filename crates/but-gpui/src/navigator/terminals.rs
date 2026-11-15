@@ -14,7 +14,7 @@ use gpui::{
     MouseButton, MouseDownEvent, Role, Subscription, Window, div, list, prelude::*, relative,
 };
 
-use super::cursor::{Step, step_to};
+use super::cursor::{Step, Stops, step_to};
 use super::rename::{on_terminal_name, terminal_name_input};
 use super::rows::{CARD_PADDING, GUIDE_AT as ICON_MIDDLE, ROW_LEFT};
 use super::{CARD_BAR_HEIGHT, CARD_BAR_INSET, RowStyle, card_bar, status_mark};
@@ -378,7 +378,15 @@ impl TerminalOverview {
             (Item::Terminal(id), None) => Some(*id) == shown,
             (Item::Heading(..), None) | (Item::Terminal(_), Some(_)) => false,
         });
-        let next = match step_to(at, self.items.len(), None, false, delta, self.in_tab(cx)) {
+        let next = match step_to(
+            at,
+            self.items.len(),
+            Stops {
+                tab: self.in_tab(cx),
+                ..Stops::default()
+            },
+            delta,
+        ) {
             Some(Step::Item(next)) => next,
             Some(Step::Tab) => {
                 return (self.app).update_later(window, cx, |app, window, cx| {
