@@ -1874,7 +1874,6 @@ dependencies = [
  "async-openai",
  "but-core",
  "but-secret",
- "but-tools",
  "futures",
  "gix",
  "reqwest",
@@ -2090,19 +2089,6 @@ dependencies = [
  "snapbox",
  "temp-env",
  "termtree",
-]
-
-[[package]]
-name = "but-tools"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "async-openai",
- "but-core",
- "but-ctx",
- "gix",
- "serde",
- "serde_json",
 ]
 
 [[package]]

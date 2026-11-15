@@ -1,8 +1,5 @@
-use std::{collections::HashMap, ops::Deref, sync::Arc};
-
 use anyhow::{Context as _, Result};
 use but_secret::{Sensitive, secret};
-use but_tools::tool::Toolset;
 use reqwest::{
     Response,
     header::{CONTENT_TYPE, HeaderMap, HeaderValue},
@@ -11,18 +8,12 @@ use schemars::{JsonSchema, schema_for};
 use serde::de::DeserializeOwned;
 
 use crate::{
-    AI_ANTHROPIC_SECRET_HANDLE, GITBUTLER_ACCESS_TOKEN_HANDLE, StreamToolCallResult, ToolCall,
-    ToolCallContent, ToolResponseContent, chat::ChatMessage, client::LLMClient,
+    AI_ANTHROPIC_SECRET_HANDLE, GITBUTLER_ACCESS_TOKEN_HANDLE, chat::ChatMessage, client::LLMClient,
 };
 
 const ANTHROPIC_API_BASE: &str = "https://api.anthropic.com/v1";
 const ANTHROPIC_VERSION: &str = "2023-06-01";
 pub const GB_ANTHROPIC_API_BASE: &str = "https://app.gitbutler.com/api/proxy/anthropic";
-
-pub struct ConversationResult {
-    pub final_response: String,
-    pub message_history: Vec<ChatMessage>,
-}
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, strum::Display)]
 pub enum CredentialsKind {
@@ -171,35 +162,6 @@ impl LLMClient for AnthropicProvider {
         self.model.clone()
     }
 
-    fn tool_calling_loop_stream(
-        &self,
-        system_message: &str,
-        chat_messages: Vec<ChatMessage>,
-        tool_set: &mut impl Toolset,
-        model: &str,
-        on_token: impl Fn(&str) + Send + Sync + 'static,
-    ) -> Result<(String, Vec<ChatMessage>)> {
-        let result = tool_calling_loop_stream(
-            self,
-            system_message,
-            chat_messages,
-            tool_set,
-            model,
-            on_token,
-        )?;
-        Ok((result.final_response, result.message_history))
-    }
-
-    fn tool_calling_loop(
-        &self,
-        system_message: &str,
-        chat_messages: Vec<ChatMessage>,
-        tool_set: &mut impl Toolset,
-        model: &str,
-    ) -> Result<String> {
-        tool_calling_loop(self, system_message, chat_messages, tool_set, model)
-    }
-
     fn stream_response(
         &self,
         system_message: &str,
@@ -245,8 +207,6 @@ struct AnthropicRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     system: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    tools: Option<Vec<serde_json::Value>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     stream: Option<bool>,
 }
 
@@ -256,12 +216,6 @@ struct AnthropicContentBlock {
     block_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     text: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    input: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -280,11 +234,7 @@ struct AnthropicStreamEvent {
     #[serde(rename = "type")]
     event_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    index: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     delta: Option<serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    content_block: Option<AnthropicContentBlock>,
 }
 
 impl From<ChatMessage> for AnthropicMessage {
@@ -298,90 +248,8 @@ impl From<ChatMessage> for AnthropicMessage {
                 role: "assistant".to_string(),
                 content: serde_json::json!([{"type": "text", "text": content}]),
             },
-            ChatMessage::ToolCall(content) => AnthropicMessage {
-                role: "assistant".to_string(),
-                content: serde_json::json!([{
-                    "type": "tool_use",
-                    "id": content.id,
-                    "name": content.name,
-                    "input": serde_json::from_str::<serde_json::Value>(&content.arguments).unwrap_or(serde_json::json!({}))
-                }]),
-            },
-            ChatMessage::ToolResponse(content) => AnthropicMessage {
-                role: "user".to_string(),
-                content: serde_json::json!([{
-                    "type": "tool_result",
-                    "tool_use_id": content.id,
-                    "content": content.result
-                }]),
-            },
         }
     }
-}
-
-fn from_anthropic_messages(messages: Vec<AnthropicMessage>) -> Vec<ChatMessage> {
-    let mut chat_messages = Vec::new();
-
-    for msg in messages {
-        match msg.role.as_str() {
-            "user" => {
-                if let Ok(blocks) =
-                    serde_json::from_value::<Vec<AnthropicContentBlock>>(msg.content)
-                {
-                    for block in blocks {
-                        match block.block_type.as_str() {
-                            "text" => {
-                                if let Some(text) = block.text {
-                                    chat_messages.push(ChatMessage::User(text));
-                                }
-                            }
-                            "tool_result" => {
-                                if let (Some(id), Some(input)) = (block.id, block.input) {
-                                    let result = input.as_str().unwrap_or("").to_string();
-                                    chat_messages.push(ChatMessage::ToolResponse(
-                                        ToolResponseContent { id, result },
-                                    ));
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-            }
-            "assistant" => {
-                if let Ok(blocks) =
-                    serde_json::from_value::<Vec<AnthropicContentBlock>>(msg.content)
-                {
-                    for block in blocks {
-                        match block.block_type.as_str() {
-                            "text" => {
-                                if let Some(text) = block.text {
-                                    chat_messages.push(ChatMessage::Assistant(text));
-                                }
-                            }
-                            "tool_use" => {
-                                if let (Some(id), Some(name), Some(input)) =
-                                    (block.id, block.name, block.input)
-                                {
-                                    let arguments =
-                                        serde_json::to_string(&input).unwrap_or_default();
-                                    chat_messages.push(ChatMessage::ToolCall(ToolCallContent {
-                                        id,
-                                        name,
-                                        arguments,
-                                    }));
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
-
-    chat_messages
 }
 
 pub fn structured_output_blocking<
@@ -435,7 +303,6 @@ async fn structured_output<T: serde::Serialize + DeserializeOwned + JsonSchema>(
         max_tokens: 4096,
         messages,
         system: Some(enhanced_system),
-        tools: None,
         stream: None,
     };
 
@@ -506,7 +373,6 @@ async fn response(
         max_tokens: 4096,
         messages,
         system: Some(system_message),
-        tools: None,
         stream: None,
     };
 
@@ -568,7 +434,6 @@ async fn stream_response(
         max_tokens: 4096,
         messages,
         system: Some(system_message),
-        tools: None,
         stream: Some(true),
     };
 
@@ -615,429 +480,6 @@ async fn stream_response(
     } else {
         Ok(Some(response_text))
     }
-}
-
-fn tool_calling_blocking(
-    client: &AnthropicProvider,
-    messages: Vec<AnthropicMessage>,
-    tools: Vec<serde_json::Value>,
-    model: &str,
-    system_message: &str,
-) -> anyhow::Result<AnthropicResponse> {
-    let client = client.client()?;
-    let model = model.to_string();
-    let system_message = system_message.to_string();
-
-    std::thread::spawn(move || {
-        tokio::runtime::Runtime::new()
-            .unwrap()
-            .block_on(tool_calling(
-                &client,
-                messages,
-                tools,
-                model,
-                system_message,
-            ))
-    })
-    .join()
-    .unwrap()
-}
-
-async fn tool_calling(
-    client: &AnthropicClient,
-    messages: Vec<AnthropicMessage>,
-    tools: Vec<serde_json::Value>,
-    model: String,
-    system_message: String,
-) -> anyhow::Result<AnthropicResponse> {
-    let request = AnthropicRequest {
-        model,
-        max_tokens: 4096,
-        messages,
-        system: Some(system_message),
-        tools: Some(tools),
-        stream: None,
-    };
-
-    let anthropic_response = client.message(&request).await?;
-    Ok(anthropic_response)
-}
-
-fn tool_calling_stream_blocking(
-    client: &AnthropicProvider,
-    messages: Vec<AnthropicMessage>,
-    tools: Vec<serde_json::Value>,
-    model: &str,
-    system_message: &str,
-    on_token: impl Fn(&str) + Send + Sync + 'static,
-) -> anyhow::Result<StreamToolCallResult> {
-    let client = client.client()?;
-    let model = model.to_string();
-    let system_message = system_message.to_string();
-
-    std::thread::spawn(move || {
-        tokio::runtime::Runtime::new()
-            .unwrap()
-            .block_on(tool_calling_stream(
-                &client,
-                messages,
-                tools,
-                model,
-                system_message,
-                on_token,
-            ))
-    })
-    .join()
-    .unwrap()
-}
-
-async fn tool_calling_stream(
-    client: &AnthropicClient,
-    messages: Vec<AnthropicMessage>,
-    tools: Vec<serde_json::Value>,
-    model: String,
-    system_message: String,
-    on_token: impl Fn(&str) + Send + Sync + 'static,
-) -> anyhow::Result<StreamToolCallResult> {
-    use futures::StreamExt;
-
-    let request = AnthropicRequest {
-        model,
-        max_tokens: 4096,
-        messages,
-        system: Some(system_message),
-        tools: Some(tools),
-        stream: Some(true),
-    };
-
-    let response = client.message_raw(&request).await?;
-
-    let mut stream = response.bytes_stream();
-    let mut response_text = String::new();
-    let mut buffer = String::new();
-    let mut tool_calls: HashMap<String, ToolCall> = HashMap::new();
-    let mut current_tool_id: Option<String> = None;
-
-    while let Some(chunk) = stream.next().await {
-        let bytes = chunk?;
-        let text = String::from_utf8_lossy(&bytes);
-
-        buffer.push_str(&text);
-
-        while let Some(line_end) = buffer.find('\n') {
-            let line_owned = buffer[..line_end].trim().to_string();
-            buffer = buffer[line_end + 1..].to_string();
-
-            if line_owned.is_empty() {
-                continue;
-            }
-
-            // SSE format: "data: {...}"
-            if let Some(data) = line_owned.strip_prefix("data: ") {
-                if data == "[DONE]" {
-                    break;
-                }
-
-                if let Ok(event) = serde_json::from_str::<AnthropicStreamEvent>(data) {
-                    match event.event_type.as_str() {
-                        "content_block_start" => {
-                            if let Some(block) = event.content_block
-                                && block.block_type == "tool_use"
-                                && let (Some(id), Some(name)) = (block.id, block.name)
-                            {
-                                current_tool_id = Some(id.clone());
-                                tool_calls.insert(
-                                    id.clone(),
-                                    ToolCall {
-                                        id,
-                                        name,
-                                        arguments: String::new(),
-                                    },
-                                );
-                            }
-                        }
-                        "content_block_delta" => {
-                            if let Some(delta) = event.delta {
-                                if let Some(text) = delta.get("text").and_then(|t| t.as_str()) {
-                                    response_text.push_str(text);
-                                    on_token(text);
-                                }
-
-                                if let Some(partial_json) =
-                                    delta.get("partial_json").and_then(|t| t.as_str())
-                                    && let Some(tool_id) = &current_tool_id
-                                    && let Some(tool_call) = tool_calls.get_mut(tool_id)
-                                {
-                                    tool_call.arguments.push_str(partial_json);
-                                }
-                            }
-                        }
-                        "message_stop" if !tool_calls.is_empty() => {
-                            let calls: Vec<ToolCall> = tool_calls.values().cloned().collect();
-                            let text = if response_text.is_empty() {
-                                None
-                            } else {
-                                Some(response_text.clone())
-                            };
-                            return Ok((Some(calls), text));
-                        }
-                        _ => {}
-                    }
-                }
-            }
-        }
-    }
-
-    if !tool_calls.is_empty() {
-        let calls: Vec<ToolCall> = tool_calls.values().cloned().collect();
-        let text = if response_text.is_empty() {
-            None
-        } else {
-            Some(response_text)
-        };
-        Ok((Some(calls), text))
-    } else {
-        let text = if response_text.is_empty() {
-            None
-        } else {
-            Some(response_text)
-        };
-        Ok((None, text))
-    }
-}
-
-fn handle_text_response(
-    text_response: String,
-    text_response_buffer: &mut Vec<String>,
-    messages: &mut Vec<AnthropicMessage>,
-) {
-    text_response_buffer.push(text_response.clone());
-    messages.push(AnthropicMessage {
-        role: "assistant".to_string(),
-        content: serde_json::json!([{"type": "text", "text": text_response}]),
-    });
-}
-
-fn convert_tool_to_anthropic_format(tool: &dyn but_tools::tool::Tool) -> serde_json::Value {
-    serde_json::json!({
-        "name": tool.name(),
-        "description": tool.description(),
-        "input_schema": tool.parameters()
-    })
-}
-
-pub fn tool_calling_loop(
-    provider: &AnthropicProvider,
-    system_message: &str,
-    chat_messages: Vec<ChatMessage>,
-    tool_set: &mut impl Toolset,
-    model: &str,
-) -> Result<String> {
-    let mut messages: Vec<AnthropicMessage> = chat_messages
-        .into_iter()
-        .map(AnthropicMessage::from)
-        .collect();
-
-    let anthropic_tools: Vec<serde_json::Value> = tool_set
-        .list()
-        .iter()
-        .map(|t| convert_tool_to_anthropic_format(t.deref()))
-        .collect();
-
-    let mut response = tool_calling_blocking(
-        provider,
-        messages.clone(),
-        anthropic_tools.clone(),
-        model,
-        system_message,
-    )?;
-
-    let mut text_response_buffer = vec![];
-
-    for block in &response.content {
-        if block.block_type == "text"
-            && let Some(text) = &block.text
-        {
-            handle_text_response(text.clone(), &mut text_response_buffer, &mut messages);
-        }
-    }
-
-    while response.content.iter().any(|b| b.block_type == "tool_use") {
-        let mut tool_call_blocks = vec![];
-        let mut tool_response_messages = vec![];
-
-        for block in &response.content {
-            if block.block_type == "tool_use"
-                && let (Some(id), Some(name), Some(input)) = (&block.id, &block.name, &block.input)
-            {
-                let arguments =
-                    serde_json::to_string(input).context("Failed to serialize tool input")?;
-
-                let tool_response = tool_set.call_tool(name, &arguments);
-                let tool_response_str = serde_json::to_string(&tool_response)
-                    .context("Failed to serialize tool response")?;
-
-                tool_call_blocks.push(serde_json::json!({
-                    "type": "tool_use",
-                    "id": id,
-                    "name": name,
-                    "input": input
-                }));
-
-                tool_response_messages.push(serde_json::json!({
-                    "type": "tool_result",
-                    "tool_use_id": id,
-                    "content": tool_response_str
-                }));
-            }
-        }
-
-        if !tool_call_blocks.is_empty() {
-            messages.push(AnthropicMessage {
-                role: "assistant".to_string(),
-                content: serde_json::Value::Array(tool_call_blocks),
-            });
-
-            messages.push(AnthropicMessage {
-                role: "user".to_string(),
-                content: serde_json::Value::Array(tool_response_messages),
-            });
-        }
-
-        response = tool_calling_blocking(
-            provider,
-            messages.clone(),
-            anthropic_tools.clone(),
-            model,
-            system_message,
-        )?;
-
-        for block in &response.content {
-            if block.block_type == "text"
-                && let Some(text) = &block.text
-            {
-                handle_text_response(text.clone(), &mut text_response_buffer, &mut messages);
-            }
-        }
-    }
-
-    let response = text_response_buffer
-        .into_iter()
-        .filter(|s| !s.is_empty())
-        .collect::<Vec<String>>()
-        .join("\n\n");
-
-    Ok(response)
-}
-
-pub fn tool_calling_loop_stream(
-    provider: &AnthropicProvider,
-    system_message: &str,
-    chat_messages: Vec<ChatMessage>,
-    tool_set: &mut impl Toolset,
-    model: &str,
-    on_token: impl Fn(&str) + Send + Sync + 'static,
-) -> anyhow::Result<ConversationResult> {
-    let mut messages: Vec<AnthropicMessage> = chat_messages
-        .into_iter()
-        .map(AnthropicMessage::from)
-        .collect();
-
-    let anthropic_tools: Vec<serde_json::Value> = tool_set
-        .list()
-        .iter()
-        .map(|t| convert_tool_to_anthropic_format(t.deref()))
-        .collect();
-
-    let on_token = Arc::new(on_token);
-
-    let mut response = tool_calling_stream_blocking(
-        provider,
-        messages.clone(),
-        anthropic_tools.clone(),
-        model,
-        system_message,
-        {
-            let on_token = Arc::clone(&on_token);
-            move |s: &str| on_token(s)
-        },
-    )?;
-
-    let mut text_response_buffer = vec![];
-    if let Some(text_response) = response.1 {
-        handle_text_response(text_response, &mut text_response_buffer, &mut messages);
-    }
-
-    while let Some(tool_calls) = response.0 {
-        let mut tool_call_blocks = vec![];
-        let mut tool_response_messages = vec![];
-
-        for call in tool_calls {
-            let ToolCall {
-                id,
-                name: function_name,
-                arguments: function_args,
-            } = call;
-
-            let tool_response = tool_set.call_tool(&function_name, &function_args);
-            let tool_response_str = serde_json::to_string(&tool_response)
-                .context("Failed to serialize tool response")?;
-
-            let input: serde_json::Value =
-                serde_json::from_str(&function_args).unwrap_or(serde_json::json!({}));
-
-            tool_call_blocks.push(serde_json::json!({
-                "type": "tool_use",
-                "id": id,
-                "name": function_name,
-                "input": input
-            }));
-
-            tool_response_messages.push(serde_json::json!({
-                "type": "tool_result",
-                "tool_use_id": id,
-                "content": tool_response_str
-            }));
-        }
-
-        messages.push(AnthropicMessage {
-            role: "assistant".to_string(),
-            content: serde_json::Value::Array(tool_call_blocks),
-        });
-
-        messages.push(AnthropicMessage {
-            role: "user".to_string(),
-            content: serde_json::Value::Array(tool_response_messages),
-        });
-
-        response = tool_calling_stream_blocking(
-            provider,
-            messages.clone(),
-            anthropic_tools.clone(),
-            model,
-            system_message,
-            {
-                let on_token = Arc::clone(&on_token);
-                move |s: &str| on_token(s)
-            },
-        )?;
-
-        if let Some(text_response) = response.1 {
-            handle_text_response(text_response, &mut text_response_buffer, &mut messages);
-        }
-    }
-
-    let chat_messages = from_anthropic_messages(messages);
-    let final_response = text_response_buffer
-        .into_iter()
-        .filter(|s| !s.is_empty())
-        .collect::<Vec<_>>()
-        .join("\n\n");
-
-    Ok(ConversationResult {
-        final_response,
-        message_history: chat_messages,
-    })
 }
 
 #[cfg(test)]
