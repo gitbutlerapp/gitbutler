@@ -10,22 +10,21 @@ use gpui::{Context, SharedString, Task, WindowId};
 
 use super::saved::{self, SavedPlace};
 use super::{CodePlace, LinkFrom, ProjectEntry, ProjectId, Selection, Store, StoreEvent};
-use crate::backend::watch::Watcher;
+use crate::backend::watch::{Change as WatchChange, Watcher};
 use crate::backend::{
     self, Checkout, CommitId, Destination, FileChange, FullName, Project, Selected, Workspace,
     Worktree,
 };
 use crate::transfer::{Changes, Move, Moving, Stop, Target};
 
-/// A watcher's event: the project, whether its git directory changed, the checkout whose
-/// files changed, and which of its files.
-pub(super) type Change = (ProjectId, bool, Checkout, Vec<Arc<str>>);
+/// A watcher's event: the project, what to reload, its checkout, and individual file activity.
+pub(super) type Change = (ProjectId, WatchChange, Checkout, Vec<Arc<str>>);
 
 /// What a reload reads again: everything, the commits and branches, or just the uncommitted
 /// files of the checkouts that changed.
 #[derive(Debug, Default)]
 pub(super) struct Reload {
-    /// The commits and branches too, as after a change in a git directory.
+    /// Everything, including cached files.
     full: bool,
     /// The commits and branches, keeping the files shown but for the ones asked for below.
     commits: bool,
@@ -63,18 +62,19 @@ impl Reload {
     /// The uncommitted files of `checkout`, after an operation that changed only them.
     pub(super) fn files(checkout: Checkout) -> Self {
         let mut reload = Self::default();
-        reload.add(false, checkout);
+        reload.add(WatchChange::Files, checkout);
         reload
     }
 
-    /// Add what a watcher saw: a change in a git directory, or files of a checkout.
-    fn add(&mut self, git: bool, checkout: Checkout) {
-        match checkout {
-            _ if git => self.full = true,
-            Checkout::Linked(name) => {
+    /// Add what a watcher invalidated without discarding simultaneous file changes.
+    fn add(&mut self, change: WatchChange, checkout: Checkout) {
+        match (change, checkout) {
+            (WatchChange::Full, _) => self.full = true,
+            (WatchChange::Commits, _) => self.commits = true,
+            (WatchChange::Files, Checkout::Linked(name)) => {
                 self.linked.insert(name);
             }
-            Checkout::Main => self.main = true,
+            (WatchChange::Files, Checkout::Main) => self.main = true,
         }
     }
 
@@ -114,7 +114,7 @@ impl Store {
                 let Ok(()) = this.update(cx, |store, cx| {
                     let mut reloads: HashMap<ProjectId, Reload> = HashMap::new();
                     let now = crate::ui::now();
-                    for (id, git, checkout, paths) in events {
+                    for (id, change, checkout, paths) in events {
                         // What the app's own operations write isn't activity in the checkout,
                         // nor is what a repository cloned inside it writes to its own .git.
                         let own = store.busy_in(&id) || store.own_write(&id, now);
@@ -128,7 +128,7 @@ impl Store {
                                 .or_default()
                                 .record(now, saved as u32);
                         }
-                        reloads.entry(id).or_default().add(git, checkout);
+                        reloads.entry(id).or_default().add(change, checkout);
                     }
                     for (id, reload) in reloads {
                         // An operation under way reads these with its own reload, hidden or not.
@@ -603,31 +603,6 @@ impl Store {
         });
     }
 
-    /// Start watching `id` over, as when the worktrees it should watch changed.
-    fn rewatch(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
-        let Some(entry) = self.project(id) else {
-            return;
-        };
-        let project = entry.project.clone();
-        let changes = self.changes.clone();
-        let id = id.clone();
-        cx.spawn(async move |this, cx| {
-            let watch_id = id.clone();
-            let watcher = backend::run(move || watch(&project, watch_id, changes)).await;
-            this.update(cx, |store, cx| match (store.project_mut(&id), watcher) {
-                (Some(entry), Ok(watcher)) if entry.expanded => {
-                    entry.watcher = Some(watcher);
-                    // What the old watcher saw last it hadn't passed on yet, and dropped.
-                    store.load(&id, Reload::full(), cx);
-                }
-                (_, Err(err)) => tracing::warn!("couldn't watch {id} again: {err:#}"),
-                _ => {}
-            })
-            .ok();
-        })
-        .detach();
-    }
-
     /// Prepare `id` for display and start watching it, then load it.
     fn open_project(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
         self.mesh_seed(id, cx);
@@ -684,10 +659,26 @@ impl Store {
         .detach();
     }
 
-    /// Reload `id`'s workspace, coalescing requests that arrive while a load or an operation
-    /// is running.
+    /// Reload `id`'s workspace, coalescing outstanding loads.
     pub fn reload(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
         self.load(id, Reload::full(), cx);
+    }
+
+    /// Recover watcher coverage and reload everything after an explicit refresh.
+    pub fn refresh(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
+        if let Some(entry) = self.project_mut(id)
+            && entry
+                .watcher
+                .as_ref()
+                .is_some_and(|watcher| !watcher.rescan())
+        {
+            entry.watcher = None;
+            if entry.expanded {
+                self.open_project(id, cx);
+                return;
+            }
+        }
+        self.reload_or_open(id, cx);
     }
 
     /// Load `id` again, as after changing its target, opening it first when it's watched but
@@ -944,23 +935,24 @@ impl Store {
                 false => self.snack("What was being moved changed, so the move ended", cx),
             }
         }
-        // The file watcher learns which worktrees to watch when it starts, so one added,
-        // shown again or archived starts it over. Edit mode lists none, so going in and out
-        // of it doesn't count.
-        let unwatched = self.workspace(id).is_some_and(|old| {
-            let names = |ws: &Workspace| -> HashSet<bstr::BString> {
-                ws.worktrees.iter().map(|w| w.name.clone()).collect()
-            };
-            old.editing.is_none() && names(old) != names(&workspace)
-        });
         self.remember_commits(id, &workspace, cx);
         self.order_worktrees(id, &workspace, cx);
         if let Some(entry) = self.project_mut(id) {
+            // Archiving can change only the database; edit mode temporarily lists no worktrees.
+            if workspace.editing.is_none()
+                && entry.workspace.as_ref().is_some_and(|old| {
+                    let names = |ws: &Workspace| -> HashSet<bstr::BString> {
+                        ws.worktrees.iter().map(|w| w.name.clone()).collect()
+                    };
+                    names(old) != names(&workspace)
+                        || old.archived_worktrees != workspace.archived_worktrees
+                })
+                && let Some(watcher) = &entry.watcher
+            {
+                watcher.refresh_worktrees();
+            }
             entry.workspace = Some(workspace);
             entry.read();
-        }
-        if unwatched {
-            self.rewatch(id, cx);
         }
         if let Some((from, to)) = rewritten {
             let picked = std::mem::take(&mut self.picked);
@@ -1222,9 +1214,9 @@ fn watch(
     id: ProjectId,
     changes: mpsc::UnboundedSender<Change>,
 ) -> anyhow::Result<Watcher> {
-    backend::watch::watch(project, move |git, checkout, paths| {
+    backend::watch::watch(project, move |change, checkout, paths| {
         changes
-            .unbounded_send((id.clone(), git, checkout, paths))
+            .unbounded_send((id.clone(), change, checkout, paths))
             .ok();
     })
 }
@@ -1269,8 +1261,34 @@ fn ordered(order: &[String], listed: &[String], shown: &[String]) -> Vec<String>
 #[cfg(test)]
 mod tests {
     use crate::backend::model::build::{branch, full, workspace, worktree};
+    use crate::backend::watch::Change;
     use crate::backend::{CommitId, Workspace, short_ref};
     use crate::state::Selection;
+
+    #[test]
+    fn watcher_reload_scopes_survive_coalescing() {
+        let mut burst = super::Reload::default();
+        burst.add(Change::Commits, crate::backend::Checkout::Main);
+        burst.add(Change::Files, crate::backend::Checkout::Main);
+        burst.add(
+            Change::Files,
+            crate::backend::Checkout::Linked("agent".into()),
+        );
+        let mut unseen = super::Reload::default();
+        unseen.merge(burst);
+        assert!(
+            !unseen.full
+                && unseen.commits
+                && unseen.main
+                && unseen.linked.contains(b"agent".as_slice()),
+            "coalesced and hidden reloads keep the graph request and both checkout invalidations"
+        );
+        unseen.add(Change::Full, crate::backend::Checkout::Main);
+        assert!(
+            unseen.full,
+            "a later full invalidation supersedes the cheaper reload"
+        );
+    }
 
     #[test]
     fn worktrees_keep_their_order_with_new_ones_last() {
