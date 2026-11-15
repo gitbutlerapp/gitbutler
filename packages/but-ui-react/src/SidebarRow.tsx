@@ -248,7 +248,7 @@ export const MachineItem: FC<{ name: string; icon: ReactNode; online: boolean } 
 				<Name tooltip={tooltip} className={classes("text-14", "text-semibold", styles.name)}>
 					{name}
 				</Name>
-				<StatusLed online={online} />
+				<StatusLed variant={online ? "safe" : "gray"} aria-label={online ? "Online" : "Offline"} />
 			</>
 		}
 	/>

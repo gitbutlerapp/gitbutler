@@ -148,7 +148,11 @@ export const Machines = meta.story({
 			].map((machine) => (
 				<TableRow key={machine.name}>
 					<TableCell>
-						<StatusLed online={machine.online} /> {machine.name}
+						<StatusLed
+							variant={machine.online ? "safe" : "gray"}
+							aria-label={machine.online ? "Online" : "Offline"}
+						/>{" "}
+						{machine.name}
 					</TableCell>
 					<TableCell align="end">{machine.branches}</TableCell>
 					<TableCell>{machine.seen}</TableCell>

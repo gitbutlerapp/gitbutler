@@ -93,7 +93,12 @@ export const Cell: FC<
 							{icon !== undefined && <Icon name={icon} className={styles.icon} />}
 							<span className={styles.label}>
 								<span className={classes("text-14", "text-semibold", styles.title)}>{title}</span>
-								{online !== undefined && <StatusLed online={online} />}
+								{online !== undefined && (
+									<StatusLed
+										variant={online ? "safe" : "gray"}
+										aria-label={online ? "Online" : "Offline"}
+									/>
+								)}
 							</span>
 							{badge !== undefined && <span className={styles.badge}>{badge}</span>}
 							{

@@ -5,9 +5,16 @@
 	width: 8px;
 	height: 8px;
 	border-radius: var(--but-radius-full);
-	background-color: var(--but-subtle-foreground);
 }
 
-.online {
-	background-color: var(--but-success-text);
+.safe {
+	background-color: var(--but-success);
+}
+
+.warning {
+	background-color: var(--but-warning);
+}
+
+.gray {
+	background-color: var(--but-border);
 }

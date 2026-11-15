@@ -10,10 +10,34 @@ const meta = stories({
 	id: "components-statusled",
 	component: StatusLed,
 	parameters: { design: { type: "figma", url: core("2613-8797") } },
-	args: { online: true },
+	args: { variant: "safe", "aria-label": "Online" },
 });
 
-export const Default = meta.story({ args: { online: true } });
+export const Default = meta.story({ args: { variant: "safe", "aria-label": "Online" } });
+
+const variants = [
+	{ variant: "safe", label: "Online" },
+	{ variant: "warning", label: "Reconnecting" },
+	{ variant: "gray", label: "Offline" },
+] as const;
+
+/** Each light beside the word it stands for: up, up but needs a look, and not there. */
+export const Variants = meta.story({
+	render: () => (
+		<div style={{ display: "flex", gap: 16 }}>
+			{variants.map(({ variant, label }) => (
+				<span
+					key={variant}
+					className="text-13"
+					style={{ display: "flex", alignItems: "center", gap: 6 }}
+				>
+					<StatusLed variant={variant} aria-hidden />
+					{label}
+				</span>
+			))}
+		</div>
+	),
+});
 
 const machines = [
 	{ name: "macbook", online: true },
@@ -34,10 +58,16 @@ export const Machines = meta.story({
 				>
 					{seen !== undefined ? (
 						<Tooltip content={`Last seen ${seen}`}>
-							<StatusLed online={online} />
+							<StatusLed
+								variant={online ? "safe" : "gray"}
+								aria-label={online ? "Online" : "Offline"}
+							/>
 						</Tooltip>
 					) : (
-						<StatusLed online={online} />
+						<StatusLed
+							variant={online ? "safe" : "gray"}
+							aria-label={online ? "Online" : "Offline"}
+						/>
 					)}
 					{name}
 				</span>
@@ -55,14 +85,14 @@ export const WithItsWords = meta.story({
 	render: () => (
 		<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
 			<span className="text-12" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-				<StatusLed online aria-hidden />
+				<StatusLed variant="safe" aria-hidden />
 				live
 			</span>
 			<span className="text-12" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-				<StatusLed online aria-hidden />3 of 4 online
+				<StatusLed variant="safe" aria-hidden />3 of 4 online
 			</span>
 			<span className="text-12" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-				<StatusLed online={false} aria-hidden />
+				<StatusLed variant="gray" aria-hidden />
 				offline
 			</span>
 		</div>
