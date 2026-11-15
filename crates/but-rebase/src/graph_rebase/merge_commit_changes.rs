@@ -86,8 +86,6 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                 let conflict = Some(MergeCommitChangesConflict {
                     tree_expression,
                     conflict_entries: but_core::commit::conflict_entries_from_merge_outcome(
-                        &self.repo,
-                        tree_id,
                         &merge,
                         conflict_kind,
                     )?,

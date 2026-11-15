@@ -51,20 +51,16 @@ fn get_commit_index(ctx: &Context, commit_id: gix::ObjectId) -> Result<git2::Ind
     if let Some((base, ours, theirs)) = commit.conflicted_tree_ids()? {
         let repo = repo.clone().for_tree_diffing()?;
         // Merge without favoring a side this time to get a tree containing the actual conflicts.
-        let mut merge_result = repo.merge_trees(
+        let merge_result = repo.merge_trees(
             base,
             ours,
             theirs,
             repo.default_merge_labels(),
             repo.tree_merge_options()?,
         )?;
-        let merged_tree_id = merge_result.tree.write()?;
-        let mut index = repo.index_from_tree(&merged_tree_id)?;
-        if !merge_result.index_changed_after_applying_conflicts(
-            &mut index,
-            gix::merge::tree::TreatAsUnresolved::git(),
-            gix::merge::tree::apply_index_entries::RemovalMode::Mark,
-        ) {
+        let conflict_kind = gix::merge::tree::TreatAsUnresolved::git();
+        let index = merge_result.index(conflict_kind)?;
+        if !merge_result.index.has_unmerged_entries(conflict_kind) {
             tracing::warn!(
                 "There must be an issue with conflict-commit creation as re-merging the conflicting trees didn't yield a conflicting index."
             );
