@@ -198,9 +198,8 @@ export const FileList: FC<
  * - `depth` indents the row one step per directory it sits in, each step drawing the guide that
  *   ties it to its directory, so a tree reads as one; `guides`, from `treeGuides`, end each
  *   directory's guide with a tail into its last row. A directory row sets `folded`, which gives
- *   it a folder whose place its chevron takes under the pointer and on keyboard focus, as on a
- *   sidebar row; `onToggleFolded` answers the chevron, and `toggleRender` wraps it, for a tooltip
- *   trigger.
+ *   it a folder and a chevron in a step of its own before it, as on a sidebar row; `onToggleFolded`
+ *   answers the chevron, and `toggleRender` wraps it, for a tooltip trigger.
  * - `icon` defaults to the file's type glyph, or a folder for a directory.
  * - `checkbox` shares the icon's cell and takes its place once the pointer is over it or it is
  *   checked, so a row stays quiet while browsing.
@@ -343,7 +342,6 @@ export const FileListItem: FC<
 										styles.guide,
 										guides?.[level] === "last" && styles.guideLast,
 										guides?.[level] === "none" && styles.guideNone,
-										guides?.[level] === "stub" && styles.guideStub,
 									)}
 									aria-hidden
 								/>

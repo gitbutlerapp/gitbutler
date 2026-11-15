@@ -182,8 +182,13 @@
 	color: var(--but-selected-foreground);
 
 	.directory,
-	.marks {
+	.marks,
+	.toggle {
 		color: var(--but-inverse-muted-foreground);
+	}
+
+	.toggle:hover::before {
+		background-color: var(--but-inverse-ghost-hover);
 	}
 
 	/* The ghost button's inverted variant. On the buttons themselves, since a variant declares
@@ -196,22 +201,18 @@
 	}
 }
 
-/* The indent: one step per directory the row sits in, then the icon 3px after the last guide (the
-   steps' 4px gap, less half of what the 14px icon is wider than a 12px step), so a directory's
-   guide hangs from the middle of its folder. At the top level there is no guide to sit after: the
-   icon starts a pixel into the row's padding, over its children's first guide, as a sidebar row's
-   glyph does. */
+/* The indent: one step per directory the row sits in, then a directory's chevron in a step of its
+   own, so a directory's guide hangs from the middle of its chevron. The icon sits 6px after the
+   last step, closer than the name after it: after a folder's chevron, so the two read as a pair,
+   and after a file's last guide, so a file's icon lines up under its folder's. A top-level file
+   has no folder to line up under: its icon starts a pixel into the row's padding, in the
+   chevrons' column, as a sidebar row's glyph does. */
 .steps {
 	display: flex;
-	position: relative;
 	column-gap: 4px;
 	flex-shrink: 0;
 	align-self: stretch;
-	margin-inline-end: calc(3px - var(--but-gap-icon-text));
-
-	&:not(:has(.guide)) {
-		margin-inline-end: calc(-1px - var(--but-gap-icon-text));
-	}
+	margin-inline-end: calc(6px - var(--but-gap-icon-text));
 }
 
 .item > .lead:first-child {
@@ -239,7 +240,8 @@
 }
 
 /* The last row in its directory: the guide comes down to the row's middle and turns, with a round
-   corner, into the icon, and ends there, as on a sidebar row. */
+   corner, into the icon, and ends there, as on a sidebar row: 3px short of a folder's chevron, or
+   of a file's icon, which sits further off. */
 .guideLast::before {
 	width: auto;
 	inset-block: 0 calc(50% - 0.5px);
@@ -251,52 +253,48 @@
 	background-color: transparent;
 }
 
+.guideLast:last-child::before {
+	inset-inline-end: -3px;
+}
+
 .guideNone::before {
 	display: none;
 }
 
-/* A git object that isn't last, as a sidebar row draws it: the guide runs on, with a short stub
-   toward the icon. */
-.guideStub::after {
-	position: absolute;
-	width: 3px;
-	height: 1px;
-	inset-block-start: calc(50% - 0.5px);
-	inset-inline-start: calc(50% + 0.5px);
-	background-color: var(--guide-color);
-	content: "";
-}
-
-/* A directory's chevron takes its folder's place, showing under the pointer and on keyboard focus
-   only, as on a sidebar row. A spinner keeps its place: it says what the pointer came to see. */
+/* Faded, so the glyph after it reads first; it comes up under the pointer. */
 .toggle {
-	visibility: hidden;
-	position: absolute;
-	width: 14px;
-	inset-block: 0;
-	inset-inline-start: calc(100% + 3px);
 	padding: 0;
 	border: none;
 	background: none;
 	color: var(--but-subtle-foreground);
-
-	.steps:not(:has(.guide)) > & {
-		inset-inline-start: -1px;
-	}
+	cursor: var(--control-cursor);
+	opacity: 0.6;
 
 	&:hover,
 	&:focus-visible {
 		color: var(--but-muted-foreground);
+		opacity: 1;
 	}
 }
 
-.item:is(:hover, :focus-visible, :has(:focus-visible)):not(:has(output.icon)):has(.toggle) {
-	.toggle {
-		visibility: visible;
+/* A chevron that folds on its own click takes a ground under the pointer, a box around it wider
+   than its step, on top of the row's. Behind the glyph, so the box doesn't cover it. */
+.toggle {
+	isolation: isolate;
+
+	&::before {
+		z-index: -1;
+		position: absolute;
+		height: 18px;
+		inset-block-start: calc(50% - 9px);
+		inset-inline: -3px;
+		border-radius: var(--but-radius-sm);
+		content: "";
+		transition: background-color var(--but-transition-fast);
 	}
 
-	& > .lead > .icon {
-		visibility: hidden;
+	&:hover::before {
+		background-color: var(--but-hover);
 	}
 }
 

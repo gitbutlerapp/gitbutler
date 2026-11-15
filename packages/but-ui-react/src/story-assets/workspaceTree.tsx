@@ -88,8 +88,6 @@ const rowTypes = new Set<unknown>([
 	MoreItem,
 	NoticeItem,
 ]);
-/** The git objects among them, which meet their guide with a stub. */
-const chainedTypes = new Set<unknown>([StackCaption, BranchItem, CommitItem]);
 
 /** Gives the rows in `children` their guides, worked out with `treeGuides` from the rows in the
  * order they draw, as a host does from the tree it shows. */
@@ -101,10 +99,10 @@ const guided = (children: ReactNode): ReactNode => {
 			if (child.props.children === undefined) return child;
 			return cloneElement(child, undefined, walk(child.props.children, visit));
 		});
-	const rows: Array<{ depth: number; chained: boolean }> = [];
+	const rows: Array<{ depth: number }> = [];
 	void walk(children, (row) => {
 		const { depth = 0 } = row.props as { depth?: number };
-		rows.push({ depth, chained: chainedTypes.has(row.type) });
+		rows.push({ depth });
 		return row;
 	});
 	const guides = treeGuides(rows);

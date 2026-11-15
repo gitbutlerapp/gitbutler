@@ -41,8 +41,13 @@
 	color: var(--but-selected-foreground);
 
 	.icon,
-	.toggle {
+	.toggle,
+	.empty {
 		color: var(--but-inverse-muted-foreground);
+	}
+
+	.toggle:hover::before {
+		background-color: var(--but-inverse-ghost-hover);
 	}
 
 	&.nav .meta {
@@ -73,30 +78,29 @@
 	}
 }
 
-/* The indent: one guide per level, then the glyph 3px after the last guide (the steps' 4px gap,
-   less half of what the 14px glyph is wider than a 12px step), so a child's guide hangs from the
-   middle of its parent's glyph. At the top level there is no guide to sit after: the glyph starts
-   where it would if there were one at -16px, a pixel into the row's padding, over its children's
-   first guide. A row with no glyph, a page that doesn't fold, starts its name where a glyph row's
-   starts. */
+/* The indent: one guide per level, then the chevron of a row that folds in a step of its own, so a
+   child's guide hangs from the middle of its parent's chevron. The glyph sits 6px after the last
+   step, closer than the name after it: after a chevron, so the two read as a pair, and after the
+   last guide of a row that doesn't fold, so its glyph lines up under its parent's. A row with no
+   glyph, a page that doesn't fold, starts its name where a glyph row's starts. */
 .steps {
 	display: flex;
-	position: relative;
 	column-gap: 4px;
 	flex-shrink: 0;
 	align-self: stretch;
 	margin-inline-end: 1px;
 
-	&:has(+ .icon) {
-		margin-inline-end: calc(3px - var(--but-gap-icon-text));
+	&:has(> .toggle, > .empty) {
+		margin-inline-end: 0;
 	}
 
-	&:not(:has(.guide)):has(+ .icon) {
-		margin-inline-end: calc(-1px - var(--but-gap-icon-text));
+	&:has(+ .icon) {
+		margin-inline-end: calc(6px - var(--but-gap-icon-text));
 	}
 }
 
-/* A top-level row with no steps starts its glyph in the same column as one that folds. */
+/* A top-level row that doesn't fold has no parent to line up under: it starts its glyph in the
+   column of a chevron, a pixel into the row's padding, over its children's first guide. */
 .row > .icon:first-child {
 	margin-inline-start: -1px;
 }
@@ -121,7 +125,8 @@
 }
 
 /* The last row under its parent: the guide comes down to the row's middle and turns, with a round
-   corner, into the glyph, and ends there. */
+   corner, into the glyph, and ends there: 3px short of a chevron, or of a glyph, which sits further
+   off. */
 .guideLast::before {
 	width: auto;
 	inset-block: 0 calc(50% - 0.5px);
@@ -133,57 +138,55 @@
 	background-color: transparent;
 }
 
+.guideLast:last-child::before {
+	inset-inline-end: -3px;
+}
+
 .guideNone::before {
 	display: none;
 }
 
-/* A git object (a stack, a branch, a commit) that isn't the last row under its parent: the guide
-   runs on, with a short stub toward the glyph, at the height a tail turns. */
-.guideStub::after {
-	position: absolute;
-	width: 3px;
-	height: 1px;
-	inset-block-start: calc(50% - 0.5px);
-	inset-inline-start: calc(50% + 0.5px);
-	background-color: var(--guide-color);
-	content: "";
-}
-
-/* A row that folds has its chevron in its glyph's place, showing under the pointer and on keyboard
-   focus only. A spinner or a conflict's warning keeps its place: it says what the pointer came to
-   see. */
+/* Faded, so the glyph after it reads first; it comes up under the pointer. */
 .toggle {
-	visibility: hidden;
-	position: absolute;
-	width: 14px;
-	inset-block: 0;
-	inset-inline-start: calc(100% + 3px);
 	padding: 0;
 	border: none;
 	background: none;
 	color: var(--but-subtle-foreground);
 	cursor: var(--control-cursor);
-
-	.steps:not(:has(.guide)) > & {
-		inset-inline-start: -1px;
-	}
+	opacity: 0.6;
 
 	&:hover,
 	&:focus-visible {
 		color: var(--but-muted-foreground);
+		opacity: 1;
 	}
 }
 
-.row:is(:hover, :focus-visible, :has(:focus-visible)):not(:has(output.icon, .conflicted)):has(
-		.toggle
-	) {
-	.toggle {
-		visibility: visible;
+/* A chevron that folds on its own click takes a ground under the pointer, a box around it wider
+   than its step, on top of the row's. Behind the glyph, so the box doesn't cover it. */
+button.toggle {
+	isolation: isolate;
+
+	&::before {
+		z-index: -1;
+		position: absolute;
+		height: 18px;
+		inset-block-start: calc(50% - 9px);
+		inset-inline: -3px;
+		border-radius: var(--but-radius-sm);
+		content: "";
+		transition: background-color var(--but-transition-fast);
 	}
 
-	& > .icon {
-		visibility: hidden;
+	&:hover::before {
+		background-color: var(--but-hover);
 	}
+}
+
+/* Where the chevron would be on a row with nothing to unfold. */
+.empty {
+	color: var(--but-subtle-foreground);
+	opacity: 0.5;
 }
 
 /* A row's glyph is drawn at 14, its box's size, as 🍑 But UI's rows draw them; an Icon is 16 unless told. */

@@ -14,29 +14,23 @@ describe("treeGuides", () => {
 		]);
 	});
 
-	test("a git object that isn't last meets its guide with a stub", () => {
-		expect(
-			treeGuides([{ depth: 0 }, { depth: 1, chained: true }, { depth: 1, chained: true }]),
-		).toEqual([[], ["stub"], ["last"]]);
-	});
-
 	test("a level that has ended draws nothing under the last row", () => {
 		// repo › worktree › branch › commit, then a second worktree with a branch.
 		expect(
 			treeGuides([
 				{ depth: 0 },
 				{ depth: 1 },
-				{ depth: 2, chained: true },
-				{ depth: 3, chained: true },
-				{ depth: 3, chained: true },
+				{ depth: 2 },
+				{ depth: 3 },
+				{ depth: 3 },
 				{ depth: 1 },
-				{ depth: 2, chained: true },
+				{ depth: 2 },
 			]),
 		).toEqual([
 			[],
 			["line"],
 			["line", "last"],
-			["line", "none", "stub"],
+			["line", "none", "line"],
 			["line", "none", "last"],
 			["last"],
 			["none", "last"],
