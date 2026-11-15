@@ -26,7 +26,7 @@ gpui::actions!(
     ]
 );
 
-/// Where the control Tab just focused was drawn, from it to the [`scrollbar::scrolled`] list
+/// Where the control Tab just focused was drawn, from it to the `ui::scrollbar::scrolled` list
 /// it's in, as [`ShowFocused`] goes up from one to the other.
 pub struct FocusedAt(pub gpui::Bounds<Pixels>);
 

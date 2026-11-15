@@ -5,7 +5,7 @@ use gpui::{Div, ElementId, Role, SharedString, Stateful, div, prelude::*};
 use crate::theme::Theme;
 use crate::*;
 
-/// One choice from a short list, closed, as but-ui-react's `Select` trigger: a field, as [`field`]
+/// One choice from a short list, closed, as but-ui-react's `Select` trigger: a field, as `ui::field`
 /// is, holding the choice in regular weight with a chevron after it. It wears the field's ground,
 /// edge and padding, and under the pointer its edge darkens rather than its ground filling. The
 /// list it opens is the caller's. It is as wide as its choice, where `Select` takes its field's

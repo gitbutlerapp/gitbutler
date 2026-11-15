@@ -131,7 +131,7 @@ impl Icon {
 }
 
 /// Serves the icons compiled into the binary, those asked for at a size (`icons/x.svg@12`) with
-/// their strokes kept as wide (see [`keep_strokes`]).
+/// their strokes kept as wide (see `keep_strokes`).
 pub struct Assets;
 
 impl AssetSource for Assets {
