@@ -470,7 +470,7 @@ fn uncommit_hint(tail: &[OsString], agent: bool) -> Option<String> {
     })
 }
 
-#[cfg(all(test, feature = "legacy"))]
+#[cfg(test)]
 mod tests {
     use clap::Parser as _;
 

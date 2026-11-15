@@ -37,7 +37,6 @@ pub struct Platform {
 In `crates/but/src/args/mod.rs`:
 
 ```rust
-#[cfg(feature = "legacy")]
 #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
 #[clap(hide = true, name = "_commit3")]
 Commit3(commit3::Platform),

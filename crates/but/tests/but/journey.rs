@@ -1,9 +1,7 @@
 //! Tests for various nice user-journeys, from different starting points, performing multiple common steps in sequence.
 
-#[cfg(feature = "legacy")]
 use crate::utils::Sandbox;
 
-#[cfg(feature = "legacy")]
 #[test]
 fn from_workspace() {
     use snapbox::IntoData;

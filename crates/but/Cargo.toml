@@ -16,29 +16,11 @@ path = "src/main.rs"
 doctest = false
 
 [features]
-default = ["legacy"]
 ## Experimental commands and features, enabled only for nightly releases in CI.
 nightly = ["dep:but-ui-control"]
 ## A very specific utility flag to make clear that the 'but' binary is managed by a package manager.
 ## When set, the CLI cannot self-manage itself and commands like `but update install` are disabled.
 packaged-but-distribution = []
-legacy = [
-    "but-workspace/legacy",
-    "but-api/legacy",
-    "but-transaction/legacy",
-    "but-ctx/legacy",
-    "dep:but-action",
-    "dep:but-hunk-dependency",
-    "dep:but-gerrit",
-    "dep:gitbutler-project",
-    "dep:gitbutler-branch-actions",
-    "dep:gitbutler-oplog",
-    "dep:gitbutler-edit-mode",
-    "dep:gitbutler-operating-modes",
-    "dep:gitbutler-repo",
-    "dep:gitbutler-git",
-    "dep:gitbutler-watcher",
-]
 ## Switch mutation responses to the graph-based workspace projection.
 ## Forwarded to `but-api`; never enable by default. See `but-api`'s feature docs.
 graph-workspace = ["but-api/graph-workspace"]
@@ -55,7 +37,7 @@ but-askpass.workspace = true
 but-update.workspace = true
 but-installer.workspace = true
 but-path.workspace = true
-but-ctx.workspace = true
+but-ctx = { workspace = true, features = ["legacy"] }
 but-project-handle.workspace = true
 but-rebase.workspace = true
 but-github.workspace = true
@@ -63,33 +45,29 @@ but-gitlab.workspace = true
 but-bitbucket.workspace = true
 but-forge.workspace = true
 but-forge-storage.workspace = true
-but-workspace = { workspace = true }
-but-api = { workspace = true, features = ["path-bytes"] }
+but-workspace = { workspace = true, features = ["legacy"] }
+but-api = { workspace = true, features = ["path-bytes", "legacy"] }
 but-graph.workspace = true
-but-hunk-dependency = { workspace = true, optional = true }
+but-hunk-dependency.workspace = true
 but-meta.workspace = true
 but-llm.workspace = true
 but-agentlog.workspace = true
-but-transaction.workspace = true
+but-transaction = { workspace = true, features = ["legacy"] }
 but-comments.workspace = true
 but-db.workspace = true
 but-error.workspace = true
 but-utils.workspace = true
-
-
-# What follows is *basically* newly written crates that are built on top of legacy,
-# so need some refactoring/rethinking to become usable.
-but-action = { workspace = true, optional = true }
+but-action.workspace = true
 but-hunk-assignment.workspace = true
-but-gerrit = { workspace = true, optional = true }
-gitbutler-project = { workspace = true, optional = true }
-gitbutler-branch-actions = { workspace = true, optional = true }
-gitbutler-oplog = { workspace = true, optional = true }
-gitbutler-edit-mode = { workspace = true, optional = true }
-gitbutler-operating-modes = { workspace = true, optional = true }
-gitbutler-repo = { workspace = true, optional = true }
-gitbutler-git = { workspace = true, optional = true }
-gitbutler-watcher = { workspace = true, optional = true }
+but-gerrit.workspace = true
+gitbutler-project.workspace = true
+gitbutler-branch-actions.workspace = true
+gitbutler-oplog.workspace = true
+gitbutler-edit-mode.workspace = true
+gitbutler-operating-modes.workspace = true
+gitbutler-repo.workspace = true
+gitbutler-git.workspace = true
+gitbutler-watcher.workspace = true
 
 schemars.workspace = true
 posthog-rs.workspace = true
@@ -132,7 +110,6 @@ minus = { git = "https://github.com/arijit79/minus", rev = "57f1848f831d153a10d6
     "search",
 ] }
 unicode-width = "0.2"
-cfg-if = "1.0.4"
 ratatui = { workspace = true, features = [
     "unstable-rendered-line-info",
     "palette",

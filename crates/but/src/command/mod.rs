@@ -1,5 +1,4 @@
 //! A place for each command, i.e. `but foo` as `pub mod foo` here.
-#[cfg(feature = "legacy")]
 pub mod legacy;
 
 pub mod agent;
@@ -29,9 +28,6 @@ pub mod worktree;
 pub enum CommandOutcome {
     AgentSetupPrintOnly,
     AgentSetupCancelled,
-    AgentSetupCompleted {
-        manual_instructions_required: bool,
-    },
-    #[cfg(feature = "legacy")]
+    AgentSetupCompleted { manual_instructions_required: bool },
     Commit(legacy::commit::CommitOutcome),
 }

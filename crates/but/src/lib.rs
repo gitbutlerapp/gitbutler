@@ -8,18 +8,7 @@
 //!     - interactive and static components for terminals
 //! * `*legacy/`
 //!     - code that depends on `gitbutler-*` crates or `but-*` crates with `legacy` feature enabled.
-//!
-//! ### Testing
-//!
-//! #### Legacy builds
-//!
-//! Run `cargo test -p but`, legacy features are the default.
-//!
-//! #### Non-Legacy builds
-//!
-//! Tests aren't available in this mode yet, but one can compile it with `cargo check -p but --no-default-features`.
 #![deny(unsafe_code)]
-#![cfg_attr(not(feature = "legacy"), expect(unused))]
 
 use std::{
     ffi::{OsStr, OsString},
@@ -28,7 +17,6 @@ use std::{
 
 use anyhow::{Context as _, Result};
 use but_api::WorkspaceState;
-use cfg_if::cfg_if;
 use clap::{CommandFactory, FromArgMatches as _, Parser as _};
 
 pub mod args;
@@ -40,7 +28,6 @@ use but_settings::AppSettings;
 use gix::date::time::CustomFormat;
 use theme::Paint;
 
-#[cfg(feature = "legacy")]
 use crate::command::legacy::ShowDiffInEditor;
 #[cfg(target_os = "linux")]
 use crate::utils::envs::BUT_CREDENTIALS_DIRECTORY;
@@ -60,7 +47,6 @@ pub use utils::binary_path::is_executed_as_but;
 
 mod alias;
 pub(crate) mod command;
-#[cfg(feature = "legacy")]
 pub use command::legacy::status::{FilesStatusFlag, StatusFlags, json as status, workspace_status};
 mod retired_syntax;
 pub mod theme;
@@ -322,7 +308,6 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
 
     let mut out = OutputChannel::new(output_format);
     out.set_full_error_chain(watwat);
-    #[cfg(feature = "legacy")]
     if matches!(
         &args.cmd,
         Some(Subcommands::Status { .. }) | Some(Subcommands::Diff(..))
@@ -736,7 +721,6 @@ async fn dispatch_subcommand(
                     };
                     Ok(command::config::user_config(ctx.as_ref(), out, cmd.clone()).await?)
                 }
-                #[cfg(feature = "legacy")]
                 Some(args::config::Subcommands::Forge {
                     cmd: Some(args::config::ForgeSubcommand::GithubStacks { .. }),
                 }) => {
@@ -767,19 +751,16 @@ async fn dispatch_subcommand(
                 )?),
                 _ => {
                     // Other subcommands need a repo context
-                    cfg_if! {
-                        if #[cfg(feature = "legacy")] {
-                            let mut ctx = setup::init_ctx(&args, InitCtxOptions {
-                                background_sync: BackgroundSync::Disabled,
-                                target_requirement: TargetRequirement::Optional,
-                                ..Default::default()
-                            }, out)?;
-                            command::config::exec(&mut ctx, out, cmd).await
-                        } else {
-                            let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
-                            command::config::exec(&mut ctx, out, cmd).await
-                        }
-                    }
+                    let mut ctx = setup::init_ctx(
+                        &args,
+                        InitCtxOptions {
+                            background_sync: BackgroundSync::Disabled,
+                            target_requirement: TargetRequirement::Optional,
+                            ..Default::default()
+                        },
+                        out,
+                    )?;
+                    command::config::exec(&mut ctx, out, cmd).await
                 }
             })
             .map(|()| DispatchOutcome::Return);
@@ -828,7 +809,6 @@ async fn dispatch_subcommand(
             command::ui::handle(out, platform)?;
             return Ok(DispatchOutcome::Return);
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Init(init_args) => {
             let outcome = command::legacy::init::run(init_args, &args.current_dir, out)?;
             out.print_cli_output(outcome)?;
@@ -865,7 +845,6 @@ async fn dispatch_subcommand(
             },
             out,
         ),
-        #[cfg(feature = "legacy")]
         Subcommands::Switch(..) => setup::init_ctx(
             &args,
             InitCtxOptions {
@@ -877,7 +856,6 @@ async fn dispatch_subcommand(
         Subcommands::_Comment(..) | Subcommands::Worktree(..) => {
             setup::init_ctx(&args, InitCtxOptions::default(), out)
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Commit(..) | Subcommands::Status { .. } | Subcommands::Diff(..) => {
             setup::init_ctx(
                 &args,
@@ -890,7 +868,6 @@ async fn dispatch_subcommand(
                 out,
             )
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Actions { .. }
         | Subcommands::Pull { .. }
         | Subcommands::Fetch
@@ -900,7 +877,6 @@ async fn dispatch_subcommand(
         | Subcommands::Redo(..)
         | Subcommands::RefreshRemoteData { .. }
         | Subcommands::Merge { .. } => setup::init_ctx(&args, InitCtxOptions::default(), out),
-        #[cfg(feature = "legacy")]
         Subcommands::Clean { .. }
         | Subcommands::Show { .. }
         | Subcommands::Squash(..)
@@ -924,7 +900,6 @@ async fn dispatch_subcommand(
             },
             out,
         ),
-        #[cfg(feature = "legacy")]
         Subcommands::Tui(..) => setup::init_ctx(
             &args,
             InitCtxOptions {
@@ -933,7 +908,6 @@ async fn dispatch_subcommand(
             },
             out,
         ),
-        #[cfg(feature = "legacy")]
         Subcommands::Teardown { .. } => setup::init_ctx(
             &args,
             InitCtxOptions {
@@ -957,16 +931,13 @@ async fn dispatch_subcommand(
 
     // If `Some`, and if result is `Ok`, this is passed to
     // `report_newly_conflicted()`.
-    #[cfg(feature = "legacy")]
     let mut newly_conflicted_data: Option<command::legacy::conflict_notice::ConflictSnapshot> =
         None;
     // If `Some`, and if result is `Ok`, this is passed to
     // `run_status_after_if_requested()`.
     let mut status_after_data: Option<bool> = None;
-    #[cfg(feature = "legacy")]
     let mut command_outcome = None;
     let ws: Option<WorkspaceState> = match cmd {
-        #[cfg(feature = "legacy")]
         Subcommands::Init(..) => unreachable!("handled above"),
         Subcommands::Metrics { .. }
         | Subcommands::Gui { .. }
@@ -1069,14 +1040,10 @@ async fn dispatch_subcommand(
             None
         }
         Subcommands::Branch(branch::Platform { cmd }) => match cmd {
-            #[cfg(not(feature = "legacy"))]
-            None => todo!("implement list and call recursively"),
-            #[cfg(feature = "legacy")]
             None => {
                 command::legacy::branch::handle_no_subcommand(&mut ctx, out)?;
                 None
             }
-            #[cfg(feature = "legacy")]
             Some(branch::Subcommands::List {
                 filter,
                 local,
@@ -1092,7 +1059,6 @@ async fn dispatch_subcommand(
                 )?;
                 None
             }
-            #[cfg(feature = "legacy")]
             Some(branch::Subcommands::Show {
                 branch,
                 review,
@@ -1105,7 +1071,6 @@ async fn dispatch_subcommand(
                 )?;
                 None
             }
-            #[cfg(feature = "legacy")]
             Some(branch::Subcommands::New(new_args)) => {
                 use crate::utils::IntermediateChannel;
 
@@ -1123,7 +1088,6 @@ async fn dispatch_subcommand(
                 out.print_cli_output(outcome)?;
                 None
             }
-            #[cfg(feature = "legacy")]
             Some(branch::Subcommands::Delete { branches }) => {
                 use crate::utils::IntermediateChannel;
 
@@ -1168,7 +1132,6 @@ async fn dispatch_subcommand(
                 .into());
             }
         },
-        #[cfg(feature = "legacy")]
         Subcommands::Switch(switch_args) => {
             use crate::utils::IntermediateChannel;
 
@@ -1181,7 +1144,6 @@ async fn dispatch_subcommand(
             out.print_cli_output(outcome)?;
             None
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Actions(actions::Platform { cmd }) => {
             match cmd {
                 Some(actions::Subcommands::HandleChanges {
@@ -1196,11 +1158,9 @@ async fn dispatch_subcommand(
             }
             None
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Pull { check, update } => {
             command::legacy::pull::handle(&mut ctx, out, check, &update).await?
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Fetch => {
             use std::fmt::Write;
             let mut progress = out.progress_channel();
@@ -1219,7 +1179,6 @@ async fn dispatch_subcommand(
             )
             .await?
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Clean {
             dry_run,
             pull,
@@ -1250,7 +1209,6 @@ async fn dispatch_subcommand(
                 },
             )?
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Status {
             show_files,
             verbose,
@@ -1284,7 +1242,6 @@ async fn dispatch_subcommand(
             )?;
             None
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Tui(tui_args) => {
             use crate::command::legacy::status::{StatusFlags, StatusRenderMode, TuiLaunchOptions};
 
@@ -1305,7 +1262,6 @@ async fn dispatch_subcommand(
             )?;
             None
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Diff(diff_args) => {
             use crate::utils::IntermediateChannel;
 
@@ -1318,7 +1274,6 @@ async fn dispatch_subcommand(
             out.print_cli_output(outcome)?;
             None
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Show {
             commit,
             verbose,
@@ -1328,7 +1283,6 @@ async fn dispatch_subcommand(
                 command::legacy::show::show_commit(&mut ctx, out, &commit, verbose, stat),
             ));
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Commit(commit_args) => {
             use crate::utils::IntermediateChannel;
 
@@ -1349,7 +1303,6 @@ async fn dispatch_subcommand(
             command_outcome = Some(metrics_outcome);
             Some(ws)
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Squash(squash_args) => {
             use crate::utils::IntermediateChannel;
 
@@ -1368,7 +1321,6 @@ async fn dispatch_subcommand(
             out.print_cli_output(outcome)?;
             ws
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Move(move_args) => {
             use crate::utils::IntermediateChannel;
 
@@ -1386,7 +1338,6 @@ async fn dispatch_subcommand(
             out.print_cli_output(outcome)?;
             Some(ws)
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Split(split_args) => {
             use crate::utils::IntermediateChannel;
 
@@ -1404,12 +1355,10 @@ async fn dispatch_subcommand(
             out.print_cli_output(outcome)?;
             Some(ws)
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Push(push_args) => {
             command::legacy::push::handle(push_args, &mut ctx, out).await?;
             None
         }
-        #[cfg(feature = "legacy")]
         Subcommands::_Reword2(reword_args) => {
             use crate::utils::IntermediateChannel;
 
@@ -1425,7 +1374,6 @@ async fn dispatch_subcommand(
             out.print_cli_output(outcome)?;
             ws
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Reword {
             target,
             message,
@@ -1455,7 +1403,6 @@ async fn dispatch_subcommand(
             )?;
             None
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Oplog(args::oplog::Platform { cmd }) => match cmd {
             Some(args::oplog::Subcommands::List { since, snapshot }) => {
                 let filter = if snapshot {
@@ -1479,7 +1426,6 @@ async fn dispatch_subcommand(
                 None
             }
         },
-        #[cfg(feature = "legacy")]
         Subcommands::Undo(undo_args) => {
             use crate::utils::IntermediateChannel;
 
@@ -1496,7 +1442,6 @@ async fn dispatch_subcommand(
             out.print_cli_output(outcome)?;
             None
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Redo(redo_args) => {
             use crate::utils::IntermediateChannel;
 
@@ -1513,7 +1458,6 @@ async fn dispatch_subcommand(
             out.print_cli_output(outcome)?;
             None
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Absorb {
             source,
             dry_run,
@@ -1533,7 +1477,6 @@ async fn dispatch_subcommand(
             )?;
             None
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Discard(discard_args) => {
             use crate::utils::IntermediateChannel;
 
@@ -1559,13 +1502,11 @@ async fn dispatch_subcommand(
             out.print_cli_output(outcome)?;
             None
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Teardown { checkout_to } => {
             command::legacy::teardown::teardown(&mut ctx, checkout_to, out)
                 .map_err(|err| err.context("Failed to teardown GitButler project."))?;
             None
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Pr(forge::pr::Platform {
             cmd,
             draft: top_level_draft,
@@ -1675,7 +1616,6 @@ async fn dispatch_subcommand(
                 }
             }
         }
-        #[cfg(feature = "legacy")]
         Subcommands::RefreshRemoteData {
             fetch,
             pr: prs,
@@ -1693,7 +1633,6 @@ async fn dispatch_subcommand(
             )?;
             None
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Resolve { cmd, targets, ai } => {
             let status_after = args.status_after
                 && matches!(&cmd, Some(crate::args::resolve::Subcommands::Finish));
@@ -1710,7 +1649,6 @@ async fn dispatch_subcommand(
             }
             return Ok(DispatchOutcome::ExitWithoutDestructors(result));
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Uncommit(uncommit_args) => {
             use crate::utils::IntermediateChannel;
 
@@ -1727,7 +1665,6 @@ async fn dispatch_subcommand(
             out.print_cli_output(outcome)?;
             ws
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Amend(amend_args) => {
             use crate::utils::IntermediateChannel;
 
@@ -1745,7 +1682,6 @@ async fn dispatch_subcommand(
             out.print_cli_output(outcome)?;
             ws
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Merge {
             branch,
             yes,
@@ -1776,7 +1712,6 @@ async fn dispatch_subcommand(
                 return Ok(DispatchOutcome::ExitWithoutDestructors(result.map(|_| ())));
             }
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Pick(pick_args) => {
             use crate::utils::IntermediateChannel;
 
@@ -1794,7 +1729,6 @@ async fn dispatch_subcommand(
             out.print_cli_output(outcome)?;
             Some(ws)
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Unapply(unapply_args) => {
             use crate::utils::IntermediateChannel;
 
@@ -1810,7 +1744,6 @@ async fn dispatch_subcommand(
             out.print_cli_output(outcome)?;
             None
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Apply(apply_args) => {
             use crate::utils::IntermediateChannel;
 
@@ -1825,7 +1758,6 @@ async fn dispatch_subcommand(
         }
     };
 
-    #[cfg(feature = "legacy")]
     if let Some(ws) = ws {
         if !ws.conflicted_checkouts.is_empty() {
             command::legacy::conflict_notice::report_checkout_conflicts(
@@ -1842,7 +1774,6 @@ async fn dispatch_subcommand(
             );
         }
     }
-    #[cfg(feature = "legacy")]
     if let Some(status_after) = status_after_data {
         run_status_after_if_requested(
             status_after,
@@ -1853,7 +1784,6 @@ async fn dispatch_subcommand(
         );
     }
 
-    #[cfg(feature = "legacy")]
     if let Some(outcome) = command_outcome {
         return Ok(DispatchOutcome::ReturnWithOutcome(outcome));
     }
@@ -1913,7 +1843,6 @@ fn discover_optional_context(path: &std::path::Path) -> CliResult<Option<but_ctx
     }
 }
 
-#[cfg(feature = "legacy")]
 fn run_status_after_if_requested(
     status_after: bool,
     agent_skill_notices: bool,
@@ -1952,7 +1881,6 @@ fn run_status_after_if_requested(
 /// Status errors are handled gracefully: in JSON mode the mutation result is
 /// always emitted (with a `"status_error"` field on failure); in human mode
 /// a warning is printed to stderr.
-#[cfg(feature = "legacy")]
 fn run_status_after(
     agent_skill_notices: bool,
     ctx: &mut but_ctx::Context,
@@ -2032,7 +1960,6 @@ fn run_status_after(
     }
 }
 
-#[cfg(feature = "legacy")]
 mod legacy;
 
 mod setup;
@@ -2181,7 +2108,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "legacy")]
     fn detected_agent_omits_status_after_mutation_by_default() {
         let (args, _) =
             parse_args_and_output_format(os_args(&["but", "commit", "--no-message"]), true);
@@ -2193,7 +2119,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "legacy")]
     fn detected_agent_can_request_status_after_mutation() {
         let (args, _) = parse_args_and_output_format(
             os_args(&["but", "commit", "--status-after", "--no-message"]),

@@ -18,7 +18,7 @@ use crate::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConfirmDefault {
     Yes,
-    #[cfg_attr(feature = "legacy", expect(dead_code))]
+    #[expect(dead_code)]
     No,
 }
 

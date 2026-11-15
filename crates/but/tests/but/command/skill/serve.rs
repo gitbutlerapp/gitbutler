@@ -85,7 +85,6 @@ For more information, try '--help'.
 /// command's help shows up here as a reviewable diff. The tree, and so the
 /// snapshot, is the legacy command set.
 #[test]
-#[cfg(feature = "legacy")]
 fn skill_reference_is_rendered_from_the_command_tree() {
     let env = Sandbox::empty();
 

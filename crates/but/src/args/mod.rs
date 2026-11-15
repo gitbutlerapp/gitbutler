@@ -15,7 +15,6 @@ use crate::args::atoms::CliIdArg;
 use crate::utils::envs;
 
 pub mod atoms;
-#[cfg(feature = "legacy")]
 pub mod init;
 
 #[derive(Debug, clap::Parser)]
@@ -184,7 +183,6 @@ impl HelpTopic {
     name(SubcommandDiscriminant)
 )]
 pub enum Subcommands {
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Init(init::Platform),
 
@@ -209,7 +207,6 @@ pub enum Subcommands {
     /// but status -f
     /// ```
     ///
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Status {
         /// Also list the files changed by each commit.
@@ -233,7 +230,6 @@ pub enum Subcommands {
         short: bool,
     },
 
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Diff(diff::Platform),
 
@@ -271,7 +267,6 @@ pub enum Subcommands {
     /// but show my-feature-branch --verbose
     /// ```
     ///
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Show {
         /// The commit ID (short or full SHA), branch name, or CLI ID to show details for
@@ -286,23 +281,18 @@ pub enum Subcommands {
         stat: bool,
     },
 
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Commit(commit::Platform),
 
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Squash(squash::Platform),
 
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Move(r#move::Platform),
 
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Split(split::Platform),
 
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     #[clap(hide = true, name = "_reword2")]
     _Reword2(reword2::Platform),
@@ -383,7 +373,6 @@ pub enum Subcommands {
     /// ```text
     /// but merge top-branch --whole-stack
     /// ```
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     #[clap(alias = "land")]
     Merge {
@@ -404,7 +393,6 @@ pub enum Subcommands {
         whole_stack: bool,
     },
 
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Discard(discard::Platform),
 
@@ -451,7 +439,6 @@ pub enum Subcommands {
     ///
     /// When in resolution mode, `but status` will also show that you're resolving conflicts.
     ///
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Resolve {
         /// Subcommand to run (defaults to entering resolution mode)
@@ -473,11 +460,9 @@ pub enum Subcommands {
         ai: bool,
     },
 
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Unapply(unapply::Platform),
 
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Apply(apply::Platform),
 
@@ -494,7 +479,6 @@ pub enum Subcommands {
     /// - `but push bu` - push the branch with CLI ID "bu"
     /// - `but push feature-branch` - push the branch named "feature-branch"
     ///
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Push(push::Command),
 
@@ -516,7 +500,6 @@ pub enum Subcommands {
     /// Commits pushed to a branch's own remote counterpart are not integrated by pull;
     /// use `but branch update <branch>` for those.
     ///
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Pull {
         /// Only check whether the update would apply cleanly, without updating
@@ -541,7 +524,6 @@ pub enum Subcommands {
     /// Running `but pr` without a subcommand defaults to `but pr new`, which
     /// will prompt you to select a branch to create a PR for.
     ///
-    #[cfg(feature = "legacy")]
     #[clap(visible_alias = "mr")]
     Pr(forge::pr::Platform),
 
@@ -562,7 +544,6 @@ pub enum Subcommands {
     /// If `--dry-run` is specified, no changes will be made; instead, the absorption plan
     /// (what changes would be absorbed by which commits) will be shown.
     ///
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Absorb {
         /// An uncommitted file or hunk to absorb; if omitted, everything uncommitted in the
@@ -587,7 +568,6 @@ pub enum Subcommands {
     /// You can also use `but reword <branch-id>` to rename the branch, or
     /// `but reword <anonymous-branch-id>` to give an anonymous branch a name.
     ///
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Reword {
         /// Commit ID to edit, branch ID to rename, or anonymous branch ID to name
@@ -620,11 +600,9 @@ pub enum Subcommands {
         allow_merged: atoms::AllowMergedArg,
     },
 
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Uncommit(uncommit::Platform),
 
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Amend(amend::Platform),
 
@@ -640,15 +618,12 @@ pub enum Subcommands {
     ///
     /// By default, shows the last 20 oplog entries (same as `but oplog list`).
     ///
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Oplog(oplog::Platform),
 
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Undo(undo::Platform),
 
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Redo(redo::Platform),
 
@@ -685,7 +660,6 @@ pub enum Subcommands {
     /// but teardown --checkout-to my-feature-branch
     /// ```
     ///
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Teardown {
         /// Explicit override for which local branch to checkout to.
@@ -735,7 +709,6 @@ pub enum Subcommands {
     },
 
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    #[cfg(feature = "legacy")]
     Tui(tui::Platform),
 
     /// Remove empty branches from the workspace.
@@ -773,7 +746,6 @@ pub enum Subcommands {
     /// but clean --include-upstream
     /// ```
     ///
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Clean {
         /// Preview which branches would be removed without actually deleting them.
@@ -865,11 +837,9 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Config(config::Platform),
 
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Pick(pick::Platform),
 
-    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     #[clap(hide = true)]
     Switch(switch::Platform),
@@ -946,7 +916,6 @@ pub enum Subcommands {
     /// Trigger a refresh of remote data fetching from the remote, Pull Requests, and CI status.
     ///
     /// This is a hidden command primarily used for background sync operations.
-    #[cfg(feature = "legacy")]
     #[clap(hide = true)]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     RefreshRemoteData {
@@ -973,7 +942,6 @@ pub enum Subcommands {
     Mcp(mcp::Platform),
 
     /// INTERNAL: GitButler Actions are automated tasks (like macros) that can be performed on a repository.
-    #[cfg(feature = "legacy")]
     #[clap(hide = true)]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Actions(actions::Platform),
@@ -1010,7 +978,6 @@ pub enum Subcommands {
     },
 
     /// Hidden command that redirects to `but pull --check`
-    #[cfg(feature = "legacy")]
     #[clap(hide = true)]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Fetch,
@@ -1054,43 +1021,27 @@ pub enum Subcommands {
 
 pub mod agent;
 pub mod alias;
-#[cfg(feature = "legacy")]
 pub mod amend;
-#[cfg(feature = "legacy")]
 pub mod apply;
 pub mod comment;
-#[cfg(feature = "legacy")]
 pub mod commit;
 pub mod config;
-#[cfg(feature = "legacy")]
 pub mod diff;
-#[cfg(feature = "legacy")]
 pub mod discard;
 pub mod mcp;
-#[cfg(feature = "legacy")]
 pub mod r#move;
-#[cfg(feature = "legacy")]
 pub mod pick;
-#[cfg(feature = "legacy")]
 pub mod redo;
-#[cfg(feature = "legacy")]
 pub mod reword2;
 pub mod skill;
-#[cfg(feature = "legacy")]
 pub mod split;
-#[cfg(feature = "legacy")]
 pub mod squash;
-#[cfg(feature = "legacy")]
 pub mod switch;
-#[cfg(feature = "legacy")]
 pub mod tui;
 #[cfg(feature = "nightly")]
 pub mod ui;
-#[cfg(feature = "legacy")]
 pub mod unapply;
-#[cfg(feature = "legacy")]
 pub mod uncommit;
-#[cfg(feature = "legacy")]
 pub mod undo;
 pub mod update;
 
@@ -1122,10 +1073,8 @@ pub mod actions {
 
 pub mod forge;
 pub mod metrics;
-#[cfg(feature = "legacy")]
 pub mod oplog;
 pub mod push;
-#[cfg(feature = "legacy")]
 pub mod resolve;
 
 pub mod branch;
@@ -1166,7 +1115,7 @@ pub(crate) fn find_subcommand(args: &[std::ffi::OsString]) -> Option<(usize, &st
 }
 
 /// Example invocations appended to a `but _open` parse error.
-#[cfg(all(feature = "legacy", feature = "nightly"))]
+#[cfg(feature = "nightly")]
 const OPEN_ERROR_EXAMPLES: &str = "\
 Examples:
   but _open <file-or-hunk>...            # open in an editor
@@ -1191,24 +1140,16 @@ fn gui_places_help() -> String {
 /// Example invocations appended to a subcommand's parse error, for the
 /// commands whose grammar most often trips people up.
 pub(crate) fn error_examples(subcommand: &str) -> Option<&'static str> {
-    #[cfg(feature = "legacy")]
-    {
-        Some(match subcommand {
-            "commit" => commit::ERROR_EXAMPLES,
-            "amend" => amend::ERROR_EXAMPLES,
-            "diff" => diff::ERROR_EXAMPLES,
-            "move" => r#move::ERROR_EXAMPLES,
-            "squash" => squash::ERROR_EXAMPLES,
-            #[cfg(feature = "nightly")]
-            "_open" => OPEN_ERROR_EXAMPLES,
-            _ => return None,
-        })
-    }
-    #[cfg(not(feature = "legacy"))]
-    {
-        let _ = subcommand;
-        None
-    }
+    Some(match subcommand {
+        "commit" => commit::ERROR_EXAMPLES,
+        "amend" => amend::ERROR_EXAMPLES,
+        "diff" => diff::ERROR_EXAMPLES,
+        "move" => r#move::ERROR_EXAMPLES,
+        "squash" => squash::ERROR_EXAMPLES,
+        #[cfg(feature = "nightly")]
+        "_open" => OPEN_ERROR_EXAMPLES,
+        _ => return None,
+    })
 }
 
 #[cfg(test)]

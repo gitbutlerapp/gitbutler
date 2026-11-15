@@ -101,7 +101,7 @@ pub(crate) fn note(body: &str, agent: bool) -> String {
     text
 }
 
-#[cfg(all(test, feature = "legacy"))]
+#[cfg(test)]
 mod tests {
     use clap::Parser as _;
 

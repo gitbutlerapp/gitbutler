@@ -1,10 +1,7 @@
 use super::*;
 
-#[cfg(feature = "legacy")]
 mod amend;
-#[cfg(feature = "legacy")]
 mod diff;
-#[cfg(feature = "legacy")]
 mod reword;
 
 mod find_subcommand {
@@ -414,7 +411,6 @@ fn mcp_command_is_hidden_but_still_parses() {
     );
 }
 
-#[cfg(feature = "legacy")]
 #[test]
 fn status_short_is_hidden_noop_compatibility_flag() {
     use clap::Parser;
@@ -442,7 +438,6 @@ fn status_short_is_hidden_noop_compatibility_flag() {
     }
 }
 
-#[cfg(feature = "legacy")]
 #[test]
 fn status_short_is_not_shown_in_help() {
     use clap::CommandFactory;
@@ -658,11 +653,9 @@ mod agentlog {
     }
 }
 
-#[cfg(feature = "legacy")]
 mod push {
     use clap::Parser;
 
-    #[cfg(feature = "legacy")]
     mod get_gerrit_flags {
         use crate::{args::push::Command as Args, command::legacy::push::get_gerrit_flags};
 
@@ -1024,7 +1017,6 @@ mod push {
     }
 }
 
-#[cfg(feature = "legacy")]
 mod pr {
     use clap::Parser;
 

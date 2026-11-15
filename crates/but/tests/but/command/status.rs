@@ -216,7 +216,6 @@ fn single_branch_mode_lazily_initializes_an_unregistered_repository() {
     );
 }
 
-#[cfg(feature = "legacy")]
 #[test]
 fn nested_repository_ignores_a_registered_parent_without_git_dir() {
     let env = Sandbox::empty();

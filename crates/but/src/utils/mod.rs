@@ -29,9 +29,7 @@ pub mod time;
 pub(crate) mod binary_path;
 pub(crate) mod change_source;
 pub(crate) mod diff_specs;
-#[cfg(feature = "legacy")]
 pub(crate) mod merged_upstream;
-#[cfg(feature = "legacy")]
 pub(crate) mod rejection;
 pub(crate) mod targeting;
 pub(crate) mod worktrees;
@@ -136,13 +134,11 @@ impl From<CommitId> for CommitIdJson {
     }
 }
 
-#[cfg(feature = "legacy")]
 pub fn in_single_branch_mode(ctx: &Context) -> anyhow::Result<bool> {
     let guard = ctx.shared_worktree_access();
     in_single_branch_mode_with_perm(ctx, guard.read_permission())
 }
 
-#[cfg(feature = "legacy")]
 pub use but_transaction::single_branch_mode::in_single_branch_mode_with_perm;
 
 /// The name of the branch an operation makes: `name`, or a made-up one from `repo` it's filled in
