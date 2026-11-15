@@ -3,7 +3,6 @@ use std::path::PathBuf;
 use anyhow::{Context as _, Result};
 use but_ctx::{Context, access::RepoExclusive};
 use but_oxidize::{ObjectIdExt, OidExt};
-use gitbutler_branch::GITBUTLER_WORKSPACE_REFERENCE;
 use gitbutler_repo::{SignaturePurpose, commit_without_signature_gix, signature_gix};
 use tracing::instrument;
 
@@ -172,12 +171,12 @@ pub(crate) fn update_workspace_commit_from_workspace(
     };
 
     repo.reference(
-        &GITBUTLER_WORKSPACE_REFERENCE.clone().to_string(),
+        but_core::WORKSPACE_REF_NAME,
         final_commit.to_git2(),
         true,
         "updated workspace commit",
     )?;
-    repo.set_head(&GITBUTLER_WORKSPACE_REFERENCE.clone().to_string())?;
+    repo.set_head(but_core::WORKSPACE_REF_NAME)?;
 
     let mut index = repo.index()?;
     index.read_tree(&repo.find_tree(workspace_tree.to_git2())?)?;

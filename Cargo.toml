@@ -197,7 +197,6 @@ gitbutler-oplog = { path = "crates/gitbutler-oplog" }
 gitbutler-repo = { path = "crates/gitbutler-repo" }
 gitbutler-project = { path = "crates/gitbutler-project" }
 gitbutler-user = { path = "crates/gitbutler-user" }
-gitbutler-branch = { path = "crates/gitbutler-branch" }
 gitbutler-reference = { path = "crates/gitbutler-reference" }
 gitbutler-operating-modes = { path = "crates/gitbutler-operating-modes" }
 gitbutler-edit-mode = { path = "crates/gitbutler-edit-mode" }

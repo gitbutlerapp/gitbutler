@@ -1194,7 +1194,6 @@ dependencies = [
  "crossterm 0.29.0",
  "dirs",
  "fuzzy-matcher",
- "gitbutler-branch",
  "gitbutler-branch-actions",
  "gitbutler-edit-mode",
  "gitbutler-git",
@@ -1334,7 +1333,6 @@ dependencies = [
  "but-workspace",
  "chrono",
  "futures",
- "gitbutler-branch",
  "gitbutler-branch-actions",
  "gitbutler-edit-mode",
  "gitbutler-git",
@@ -4770,21 +4768,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gitbutler-branch"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "bstr",
- "but-core",
- "but-schemars",
- "gitbutler-reference",
- "gix",
- "lazy_static",
- "schemars 1.2.1",
- "serde",
-]
-
-[[package]]
 name = "gitbutler-branch-actions"
 version = "0.0.0"
 dependencies = [
@@ -4806,7 +4789,6 @@ dependencies = [
  "but-testsupport",
  "but-workspace",
  "ctor 0.6.3",
- "gitbutler-branch",
  "gitbutler-operating-modes",
  "gitbutler-oplog",
  "gitbutler-project",

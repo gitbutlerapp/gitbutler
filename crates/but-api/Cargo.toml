@@ -41,7 +41,6 @@ export-schema = [
     "gitbutler-project/export-schema",
     "but-rebase/export-schema",
     "gitbutler-operating-modes/export-schema",
-    "gitbutler-branch/export-schema",
     "gitbutler-branch-actions/export-schema",
     "gitbutler-edit-mode/export-schema",
     "gitbutler-oplog/export-schema",
@@ -63,7 +62,6 @@ legacy = [
     "dep:but-askpass",
     "dep:gitbutler-user",
     "dep:gitbutler-project",
-    "dep:gitbutler-branch",
     "dep:gitbutler-branch-actions",
     "dep:gitbutler-reference",
     "dep:gitbutler-repo",
@@ -111,7 +109,6 @@ but-action = { workspace = true, optional = true }
 but-gerrit = { workspace = true, optional = true }
 gitbutler-user = { workspace = true, optional = true }
 gitbutler-project = { workspace = true, optional = true }
-gitbutler-branch = { workspace = true, optional = true }
 gitbutler-branch-actions = { workspace = true, optional = true }
 gitbutler-reference = { workspace = true, optional = true }
 gitbutler-repo = { workspace = true, optional = true }

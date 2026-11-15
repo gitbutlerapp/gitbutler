@@ -598,10 +598,12 @@ impl App {
         let updates = new_stack_order
             .into_iter()
             .enumerate()
-            .map(|(order, stack)| gitbutler_branch::BranchUpdateRequest {
-                id: Some(stack),
-                order: Some(order),
-            })
+            .map(
+                |(order, stack)| but_api::legacy::virtual_branches::BranchUpdateRequest {
+                    id: Some(stack),
+                    order: Some(order),
+                },
+            )
             .collect();
 
         but_api::legacy::virtual_branches::update_stack_order(ctx, updates)?;

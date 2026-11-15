@@ -200,7 +200,7 @@ fn many_commits_in_all_branch_types() -> anyhow::Result<()> {
 
 mod util {
     use but_ctx::Context;
-    use gitbutler_branch::BranchIdentity;
+    use gitbutler_branch_actions::BranchIdentity;
     use gitbutler_branch_actions::{Author, BranchListingDetails};
 
     pub fn branch_details(
