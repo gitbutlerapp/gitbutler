@@ -48,6 +48,9 @@ pub(crate) struct InitCtxOptions {
     pub target_requirement: TargetRequirement,
 }
 
+/// The error code for running outside any Git repository. Metrics sampling matches on it.
+pub(crate) const NO_GIT_REPOSITORY: &str = "NoGitRepository";
+
 /// Explain why no repository could be opened at `dir`, suggesting `but init` only where it can work.
 fn discovery_failure(dir: &Path, err: &anyhow::Error) -> BadInput {
     let no_repo = crate::is_not_in_git_repository_error(err);
@@ -60,7 +63,7 @@ fn discovery_failure(dir: &Path, err: &anyhow::Error) -> BadInput {
     {
         return bad_input(format!("No git repository found at {}", dot_git.display()))
             .hint("Run `but init` to initialize a Git repository.")
-            .code("NoGitRepository");
+            .code(NO_GIT_REPOSITORY);
     }
     let reason = match gix::discover::is_git(&dot_git) {
         Err(broken) if no_repo => format!("{broken:#}"),
