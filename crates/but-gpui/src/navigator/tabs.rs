@@ -9,7 +9,7 @@
 //! Tabs are placed here rather than by layout, from their labels' widths, so a frame knows where
 //! each is, and where each will end up, without waiting for a layout to measure.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
@@ -23,7 +23,7 @@ use gpui::{
 };
 
 use super::cursor::{RowAction, row_actions};
-use super::frame::RowsIn;
+use super::frame::{Built, RowsIn};
 use super::order::moving_worktree;
 use super::rows::{CARD_PADDING, Rows, listed_with};
 use super::{
@@ -2529,27 +2529,29 @@ impl Navigator {
         } = self.rows_now(cx);
         // The rows of the tab the selection's in are the navigator's own, keys and all.
         let own = self.top_scope(cx).as_ref() == Some(scope);
-        let held_card = self.held_card.take();
-        let held_worktree = self.held_worktree.take();
-        let focused_card = self.focused_card.take();
-        let keys = (!own).then(|| std::mem::take(&mut self.row_keys));
-        let rows = std::mem::replace(&mut self.rows, rows);
-        let insets = std::mem::replace(&mut self.insets, insets);
-        let guides = std::mem::replace(&mut self.guides, guides);
-        let moving = std::mem::replace(&mut self.moving, moving);
-        let drawer = std::mem::replace(&mut self.drawer, drawer);
+        let row_keys = match own {
+            true => std::mem::take(&mut self.built.row_keys),
+            false => Vec::new(),
+        };
+        // Every field named, so one added to `Built` has to say what it is in the card.
+        let card = Built {
+            rows,
+            insets,
+            guides,
+            moving,
+            drawer,
+            row_keys,
+            // Held and edged as the list draws them, which the card doesn't.
+            held_card: None,
+            focused_card: RefCell::new(None),
+            held_worktree: None,
+        };
+        let list = std::mem::replace(&mut self.built, card);
         let done = act(self, cx);
-        self.rows = rows;
-        self.insets = insets;
-        self.guides = guides;
-        self.moving = moving;
-        self.drawer = drawer;
-        if let Some(keys) = keys {
-            self.row_keys = keys;
+        let card = std::mem::replace(&mut self.built, list);
+        if own {
+            self.built.row_keys = card.row_keys;
         }
-        self.focused_card.replace(focused_card);
-        self.held_worktree = held_worktree;
-        self.held_card = held_card;
         self.scope = outer;
         done
     }
@@ -2565,7 +2567,7 @@ impl Navigator {
         self.scoped_keys = window.focused(cx);
         self.in_scope(scope, cx, |this, cx| {
             if *scope != TabKey::More {
-                return (0..this.rows.len())
+                return (0..this.built.rows.len())
                     .map(|ix| this.row_in_card(ix, window, cx))
                     .collect();
             }
@@ -2574,7 +2576,8 @@ impl Navigator {
             let bar = this
                 .drawer_bar(alone, window, &theme, cx)
                 .into_any_element();
-            let rows = (0..this.drawer.rows.len()).map(|ix| this.render_drawer_row(ix, window, cx));
+            let rows =
+                (0..this.built.drawer.rows.len()).map(|ix| this.render_drawer_row(ix, window, cx));
             std::iter::once(bar).chain(rows).collect()
         })
     }
@@ -2587,7 +2590,7 @@ impl Navigator {
             rows.iter().position(at)
         };
         // The drawer's bar comes before its rows.
-        row(&self.rows).or_else(|| row(&self.drawer.rows).map(|row| row + 1))
+        row(&self.built.rows).or_else(|| row(&self.built.drawer.rows).map(|row| row + 1))
     }
 
     /// What the navigator's header has but its filter, at the strip's right end.

@@ -125,7 +125,7 @@ impl Navigator {
             depth,
             row: self.row,
         };
-        let (at, op) = match drag_zone(&self.rows, &project, &what, aim, takes) {
+        let (at, op) = match drag_zone(&self.built.rows, &project, &what, aim, takes) {
             Some(landing) => landing,
             None => self.dragged_from(&project, &what, cx)?,
         };
@@ -166,25 +166,30 @@ impl Navigator {
         let moving = (store.moving.as_ref())
             .filter(|moving| moving.dragged(store) && moving.lands(store))?;
         // A branch joining a stack has it outlined, and the line too where it goes into it.
-        if self.squash_outline.is_some() && !joins_stack(&self.rows, moving) {
+        if self.squash_outline.is_some() && !joins_stack(&self.built.rows, moving) {
             return None;
         }
-        let line = divider_at(&self.rows, &moving.project, &moving.at)?;
+        let line = divider_at(&self.built.rows, &moving.project, &moving.at)?;
         let (ix, above) = (line.row, line.place == Place::Above);
-        let inset = self.insets.get(line.inset_of).copied().unwrap_or_default();
+        let inset = self
+            .built
+            .insets
+            .get(line.inset_of)
+            .copied()
+            .unwrap_or_default();
         // In the card under a tab, from the top of its rows, all of which are drawn.
         let (edge, (left, right)) = match self.card_top.get() {
             Some(_) => {
                 let rows = 0..ix + usize::from(!above);
                 (
-                    theme.scaled(span_height(&self.rows, rows, self.row)),
+                    theme.scaled(span_height(&self.built.rows, rows, self.row)),
                     (0., 0.),
                 )
             }
             None => {
                 let row = self.list.bounds_for_item(ix)?;
                 // A card's first and last rows hold its edge, which the line stays inside.
-                let (first, last) = card_ends(&self.rows, ix);
+                let (first, last) = card_ends(&self.built.rows, ix);
                 let edge = match above {
                     true if first => row.top() + theme.scaled(CARD_EDGE),
                     true => row.top(),

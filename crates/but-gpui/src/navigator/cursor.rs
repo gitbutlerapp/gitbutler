@@ -131,7 +131,9 @@ impl Navigator {
         let at = (current.as_ref()).and_then(|s| items.iter().position(|item| *item == s));
         let bar = self.drawer_toggles(cx).then(|| match &built {
             Some(built) => self.staying(&built.rows, &built.moving, &[]).len(),
-            None => self.staying(&self.rows, &self.moving, &[]).len(),
+            None => self
+                .staying(&self.built.rows, &self.built.moving, &[])
+                .len(),
         });
         let tab = self.scope.is_some();
         let next = match step_to(at, items.len(), bar, self.on_drawer_bar, delta, tab) {
@@ -160,7 +162,7 @@ impl Navigator {
     pub(super) fn drawer_toggles(&self, cx: &App) -> bool {
         // Under its tab the card shows it whole, with nothing to fold.
         self.scope.is_none()
-            && (self.drawer.total > 0 && !self.rows.is_empty() && !self.filtering(cx))
+            && (self.built.drawer.total > 0 && !self.built.rows.is_empty() && !self.filtering(cx))
     }
 
     /// Give the drawer's bar the keys, in view.
@@ -183,9 +185,10 @@ impl Navigator {
     /// Unfold the branch's "N more" right under the selection, saying whether there was one.
     fn unfold_after_selection(&mut self, cx: &App) -> bool {
         let selection = self.store.read(cx).selection.as_ref();
-        let at = (self.rows.iter())
+        let at = (self.built.rows.iter())
             .position(|row| matches!(row, Row::Item(item) if Some(item) == selection));
-        let Some(Row::More(project, ref_name, _)) = at.and_then(|at| self.rows.get(at + 1)) else {
+        let Some(Row::More(project, ref_name, _)) = at.and_then(|at| self.built.rows.get(at + 1))
+        else {
             return false;
         };
         self.set_unfolded((project.clone(), ref_name.clone()), true);
@@ -294,7 +297,11 @@ impl Navigator {
     /// The rows that can be selected, in order: the cards', then the drawer's, but not
     /// those a fold closing takes away.
     pub(super) fn items(&self) -> Vec<&Selection> {
-        self.staying(&self.rows, &self.moving, &self.drawer.rows)
+        self.staying(
+            &self.built.rows,
+            &self.built.moving,
+            &self.built.drawer.rows,
+        )
     }
 
     /// The items of `rows`, which move as `moving` says, then of `drawer`, without those on
@@ -374,7 +381,7 @@ impl Navigator {
                 if store.branch_for(item).is_some_and(|branch| !branch.commits.is_empty())
                     && self.is_open(&ClickOpened::Here((project.clone(), ref_name.clone()))));
         let folds = !filtering
-            && (self.rows.iter())
+            && (self.built.rows.iter())
                 .position(|row| matches!(row, Row::Item(item) if Some(item) == selection.as_ref()))
                 .is_some_and(|ix| self.section_open(ix));
         match selection {

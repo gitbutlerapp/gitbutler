@@ -7,7 +7,7 @@ use std::ops::Range;
 
 use gpui::{App, ListOffset, ListState, Pixels, Window};
 
-use super::rows::{Drawer, Fold, Row, RowKey, Rows, row_keys, span_height};
+use super::rows::{Drawer, Fold, Moving, Row, RowKey, Rows, row_keys, span_height};
 use super::{ABOVE_LAST_LISTED, LIST_TOP, Navigator, holder, moving, shows_where_it_lands};
 use crate::backend::Checkout;
 use crate::clock;
@@ -16,6 +16,32 @@ use crate::terminal::TerminalId;
 use crate::theme::Theme;
 use crate::transfer::{Op, Stop};
 use crate::ui::fold;
+
+/// One build of the rows and what's worked out from them. The card under a tab has one of its
+/// own while it's drawn or the keys act on it ([`Navigator::in_scope`]), so whatever is added
+/// here, the card has as the list does.
+#[derive(Default)]
+pub(super) struct Built {
+    /// The rows as last drawn, which the list draws as they scroll into view.
+    pub(super) rows: Vec<Row>,
+    pub(super) insets: Vec<f32>,
+    pub(super) guides: Vec<Vec<f32>>,
+    /// Each row's place in the fold it moves with, while one does.
+    pub(super) moving: Vec<Option<Moving>>,
+    /// Each row's key, to tell which rows a reorder moved.
+    pub(super) row_keys: Vec<Option<RowKey>>,
+    /// The projects not watched as last drawn.
+    pub(super) drawer: Drawer,
+    /// The rows of the card being moved, dragged by its heading or with the keys, as last
+    /// drawn, which show it held.
+    pub(super) held_card: Option<Range<usize>>,
+    /// The rows of the card the selection's in, while the navigator has the keys, which edge
+    /// it as the tile with them is: see [`Navigator::find_focused_card`].
+    pub(super) focused_card: std::cell::RefCell<Option<Range<usize>>>,
+    /// The rows of the linked worktree being moved, dragged by its heading or with the keys, as
+    /// last drawn, which go over the rows they pass.
+    pub(super) held_worktree: Option<Range<usize>>,
+}
 
 /// What draws the rows this frame, which decides what else the frame does with them: see
 /// [`Navigator::prepare`].
@@ -178,15 +204,15 @@ impl Navigator {
                 // The card says where its first row is as it draws it, and isn't drawn.
                 self.card_top.set(None);
                 let inset = Theme::get(cx).scaled(LIST_TOP);
-                (self.list.logical_scroll_top().item_ix..self.rows.len())
+                (self.list.logical_scroll_top().item_ix..self.built.rows.len())
                     .take_while(|ix| fold::listed(&self.list, inset, *ix))
                     .last()
             }
             RowsIn::Card => None,
         };
         self.catch_up_rows(window, cx);
-        self.held_card = self.held_card(self.store.read(cx));
-        self.held_worktree = self.held_worktree(self.store.read(cx));
+        self.built.held_card = self.held_card(self.store.read(cx));
+        self.built.held_worktree = self.held_worktree(self.store.read(cx));
         self.end_crossing();
         match rows_in {
             RowsIn::List => {
@@ -218,11 +244,12 @@ impl Navigator {
         let store = self.store.read(cx);
         let selection = store.selection.as_ref()?;
         (self
+            .built
             .rows
             .iter()
             .position(|row| shows_where_it_lands(store, row)))
         .or_else(|| {
-            (self.rows.iter()).position(|row| matches!(row, Row::Item(it) if it == selection))
+            (self.built.rows.iter()).position(|row| matches!(row, Row::Item(it) if it == selection))
         })
     }
 
@@ -254,10 +281,10 @@ impl Navigator {
             first_hit,
             ..
         } = self.rows_now(cx);
-        self.moving = moving;
+        self.built.moving = moving;
         self.sync_list(rows, drawer, window, cx);
-        self.insets = insets;
-        self.guides = guides;
+        self.built.insets = insets;
+        self.built.guides = guides;
         self.first_hit = first_hit;
     }
 
@@ -318,7 +345,7 @@ impl Navigator {
                 .map(|row| f32::from(view.bottom() - row.bottom()).max(0.) / scale)
         };
         let mut rooms = HashMap::new();
-        for m in self.moving.iter_mut().flatten() {
+        for m in self.built.moving.iter_mut().flatten() {
             let room = *rooms.entry(m.above).or_insert_with(|| room(m.above));
             if let Some(room) = room {
                 m.extent = m.extent.min(room);
@@ -337,13 +364,13 @@ impl Navigator {
         // added above the first one count as added above the top, which would leave it
         // scrolled to their end, as the drawer's rows are when it opens.
         let drawer_at_top = at_top(&self.drawer_list);
-        if splice(&self.drawer_list, &self.drawer.rows, &drawer.rows, 0).is_some() {
+        if splice(&self.drawer_list, &self.built.drawer.rows, &drawer.rows, 0).is_some() {
             self.drawer_list.clone().with_uniform_item_height(row);
             if drawer_at_top {
                 self.drawer_list.scroll_to(ListOffset::default());
             }
         }
-        self.drawer = drawer;
+        self.built.drawer = drawer;
         // Scrolled, the row under the pointer stays where it is.
         let at_top = at_top(&self.list);
         let hovered = (std::mem::take(&mut self.hold_still) && !at_top)
@@ -351,7 +378,7 @@ impl Navigator {
             .flatten();
         // The hovered row's index before and after, and how far below the top it is.
         let anchor = hovered.and_then(|(old_ix, offset)| {
-            let old = self.rows.get(old_ix)?;
+            let old = self.built.rows.get(old_ix)?;
             let (new_ix, _) = (rows.iter().enumerate())
                 .filter(|(_, row)| same_place(old, row))
                 .min_by_key(|(ix, _)| ix.abs_diff(old_ix))?;
@@ -359,7 +386,7 @@ impl Navigator {
         });
         let halves = anchor.and_then(|(old_ix, new_ix, _)| {
             Some((
-                self.rows.split_at_checked(old_ix)?,
+                self.built.rows.split_at_checked(old_ix)?,
                 rows.split_at_checked(new_ix)?,
             ))
         });
@@ -371,17 +398,23 @@ impl Navigator {
                 splice(&self.list, old_above, new_above, 0).is_some() || below.is_some()
             }
             None => {
-                let spliced = splice(&self.list, &self.rows, &rows, 0);
+                let spliced = splice(&self.list, &self.built.rows, &rows, 0);
                 // Cards or linked worktrees trading places, as one dragged by its heading does,
                 // leave the list where it is, rather than at the first row they moved, where a
                 // splice of the list's top would.
                 if let Some(old) = &spliced
                     && old.contains(&top.item_ix)
-                    && headings_reordered(&self.rows, &rows)
+                    && headings_reordered(&self.built.rows, &rows)
                 {
                     let theme = Theme::get(cx);
-                    (self.list)
-                        .scroll_to(as_deep(&self.rows, &rows, old.start, top, theme, self.row));
+                    (self.list).scroll_to(as_deep(
+                        &self.built.rows,
+                        &rows,
+                        old.start,
+                        top,
+                        theme,
+                        self.row,
+                    ));
                 }
                 spliced.is_some()
             }
@@ -422,10 +455,10 @@ impl Navigator {
         self.squash_outline = outline;
         // While a move's shown, the rows' keys change with it where the rows don't, as what's
         // moving is keyed apart as the move starts and ends.
-        let reordered = self.rows != rows;
+        let reordered = self.built.rows != rows;
         let keys = (reordered || every)
             .then(|| row_keys(&rows, self.store.read(cx)))
-            .filter(|keys| reordered || *keys != self.row_keys);
+            .filter(|keys| reordered || *keys != self.built.row_keys);
         if let Some(keys) = keys {
             let held = anchor.map(|(old_ix, new_ix, _)| (old_ix, new_ix));
             // Those still being closed over stay while the rows they're under do, as when the
@@ -438,19 +471,19 @@ impl Navigator {
             self.stand_ins = stand_ins;
             // Room made or left above the list's top moves nothing in view, as the list keeps
             // its top row where it is, so nothing slides.
-            let room = room_came_or_went(&self.rows, &rows);
+            let room = room_came_or_went(&self.built.rows, &rows);
             let above_view = room && top.item_ix != self.list.logical_scroll_top().item_ix;
             let offsets = match above_view {
                 true => HashMap::new(),
                 false => self.slides(&rows, &keys, held, every || room, landing),
             };
             self.reorder.start(offsets, cx);
-            if let Some(id) = crossed_cards(&self.rows, &rows) {
+            if let Some(id) = crossed_cards(&self.built.rows, &rows) {
                 self.crossing = Some(RowKey::Terminal(id));
             }
-            self.row_keys = keys;
+            self.built.row_keys = keys;
         }
-        self.rows = rows;
+        self.built.rows = rows;
         // The bar goes with the rows that made it a stop, or once something moves.
         self.on_drawer_bar &= self.drawer_toggles(cx) && self.store.read(cx).moving.is_none();
         if changed {
