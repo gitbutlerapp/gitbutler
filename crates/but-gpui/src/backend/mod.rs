@@ -52,7 +52,9 @@ pub use model::*;
 pub use ops::*;
 pub use reviews::{refresh_checks, refresh_reviews};
 pub use upstream::fetch;
+#[cfg(test)]
 pub use worktrees::reload_uncommitted;
+pub use worktrees::reload_uncommitted_with_status;
 
 /// Process-wide setup, before any other call.
 pub fn init() {
@@ -319,7 +321,17 @@ fn head_tree(repo: &gix::Repository) -> Option<gix::ObjectId> {
 }
 
 /// The project's workspace, with the uncommitted files `kept` doesn't have read from disk.
+#[cfg(test)]
 pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
+    load_workspace_with_status(path, kept, None)
+}
+
+/// Load the graph beside status requests for the checkouts whose files need to be read.
+pub fn load_workspace_with_status(
+    path: &Path,
+    kept: Kept,
+    status: Option<watch::StatusRequests>,
+) -> Result<Workspace> {
     let started = std::time::Instant::now();
     let ctx = open(path)?;
     let Kept { main, mut linked } = kept;
@@ -334,14 +346,18 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
     // The uncommitted files and the refs are read beside the workspace's graph, which takes
     // longest, rather than before it: on a large repository, cold from disk, they take
     // hundreds of milliseconds.
+    let status = status.as_ref();
     let (side, view) = std::thread::scope(|scope| -> Result<_> {
         let side = std::thread::Builder::new()
             .stack_size(16 << 20)
             .spawn_scoped(scope, move || -> Result<_> {
+                let request = || {
+                    status.and_then(|requests| requests.snapshot(&Checkout::Main, repo.git_dir()))
+                };
                 let files = match main {
                     Some((files, read_against)) if read_against == tree => files,
-                    Some((files, _)) => worktree_files(&repo, &files)?,
-                    None => worktree_files(&repo, &[])?,
+                    Some((files, _)) => worktree_files_requested(&repo, &files, request())?,
+                    None => worktree_files_requested(&repo, &[], request())?,
                 };
                 Ok((files, refs_fingerprint(&repo)?))
             })?;
@@ -386,8 +402,8 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         .collect();
     let meta = ctx.project_meta().ok();
     let (target, lost_target) = target(&ctx, meta.as_ref(), &info, &cached)?;
-    let (worktrees, archived_worktrees) =
-        worktrees::linked(&ctx, &mut linked).unwrap_or_else(|err| {
+    let (worktrees, archived_worktrees) = worktrees::linked(&ctx, &mut linked, status)
+        .unwrap_or_else(|err| {
             tracing::warn!("couldn't list the linked worktrees: {err:#}");
             Default::default()
         });
@@ -992,7 +1008,16 @@ const COUNT_LINES_UP_TO: usize = 300;
 /// added: they're checkouts of their own, which committing would record and discarding would
 /// reset.
 fn own_changes(repo: &gix::Repository) -> Result<but_core::WorktreeChanges> {
-    let mut changes = but_core::diff::worktree_changes(repo)?;
+    Ok(without_linked(
+        repo,
+        but_core::diff::worktree_changes(repo)?,
+    ))
+}
+
+fn without_linked(
+    repo: &gix::Repository,
+    mut changes: but_core::WorktreeChanges,
+) -> but_core::WorktreeChanges {
     let workdir = repo
         .workdir()
         .and_then(|dir| std::fs::canonicalize(dir).ok());
@@ -1009,7 +1034,7 @@ fn own_changes(repo: &gix::Repository) -> Result<but_core::WorktreeChanges> {
     changes
         .changes
         .retain(|change| !linked.contains(&change.path));
-    Ok(changes)
+    changes
 }
 
 /// Uncommitted files, each with when it was last written and, while there are few enough,
@@ -1017,12 +1042,65 @@ fn own_changes(repo: &gix::Repository) -> Result<but_core::WorktreeChanges> {
 /// them. A file `previous` has with the same change, written at the same time, keeps the lines
 /// counted then: while an agent writes, most files stay as they were between reads.
 fn worktree_files(repo: &gix::Repository, previous: &[FileChange]) -> Result<Vec<FileChange>> {
-    let changes = own_changes(repo)?;
+    worktree_files_with_status(repo, previous, None)
+}
+
+fn worktree_files_requested(
+    repo: &gix::Repository,
+    previous: &[FileChange],
+    status: Option<watch::StatusResponse>,
+) -> Result<Vec<FileChange>> {
+    let Some(status) = status else {
+        return worktree_files(repo, previous);
+    };
+    match status.blocking_recv() {
+        Ok(Ok(snapshot)) => worktree_files_with_status(repo, previous, Some(snapshot)),
+        Ok(Err(error)) => {
+            tracing::warn!(
+                ?error,
+                "cached status refresh failed; reading status directly"
+            );
+            worktree_files(repo, &[])
+        }
+        Err(error) => {
+            tracing::warn!(?error, "status monitor stopped; reading status directly");
+            worktree_files(repo, &[])
+        }
+    }
+}
+
+/// Merge cached status through the ordinary converter and honor its content refresh coverage.
+fn worktree_files_with_status(
+    repo: &gix::Repository,
+    previous: &[FileChange],
+    status: Option<but_filemonitor::Snapshot>,
+) -> Result<Vec<FileChange>> {
+    let head = repo
+        .head()
+        .and_then(|mut head| head.try_peel_to_id().map(|id| id.map(|id| id.detach())));
+    let eligible = status.as_ref().is_none_or(|snapshot| {
+        head.as_ref()
+            .is_ok_and(|head| *head == snapshot.status.head_id())
+            && gix::path::realpath(repo.git_dir())
+                .is_ok_and(|path| path == snapshot.status.git_dir())
+    });
+    let previous = if eligible { previous } else { &[] };
+    let status = status.as_ref().filter(|_| eligible);
+    let refreshed = status.and_then(|snapshot| snapshot.update.unstaged.as_ref());
+    let changes = match status {
+        Some(snapshot) => without_linked(
+            repo,
+            but_core::diff::worktree_changes_from_status(repo, &snapshot.status)?,
+        ),
+        None => own_changes(repo)?,
+    };
     // Status leaves out files with unresolved index conflicts; they're changes too.
     let conflicted = conflicted_changes(repo, &changes.ignored_changes)?;
     let count = conflicted.len() + changes.changes.len() <= COUNT_LINES_UP_TO;
     let counted: HashMap<&bstr::BStr, &FileChange> = (previous.iter())
-        .filter(|file| file.lines.is_some())
+        .filter(|file| {
+            file.lines.is_some() && !refreshed_path(refreshed, file.change.path.as_bstr())
+        })
         .map(|file| (file.change.path.as_bstr(), file))
         .collect();
     let lines = |change: &but_core::TreeChange, modified: Option<i64>, size: Option<u64>| {
@@ -1057,6 +1135,20 @@ fn worktree_files(repo: &gix::Repository, previous: &[FileChange]) -> Result<Vec
             }
         })
         .collect())
+}
+
+fn refreshed_path(scope: Option<&gix::notify::Scope>, path: &bstr::BStr) -> bool {
+    match scope {
+        Some(gix::notify::Scope::All) => true,
+        Some(gix::notify::Scope::Paths(paths)) => paths.iter().any(|change| {
+            path == change.path.as_bstr()
+                || change.path.is_empty()
+                || path
+                    .strip_prefix(change.path.as_slice())
+                    .is_some_and(|suffix| suffix.starts_with(b"/"))
+        }),
+        None => false,
+    }
 }
 
 /// Whether `a` and `b` are the same kind of change from the same base to the same state, as
@@ -1723,5 +1815,163 @@ history: [agent2, agent1~2]
             git(path, &["update-ref", "refs/remotes/origin/main", "agent"]);
             assert_eq!(titles(), ["two", "one"], "fast-forwarded onto");
         })
+    }
+}
+
+#[cfg(test)]
+mod status_snapshot_tests {
+    use super::*;
+    use crate::backend::ops::tests::{git, repo_with};
+
+    fn snapshot(
+        repo: &gix::Repository,
+        monitor: &mut gix::status::WorktreeStatusHandle,
+    ) -> but_filemonitor::Snapshot {
+        let update = monitor
+            .refresh(repo, &std::sync::atomic::AtomicBool::new(false))
+            .unwrap();
+        but_filemonitor::Snapshot {
+            status: monitor.shared_snapshot().unwrap(),
+            update,
+        }
+    }
+
+    #[test]
+    fn status_snapshot_coverage_refreshes_same_stamp_line_counts() {
+        let dir = repo_with("one\n");
+        let path = dir.path().join("file");
+        let repo = gix::open_opts(dir.path(), gix::open::Options::isolated()).unwrap();
+        let project = repo.monitor(Default::default()).unwrap();
+        let mut monitor = project
+            .worktree_status(
+                &repo,
+                but_core::diff::status_monitor_options(&repo).unwrap(),
+            )
+            .unwrap();
+        std::fs::write(&path, "two\n").unwrap();
+        // Give both edits a stamp distinct from the index entry, even on coarse clocks.
+        let modified = std::time::UNIX_EPOCH + std::time::Duration::from_hours(262_968);
+        let file = std::fs::File::options().write(true).open(&path).unwrap();
+        let times = std::fs::FileTimes::new().set_modified(modified);
+        file.set_times(times).unwrap();
+        let first =
+            worktree_files_with_status(&repo, &[], Some(snapshot(&repo, &mut monitor))).unwrap();
+        assert_eq!(first[0].lines, Some((1, 1)));
+        std::fs::write(&path, "a\nb\n").unwrap();
+        file.set_times(times).unwrap();
+        monitor.invalidate();
+        let second_snapshot = snapshot(&repo, &mut monitor);
+        assert!(
+            !second_snapshot.update.changed,
+            "the same modified status still refreshes content"
+        );
+        let second = worktree_files_with_status(&repo, &first, Some(second_snapshot)).unwrap();
+        assert_eq!(
+            (first[0].modified, first[0].size),
+            (second[0].modified, second[0].size)
+        );
+        assert_eq!(second[0].lines, Some((2, 1)));
+    }
+
+    #[test]
+    fn status_snapshot_with_old_head_falls_back_to_current_status() {
+        let dir = repo_with("one\n");
+        let repo = gix::open_opts(dir.path(), gix::open::Options::isolated()).unwrap();
+        let project = repo.monitor(Default::default()).unwrap();
+        let mut monitor = project
+            .worktree_status(
+                &repo,
+                but_core::diff::status_monitor_options(&repo).unwrap(),
+            )
+            .unwrap();
+        std::fs::write(dir.path().join("file"), "two\n").unwrap();
+        let old = snapshot(&repo, &mut monitor);
+        assert!(!old.status.is_empty());
+        git(dir.path(), &["add", "file"]);
+        git(dir.path(), &["commit", "-qm", "second"]);
+        let repo = gix::open_opts(dir.path(), gix::open::Options::isolated()).unwrap();
+        assert!(
+            worktree_files_with_status(&repo, &[], Some(old))
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn status_snapshot_is_bound_to_its_checkout_even_with_the_same_head() {
+        let dir = repo_with("one\n");
+        let outside = tempfile::tempdir().unwrap();
+        let linked_path = outside.path().join("linked");
+        git(
+            dir.path(),
+            &["worktree", "add", "--detach", linked_path.to_str().unwrap()],
+        );
+        let main = gix::open_opts(dir.path(), gix::open::Options::isolated()).unwrap();
+        let linked = gix::open_opts(&linked_path, gix::open::Options::isolated()).unwrap();
+        std::fs::write(dir.path().join("main-only"), "main").unwrap();
+        std::fs::write(linked_path.join("linked-only"), "linked").unwrap();
+        let project = main.monitor(Default::default()).unwrap();
+        let mut monitor = project
+            .worktree_status(
+                &main,
+                but_core::diff::status_monitor_options(&main).unwrap(),
+            )
+            .unwrap();
+        let mut wrong = snapshot(&main, &mut monitor);
+        assert_eq!(
+            wrong.status.head_id(),
+            linked.head_id().ok().map(|id| id.detach()),
+            "both checkouts share a HEAD, so validation must also check the Git directory"
+        );
+        wrong.update.unstaged = None;
+        let previous = worktree_files(&linked, &[]).unwrap();
+        let file = linked_path.join("linked-only");
+        let modified = std::fs::metadata(&file).unwrap().modified().unwrap();
+        std::fs::write(&file, "a\nb\nc\n").unwrap();
+        std::fs::File::options()
+            .write(true)
+            .open(&file)
+            .unwrap()
+            .set_times(std::fs::FileTimes::new().set_modified(modified))
+            .unwrap();
+        let files = worktree_files_with_status(&linked, &previous, Some(wrong)).unwrap();
+        assert_eq!(
+            files
+                .iter()
+                .map(|file| file.change.path.as_bstr())
+                .collect::<Vec<_>>(),
+            [bstr::BStr::new("linked-only")]
+        );
+        assert_eq!(
+            files[0].lines,
+            Some((3, 0)),
+            "rejected snapshots cannot authorize stale content caches"
+        );
+    }
+
+    #[test]
+    fn failed_status_request_discards_content_cache() {
+        let dir = repo_with("one\n");
+        let repo = gix::open_opts(dir.path(), gix::open::Options::isolated()).unwrap();
+        let path = dir.path().join("file");
+        std::fs::write(&path, "two\n").unwrap();
+        let first = worktree_files(&repo, &[]).unwrap();
+        let modified = std::fs::metadata(&path).unwrap().modified().unwrap();
+        std::fs::write(&path, "a\nb\n").unwrap();
+        std::fs::File::options()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_times(std::fs::FileTimes::new().set_modified(modified))
+            .unwrap();
+        let (sent, received) = tokio::sync::oneshot::channel();
+        sent.send(Err(anyhow::anyhow!("injected status failure")))
+            .unwrap();
+        let second = worktree_files_requested(&repo, &first, Some(received)).unwrap();
+        assert_eq!(
+            (first[0].modified, first[0].size),
+            (second[0].modified, second[0].size)
+        );
+        assert_eq!(second[0].lines, Some((2, 1)));
     }
 }

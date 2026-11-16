@@ -9,7 +9,7 @@ use but_api::resolve::{self, HunkResolution, ResolutionSpec};
 use but_core::DryRun;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
 
-use super::intent::Run;
+use super::intent::{Run, worktree_status_changes};
 use super::ops::rewritten;
 use super::{Checkout, CommitId, Intent, OpKind, Rewritten, checkout, markers};
 
@@ -121,6 +121,11 @@ pub struct ResolveMarkers {
 
 impl Intent for ResolveMarkers {
     type Done = usize;
+
+    fn status_changes(&self) -> Option<(Checkout, gix::notify::Changes)> {
+        let paths = self.keep.iter().map(|(path, ..)| path.as_bstr());
+        Some((self.checkout.clone(), worktree_status_changes(paths)))
+    }
 
     fn apply(self, run: &mut Run) -> Result<usize> {
         let worktree = self.checkout.linked();

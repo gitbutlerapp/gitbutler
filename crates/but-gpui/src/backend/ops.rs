@@ -20,7 +20,7 @@ use but_transaction::{DynamicOutcome, Transaction};
 use but_workspace::branch::create_reference::Anchor;
 use but_workspace::commit::ChangeSource;
 
-use super::intent::Run;
+use super::intent::{Run, worktree_status_changes};
 use super::{
     ChangeKind, Checkout, CommitId, FullName, Intent, OpKind, Selected, checkout, short_ref, stamp,
 };
@@ -2037,6 +2037,14 @@ pub struct DiscardChanges {
 impl Intent for DiscardChanges {
     type Done = Option<Undiscarded>;
 
+    fn status_changes(&self) -> Option<(Checkout, gix::notify::Changes)> {
+        let paths = self.changes.iter().flat_map(|selected| {
+            let change = &selected.file.change;
+            std::iter::once(change.path.as_bstr()).chain(change.previous_path())
+        });
+        Some((self.checkout.clone(), worktree_status_changes(paths)))
+    }
+
     fn apply(self, run: &mut Run) -> Result<Option<Undiscarded>> {
         let Self {
             changes,
@@ -2215,6 +2223,16 @@ pub struct MarkResolved {
 
 impl Intent for MarkResolved {
     type Done = ();
+
+    fn status_changes(&self) -> Option<(Checkout, gix::notify::Changes)> {
+        Some((
+            self.checkout.clone(),
+            gix::notify::Changes {
+                index: true,
+                ..Default::default()
+            },
+        ))
+    }
 
     fn apply(self, run: &mut Run) -> Result<()> {
         let worktree = self.checkout.linked();

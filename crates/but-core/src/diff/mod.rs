@@ -8,7 +8,10 @@ pub(crate) mod tree_changes;
 pub use tree_changes::{TreeChanges, commit_changes, tree_changes, tree_changes_with_line_stats};
 
 mod worktree;
-pub use worktree::{worktree_changes, worktree_changes_no_renames};
+pub use worktree::{
+    status_monitor_options, worktree_changes, worktree_changes_from_status,
+    worktree_changes_no_renames,
+};
 
 mod commit_details;
 pub use commit_details::{CommitDetails, LineStats};

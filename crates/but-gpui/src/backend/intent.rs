@@ -2,9 +2,14 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Result;
+use bstr::BStr;
 use but_core::sync::RepoExclusive;
+use gix::notify::{
+    Changes, PathChange, Scope,
+    plumbing::{EventKind, PathKind},
+};
 
-use super::{FullName, SnapshotId, history, open, worktrees};
+use super::{Checkout, FullName, SnapshotId, history, open, worktrees};
 
 /// The git side of one user action, applied by [`apply`].
 pub trait Intent: Send + 'static {
@@ -14,6 +19,38 @@ pub trait Intent: Send + 'static {
     fn kind(&self) -> OpKind {
         OpKind::Other
     }
+
+    /// The checkout's possible writes, including those made before an operation fails.
+    /// `None` requests a full refresh when the scope is unknown.
+    fn status_changes(&self) -> Option<(Checkout, Changes)> {
+        None
+    }
+}
+
+/// Invalidate the index and the worktree paths an operation can write.
+pub(super) fn worktree_status_changes<'a>(paths: impl IntoIterator<Item = &'a BStr>) -> Changes {
+    let mut changes = Changes {
+        index: true,
+        ..Default::default()
+    };
+    let paths: Vec<_> = paths
+        .into_iter()
+        .map(|path| {
+            let name = path.rsplit(|byte| *byte == b'/').next().unwrap_or_default();
+            changes.ignores |= name.eq_ignore_ascii_case(b".gitignore");
+            changes.attributes |= name.eq_ignore_ascii_case(b".gitattributes")
+                || name.eq_ignore_ascii_case(b".gitmodules");
+            PathChange {
+                path: path.into(),
+                kind: EventKind::Any,
+                path_kind: PathKind::Any,
+            }
+        })
+        .collect();
+    if !paths.is_empty() {
+        changes.worktree = Some(Scope::Paths(paths));
+    }
+    changes
 }
 
 /// The operations treated apart from the rest. Labels are only what the user reads.

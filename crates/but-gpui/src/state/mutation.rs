@@ -300,6 +300,7 @@ pub(super) struct Running {
     pub(super) phase: Phase,
     /// Reloads asked for while it ran, which the reload after it reads too.
     pub(super) deferred: Reload,
+    status_changes: Option<(Checkout, gix::notify::Changes)>,
     /// What it does once it worked, as selecting the commit it rewrote, waiting for the
     /// reload after it: see [`Store::run_done`].
     done: Option<DoneHandler>,
@@ -1617,6 +1618,7 @@ impl Store {
             started: now,
             phase: Phase::Working,
             deferred: Reload::default(),
+            status_changes: intent.status_changes(),
             done: None,
         });
         // Selected from the key press on, rather than once the reload shows what it made.
@@ -1864,6 +1866,26 @@ impl Store {
     /// Whether one of `project`'s operations has finished and waits for a load to start.
     pub(super) fn awaits_reload(&self, project: &ProjectId) -> bool {
         self.running_in(project).any(|r| r.phase == Phase::Finished)
+    }
+
+    /// Merge known writes for the operations the next load will settle.
+    /// A single unknown scope calls for a full refresh.
+    pub(super) fn status_changes(
+        &self,
+        project: &ProjectId,
+    ) -> Option<HashMap<Checkout, gix::notify::Changes>> {
+        let mut changes = HashMap::<Checkout, gix::notify::Changes>::new();
+        for operation in self
+            .running_in(project)
+            .filter(|r| r.phase == Phase::Finished)
+        {
+            let (checkout, update) = operation.status_changes.as_ref()?;
+            changes
+                .entry(checkout.clone())
+                .or_default()
+                .merge(update.clone());
+        }
+        Some(changes)
     }
 
     /// Run what `project`'s operations whose reload just landed do once they worked. What one

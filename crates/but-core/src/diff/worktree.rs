@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, path::PathBuf};
+use std::{borrow::Borrow, collections::BTreeMap, path::PathBuf};
 
 use anyhow::{Context as _, bail};
 use bstr::{BStr, BString, ByteSlice, ByteVec};
@@ -51,35 +51,13 @@ fn worktree_changes_inner(
     repo: &gix::Repository,
     renames: RenameTracking,
 ) -> anyhow::Result<WorktreeChanges> {
-    let (tree_index_rewrites, worktree_rewrites) = match renames {
-        RenameTracking::Always => {
-            let rewrites = gix::diff::Rewrites::default(); /* standard Git rewrite handling for everything */
-            debug_assert!(
-                rewrites.copies.is_none(),
-                "TODO: copy tracking needs specific support wherever 'previous_path()' is called."
-            );
-            (TrackRenames::Given(rewrites), Some(rewrites))
-        }
-        RenameTracking::Disabled => (TrackRenames::Disabled, None),
-    };
-    let has_submodule_ignore_configuration = repo.modules()?.is_some_and(|modules| {
-        modules
-            .names()
-            .any(|name| modules.ignore(name).ok().flatten().is_some())
-    });
+    let (tree_index_rewrites, worktree_rewrites) = rename_tracking(renames);
     let status_changes = repo
         .status(gix::progress::Discard)?
         .tree_index_track_renames(tree_index_rewrites)
         .index_worktree_rewrites(worktree_rewrites)
         // Learn about submodule changes, but only do the cheap checks, showing only what we could commit.
-        .index_worktree_submodules(if has_submodule_ignore_configuration {
-            gix::status::Submodule::AsConfigured { check_dirty: true }
-        } else {
-            gix::status::Submodule::Given {
-                ignore: gix::submodule::config::Ignore::Dirty,
-                check_dirty: true,
-            }
-        })
+        .index_worktree_submodules(submodule_status(repo)?)
         .index_worktree_options_mut(|opts| {
             if let Some(opts) = opts.dirwalk_options.as_mut() {
                 opts.set_emit_ignored(None)
@@ -93,7 +71,69 @@ fn worktree_changes_inner(
             }
         })
         .into_iter(None)?;
+    changes_from_status(repo, status_changes)
+}
 
+/// Convert the items in a status snapshot into the changes that can become part of a commit.
+///
+/// The items must describe `repo` with the settings from [`status_monitor_options()`].
+/// Staged and worktree changes are merged exactly as in [`worktree_changes()`], including
+/// conflicts and changes that cancel out. Merging can read and hash current worktree files.
+#[instrument(skip(repo, status_changes), err(Debug))]
+pub fn worktree_changes_from_status(
+    repo: &gix::Repository,
+    status_changes: &[status::Item],
+) -> anyhow::Result<WorktreeChanges> {
+    changes_from_status(repo, status_changes.iter().map(Ok))
+}
+
+/// Status snapshot options matching [`worktree_changes()`], including rename and submodule policy.
+/// Set application-specific repository monitoring options before constructing the monitor.
+pub fn status_monitor_options(repo: &gix::Repository) -> anyhow::Result<status::monitor::Options> {
+    let (tree_index_track_renames, worktree_rewrites) = rename_tracking(RenameTracking::Always);
+    Ok(status::monitor::Options {
+        untracked_files: status::UntrackedFiles::Files,
+        submodules: submodule_status(repo)?,
+        tree_index_track_renames,
+        worktree_rewrites,
+        ..Default::default()
+    })
+}
+
+fn rename_tracking(renames: RenameTracking) -> (TrackRenames, Option<gix::diff::Rewrites>) {
+    match renames {
+        RenameTracking::Always => {
+            let rewrites = gix::diff::Rewrites::default(); /* standard Git rewrite handling for everything */
+            debug_assert!(
+                rewrites.copies.is_none(),
+                "TODO: copy tracking needs specific support wherever 'previous_path()' is called."
+            );
+            (TrackRenames::Given(rewrites), Some(rewrites))
+        }
+        RenameTracking::Disabled => (TrackRenames::Disabled, None),
+    }
+}
+
+fn submodule_status(repo: &gix::Repository) -> anyhow::Result<status::Submodule> {
+    let has_submodule_ignore_configuration = repo.modules()?.is_some_and(|modules| {
+        modules
+            .names()
+            .any(|name| modules.ignore(name).ok().flatten().is_some())
+    });
+    Ok(if has_submodule_ignore_configuration {
+        status::Submodule::AsConfigured { check_dirty: true }
+    } else {
+        status::Submodule::Given {
+            ignore: gix::submodule::config::Ignore::Dirty,
+            check_dirty: true,
+        }
+    })
+}
+
+fn changes_from_status(
+    repo: &gix::Repository,
+    status_changes: impl IntoIterator<Item = gix::Result<impl Borrow<status::Item>>>,
+) -> anyhow::Result<WorktreeChanges> {
     let work_dir = repo.workdir().context("need non-bare repository")?;
     let mut tree_index_changes = Vec::new();
     let mut index_worktree_changes = Vec::new();
@@ -102,40 +142,39 @@ fn worktree_changes_inner(
     let mut index_changes = Vec::new();
     for change in status_changes {
         let change = change?;
-        let change = match change {
-            status::Item::TreeIndex(gix::diff::index::Change::Deletion {
-                location,
-                index,
-                id,
-                entry_mode,
-            }) => {
-                let res = (
+        let change = match change.borrow() {
+            status::Item::TreeIndex(
+                change @ gix::diff::index::Change::Deletion {
+                    location,
+                    id,
+                    entry_mode,
+                    ..
+                },
+            ) => {
+                index_changes.push(change.clone());
+                (
                     Origin::TreeIndex,
                     TreeChange {
                         status: TreeStatus::Deletion {
                             previous_state: ChangeState {
                                 id: id.clone().into_owned(),
-                                kind: into_tree_entry_kind(entry_mode)?,
+                                kind: into_tree_entry_kind(*entry_mode)?,
                             },
                         },
                         path: location.clone().into_owned(),
                     },
-                );
-                index_changes.push(gix::diff::index::Change::Deletion {
-                    location,
-                    index,
-                    id,
-                    entry_mode,
-                });
-                res
+                )
             }
-            status::Item::TreeIndex(gix::diff::index::Change::Addition {
-                location,
-                index,
-                entry_mode,
-                id,
-            }) => {
-                let res = (
+            status::Item::TreeIndex(
+                change @ gix::diff::index::Change::Addition {
+                    location,
+                    entry_mode,
+                    id,
+                    ..
+                },
+            ) => {
+                index_changes.push(change.clone());
+                (
                     Origin::TreeIndex,
                     TreeChange {
                         path: location.clone().into_owned(),
@@ -143,37 +182,32 @@ fn worktree_changes_inner(
                             is_untracked: false,
                             state: ChangeState {
                                 id: id.clone().into_owned(),
-                                kind: into_tree_entry_kind(entry_mode)?,
+                                kind: into_tree_entry_kind(*entry_mode)?,
                             },
                         },
                     },
-                );
-                index_changes.push(gix::diff::index::ChangeRef::Addition {
-                    location,
-                    index,
-                    entry_mode,
-                    id,
-                });
-                res
+                )
             }
-            status::Item::TreeIndex(gix::diff::index::Change::Modification {
-                location,
-                previous_index,
-                previous_entry_mode,
-                index,
-                entry_mode,
-                previous_id,
-                id,
-            }) => {
+            status::Item::TreeIndex(
+                change @ gix::diff::index::Change::Modification {
+                    location,
+                    previous_entry_mode,
+                    entry_mode,
+                    previous_id,
+                    id,
+                    ..
+                },
+            ) => {
                 let previous_state = ChangeState {
                     id: previous_id.clone().into_owned(),
-                    kind: into_tree_entry_kind(previous_entry_mode)?,
+                    kind: into_tree_entry_kind(*previous_entry_mode)?,
                 };
                 let state = ChangeState {
                     id: id.clone().into_owned(),
-                    kind: into_tree_entry_kind(entry_mode)?,
+                    kind: into_tree_entry_kind(*entry_mode)?,
                 };
-                let res = (
+                index_changes.push(change.clone());
+                (
                     Origin::TreeIndex,
                     TreeChange {
                         path: location.clone().into_owned(),
@@ -183,17 +217,7 @@ fn worktree_changes_inner(
                             flags: ModeFlags::calculate(&previous_state, &state),
                         },
                     },
-                );
-                index_changes.push(gix::diff::index::Change::Modification {
-                    location,
-                    previous_index,
-                    previous_entry_mode,
-                    previous_id,
-                    index,
-                    entry_mode,
-                    id,
-                });
-                res
+                )
             }
             status::Item::IndexWorktree(index_worktree::Item::Modification {
                 rela_path,
@@ -203,7 +227,7 @@ fn worktree_changes_inner(
             }) => (
                 Origin::IndexWorktree,
                 TreeChange {
-                    path: rela_path,
+                    path: rela_path.clone(),
                     status: TreeStatus::Deletion {
                         previous_state: ChangeState {
                             id: entry.id,
@@ -225,12 +249,12 @@ fn worktree_changes_inner(
                 let state = ChangeState {
                     // actual state unclear, type changed to something potentially unhashable
                     id: repo.object_hash().null(),
-                    kind: into_tree_entry_kind(worktree_mode)?,
+                    kind: into_tree_entry_kind(*worktree_mode)?,
                 };
                 (
                     Origin::IndexWorktree,
                     TreeChange {
-                        path: rela_path,
+                        path: rela_path.clone(),
                         status: TreeStatus::Modification {
                             previous_state,
                             state,
@@ -253,7 +277,7 @@ fn worktree_changes_inner(
                 let previous_state = ChangeState { id: entry.id, kind };
                 let state = ChangeState {
                     id: repo.object_hash().null(),
-                    kind: if executable_bit_changed {
+                    kind: if *executable_bit_changed {
                         if kind == EntryKind::BlobExecutable {
                             EntryKind::Blob
                         } else {
@@ -266,7 +290,7 @@ fn worktree_changes_inner(
                 (
                     Origin::IndexWorktree,
                     TreeChange {
-                        path: rela_path,
+                        path: rela_path.clone(),
                         status: TreeStatus::Modification {
                             previous_state,
                             state,
@@ -283,7 +307,7 @@ fn worktree_changes_inner(
             }) => (
                 Origin::IndexWorktree,
                 TreeChange {
-                    path: rela_path,
+                    path: rela_path.clone(),
                     // Because `IntentToAdd` stores an empty blob in the index, it's exactly the same diff-result
                     // as if the whole file was added to the index.
                     status: TreeStatus::Addition {
@@ -307,14 +331,14 @@ fn worktree_changes_inner(
                 ..
             }) => {
                 let kind = disk_kind_to_entry_kind(
-                    disk_kind,
-                    index_kind,
+                    *disk_kind,
+                    *index_kind,
                     work_dir.join(gix::path::from_bstr(rela_path.as_bstr())?),
                 )?;
                 (
                     Origin::IndexWorktree,
                     TreeChange {
-                        path: rela_path,
+                        path: rela_path.clone(),
                         status: TreeStatus::Addition {
                             state: match kind {
                                 None => continue,
@@ -358,7 +382,7 @@ fn worktree_changes_inner(
                 (
                     Origin::IndexWorktree,
                     TreeChange {
-                        path: rela_path,
+                        path: rela_path.clone(),
                         status: TreeStatus::Modification {
                             previous_state,
                             state,
@@ -411,7 +435,7 @@ fn worktree_changes_inner(
                 (
                     Origin::IndexWorktree,
                     TreeChange {
-                        path: dirwalk_entry.rela_path,
+                        path: dirwalk_entry.rela_path.clone(),
                         status: TreeStatus::Rename {
                             previous_path,
                             previous_state,
@@ -431,19 +455,19 @@ fn worktree_changes_inner(
                 ..
             }) => {
                 let previous_state = ChangeState {
-                    id: source_id.into_owned(),
-                    kind: into_tree_entry_kind(source_entry_mode)?,
+                    id: source_id.clone().into_owned(),
+                    kind: into_tree_entry_kind(*source_entry_mode)?,
                 };
                 let state = ChangeState {
-                    id: id.into_owned(),
-                    kind: into_tree_entry_kind(entry_mode)?,
+                    id: id.clone().into_owned(),
+                    kind: into_tree_entry_kind(*entry_mode)?,
                 };
                 (
                     Origin::TreeIndex,
                     TreeChange {
-                        path: location.into_owned(),
+                        path: location.clone().into_owned(),
                         status: TreeStatus::Rename {
-                            previous_path: source_location.into_owned(),
+                            previous_path: source_location.clone().into_owned(),
                             previous_state,
                             state,
                             flags: ModeFlags::calculate(&previous_state, &state),
@@ -456,9 +480,9 @@ fn worktree_changes_inner(
                 status: EntryStatus::Conflict { entries, .. },
                 ..
             }) => {
-                index_conflicts.push((rela_path.clone(), entries));
+                index_conflicts.push((rela_path.clone(), entries.clone()));
                 ignored_changes.push(IgnoredWorktreeChange {
-                    path: rela_path,
+                    path: rela_path.clone(),
                     status: IgnoredWorktreeTreeChangeStatus::Conflict,
                 });
                 continue;
