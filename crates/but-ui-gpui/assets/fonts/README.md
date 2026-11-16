@@ -1,72 +1,45 @@
 # Fonts
 
 Inter, GitButler's UI font, from `@gitbutler/but-ui` (Inter 4.001). That package ships it as
-a variable woff2 file; these are static instances, cut with fontTools:
+a variable woff2 file. GPUI keeps a font added as bytes at its default instance, so it never
+reaches a variable file's other weights: these are static instances of it, which
+`cut-inter.py` cuts from but-ui's weight tokens. After a `--but-font-weight-*` token changes, run
+it and commit the files it writes; `fonts::tests` fails until they match the tokens.
 
 ```bash
-fonttools ttLib.woff2 decompress Inter-Variable.woff2 -o Inter-Variable.ttf
-fonttools varLib.instancer Inter-Variable.ttf wght=400 --update-name-table -o Inter-Regular.ttf
+pip install fonttools brotli
+python3 -I cut-inter.py path/to/InterVariable.ttf
 ```
 
-Each file is 60 lighter than the but-ui weight it stands in for: Regular is 400 for 460,
-Medium 440 for 500 and SemiBold 540 for 600. CoreGraphics, which GPUI rasterizes glyphs with,
-draws the same outlines with stems about half a pixel thicker than Chrome at 2x, in both themes,
-and 60 brought them level with but.dev when the client turned macOS font smoothing off, which it
-no longer does, so text now reads heavier there. Weights 440 and 540 have no named instance, so
-those files are cut without `--update-name-table` and keep the name table and OS/2 weight class of the 500
-and 600 instances, which GPUI matches weights by. Compare against but.dev before changing a
-weight: render both at the same scale (headless Chrome with `--force-device-scale-factor=2`, and
-a `drive.sh` `shot` of a region, which keeps the display's scale) and compare stem thickness, not
-screenshots taken at different scales.
+The argument is the full Inter 4 variable font, `docs/font-files/InterVariable.ttf` at
+[rsms/inter](https://github.com/rsms/inter)'s `v4.0` tag, which the key symbols come from.
 
-The instancer also drops the weight value from those two files' `STAT` table, which DirectWrite
-reads a font's weight from. Without it Windows read both as weight 1, drew Medium as Regular, and
-drew SemiBold as Regular made bold, in a new font face each time. GPUI on Windows remembers faces
-by their address, so once Windows reused one for a Chinese, Japanese or Korean font, that text
-drew in Inter, as boxes. Each file gets the value back, at its OS/2 weight class:
+Each file is 60 lighter than the but-ui weight it stands in for: Regular is 400 for
+`--but-font-weight-regular`, 460, and SemiBold 520 for `--but-font-weight-semibold`, 580. Medium,
+440, stands in for a 500 but-ui doesn't have; only Markdown's italics and the graph's labels draw
+with it. Each file says what it was cut for in its Description name record, which the test reads.
+CoreGraphics, which GPUI rasterizes glyphs with, draws the same outlines with stems about half a
+pixel thicker than Chrome at 2x, in both themes, and 60 brought them level with but.dev when the
+client turned macOS font smoothing off, which it no longer does, so text now reads heavier there.
+Compare against but.dev before changing the offset: render both at the same scale (headless
+Chrome with `--force-device-scale-factor=2`, and a `drive.sh` `shot` of a region, which keeps the
+display's scale) and compare stem thickness, not screenshots taken at different scales.
 
-```python
-from fontTools.ttLib import TTFont
-from fontTools.ttLib.tables import otTables
-
-for file, weight, name_id in [("Inter-Medium.ttf", 500, 307), ("Inter-SemiBold.ttf", 600, 308)]:
-    font = TTFont(file, recalcTimestamp=False)
-    value = otTables.AxisValue()
-    value.Format, value.AxisIndex, value.Flags = 1, 1, 0  # axis 1 is wght
-    value.ValueNameID, value.Value = name_id, weight  # the name records "Medium" and "SemiBold"
-    font["STAT"].table.AxisValueArray.AxisValue.insert(1, value)
-    font.save(file)
-```
+A weight between named instances has no names of its own, so each file carries the name table,
+OS/2 weight class and `STAT` weight of the named instance it stands for (Regular 400, Medium 500,
+SemiBold 600), which GPUI matches weights by; the text classes pick a file by them (`text.rs`).
+The instancer drops the weight value from `STAT`, which DirectWrite reads a font's weight from.
+Without it Windows read Medium and SemiBold as weight 1, drew Medium as Regular, and drew
+SemiBold as Regular made bold, in a new font face each time. GPUI on Windows remembers faces by
+their address, so once Windows reused one for a Chinese, Japanese or Korean font, that text drew
+in Inter, as boxes. The script puts the value back.
 
 Design-core's Inter leaves out the symbols the app's keys are written with (⌘ ⌥ ⇧ ⌃ ↩ ⌫ ⌦ ⇥, and it
 has ← and → only for its `->` arrow), and without them CoreText draws those from another font,
-heavier and off the baseline. Each Inter file adds them from the full Inter 4.001
-(https://github.com/rsms/inter, the release but-ui cut its file from), instanced at optical
-size 14, as but-ui's is, and at the weight the file was cut at, leaving every other glyph as
-it was:
+heavier and off the baseline. The script adds them from the full Inter, instanced at optical size
+14, as but-ui's is, and at the weight the file is cut at, leaving every other glyph as it was.
 
-```python
-from fontTools.ttLib import TTFont
-from fontTools.varLib import instancer
-
-full = instancer.instantiateVariableFont(TTFont("InterVariable.ttf"), {"opsz": 14, "wght": 400})
-base, order = TTFont("Inter-Regular.ttf"), []
-for ch in "←→↩⇥⇧⌃⌘⌥⌦⌫":
-    name = full.getBestCmap()[ord(ch)]
-    if name not in base.getGlyphOrder() + order:
-        order.append(name)
-        base["glyf"].glyphs[name] = full["glyf"][name]  # none of them is a composite
-        base["hmtx"].metrics[name] = full["hmtx"].metrics[name]
-    for table in base["cmap"].tables:
-        if table.isUnicode():
-            table.cmap[ord(ch)] = name
-base.setGlyphOrder(base.getGlyphOrder() + order)
-base["glyf"].glyphOrder = base.getGlyphOrder()
-base.save("Inter-Regular.ttf")
-```
-
-GPUI keeps a font added as bytes at its default instance, so it never reaches a variable file's
-other weights, hence static files. Inter is under the SIL Open Font License 1.1 (https://openfontlicense.org); each
+Inter is under the SIL Open Font License 1.1 (https://openfontlicense.org); each
 file carries its copyright notice and license link in its name table.
 
 ## Code and terminal font

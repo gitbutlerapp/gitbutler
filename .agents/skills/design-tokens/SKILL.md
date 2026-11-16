@@ -93,6 +93,11 @@ name and its replacement there and run it. Projects outside the monorepo
 (but-dev) pin a commit and pick the change up when they move it; mention removals to the
 user so they know.
 
+A changed `--but-font-weight-*` reaches the GPUI client through font files cut at that weight,
+not through the token itself: run `crates/but-ui-gpui/assets/fonts/cut-inter.py` (its README says
+how) and commit the files it writes with the tokens. `cargo test -p but-ui-gpui` fails until
+they match.
+
 ## 5. Commit
 
 `tokens/json`, `tokens/tokens.css`, `tokens/tokens.json`, `tokens/settings.json` and `tokens/accent-samples.json` go in one commit, with the GitButler skill, and the
