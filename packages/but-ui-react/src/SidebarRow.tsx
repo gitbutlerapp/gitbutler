@@ -18,9 +18,11 @@ type RowProps = {
 	/** How each level's guide draws on this row, outermost first: work them out with
 	 * `treeGuides` (treeGuides.ts) from the rows the tree shows, since a row can't see the rows after it. */
 	guides?: Guides;
-	/** Makes the row fold: `true` while its children are hidden. Leave it out on a leaf. Its chevron
-	 * takes the glyph's place under the pointer and on keyboard focus. */
-	folded?: boolean;
+	/** Gives the row a chevron, in a step of its own before its glyph: `true` while its children
+	 * are hidden. Leave it out on a leaf. `"empty"` on a row that could hold children and has none
+	 * yet, such as a branch without commits: a dot in the chevron's place keeps it in line with the
+	 * rows that fold. */
+	folded?: boolean | "empty";
 	onToggleFolded?: () => void;
 	/** Selected: the quiet fill, or the solid one while the list holds the selection focus. */
 	selected?: boolean;
@@ -42,12 +44,10 @@ type RowProps = {
 	busy?: boolean;
 } & useRender.ComponentProps<"div">;
 
-/** A row's {@link RowProps.guides}. */
-
 const Steps: FC<{
 	depth: number;
 	guides?: Guides;
-	folded: boolean | undefined;
+	folded: boolean | "empty" | undefined;
 	onToggleFolded: (() => void) | undefined;
 	name: string;
 	/** The row itself is the button that folds, so the chevron only says which way it is. */
@@ -63,17 +63,21 @@ const Steps: FC<{
 						styles.guide,
 						guides?.[level] === "last" && styles.guideLast,
 						guides?.[level] === "none" && styles.guideNone,
-						guides?.[level] === "stub" && styles.guideStub,
 					)}
 					aria-hidden
 				/>
 			))}
-			{folded !== undefined && rowFolds && (
+			{folded === "empty" && (
+				<span className={classes(styles.step, styles.empty)} aria-hidden>
+					<Icon size={12} name="bullet-disc" />
+				</span>
+			)}
+			{typeof folded === "boolean" && rowFolds && (
 				<span className={classes(styles.step, styles.toggle)} aria-hidden>
 					<Icon size={12} name={folded ? "chevron-right" : "chevron-down"} />
 				</span>
 			)}
-			{folded !== undefined && !rowFolds && (
+			{typeof folded === "boolean" && !rowFolds && (
 				// A tree moves with the arrow keys, so the chevron stays out of the tab order and takes
 				// its click on its own, leaving the rest of the row to open what it names.
 				<button
@@ -137,9 +141,7 @@ const measureRuns = (event: PointerEvent<HTMLElement>) => {
 /** The one line every sidebar item is drawn on: the name takes the line and the state sits at the
  * end, where it stays; the menu follows it under the pointer, and the actions take its place.
  * `spinner` is what stands in for `icon` while it is `busy`, a plain one unless the item colours
- * its own. A row that folds always has a glyph, a plain dot when it names nothing of its own, so the
- * chevron that takes the glyph's place on hover has a place to take; one that doesn't fold and has no
- * `icon` starts with its name. */
+ * its own. A row without an `icon` starts with its name, after its chevron if it folds. */
 const Row: FC<
 	RowProps & {
 		name: string;
@@ -169,7 +171,6 @@ const Row: FC<
 	...props
 }) => {
 	const [meta, actions, menu] = [filled(metaSlot), filled(actionsSlot), filled(menuSlot)];
-	const glyph = icon ?? (folded === undefined ? undefined : <Icon name="bullet-disc" />);
 	return useRender({
 		render: render ?? <div />,
 		state: { selected },
@@ -192,7 +193,7 @@ const Row: FC<
 							{spinner}
 						</output>
 					) : (
-						glyph !== undefined && <span className={styles.icon}>{glyph}</span>
+						icon !== undefined && <span className={styles.icon}>{icon}</span>
 					)}
 					<span className={styles.label}>{label}</span>
 					{
@@ -348,7 +349,8 @@ const prBadge: Record<PullRequestState, BadgeVariant> = {
  * Its `meta` reads in one order: `conflicts`, then `CiStatus`, ↓ `behind`, ↑ `unpushed`,
  * `uncommitted`, and `commits`. `conflicts` counts its conflicted commits while it is folded; on an
  * expanded branch drop it, since each {@link CommitItem} marks its own. Show ↑ or ⟜, never both; on an expanded branch drop ⟜, since its commits are listed
- * under it. A branch with no commits yet leads with `empty` saying "empty", so its row isn't bare. `actions` hold the one next step (Resolve, Update, Push, Create PR or Merge),
+ * under it. A branch with no commits yet leads with `empty` saying "empty", and takes
+ * `folded="empty"`, so its row isn't bare and lines up with the branches that fold. `actions` hold the one next step (Resolve, Update, Push, Create PR or Merge),
  * then View PR on a branch with a request.
  *
  * A merged request is done with: its title recedes. A branch merged into its target with no request
@@ -642,7 +644,7 @@ export const MoreItem: FC<
 /**
  * The label over a group of pages in a navigation panel, such as the docs site's "Getting
  * started": its name, small and quiet, so the pages under it read first. With `folded` it is a
- * button that hides and shows them, its chevron taking its glyph's place on hover; without, it only names them. Its
+ * button that hides and shows them, its chevron saying which; without, it only names them. Its
  * pages sit one level under it, as {@link NavItem}s at `depth={1}`. Like every sidebar row, the
  * label and its pages sit in a card (`--but-background` in a `--but-border-subtle` ring at `--but-radius-card`),
  * never loose on a panel's ground.
@@ -652,15 +654,13 @@ export const MoreItem: FC<
 export const GroupLabel: FC<
 	{
 		name: string;
-		/** The group's glyph, an icon's name or an element of its own; one that folds and has none
-		 * gets a plain dot, for its chevron to take the place of on hover. */
+		/** The group's glyph, an icon's name or an element of its own, after its chevron. */
 		icon?: IconName | ReactElement;
 		folded?: boolean;
 		onToggleFolded?: () => void;
 	} & useRender.ComponentProps<"button">
-> = ({ name, icon, folded, onToggleFolded, render, ...props }) => {
-	const glyph = icon ?? (folded === undefined ? undefined : "bullet-disc");
-	return useRender({
+> = ({ name, icon, folded, onToggleFolded, render, ...props }) =>
+	useRender({
 		// oxlint-disable-next-line jsx_a11y/control-has-associated-label -- Labelled by its children.
 		render: render ?? (folded === undefined ? <div /> : <button type="button" />),
 		props: mergeProps<"button">(props, {
@@ -670,9 +670,9 @@ export const GroupLabel: FC<
 			children: (
 				<>
 					<Steps depth={0} folded={folded} onToggleFolded={undefined} name={name} rowFolds />
-					{glyph !== undefined && (
+					{icon !== undefined && (
 						<span className={styles.icon}>
-							{typeof glyph === "string" ? <Icon name={glyph} /> : glyph}
+							{typeof icon === "string" ? <Icon name={icon} /> : icon}
 						</span>
 					)}
 					<span className={classes("text-12", "text-semibold", styles.label, styles.name)}>
@@ -682,15 +682,14 @@ export const GroupLabel: FC<
 			),
 		}),
 	});
-};
 
 /**
  * A page in a navigation panel, such as the docs site's: its name, and the glyph that names the
  * page when there is one (`icon`, an icon's name, or an element of its own such as a colour's
- * swatch or an {@link Avatar}, drawn at 14px). A leading row that folds and has no `icon` gets a plain dot. Its `meta` sits at the row's end, as on every
+ * swatch or an {@link Avatar}, drawn at 14px). Its `meta` sits at the row's end, as on every
  * sidebar row: plain text there reads as the row's current value ("Light", "Teal"), in 13 and
  * subtle, and a `MetaCount` or a `Badge` keeps its own look. It sits one level under its {@link GroupLabel} (`depth={1}`), on
- * the guide that ties it to the label's glyph, the way a sidebar row sits under the row that folds
+ * the guide that ties it to the label's chevron, the way a sidebar row sits under the row that folds
  * it. It opens a page rather than folding, so it has no chevron and no menu: render it as the link
  * that opens the page (`render={<a href={…} />}`). `selected` is the page on screen, which the link
  * also marks with `aria-current="page"`. It sits in a card with its {@link GroupLabel}, never loose

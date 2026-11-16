@@ -226,6 +226,7 @@ const Tree: FC<{ selected?: string }> = ({ selected }) => {
 				<BranchItem
 					title="offline-cache"
 					depth={2}
+					folded="empty"
 					meta={<MetaCount type="empty">empty</MetaCount>}
 					menu={menu("Branch")}
 				/>
@@ -457,8 +458,6 @@ type TreeNode = {
 	id: string;
 	row: (place: Place, fold: Fold) => ReactNode;
 	children?: ReadonlyArray<TreeNode>;
-	/** A git object, a stack, a branch or a commit: it meets its parent's guide with a stub. */
-	chained?: boolean;
 };
 
 /** Lays the tree out as the flat list of rows it is drawn as, skipping what is folded, and gives
@@ -476,7 +475,7 @@ const layOut = (
 		}
 	};
 	visit(nodes, 0);
-	const guides = treeGuides(shown.map(({ node, depth }) => ({ depth, chained: node.chained })));
+	const guides = treeGuides(shown.map(({ depth }) => ({ depth })));
 	return shown.map(({ node, depth }, index) => (
 		<Fragment key={node.id}>
 			{node.row(
@@ -494,7 +493,6 @@ const since = (value: string) => <MetaCount type="age">{value}</MetaCount>;
 const commits = (id: string, messages: ReadonlyArray<string>, unpushed = 0): Array<TreeNode> =>
 	messages.map((message, index) => ({
 		id: `${id}-${index}`,
-		chained: true,
 		row: (place) => (
 			<CommitItem {...place} message={message} pushed={index >= unpushed} menu={menu("Commit")} />
 		),
@@ -535,7 +533,6 @@ const repositories: ReadonlyArray<TreeNode> = [
 					},
 					{
 						id: "ios-push-handoff",
-						chained: true,
 						row: (place, fold) => (
 							<BranchItem
 								{...place}
@@ -559,7 +556,6 @@ const repositories: ReadonlyArray<TreeNode> = [
 					},
 					{
 						id: "stack",
-						chained: true,
 						row: (place, fold) => (
 							<StackCaption
 								{...place}
@@ -580,7 +576,6 @@ const repositories: ReadonlyArray<TreeNode> = [
 						children: [
 							{
 								id: "pr-377",
-								chained: true,
 								row: (place, fold) => (
 									<BranchItem
 										{...place}
@@ -611,7 +606,6 @@ const repositories: ReadonlyArray<TreeNode> = [
 							},
 							{
 								id: "pr-280",
-								chained: true,
 								row: (place, fold) => (
 									<BranchItem
 										{...place}
@@ -647,7 +641,6 @@ const repositories: ReadonlyArray<TreeNode> = [
 					},
 					{
 						id: "pr-292",
-						chained: true,
 						row: (place, fold) => (
 							<BranchItem
 								{...place}
@@ -694,7 +687,6 @@ const repositories: ReadonlyArray<TreeNode> = [
 					},
 					{
 						id: "resume-on-laptop",
-						chained: true,
 						row: (place, fold) => (
 							<BranchItem
 								{...place}
@@ -718,11 +710,11 @@ const repositories: ReadonlyArray<TreeNode> = [
 					},
 					{
 						id: "offline-cache",
-						chained: true,
 						row: (place) => (
 							<BranchItem
 								{...place}
 								title="offline-cache"
+								folded="empty"
 								meta={<MetaCount type="empty">empty</MetaCount>}
 								menu={menu("Branch")}
 							/>
@@ -752,7 +744,6 @@ const repositories: ReadonlyArray<TreeNode> = [
 		children: [
 			{
 				id: "daemon-idle-cpu",
-				chained: true,
 				row: (place, fold) => (
 					<BranchItem
 						{...place}
@@ -814,9 +805,9 @@ const FoldingCard: FC = () => {
 };
 
 /**
- * Every row that holds others folds, its chevron in its glyph's place under the pointer and on
- * keyboard focus. The last row under each parent ends its guide with a tail into its glyph;
- * stacks, branches and commits meet theirs with a stub (`guides`), which the host works out from the tree.
+ * Every row that holds others folds, its chevron in a step of its own before its glyph; a branch
+ * with no commits yet keeps a dot there. The last row under each parent ends its guide with a tail
+ * into its glyph (`guides`), which the host works out from the tree.
  */
 export const Folding = meta.story({
 	render: () => <FoldingCard />,

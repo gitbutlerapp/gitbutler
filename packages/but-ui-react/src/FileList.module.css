@@ -163,6 +163,8 @@
 
 	/* After hover, so a selected row reads the same under the pointer. */
 	&[data-selected] {
+		--joined-line: var(--but-background);
+
 		background-color: var(--but-selected-inactive);
 	}
 
@@ -171,19 +173,55 @@
 	}
 }
 
+/* A run of picked rows reads as one block, as Finder draws one: rounded only where it starts and
+   ends, the pixel between two of its rows filled with the selection, and a faint line across that
+   pixel, set in from the ends as the row's contents are. */
+.item[data-selected]:has(+ .item[data-selected]) {
+	border-end-start-radius: 0;
+	border-end-end-radius: 0;
+}
+
+.item[data-selected] + .item[data-selected] {
+	position: relative;
+	border-start-start-radius: 0;
+	border-start-end-radius: 0;
+	box-shadow: 0 -1px 0 0 var(--but-selected-inactive);
+
+	&::after {
+		position: absolute;
+		height: 1px;
+		inset-block-start: -1px;
+		inset-inline: var(--but-space-lg);
+		background-color: var(--joined-line);
+		content: "";
+	}
+}
+
+:where([data-selection-focused="true"]:not([data-selection-focus-styles="false"] *))
+	.item[data-selected]
+	+ .item[data-selected] {
+	box-shadow: 0 -1px 0 0 var(--but-selected);
+}
+
 /* The solid fill and inverted contents are for the list holding the selection focus only, so
    where the cursor sits in every other list stays legible without competing. */
 :where([data-selection-focused="true"]:not([data-selection-focus-styles="false"] *))
 	.item[data-selected] {
 	--checkbox-bg: var(--but-inverse);
 	--guide-color: color-mix(in srgb, var(--but-inverse-muted-foreground) 40%, transparent);
+	--joined-line: var(--but-inverse-soft);
 
 	background-color: var(--but-selected);
 	color: var(--but-selected-foreground);
 
 	.directory,
-	.marks {
+	.marks,
+	.toggle {
 		color: var(--but-inverse-muted-foreground);
+	}
+
+	.toggle:hover::before {
+		background-color: var(--but-inverse-ghost-hover);
 	}
 
 	/* The ghost button's inverted variant. On the buttons themselves, since a variant declares
@@ -196,22 +234,18 @@
 	}
 }
 
-/* The indent: one step per directory the row sits in, then the icon 3px after the last guide (the
-   steps' 4px gap, less half of what the 14px icon is wider than a 12px step), so a directory's
-   guide hangs from the middle of its folder. At the top level there is no guide to sit after: the
-   icon starts a pixel into the row's padding, over its children's first guide, as a sidebar row's
-   glyph does. */
+/* The indent: one step per directory the row sits in, then a directory's chevron in a step of its
+   own, so a directory's guide hangs from the middle of its chevron. The icon sits 6px after the
+   last step, closer than the name after it: after a folder's chevron, so the two read as a pair,
+   and after a file's last guide, so a file's icon lines up under its folder's. A top-level file
+   has no folder to line up under: its icon starts a pixel into the row's padding, in the
+   chevrons' column, as a sidebar row's glyph does. */
 .steps {
 	display: flex;
-	position: relative;
 	column-gap: 4px;
 	flex-shrink: 0;
 	align-self: stretch;
-	margin-inline-end: calc(3px - var(--but-gap-icon-text));
-
-	&:not(:has(.guide)) {
-		margin-inline-end: calc(-1px - var(--but-gap-icon-text));
-	}
+	margin-inline-end: calc(6px - var(--but-gap-icon-text));
 }
 
 .item > .lead:first-child {
@@ -239,7 +273,8 @@
 }
 
 /* The last row in its directory: the guide comes down to the row's middle and turns, with a round
-   corner, into the icon, and ends there, as on a sidebar row. */
+   corner, into the icon, and ends there, as on a sidebar row: 3px short of a folder's chevron, or
+   of a file's icon, which sits further off. */
 .guideLast::before {
 	width: auto;
 	inset-block: 0 calc(50% - 0.5px);
@@ -251,52 +286,48 @@
 	background-color: transparent;
 }
 
+.guideLast:last-child::before {
+	inset-inline-end: -3px;
+}
+
 .guideNone::before {
 	display: none;
 }
 
-/* A git object that isn't last, as a sidebar row draws it: the guide runs on, with a short stub
-   toward the icon. */
-.guideStub::after {
-	position: absolute;
-	width: 3px;
-	height: 1px;
-	inset-block-start: calc(50% - 0.5px);
-	inset-inline-start: calc(50% + 0.5px);
-	background-color: var(--guide-color);
-	content: "";
-}
-
-/* A directory's chevron takes its folder's place, showing under the pointer and on keyboard focus
-   only, as on a sidebar row. A spinner keeps its place: it says what the pointer came to see. */
+/* Faded, so the glyph after it reads first; it comes up under the pointer. */
 .toggle {
-	visibility: hidden;
-	position: absolute;
-	width: 14px;
-	inset-block: 0;
-	inset-inline-start: calc(100% + 3px);
 	padding: 0;
 	border: none;
 	background: none;
 	color: var(--but-subtle-foreground);
-
-	.steps:not(:has(.guide)) > & {
-		inset-inline-start: -1px;
-	}
+	cursor: var(--control-cursor);
+	opacity: 0.6;
 
 	&:hover,
 	&:focus-visible {
 		color: var(--but-muted-foreground);
+		opacity: 1;
 	}
 }
 
-.item:is(:hover, :focus-visible, :has(:focus-visible)):not(:has(output.icon)):has(.toggle) {
-	.toggle {
-		visibility: visible;
+/* A chevron that folds on its own click takes a ground under the pointer, a box around it wider
+   than its step, on top of the row's. Behind the glyph, so the box doesn't cover it. */
+.toggle {
+	isolation: isolate;
+
+	&::before {
+		z-index: -1;
+		position: absolute;
+		height: 18px;
+		inset-block-start: calc(50% - 9px);
+		inset-inline: -3px;
+		border-radius: var(--but-radius-sm);
+		content: "";
+		transition: background-color var(--but-transition-fast);
 	}
 
-	& > .lead > .icon {
-		visibility: hidden;
+	&:hover::before {
+		background-color: var(--but-hover);
 	}
 }
 
@@ -377,44 +408,25 @@
 	color: var(--but-muted-foreground);
 }
 
-/* The status and the actions share the row's last cell, both centred in it, so neither moves
-   when one gives way to the other and the letters line up down the list. As wide as a small
-   icon-only Button (Button.module.css), the widest thing that goes in it. The actions show while
-   the row is hovered, holds focus or is selected, so a keyboard user sees them where the pointer
-   would. */
+/* The row's last cell, reserved on every row and its mark centred in it, so the letters line up
+   down the list. 22px, as a small icon-only Button is, so a file row's end lines up with a
+   sidebar row's. A file row has no ⋯ to swap in here: its menu opens with a right-click. */
 .end {
 	display: grid;
 	flex-shrink: 0;
 	place-items: center;
 	width: 22px;
-
-	& > * {
-		grid-area: 1 / 1;
-	}
 }
 
 .status {
 	display: flex;
 	align-items: center;
-
-	.item:is(:hover, :focus-within, [data-selected]) .end:has(> .actions) > & {
-		visibility: hidden;
-	}
 }
 
-.actions {
-	display: flex;
-	visibility: hidden;
-	align-items: center;
-
-	.item:is(:hover, :focus-within, [data-selected]) & {
-		visibility: visible;
-	}
-}
-
+/* Inter's own figures, as 🍑 But UI and the GPUI client draw them: its tabular "1" is another
+   glyph, and each count is centred in a cell of its own anyway. */
 .count {
 	color: var(--but-muted-foreground);
-	font-variant-numeric: tabular-nums;
 
 	:where([data-selection-focused="true"]:not([data-selection-focus-styles="false"] *))
 		.item[data-selected]

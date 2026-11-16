@@ -63,6 +63,7 @@ Rules for one component that its docs don't carry yet.
 | Page                                                            | Read it when                                     |
 | --------------------------------------------------------------- | ------------------------------------------------ |
 | [Modals](design/patterns/modals.md)                             | A prompt, a confirmation or a short form         |
+| [Context menus](design/patterns/context-menus.md)               | A row's actions, or a right-click menu           |
 | [Empty states](design/patterns/empty-states.md)                 | Nothing to show yet, or a filter matched nothing |
 | [Blocked states](design/patterns/blocked-states.md)             | Something the user can't do yet                  |
 | [Toasts and snackbars](design/patterns/toasts-and-snackbars.md) | Telling the user something happened              |

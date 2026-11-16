@@ -225,8 +225,9 @@ export const StacksFolded = meta.story({
 
 /**
  * Rows that could hold something and hold nothing yet: a branch with no commits, a worktree with
- * no branches and no changes, and a repository whose only worktree is such a one. Each has no
- * chevron, so nothing offers to open, and says why first in its state: `empty` for a branch without commits, and for a worktree what it
+ * no branches and no changes, and a repository whose only worktree is such a one. Each has a dot
+ * in its chevron's place, so nothing offers to open and it lines up with the rows that fold, and
+ * says why first in its state: `empty` for a branch without commits, and for a worktree what it
  * is on, `empty` with nothing applied or `detached`.
  */
 export const Empty = meta.story({
@@ -252,6 +253,7 @@ export const Empty = meta.story({
 					<BranchItem
 						title="offline-cache"
 						depth={1}
+						folded="empty"
 						meta={<MetaCount type="empty">empty</MetaCount>}
 						menu={menu("Branch")}
 					/>
@@ -279,6 +281,7 @@ export const Empty = meta.story({
 					<WorktreeItem
 						name="scratch"
 						depth={1}
+						folded="empty"
 						meta={
 							<>
 								<MetaCount type="head">detached</MetaCount>
@@ -304,6 +307,7 @@ export const Empty = meta.story({
 				<Repository last>
 					<RepoItem
 						name="skill-soup"
+						folded="empty"
 						meta={
 							<>
 								<MetaCount type="head">empty</MetaCount>

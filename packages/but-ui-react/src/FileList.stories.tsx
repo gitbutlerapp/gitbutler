@@ -1,11 +1,13 @@
 import { stories } from "../stories/stories.ts";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useRef, useState } from "react";
+import { useRef, useState, type MouseEvent } from "react";
 import { Button } from "./Button.tsx";
 import { Checkbox } from "./Checkbox.tsx";
 import { FileList, FileListItem } from "./FileList.tsx";
 import type { FileStatusType } from "./FileStatusBadge.tsx";
 import { Icon } from "./Icon.tsx";
+import { ContextMenu, MenuItem, MenuSection } from "./Menu.tsx";
+import { Snackbar } from "./Snackbar.tsx";
 import { treeGuides } from "./treeGuides.ts";
 
 const statuses: Array<FileStatusType> = ["Addition", "Deletion", "Modification", "Rename"];
@@ -47,31 +49,46 @@ export const Default = meta.story({
 	),
 });
 
-const kebab = (
-	<Button variant="ghost" size="small" iconOnly aria-label="File menu">
-		<Icon name="kebab" />
-	</Button>
+/** A file's actions, from a right-click on its row: a file row has no ⋯. */
+const fileActions = (
+	<>
+		<MenuSection>
+			<MenuItem>Open in editor</MenuItem>
+			<MenuItem>Copy path</MenuItem>
+		</MenuSection>
+		<MenuSection>
+			<MenuItem>Discard changes</MenuItem>
+		</MenuSection>
+	</>
 );
 
 /**
  * Every state a row can be in. The list holds the selection focus, so the selected row is solid;
- * the second list has lost it. A row that can't be acted on right now is `inert`; one whose action
- * is running is `busy` too, with a spinner in its icon's place.
+ * the second list has lost it. A row that can't be acted on right now, or whose action is running,
+ * is `inert`. A row's menu opens with a
+ * right-click, as on the selected one: a file row has no ⋯, so its last cell always says what
+ * happened.
  */
 export const States = meta.story({
 	render: () => (
 		<div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 			<FileList title="Changes" count={5} added={120} removed={48} focused>
 				<FileListItem name="useAuthHook.ts" directory="src/hooks" status="Addition" added={64} />
-				<FileListItem
-					selected
-					name="Button.tsx"
-					directory="src/components"
-					status="Modification"
-					added={18}
-					removed={9}
-					actions={kebab}
-				/>
+				<ContextMenu
+					aria-label="File actions"
+					trigger={
+						<FileListItem
+							selected
+							name="Button.tsx"
+							directory="src/components"
+							status="Modification"
+							added={18}
+							removed={9}
+						/>
+					}
+				>
+					{fileActions}
+				</ContextMenu>
 				<FileListItem
 					name="apiService.ts"
 					directory="src/services"
@@ -89,15 +106,6 @@ export const States = meta.story({
 					conflicted
 				/>
 				<FileListItem name="index.ts" directory="src" status="Deletion" inert />
-				<FileListItem
-					name="routes.ts"
-					directory="src"
-					status="Modification"
-					added={7}
-					removed={1}
-					busy
-					inert
-				/>
 			</FileList>
 			<FileList title="Changes" count={2} added={30}>
 				<FileListItem name="styles.css" directory="src/styles" status="Addition" />
@@ -105,6 +113,122 @@ export const States = meta.story({
 			</FileList>
 		</div>
 	),
+});
+
+const changes: Array<{ name: string; directory: string; status: FileStatusType }> = [
+	{ name: "useAuthHook.ts", directory: "src/hooks", status: "Addition" },
+	{ name: "Button.tsx", directory: "src/components", status: "Modification" },
+	{ name: "apiService.ts", directory: "src/services", status: "Modification" },
+	{ name: "routes.ts", directory: "src", status: "Modification" },
+	{ name: "theme.css", directory: "src/styles", status: "Modification" },
+];
+const discarding = new Set(["Button.tsx", "apiService.ts", "routes.ts"]);
+
+const plural = (count: number) => `${count} ${count === 1 ? "file" : "files"}`;
+
+/**
+ * Picking files and acting on them: click picks a file, ⌘-click (Ctrl-click) adds or takes one
+ * away, and Shift-click picks the run from the last one clicked. Picked rows next to one another
+ * read as one block. Discard works on what's picked: the rows go `inert`, faded and out of reach,
+ * with no spinner of their own, and one snackbar counts them ("Discarding 3 files…") and turns
+ * into the result as the rows leave. In an app the snackbar floats at the window's foot
+ * (`Snackbars`); here it's drawn under the list.
+ */
+export const Discarding = meta.story({
+	render: function Render() {
+		const [shown, setShown] = useState(changes);
+		const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set(discarding));
+		const [anchor, setAnchor] = useState<string | null>(null);
+		const [working, setWorking] = useState<ReadonlySet<string>>(() => new Set());
+		// What the snackbar says, drawn under the list rather than floating at the window's foot.
+		const [notice, setNotice] = useState<{ done: boolean; text: string } | null>(null);
+
+		const order = shown.map((file) => file.name);
+
+		/** A click on `name`. */
+		const pick = (name: string, event: MouseEvent) => {
+			if (event.shiftKey && anchor !== null && order.includes(anchor)) {
+				const [a, b] = [order.indexOf(anchor), order.indexOf(name)];
+				setPicked(new Set(order.slice(Math.min(a, b), Math.max(a, b) + 1)));
+				return;
+			}
+			setAnchor(name);
+			if (event.metaKey || event.ctrlKey) {
+				setPicked((set) => {
+					const next = new Set(set);
+					if (!next.delete(name)) next.add(name);
+					return next;
+				});
+			} else {
+				setPicked(new Set([name]));
+			}
+		};
+		// Shift-click picks a run; it shouldn't select the text in between too.
+		const noTextSelection = (event: MouseEvent) => {
+			if (event.shiftKey) event.preventDefault();
+		};
+
+		const discard = () => {
+			const files = new Set(picked);
+			const count = plural(files.size);
+			setWorking(files);
+			setPicked(new Set());
+			setNotice({ done: false, text: `Discarding ${count}…` });
+			setTimeout(() => {
+				const result = `${count} discarded`;
+				setWorking(new Set());
+				setShown((rows) => rows.filter((file) => !files.has(file.name)));
+				setNotice({ done: true, text: result });
+				setTimeout(() => setNotice((now) => (now?.text === result ? null : now)), 5000);
+			}, 2500);
+		};
+
+		return (
+			<div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+				<div style={{ display: "flex", gap: 8 }}>
+					<Button
+						variant="danger"
+						onClick={discard}
+						disabled={working.size > 0 || picked.size === 0}
+					>
+						{picked.size === 0 ? "Discard" : `Discard ${plural(picked.size)}`}
+					</Button>
+					<Button
+						variant="outline"
+						onClick={() => {
+							setShown(changes);
+							setPicked(new Set(discarding));
+							setNotice(null);
+						}}
+						disabled={working.size > 0}
+					>
+						Reset
+					</Button>
+				</div>
+				<FileList title="Changes" count={shown.length} focused>
+					{shown.map((file) => (
+						<FileListItem
+							key={file.name}
+							{...file}
+							selected={picked.has(file.name)}
+							inert={working.has(file.name)}
+							onClick={(event: MouseEvent) => pick(file.name, event)}
+							onMouseDown={noTextSelection}
+						/>
+					))}
+				</FileList>
+				{notice !== null && (
+					<Snackbar
+						variant={notice.done ? "safe" : "info"}
+						icon={notice.done ? undefined : "spinner"}
+						style={{ alignSelf: "center" }}
+					>
+						{notice.text}
+					</Snackbar>
+				)}
+			</div>
+		);
+	},
 });
 
 type TreeNode =
@@ -139,13 +263,16 @@ const tree: Array<TreeNode> = [
 	{ kind: "file", name: "package.json", status: "Modification" },
 ];
 
-const countFiles = (node: TreeNode): number =>
-	node.kind === "file" ? 1 : node.children.reduce((n, child) => n + countFiles(child), 0);
+const filePaths = (node: TreeNode, path: string): Array<string> =>
+	node.kind === "file"
+		? [path]
+		: node.children.flatMap((child) => filePaths(child, `${path}/${child.name}`));
 
 /**
  * A tree: each row steps in under its directory, with the guide that ties it there. A directory
  * folds on its chevron and says how many files it holds while folded; files under one leave out
- * their path, since the tree says it.
+ * their path, since the tree says it. A directory's checkbox checks every file under it, and shows
+ * indeterminate while only some are.
  */
 export const Tree = meta.story({
 	parameters: {
@@ -156,7 +283,9 @@ export const Tree = meta.story({
 	},
 	render: function Render() {
 		const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set(["src/styles"]));
-		const [checked, setChecked] = useState<ReadonlySet<string>>(() => new Set(["Button.tsx"]));
+		const [checked, setChecked] = useState<ReadonlySet<string>>(
+			() => new Set(["src/components/Button.tsx"]),
+		);
 		const toggle = (set: ReadonlySet<string>, key: string) => {
 			const next = new Set(set);
 			if (!next.delete(key)) next.add(key);
@@ -173,25 +302,39 @@ export const Tree = meta.story({
 		};
 		visit(tree, 0, "");
 		const guides = treeGuides(shown.map(({ depth }) => ({ depth })));
-		const rows = shown.map(({ node, depth, path }, index) =>
-			node.kind === "file" ? (
-				<FileListItem
-					key={path}
-					role="treeitem"
-					aria-level={depth + 1}
-					name={node.name}
-					depth={depth}
-					guides={guides[index]}
-					status={node.status}
-					checkbox={
-						<Checkbox
-							aria-label={`Check ${path}`}
-							checked={checked.has(node.name)}
-							onCheckedChange={() => setChecked((set) => toggle(set, node.name))}
-						/>
-					}
-				/>
-			) : (
+		const checkAll = (paths: Array<string>, on: boolean) =>
+			setChecked((set) => {
+				const next = new Set(set);
+				for (const path of paths) {
+					if (on) next.add(path);
+					else next.delete(path);
+				}
+				return next;
+			});
+		const rows = shown.map(({ node, depth, path }, index) => {
+			if (node.kind === "file") {
+				return (
+					<FileListItem
+						key={path}
+						role="treeitem"
+						aria-level={depth + 1}
+						name={node.name}
+						depth={depth}
+						guides={guides[index]}
+						status={node.status}
+						checkbox={
+							<Checkbox
+								aria-label={`Check ${path}`}
+								checked={checked.has(path)}
+								onCheckedChange={() => setChecked((set) => toggle(set, path))}
+							/>
+						}
+					/>
+				);
+			}
+			const files = filePaths(node, path);
+			const done = files.filter((file) => checked.has(file)).length;
+			return (
 				<FileListItem
 					key={path}
 					role="treeitem"
@@ -202,10 +345,18 @@ export const Tree = meta.story({
 					guides={guides[index]}
 					folded={folded.has(path)}
 					onToggleFolded={() => setFolded((set) => toggle(set, path))}
-					count={folded.has(path) ? countFiles(node) : undefined}
+					count={folded.has(path) ? files.length : undefined}
+					checkbox={
+						<Checkbox
+							aria-label={`Check ${path}`}
+							checked={done === files.length}
+							indeterminate={done > 0 && done < files.length}
+							onCheckedChange={() => checkAll(files, done < files.length)}
+						/>
+					}
 				/>
-			),
-		);
+			);
+		});
 		return (
 			<FileList title="Changes" count={6} added={214} removed={37} focused>
 				<div role="tree" aria-label="Changes" style={{ display: "contents" }}>
