@@ -1,14 +1,15 @@
 //! File watching, so the UI follows changes made by editors, agents and other GitButler clients.
 
 use std::{
+    collections::HashSet,
     path::{Path, PathBuf},
     sync::Arc,
 };
 
 use anyhow::Result;
 use bstr::ByteSlice as _;
-use gix::notify::{Changes, Outcome, Scope, WorktreeChange, plumbing::PathKind};
-use tokio::sync::mpsc;
+use gix::notify::{Changes, Outcome, Scope, WorktreeChange, WorktreeCoverage, plumbing::PathKind};
+use tokio::sync::{mpsc, oneshot};
 
 use super::{Checkout, Project, open, runtime};
 
@@ -23,16 +24,91 @@ pub enum Change {
     Files,
 }
 
+/// A pending cached-status reply awaited by the workspace filesystem worker.
+pub type StatusResponse = oneshot::Receiver<Result<but_filemonitor::Snapshot>>;
+
+/// Request snapshots from the project monitor as its workspace load reaches each checkout.
+pub struct StatusRequests {
+    requests: mpsc::UnboundedSender<but_filemonitor::Request>,
+    refresh: bool,
+}
+
+impl StatusRequests {
+    pub(super) fn snapshot(&self, git_dir: &Path) -> Option<StatusResponse> {
+        let (response, received) = oneshot::channel();
+        match self.requests.send(but_filemonitor::Request::Snapshot {
+            git_dir: git_dir.to_owned(),
+            refresh: self.refresh,
+            response,
+        }) {
+            Ok(()) => Some(received),
+            Err(_) => {
+                tracing::warn!("the status monitor stopped");
+                None
+            }
+        }
+    }
+}
+
 /// Keeps a project's watcher alive; dropping it stops watching.
 pub struct Watcher {
-    rescans: mpsc::UnboundedSender<()>,
+    requests: mpsc::UnboundedSender<but_filemonitor::Request>,
+    git_dir: PathBuf,
+    common_dir: PathBuf,
+    checkouts: HashSet<Checkout>,
 }
 
 impl Watcher {
     /// Reconcile all monitored checkouts after an explicit refresh.
     /// Return whether the monitor is still running.
     pub fn rescan(&self) -> bool {
-        self.rescans.send(()).is_ok()
+        self.requests.send(but_filemonitor::Request::Rescan).is_ok()
+    }
+
+    /// Tell the monitor which handles belong to open Uncommitted pages.
+    pub fn set_checkouts(&mut self, checkouts: Vec<Checkout>) -> bool {
+        let checkouts: HashSet<_> = checkouts.into_iter().collect();
+        if checkouts == self.checkouts {
+            return true;
+        }
+        let git_dirs = checkouts
+            .iter()
+            .map(|checkout| self.git_dir(checkout))
+            .collect::<Result<_>>();
+        let git_dirs = match git_dirs {
+            Ok(git_dirs) => git_dirs,
+            Err(error) => {
+                tracing::warn!(?error, "couldn't identify status checkouts");
+                return false;
+            }
+        };
+        if self
+            .requests
+            .send(but_filemonitor::Request::SetCheckouts(git_dirs))
+            .is_err()
+        {
+            return false;
+        }
+        self.checkouts = checkouts;
+        true
+    }
+
+    /// Let the workspace load use the monitor for each checkout it reads.
+    pub fn status_requests(&self, refresh: bool) -> StatusRequests {
+        StatusRequests {
+            requests: self.requests.clone(),
+            refresh,
+        }
+    }
+
+    fn git_dir(&self, checkout: &Checkout) -> Result<PathBuf> {
+        Ok(match checkout {
+            Checkout::Main => self.git_dir.clone(),
+            Checkout::Linked(name) => self
+                .common_dir
+                .join("worktrees")
+                .join(gix::path::from_bstr(name)?),
+        })
     }
 }
 
@@ -44,10 +120,19 @@ pub fn watch(
 ) -> Result<Watcher> {
     let ctx = open(&project.path)?;
     let path = project.path.clone();
-    let monitor = but_filemonitor::FileMonitor::new(&*ctx.repo.get()?, move |repo| {
-        worktree_filter(repo, &path)
-    })?;
-    let (rescans, requested) = mpsc::unbounded_channel();
+    let repo = ctx.repo.get()?;
+    let git_dir = repo.git_dir().to_owned();
+    let common_dir = repo.common_dir().to_owned();
+    let monitor = but_filemonitor::FileMonitor::new(
+        &repo,
+        gix::notify::Options {
+            worktree_coverage: Some(WorktreeCoverage::ExcludeIgnoredFiles),
+            ..Default::default()
+        },
+        but_core::diff::status_monitor_options,
+        move |repo| worktree_filter(repo, &path),
+    )?;
+    let (requests, requested) = mpsc::unbounded_channel();
     runtime().spawn(async move {
         if let Err(err) = monitor
             .run(requested, move |outcome| {
@@ -68,7 +153,12 @@ pub fn watch(
             tracing::warn!(?err, "file watcher stopped");
         }
     });
-    Ok(Watcher { rescans })
+    Ok(Watcher {
+        requests,
+        git_dir,
+        common_dir,
+        checkouts: HashSet::new(),
+    })
 }
 
 fn worktree_filter(repo: &gix::Repository, path: &Path) -> Result<Option<Vec<PathBuf>>> {
@@ -139,6 +229,143 @@ mod tests {
     use super::*;
 
     #[test]
+    fn native_file_discovery_survives_clean_and_inactive_status_consumers() {
+        use crate::backend::ops::tests::{agent_worktree, repo_with, target_origin_main};
+        use crate::backend::{
+            Kept, Workspace, load_workspace_with_status, reload_uncommitted_with_status,
+        };
+        use std::time::Duration;
+
+        async fn reload_after_file_event(
+            received: &mut mpsc::UnboundedReceiver<(Change, Checkout, Vec<Arc<str>>)>,
+            path: &Path,
+            shown: Workspace,
+            checkout: &Checkout,
+            status: StatusRequests,
+        ) -> Workspace {
+            tokio::time::timeout(Duration::from_secs(10), async {
+                while let Some((change, changed, _)) = received.recv().await {
+                    if change == Change::Files && changed == *checkout {
+                        return;
+                    }
+                }
+                panic!("the native watcher remains connected");
+            })
+            .await
+            .expect("filesystem changes still reload a checkout without a status consumer");
+            let path = path.to_owned();
+            let main = *checkout == Checkout::Main;
+            let linked = match checkout {
+                Checkout::Main => HashSet::new(),
+                Checkout::Linked(name) => HashSet::from([name.clone()]),
+            };
+            super::super::run(move || {
+                reload_uncommitted_with_status(&path, shown, main, &linked, Some(status))
+            })
+            .await
+            .expect("file invalidations reload the navigator's uncommitted rows")
+        }
+
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            let (_outside, linked) = agent_worktree(path);
+            super::super::apply(
+                path,
+                super::super::worktrees::SetArchived {
+                    name: "agent".into(),
+                    archived: false,
+                },
+            )
+            .expect("the linked checkout is shown in the navigator");
+            let checkouts = [
+                (Checkout::Main, path),
+                (Checkout::Linked("agent".into()), linked.as_path()),
+            ];
+            for (_, folder) in &checkouts {
+                std::fs::write(folder.join("untracked"), "existing change\n")
+                    .expect("both checkouts start dirty");
+            }
+            let project = Project {
+                id: "project".into(),
+                name: "fixture".into(),
+                path: path.to_owned(),
+                last_active: None,
+                last_fetch: None,
+            };
+            let (events, mut received) = mpsc::unbounded_channel();
+            let mut watcher = watch(&project, move |change, checkout, paths| {
+                events.send((change, checkout, paths)).ok();
+            })
+            .expect("GPUI's actual watcher can be constructed");
+            runtime().block_on(async {
+                tokio::time::timeout(Duration::from_secs(10), received.recv())
+                    .await
+                    .expect("the watcher establishes initial coverage")
+                    .expect("initial coverage emits an outcome");
+                // Initial registration invalidations cannot stand in for a later file event.
+                while let Ok(Some(_)) =
+                    tokio::time::timeout(Duration::from_millis(300), received.recv()).await
+                {}
+                let initial = watcher.status_requests(false);
+                let folder = path.to_owned();
+                let mut shown = super::super::run(move || {
+                    load_workspace_with_status(&folder, Kept::default(), Some(initial))
+                })
+                .await
+                .expect("the first workspace load can request status for both checkouts");
+                for (checkout, folder) in checkouts {
+                    assert!(
+                        shown.uncommitted_in(&checkout).is_some_and(|files| {
+                            files.iter().any(|file| file.path == "untracked")
+                        }),
+                        "opening the project discovers existing changes"
+                    );
+                    assert!(
+                        watcher.set_checkouts(vec![checkout.clone()]),
+                        "opening the pane retains the checkout's status handle"
+                    );
+                    let response = watcher.status_requests(false)
+                        .snapshot(&watcher.git_dir(&checkout).unwrap())
+                        .expect("the selected snapshot can be requested");
+                    let snapshot = tokio::time::timeout(Duration::from_secs(10), response).await
+                        .expect("the selected status refresh completes")
+                        .expect("the status monitor answers")
+                        .expect("the selected status snapshot succeeds");
+                    assert!(
+                        !snapshot.update.changed && snapshot.items.iter().any(|item| item.location() == "untracked"),
+                        "opening the pane reuses the baseline from the first workspace load"
+                    );
+                    assert!(
+                        watcher.set_checkouts(Vec::new()),
+                        "closing the pane releases its status handle"
+                    );
+                    for present in [false, true, false, true] {
+                        if present {
+                            std::fs::write(folder.join("untracked"), "new file\n")
+                                .expect("the editor creates an untracked file");
+                        } else {
+                            std::fs::remove_file(folder.join("untracked"))
+                                .expect("removing the last untracked file makes the checkout clean");
+                        }
+                        shown = reload_after_file_event(
+                            &mut received, path, shown, &checkout, watcher.status_requests(false)
+                        ).await;
+                        assert_eq!(
+                            shown.uncommitted_in(&checkout).is_some_and(|files| {
+                                files.iter().any(|file| file.path == "untracked")
+                            }),
+                            present,
+                            "native file events remove and restore the navigator row without refresh"
+                        );
+                    }
+                }
+            });
+        });
+    }
+
+    #[test]
     fn native_coverage_excludes_archived_broken_worktrees_and_recovers_after_unarchive() {
         use crate::backend::ops::tests::{agent_worktree, repo_with, target_origin_main};
 
@@ -160,10 +387,15 @@ mod tests {
             std::fs::write(&index, "invalid").expect("the archived index can be made unreadable");
             let repo = gix::open_opts(path, gix::open::Options::isolated())
                 .expect("the main fixture repository can be opened");
-            let monitor = but_filemonitor::FileMonitor::new(&repo, {
-                let path = path.to_owned();
-                move |repo| worktree_filter(repo, &path)
-            })
+            let monitor = but_filemonitor::FileMonitor::new(
+                &repo,
+                Default::default(),
+                but_core::diff::status_monitor_options,
+                {
+                    let path = path.to_owned();
+                    move |repo| worktree_filter(repo, &path)
+                },
+            )
             .expect("the primary monitor can be constructed");
             runtime().block_on(async {
                 let (rescans, requested) = mpsc::unbounded_channel();
@@ -199,7 +431,7 @@ mod tests {
                 )
                 .expect("the linked worktree can be unarchived");
                 assert!(
-                    rescans.send(()).is_ok(),
+                    rescans.send(but_filemonitor::Request::Rescan).is_ok(),
                     "the rescan channel remains connected"
                 );
                 tokio::time::timeout(std::time::Duration::from_secs(10), async {

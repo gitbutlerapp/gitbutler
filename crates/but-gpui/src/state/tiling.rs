@@ -1749,6 +1749,7 @@ impl Store {
     /// Number the tiles made since, forget those gone, and say the tilings changed.
     pub(super) fn tiling_changed(&mut self, cx: &mut Context<Self>) {
         self.number_tiles();
+        self.update_status_checkouts();
         cx.emit(StoreEvent::TilingChanged);
     }
 

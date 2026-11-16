@@ -51,35 +51,13 @@ fn worktree_changes_inner(
     repo: &gix::Repository,
     renames: RenameTracking,
 ) -> anyhow::Result<WorktreeChanges> {
-    let (tree_index_rewrites, worktree_rewrites) = match renames {
-        RenameTracking::Always => {
-            let rewrites = gix::diff::Rewrites::default(); /* standard Git rewrite handling for everything */
-            debug_assert!(
-                rewrites.copies.is_none(),
-                "TODO: copy tracking needs specific support wherever 'previous_path()' is called."
-            );
-            (TrackRenames::Given(rewrites), Some(rewrites))
-        }
-        RenameTracking::Disabled => (TrackRenames::Disabled, None),
-    };
-    let has_submodule_ignore_configuration = repo.modules()?.is_some_and(|modules| {
-        modules
-            .names()
-            .any(|name| modules.ignore(name).ok().flatten().is_some())
-    });
+    let (tree_index_rewrites, worktree_rewrites) = rename_tracking(renames);
     let status_changes = repo
         .status(gix::progress::Discard)?
         .tree_index_track_renames(tree_index_rewrites)
         .index_worktree_rewrites(worktree_rewrites)
         // Learn about submodule changes, but only do the cheap checks, showing only what we could commit.
-        .index_worktree_submodules(if has_submodule_ignore_configuration {
-            gix::status::Submodule::AsConfigured { check_dirty: true }
-        } else {
-            gix::status::Submodule::Given {
-                ignore: gix::submodule::config::Ignore::Dirty,
-                check_dirty: true,
-            }
-        })
+        .index_worktree_submodules(submodule_status(repo)?)
         .index_worktree_options_mut(|opts| {
             if let Some(opts) = opts.dirwalk_options.as_mut() {
                 opts.set_emit_ignored(None)
@@ -93,7 +71,69 @@ fn worktree_changes_inner(
             }
         })
         .into_iter(None)?;
+    changes_from_status(repo, status_changes)
+}
 
+/// Convert an owned status snapshot into the changes that can become part of a commit.
+///
+/// The items must describe `repo` with the settings from [`status_monitor_options()`].
+/// Staged and worktree changes are merged exactly as in [`worktree_changes()`], including
+/// conflicts and changes that cancel out. Merging can read and hash current worktree files.
+#[instrument(skip(repo, status_changes), err(Debug))]
+pub fn worktree_changes_from_status(
+    repo: &gix::Repository,
+    status_changes: impl IntoIterator<Item = status::Item>,
+) -> anyhow::Result<WorktreeChanges> {
+    changes_from_status(repo, status_changes.into_iter().map(Ok))
+}
+
+/// Status snapshot options matching [`worktree_changes()`], including rename and submodule policy.
+/// Set application-specific repository monitoring options before constructing the monitor.
+pub fn status_monitor_options(repo: &gix::Repository) -> anyhow::Result<status::monitor::Options> {
+    let (tree_index_track_renames, worktree_rewrites) = rename_tracking(RenameTracking::Always);
+    Ok(status::monitor::Options {
+        untracked_files: status::UntrackedFiles::Files,
+        submodules: submodule_status(repo)?,
+        tree_index_track_renames,
+        worktree_rewrites,
+        ..Default::default()
+    })
+}
+
+fn rename_tracking(renames: RenameTracking) -> (TrackRenames, Option<gix::diff::Rewrites>) {
+    match renames {
+        RenameTracking::Always => {
+            let rewrites = gix::diff::Rewrites::default(); /* standard Git rewrite handling for everything */
+            debug_assert!(
+                rewrites.copies.is_none(),
+                "TODO: copy tracking needs specific support wherever 'previous_path()' is called."
+            );
+            (TrackRenames::Given(rewrites), Some(rewrites))
+        }
+        RenameTracking::Disabled => (TrackRenames::Disabled, None),
+    }
+}
+
+fn submodule_status(repo: &gix::Repository) -> anyhow::Result<status::Submodule> {
+    let has_submodule_ignore_configuration = repo.modules()?.is_some_and(|modules| {
+        modules
+            .names()
+            .any(|name| modules.ignore(name).ok().flatten().is_some())
+    });
+    Ok(if has_submodule_ignore_configuration {
+        status::Submodule::AsConfigured { check_dirty: true }
+    } else {
+        status::Submodule::Given {
+            ignore: gix::submodule::config::Ignore::Dirty,
+            check_dirty: true,
+        }
+    })
+}
+
+fn changes_from_status(
+    repo: &gix::Repository,
+    status_changes: impl IntoIterator<Item = gix::Result<status::Item>>,
+) -> anyhow::Result<WorktreeChanges> {
     let work_dir = repo.workdir().context("need non-bare repository")?;
     let mut tree_index_changes = Vec::new();
     let mut index_worktree_changes = Vec::new();

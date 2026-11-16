@@ -4,15 +4,15 @@ use std::{
     path::Path,
     sync::{
         Arc,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
     time::Duration,
 };
 
 use anyhow::{Context as _, Result};
-use but_filemonitor::FileMonitor;
-use gix::notify::{CoverageStatus, Outcome, Scope, WorktreeChange};
-use tokio::sync::mpsc;
+use but_filemonitor::{FileMonitor, Request};
+use gix::notify::{CoverageStatus, Outcome, Scope, WorktreeChange, WorktreeCoverage};
+use tokio::sync::{mpsc, oneshot};
 
 async fn expect_outcome(
     events: &mut mpsc::UnboundedReceiver<Outcome>,
@@ -86,11 +86,19 @@ fn repository(path: &Path) -> Result<gix::Repository> {
 fn start(
     repo: &gix::Repository,
 ) -> Result<(
-    mpsc::UnboundedSender<()>,
+    mpsc::UnboundedSender<Request>,
     mpsc::UnboundedReceiver<Outcome>,
     tokio::task::JoinHandle<Result<()>>,
 )> {
-    let monitor = FileMonitor::new(repo, |_| Ok(None))?;
+    let monitor = FileMonitor::new(
+        repo,
+        gix::notify::Options {
+            worktree_coverage: Some(WorktreeCoverage::ExcludeIgnoredFiles),
+            ..Default::default()
+        },
+        |_| Ok(Default::default()),
+        |_| Ok(None),
+    )?;
     let (stop, stopped) = mpsc::unbounded_channel();
     let (events, received) = mpsc::unbounded_channel();
     let task = tokio::spawn(monitor.run(stopped, move |outcome| {
@@ -107,6 +115,41 @@ fn invalidates(scope: &Option<Scope>, path: &str) -> bool {
             .any(|change| change.path == path || path.starts_with(&format!("{}/", change.path))),
         None => false,
     }
+}
+
+#[tokio::test]
+async fn native_file_exclusions_keep_tracked_invalidations() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let repo = repository(tmp.path())?;
+    std::fs::write(repo.git_dir().join("info/exclude"), "file\nignored\n")?;
+    let (control, mut events, task) = start(&repo)?;
+    expect_outcome(&mut events, |outcome| {
+        outcome.coverage == CoverageStatus::Healthy
+    })
+    .await?;
+    settle(&mut events).await;
+
+    std::fs::write(tmp.path().join("ignored"), "ignored and untracked")?;
+    std::fs::write(tmp.path().join("file"), "tracked despite the exclude rule")?;
+    expect_outcome(&mut events, |outcome| {
+        assert!(
+            !invalidates(&outcome.changes.worktree, "ignored"),
+            "the adapter preserves Gix's ignored-file exclusions"
+        );
+        invalidates(&outcome.changes.worktree, "file")
+    })
+    .await?;
+    while let Ok(Some(outcome)) =
+        tokio::time::timeout(Duration::from_millis(300), events.recv()).await
+    {
+        assert!(
+            !invalidates(&outcome.changes.worktree, "ignored"),
+            "deferred notifications also exclude the ignored untracked file"
+        );
+    }
+    drop(control);
+    tokio::time::timeout(Duration::from_secs(10), task).await???;
+    Ok(())
 }
 
 #[tokio::test]
@@ -358,7 +401,9 @@ async fn manual_rescan_refreshes_every_checkout_without_writes() -> Result<()> {
     // Drain startup verification so a queued initial baseline cannot satisfy the rescan assertion.
     settle(&mut events).await;
 
-    control.send(())?;
+    control
+        .send(Request::Rescan)
+        .map_err(|_| anyhow::anyhow!("monitor remains alive"))?;
     expect_outcome(&mut events, |outcome| {
         outcome.changes.references
             && matches!(outcome.changes.worktree, Some(Scope::All))
@@ -408,12 +453,17 @@ async fn manual_rescan_survives_a_selector_retry_without_option_changes() -> Res
     let repo = repository(tmp.path())?;
     let fail_next = Arc::new(AtomicBool::new(false));
     let selector_failure = fail_next.clone();
-    let monitor = FileMonitor::new(&repo, move |_| {
-        if selector_failure.swap(false, Ordering::SeqCst) {
-            anyhow::bail!("fixture selector fails once");
-        }
-        Ok(None)
-    })?;
+    let monitor = FileMonitor::new(
+        &repo,
+        Default::default(),
+        |_| Ok(Default::default()),
+        move |_| {
+            if selector_failure.swap(false, Ordering::SeqCst) {
+                anyhow::bail!("fixture selector fails once");
+            }
+            Ok(None)
+        },
+    )?;
     let (control, requested) = mpsc::unbounded_channel();
     let (events, mut received) = mpsc::unbounded_channel();
     let task = tokio::spawn(monitor.run(requested, move |outcome| {
@@ -426,7 +476,9 @@ async fn manual_rescan_survives_a_selector_retry_without_option_changes() -> Res
     settle(&mut received).await;
 
     fail_next.store(true, Ordering::SeqCst);
-    control.send(())?;
+    control
+        .send(Request::Rescan)
+        .map_err(|_| anyhow::anyhow!("monitor remains alive"))?;
     let failed = tokio::time::timeout(Duration::from_secs(10), received.recv())
         .await
         .context("manual rescan reports the selector failure")?
@@ -470,5 +522,493 @@ async fn reflog_changes_refresh_references_without_relisting_worktrees() -> Resu
     );
     drop(control);
     tokio::time::timeout(Duration::from_secs(10), task).await???;
+    Ok(())
+}
+
+async fn snapshot(
+    control: &mpsc::UnboundedSender<Request>,
+    repo: &gix::Repository,
+    refresh: bool,
+) -> Result<but_filemonitor::Snapshot> {
+    let (response, received) = oneshot::channel();
+    control
+        .send(Request::Snapshot {
+            git_dir: repo.git_dir().to_owned(),
+            refresh,
+            response,
+        })
+        .map_err(|_| anyhow::anyhow!("monitor accepts snapshot requests"))?;
+    tokio::time::timeout(Duration::from_secs(10), received).await??
+}
+
+#[tokio::test]
+async fn status_is_demand_driven_and_refresh_failure_keeps_monitoring() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let repo = repository(tmp.path())?;
+    let head = repo.head_id()?.to_string();
+    let object = repo
+        .git_dir()
+        .join("objects")
+        .join(&head[..2])
+        .join(&head[2..]);
+    let original = std::fs::read(&object)?;
+    let (control, mut events, task) = start(&repo)?;
+    expect_outcome(&mut events, |outcome| outcome.changes.worktree.is_some()).await?;
+    settle(&mut events).await;
+
+    std::fs::remove_file(&object)?;
+    settle(&mut events).await;
+    assert!(
+        snapshot(&control, &repo, false).await.is_err(),
+        "only the status request reads the missing HEAD object"
+    );
+    std::fs::write(&object, original)?;
+    std::fs::write(tmp.path().join("file"), "changed")?;
+    expect_outcome(&mut events, |outcome| {
+        invalidates(&outcome.changes.worktree, "file")
+    })
+    .await?;
+    let recovered = snapshot(&control, &repo, true).await?;
+    assert!(
+        recovered.items.iter().any(|item| item.location() == "file"),
+        "a failed refresh preserves the stream and can recover"
+    );
+    drop(control);
+    task.await??;
+    Ok(())
+}
+
+#[tokio::test]
+async fn repeated_edits_publish_refresh_coverage_without_new_status_deltas() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let repo = repository(tmp.path())?;
+    let (control, mut events, task) = start(&repo)?;
+    expect_outcome(&mut events, |outcome| outcome.changes.worktree.is_some()).await?;
+    snapshot(&control, &repo, false).await?;
+    settle(&mut events).await;
+    std::fs::write(tmp.path().join("file"), "first change")?;
+    expect_outcome(&mut events, |outcome| {
+        invalidates(&outcome.changes.worktree, "file")
+    })
+    .await?;
+    let first = snapshot(&control, &repo, false).await?;
+    assert!(first.update.changed, "the file first becomes modified");
+    settle(&mut events).await;
+    std::fs::write(tmp.path().join("file"), "other change")?;
+    expect_outcome(&mut events, |outcome| {
+        invalidates(&outcome.changes.worktree, "file")
+    })
+    .await?;
+    let second = snapshot(&control, &repo, false).await?;
+    assert!(
+        !second.update.changed,
+        "the second edit keeps the same status classification"
+    );
+    assert!(
+        invalidates(&second.update.unstaged, "file"),
+        "content coverage still tells consumers to reread the file"
+    );
+    drop(control);
+    task.await??;
+    Ok(())
+}
+
+#[tokio::test]
+async fn pending_selection_blocks_status_and_native_wakes_until_retry() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let outside = tempfile::tempdir()?;
+    let repo = repository(tmp.path())?;
+    let linked = outside.path().join("linked");
+    git(
+        tmp.path(),
+        &[
+            "worktree",
+            "add",
+            "--detach",
+            linked.to_str().expect("fixture path is UTF-8"),
+        ],
+    );
+    let private = repo.git_dir().join("worktrees/linked");
+    let fail = Arc::new(AtomicBool::new(false));
+    let exclude = Arc::new(AtomicBool::new(false));
+    let calls = Arc::new(AtomicUsize::new(0));
+    let callbacks = Arc::new(AtomicUsize::new(0));
+    let monitor = FileMonitor::new(
+        &repo,
+        gix::notify::Options {
+            retry_interval: Duration::from_secs(1),
+            ..Default::default()
+        },
+        |_| Ok(Default::default()),
+        {
+            let fail = fail.clone();
+            let exclude = exclude.clone();
+            let calls = calls.clone();
+            let private = private.clone();
+            move |_| {
+                calls.fetch_add(1, Ordering::SeqCst);
+                anyhow::ensure!(!fail.load(Ordering::SeqCst), "injected selector failure");
+                Ok(Some(if exclude.load(Ordering::SeqCst) {
+                    Vec::new()
+                } else {
+                    vec![private.clone()]
+                }))
+            }
+        },
+    )?;
+    let (control, requested) = mpsc::unbounded_channel();
+    let (events, mut received) = mpsc::unbounded_channel();
+    let task = tokio::spawn(monitor.run(requested, {
+        let callbacks = callbacks.clone();
+        move |outcome| {
+            callbacks.fetch_add(1, Ordering::SeqCst);
+            events.send(outcome).ok();
+        }
+    }));
+    expect_outcome(&mut received, |outcome| {
+        outcome
+            .other_worktrees
+            .iter()
+            .any(|wt| matches!(wt.kind, WorktreeChange::Added))
+    })
+    .await?;
+    settle(&mut received).await;
+    exclude.store(true, Ordering::SeqCst);
+    fail.store(true, Ordering::SeqCst);
+    std::fs::write(private.join("index"), "broken archived index")?;
+    control
+        .send(Request::Rescan)
+        .map_err(|_| anyhow::anyhow!("monitor accepts rescan"))?;
+    tokio::time::timeout(Duration::from_secs(10), async {
+        while let Some(outcome) = received.recv().await {
+            if outcome
+                .errors
+                .iter()
+                .any(|error| error.to_string().contains("injected selector failure"))
+            {
+                return;
+            }
+        }
+        panic!("selection failure is reported");
+    })
+    .await?;
+    std::fs::write(tmp.path().join("file"), "queued during selection backoff")?;
+    let error = snapshot(&control, &repo, false)
+        .await
+        .expect_err("status waits for selection recovery");
+    assert!(
+        error.to_string().contains("subscription selection"),
+        "an unresolved selection blocks status before the archived index is opened: {error:#}"
+    );
+    let before_calls = calls.load(Ordering::SeqCst);
+    let before_callbacks = callbacks.load(Ordering::SeqCst);
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        before_calls,
+        "selection retries honor backoff"
+    );
+    assert_eq!(
+        callbacks.load(Ordering::SeqCst),
+        before_callbacks,
+        "queued native events do not spin while selection blocks service"
+    );
+    fail.store(false, Ordering::SeqCst);
+    control
+        .send(Request::Rescan)
+        .map_err(|_| anyhow::anyhow!("monitor accepts recovery rescan"))?;
+    snapshot(&control, &repo, true).await?;
+    drop(control);
+    task.await??;
+    Ok(())
+}
+
+#[tokio::test]
+async fn navigator_baseline_survives_clean_transitions_in_an_open_pane() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let repo = repository(tmp.path())?;
+    let (control, mut events, task) = start(&repo)?;
+    expect_outcome(&mut events, |outcome| outcome.changes.worktree.is_some()).await?;
+    let clean = snapshot(&control, &repo, false).await?;
+    assert!(
+        clean.items.is_empty(),
+        "the Uncommitted row can disappear after a clean snapshot"
+    );
+    assert!(
+        snapshot(&control, &repo, false).await?.update.changed,
+        "a clean checkout without a pane releases its baseline"
+    );
+    settle(&mut events).await;
+
+    std::fs::write(tmp.path().join("hi"), "new untracked file")?;
+    expect_outcome(&mut events, |outcome| {
+        invalidates(&outcome.changes.worktree, "hi")
+    })
+    .await
+    .context("a new file must be discovered without a status consumer")?;
+    let dirty = snapshot(&control, &repo, false).await?;
+    assert!(
+        dirty.update.changed && !dirty.items.is_empty(),
+        "the navigator's first dirty read builds the status baseline"
+    );
+    control.send(Request::SetCheckouts(vec![repo.git_dir().to_owned()]))?;
+    assert!(
+        !snapshot(&control, &repo, false).await?.update.changed,
+        "the pane reuses the navigator's dirty baseline"
+    );
+    for dirty in [false, true, false, true] {
+        settle(&mut events).await;
+        if dirty {
+            std::fs::write(tmp.path().join("hi"), "new untracked file")?;
+        } else {
+            std::fs::remove_file(tmp.path().join("hi"))?;
+        }
+        expect_outcome(&mut events, |outcome| {
+            invalidates(&outcome.changes.worktree, "hi")
+        })
+        .await?;
+        let refreshed = snapshot(&control, &repo, false).await?;
+        assert_eq!(
+            !refreshed.items.is_empty(),
+            dirty,
+            "the retained handle follows each clean and dirty transition"
+        );
+        assert!(
+            !refreshed.update.staged,
+            "a file change with a pane open does not collect another full baseline"
+        );
+    }
+    control.send(Request::SetCheckouts(Vec::new()))?;
+    assert!(
+        snapshot(&control, &repo, false).await?.update.changed,
+        "closing the last pane releases that checkout's handle"
+    );
+    drop(control);
+    tokio::time::timeout(Duration::from_secs(10), task).await???;
+    Ok(())
+}
+
+#[tokio::test]
+async fn checkout_demand_retains_each_baseline_and_preserves_metadata_watches() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let outside = tempfile::tempdir()?;
+    let repo = repository(tmp.path())?;
+    let monitor = FileMonitor::new(
+        &repo,
+        Default::default(),
+        |_| Ok(Default::default()),
+        |_| Ok(None),
+    )?;
+    let (control, requested) = mpsc::unbounded_channel();
+    let (events, mut received) = mpsc::unbounded_channel();
+    let task = tokio::spawn(monitor.run(requested, move |outcome| {
+        events.send(outcome).ok();
+    }));
+    expect_outcome(&mut received, |outcome| outcome.changes.worktree.is_some()).await?;
+    settle(&mut received).await;
+    let linked_path = outside.path().join("linked");
+    git(
+        tmp.path(),
+        &[
+            "worktree",
+            "add",
+            "--detach",
+            linked_path.to_str().expect("fixture path is UTF-8"),
+        ],
+    );
+    let linked = gix::open_opts(&linked_path, gix::open::Options::isolated())?;
+    expect_outcome(&mut received, |outcome| {
+        outcome
+            .other_worktrees
+            .iter()
+            .any(|worktree| matches!(worktree.kind, WorktreeChange::Added))
+    })
+    .await?;
+    settle(&mut received).await;
+    std::fs::write(tmp.path().join("main-only"), "main")?;
+    expect_outcome(&mut received, |outcome| {
+        invalidates(&outcome.changes.worktree, "main-only")
+    })
+    .await?;
+    settle(&mut received).await;
+    std::fs::write(linked_path.join("linked-only"), "linked")?;
+    expect_outcome(&mut received, |outcome| {
+        outcome.other_worktrees.iter().any(|worktree| {
+            matches!(&worktree.kind,
+                WorktreeChange::Changed(changes) if invalidates(&changes.worktree, "linked-only"))
+        })
+    })
+    .await?;
+    settle(&mut received).await;
+    control.send(Request::SetCheckouts(vec![
+        repo.git_dir().to_owned(),
+        linked.git_dir().to_owned(),
+    ]))?;
+    let main = snapshot(&control, &repo, false).await?;
+    assert!(
+        main.items.iter().any(|item| item.location() == "main-only"),
+        "the main snapshot includes its own new file"
+    );
+    assert!(
+        !main
+            .items
+            .iter()
+            .any(|item| item.location() == "linked-only"),
+        "the main snapshot cannot inherit linked checkout status"
+    );
+    let other = snapshot(&control, &linked, false).await?;
+    assert!(
+        other
+            .items
+            .iter()
+            .any(|item| item.location() == "linked-only"),
+        "the linked snapshot includes its own new file"
+    );
+    assert!(
+        !other
+            .items
+            .iter()
+            .any(|item| item.location() == "main-only"),
+        "the linked snapshot cannot inherit main checkout status"
+    );
+    let again = snapshot(&control, &repo, false).await?;
+    assert_eq!(
+        again.git_dir, main.git_dir,
+        "returning to main preserves its target identity"
+    );
+    assert!(
+        again
+            .items
+            .iter()
+            .any(|item| item.location() == "main-only"),
+        "returning to main still shows its own changes"
+    );
+    assert!(
+        !again.update.changed && !snapshot(&control, &linked, false).await?.update.changed,
+        "alternating requests keeps both previous status baselines"
+    );
+    settle(&mut received).await;
+    control.send(Request::SetCheckouts(vec![linked.git_dir().to_owned()]))?;
+    assert!(
+        snapshot(&control, &repo, false).await?.update.changed,
+        "a navigator read after closing main obtains a fresh baseline"
+    );
+    assert!(
+        !snapshot(&control, &linked, false).await?.update.changed,
+        "dropping the main consumer leaves the linked baseline in place"
+    );
+    settle(&mut received).await;
+    std::fs::write(tmp.path().join("main-only"), "main again")?;
+    expect_outcome(&mut received, |outcome| {
+        invalidates(&outcome.changes.worktree, "main-only")
+    })
+    .await
+    .context("the main checkout remains observable with only a linked status consumer")?;
+    settle(&mut received).await;
+    std::fs::write(linked_path.join("linked-only"), "linked again")?;
+    let outcome = expect_outcome(&mut received, |outcome| {
+        outcome.other_worktrees.iter().any(|worktree| {
+            matches!(&worktree.kind,
+            WorktreeChange::Changed(changes) if invalidates(&changes.worktree, "linked-only"))
+        })
+    })
+    .await?;
+    assert!(
+        outcome
+            .other_worktrees
+            .iter()
+            .all(|worktree| matches!(worktree.kind, WorktreeChange::Changed(_))),
+        "a status-consumer change does not invent worktree membership changes"
+    );
+    control.send(Request::SetCheckouts(Vec::new()))?;
+    settle(&mut received).await;
+    git(tmp.path(), &["branch", "metadata-only"]);
+    expect_outcome(&mut received, |outcome| outcome.changes.references).await?;
+    assert!(
+        snapshot(&control, &linked, false).await?.update.changed,
+        "closing the last linked pane releases its baseline as well"
+    );
+    drop(control);
+    tokio::time::timeout(Duration::from_secs(10), task).await???;
+    Ok(())
+}
+
+#[tokio::test]
+async fn status_consumers_preserve_explicit_metadata_only_native_coverage() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let repo = repository(tmp.path())?;
+    let monitor = FileMonitor::new(
+        &repo,
+        gix::notify::Options {
+            checkout_filter: Some(Vec::new()),
+            ..Default::default()
+        },
+        |_| Ok(Default::default()),
+        |_| Ok(None),
+    )?;
+    let (control, requested) = mpsc::unbounded_channel();
+    let (events, mut received) = mpsc::unbounded_channel();
+    let task = tokio::spawn(monitor.run(requested, move |outcome| {
+        events.send(outcome).ok();
+    }));
+    expect_outcome(&mut received, |_| true).await?;
+    settle(&mut received).await;
+
+    control.send(Request::SetCheckouts(vec![repo.git_dir().to_owned()]))?;
+    let clean = snapshot(&control, &repo, false).await?;
+    assert!(
+        clean.items.is_empty(),
+        "an explicit status request can read a clean checkout"
+    );
+    std::fs::write(tmp.path().join("hi"), "not covered by native policy")?;
+    while let Ok(Some(outcome)) =
+        tokio::time::timeout(Duration::from_millis(300), received.recv()).await
+    {
+        assert!(
+            outcome.errors.is_empty(),
+            "metadata-only service succeeds: {:?}",
+            outcome.errors
+        );
+        assert!(
+            outcome.changes.worktree.is_none(),
+            "requesting status cannot enable checkout coverage excluded by the original options"
+        );
+    }
+    assert!(
+        snapshot(&control, &repo, false).await?.items.is_empty(),
+        "an uncovered checkout has no native invalidation to refresh its cached status"
+    );
+    assert!(
+        snapshot(&control, &repo, true)
+            .await?
+            .items
+            .iter()
+            .any(|item| item.location() == "hi"),
+        "callers with excluded checkout coverage can request an explicit status refresh"
+    );
+    git(tmp.path(), &["branch", "metadata-still-watched"]);
+    expect_outcome(&mut received, |outcome| outcome.changes.references).await?;
+    drop(control);
+    tokio::time::timeout(Duration::from_secs(10), task).await???;
+    Ok(())
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn aborting_an_idle_monitor_releases_its_task() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let repo = repository(tmp.path())?;
+    let (control, mut events, task) = start(&repo)?;
+    expect_outcome(&mut events, |outcome| outcome.changes.worktree.is_some()).await?;
+    settle(&mut events).await;
+    task.abort();
+    let error = tokio::time::timeout(Duration::from_secs(1), task)
+        .await?
+        .expect_err("the idle task is cancelled");
+    assert!(error.is_cancelled());
+    assert!(
+        events.is_closed(),
+        "cancellation releases the outcome callback"
+    );
+    drop(control);
     Ok(())
 }

@@ -9,7 +9,9 @@ use futures::{StreamExt as _, channel::mpsc};
 use gpui::{Context, SharedString, Task, WindowId};
 
 use super::saved::{self, SavedPlace};
-use super::{CodePlace, LinkFrom, ProjectEntry, ProjectId, Selection, Store, StoreEvent};
+use super::{
+    CodePlace, LinkFrom, ProjectEntry, ProjectId, RowKey, Selection, Store, StoreEvent, Tiling,
+};
 use crate::backend::watch::{Change as WatchChange, Watcher};
 use crate::backend::{
     self, Checkout, CommitId, Destination, FileChange, FullName, Project, Selected, Workspace,
@@ -26,6 +28,8 @@ pub(super) type Change = (ProjectId, WatchChange, Checkout, Vec<Arc<str>>);
 pub(super) struct Reload {
     /// Everything, including cached files.
     full: bool,
+    /// A caller explicitly requested a fresh status, independently of the monitor's invalidations.
+    refresh_status: bool,
     /// The commits and branches, keeping the files shown but for the ones asked for below.
     commits: bool,
     /// The main checkout's files.
@@ -46,6 +50,7 @@ impl Reload {
     pub(super) fn full() -> Self {
         Self {
             full: true,
+            refresh_status: true,
             ..Self::default()
         }
     }
@@ -80,6 +85,7 @@ impl Reload {
 
     pub(super) fn merge(&mut self, other: Reload) {
         self.full |= other.full;
+        self.refresh_status |= other.refresh_status;
         self.commits |= other.commits;
         self.main |= other.main;
         self.linked.extend(other.linked);
@@ -87,15 +93,27 @@ impl Reload {
 }
 
 impl Store {
+    /// Retain status for selected or split Uncommitted pages, even when off screen.
+    pub(super) fn update_status_checkouts(&mut self) {
+        let mut wanted = status_checkouts(self.selection.as_ref(), &self.tilings);
+        for entry in &mut self.projects {
+            if let Some(watcher) = &mut entry.watcher {
+                let checkouts = wanted.remove(&entry.id).unwrap_or_default();
+                if !watcher.set_checkouts(checkouts) {
+                    tracing::warn!(project = %entry.id, "couldn't update status consumers");
+                }
+            }
+        }
+    }
+
     /// Load the projects whose watchers saw changes, a burst at a time.
     pub(super) fn reload_on_change(
         mut changed: mpsc::UnboundedReceiver<Change>,
         cx: &mut Context<Self>,
     ) -> Task<()> {
         cx.spawn(async move |this, cx| {
-            // While an agent keeps writing, reload at most this often: each reload runs a
-            // full status, which gix spreads over every core. Twice a second kept one busy in
-            // a repository of mise's size; a change after a quiet spell still shows at once.
+            // Keep bursts bounded; rename detection can still require a full worktree scan.
+            // A change after a quiet spell shows at once.
             const MIN_INTERVAL: Duration = Duration::from_millis(1000);
             let mut last: Option<Instant> = None;
             while let Some(first) = changed.next().await {
@@ -651,8 +669,16 @@ impl Store {
                         entry.failed(&err, failure);
                     }
                 }
+                store.update_status_checkouts();
                 // Behind a load still running, if one is.
-                store.reload(&id, cx);
+                store.load(
+                    &id,
+                    Reload {
+                        full: true,
+                        ..Reload::default()
+                    },
+                    cx,
+                );
             })
             .ok();
         })
@@ -727,6 +753,7 @@ impl Store {
             running.deferred.merge(reload);
             return;
         }
+        let refresh_status = reload.refresh_status || self.awaits_reload(id);
         let Some(entry) = self.project_mut(id) else {
             self.reloads_finished(id);
             self.settled(id, cx);
@@ -751,16 +778,24 @@ impl Store {
             shown => (shown.cloned(), backend::Kept::default()),
         };
         let path = entry.project.path.clone();
+        let status = entry
+            .watcher
+            .as_ref()
+            .map(|watcher| watcher.status_requests(refresh_status));
         let id = id.clone();
         // Started after the mutation finished, so it sees what the mutation did.
         let settles = self.reloads_finished(&id);
         cx.spawn(async move |this, cx| {
             let folder = path.clone();
             let result = backend::run(move || match shown {
-                Some(shown) => {
-                    backend::reload_uncommitted(&path, shown, reload.main, &reload.linked)
-                }
-                None => backend::load_workspace(&path, kept),
+                Some(shown) => backend::reload_uncommitted_with_status(
+                    &path,
+                    shown,
+                    reload.main,
+                    &reload.linked,
+                    status,
+                ),
+                None => backend::load_workspace_with_status(&path, kept, status),
             })
             .await;
             let failure = backend::load_failure(folder, result.as_ref().err()).await;
@@ -1221,6 +1256,32 @@ fn watch(
     })
 }
 
+/// File-status consumers across all open splits, shared when several tiles show one checkout.
+fn status_checkouts(
+    selection: Option<&Selection>,
+    tilings: &HashMap<RowKey, Tiling>,
+) -> HashMap<ProjectId, Vec<Checkout>> {
+    let mut wanted: HashMap<ProjectId, Vec<Checkout>> = HashMap::new();
+    let tiled = tilings.iter().flat_map(|(row, tiling)| {
+        tiling
+            .areas()
+            .into_iter()
+            .filter_map(move |(tile, _)| match tile.shows(row) {
+                RowKey::Row(selection) | RowKey::Changes(selection) => Some(selection.clone()),
+                RowKey::Commit(..) | RowKey::Tab(..) => None,
+            })
+    });
+    for selection in selection.cloned().into_iter().chain(tiled) {
+        if let Selection::Uncommitted(project, checkout) = selection {
+            let checkouts = wanted.entry(project).or_default();
+            if !checkouts.contains(&checkout) {
+                checkouts.push(checkout);
+            }
+        }
+    }
+    wanted
+}
+
 /// Move `item` in `order` before `before`, or last, and whether it was there to move.
 fn move_before<T: PartialEq>(order: &mut Vec<T>, item: &T, before: Option<&T>) -> bool {
     let Some(from) = order.iter().position(|other| other == item) else {
@@ -1266,6 +1327,78 @@ mod tests {
     use crate::state::Selection;
 
     #[test]
+    fn status_demand_shares_checkouts_across_selected_and_split_pages() {
+        use crate::backend::Checkout;
+        use crate::state::{Axis, RowKey, Tile, Tiling};
+
+        let selected = Selection::Uncommitted("project".into(), Checkout::Main);
+        let linked = Selection::Uncommitted("project".into(), Checkout::Linked("agent".into()));
+        let other = Selection::Uncommitted("other".into(), Checkout::Main);
+        let mut tiling = Tiling::default();
+        for pinned in [
+            RowKey::Row(selected.clone()),
+            RowKey::Row(linked.clone()),
+            RowKey::Changes(linked),
+            RowKey::Row(Selection::Checkout(
+                "project".into(),
+                Checkout::Linked("idle".into()),
+            )),
+        ] {
+            tiling.pin(&Tile::Home, Axis::Across, pinned);
+        }
+        let mut other_tiling = Tiling::default();
+        other_tiling.pin(
+            &Tile::Home,
+            Axis::Across,
+            RowKey::Row(Selection::Project("other".into())),
+        );
+        let tilings = std::collections::HashMap::from([
+            (RowKey::Row(Selection::Project("project".into())), tiling),
+            (RowKey::Row(other), other_tiling),
+        ]);
+        let wanted = super::status_checkouts(Some(&selected), &tilings);
+        assert_eq!(
+            wanted,
+            std::collections::HashMap::from([
+                (
+                    "project".into(),
+                    vec![Checkout::Main, Checkout::Linked("agent".into())]
+                ),
+                ("other".into(), vec![Checkout::Main]),
+            ]),
+            "each checkout in a split retains one handle, including the home tile of an unselected split"
+        );
+    }
+
+    #[test]
+    fn leaving_uncommitted_stops_its_status_demand() {
+        use crate::state::{Axis, RowKey, Tile, Tiling};
+
+        let uncommitted = Selection::Uncommitted("project".into(), crate::backend::Checkout::Main);
+        let project = Selection::Project("project".into());
+        let mut tilings = std::collections::HashMap::new();
+        assert!(
+            !super::status_checkouts(Some(&uncommitted), &tilings).is_empty(),
+            "entering Uncommitted retains the checkout baseline"
+        );
+        assert!(
+            super::status_checkouts(Some(&project), &tilings).is_empty(),
+            "other project pages keep their cached file counts without live status work"
+        );
+        let mut tiling = Tiling::default();
+        tiling.pin(&Tile::Home, Axis::Across, RowKey::Row(uncommitted));
+        tilings.insert(RowKey::Row(project), tiling);
+        assert_eq!(
+            super::status_checkouts(Some(&Selection::Project("elsewhere".into())), &tilings),
+            std::collections::HashMap::from([(
+                "project".into(),
+                vec![crate::backend::Checkout::Main]
+            ),]),
+            "an Uncommitted pane stays open in its split when the navigator switches layouts"
+        );
+    }
+
+    #[test]
     fn watcher_reload_scopes_survive_coalescing() {
         let mut burst = super::Reload::default();
         burst.add(Change::Commits, crate::backend::Checkout::Main);
@@ -1285,9 +1418,11 @@ mod tests {
         );
         unseen.add(Change::Full, crate::backend::Checkout::Main);
         assert!(
-            unseen.full,
-            "a later full invalidation supersedes the cheaper reload"
+            unseen.full && !unseen.refresh_status,
+            "a full watcher invalidation reloads the workspace using Gix's cached status"
         );
+        unseen.merge(super::Reload::full());
+        assert!(unseen.refresh_status, "an explicit refresh forces status");
     }
 
     #[test]
