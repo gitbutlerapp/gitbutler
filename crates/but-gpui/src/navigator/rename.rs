@@ -12,6 +12,7 @@ use crate::overlays::{branch_name_input, branch_went, on_branch_name};
 use crate::state::{ProjectId, Selection, Store, snack};
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
+use crate::ui::Text;
 use crate::ui::message_editor::{ToBody, joined, split};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{dp, field};
@@ -293,7 +294,7 @@ impl Navigator {
                         .text_color(theme.text_1)
                         // As a branch's name is.
                         .when(matches!(item, Selection::Branch(..)), |field| {
-                            field.font_weight(gpui::FontWeight::SEMIBOLD)
+                            field.semibold()
                         }),
                 )
                 .into_any_element(),

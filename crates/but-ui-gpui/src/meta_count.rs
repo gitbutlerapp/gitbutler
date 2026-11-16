@@ -11,7 +11,7 @@ pub fn meta_count(glyph: Icon, n: usize, color: Hsla, tip: String) -> Option<Sta
             .id(ElementId::Name(tip.clone()))
             .flex_none()
             .gap(dp(3.))
-            .text_size(dp(11.))
+            .text_11()
             .text_color(color)
             .child(small_icon(glyph).text_color(color))
             .child(n.to_string())

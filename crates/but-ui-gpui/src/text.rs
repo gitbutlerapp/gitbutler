@@ -35,9 +35,14 @@ pub fn weight(weight: f32) -> FontWeight {
     }
 }
 
-/// The text classes on any element, as `div().text_13().semibold()`.
+/// The text classes on any element, as `div().text_13().semibold()`. Clippy holds the rest of
+/// both crates to them: `text_size` and `font_weight` are set here alone.
 pub trait Text: Styled + Sized {
     /// A base class: its size, weight and line height.
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "the classes are where text gets its size and weight"
+    )]
     fn text_class(self, class: TextClass) -> Self {
         self.text_size(dp(class.size))
             .font_weight(weight(class.weight))
@@ -81,12 +86,31 @@ pub trait Text: Styled + Sized {
         self.text_class(TEXT_H3)
     }
 
+    /// A size off the scale, `px` as designed, for text sized to something other than the type
+    /// scale: a letter filling an avatar or a key, code at the size the user set. Its line height
+    /// and weight are left as they are.
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "the classes are where text gets its size and weight"
+    )]
+    fn text_off_scale(self, px: f32) -> Self {
+        self.text_size(dp(px))
+    }
+
     /// `text-semibold`, after a size.
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "the classes are where text gets its size and weight"
+    )]
     fn semibold(self) -> Self {
         self.font_weight(weight(FONT_WEIGHT_SEMIBOLD))
     }
 
     /// `text-bold`, after a size.
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "the classes are where text gets its size and weight"
+    )]
     fn bold(self) -> Self {
         self.font_weight(weight(FONT_WEIGHT_BOLD))
     }

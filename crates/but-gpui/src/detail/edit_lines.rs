@@ -29,6 +29,7 @@ use crate::backend::{self, ChangeKind, Checkout, DiffBody, DiffLine, FileDiff, L
 use crate::clipboard;
 use crate::state::{ProjectId, snack};
 use crate::theme::Theme;
+use crate::ui::Text;
 use crate::ui::diff::DiffRow;
 use crate::ui::text_input::{InputEvent, LineEvent, TextInput};
 use crate::ui::{ButtonStyle, Icon, button, dp, h_flex, small_icon};
@@ -1767,7 +1768,7 @@ impl Detail {
             let editing = h_flex()
                 .flex_none()
                 .gap(dp(4.))
-                .text_size(dp(12.))
+                .text_12()
                 .text_color(color)
                 .child(small_icon(Icon::Edit).text_color(color))
                 .child("Editing");
@@ -1784,7 +1785,7 @@ impl Detail {
         let controls = h_flex()
             .flex_none()
             .gap(dp(4.))
-            .text_size(dp(12.))
+            .text_12()
             // Beside the buttons, which only make sense with it.
             .child(
                 div()

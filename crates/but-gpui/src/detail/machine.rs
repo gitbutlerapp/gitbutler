@@ -16,6 +16,7 @@ use crate::backend::mesh::{self, Checkout};
 use crate::backend::{self, CommitId, DiffSource};
 use crate::state::{MeshBranch, MeshPick, ProjectId, Selection, Store};
 use crate::theme::Theme;
+use crate::ui::Text;
 use crate::ui::diff;
 use crate::ui::file_icons::file_icon;
 use crate::ui::{
@@ -191,7 +192,7 @@ impl Detail {
                 .items_center()
                 .justify_center()
                 .gap(dp(12.))
-                .child(faint(line, theme).text_size(dp(13.)))
+                .child(faint(line, theme).text_13())
                 .children(url.filter(|_| !checkout.uncommitted.is_empty()).map(|url| {
                     button("checkout-on-but-dev", "Open on but.dev")
                         .small()
@@ -456,7 +457,7 @@ fn uncommitted_list(checkout: &Checkout, theme: &Theme, cx: &App) -> AnyElement 
         .child(
             v_flex()
                 .gap(dp(2.))
-                .child(div().font_weight(gpui::FontWeight::SEMIBOLD).child(title))
+                .child(div().semibold().child(title))
                 .child(faint(checkout.path.clone(), theme)),
         )
         .child(v_flex().gap(dp(4.)).children(listed))

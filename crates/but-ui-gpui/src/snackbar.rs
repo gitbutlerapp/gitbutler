@@ -33,7 +33,7 @@ pub fn snackbar(
         .border_color(theme.snackbar_border)
         .bg(theme.snackbar_bg)
         .text_color(theme.snackbar_text)
-        .text_size(dp(12.))
+        .text_12()
         .shadow_lg()
         .when(warning, |el| {
             el.child(snackbar_icon(Icon::Warning).text_color(theme.snackbar_warn))
@@ -57,7 +57,7 @@ pub fn snackbar_undo(id: impl Into<ElementId>, theme: &Theme) -> Stateful<Div> {
         .px(dp(6.))
         .gap(dp(4.))
         .rounded(dp(theme.shape.control))
-        .font_weight(gpui::FontWeight::SEMIBOLD)
+        .semibold()
         .hover(|el| el.bg(theme.snackbar_hover))
         .child(snackbar_icon(Icon::Undo).text_color(theme.snackbar_text))
         .child("Undo")

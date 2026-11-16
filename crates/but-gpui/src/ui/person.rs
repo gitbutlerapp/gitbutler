@@ -6,14 +6,15 @@
 use std::sync::{Arc, OnceLock};
 
 use gpui::{
-    AnyElement, App, Asset, Div, FontWeight, Image, ImageCacheError, ImageSource, SharedString,
-    Window, div, img, prelude::*,
+    AnyElement, App, Asset, Div, Image, ImageCacheError, ImageSource, SharedString, Window, div,
+    img, prelude::*,
 };
 
 use super::dp;
 use crate::backend::Agent;
 use crate::backend::accounts::GitButlerUser;
 use crate::theme::Theme;
+use crate::ui::Text;
 
 /// `user`'s `picture`, or without one their initial, as in GitButler's other apps.
 pub fn account_avatar(
@@ -49,9 +50,9 @@ pub fn person_avatar(seed: &str, size: f32, theme: &Theme) -> Div {
         .bg(colour)
         .text_color(theme.text_1)
         // Over half the circle, so a 14px avatar still holds a readable letter.
-        .text_size(dp(size * 0.56))
+        .text_off_scale(size * 0.56)
         .line_height(dp(size))
-        .font_weight(FontWeight::SEMIBOLD)
+        .semibold()
         .child(initial(seed))
 }
 

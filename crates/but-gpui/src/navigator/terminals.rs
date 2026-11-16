@@ -29,6 +29,7 @@ use crate::palette::StatusGroup;
 use crate::state::{Axis, NavigatorPlace, ProjectId, Store, TerminalGrouping};
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
+use crate::ui::Text;
 use crate::ui::fold::{Folds, Place, clipped};
 use crate::ui::text_input::TextInput;
 use crate::ui::{
@@ -687,7 +688,7 @@ impl TerminalOverview {
                     .flex_none()
                     .max_w(relative(0.4))
                     .truncate()
-                    .text_size(dp(11.))
+                    .text_11()
                     .text_color(style.quiet())
                     .child(place),
             )

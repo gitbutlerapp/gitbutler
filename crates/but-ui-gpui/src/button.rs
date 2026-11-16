@@ -258,8 +258,14 @@ impl RenderOnce for Button {
                 el.w(dp(width)).justify_center()
             })
             .when_some(self.min_width, |el, width| el.min_w(width).justify_center())
-            .text_size(dp(if self.small { 12. } else { 13. }))
-            .font_weight(gpui::FontWeight::SEMIBOLD)
+            .map(|el| {
+                if self.small {
+                    el.text_12()
+                } else {
+                    el.text_13()
+                }
+            })
+            .semibold()
             .whitespace_nowrap()
             .text_color(fg)
             .when_some(bg, |el, bg| el.bg(bg))

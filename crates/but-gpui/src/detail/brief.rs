@@ -7,8 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use gpui::{
-    AnyElement, App, Context, Div, FontWeight, Hsla, Pixels, SharedString, Task, Window, div, list,
-    prelude::*,
+    AnyElement, App, Context, Div, Hsla, Pixels, SharedString, Task, Window, div, list, prelude::*,
 };
 
 mod actions;
@@ -36,6 +35,7 @@ use crate::backend::briefs::{
 use crate::backend::run;
 use crate::state::{ProjectTab, RowKey, Selection, Side};
 use crate::theme::Theme;
+use crate::ui::Text;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{Icon, dp, fixed, fold_row, h_flex, markdown, plural, v_flex};
 use state::BriefFold;
@@ -647,7 +647,7 @@ impl Detail {
                 let words = v_flex().child(words).children(moved_on.then(|| {
                     div()
                         .mt(dp(4.))
-                        .text_size(dp(12.))
+                        .text_12()
                         .text_color(theme.warn)
                         .child("The code under this changed after it was written")
                 }));
@@ -668,7 +668,7 @@ impl Detail {
                         render_pictures(&id, row, page.gallery.clone(), theme)
                     }
                     BriefBody::OnTheWeb(what) => div()
-                        .text_size(dp(12.))
+                        .text_12()
                         .text_color(theme.text_3)
                         .child(format!("{what}, which shows on the web"))
                         .into_any_element(),
@@ -829,7 +829,7 @@ fn block_place(id: &str, brief: &str) -> Option<(usize, usize)> {
 
 /// A small line of words around a block.
 fn small_line(words: &str, color: Hsla) -> Div {
-    (div().text_size(dp(12.)).text_color(color)).child(words.to_owned())
+    (div().text_12().text_color(color)).child(words.to_owned())
 }
 
 /// Pictures to see together, across at one height, with the words that say which is which over
@@ -845,8 +845,7 @@ fn render_pictures(
             .gap(dp(6.))
             .min_w_0()
             .children(
-                (picture.title.as_deref())
-                    .map(|title| small_line(title, theme.text_1).font_weight(FontWeight::SEMIBOLD)),
+                (picture.title.as_deref()).map(|title| small_line(title, theme.text_1).semibold()),
             )
             .child(markdown::figure(
                 format!("{id}-{}", picture.at),

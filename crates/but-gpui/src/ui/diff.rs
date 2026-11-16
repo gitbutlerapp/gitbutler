@@ -17,6 +17,7 @@ use crate::backend::{
     ChangeKind, Conflict, DiffBody, DiffLine, FileDiff, Hunk, LineKind, Picture, scope_name,
 };
 use crate::theme::{Highlight, Theme};
+use crate::ui::Text;
 
 /// How tall a file's header is: a bar, as a popup's search row is, inside its card's edge, which
 /// follows the density; or as tall as the file list's heading beside it where it titles the
@@ -426,7 +427,7 @@ pub fn column_stats(
         .map(|(range, color)| (range, HighlightStyle::from(color)));
     div()
         .flex_none()
-        .text_size(dp(11.))
+        .text_11()
         .font_family(theme.mono_font.clone())
         .child(StyledText::new(text).with_highlights(colors))
 }
@@ -665,10 +666,7 @@ pub fn file_header(
                 .child(
                     div()
                         .flex_none()
-                        .when(titled, |el| {
-                            el.text_size(dp(14.))
-                                .font_weight(gpui::FontWeight::SEMIBOLD)
-                        })
+                        .when(titled, |el| el.text_14().semibold())
                         .text_color(if on {
                             theme.text_inverted
                         } else {
@@ -829,7 +827,7 @@ pub fn hunk_header(
                     (true, false) => theme.selected_unfocused,
                     (false, _) => theme.hover,
                 })
-                .text_size(dp(12.))
+                .text_12()
                 .text_color(soft(theme.diff_muted))
                 .overflow_hidden()
                 .whitespace_nowrap()
@@ -872,7 +870,7 @@ fn conflicted_badge(theme: &Theme) -> gpui::Div {
         .rounded(dp(9.))
         .bg(theme.warn_soft)
         .text_color(theme.warn)
-        .text_size(dp(11.))
+        .text_11()
         .child("Conflicted")
 }
 
@@ -921,7 +919,7 @@ pub fn note(file: &FileDiff, flat: bool, theme: &Theme) -> AnyElement {
         .py(dp(9.))
         .gap(dp(6.))
         .when(!flat, |el| el.border_b_1().rounded_b(dp(theme.shape.card)))
-        .text_size(dp(12.))
+        .text_12()
         .text_color(theme.text_2)
         .child(small_icon(Icon::File).flex_none().text_color(theme.text_3))
         .child(div().min_w_0().child(text))
@@ -998,8 +996,7 @@ pub(super) fn number_cell(
         .text_color(if picked { theme.pop } else { look.number })
         .when(last, |el| el.rounded_bl(dp(theme.shape.card - 1.)))
         .when(picked, |el| {
-            el.bg(theme.highlight(Highlight::Picked))
-                .font_weight(gpui::FontWeight::SEMIBOLD)
+            el.bg(theme.highlight(Highlight::Picked)).semibold()
         })
         .when_some(gutter, |el, Gutter { pick, grip, .. }| {
             let drag = pick.clone();
@@ -1168,7 +1165,7 @@ pub(super) fn line_card(
         .line_height(dp(theme.code_line))
         .font_family(theme.diff_font.clone())
         .font_features(theme.diff_features.clone())
-        .text_size(dp(theme.code_text))
+        .text_off_scale(theme.code_text)
         .when(last, |el| el.border_b_1().rounded_b(dp(theme.shape.card)))
         .overflow_hidden()
 }
@@ -1207,7 +1204,7 @@ pub fn excerpt_found(
     v_flex()
         .font_family(theme.diff_font.clone())
         .font_features(theme.diff_features.clone())
-        .text_size(dp(theme.code_text))
+        .text_off_scale(theme.code_text)
         .line_height(dp(theme.code_line))
         .children(lines.iter().enumerate().map(|(ix, line)| {
             let look = look(line.kind, false, theme);
@@ -1518,12 +1515,7 @@ fn image_row(before: Option<Picture>, after: Option<Picture>, theme: &Theme) -> 
                 .min_w_0()
                 .gap(dp(6.))
                 .items_center()
-                .child(
-                    div()
-                        .text_size(dp(11.))
-                        .text_color(theme.text_2)
-                        .child(label),
-                )
+                .child(div().text_11().text_color(theme.text_2).child(label))
                 .child(match image {
                     Some(picture) => {
                         // The frame hugs the image: at its own size but no taller than 220
@@ -1552,7 +1544,7 @@ fn image_row(before: Option<Picture>, after: Option<Picture>, theme: &Theme) -> 
                         .h(dp(60.))
                         .flex()
                         .items_center()
-                        .text_size(dp(12.))
+                        .text_12()
                         .text_color(theme.text_3)
                         .child(missing)
                         .into_any_element(),

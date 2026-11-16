@@ -23,6 +23,7 @@ use crate::clipboard;
 use crate::palette::Choice;
 use crate::state::Store;
 use crate::theme::Theme;
+use crate::ui::Text;
 use crate::ui::modal::{ModalSize, modal};
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{ButtonStyle, button, dp, duration, fixed, h_flex, muted, v_flex};
@@ -455,8 +456,8 @@ impl Render for BuildOutput {
             .border_color(theme.border_3)
             .child(
                 div()
-                    .text_size(dp(14.))
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .text_14()
+                    .semibold()
                     .child(format!("Build and restart from {folder}")),
             )
             .child(muted(status, theme).text_color(color));
@@ -489,7 +490,7 @@ impl Render for BuildOutput {
         let body = scrolled(rows, "build-output-scrollbar", scroll, theme)
             .bg(theme.bg_2)
             .font_family(theme.mono_font.clone())
-            .text_size(dp(12.));
+            .text_12();
         let actions = match self.state {
             State::Building | State::Restarting => h_flex()
                 .gap(dp(6.))

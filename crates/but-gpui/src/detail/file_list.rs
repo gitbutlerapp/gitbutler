@@ -66,6 +66,7 @@ use crate::overlays::{MenuItem, has_keys};
 use crate::state::{FileSort, FileView, Overlay, ProjectId, Rereads, Selection, Side, Store};
 use crate::theme::Theme;
 use crate::transfer::{Changes, Chip, DragPreview, Dragged, Moving};
+use crate::ui::Text;
 use crate::ui::diff;
 use crate::ui::file_icons::{file_icon, folder_icon};
 use crate::ui::fold;
@@ -138,7 +139,7 @@ fn file_row(id: impl Into<ElementId>, selected: bool, solid: bool, theme: &Theme
         .pl(dp(8.))
         .pr(dp(4.))
         .gap(dp(GAP))
-        .text_size(dp(13.))
+        .text_13()
 }
 
 /// Where a row's name goes, then its marks and line counts. What follows the name and would cut
@@ -228,12 +229,7 @@ fn underlined(
 fn files_heading(count: usize, (added, removed): (u32, u32), theme: &Theme) -> Div {
     h_flex()
         .gap(dp(8.))
-        .child(
-            div()
-                .text_size(dp(14.))
-                .font_weight(gpui::FontWeight::SEMIBOLD)
-                .child("Files"),
-        )
+        .child(div().text_14().semibold().child("Files"))
         .child(count_badge(count, theme))
         .child(diff::stats(added, removed, false, theme))
 }
@@ -247,7 +243,7 @@ fn header_row() -> Div {
         .pl(dp(16.))
         .pr(dp(12.))
         .gap(dp(8.))
-        .text_size(dp(12.))
+        .text_12()
 }
 
 /// The commit that `files` of a range of commits are taken from: the oldest of those that made
@@ -436,9 +432,9 @@ impl Detail {
             .aria_label(label)
             .child(small_icon(glyph).text_color(muted))
             .child(div().flex_1().min_w_0().truncate().child(title))
-            .children(count.map(|n| {
-                (div().flex_none().text_size(dp(12.)).text_color(muted)).child(n.to_string())
-            }))
+            .children(
+                count.map(|n| (div().flex_none().text_12().text_color(muted)).child(n.to_string())),
+            )
             .on_mouse_down(
                 MouseButton::Left,
                 cx.listener(|this, _: &MouseDownEvent, _, cx| {
@@ -1325,7 +1321,7 @@ impl Detail {
                     .pl(dp(8.))
                     .pr(dp(4.))
                     .gap(dp(GAP))
-                    .text_size(dp(13.))
+                    .text_13()
                     .aria_label(path.clone())
                     .child(file_icon(path, cx))
                     .child(
@@ -1356,8 +1352,8 @@ impl Detail {
                             .flex_none()
                             .flex()
                             .justify_center()
-                            .text_size(dp(11.))
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .text_11()
+                            .semibold()
                             .text_color(diff::change_color(file.file.kind, theme))
                             .child(file.file.kind.letter()),
                     )
@@ -1530,7 +1526,7 @@ impl Detail {
                     div()
                         .flex_1()
                         .min_w_0()
-                        .text_size(dp(13.))
+                        .text_13()
                         .child(self.file_filter.clone()),
                 )
                 .child(
@@ -1692,8 +1688,8 @@ impl Detail {
             ),
             (false, true) => el.child(small_icon(Icon::Warning).text_color(theme.warn)),
             (false, false) => el
-                .text_size(dp(11.))
-                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .text_11()
+                .semibold()
                 .text_color(diff::change_color(file.kind, theme))
                 .child(file.kind.letter()),
         });

@@ -30,6 +30,7 @@ use crate::overlays::{MenuItem, has_keys};
 use crate::state::{Part, Prefs, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::transfer::{Changes, Dragged};
+use crate::ui::Text;
 use crate::ui::change_marks::{RAIL, change_marks};
 use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
 use crate::ui::fold::{MOVING_ROWS, clipped, curtain};
@@ -1388,7 +1389,7 @@ impl Detail {
                         .id(("file-from", ix))
                         .max_w(dp(220.))
                         .truncate()
-                        .text_size(dp(11.))
+                        .text_11()
                         .text_color(match on {
                             true => theme.muted_on_solid,
                             false => theme.text_3,

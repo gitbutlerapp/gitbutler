@@ -16,6 +16,7 @@ use crate::overlays::floating;
 use crate::palette::Choice;
 use crate::state::{ProjectId, Selection, Store};
 use crate::theme::Theme;
+use crate::ui::Text;
 use crate::ui::emoji::{self, ProjectIcon};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{Tooltip, dp, faint, field, popover};
@@ -480,7 +481,7 @@ impl AppView {
                 .items_center()
                 .justify_center()
                 .rounded(dp(theme.shape.control))
-                .text_size(dp(18.))
+                .text_off_scale(18.)
                 .hover(|el| el.bg(theme.hover))
                 .when(current == stored, |el| el.bg(theme.selected_unfocused))
                 .tooltip(Tooltip::text(name))

@@ -4,14 +4,15 @@
 
 use gpui::prelude::*;
 use gpui::{
-    AnyElement, App, Context, Entity, Focusable as _, FontWeight, ListAlignment, ListState, Role,
-    SharedString, Subscription, Window, div, list,
+    AnyElement, App, Context, Entity, Focusable as _, ListAlignment, ListState, Role, SharedString,
+    Subscription, Window, div, list,
 };
 
 use super::rows::Command;
 use crate::keymap::menus::{self, BarItem, BarMenu};
 use crate::keymap::{self, KeymapFile, Loaded};
 use crate::theme::Theme;
+use crate::ui::Text;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
@@ -23,7 +24,6 @@ const SOURCE_WIDTH: f32 = 300.;
 const MENU_WIDTH: f32 = 230.;
 const ITEM_HEIGHT: f32 = 24.;
 const COMMAND_HEIGHT: f32 = 44.;
-const SMALL_TEXT: f32 = 13.;
 
 /// What a new menu is called until it's named.
 const NEW_MENU: &str = "New Menu";
@@ -274,7 +274,7 @@ impl MenuBarEditor {
             .child(
                 list_row("divider-source", false, theme)
                     .cursor_grab()
-                    .text_size(dp(SMALL_TEXT))
+                    .text_13()
                     .child(div().flex_1().h(ui::fixed(1.)).bg(theme.border_2))
                     .child("Divider")
                     .child(div().flex_1().h(ui::fixed(1.)).bg(theme.border_2))
@@ -324,7 +324,7 @@ impl MenuBarEditor {
                         div()
                             .truncate()
                             .font_family(theme.mono_font.clone())
-                            .text_size(dp(12.))
+                            .text_12()
                             .text_color(theme.text_2)
                             .child(command.name.clone()),
                     ),
@@ -333,7 +333,7 @@ impl MenuBarEditor {
                 div()
                     .flex_shrink(1000.)
                     .truncate()
-                    .text_size(dp(12.))
+                    .text_12()
                     .text_color(theme.text_2)
                     .child(menu)
             }));
@@ -376,7 +376,7 @@ impl MenuBarEditor {
                 el.flex()
                     .items_center()
                     .justify_center()
-                    .text_size(dp(SMALL_TEXT))
+                    .text_13()
                     .text_color(theme.text_2)
                     .child("Drag commands here")
             });
@@ -402,7 +402,7 @@ impl MenuBarEditor {
                     .border_1()
                     .border_color(theme.border_2)
                     .bg(theme.bg_2)
-                    .text_size(dp(SMALL_TEXT))
+                    .text_13()
                     .children(items)
                     .child(tail),
             )
@@ -449,18 +449,13 @@ impl MenuBarEditor {
                     .on_click(
                         cx.listener(move |this, _, window, cx| this.start_renaming(ix, window, cx)),
                     )
-                    .child(
-                        div()
-                            .truncate()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .child(name),
-                    ),
+                    .child(div().truncate().semibold().child(name)),
             )
             .children(note.map(|note| {
                 div()
                     .flex_shrink(1000.)
                     .truncate()
-                    .text_size(dp(12.))
+                    .text_12()
                     .text_color(theme.text_2)
                     .child(note)
             }))
@@ -748,7 +743,7 @@ impl Render for DragPreview {
             .bg(theme.bg_1)
             .shadow_md()
             .font_family(theme.ui_font.clone())
-            .text_size(dp(SMALL_TEXT))
+            .text_13()
             .text_color(theme.text_1)
             .child(self.title.clone())
     }

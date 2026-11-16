@@ -17,6 +17,7 @@ use crate::palette::Choice;
 use crate::state::{NewAt, Overlay, ProjectId, Selection, Store, snack};
 use crate::theme::Theme;
 use crate::transfer::{Changes, Move, Moving, Op, Stop};
+use crate::ui::Text;
 use crate::ui::message_editor::{COMMIT_PLACEHOLDERS, MessageEditor, MessageSize};
 use crate::ui::text_input::InputEvent;
 use crate::ui::{
@@ -1598,7 +1599,7 @@ impl Detail {
             .child(
                 h_flex()
                     .gap(dp(6.))
-                    .text_size(dp(12.))
+                    .text_12()
                     .text_color(theme.text_2)
                     .child(match amending {
                         Some(_) => "Amend",

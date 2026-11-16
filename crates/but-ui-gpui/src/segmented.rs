@@ -22,8 +22,8 @@ pub fn segmented(
         }))
         .rounded(dp(theme.shape.control))
         .bg(theme.bg_2)
-        .text_size(dp(if small { 12. } else { 13. }))
-        .font_weight(gpui::FontWeight::SEMIBOLD)
+        .map(|el| if small { el.text_12() } else { el.text_13() })
+        .semibold()
         .whitespace_nowrap()
         .children(
             segments

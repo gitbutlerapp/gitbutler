@@ -39,8 +39,8 @@ pub fn empty_state(
                         .when(!title.is_empty(), |el| {
                             el.child(
                                 div()
-                                    .text_size(dp(14.))
-                                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                                    .text_14()
+                                    .semibold()
                                     .text_color(theme.text_1)
                                     .child(title),
                             )

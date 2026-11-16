@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use gpui::{AppContext as _, Context, Div, FontWeight, SharedString, div, prelude::*};
+use gpui::{AppContext as _, Context, Div, SharedString, div, prelude::*};
 
 use super::state::{BriefFold, BriefState};
 use crate::backend::briefs::{self, Ask, BriefPage, Concern, Found, ReadBack, Standing, Thread};
@@ -14,6 +14,7 @@ use crate::detail::Detail;
 use crate::detail::page::PageTab;
 use crate::state::Selection;
 use crate::theme::{Hue, Theme};
+use crate::ui::Text;
 use crate::ui::person::person_avatar;
 use crate::ui::{
     ButtonStyle, Icon, Tooltip, ago, button, diff, dp, h_flex, icon, icon_button, plural, v_flex,
@@ -40,14 +41,13 @@ fn ask_words(ask: &Ask) -> Option<&'static str> {
 
 /// A row of the facts panel.
 fn fact(words: impl IntoElement) -> Div {
-    div().min_w_0().line_height(dp(18.)).child(words)
+    div().min_w_0().child(words)
 }
 
 /// A row of the facts panel's measures: what's measured in a column of its own, and what it came to.
 fn measure(label: &str, value: impl IntoElement, theme: &Theme) -> Div {
     h_flex()
         .items_start()
-        .line_height(dp(18.))
         .child(
             div()
                 .flex_none()
@@ -78,8 +78,7 @@ impl Detail {
             .gap(dp(10.))
             .child(
                 div()
-                    .text_size(dp(18.))
-                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_h2()
                     .text_color(theme.text_1)
                     .child(title.to_owned()),
             )
@@ -87,7 +86,7 @@ impl Detail {
                 h_flex()
                     .flex_wrap()
                     .gap_x(dp(10.))
-                    .text_size(dp(12.))
+                    .text_12()
                     .text_color(theme.text_3)
                     .child(person_avatar(&found.author.name, 18., theme))
                     .child(
@@ -172,14 +171,9 @@ impl Detail {
         let theme = Theme::get(cx);
         // Where it can be answered, the row of the tabs says what's asked.
         let ask = (page.ask.as_ref()).filter(|_| !state.activity.answers.can_answer);
-        let ask = ask.and_then(ask_words).map(|words| {
-            fact(
-                div()
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .text_color(theme.text_1)
-                    .child(words),
-            )
-        });
+        let ask = ask
+            .and_then(ask_words)
+            .map(|words| fact(div().semibold().text_color(theme.text_1).child(words)));
         let options = match &page.ask {
             Some(Ask::Decision { options }) => options.clone(),
             _ => Vec::new(),
@@ -197,7 +191,7 @@ impl Detail {
         let verdict = |words: &str| {
             fact(
                 div()
-                    .font_weight(FontWeight::SEMIBOLD)
+                    .semibold()
                     .text_color(theme.warn)
                     .child(words.to_owned()),
             )
@@ -212,7 +206,7 @@ impl Detail {
         let current = match (at_tip, others.is_empty()) {
             (true, true) => Some(fact(
                 div()
-                    .font_weight(FontWeight::SEMIBOLD)
+                    .semibold()
                     .text_color(theme.text_1)
                     .child("Matches the branch's latest commit"),
             )),
@@ -231,7 +225,7 @@ impl Detail {
             .border_1()
             .border_color(theme.border_3)
             .overflow_hidden()
-            .text_size(dp(12.))
+            .text_12()
             .text_color(theme.text_2)
             .when(!news.is_empty(), |el| {
                 el.child(
@@ -451,12 +445,7 @@ impl Detail {
                                 .text_color(theme.text_1)
                                 .child(reply.unwrap_or_else(|| "No answer yet.".to_owned())),
                         )
-                        .children(verdict.map(|verdict| {
-                            div()
-                                .text_color(color)
-                                .font_weight(FontWeight::MEDIUM)
-                                .child(verdict)
-                        })),
+                        .children(verdict.map(|verdict| div().text_color(color).child(verdict))),
                 )
         });
         Some(v_flex().gap(dp(5.)).children(rows))
@@ -667,7 +656,6 @@ impl Detail {
                 .id("brief-since-read")
                 .gap(dp(6.))
                 .text_color(theme.pop)
-                .font_weight(FontWeight::MEDIUM)
                 .when(!since.removed.is_empty(), |el| {
                     el.role(gpui::Role::Button)
                         .aria_label(SharedString::from(words.clone()))
@@ -733,7 +721,7 @@ impl Detail {
         });
         Some(
             v_flex()
-                .text_size(dp(12.))
+                .text_12()
                 .child(
                     h_flex()
                         .flex_wrap()

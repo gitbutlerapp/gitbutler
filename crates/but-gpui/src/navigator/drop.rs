@@ -19,6 +19,7 @@ use crate::theme::{Hue, Theme};
 use crate::transfer::{
     Changes, Dragged, Move, Moving, Op, PageDrag, Place, ProjectDrag, Stop, Target, TerminalDrag,
 };
+use crate::ui::Text;
 use crate::ui::{Icon, dp, h_flex, small_icon};
 
 /// Where the pointer aims what's dragged: `depth` down rows `row` tall.
@@ -300,7 +301,7 @@ impl Navigator {
             .border_1()
             .border_dashed()
             .border_color(theme.border_2)
-            .text_size(dp(12.))
+            .text_12()
             .text_color(theme.text_2)
             .child(small_icon(Icon::Branch).text_color(theme.text_2))
             .child("New independent branch")

@@ -19,6 +19,7 @@ use crate::detail::panes::{
 use crate::detail::upstream::noon;
 use crate::state::{BranchStatus, ProjectId, Selection};
 use crate::theme::Theme;
+use crate::ui::Text;
 use crate::ui::person::author_avatar;
 use crate::ui::{Icon, Tooltip, dp, faint, h_flex, list_row, plural, review, small_icon, v_flex};
 
@@ -360,7 +361,7 @@ fn lane_row(
                     div()
                         .id("quiet-days")
                         .flex_none()
-                        .text_size(dp(11.))
+                        .text_11()
                         .text_color(theme.warn)
                         .tooltip(Tooltip::text(format!("No commits for {days} days")))
                         .child(format!("{days}d"))

@@ -2,13 +2,14 @@
 //! Linux: drawn as the app's own prompts are. GPUI's stand-in cuts long text off.
 
 use gpui::{
-    App, Context, EventEmitter, FocusHandle, Focusable, FontWeight, PromptButton, PromptHandle,
-    PromptLevel, PromptResponse, RenderablePromptHandle, SharedString, Window, div, prelude::*,
+    App, Context, EventEmitter, FocusHandle, Focusable, PromptButton, PromptHandle, PromptLevel,
+    PromptResponse, RenderablePromptHandle, SharedString, Window, div, prelude::*,
 };
 
 use super::window_frame::inside_frame;
 use super::{ButtonStyle, button, dp, h_flex, muted, popover};
 use crate::theme::Theme;
+use crate::ui::Text;
 
 /// What `App::set_prompt_builder` takes.
 pub fn alert(
@@ -65,12 +66,7 @@ impl Render for Alert {
             .p(dp(16.))
             .gap(dp(12.))
             .rounded(dp(theme.shape.popup))
-            .child(
-                div()
-                    .text_size(dp(14.))
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .child(self.message.clone()),
-            )
+            .child(div().text_14().semibold().child(self.message.clone()))
             .when_some(self.detail.clone(), |el, detail| {
                 el.child(muted(detail, theme))
             })
@@ -101,8 +97,7 @@ impl Render for Alert {
                 .pt(dp(120.))
                 // A layer of its own, so it takes the app's look itself.
                 .font_family(theme.ui_font.clone())
-                .text_size(dp(13.))
-                .line_height(dp(18.))
+                .text_13()
                 .text_color(theme.text_1)
                 .child(card),
         )

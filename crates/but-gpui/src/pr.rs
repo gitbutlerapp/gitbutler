@@ -13,6 +13,7 @@ use crate::backend::{self, Forge, FullName, Review, ReviewState, short_ref};
 use crate::overlays::branch_went;
 use crate::state::{Overlay, ProjectId, Selection, Store, StoreEvent, snack};
 use crate::theme::Theme;
+use crate::ui::Text;
 use crate::ui::modal::{ModalSize, modal};
 use crate::ui::text_input::{InputEvent, Newline, TextInput};
 use crate::ui::{ButtonStyle, button, dp, faint, field, h_flex, muted, switch, v_flex};
@@ -262,13 +263,7 @@ impl Render for ReviewView {
                         .track_scroll(&self.body_scroll)
                 })
         };
-        let label = |text: &'static str| {
-            div()
-                .text_size(dp(12.))
-                .font_weight(gpui::FontWeight::MEDIUM)
-                .text_color(theme.text_2)
-                .child(text)
-        };
+        let label = |text: &'static str| div().text_12().text_color(theme.text_2).child(text);
         let confirm = if self.draft {
             "Create draft"
         } else {
@@ -292,16 +287,11 @@ impl Render for ReviewView {
                         )),
                         &theme,
                     ))
-                    .child(
-                        div()
-                            .text_size(dp(15.))
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
-                            .child("Create a pull request"),
-                    )
+                    .child(div().text_15().semibold().child("Create a pull request"))
                     .child(
                         div()
                             .font_family(theme.mono_font.clone())
-                            .text_size(dp(12.))
+                            .text_12()
                             .text_color(theme.text_2)
                             .child(SharedString::from(route)),
                     )
@@ -353,7 +343,7 @@ impl Render for ReviewView {
                             )))
                             .child(
                                 v_flex()
-                                    .child(div().text_size(dp(13.)).child("Draft"))
+                                    .child(div().text_13().child("Draft"))
                                     .child(muted("Not ready for review yet", &theme)),
                             ),
                     )
@@ -369,16 +359,14 @@ impl Render for ReviewView {
                                             cx.notify();
                                         })),
                                 )
-                                .child(
-                                    v_flex()
-                                        .child(div().text_size(dp(13.)).child("Auto-merge"))
-                                        .child(muted(
-                                            no_auto_merge.unwrap_or(
-                                                "Merges once its required checks and reviews pass",
-                                            ),
-                                            &theme,
-                                        )),
-                                ),
+                                .child(v_flex().child(div().text_13().child("Auto-merge")).child(
+                                    muted(
+                                        no_auto_merge.unwrap_or(
+                                            "Merges once its required checks and reviews pass",
+                                        ),
+                                        &theme,
+                                    ),
+                                )),
                         )
                     }),
             )

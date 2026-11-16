@@ -25,6 +25,7 @@ use crate::ui::illustration::Illustration;
 use crate::ui::text_input::TextInput;
 use but_oplog::legacy::OperationKind;
 
+use crate::ui::Text;
 use crate::ui::{
     Icon, Tooltip, commit_title, day_label, dp, error_summary, faint, h_flex, icon, icon_button,
     list_row, loading_state, local_clock, local_day, plural, shown_row, side_row, small_icon,
@@ -816,7 +817,7 @@ impl Detail {
             .id(("operation-change", ix))
             .min_w_0()
             .gap(dp(8.))
-            .text_size(dp(13.))
+            .text_13()
             .child(small_icon(glyph).text_color(color))
             .child(div().min_w_0().truncate().child(text))
             .child(faint(note, theme).flex_none().max_w(dp(320.)).truncate())

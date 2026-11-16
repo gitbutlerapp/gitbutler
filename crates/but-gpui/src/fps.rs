@@ -10,6 +10,7 @@ use std::time::{Duration, Instant};
 use gpui::{Bounds, Context, Window, canvas, div, fill, point, prelude::*, size};
 
 use crate::theme::Theme;
+use crate::ui::Text;
 use crate::ui::{WINDOW_CONTROLS_WIDTH, dp, fixed, h_flex};
 
 /// How long the slowest frame stays shown, so a dip of one frame lasts long enough to read.
@@ -122,7 +123,7 @@ impl Render for Fps {
             })
             .gap(dp(6.))
             .font_family(theme.mono_font.clone())
-            .text_size(dp(11.))
+            .text_11()
             .text_color(theme.safe)
             .child(graph)
             .child(fps.to_string())

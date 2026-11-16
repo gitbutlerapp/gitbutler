@@ -26,6 +26,7 @@ use crate::navigator::{SelectFirst, SelectLast, upstream_label};
 use crate::overlays::{MenuItem, has_keys};
 use crate::state::{Part, ProjectId, ProjectTab, Section, Selection, Side};
 use crate::theme::Theme;
+use crate::ui::Text;
 use crate::ui::fold::{MOVING_ROWS, Moved, clipped};
 use crate::ui::illustration::Illustration;
 use crate::ui::message_editor::MessageEditor;
@@ -711,7 +712,7 @@ impl Detail {
             Some((_, input, _)) => reword_editor(input, false, theme),
             None => self
                 .commit_title(title, entity.clone(), theme, cx)
-                .when(flat, |el| el.text_size(dp(18.)).line_height(dp(26.)))
+                .when(flat, |el| el.text_h2())
                 .into_any_element(),
         };
         let body = (rewording.is_none() && !body.is_empty()).then(|| message_body(body, theme));
@@ -746,8 +747,7 @@ impl Detail {
         cx: &App,
     ) -> Option<(Div, Option<Div>)> {
         let commit = self.remote_message(project, ref_name, id, cx)?;
-        let title = title_text(commit_title(commit.title))
-            .when(flat, |el| el.text_size(dp(18.)).line_height(dp(26.)));
+        let title = title_text(commit_title(commit.title)).when(flat, |el| el.text_h2());
         let body = (!commit.body.is_empty()).then(|| message_body(commit.body.to_owned(), theme));
         let target = Selection::Upstream(project.clone(), ref_name.clone(), id);
         let top = h_flex()
@@ -831,8 +831,8 @@ impl Detail {
         let store = self.store.read(cx);
         let ws = store.workspace(project)?;
         let branch = ws.find_branch(ref_name)?;
-        let name = title_text(store.name_of(project, branch).to_owned())
-            .when(flat, |el| el.text_size(dp(18.)).line_height(dp(26.)));
+        let name =
+            title_text(store.name_of(project, branch).to_owned()).when(flat, |el| el.text_h2());
         let target = Selection::Branch(project.clone(), ref_name.cloned());
         let top = h_flex()
             .items_start()
@@ -874,7 +874,7 @@ impl Detail {
         let store = self.store.read(cx);
         let ws = store.workspace(project)?;
         let (label, _, count) = upstream_label(Some(ws), ref_name);
-        let name = title_text(label).when(flat, |el| el.text_size(dp(18.)).line_height(dp(26.)));
+        let name = title_text(label).when(flat, |el| el.text_h2());
         let target = Selection::Section(project.clone(), Section::Upstream(ref_name.clone()));
         let top = h_flex()
             .items_start()
@@ -927,9 +927,8 @@ impl Detail {
         let title = self
             .open_link("commit-title", commit_title(title), at, theme)
             .aria_label(title.to_owned())
-            .text_size(dp(15.))
-            .line_height(dp(22.))
-            .font_weight(gpui::FontWeight::SEMIBOLD)
+            .text_15()
+            .semibold()
             .tooltip(Tooltip::text("Open commit"));
         v_flex()
             .id(("listed-commit", ix))
@@ -1026,8 +1025,8 @@ impl Detail {
                 .mb(dp(6.))
                 .max_w(dp(580.))
                 .font_family(theme.mono_font.clone())
-                .text_size(dp(12.))
-                .line_height(dp(19.))
+                .text_12()
+                .body()
                 .child(body)
         })
     }
@@ -1468,12 +1467,7 @@ pub(super) fn page_title(icon_name: Icon, theme: &Theme) -> Div {
 
 /// A page's title, as its header sets it.
 pub(super) fn title_text(text: impl IntoElement) -> Div {
-    div()
-        .min_w_0()
-        .line_height(dp(22.))
-        .text_size(dp(16.))
-        .font_weight(gpui::FontWeight::SEMIBOLD)
-        .child(text)
+    div().min_w_0().text_h3().child(text)
 }
 
 /// A page's title that a click starts editing in place, which `tip` and `key` say.
@@ -1501,7 +1495,7 @@ pub(super) fn meta_row(theme: &Theme) -> Div {
     h_flex()
         .h(dp(20.))
         .gap(dp(12.))
-        .text_size(dp(13.))
+        .text_13()
         .text_color(theme.text_2)
 }
 
@@ -1581,11 +1575,7 @@ pub(super) fn worktree_lanes(
                     .gap(dp(6.))
                     .child(div().min_w(dp(40.)).truncate().child(lane.name))
                     .children(lane.tag.map(|(said, color)| {
-                        div()
-                            .flex_none()
-                            .text_size(dp(11.))
-                            .text_color(color)
-                            .child(said)
+                        div().flex_none().text_11().text_color(color).child(said)
                     }))
                     .child(faint(lane.branches, theme).min_w_0().truncate()),
             )
@@ -1691,7 +1681,7 @@ fn footer(
                 .flex_1()
                 .min_w_0()
                 .truncate()
-                .text_size(dp(12.))
+                .text_12()
                 .text_color(theme.text_3)
                 .child(label),
         )
@@ -2142,8 +2132,8 @@ pub(super) fn overview_title(title: &'static str, scope: String, theme: &Theme) 
                 .flex_grow(1.)
                 .min_w_0()
                 .truncate()
-                .text_size(dp(15.))
-                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .text_15()
+                .semibold()
                 .child(title),
         )
         .child(faint(scope, theme).flex_shrink(1000.).min_w_0().truncate())
@@ -2241,13 +2231,7 @@ pub(super) fn keyed_tiles(
                                 }))
                                 .child(faint(label, theme).min_w_0().truncate()),
                         )
-                        .child(
-                            div()
-                                .text_size(dp(22.))
-                                .font_weight(gpui::FontWeight::SEMIBOLD)
-                                .whitespace_nowrap()
-                                .child(n),
-                        )
+                        .child(div().text_h1().whitespace_nowrap().child(n))
                 }),
         )
 }
@@ -2368,8 +2352,8 @@ pub(super) fn message_body(body: impl IntoElement, theme: &Theme) -> Div {
     div()
         .max_w(dp(MESSAGE_WIDTH))
         .font_family(theme.mono_font.clone())
-        .text_size(dp(13.))
-        .line_height(dp(21.))
+        .text_13()
+        .body()
         .text_color(theme.text_1)
         .child(body)
 }

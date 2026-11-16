@@ -352,7 +352,7 @@ pub fn fold_row(
         .h(dp(24.))
         .pl(dp(icon_at))
         .gap(dp(text_at - icon_at - 12.))
-        .text_size(dp(12.))
+        .text_12()
         .text_color(theme.text_2)
         .hover(|el| el.text_color(theme.text_1))
         .child(small_icon(glyph).text_color(theme.text_3))
@@ -477,7 +477,7 @@ pub fn field(input: &Entity<text_input::TextInput>, focused: bool, theme: &Theme
             theme.border_2
         })
         .bg(theme.bg_1)
-        .text_size(dp(13.))
+        .text_13()
         .child(input.clone())
 }
 

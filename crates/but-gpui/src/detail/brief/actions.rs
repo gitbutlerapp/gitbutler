@@ -14,6 +14,7 @@ use crate::detail::Detail;
 use crate::state::{Axis, RowKey, Selection, Tile};
 use crate::terminal::{Terminal, TerminalId};
 use crate::theme::{Hue, Theme};
+use crate::ui::Text;
 use crate::ui::{ButtonStyle, Icon, button, dp, h_flex, plural};
 
 /// How wide the tab has to be for the row of its tabs to say where the brief stands too.
@@ -285,7 +286,7 @@ impl Detail {
                 .pb(dp(11.))
                 .gap(dp(8.))
                 .justify_end()
-                .text_size(dp(12.))
+                .text_12()
                 .text_color(theme.text_2)
                 // Left out where it would only be cut down to a letter or two.
                 .when(!short, |el| {

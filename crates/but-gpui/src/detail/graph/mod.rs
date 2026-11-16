@@ -43,6 +43,7 @@ use crate::ui::{
     h_flex, icon_button, popover, small_icon, v_flex,
 };
 
+use crate::ui::Text;
 use layout::{Input, Line, Route, Side, Track, reach};
 #[cfg(feature = "dev-script")]
 pub(crate) use window::GraphWindow;
@@ -3305,7 +3306,7 @@ impl Render for GraphView {
                                     .id("graph-follow-label")
                                     .pl(dp(6.))
                                     .pr(dp(6.))
-                                    .text_size(dp(12.))
+                                    .text_12()
                                     .child("Follow")
                                     .tooltip(Tooltip::text(FOLLOW_TIP))
                                     .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
@@ -3468,8 +3469,8 @@ fn card(
         div()
             .px(dp(6.))
             .rounded(dp(9.))
-            .text_size(dp(11.))
-            .font_weight(FontWeight::SEMIBOLD)
+            .text_11()
+            .semibold()
             .flex()
             .items_center()
             .gap(dp(3.))
@@ -3524,13 +3525,13 @@ fn card(
                 .gap(dp(2.))
                 .child(
                     div()
-                        .font_weight(FontWeight::SEMIBOLD)
+                        .semibold()
                         .text_color(theme.text_1)
                         .child(node.title.clone()),
                 )
                 .child(
                     div()
-                        .text_size(dp(12.))
+                        .text_12()
                         .text_color(theme.text_3)
                         .child(format!("{by} · {}", ago(node.time))),
                 ),
@@ -3567,7 +3568,7 @@ fn card(
         .when(!body.is_empty(), |el| {
             el.child(
                 div()
-                    .text_size(dp(12.))
+                    .text_12()
                     .text_color(theme.text_2)
                     .max_h(dp(140.))
                     .overflow_hidden()
@@ -3580,16 +3581,11 @@ fn card(
                 .gap(dp(6.))
                 .items_center()
                 .children(tags)
-                .child(
-                    div()
-                        .text_size(dp(11.))
-                        .text_color(theme.text_3)
-                        .child(what),
-                )
+                .child(div().text_11().text_color(theme.text_3).child(what))
                 .when(commit, |el| {
                     el.child(
                         div()
-                            .text_size(dp(11.))
+                            .text_11()
                             .font_family(theme.mono_font.clone())
                             .text_color(theme.text_3)
                             .child(node.id.short()),

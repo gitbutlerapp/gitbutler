@@ -16,6 +16,7 @@ use super::{
 };
 use crate::backend::{Conflict, DiffLine, LineKind};
 use crate::theme::{Highlight, Hue, Theme};
+use crate::ui::Text;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Part {
@@ -265,7 +266,7 @@ fn strip(layout: &Layout, last: bool, theme: &Theme) -> gpui::Div {
         .pl(dp(numbers.round() + 8.))
         .pr(dp(8.))
         .gap(dp(6.))
-        .text_size(dp(12.))
+        .text_12()
 }
 
 /// The conflict's place, and what to keep: a side, both, an edit or a suggestion.
@@ -304,7 +305,7 @@ fn bar(row: &Row, theme: &Theme) -> AnyElement {
         .gap(dp(6.))
         .bg(ground)
         .when(row.current, |el| el.bg(current))
-        .text_size(dp(12.))
+        .text_12()
         .child(small_icon(mark).text_color(color))
         .child(
             div()
@@ -543,13 +544,13 @@ fn editor(input: Entity<TextInput>, row: &Row, theme: &Theme) -> AnyElement {
                 .rounded(dp(theme.shape.card))
                 .font_family(theme.diff_font.clone())
                 .font_features(theme.diff_features.clone())
-                .text_size(dp(theme.code_text))
+                .text_off_scale(theme.code_text)
                 .line_height(dp(theme.code_line)),
         )
         .child(
             h_flex()
                 .gap(dp(6.))
-                .text_size(dp(12.))
+                .text_12()
                 .child(
                     div()
                         .flex_1()

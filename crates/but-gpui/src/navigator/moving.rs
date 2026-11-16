@@ -26,6 +26,7 @@ use crate::theme::{Hue, Theme};
 use crate::transfer::{
     Changes, Move, Moving, Op, Slot, Stop, Target, Transfer, group_slots, slots,
 };
+use crate::ui::Text;
 use crate::ui::fold::{self, on_top};
 use crate::ui::{Icon, blink_once, dp, fixed, guide, h_flex, icon, small_icon};
 
@@ -261,7 +262,7 @@ pub(super) fn outline_label(label: &'static str, row: f32, hue: Hue, theme: &The
         .gap(dp(4.))
         .rounded(dp(theme.shape.control))
         .bg(theme.bg_1)
-        .text_size(dp(12.))
+        .text_12()
         .text_color(colour)
         .child(small_icon(Icon::Stack).text_color(colour))
         .child(label)
