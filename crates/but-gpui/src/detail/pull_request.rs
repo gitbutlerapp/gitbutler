@@ -30,6 +30,7 @@ use crate::ui::markdown;
 use crate::ui::person::forge_avatar;
 use crate::ui::review as ui_review;
 use crate::ui::scrollbar::{Scroll, scrolled};
+use crate::ui::{BadgeSize, BadgeVariant, badge};
 use crate::ui::{
     ButtonStyle, Icon, TextPoint, Tooltip, ago, button, count_badge, dot, dp, dropdown_button,
     duration, h_flex, icon, icon_at, icon_button, local_time, now, relative_time, shortcut,
@@ -1262,19 +1263,18 @@ fn side_section(heading: &'static str, action: Option<AnyElement>, theme: &Theme
         )
 }
 
-/// A badge of a word or two in `hue`, on its soft ground: a pull request's state, a review's
-/// verdict.
+/// A large badge of a word or two in `hue`: a pull request's state, a review's verdict.
 pub(super) fn tag(hue: Hue, theme: &Theme) -> Div {
-    h_flex()
-        .flex_none()
-        .h(dp(theme.sizes.control_sm))
-        .px(dp(7.))
-        .gap(dp(4.))
-        .rounded(dp(theme.shape.control))
-        .bg(theme.soft(hue))
-        .text_color(theme.hue(hue))
-        .text_12()
-        .semibold()
+    let variant = match hue {
+        Hue::Pop => BadgeVariant::Pop,
+        Hue::Blue => BadgeVariant::Blue,
+        Hue::Safe => BadgeVariant::Safe,
+        Hue::Warn => BadgeVariant::Warn,
+        Hue::Danger => BadgeVariant::Danger,
+        Hue::Purple => BadgeVariant::Purple,
+        Hue::Gray => BadgeVariant::LightGray,
+    };
+    badge(variant, BadgeSize::Large, theme)
 }
 
 /// Its state as a tinted badge, and its number, which opens it on the forge.

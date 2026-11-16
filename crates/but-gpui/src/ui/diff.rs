@@ -12,7 +12,10 @@ use gpui::{
 use super::conflict::{self, Part};
 use super::file_icons::file_icon;
 use super::fold::{self, MOVING_ROWS};
-use super::{Icon, blink_once, dp, faint, fixed, h_flex, plural, small_icon, text_index, v_flex};
+use super::{
+    BadgeSize, BadgeVariant, Icon, badge, blink_once, dp, faint, fixed, h_flex, plural, small_icon,
+    text_index, v_flex,
+};
 use crate::backend::{
     ChangeKind, Conflict, DiffBody, DiffLine, FileDiff, Hunk, LineKind, Picture, scope_name,
 };
@@ -863,15 +866,7 @@ pub fn hunk_header(
 
 /// What a conflicted file says before its actions, as but-ui-react's warn `Badge`.
 fn conflicted_badge(theme: &Theme) -> gpui::Div {
-    div()
-        .flex_none()
-        .px(dp(6.))
-        .py(fixed(1.))
-        .rounded(dp(9.))
-        .bg(theme.warn_soft)
-        .text_color(theme.warn)
-        .text_11()
-        .child("Conflicted")
+    badge(BadgeVariant::Warn, BadgeSize::Regular, theme).child("Conflicted")
 }
 
 /// An image's two sides, or an SVG's drawn, in the file's card.

@@ -24,6 +24,7 @@ use crate::ui::{
     self, ButtonStyle, Icon, button, dp, error_summary, faint, field, fold_glyph, h_flex, muted,
     plural, quiet, quoted, section_label, side_row, small_icon, v_flex,
 };
+use crate::ui::{BadgeSize, BadgeVariant, badge};
 
 const RELEASES: &str = "https://github.com/gitbutlerapp/gitbutler/releases";
 
@@ -331,20 +332,11 @@ impl WhatsNew {
         )
         .when(self.is_running(release), |el| {
             el.child(
-                div()
-                    .px(dp(5.))
-                    .rounded(dp(theme.shape.control))
+                badge(BadgeVariant::Pop, BadgeSize::Regular, theme)
                     // On a solid selection, in its own muted colour, as the row's other text.
-                    .bg(match selected {
-                        true => theme.inverse_soft,
-                        false => theme.pop_soft,
+                    .when(selected, |el| {
+                        el.bg(theme.inverse_soft).text_color(theme.muted_on_solid)
                     })
-                    .text_color(match selected {
-                        true => theme.muted_on_solid,
-                        false => theme.pop,
-                    })
-                    .text_11()
-                    .semibold()
                     .child("Yours"),
             )
         })
