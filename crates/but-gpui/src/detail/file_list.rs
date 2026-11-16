@@ -113,9 +113,6 @@ struct FileRow {
     joined: (bool, bool),
     /// The byte ranges of its path the filter found, to underline.
     found: Vec<Range<usize>>,
-    /// The characters the list's widest added and removed counts take, to line its own up
-    /// with the other rows': see [`diff::column_stats`].
-    columns: (usize, usize),
 }
 
 /// The room a row keeps for its file's change letter, which a folder's keeps empty, so their
@@ -552,19 +549,6 @@ impl Detail {
             |dir| rows_under(scroll, dir, theme),
         );
         let found = underlined(&rows, &paths, found);
-        // Room for the widest counts any row shows: a file's own, or in a tree a folder's,
-        // which all the files' together bound.
-        let counted = self
-            .counted_diff(&source)
-            .map_or(&[][..], |diff| &diff.files[..]);
-        let counts = counted.iter().map(FileDiff::stats);
-        let columns = match tree {
-            true => {
-                let folders = diff::widest_up_to(diff::total_stats(counted));
-                diff::stats_columns(counts.chain(folders))
-            }
-            false => diff::stats_columns(counts),
-        };
         // The list follows the cursor to another file, as j and ↓ move it, or to the folded
         // directory the file is in, or to the folder the keys stepped onto.
         let folder = self.cursor_folder(cx).map(str::to_owned);
@@ -648,7 +632,7 @@ impl Detail {
                             && this.cursor_folder(cx).is_some()
                             && has_keys(&this.files_focus, window, cx);
                         let held = (holds_cursor, solid);
-                        this.render_dir_row(dir, held, &source, found, columns, theme, cx)
+                        this.render_dir_row(dir, held, &source, found, theme, cx)
                     }
                     TreeRow::File { pos, depth } => {
                         let lit = |ix: usize| lit.get(ix).copied().unwrap_or(false);
@@ -662,7 +646,6 @@ impl Detail {
                             picked: lit(ix),
                             menu: picked.clone().filter(|_| lit(ix)),
                             found: found.get(ix)?.clone(),
-                            columns,
                             ..Default::default()
                         };
                         // The current file is solid while the list holds the focus, as the
@@ -1263,7 +1246,6 @@ impl Detail {
         let files = self.folder_files(dir, cx);
         let listed = || (files.iter()).filter_map(|ix| diff.files.get(*ix));
         let (added, removed) = diff::total_stats(listed());
-        let columns = diff::stats_columns(listed().map(FileDiff::stats));
         if self.summarized.borrow().as_deref() != Some(dir) {
             *self.summarized.borrow_mut() = Some(dir.to_owned());
             self.folder_rows.scroll_to(gpui::ListOffset::default());
@@ -1344,7 +1326,7 @@ impl Detail {
                                 })
                                 .child(sub.to_owned()),
                             )
-                            .child(diff::column_stats(added, removed, columns, solid, theme)),
+                            .child(diff::stats(added, removed, solid, theme)),
                     )
                     .child(
                         div()
@@ -1393,16 +1375,13 @@ impl Detail {
             .into_any_element()
     }
 
-    /// A tree's folder row, with the byte ranges of its name the filter `found`, its end lined
-    /// up with the list's other rows at `columns`.
-    #[expect(clippy::too_many_arguments)]
+    /// A tree's folder row, with the byte ranges of its name the filter `found`.
     fn render_dir_row(
         &self,
         row: &TreeRow,
         (holds_cursor, solid): (bool, bool),
         source: &FileSource,
         found: &[Range<usize>],
-        columns: (usize, usize),
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
@@ -1448,7 +1427,7 @@ impl Detail {
                 // the names.
                 .when(added + removed > 0, |el| {
                     el.child(
-                        diff::column_stats(added, removed, columns, false, theme)
+                        diff::stats(added, removed, false, theme)
                             .ml_auto()
                             .when(!always_counts, |el| {
                                 el.opacity(0.).group_hover(ROW_GROUP, |s| s.opacity(1.))
@@ -1772,13 +1751,7 @@ impl Detail {
                         )
                     })
                     .when_some(stats, |el, (added, removed)| {
-                        el.child(diff::column_stats(
-                            added,
-                            removed,
-                            extras.columns,
-                            solid,
-                            theme,
-                        ))
+                        el.child(diff::stats(added, removed, solid, theme))
                     }),
             )
             .child(end)
