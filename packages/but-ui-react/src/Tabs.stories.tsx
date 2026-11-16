@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { useState } from "react";
 import { Icon } from "./Icon.tsx";
 import { CiStatus } from "./MetaCount.tsx";

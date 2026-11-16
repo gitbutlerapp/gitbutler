@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { ProfileImage } from "./ProfileImage.tsx";
 
 const meta = stories({

@@ -1,5 +1,5 @@
 import { findPage, loadPage } from "./pages.ts";
-import { play } from "./play.ts";
+import { play } from "@gitbutler/but-ui-react/stories/play.ts";
 import {
 	accentOf,
 	groundOf,

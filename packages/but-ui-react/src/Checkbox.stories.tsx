@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { Checkbox } from "./Checkbox.tsx";
 import { useState } from "react";
 

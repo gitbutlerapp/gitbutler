@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { ChangeScale } from "./ChangeScale.tsx";
 
 const meta = stories({

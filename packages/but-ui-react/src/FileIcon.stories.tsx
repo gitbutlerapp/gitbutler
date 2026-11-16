@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { FileIcon } from "./FileIcon.tsx";
 import { symbolFileExtensionsToIcons, symbolFileNamesToIcons } from "./file-icons/typeMap.ts";
 

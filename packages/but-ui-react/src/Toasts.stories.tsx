@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { Toast, type ToastManagerAddOptions } from "@base-ui/react";
 import type { FC } from "react";
 import { Button } from "./Button.tsx";

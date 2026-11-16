@@ -3,7 +3,7 @@ import { isStory, storyName } from "./stories.ts";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, test } from "vitest";
-import "./site.css";
+import "./stories.css";
 
 const modules = import.meta.glob<Record<string, unknown>>("../src/*.stories.tsx", { eager: true });
 

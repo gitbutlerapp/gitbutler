@@ -1,0 +1,27 @@
+{
+	"name": "@gitbutler/but-ui-pantry",
+	"description": "The pantry: the but-ui design system's site, with its design notes and every component's page, drawn with the components.",
+	"private": true,
+	"version": "0.0.0-dev",
+	"type": "module",
+	"license": "FSL-1.1-MIT",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"check": "tsgo -p tsconfig.json --noEmit"
+	},
+	"dependencies": {
+		"@gitbutler/but-ui": "workspace:*",
+		"@gitbutler/but-ui-react": "workspace:*",
+		"react": "^19.2.4",
+		"react-dom": "^19.2.4",
+		"react-resizable-panels": "^4.11.2"
+	},
+	"devDependencies": {
+		"@types/react": "^19.2.14",
+		"@types/react-dom": "^19.2.3",
+		"@typescript/native-preview": "7.0.0-dev.20260707.2",
+		"@vitejs/plugin-react": "^5.2.0",
+		"vite": "catalog:"
+	}
+}

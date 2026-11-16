@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { Button, type ButtonProps } from "./Button.tsx";
 import { Icon } from "./Icon.tsx";
 import { Kbd } from "./Kbd.tsx";

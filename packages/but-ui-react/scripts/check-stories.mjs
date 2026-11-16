@@ -48,7 +48,7 @@ for (const file of files) {
 
 const FIRST_STORY = /^export const (\w+)\s*=/m;
 
-// As docs/stories.ts names a story: `IconOnly` → `Icon Only`, at `components-button--icon-only`.
+// As stories/stories.ts names a story: `IconOnly` → `Icon Only`, at `components-button--icon-only`.
 /** @param {string} exportName */
 const storyName = (exportName) =>
 	exportName.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z])([A-Z][a-z])/g, "$1 $2");

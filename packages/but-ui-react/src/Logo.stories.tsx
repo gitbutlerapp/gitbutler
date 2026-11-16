@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { Logo, type LogoName } from "./Logo.tsx";
 
 const names = ["github", "gitlab", "bitbucket"] satisfies Array<LogoName>;

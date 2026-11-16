@@ -1,4 +1,9 @@
-import { isStory, storyId, storyName, type Story } from "./stories.ts";
+import {
+	isStory,
+	storyId,
+	storyName,
+	type Story,
+} from "@gitbutler/but-ui-react/stories/stories.ts";
 import { pageList } from "./page-list.ts";
 
 /**
@@ -32,22 +37,31 @@ export const findPage = (id: string | null) => pages.find((page) => page.id === 
 
 /**
  * The page a design note opens: its own, or for a component's note, the first component page that
- * shows it. `note` is its path from this package, `../but-ui/design/components/buttons.md`.
+ * shows it. `note` is its path from this package's folder, `../../packages/but-ui/design/components/buttons.md`.
  */
 export const notePage = (note: string) =>
 	pages.find((page) => page.file === note || page.notes?.includes(note));
 
-const storyModules = import.meta.glob<Record<string, unknown>>("../src/*.stories.tsx");
-const storySources = import.meta.glob<string>("../src/*.stories.tsx", {
+const storyModules = import.meta.glob<Record<string, unknown>>(
+	"../../../packages/but-ui-react/src/*.stories.tsx",
+);
+const storySources = import.meta.glob<string>("../../../packages/but-ui-react/src/*.stories.tsx", {
 	query: "?raw",
 	import: "default",
 });
-const componentSources = import.meta.glob<string>(["../src/*.tsx", "!../src/*.stories.tsx"], {
-	query: "?raw",
-	import: "default",
-});
+const componentSources = import.meta.glob<string>(
+	["../../../packages/but-ui-react/src/*.tsx", "!../../../packages/but-ui-react/src/*.stories.tsx"],
+	{
+		query: "?raw",
+		import: "default",
+	},
+);
 const markdown = import.meta.glob<string>(
-	["../design/*/*.md", "../../but-ui/DESIGN.md", "../../but-ui/design/*/*.md"],
+	[
+		"../../../packages/but-ui-react/design/*/*.md",
+		"../../../packages/but-ui/DESIGN.md",
+		"../../../packages/but-ui/design/*/*.md",
+	],
 	{
 		query: "?raw",
 		import: "default",
@@ -90,7 +104,7 @@ const docOf = (source: string, name: string) =>
 	);
 
 async function loadComponentPage(page: Page): Promise<ComponentPageData> {
-	const path = `../src/${page.file}`;
+	const path = `../../../packages/but-ui-react/src/${page.file}`;
 	const [module, source, notes] = await Promise.all([
 		storyModules[path]?.(),
 		storySources[path]?.(),
@@ -107,7 +121,9 @@ async function loadComponentPage(page: Page): Promise<ComponentPageData> {
 					source,
 				)?.[1];
 	const componentSource =
-		from === undefined ? undefined : await componentSources[`../src/${from}`]?.();
+		from === undefined
+			? undefined
+			: await componentSources[`../../../packages/but-ui-react/src/${from}`]?.();
 
 	const entries = Object.entries(module).flatMap(([name, value]) =>
 		isStory(value) ? [{ name, story: value }] : [],

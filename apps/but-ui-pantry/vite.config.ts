@@ -26,16 +26,16 @@ const groups = [
  * build with this library is here. A component's own notes are no heading's: they show on the
  * component's page. */
 const designFolders = [
-	["design", "getting-started"],
-	["../but-ui/design", "foundations"],
-	["../but-ui/design", "content"],
-	["../but-ui/design", "patterns"],
+	["../../packages/but-ui-react/design", "getting-started"],
+	["../../packages/but-ui/design", "foundations"],
+	["../../packages/but-ui/design", "content"],
+	["../../packages/but-ui/design", "patterns"],
 ] as const;
 
 /** The component notes a JSDoc block names in its `@see` tags, as paths from this package. */
 const componentNotes = (jsdoc: string) =>
 	[...jsdoc.matchAll(/@see packages\/but-ui\/(design\/components\/[a-z-]+\.md)/g)].flatMap(
-		([, note]) => (note === undefined ? [] : [`../but-ui/${note}`]),
+		([, note]) => (note === undefined ? [] : [`../../packages/but-ui/${note}`]),
 	);
 
 /** Where the GPUI client's design system is, whose components the docs site marks GPUI. */
@@ -63,14 +63,14 @@ const capitalise = (words: string) =>
 	words.charAt(0).toUpperCase() + words.slice(1).replaceAll("-", " ");
 
 /**
- * Fills in `docs/page-list.ts`, every page the site lists: a design note per Markdown file, a
+ * Fills in `src/page-list.ts`, every page the site lists: a design note per Markdown file, a
  * component per stories file with the notes its component's `@see` tags name. Read off the files
  * here, so the sidebar knows the pages without loading every component.
  */
 const docsPages = (): Plugin => ({
 	name: "docs-pages",
 	load(id) {
-		if (!id.endsWith("/docs/page-list.ts")) return undefined;
+		if (!id.endsWith("/but-ui-pantry/src/page-list.ts")) return undefined;
 		const read = (file: string) => {
 			this.addWatchFile(resolve(file));
 			return readFileSync(file, "utf8");
@@ -78,7 +78,7 @@ const docsPages = (): Plugin => ({
 		const heading = (source: string) => /^# (.+)$/m.exec(source)?.[1] ?? "";
 
 		const design = [
-			{ id: "design-overview", title: "Design/Overview", file: "../but-ui/DESIGN.md" },
+			{ id: "design-overview", title: "Design/Overview", file: "../../packages/but-ui/DESIGN.md" },
 			...designFolders.flatMap(([dir, folder]) =>
 				readdirSync(`${dir}/${folder}`)
 					.filter((file) => file.endsWith(".md"))
@@ -90,11 +90,11 @@ const docsPages = (): Plugin => ({
 			),
 		];
 		const gpui = gpuiComponents(read);
-		const components = readdirSync("src")
+		const components = readdirSync("../../packages/but-ui-react/src")
 			.filter((file) => file.endsWith(".stories.tsx"))
 			.map((file) => {
 				// The page's title and id are the `stories({…})` call's, not a story's data.
-				const stories = read(`src/${file}`);
+				const stories = read(`../../packages/but-ui-react/src/${file}`);
 				const source = stories.split(/\bstories(?:<[^>]*>)?\(/)[1] ?? "";
 				// The component's JSDoc, from the file the stories import it from, as the page shows it.
 				const component = /\bcomponent: (\w+)/.exec(source)?.[1];
@@ -109,7 +109,7 @@ const docsPages = (): Plugin => ({
 						? ""
 						: (new RegExp(
 								String.raw`(\/\*\*(?:(?!\*\/)[\s\S])*\*\/)\s*export (?:const|function|class) ${component}\b`,
-							).exec(read(`src/${from}`))?.[1] ?? "");
+							).exec(read(`../../packages/but-ui-react/src/${from}`))?.[1] ?? "");
 				const title = /\btitle: "([^"]+)"/.exec(source)?.[1] ?? file;
 				return {
 					id: /\bid: "([^"]+)"/.exec(source)?.[1] ?? file,
@@ -129,9 +129,11 @@ const docsPages = (): Plugin => ({
 	},
 });
 
-/** The docs site, `pnpm demos`: every component's page, drawn with the components. */
+/** The pantry, `pnpm dev`: the design notes and every component's page, drawn with the components. */
 export default defineConfig({
-	root: "docs",
+	root: "src",
+	// The stories import React from but-ui-react's folder and the site from its own: one copy.
+	resolve: { dedupe: ["react", "react-dom"] },
 	plugins: [react(), docsPages()],
 	server: { port: 6007 },
 	build: { outDir: "../dist", emptyOutDir: true },

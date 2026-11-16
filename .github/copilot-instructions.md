@@ -78,7 +78,7 @@ LOG_LEVEL=debug pnpm dev:desktop
 # Run web app
 pnpm dev:web
 
-# Run the ui docs: every but-ui-react component, its stories and design notes
+# Run the pantry: the design notes and every component's page
 pnpm dev:ui
 ```
 

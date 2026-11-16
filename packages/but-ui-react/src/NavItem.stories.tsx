@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { useState, type FC } from "react";
 import { GroupLabel, NavItem } from "./SidebarRow.tsx";
 import { treeGuides } from "./treeGuides.ts";

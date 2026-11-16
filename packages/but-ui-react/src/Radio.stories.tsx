@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { Radio } from "./Radio.tsx";
 import { RadioGroup } from "@base-ui/react";
 

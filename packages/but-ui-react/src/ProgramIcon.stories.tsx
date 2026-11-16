@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { ProgramIcon } from "./ProgramIcon.tsx";
 
 // Read off the directory rather than exported from `programIcons.ts`, which keeps the

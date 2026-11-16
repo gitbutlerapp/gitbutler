@@ -208,14 +208,14 @@ links between them. The 🍑 But UI nodes a note names, as the toasts note's, ar
 checked only with `FIGMA_API_KEY` and `FIGMA_FILE_KEY` set, as when pulling
 tokens.
 
-### Stories and the docs site
+### Stories and the pantry
 
 Every component has a story beside it, in both themes, and a component that
 lives only in code is half a component. `pnpm check` holds the package to it
 through `scripts/check-stories.mjs`, which fails on a component no story
 imports.
 
-A stories file describes its page with `stories()` from `docs/stories.ts`,
+A stories file describes its page with `stories()` from `stories/stories.ts`,
 and each story with `meta.story()`:
 
 ```tsx
@@ -224,9 +224,9 @@ export const Default = meta.story({ args: { children: "42" } });
 ```
 
 A story takes `args`, a `render(args)`, `decorators`, `parameters` (`design`,
-the Figma link, and `layout`) and a `play` function. The docs site, in
-`docs/`, is a small Vite app that draws every page with these components: one
-page per component under its group's heading, every story on it with its
+the Figma link, and `layout`) and a `play` function. The pantry, the design
+system's site in `apps/but-ui-pantry`, is a small Vite app that draws every
+page with these components: one page per component under its group's heading, every story on it with its
 JSDoc, and the design notes from but-ui's `DESIGN.md` and `design/`, and this
 library's own `design/`. A component's own note, in but-ui's
 `design/components/`, has no page: it shows as Guidelines on the page of each
@@ -235,7 +235,7 @@ it opens the first of them. A note there that no component names shows
 nowhere. It runs on port 6007:
 
 ```console
-$ pnpm -F @gitbutler/but-ui-react demos
+$ pnpm -F @gitbutler/but-ui-pantry dev
 ```
 
 A page is at `http://localhost:6007/?page=components-<name>`. A story renders
@@ -249,7 +249,7 @@ when you add a story, and compare the two sides when either changes.
 a story without one has no drawn spec yet.
 
 `test` runs the unit tests and then every story as a test in headless
-Chromium (`docs/stories.test.tsx`). A story fails when it throws while
+Chromium (`stories/stories.test.tsx`). A story fails when it throws while
 rendering or its `play` function fails. Run the stories alone with:
 
 ```console

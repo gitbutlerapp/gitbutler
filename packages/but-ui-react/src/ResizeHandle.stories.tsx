@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import type { FC } from "react";
 import { Group, Panel } from "react-resizable-panels";
 import { ResizeHandle } from "./ResizeHandle.tsx";

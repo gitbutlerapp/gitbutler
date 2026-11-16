@@ -14,8 +14,17 @@ this order:
 - `crates/` - Rust crates.
 - `apps/desktop/` - Tauri/Svelte desktop app.
 - `apps/web/` - Svelte web app.
+- `apps/but-ui-pantry/` - the pantry, the design system's site.
 - `packages/` - shared TypeScript packages, including the SDK.
 - `e2e/` - Playwright, WebdriverIO, and blackbox end-to-end tests.
+
+## The Pantries
+
+- "The pantry" is the design system's site: the design notes and every
+  component in its states. Run it with `pnpm -F @gitbutler/but-ui-pantry dev`
+  (port 6007).
+- "The GPUI pantry" is the GPUI client's window of the shared controls. Run it
+  with `cargo run -p but-gpui --features stories --bin gitbutler-gpui-pantry`.
 
 ## Working Style
 

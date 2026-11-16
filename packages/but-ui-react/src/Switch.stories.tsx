@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { Switch, type SwitchSize } from "./Switch.tsx";
 import { useState } from "react";
 

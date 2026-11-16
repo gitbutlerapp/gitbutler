@@ -1,6 +1,6 @@
-import tokens from "../../but-ui/tokens/tokens.json";
-import { Markdown } from "../src/Markdown.tsx";
-import { TextLink } from "../src/TextLink.tsx";
+import tokens from "../../../packages/but-ui/tokens/tokens.json";
+import { Markdown } from "@gitbutler/but-ui-react/Markdown.tsx";
+import { TextLink } from "@gitbutler/but-ui-react/TextLink.tsx";
 import { notePage } from "./pages.ts";
 import { pageLink } from "./site.ts";
 import type { FC, ReactNode } from "react";
@@ -45,7 +45,7 @@ const designLink = (from: string, href: string, children: ReactNode) => {
 		name === undefined
 			? undefined
 			: folder === "components"
-				? notePage(`../but-ui/design/components/${name}.md`)?.id
+				? notePage(`../../packages/but-ui/design/components/${name}.md`)?.id
 				: `design-${folder}-${name}`;
 	return id !== undefined ? (
 		<a {...pageLink(id)} className="docs-site-page-link">

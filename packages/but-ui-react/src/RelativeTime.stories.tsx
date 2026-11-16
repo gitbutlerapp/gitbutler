@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { RelativeTime } from "./RelativeTime.tsx";
 
 /** Pinned so the wording doesn't drift with the clock between visual checks. */

@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { FieldTextareaStyles } from "./Field.tsx";
 import { MarkdownToolbar } from "./MarkdownToolbar.tsx";
 import { Tooltip } from "@base-ui/react";

@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { Banner, type BannerVariant } from "./Banner.tsx";
 import { Button } from "./Button.tsx";
 

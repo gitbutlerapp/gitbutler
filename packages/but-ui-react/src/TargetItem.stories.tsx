@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { useState, type FC } from "react";
 import { CommitItem, NoticeItem, TargetItem, WorktreeItem } from "./SidebarRow.tsx";
 import { Column, update } from "./story-assets/workspaceTree.tsx";

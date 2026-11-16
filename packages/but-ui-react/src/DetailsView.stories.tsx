@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { Toggle, ToggleGroup } from "@base-ui/react";
 import type { FC, ReactNode } from "react";
 import { Breadcrumbs, type Crumb } from "./Breadcrumbs.tsx";

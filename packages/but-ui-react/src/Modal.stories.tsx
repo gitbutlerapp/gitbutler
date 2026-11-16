@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { Button } from "./Button.tsx";
 import { FieldControlStyles, FieldRootStyles } from "./Field.tsx";
 import { FileIcon } from "./FileIcon.tsx";

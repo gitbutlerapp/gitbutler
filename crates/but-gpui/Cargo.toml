@@ -16,8 +16,8 @@ name = "gitbutler-gpui"
 path = "src/main.rs"
 
 [[bin]]
-name = "gitbutler-gpui-stories"
-path = "src/bin/gitbutler-gpui-stories.rs"
+name = "gitbutler-gpui-pantry"
+path = "src/bin/gitbutler-gpui-pantry.rs"
 required-features = ["stories"]
 
 [lints]
@@ -26,7 +26,7 @@ workspace = true
 [features]
 ## Scripted input and frame screenshots for development, see `src/dev.rs`.
 dev-script = ["gpui/test-support", "gpui_platform/test-support"]
-## A window of the shared controls in their states, as `gitbutler-gpui-stories`, see
+## A window of the shared controls in their states, as `gitbutler-gpui-pantry`, see
 ## `src/stories`.
 stories = []
 
