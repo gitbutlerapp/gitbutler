@@ -51,7 +51,7 @@ pub fn reload_legacy(
     legacy::status::build_status_output(
         ctx,
         &status_ctx,
-        &mut StatusOutput::Buffer {
+        &mut StatusOutput {
             lines: &mut new_lines,
         },
     )?;

@@ -9,18 +9,19 @@ use crate::{
     args::atoms::{BranchArg, CliIdArg},
     command::legacy::workspace_target,
     theme::{self, Paint},
-    utils::{OutputChannel, get_change_id_for_commit, shorten_object_id},
+    utils::{
+        CliOutput, CliOutputHuman, WriteWithUtils, get_change_id_for_commit, shorten_object_id,
+    },
 };
 
 pub fn show(
     ctx: &mut Context,
     branch_arg: CliIdArg,
-    out: &mut OutputChannel,
     review: bool,
     show_files: bool,
     generate_ai_summary: bool,
     check_merge: bool,
-) -> CliResult<()> {
+) -> CliResult<ShowOutcome> {
     let (branch_arg, id_map) = {
         let guard = ctx.exclusive_worktree_access();
         let id_map = IdMap::new_from_context(ctx, guard.read_permission(), None)?;
@@ -62,29 +63,90 @@ pub fn show(
         None
     };
 
-    if let Some(out) = out.for_json() {
-        output_json(
-            branch_name,
-            &commits,
-            &uncommitted_files,
-            &reviews,
-            ai_summary.as_deref(),
-            merge_check.as_ref(),
-            out,
-        )?;
-    } else if let Some(out) = out.for_human() {
-        output_human(
-            branch_name,
-            &commits,
-            &uncommitted_files,
-            &reviews,
-            ai_summary.as_deref(),
-            merge_check.as_ref(),
-            out,
-        )?;
-    }
+    Ok(ShowOutcome {
+        branch_name: branch_name.clone(),
+        commits,
+        uncommitted_files,
+        reviews,
+        ai_summary,
+        merge_check,
+    })
+}
 
-    Ok(())
+#[must_use]
+pub struct ShowOutcome {
+    branch_name: String,
+    commits: Vec<CommitInfo>,
+    uncommitted_files: Vec<String>,
+    reviews: Vec<but_forge::ForgeReview>,
+    ai_summary: Option<String>,
+    merge_check: Option<MergeCheck>,
+}
+
+impl CliOutputHuman for ShowOutcome {
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        _theme: &'static theme::Theme,
+    ) -> anyhow::Result<()> {
+        output_human(
+            &self.branch_name,
+            &self.commits,
+            &self.uncommitted_files,
+            &self.reviews,
+            self.ai_summary.as_deref(),
+            self.merge_check.as_ref(),
+            out,
+        )
+    }
+}
+
+impl CliOutput for ShowOutcome {
+    fn on_json(self) -> impl serde::Serialize {
+        let Self {
+            branch_name,
+            commits,
+            uncommitted_files,
+            reviews,
+            ai_summary,
+            merge_check,
+        } = self;
+        let reviews_json: Vec<_> = reviews
+            .iter()
+            .map(|r| {
+                serde_json::json!({
+                    "number": r.number,
+                    "url": r.html_url,
+                    "unitSymbol": r.unit_symbol,
+                    "title": r.title,
+                    "body": r.body,
+                    "draft": r.draft,
+                })
+            })
+            .collect();
+
+        let mut output = serde_json::json!({
+            "branch": branch_name,
+            "commitsAhead": commits.len(),
+            "commits": commits,
+            "uncommittedFiles": uncommitted_files,
+            "reviews": reviews_json,
+        });
+
+        if let Some(summary) = ai_summary {
+            output["aiSummary"] = serde_json::json!(summary);
+        }
+
+        if let Some(check) = merge_check {
+            output["mergeCheck"] = serde_json::json!({
+                "mergesCleanly": check.merges_cleanly,
+                "conflictingFiles": check.conflicting_files,
+            });
+        }
+
+        output
+    }
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -450,52 +512,6 @@ fn generate_branch_summary(
     let summary = response.unwrap_or_default().trim().to_string();
 
     Ok(summary)
-}
-
-fn output_json(
-    branch_name: &str,
-    commits: &[CommitInfo],
-    uncommitted_files: &[String],
-    reviews: &[but_forge::ForgeReview],
-    ai_summary: Option<&str>,
-    merge_check: Option<&MergeCheck>,
-    out: &mut OutputChannel,
-) -> anyhow::Result<()> {
-    let reviews_json: Vec<_> = reviews
-        .iter()
-        .map(|r| {
-            serde_json::json!({
-                "number": r.number,
-                "url": r.html_url,
-                "unitSymbol": r.unit_symbol,
-                "title": r.title,
-                "body": r.body,
-                "draft": r.draft,
-            })
-        })
-        .collect();
-
-    let mut output = serde_json::json!({
-        "branch": branch_name,
-        "commitsAhead": commits.len(),
-        "commits": commits,
-        "uncommittedFiles": uncommitted_files,
-        "reviews": reviews_json,
-    });
-
-    if let Some(summary) = ai_summary {
-        output["aiSummary"] = serde_json::json!(summary);
-    }
-
-    if let Some(check) = merge_check {
-        output["mergeCheck"] = serde_json::json!({
-            "mergesCleanly": check.merges_cleanly,
-            "conflictingFiles": check.conflicting_files,
-        });
-    }
-
-    out.write_value(output)?;
-    Ok(())
 }
 
 fn output_human(

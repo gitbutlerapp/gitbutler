@@ -18,10 +18,10 @@ use crate::{
     args::resolve::Subcommands,
     bad_input,
     id::{CliId, CommitId, CommitIdRef},
-    theme::{self, Paint},
+    theme::{self, Paint, Theme},
     utils::{
-        Confirm, ConfirmDefault, OutputChannel, change_source::conflicted_worktree_paths,
-        shorten_object_id,
+        CliOutput, CliOutputHuman, Confirm, ConfirmDefault, OutputChannel, WriteWithUtils,
+        change_source::conflicted_worktree_paths, shorten_object_id,
     },
 };
 
@@ -65,7 +65,7 @@ pub(crate) fn handle(
                     "Conflicted uncommitted files can only be marked as resolved: `but resolve <path>...`"
                 ).into());
             }
-            return mark_worktree_conflicts_resolved(ctx, out, targets);
+            return out.print_cli_output(mark_worktree_conflicts_resolved(ctx, targets)?);
         }
     };
     if ai {
@@ -77,7 +77,9 @@ pub(crate) fn handle(
         return resolve_with_ai(ctx, out, commit_id.as_deref());
     }
     match cmd {
-        Some(Subcommands::Conflicts { commit }) => list_conflicts(ctx, out, commit.as_deref()),
+        Some(Subcommands::Conflicts { commit }) => {
+            out.print_cli_output(list_conflicts(ctx, commit.as_deref())?)
+        }
         Some(Subcommands::Apply {
             target,
             commit,
@@ -145,9 +147,8 @@ fn gitlink_conflict_state(ctx: &Context) -> Result<(BTreeSet<BString>, BTreeSet<
 /// current worktree content.
 fn mark_worktree_conflicts_resolved(
     ctx: &mut Context,
-    out: &mut OutputChannel,
     paths: Vec<String>,
-) -> CliResult<()> {
+) -> CliResult<MarkedResolvedOutcome> {
     if matches!(operating_mode(ctx)?.operating_mode, OperatingMode::Edit(_)) {
         return Err(bad_input(
             "In resolution mode, edit the files and run `but resolve finish` instead.",
@@ -182,20 +183,32 @@ fn mark_worktree_conflicts_resolved(
         ctx,
         paths.iter().map(|p| BString::from(p.as_str())).collect(),
     )?;
-    if let Some(json_out) = out.for_json() {
-        json_out.write_value(serde_json::json!({ "resolved_files": paths }))?;
-    } else if let Some(human_out) = out.for_human() {
-        let t = theme::get();
-        for path in &paths {
+    Ok(MarkedResolvedOutcome { paths })
+}
+
+#[must_use]
+struct MarkedResolvedOutcome {
+    paths: Vec<String>,
+}
+
+impl CliOutputHuman for MarkedResolvedOutcome {
+    fn on_human(self, out: &mut dyn WriteWithUtils, _agent: bool, t: &'static Theme) -> Result<()> {
+        for path in &self.paths {
             writeln!(
-                human_out,
+                out,
                 "{} {}",
                 t.success.paint("✓ Marked as resolved:"),
                 t.attention.paint(path)
             )?;
         }
+        Ok(())
     }
-    Ok(())
+}
+
+impl CliOutput for MarkedResolvedOutcome {
+    fn on_json(self) -> impl serde::Serialize {
+        serde_json::json!({ "resolved_files": self.paths })
+    }
 }
 
 /// Resolve a user-provided commit identifier (CLI ID or partial SHA) to an
@@ -328,7 +341,7 @@ fn show_status_impl(
     let t = theme::get();
     let mode = operating_mode(ctx)?.operating_mode;
     if !matches!(mode, OperatingMode::Edit(_)) {
-        return show_workflow_help(out);
+        return out.print_cli_output(WorkflowHelpOutcome);
     }
 
     // The resolution state is the command's result, so it goes to stdout for human
@@ -381,8 +394,7 @@ fn show_status_impl(
     Ok(())
 }
 
-fn show_conflicted_files(ctx: &mut Context, out: &mut OutputChannel) -> Result<bool> {
-    let t = theme::get();
+fn show_conflicted_files(ctx: &mut Context, out: &mut OutputChannel) -> CliResult<bool> {
     let conflicted_files =
         edit_initial_index_state(ctx).context("Failed to get conflicted files")?;
 
@@ -432,7 +444,36 @@ fn show_conflicted_files(ctx: &mut Context, out: &mut OutputChannel) -> Result<b
     let all_resolved = still_conflicted.is_empty();
 
     // The conflicted/resolved listing is the command's result, shown to humans and agents alike.
-    if let Some(human_out) = out.for_human() {
+    out.print_cli_output(ConflictedFilesOutcome {
+        still_conflicted,
+        resolved: resolved
+            .iter()
+            .map(|change| change.path.to_str_lossy().into_owned())
+            .collect(),
+    })?;
+
+    Ok(all_resolved)
+}
+
+#[must_use]
+struct ConflictedFilesOutcome {
+    /// Each file still conflicted, with its content when there are conflict regions to show.
+    still_conflicted: Vec<(BString, Option<String>)>,
+    resolved: Vec<String>,
+}
+
+impl CliOutputHuman for ConflictedFilesOutcome {
+    fn on_human(
+        self,
+        human_out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        t: &'static Theme,
+    ) -> Result<()> {
+        let Self {
+            still_conflicted,
+            resolved,
+        } = self;
+        let all_resolved = still_conflicted.is_empty();
         if all_resolved {
             writeln!(
                 human_out,
@@ -462,36 +503,30 @@ fn show_conflicted_files(ctx: &mut Context, out: &mut OutputChannel) -> Result<b
                 writeln!(human_out)?;
             }
             writeln!(human_out, "{} resolved:", t.success.paint("Files"))?;
-            for change in &resolved {
-                writeln!(
-                    human_out,
-                    "  {} {}",
-                    t.sym().success,
-                    t.success.paint(change.path.to_str_lossy())
-                )?;
+            for path in &resolved {
+                writeln!(human_out, "  {} {}", t.sym().success, t.success.paint(path))?;
             }
         }
+        Ok(())
     }
+}
 
-    if let Some(out) = out.for_json() {
-        let conflicted_list: Vec<String> = still_conflicted
+impl CliOutput for ConflictedFilesOutcome {
+    fn on_json(self) -> impl serde::Serialize {
+        let conflicted_list: Vec<String> = self
+            .still_conflicted
             .iter()
             .map(|(path, _)| path.to_str_lossy().to_string())
             .collect();
-        let resolved_list: Vec<String> = resolved
-            .iter()
-            .map(|change| change.path.to_str_lossy().to_string())
-            .collect();
-        out.write_value(serde_json::json!({
+        let (conflicted_count, resolved_count) = (conflicted_list.len(), self.resolved.len());
+        serde_json::json!({
             "conflicted_files": conflicted_list,
-            "resolved_files": resolved_list,
-            "conflicted_count": conflicted_list.len(),
-            "resolved_count": resolved_list.len(),
-            "all_resolved": all_resolved
-        }))?;
+            "resolved_files": self.resolved,
+            "conflicted_count": conflicted_count,
+            "resolved_count": resolved_count,
+            "all_resolved": conflicted_count == 0
+        })
     }
-
-    Ok(all_resolved)
 }
 
 /// Matches the logic from the GUI's looksConflicted() function
@@ -556,7 +591,7 @@ fn finish_resolution(ctx: &mut Context, out: &mut OutputChannel) -> CliResult<()
     let t = theme::get();
     let mode = operating_mode(ctx)?.operating_mode;
     if !matches!(mode, OperatingMode::Edit(_)) {
-        return show_workflow_help(out);
+        return out.print_cli_output(WorkflowHelpOutcome);
     }
 
     // Capture conflicted commits BEFORE the rebase
@@ -676,7 +711,7 @@ fn cancel_resolution(ctx: &mut Context, out: &mut OutputChannel, force: bool) ->
     let t = theme::get();
     let mode = operating_mode(ctx)?.operating_mode;
     if !matches!(mode, OperatingMode::Edit(_)) {
-        return show_workflow_help(out);
+        return out.print_cli_output(WorkflowHelpOutcome);
     }
 
     if !force && {
@@ -784,56 +819,99 @@ fn parse_commit_or_branch(ctx: &mut Context, target: &str) -> Result<CommitOrBra
 }
 
 /// List the conflicts of a conflicted commit without entering resolution mode.
-fn list_conflicts(
-    ctx: &mut Context,
-    out: &mut OutputChannel,
-    commit: Option<&str>,
-) -> CliResult<()> {
-    let t = theme::get();
+fn list_conflicts(ctx: &mut Context, commit: Option<&str>) -> Result<ListConflictsOutcome> {
     let target = match target_conflicted_commit(ctx, commit)? {
         Ok(target) => target,
         Err(nothing_conflicted) => {
-            if let Some(human_out) = out.for_human() {
-                writeln!(human_out, "{}", t.success.paint(nothing_conflicted))?;
-            }
-            if let Some(json_out) = out.for_json() {
-                json_out.write_value(serde_json::json!({ "commit_id": null, "files": [] }))?;
-            }
-            return Ok(());
+            return Ok(ListConflictsOutcome::NothingConflicted {
+                message: nothing_conflicted,
+            });
         }
     };
 
     let conflicts = but_api::resolve::commit_conflicts(ctx, target.commit_oid)?;
+    let short_id = shorten_object_id(&*ctx.repo.get()?, target.commit_oid);
     if conflicts.files.is_empty() && conflicts.manual.is_empty() {
-        if let Some(human_out) = out.for_human() {
-            let repo = ctx.repo.get()?;
-            writeln!(
-                human_out,
-                "{} {} {}",
-                t.important.paint("Commit"),
-                t.commit_id
-                    .paint(shorten_object_id(&repo, target.commit_oid)),
-                t.success.paint("is not conflicted.")
-            )?;
-        }
-        if let Some(json_out) = out.for_json() {
-            json_out.write_value(serde_json::json!({
-                "commit_id": target.commit_oid.to_string(),
-                "files": [],
-                "manual": [],
-            }))?;
-        }
-        return Ok(());
+        return Ok(ListConflictsOutcome::NotConflicted {
+            commit_id: target.commit_oid,
+            short_id,
+        });
     }
 
-    if let Some(human_out) = out.for_human() {
-        let repo = ctx.repo.get()?;
+    // With several conflicted commits, a bare `apply` targets the default
+    // commit, not necessarily the one listed here — pin it in the hint.
+    // It can't find a commit that is on no branch at all.
+    // Name the commit as the caller did; without a target, the default is its
+    // branch's oldest conflicted commit, which is what the branch name selects.
+    let commit_flag = match commit.or(target.branch.as_deref()) {
+        Some(commit_ref) if target.other_conflicted > 0 || target.branch.is_none() => {
+            format!(" --commit {commit_ref}")
+        }
+        _ => String::new(),
+    };
+    Ok(ListConflictsOutcome::Conflicts {
+        target,
+        conflicts,
+        short_id,
+        commit_flag,
+    })
+}
+
+#[must_use]
+enum ListConflictsOutcome {
+    NothingConflicted {
+        message: String,
+    },
+    NotConflicted {
+        commit_id: gix::ObjectId,
+        short_id: String,
+    },
+    Conflicts {
+        target: ConflictTarget,
+        conflicts: but_api::resolve::CommitConflicts,
+        short_id: String,
+        /// The `--commit` argument that pins `but resolve apply` to this commit, if needed.
+        commit_flag: String,
+    },
+}
+
+impl CliOutputHuman for ListConflictsOutcome {
+    fn on_human(
+        self,
+        human_out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        t: &'static Theme,
+    ) -> Result<()> {
+        let (target, conflicts, short_id, commit_flag) = match self {
+            ListConflictsOutcome::NothingConflicted { message } => {
+                writeln!(human_out, "{}", t.success.paint(message))?;
+                return Ok(());
+            }
+            ListConflictsOutcome::NotConflicted {
+                commit_id: _,
+                short_id,
+            } => {
+                writeln!(
+                    human_out,
+                    "{} {} {}",
+                    t.important.paint("Commit"),
+                    t.commit_id.paint(short_id),
+                    t.success.paint("is not conflicted.")
+                )?;
+                return Ok(());
+            }
+            ListConflictsOutcome::Conflicts {
+                target,
+                conflicts,
+                short_id,
+                commit_flag,
+            } => (target, conflicts, short_id, commit_flag),
+        };
         writeln!(
             human_out,
             "{} {}{}",
             t.important.paint("Conflicts in commit"),
-            t.commit_id
-                .paint(shorten_object_id(&repo, target.commit_oid)),
+            t.commit_id.paint(&short_id),
             target
                 .branch
                 .as_deref()
@@ -895,12 +973,6 @@ fn list_conflicts(
         // It can't find a commit that is on no branch at all.
         // Name the commit as the caller did; without a target, the default is its
         // branch's oldest conflicted commit, which is what the branch name selects.
-        let commit_flag = match commit.or(target.branch.as_deref()) {
-            Some(commit_ref) if target.other_conflicted > 0 || target.branch.is_none() => {
-                format!(" --commit {commit_ref}")
-            }
-            _ => String::new(),
-        };
         writeln!(
             human_out,
             "{}",
@@ -908,18 +980,31 @@ fn list_conflicts(
                 "Resolve with `but resolve apply <path>[:<N>]{commit_flag} --ours|--theirs` or pipe mixed content into `but resolve apply <path>:<N>{commit_flag}`. `but resolve --ai` resolves everything at once."
             ))
         )?;
+        Ok(())
     }
+}
 
-    if let Some(json_out) = out.for_json() {
-        json_out.write_value(serde_json::json!({
-            "commit_id": conflicts.commit_id.to_string(),
-            "branch": target.branch,
-            "files": conflicts.files,
-            "manual": conflicts.manual,
-        }))?;
+impl CliOutput for ListConflictsOutcome {
+    fn on_json(self) -> impl serde::Serialize {
+        match self {
+            ListConflictsOutcome::NothingConflicted { .. } => {
+                serde_json::json!({ "commit_id": null, "files": [] })
+            }
+            ListConflictsOutcome::NotConflicted { commit_id, .. } => serde_json::json!({
+                "commit_id": commit_id.to_string(),
+                "files": [],
+                "manual": [],
+            }),
+            ListConflictsOutcome::Conflicts {
+                target, conflicts, ..
+            } => serde_json::json!({
+                "commit_id": conflicts.commit_id.to_string(),
+                "branch": target.branch,
+                "files": conflicts.files,
+                "manual": conflicts.manual,
+            }),
+        }
     }
-
-    Ok(())
 }
 
 /// How `but resolve apply` was asked to resolve, straight from the CLI flags.
@@ -947,7 +1032,6 @@ fn apply_resolutions(
         file,
     } = flags;
 
-    let t = theme::get();
     let mode = operating_mode(ctx)?.operating_mode;
     if matches!(mode, OperatingMode::Edit(_)) {
         return Err(bad_input(
@@ -1107,9 +1191,51 @@ fn apply_resolutions(
         .collect();
 
     let result = but_api::resolve::resolve_commit_conflict_hunks(ctx, commit_oid, specs)?;
-
-    if let Some(human_out) = out.for_human() {
+    let (old_short_id, new_short_id) = {
         let repo = ctx.repo.get()?;
+        (
+            shorten_object_id(&repo, result.commit_id),
+            shorten_object_id(&repo, result.new_commit),
+        )
+    };
+    // Only the human output mentions other conflicted commits.
+    let other_commits_conflicted = !out.is_json()
+        && result.remaining.is_empty()
+        && result.manual.is_empty()
+        && oldest_conflicted_commit(ctx)?.is_some();
+    out.print_cli_output(ApplyResolutionsOutcome {
+        path: path.to_owned(),
+        result,
+        old_short_id,
+        new_short_id,
+        other_commits_conflicted,
+    })
+}
+
+#[must_use]
+struct ApplyResolutionsOutcome {
+    path: String,
+    result: but_api::resolve::HunkResolutionResult,
+    old_short_id: String,
+    new_short_id: String,
+    /// Whether the resolution left this commit clean while other commits stay conflicted.
+    other_commits_conflicted: bool,
+}
+
+impl CliOutputHuman for ApplyResolutionsOutcome {
+    fn on_human(
+        self,
+        human_out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        t: &'static Theme,
+    ) -> Result<()> {
+        let Self {
+            path,
+            result,
+            old_short_id,
+            new_short_id,
+            other_commits_conflicted,
+        } = self;
         writeln!(
             human_out,
             "{} {} {} {} {} {}",
@@ -1120,11 +1246,9 @@ fn apply_resolutions(
             )),
             t.attention.paint(path),
             t.hint.paint("—"),
-            t.commit_id
-                .paint(shorten_object_id(&repo, result.commit_id)),
+            t.commit_id.paint(&old_short_id),
             t.success.paint("→"),
-            t.commit_id
-                .paint(shorten_object_id(&repo, result.new_commit)),
+            t.commit_id.paint(&new_short_id),
         )?;
         if result.remaining.is_empty() && result.manual.is_empty() {
             writeln!(
@@ -1141,9 +1265,7 @@ fn apply_resolutions(
                         .paint("The commit is now empty — the kept content matches its parent.")
                 )?;
             }
-            drop(repo);
-            let more = oldest_conflicted_commit(ctx)?.is_some();
-            if more {
+            if other_commits_conflicted {
                 writeln!(
                     human_out,
                     "{}",
@@ -1182,20 +1304,22 @@ fn apply_resolutions(
             t.hint
                 .paint("If this isn't right, run `but undo` to revert it.")
         )?;
+        Ok(())
     }
+}
 
-    if let Some(json_out) = out.for_json() {
-        json_out.write_value(serde_json::json!({
+impl CliOutput for ApplyResolutionsOutcome {
+    fn on_json(self) -> impl serde::Serialize {
+        let result = self.result;
+        serde_json::json!({
             "commit_id": result.commit_id.to_string(),
             "new_commit_id": result.new_commit.to_string(),
             "resolved": result.resolved,
             "commit_emptied": result.commit_emptied,
             "remaining": result.remaining,
             "manual": result.manual,
-        }))?;
+        })
     }
-
-    Ok(())
 }
 
 /// Resolve conflicts with the configured AI model: one commit when
@@ -1206,7 +1330,6 @@ fn resolve_with_ai(
     out: &mut OutputChannel,
     commit_id_str: Option<&str>,
 ) -> CliResult<()> {
-    let t = theme::get();
     let mode = operating_mode(ctx)?.operating_mode;
     if matches!(mode, OperatingMode::Edit(_)) {
         return Err(anyhow::anyhow!(
@@ -1231,9 +1354,70 @@ fn resolve_with_ai(
     }
 
     // A single JSON document for the whole invocation, regardless of how many
-    // commits were resolved.
-    if let Some(json_out) = out.for_json() {
-        let results = results
+    // commits were resolved. The rebase of descendants can leave (or newly
+    // introduce) conflicted commits; in single-commit mode nothing else
+    // surfaces that. Commits are listed once per branch that contains them, so
+    // count unique ids.
+    let remaining = if results.is_empty() || out.is_json() {
+        0
+    } else {
+        find_conflicted_commits(ctx)?
+            .values()
+            .flatten()
+            .map(|commit| commit.commit_oid)
+            .collect::<HashSet<_>>()
+            .len()
+    };
+    out.print_cli_output(AiResolutionsOutcome { results, remaining })
+}
+
+#[must_use]
+struct AiResolutionsOutcome {
+    results: Vec<but_api::resolve::AiResolutionResult>,
+    /// The number of commits still conflicted afterwards, counted for human output.
+    remaining: usize,
+}
+
+impl CliOutputHuman for AiResolutionsOutcome {
+    fn on_human(
+        self,
+        human_out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        t: &'static Theme,
+    ) -> Result<()> {
+        let Self { results, remaining } = self;
+        if results.is_empty() {
+            writeln!(
+                human_out,
+                "{}",
+                t.success.paint("No conflicted commits found.")
+            )?;
+            return Ok(());
+        }
+        if remaining > 0 {
+            writeln!(
+                human_out,
+                "{}",
+                t.attention.paint(format!(
+                    "{remaining} commit{} still conflicted — run `but resolve --ai` or `but status` to see them.",
+                    if remaining == 1 { " is" } else { "s are" }
+                ))
+            )?;
+        }
+        writeln!(
+            human_out,
+            "{}",
+            t.hint
+                .paint("If you disagree with a resolution, run `but undo` to revert it.")
+        )?;
+        Ok(())
+    }
+}
+
+impl CliOutput for AiResolutionsOutcome {
+    fn on_json(self) -> impl serde::Serialize {
+        let results = self
+            .results
             .iter()
             .map(|result| {
                 serde_json::json!({
@@ -1253,48 +1437,8 @@ fn resolve_with_ai(
                 })
             })
             .collect::<Vec<_>>();
-        json_out.write_value(serde_json::json!({ "resolved": results }))?;
+        serde_json::json!({ "resolved": results })
     }
-
-    if results.is_empty() {
-        if let Some(human_out) = out.for_human() {
-            writeln!(
-                human_out,
-                "{}",
-                t.success.paint("No conflicted commits found.")
-            )?;
-        }
-        return Ok(());
-    }
-
-    if let Some(human_out) = out.for_human() {
-        // The rebase of descendants can leave (or newly introduce) conflicted
-        // commits; in single-commit mode nothing else surfaces that. Commits
-        // are listed once per branch that contains them, so count unique ids.
-        let remaining = find_conflicted_commits(ctx)?
-            .values()
-            .flatten()
-            .map(|commit| commit.commit_oid)
-            .collect::<HashSet<_>>()
-            .len();
-        if remaining > 0 {
-            writeln!(
-                human_out,
-                "{}",
-                t.attention.paint(format!(
-                    "{remaining} commit{} still conflicted — run `but resolve --ai` or `but status` to see them.",
-                    if remaining == 1 { " is" } else { "s are" }
-                ))
-            )?;
-        }
-        writeln!(
-            human_out,
-            "{}",
-            t.hint
-                .paint("If you disagree with a resolution, run `but undo` to revert it.")
-        )?;
-    }
-    Ok(())
 }
 
 /// The first conflicted commit in the oldest-first ordering of
@@ -1396,8 +1540,7 @@ fn report_conflicts_after_rebase(
     ctx: &mut Context,
     out: &mut OutputChannel,
     conflicts_before: BTreeMap<String, Vec<ConflictedCommit>>,
-) -> Result<()> {
-    let t = theme::get();
+) -> CliResult<()> {
     let conflicts_after = find_conflicted_commits(ctx)?;
 
     let mut change_ids_before = HashMap::new();
@@ -1423,7 +1566,33 @@ fn report_conflicts_after_rebase(
         .copied()
         .collect::<Vec<_>>();
 
-    if let Some(human_out) = out.for_human() {
+    out.print_cli_output(ConflictsAfterRebaseOutcome {
+        resolution_queue: resolution_queue.into_iter().cloned().collect(),
+        newly_conflicted: newly_conflicted.into_iter().cloned().collect(),
+        conflicts_after,
+    })
+}
+
+#[must_use]
+struct ConflictsAfterRebaseOutcome {
+    conflicts_after: BTreeMap<String, Vec<ConflictedCommit>>,
+    /// The conflicted commits in the order to resolve them, oldest first.
+    resolution_queue: Vec<ConflictedCommit>,
+    newly_conflicted: Vec<ConflictedCommit>,
+}
+
+impl CliOutputHuman for ConflictsAfterRebaseOutcome {
+    fn on_human(
+        self,
+        human_out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        t: &'static Theme,
+    ) -> Result<()> {
+        let Self {
+            conflicts_after,
+            resolution_queue,
+            newly_conflicted,
+        } = self;
         if conflicts_after.is_empty() {
             writeln!(
                 human_out,
@@ -1474,7 +1643,6 @@ fn report_conflicts_after_rebase(
 
             let next_commit = resolution_queue
                 .first()
-                .copied()
                 .expect("non-empty conflicts map contains a commit");
             let command = if next_commit.worktree_lane.is_some() {
                 "but resolve conflicts"
@@ -1488,9 +1656,17 @@ fn report_conflicts_after_rebase(
                     .paint(format!("{command} {}", next_commit.commit_short_id))
             )?;
         }
+        Ok(())
     }
+}
 
-    if let Some(json_out) = out.for_json() {
+impl CliOutput for ConflictsAfterRebaseOutcome {
+    fn on_json(self) -> impl serde::Serialize {
+        let Self {
+            conflicts_after,
+            resolution_queue,
+            newly_conflicted,
+        } = self;
         let conflicts_by_branch = conflicts_after
             .iter()
             .map(|(branch_name, commits)| {
@@ -1530,16 +1706,14 @@ fn report_conflicts_after_rebase(
             })
             .collect::<Vec<_>>();
 
-        json_out.write_value(serde_json::json!({
+        serde_json::json!({
             "remaining_conflicted_commits_by_branch": conflicts_by_branch,
             "resolution_queue": resolution_queue_json,
             "total_remaining_conflicted_commits": resolution_queue.len(),
             "newly_conflicted_commits": newly_conflicted_json,
             "count": newly_conflicted.len(),
-        }))?;
+        })
     }
-
-    Ok(())
 }
 
 /// Merge each branch's oldest-first conflict list into one stable queue.
@@ -1659,64 +1833,15 @@ fn check_and_prompt_for_conflicts(ctx: &mut Context, out: &mut OutputChannel) ->
     let conflicts_by_branch = find_conflicted_commits(ctx)?;
 
     if conflicts_by_branch.is_empty() {
-        return show_workflow_help(out);
-    }
-
-    if let Some(json_out) = out.for_json() {
-        let mut json_conflicts = serde_json::Map::new();
-
-        for (branch_name, commits) in &conflicts_by_branch {
-            let commits_array: Vec<serde_json::Value> = commits
-                .iter()
-                .map(|c| {
-                    serde_json::json!({
-                        "commit_id": c.commit_oid.to_string(),
-                        "commit_short_id": c.commit_short_id,
-                        "commit_message": c.commit_message,
-                    })
-                })
-                .collect();
-
-            json_conflicts.insert(branch_name.clone(), serde_json::Value::Array(commits_array));
-        }
-
-        json_out.write_value(serde_json::json!({
-            "conflicted_commits_by_branch": json_conflicts,
-            "total_conflicted_commits": conflicts_by_branch.values().map(|v| v.len()).sum::<usize>(),
-        }))?;
-        return Ok(());
+        return out.print_cli_output(WorkflowHelpOutcome);
     }
 
     // We have conflicts - show them grouped by branch. The listing is the command's
     // result, so it goes to stdout for human and agent output alike; only the prompt
     // below is gated on an interactive terminal.
-    if let Some(human_out) = out.for_human() {
-        writeln!(
-            human_out,
-            "{}",
-            t.attention.paint("Found conflicted commits:")
-        )?;
-        writeln!(human_out)?;
-
-        for (branch_name, commits) in &conflicts_by_branch {
-            writeln!(
-                human_out,
-                "{} {}",
-                t.important.paint("Branch:"),
-                t.local_branch.paint(branch_name)
-            )?;
-            for commit in commits {
-                writeln!(
-                    human_out,
-                    "  {} {} {}",
-                    t.sym().dot.error(),
-                    t.hint.paint(&commit.commit_short_id),
-                    commit.commit_message
-                )?;
-            }
-            writeln!(human_out)?;
-        }
-    }
+    out.print_cli_output(ConflictedCommitsOutcome {
+        conflicts_by_branch: conflicts_by_branch.clone(),
+    })?;
 
     // Resolution mode can't check out a worktree's commit.
     let commit_options = conflicts_by_branch
@@ -1769,9 +1894,79 @@ fn check_and_prompt_for_conflicts(ctx: &mut Context, out: &mut OutputChannel) ->
     Ok(())
 }
 
-fn show_workflow_help(out: &mut OutputChannel) -> CliResult<()> {
-    let t = theme::get();
-    if let Some(out) = out.for_human() {
+#[must_use]
+struct ConflictedCommitsOutcome {
+    conflicts_by_branch: BTreeMap<String, Vec<ConflictedCommit>>,
+}
+
+impl CliOutputHuman for ConflictedCommitsOutcome {
+    fn on_human(
+        self,
+        human_out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        t: &'static Theme,
+    ) -> Result<()> {
+        writeln!(
+            human_out,
+            "{}",
+            t.attention.paint("Found conflicted commits:")
+        )?;
+        writeln!(human_out)?;
+
+        for (branch_name, commits) in &self.conflicts_by_branch {
+            writeln!(
+                human_out,
+                "{} {}",
+                t.important.paint("Branch:"),
+                t.local_branch.paint(branch_name)
+            )?;
+            for commit in commits {
+                writeln!(
+                    human_out,
+                    "  {} {} {}",
+                    t.sym().dot.error(),
+                    t.hint.paint(&commit.commit_short_id),
+                    commit.commit_message
+                )?;
+            }
+            writeln!(human_out)?;
+        }
+        Ok(())
+    }
+}
+
+impl CliOutput for ConflictedCommitsOutcome {
+    fn on_json(self) -> impl serde::Serialize {
+        let conflicts_by_branch = self.conflicts_by_branch;
+        let mut json_conflicts = serde_json::Map::new();
+
+        for (branch_name, commits) in &conflicts_by_branch {
+            let commits_array: Vec<serde_json::Value> = commits
+                .iter()
+                .map(|c| {
+                    serde_json::json!({
+                        "commit_id": c.commit_oid.to_string(),
+                        "commit_short_id": c.commit_short_id,
+                        "commit_message": c.commit_message,
+                    })
+                })
+                .collect();
+
+            json_conflicts.insert(branch_name.clone(), serde_json::Value::Array(commits_array));
+        }
+
+        serde_json::json!({
+            "conflicted_commits_by_branch": json_conflicts,
+            "total_conflicted_commits": conflicts_by_branch.values().map(|v| v.len()).sum::<usize>(),
+        })
+    }
+}
+
+#[must_use]
+struct WorkflowHelpOutcome;
+
+impl CliOutputHuman for WorkflowHelpOutcome {
+    fn on_human(self, out: &mut dyn WriteWithUtils, _agent: bool, t: &'static Theme) -> Result<()> {
         writeln!(out, "{}", t.important.paint("Conflict Resolution Workflow"))?;
         writeln!(out)?;
         writeln!(
@@ -1863,8 +2058,13 @@ fn show_workflow_help(out: &mut OutputChannel) -> CliResult<()> {
             "  {} (finalize)",
             t.command_suggestion.paint("but resolve finish")
         )?;
-    } else if let Some(out) = out.for_json() {
-        out.write_value(serde_json::json!({
+        Ok(())
+    }
+}
+
+impl CliOutput for WorkflowHelpOutcome {
+    fn on_json(self) -> impl serde::Serialize {
+        serde_json::json!({
             "workflow": [
                 {
                     "step": 1,
@@ -1891,10 +2091,8 @@ fn show_workflow_help(out: &mut OutputChannel) -> CliResult<()> {
                 "cancel": "but resolve cancel",
                 "view_status": "but status"
             }
-        }))?;
+        })
     }
-
-    Ok(())
 }
 
 fn unsupported_in_single_branch_mode_error<T>(

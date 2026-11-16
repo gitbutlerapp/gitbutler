@@ -107,7 +107,7 @@ pub fn test_status_tui_with_options(env: Sandbox, options: TestTuiOptions) -> Te
     .expect("failed to resolve TUI target");
     status_ctx.flags = status_flags_for_tui_target(status_ctx.flags, initial_target.as_ref());
     let mut lines = Vec::new();
-    let mut status_output = StatusOutput::Buffer { lines: &mut lines };
+    let mut status_output = StatusOutput { lines: &mut lines };
     build_status_output(&ctx, &status_ctx, &mut status_output)
         .expect("failed to build status output");
 

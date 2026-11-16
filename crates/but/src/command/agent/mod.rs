@@ -7,13 +7,17 @@ use anyhow::{Context as _, Result};
 use nonempty::NonEmpty;
 
 use crate::{
+    CliResult,
     args::agent,
     command::{
         CommandOutcome,
         skill::{self, SkillLayout},
     },
-    theme::{self, Paint},
-    utils::{InputOutputChannel, OutputChannel, PromptLine, detect_agent},
+    theme::{self, Paint, Theme},
+    utils::{
+        CliOutput, CliOutputHuman, InputOutputChannel, OutputChannel, PromptLine, WriteWithUtils,
+        detect_agent,
+    },
 };
 
 mod files;
@@ -45,20 +49,27 @@ pub fn handle(
     current_dir: &Path,
     out: &mut OutputChannel,
     cmd: Option<agent::Subcommands>,
-) -> Result<Option<CommandOutcome>> {
+) -> CliResult<Option<CommandOutcome>> {
     match cmd {
         // Bare `but agent` runs the setup wizard, same as `but agent setup`.
-        None => setup(current_dir, out, false, SkillLayout::Full).map(Some),
-        Some(agent::Subcommands::Setup { print, stub }) => {
+        None => Ok(Some(setup(current_dir, out, SkillLayout::Full)?)),
+        Some(agent::Subcommands::Setup { print: true, .. }) => {
+            let default_policy = render_managed_policy_block(&WizardAnswers::default());
+            out.print_cli_output(PolicyOutcome(default_policy))?;
+            Ok(Some(CommandOutcome::AgentSetupPrintOnly))
+        }
+        Some(agent::Subcommands::Setup { print: false, stub }) => {
             let layout = if stub {
                 SkillLayout::Stub
             } else {
                 SkillLayout::Full
             };
-            setup(current_dir, out, print, layout).map(Some)
+            Ok(Some(setup(current_dir, out, layout)?))
         }
         Some(agent::Subcommands::Uninstall) => {
-            uninstall::uninstall(current_dir, out).map(|()| None)
+            let outcome = uninstall::uninstall(current_dir, out)?;
+            out.print_cli_output(outcome)?;
+            Ok(None)
         }
     }
 }
@@ -66,15 +77,8 @@ pub fn handle(
 fn setup(
     current_dir: &Path,
     out: &mut OutputChannel,
-    print_only: bool,
     skill_layout: SkillLayout,
 ) -> Result<CommandOutcome> {
-    if print_only {
-        let default_policy = render_managed_policy_block(&WizardAnswers::default());
-        print_policy(out, &default_policy)?;
-        return Ok(CommandOutcome::AgentSetupPrintOnly);
-    }
-
     let repo = discover_repo(current_dir);
 
     if !out.can_prompt() {
@@ -149,16 +153,26 @@ fn print_cancelled(out: &mut OutputChannel) -> Result<()> {
     Ok(())
 }
 
-fn print_policy(out: &mut OutputChannel, policy: &str) -> Result<()> {
-    if let Some(json_out) = out.for_json() {
-        json_out.write_value(serde_json::json!({ "policy": policy }))?;
-        return Ok(());
+/// The default instructions that `but agent setup --print` prints.
+#[must_use]
+struct PolicyOutcome(String);
+
+impl CliOutputHuman for PolicyOutcome {
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        _theme: &'static Theme,
+    ) -> Result<()> {
+        writeln!(out, "{}", self.0)?;
+        Ok(())
     }
-    let writer = out
-        .for_human_or_shell()
-        .context("Text output is required for `but agent setup --print`.")?;
-    writeln!(writer, "{policy}")?;
-    Ok(())
+}
+
+impl CliOutput for PolicyOutcome {
+    fn on_json(self) -> impl serde::Serialize {
+        serde_json::json!({ "policy": self.0 })
+    }
 }
 
 /// Width used for the banner rule and right-aligned step counter. Clamped so the

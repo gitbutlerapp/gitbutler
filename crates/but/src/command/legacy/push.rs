@@ -11,10 +11,11 @@ use crate::{
     args::push::{self, Command},
     bad_input,
     command::legacy::workspace_target,
-    theme::{self, Paint},
+    theme::{self, Paint, Theme},
     tui::text::strip_ansi_codes,
     utils::{
-        OutputChannel, merged_upstream::MergedUpstream, shorten_hex_object_id, shorten_object_id,
+        CliOutput, CliOutputHuman, OutputChannel, WriteWithUtils, merged_upstream::MergedUpstream,
+        shorten_hex_object_id, shorten_object_id,
     },
 };
 
@@ -29,13 +30,6 @@ enum BranchSelection {
     All,
     /// Nothing to push, or the user declined
     None,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct BatchPushResult {
-    pushed: Vec<but_api::legacy::workspace::WorkspaceBranchAndAncestorsPushOutcome>,
-    failed: Vec<FailedBranch>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -112,7 +106,10 @@ pub async fn handle(
         }
         BranchSelection::Selected(branch_names) => {
             for branch_name in branch_names {
-                push_single_branch(ctx, &branch_name, &args, gerrit_mode, out).await?;
+                let outcome =
+                    push_single_branch(ctx, &branch_name, &args, gerrit_mode, out.is_json())
+                        .await?;
+                out.print_cli_output(outcome)?;
             }
         }
         BranchSelection::None => {}
@@ -140,6 +137,12 @@ struct DryRunBranchInfo {
     /// Name of the branch this is stacked on top of (if any)
     #[serde(skip_serializing_if = "Option::is_none")]
     stacked_on: Option<String>,
+    /// The remote branch as `<remote>/<branch>`, for display.
+    #[serde(skip)]
+    remote_branch: String,
+    /// Whether the push of this branch would be refused.
+    #[serde(skip)]
+    refused: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -151,14 +154,7 @@ struct DryRunCommit {
     message: String,
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct DryRunResult {
-    branches: Vec<DryRunBranchInfo>,
-}
-
 fn handle_dry_run(ctx: &mut Context, args: &Command, out: &mut OutputChannel) -> CliResult<()> {
-    let t = theme::get();
     let mut progress = out.progress_channel();
 
     writeln!(progress, "Fetching from remote...")?;
@@ -231,18 +227,10 @@ fn handle_dry_run(ctx: &mut Context, args: &Command, out: &mut OutputChannel) ->
     };
 
     if branches_to_show.is_empty() {
-        if let Some(out) = out.for_json() {
-            out.write_value(&DryRunResult { branches: vec![] })?;
-        }
-
-        if let Some(human) = out.for_human() {
-            writeln!(
-                human,
-                "{}",
-                t.hint.paint("No branches have unpushed commits.")
-            )?;
-        }
-        return Ok(());
+        return out.print_cli_output(DryRunOutcome {
+            branches: Vec::new(),
+            refused: false,
+        });
     }
 
     let mut dry_run_infos = Vec::new();
@@ -318,6 +306,7 @@ fn handle_dry_run(ctx: &mut Context, args: &Command, out: &mut OutputChannel) ->
                 } else {
                     None
                 };
+                let refused = refusals.contains_key(branch_name);
                 let warning = refusals.get(branch_name).cloned().or(warning);
 
                 // Determine if this branch is stacked on another branch
@@ -327,6 +316,13 @@ fn handle_dry_run(ctx: &mut Context, args: &Command, out: &mut OutputChannel) ->
                     .iter()
                     .find(|b| b.tip == branch_detail.base_commit && b.name != branch_detail.name)
                     .map(|b| b.name.clone());
+
+                // Extract branch name from remote_ref (e.g., refs/remotes/origin/branch -> branch)
+                let remote_short_name =
+                    extract_remote_name_and_short_name(remote_ref.as_ref(), &remote_names)
+                        .map(|(_, short_name)| short_name.to_string())
+                        .unwrap_or_else(|| remote_ref.shorten().to_string());
+                let remote_branch = format!("{remote}/{remote_short_name}");
 
                 dry_run_infos.push(DryRunBranchInfo {
                     branch_name: branch_name.clone(),
@@ -339,6 +335,8 @@ fn handle_dry_run(ctx: &mut Context, args: &Command, out: &mut OutputChannel) ->
                     requires_force,
                     warning,
                     stacked_on,
+                    remote_branch,
+                    refused,
                 });
 
                 break;
@@ -346,258 +344,286 @@ fn handle_dry_run(ctx: &mut Context, args: &Command, out: &mut OutputChannel) ->
         }
     }
 
-    if let Some(out) = out.for_json() {
-        out.write_value(&DryRunResult {
-            branches: dry_run_infos.clone(),
-        })?;
-    }
+    let refused = outcome.is_err();
+    out.print_cli_output(DryRunOutcome {
+        branches: dry_run_infos,
+        refused,
+    })?;
+    outcome
+}
 
-    let Some(human) = out.for_human() else {
-        return outcome;
-    };
+#[must_use]
+struct DryRunOutcome {
+    branches: Vec<DryRunBranchInfo>,
+    /// Whether some push would be refused, which leaves out the summary.
+    refused: bool,
+}
 
-    writeln!(human)?;
-    writeln!(
-        human,
-        "{} {}",
-        t.important.paint("Dry run:"),
-        t.hint.paint("Showing what would be pushed")
-    )?;
-    writeln!(human)?;
-
-    let mut branches_by_stack: std::collections::HashMap<String, Vec<&DryRunBranchInfo>> =
-        std::collections::HashMap::new();
-    for info in &dry_run_infos {
-        branches_by_stack
-            .entry(info.stack_name.clone())
-            .or_default()
-            .push(info);
-    }
-
-    let mut stack_names: Vec<_> = branches_by_stack.keys().collect();
-    stack_names.sort();
-
-    for stack_name in stack_names {
-        let branches = branches_by_stack.get(stack_name).unwrap();
-
-        // Highlight stacked branches (multiple branches in same stack)
-        if branches.len() > 1 {
+impl CliOutputHuman for DryRunOutcome {
+    fn on_human(
+        self,
+        human: &mut dyn WriteWithUtils,
+        _agent: bool,
+        t: &'static Theme,
+    ) -> anyhow::Result<()> {
+        let Self { branches, refused } = self;
+        if branches.is_empty() {
             writeln!(
                 human,
-                "{} {} {}",
-                t.attention.paint("Stack:"),
-                t.local_branch.paint(stack_name),
-                t.hint.paint(format!("({} branches)", branches.len()))
+                "{}",
+                t.hint.paint("No branches have unpushed commits.")
             )?;
-        }
-
-        // Sort branches to show stacking order (top to bottom)
-        let mut sorted_branches: Vec<_> = branches.to_vec();
-        sorted_branches.sort_by(|a, b| {
-            // If a is stacked on b, then a should come first (reverse of before)
-            if a.stacked_on.as_ref() == Some(&b.branch_name) {
-                std::cmp::Ordering::Less
-            } else if b.stacked_on.as_ref() == Some(&a.branch_name) {
-                std::cmp::Ordering::Greater
-            } else {
-                a.branch_name.cmp(&b.branch_name)
-            }
-        });
-
-        for info in sorted_branches.iter() {
-            let has_stacked_on = info.stacked_on.is_some();
-            let is_stacked_on = sorted_branches
-                .iter()
-                .any(|b| b.stacked_on.as_ref() == Some(&info.branch_name));
-
-            let is_in_stack = has_stacked_on || is_stacked_on;
-            let is_first = has_stacked_on && !is_stacked_on;
-            let is_last = !has_stacked_on && is_stacked_on;
-            let has_next = is_in_stack && !is_last;
-
-            if is_in_stack && !is_first {
-                writeln!(human, "{}", t.hint.paint("│"))?;
-            } else {
-                writeln!(human)?;
-            }
-
-            let gutter = if is_in_stack {
-                if is_first {
-                    "┌─" // Top branch in stack
-                } else if is_last {
-                    "└─" // Bottom branch in stack
-                } else {
-                    "├─" // Middle branch
-                }
-            } else {
-                "  " // Base branch (no parent)
-            };
-
-            if let Some(stacked_on) = &info.stacked_on {
-                writeln!(
-                    human,
-                    "{} {} {} {} {}",
-                    t.hint.paint(gutter),
-                    t.important.paint("Branch:"),
-                    t.local_branch.paint(&info.branch_name),
-                    t.hint.paint("↑"),
-                    t.info.paint(format!("(on top of {stacked_on})"))
-                )?;
-            } else {
-                writeln!(
-                    human,
-                    "{} {} {}",
-                    t.hint.paint(gutter),
-                    t.important.paint("Branch:"),
-                    t.local_branch.paint(&info.branch_name)
-                )?;
-            }
-
-            // Extract branch name from remote_ref (e.g., refs/remotes/origin/branch -> branch)
-            let branch_name = but_core::extract_remote_name_and_short_name(
-                info.remote_ref.as_ref(),
-                &remote_names,
-            )
-            .map(|(_, short_name)| short_name.to_string())
-            .unwrap_or_else(|| info.remote_ref.shorten().to_string());
-
-            let line_prefix = if has_next { "│ " } else { "  " };
-
-            writeln!(
-                human,
-                "{}  {} {} {}",
-                t.hint.paint(line_prefix),
-                t.success.paint("→"),
-                t.hint.paint(if refusals.contains_key(&info.branch_name) {
-                    "Would not push to:"
-                } else {
-                    "Would push to:"
-                }),
-                t.remote_branch
-                    .paint(format!("{}/{}", info.remote, branch_name))
-            )?;
-            writeln!(
-                human,
-                "{}  {} {} unpushed commit{}",
-                t.hint.paint(line_prefix),
-                t.hint.paint("Commits:"),
-                info.unpushed_commits,
-                if info.unpushed_commits == 1 { "" } else { "s" }
-            )?;
-
-            if !info.commits.is_empty() {
-                if is_in_stack {
-                    writeln!(human, "{}", t.hint.paint(line_prefix))?;
-                } else {
-                    writeln!(human)?;
-                }
-                for commit in &info.commits {
-                    writeln!(
-                        human,
-                        "{}    {} {}",
-                        t.hint.paint(line_prefix),
-                        t.commit_id.paint(&commit.sha_short),
-                        t.hint.paint(&commit.message)
-                    )?;
-                }
-
-                if info.unpushed_commits > info.commits.len() {
-                    writeln!(
-                        human,
-                        "{}    ... and {} more",
-                        t.hint.paint(line_prefix),
-                        info.unpushed_commits - info.commits.len()
-                    )?;
-                }
-            }
-
-            if !info.upstream_commits.is_empty() {
-                writeln!(human)?;
-                writeln!(
-                    human,
-                    "{}  {} {} {} commit{}",
-                    t.hint.paint(line_prefix),
-                    t.sym().warning,
-                    t.attention.paint("Upstream commits (on remote):"),
-                    info.upstream_commits.len(),
-                    if info.upstream_commits.len() == 1 {
-                        ""
-                    } else {
-                        "s"
-                    }
-                )?;
-                writeln!(human)?;
-                for commit in &info.upstream_commits {
-                    writeln!(
-                        human,
-                        "{}    {} {}",
-                        t.hint.paint(line_prefix),
-                        t.error.paint(&commit.sha_short),
-                        t.hint.paint(&commit.message)
-                    )?;
-                }
-            }
-
-            if let Some(warning) = &info.warning {
-                writeln!(human)?;
-                // A refusal spans several lines, which all belong inside the gutter.
-                let warning = warning.replace('\n', &format!("\n{line_prefix}    "));
-                writeln!(
-                    human,
-                    "{}  {} {}",
-                    t.hint.paint(line_prefix),
-                    t.sym().warning.error(),
-                    t.error.paint(&warning)
-                )?;
-            }
-
-            if info.requires_force {
-                writeln!(human)?;
-                writeln!(
-                    human,
-                    "{}  {} {}",
-                    t.hint.paint(line_prefix),
-                    t.sym().lightning,
-                    t.attention.paint("Force push required")
-                )?;
-            }
+            return Ok(());
         }
 
         writeln!(human)?;
-    }
+        writeln!(
+            human,
+            "{} {}",
+            t.important.paint("Dry run:"),
+            t.hint.paint("Showing what would be pushed")
+        )?;
+        writeln!(human)?;
 
-    // The summary below counts every branch and invites the push, so a refusal ends the output.
-    outcome?;
-
-    let total_commits: usize = dry_run_infos.iter().map(|i| i.unpushed_commits).sum();
-    let total_branches = dry_run_infos.len();
-
-    writeln!(human)?;
-    writeln!(
-        human,
-        "{} Would push {} {} across {} {}",
-        t.important.paint("Summary:"),
-        t.attention.paint(total_commits.to_string()),
-        if total_commits == 1 {
-            "commit"
-        } else {
-            "commits"
-        },
-        t.info.paint(total_branches.to_string()),
-        if total_branches == 1 {
-            "branch"
-        } else {
-            "branches"
+        let mut branches_by_stack: std::collections::HashMap<String, Vec<&DryRunBranchInfo>> =
+            std::collections::HashMap::new();
+        for info in &branches {
+            branches_by_stack
+                .entry(info.stack_name.clone())
+                .or_default()
+                .push(info);
         }
-    )?;
-    writeln!(human)?;
-    writeln!(
-        human,
-        "{}",
-        t.hint.paint("Run without --dry-run to push these changes.")
-    )?;
 
-    Ok(())
+        let mut stack_names: Vec<_> = branches_by_stack.keys().collect();
+        stack_names.sort();
+
+        for stack_name in stack_names {
+            let branches = branches_by_stack.get(stack_name).unwrap();
+
+            // Highlight stacked branches (multiple branches in same stack)
+            if branches.len() > 1 {
+                writeln!(
+                    human,
+                    "{} {} {}",
+                    t.attention.paint("Stack:"),
+                    t.local_branch.paint(stack_name),
+                    t.hint.paint(format!("({} branches)", branches.len()))
+                )?;
+            }
+
+            // Sort branches to show stacking order (top to bottom)
+            let mut sorted_branches: Vec<_> = branches.to_vec();
+            sorted_branches.sort_by(|a, b| {
+                // If a is stacked on b, then a should come first (reverse of before)
+                if a.stacked_on.as_ref() == Some(&b.branch_name) {
+                    std::cmp::Ordering::Less
+                } else if b.stacked_on.as_ref() == Some(&a.branch_name) {
+                    std::cmp::Ordering::Greater
+                } else {
+                    a.branch_name.cmp(&b.branch_name)
+                }
+            });
+
+            for info in sorted_branches.iter() {
+                let has_stacked_on = info.stacked_on.is_some();
+                let is_stacked_on = sorted_branches
+                    .iter()
+                    .any(|b| b.stacked_on.as_ref() == Some(&info.branch_name));
+
+                let is_in_stack = has_stacked_on || is_stacked_on;
+                let is_first = has_stacked_on && !is_stacked_on;
+                let is_last = !has_stacked_on && is_stacked_on;
+                let has_next = is_in_stack && !is_last;
+
+                if is_in_stack && !is_first {
+                    writeln!(human, "{}", t.hint.paint("│"))?;
+                } else {
+                    writeln!(human)?;
+                }
+
+                let gutter = if is_in_stack {
+                    if is_first {
+                        "┌─" // Top branch in stack
+                    } else if is_last {
+                        "└─" // Bottom branch in stack
+                    } else {
+                        "├─" // Middle branch
+                    }
+                } else {
+                    "  " // Base branch (no parent)
+                };
+
+                if let Some(stacked_on) = &info.stacked_on {
+                    writeln!(
+                        human,
+                        "{} {} {} {} {}",
+                        t.hint.paint(gutter),
+                        t.important.paint("Branch:"),
+                        t.local_branch.paint(&info.branch_name),
+                        t.hint.paint("↑"),
+                        t.info.paint(format!("(on top of {stacked_on})"))
+                    )?;
+                } else {
+                    writeln!(
+                        human,
+                        "{} {} {}",
+                        t.hint.paint(gutter),
+                        t.important.paint("Branch:"),
+                        t.local_branch.paint(&info.branch_name)
+                    )?;
+                }
+
+                let line_prefix = if has_next { "│ " } else { "  " };
+
+                writeln!(
+                    human,
+                    "{}  {} {} {}",
+                    t.hint.paint(line_prefix),
+                    t.success.paint("→"),
+                    t.hint.paint(if info.refused {
+                        "Would not push to:"
+                    } else {
+                        "Would push to:"
+                    }),
+                    t.remote_branch.paint(&info.remote_branch)
+                )?;
+                writeln!(
+                    human,
+                    "{}  {} {} unpushed commit{}",
+                    t.hint.paint(line_prefix),
+                    t.hint.paint("Commits:"),
+                    info.unpushed_commits,
+                    if info.unpushed_commits == 1 { "" } else { "s" }
+                )?;
+
+                if !info.commits.is_empty() {
+                    if is_in_stack {
+                        writeln!(human, "{}", t.hint.paint(line_prefix))?;
+                    } else {
+                        writeln!(human)?;
+                    }
+                    for commit in &info.commits {
+                        writeln!(
+                            human,
+                            "{}    {} {}",
+                            t.hint.paint(line_prefix),
+                            t.commit_id.paint(&commit.sha_short),
+                            t.hint.paint(&commit.message)
+                        )?;
+                    }
+
+                    if info.unpushed_commits > info.commits.len() {
+                        writeln!(
+                            human,
+                            "{}    ... and {} more",
+                            t.hint.paint(line_prefix),
+                            info.unpushed_commits - info.commits.len()
+                        )?;
+                    }
+                }
+
+                if !info.upstream_commits.is_empty() {
+                    writeln!(human)?;
+                    writeln!(
+                        human,
+                        "{}  {} {} {} commit{}",
+                        t.hint.paint(line_prefix),
+                        t.sym().warning,
+                        t.attention.paint("Upstream commits (on remote):"),
+                        info.upstream_commits.len(),
+                        if info.upstream_commits.len() == 1 {
+                            ""
+                        } else {
+                            "s"
+                        }
+                    )?;
+                    writeln!(human)?;
+                    for commit in &info.upstream_commits {
+                        writeln!(
+                            human,
+                            "{}    {} {}",
+                            t.hint.paint(line_prefix),
+                            t.error.paint(&commit.sha_short),
+                            t.hint.paint(&commit.message)
+                        )?;
+                    }
+                }
+
+                if let Some(warning) = &info.warning {
+                    writeln!(human)?;
+                    // A refusal spans several lines, which all belong inside the gutter.
+                    let warning = warning.replace('\n', &format!("\n{line_prefix}    "));
+                    writeln!(
+                        human,
+                        "{}  {} {}",
+                        t.hint.paint(line_prefix),
+                        t.sym().warning.error(),
+                        t.error.paint(&warning)
+                    )?;
+                }
+
+                if info.requires_force {
+                    writeln!(human)?;
+                    writeln!(
+                        human,
+                        "{}  {} {}",
+                        t.hint.paint(line_prefix),
+                        t.sym().lightning,
+                        t.attention.paint("Force push required")
+                    )?;
+                }
+            }
+
+            writeln!(human)?;
+        }
+
+        // The summary below counts every branch and invites the push, so a refusal ends the output.
+        if refused {
+            return Ok(());
+        }
+
+        let total_commits: usize = branches.iter().map(|i| i.unpushed_commits).sum();
+        let total_branches = branches.len();
+
+        writeln!(human)?;
+        writeln!(
+            human,
+            "{} Would push {} {} across {} {}",
+            t.important.paint("Summary:"),
+            t.attention.paint(total_commits.to_string()),
+            if total_commits == 1 {
+                "commit"
+            } else {
+                "commits"
+            },
+            t.info.paint(total_branches.to_string()),
+            if total_branches == 1 {
+                "branch"
+            } else {
+                "branches"
+            }
+        )?;
+        writeln!(human)?;
+        writeln!(
+            human,
+            "{}",
+            t.hint.paint("Run without --dry-run to push these changes.")
+        )?;
+
+        Ok(())
+    }
+}
+
+impl CliOutput for DryRunOutcome {
+    fn on_json(self) -> impl Serialize {
+        #[derive(Serialize)]
+        struct DryRunResult {
+            branches: Vec<DryRunBranchInfo>,
+        }
+        DryRunResult {
+            branches: self.branches,
+        }
+    }
 }
 
 fn dry_run_commit(
@@ -621,50 +647,113 @@ async fn push_single_branch(
     branch_name: &str,
     args: &Command,
     gerrit_mode: bool,
-    out: &mut OutputChannel,
-) -> CliResult<()> {
-    let t = theme::get();
+    is_json: bool,
+) -> CliResult<SinglePushOutcome> {
     let result = push_single_branch_impl(ctx, branch_name, args, gerrit_mode).await?;
+    // Only the human output shows the updated refs.
+    let updates = if is_json || result.push.branch_sha_updates.is_empty() {
+        Vec::new()
+    } else {
+        pushed_ref_updates(&PushDisplay::new(ctx, gerrit_mode)?, &result)
+    };
+    Ok(SinglePushOutcome { result, updates })
+}
 
-    if let Some(out) = out.for_json() {
-        out.write_value(&result)?;
+/// A ref the push updated on the remote, ready for display.
+struct PushedRefUpdate {
+    branch: String,
+    remote_ref: String,
+    before: String,
+    after: String,
+}
+
+/// What displaying the refs a push updated needs, built once per push.
+struct PushDisplay {
+    repo: gix::Repository,
+    gerrit_review_ref: Option<String>,
+}
+
+impl PushDisplay {
+    fn new(ctx: &Context, gerrit_mode: bool) -> anyhow::Result<Self> {
+        let repo = ctx.repo.get()?.clone().for_commit_shortening();
+        let gerrit_review_ref = if gerrit_mode {
+            let guard = ctx.shared_worktree_access();
+            Some(gerrit_review_ref(ctx, guard.read_permission(), &repo)?)
+        } else {
+            None
+        };
+        Ok(PushDisplay {
+            repo,
+            gerrit_review_ref,
+        })
     }
+}
 
-    if let Some(human) = out.for_human() {
+fn pushed_ref_updates(
+    display: &PushDisplay,
+    result: &but_api::legacy::workspace::WorkspaceBranchAndAncestorsPushOutcome,
+) -> Vec<PushedRefUpdate> {
+    result
+        .push
+        .branch_sha_updates
+        .iter()
+        .map(|(branch, before_sha, after_sha)| PushedRefUpdate {
+            branch: branch.clone(),
+            remote_ref: branch_remote_ref_for_display(
+                &result.push,
+                branch,
+                display.gerrit_review_ref.as_deref(),
+            ),
+            before: previous_remote_tip_for_display(&display.repo, before_sha),
+            after: shorten_hex_object_id(&display.repo, after_sha),
+        })
+        .collect()
+}
+
+fn write_pushed_ref_updates(
+    out: &mut dyn WriteWithUtils,
+    t: &Theme,
+    updates: &[PushedRefUpdate],
+) -> std::fmt::Result {
+    for update in updates {
+        writeln!(
+            out,
+            "  {} -> {} ({} -> {})",
+            t.local_branch.paint(&update.branch),
+            t.hint.paint(&update.remote_ref),
+            t.hint.paint(&update.before),
+            t.commit_id.paint(&update.after)
+        )?;
+    }
+    Ok(())
+}
+
+#[must_use]
+struct SinglePushOutcome {
+    result: but_api::legacy::workspace::WorkspaceBranchAndAncestorsPushOutcome,
+    updates: Vec<PushedRefUpdate>,
+}
+
+impl CliOutputHuman for SinglePushOutcome {
+    fn on_human(
+        self,
+        human: &mut dyn WriteWithUtils,
+        _agent: bool,
+        t: &'static Theme,
+    ) -> anyhow::Result<()> {
         writeln!(human)?;
         writeln!(human, "{} Push completed successfully", t.sym().success)?;
         writeln!(human)?;
-        if !result.push.branch_sha_updates.is_empty() {
-            let repo = ctx.repo.get()?.clone().for_commit_shortening();
-            let gerrit_review_ref = if gerrit_mode {
-                let guard = ctx.shared_worktree_access();
-                Some(gerrit_review_ref(ctx, guard.read_permission(), &repo)?)
-            } else {
-                None
-            };
-            for (branch, before_sha, after_sha) in &result.push.branch_sha_updates {
-                let before_str = previous_remote_tip_for_display(&repo, before_sha);
-                let after_str = shorten_hex_object_id(&repo, after_sha);
-                let remote_ref = branch_remote_ref_for_display(
-                    &result.push,
-                    branch,
-                    gerrit_review_ref.as_deref(),
-                );
-
-                writeln!(
-                    human,
-                    "  {} -> {} ({} -> {})",
-                    t.local_branch.paint(branch),
-                    t.hint.paint(&remote_ref),
-                    t.hint.paint(&before_str),
-                    t.commit_id.paint(&after_str)
-                )?;
-            }
-        }
-        write_review_sync_warning(human, &result.review_sync)?;
+        write_pushed_ref_updates(human, t, &self.updates)?;
+        write_review_sync_warning(human, &self.result.review_sync)?;
+        Ok(())
     }
+}
 
-    Ok(())
+impl CliOutput for SinglePushOutcome {
+    fn on_json(self) -> impl Serialize {
+        self.result
+    }
 }
 
 async fn push_single_branch_impl(
@@ -705,22 +794,11 @@ async fn push_all_branches(
     let branches_to_push = get_push_candidates(ctx)?;
 
     if branches_to_push.is_empty() {
-        if let Some(out) = out.for_json() {
-            let batch_result = BatchPushResult {
-                pushed: vec![],
-                failed: vec![],
-            };
-            out.write_value(&batch_result)?;
-        }
-
-        if let Some(human) = out.for_human() {
-            writeln!(
-                human,
-                "{}",
-                t.hint.paint("No branches have unpushed commits.")
-            )?;
-        }
-        return Ok(());
+        return out.print_cli_output(BatchPushOutcome {
+            pushed: Vec::new(),
+            failed: Vec::new(),
+            total_commits_pushed: 0,
+        });
     }
 
     writeln!(progress)?;
@@ -766,18 +844,79 @@ async fn push_all_branches(
         }
     }
 
-    if let Some(out) = out.for_json() {
-        let batch_result = BatchPushResult {
-            pushed: pushed_results.clone(),
-            failed: failed_branches.clone(),
-        };
-        out.write_value(&batch_result)?;
+    let attempted = failed_branches.len() + pushed_results.len();
+    let failed_count = failed_branches.len();
+    // Only the human output shows the updated refs.
+    let display = (!out.is_json() && !pushed_results.is_empty())
+        .then(|| PushDisplay::new(ctx, gerrit_mode))
+        .transpose()?;
+    let pushed = pushed_results
+        .into_iter()
+        .map(|result| {
+            let updates = display
+                .as_ref()
+                .map(|display| pushed_ref_updates(display, &result))
+                .unwrap_or_default();
+            (result, updates)
+        })
+        .collect();
+    out.print_cli_output(BatchPushOutcome {
+        pushed,
+        failed: failed_branches,
+        total_commits_pushed,
+    })?;
+
+    if failed_count > 0 {
+        let summary = format!(
+            "failed to push {} of {} branch{}",
+            failed_count,
+            attempted,
+            if attempted == 1 { "" } else { "es" }
+        );
+        return Err(if only_refusals {
+            bad_input(summary).into()
+        } else {
+            anyhow::Error::msg(summary).into()
+        });
     }
 
-    if let Some(human) = out.for_human() {
+    Ok(())
+}
+
+#[must_use]
+struct BatchPushOutcome {
+    pushed: Vec<(
+        but_api::legacy::workspace::WorkspaceBranchAndAncestorsPushOutcome,
+        Vec<PushedRefUpdate>,
+    )>,
+    failed: Vec<FailedBranch>,
+    total_commits_pushed: usize,
+}
+
+impl CliOutputHuman for BatchPushOutcome {
+    fn on_human(
+        self,
+        human: &mut dyn WriteWithUtils,
+        _agent: bool,
+        t: &'static Theme,
+    ) -> anyhow::Result<()> {
+        let Self {
+            pushed,
+            failed,
+            total_commits_pushed,
+        } = self;
+        if pushed.is_empty() && failed.is_empty() {
+            writeln!(
+                human,
+                "{}",
+                t.hint.paint("No branches have unpushed commits.")
+            )?;
+            return Ok(());
+        }
+
         writeln!(human)?;
 
-        if !pushed_results.is_empty() {
+        if !pushed.is_empty() {
             writeln!(
                 human,
                 "{} {} {} {}",
@@ -792,50 +931,26 @@ async fn push_all_branches(
             )?;
             writeln!(human)?;
 
-            let repo = ctx.repo.get()?.clone().for_commit_shortening();
-            let gerrit_review_ref = if gerrit_mode {
-                let guard = ctx.shared_worktree_access();
-                Some(gerrit_review_ref(ctx, guard.read_permission(), &repo)?)
-            } else {
-                None
-            };
-            for result in &pushed_results {
-                for (branch, before_sha, after_sha) in &result.push.branch_sha_updates {
-                    let before_str = previous_remote_tip_for_display(&repo, before_sha);
-                    let after_str = shorten_hex_object_id(&repo, after_sha);
-                    let remote_ref = branch_remote_ref_for_display(
-                        &result.push,
-                        branch,
-                        gerrit_review_ref.as_deref(),
-                    );
-
-                    writeln!(
-                        human,
-                        "  {} -> {} ({} -> {})",
-                        t.local_branch.paint(branch),
-                        t.hint.paint(&remote_ref),
-                        t.hint.paint(&before_str),
-                        t.commit_id.paint(&after_str)
-                    )?;
-                }
+            for (result, updates) in &pushed {
+                write_pushed_ref_updates(human, t, updates)?;
                 write_review_sync_warning(human, &result.review_sync)?;
             }
         }
 
-        if !failed_branches.is_empty() {
+        if !failed.is_empty() {
             writeln!(human)?;
             writeln!(
                 human,
                 "{} Failed to push {} {}:",
                 t.sym().error,
-                t.error.paint(failed_branches.len().to_string()),
-                if failed_branches.len() == 1 {
+                t.error.paint(failed.len().to_string()),
+                if failed.len() == 1 {
                     "branch"
                 } else {
                     "branches"
                 }
             )?;
-            for failed in &failed_branches {
+            for failed in &failed {
                 writeln!(
                     human,
                     "    {} - {}",
@@ -844,24 +959,23 @@ async fn push_all_branches(
                 )?;
             }
         }
+        Ok(())
     }
+}
 
-    if !failed_branches.is_empty() {
-        let attempted = failed_branches.len() + pushed_results.len();
-        let summary = format!(
-            "failed to push {} of {} branch{}",
-            failed_branches.len(),
-            attempted,
-            if attempted == 1 { "" } else { "es" }
-        );
-        return Err(if only_refusals {
-            bad_input(summary).into()
-        } else {
-            anyhow::Error::msg(summary).into()
-        });
+impl CliOutput for BatchPushOutcome {
+    fn on_json(self) -> impl Serialize {
+        #[derive(Serialize)]
+        #[serde(rename_all = "camelCase")]
+        struct BatchPushResult {
+            pushed: Vec<but_api::legacy::workspace::WorkspaceBranchAndAncestorsPushOutcome>,
+            failed: Vec<FailedBranch>,
+        }
+        BatchPushResult {
+            pushed: self.pushed.into_iter().map(|(result, _)| result).collect(),
+            failed: self.failed,
+        }
     }
-
-    Ok(())
 }
 
 /// An error as plain text. A refusal renders with its hint, which also has to reach JSON.

@@ -4,8 +4,8 @@ use gitbutler_oplog::entry::{OperationKind, Snapshot, Trailer};
 use gix::{date::time::CustomFormat, prelude::ObjectIdExt};
 
 use crate::{
-    theme::{self, Paint},
-    utils::{OutputChannel, shorten_object_id},
+    theme::{self, Paint, Theme},
+    utils::{CliOutput, CliOutputHuman, OutputChannel, WriteWithUtils, shorten_object_id},
 };
 
 pub const ISO8601_NO_TZ: CustomFormat = CustomFormat::new("%Y-%m-%d %H:%M:%S");
@@ -26,10 +26,9 @@ impl OplogFilter {
 
 pub(crate) fn show_oplog(
     ctx: &mut but_ctx::Context,
-    out: &mut OutputChannel,
     since: Option<&str>,
     filter: Option<OplogFilter>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<OplogOutcome> {
     let include_kind = filter.map(|f| f.to_include_kinds());
 
     let since_sha = if let Some(sha_prefix) = since {
@@ -46,31 +45,82 @@ pub(crate) fn show_oplog(
         .take(20)
         .collect::<anyhow::Result<Vec<_>>>()?;
 
-    if snapshots.is_empty() {
-        if let Some(out) = out.for_json() {
-            out.write_value(&snapshots)?;
-        } else if let Some(out) = out.for_human() {
-            writeln!(out, "No operations found in history.")?;
-        }
-        return Ok(());
-    }
-
-    if let Some(out) = out.for_json() {
-        out.write_value(&snapshots)?;
-    } else if let Some(out) = out.for_human() {
+    // Find the longest short ID length to keep all lines aligned.
+    let longest_short_id_len = {
         let repo = ctx.repo.get()?.clone().for_commit_shortening();
-        let t = theme::get();
-        writeln!(out, "{}", t.important.paint("Operations History"))?;
-        writeln!(out, "{}", t.hint.paint("─".repeat(50)))?;
-        // Find the longest short ID length to keep all lines aligned.
-        let longest_short_id_len = snapshots
+        snapshots
             .iter()
             .filter_map(|s| {
                 let prefix = s.commit_id.attach(&repo).shorten().ok()?;
                 Some(prefix.hex_len())
             })
             .max()
-            .unwrap_or(7);
+            .unwrap_or(7)
+    };
+    let restore_targets = snapshots
+        .iter()
+        .filter(|snapshot| {
+            snapshot.details.as_ref().is_some_and(|details| {
+                matches!(
+                    details.operation,
+                    OperationKind::RestoreFromSnapshotViaUndo
+                        | OperationKind::RestoreFromSnapshotViaRedo
+                        | OperationKind::RestoreFromSnapshot
+                )
+            })
+        })
+        .filter_map(|snapshot| {
+            let restore_target =
+                but_api::legacy::oplog::peel_restore_snapshot(ctx, snapshot.commit_id)
+                    .ok()
+                    .flatten()?;
+            (restore_target.commit_id != snapshot.commit_id).then_some(())?;
+            let details = restore_target.details.as_ref()?;
+            Some((
+                snapshot.commit_id,
+                (
+                    details.operation.title().to_owned(),
+                    restore_target.commit_id,
+                ),
+            ))
+        })
+        .collect();
+
+    Ok(OplogOutcome {
+        snapshots,
+        longest_short_id_len,
+        restore_targets,
+    })
+}
+
+#[must_use]
+pub(crate) struct OplogOutcome {
+    snapshots: Vec<Snapshot>,
+    longest_short_id_len: usize,
+    /// The title and commit of the snapshot each restore snapshot restored to, by restore
+    /// snapshot commit.
+    restore_targets: std::collections::HashMap<gix::ObjectId, (String, gix::ObjectId)>,
+}
+
+impl CliOutputHuman for OplogOutcome {
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        t: &'static Theme,
+    ) -> anyhow::Result<()> {
+        let Self {
+            snapshots,
+            longest_short_id_len,
+            restore_targets,
+        } = self;
+        if snapshots.is_empty() {
+            writeln!(out, "No operations found in history.")?;
+            return Ok(());
+        }
+
+        writeln!(out, "{}", t.important.paint("Operations History"))?;
+        writeln!(out, "{}", t.hint.paint("─".repeat(50)))?;
 
         for snapshot in snapshots {
             let time_string = snapshot_time_string(&snapshot);
@@ -119,17 +169,14 @@ pub(crate) fn show_oplog(
                     OperationKind::RestoreFromSnapshotViaUndo
                     | OperationKind::RestoreFromSnapshotViaRedo
                     | OperationKind::RestoreFromSnapshot => {
-                        if let Ok(Some(restore_target)) =
-                            but_api::legacy::oplog::peel_restore_snapshot(ctx, snapshot.commit_id)
-                            && restore_target.commit_id != snapshot.commit_id
-                            && let Some(restore_target_details) = &restore_target.details
+                        if let Some((restore_target_title, restore_target_id)) =
+                            restore_targets.get(&snapshot.commit_id)
                         {
                             format!(
                                 "Restored from snapshot: {} ({})",
-                                restore_target_details.operation.title(),
+                                restore_target_title,
                                 t.cli_id.paint(
-                                    restore_target
-                                        .commit_id
+                                    restore_target_id
                                         .to_hex_with_len(longest_short_id_len)
                                         .to_string()
                                 ),
@@ -267,9 +314,15 @@ pub(crate) fn show_oplog(
                 title
             )?;
         }
-    }
 
-    Ok(())
+        Ok(())
+    }
+}
+
+impl CliOutput for OplogOutcome {
+    fn on_json(self) -> impl serde::Serialize {
+        self.snapshots
+    }
 }
 
 fn snapshot_time_string(snapshot: &Snapshot) -> String {
@@ -283,7 +336,7 @@ pub(crate) fn restore_to_oplog(
     ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
     oplog_sha: &str,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<RestoreOutcome> {
     let commit_id = ctx.repo.get()?.rev_parse_single(oplog_sha)?.detach();
     let target_snapshot = &but_api::legacy::oplog::get_snapshot(ctx, commit_id)?;
     let commit_short = {
@@ -322,8 +375,19 @@ pub(crate) fn restore_to_oplog(
         commit_id,
     )?;
 
-    if let Some(out) = out.for_human() {
-        let t = theme::get();
+    Ok(RestoreOutcome)
+}
+
+#[must_use]
+pub(crate) struct RestoreOutcome;
+
+impl CliOutputHuman for RestoreOutcome {
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        t: &'static Theme,
+    ) -> anyhow::Result<()> {
         writeln!(out, "\n{} Restore completed successfully!", t.sym().success,)?;
 
         writeln!(
@@ -332,28 +396,46 @@ pub(crate) fn restore_to_oplog(
             t.success
                 .paint("\nWorkspace has been restored to the selected snapshot.")
         )?;
+        Ok(())
     }
+}
 
-    Ok(())
+impl CliOutput for RestoreOutcome {
+    fn on_json(self) -> impl serde::Serialize {}
 }
 
 pub(crate) fn create_snapshot(
     ctx: &mut but_ctx::Context,
-    out: &mut OutputChannel,
     message: Option<&str>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<SnapshotOutcome> {
     let snapshot_id = but_api::legacy::oplog::create_snapshot(ctx, message.map(String::from))?;
+    let short_id = shorten_object_id(&*ctx.repo.get()?, snapshot_id);
+    Ok(SnapshotOutcome {
+        snapshot_id,
+        short_id,
+        message: message.map(ToOwned::to_owned),
+    })
+}
 
-    if let Some(out) = out.for_json() {
-        out.write_value(serde_json::json!({
-            "snapshot_id": snapshot_id.to_string(),
-            "message": message.unwrap_or(""),
-            "operation": "create_snapshot"
-        }))?;
-    } else if let Some(out) = out.for_human() {
-        let repo = ctx.repo.get()?;
-        let short = shorten_object_id(&repo, snapshot_id);
-        let t = theme::get();
+#[must_use]
+pub(crate) struct SnapshotOutcome {
+    snapshot_id: gix::ObjectId,
+    short_id: String,
+    message: Option<String>,
+}
+
+impl CliOutputHuman for SnapshotOutcome {
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        t: &'static Theme,
+    ) -> anyhow::Result<()> {
+        let Self {
+            snapshot_id: _,
+            short_id: short,
+            message,
+        } = self;
         writeln!(out, "{}", t.success.paint("Snapshot created successfully!"))?;
 
         if let Some(msg) = message {
@@ -367,7 +449,16 @@ pub(crate) fn create_snapshot(
             t.info.paint("💡"),
             short
         )?;
+        Ok(())
     }
+}
 
-    Ok(())
+impl CliOutput for SnapshotOutcome {
+    fn on_json(self) -> impl serde::Serialize {
+        serde_json::json!({
+            "snapshot_id": self.snapshot_id.to_string(),
+            "message": self.message.unwrap_or_default(),
+            "operation": "create_snapshot"
+        })
+    }
 }

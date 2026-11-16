@@ -8,9 +8,10 @@ use but_path::home_dir;
 use serde::Serialize;
 
 use crate::{
+    CliResult,
     args::skill,
-    theme::{self, Paint},
-    utils::{OutputChannel, detect_agent::Agent},
+    theme::{self, Paint, Theme},
+    utils::{CliOutput, CliOutputHuman, OutputChannel, WriteWithUtils, detect_agent::Agent},
 };
 
 mod freshness;
@@ -408,9 +409,9 @@ pub fn handle(
     current_dir: &std::path::Path,
     out: &mut OutputChannel,
     platform: skill::Platform,
-) -> Result<()> {
+) -> CliResult<()> {
     if let Some(doc) = platform.doc() {
-        return print_doc(out, doc, platform.full);
+        return out.print_cli_output(doc_outcome(doc, platform.full));
     }
     match platform.cmd {
         Some(skill::Subcommands::Install {
@@ -426,7 +427,7 @@ pub fn handle(
             };
             match install_skill(current_dir, out, global, path, detect, layout) {
                 Err(error) if error.downcast_ref::<UserCancelled>().is_some() => Ok(()),
-                result => result,
+                result => out.print_cli_output(result?),
             }
         }
         Some(skill::Subcommands::Check {
@@ -443,10 +444,10 @@ pub fn handle(
     }
 }
 
-/// Print one embedded skill document, with every reference appended when
-/// `full` is set. Content goes straight to the output channel with no pager so
-/// an agent can read it in one call.
-fn print_doc(out: &mut OutputChannel, name: &str, full: bool) -> Result<()> {
+/// One embedded skill document, with every reference appended when `full` is
+/// set. Content goes straight to the output channel with no pager so an agent
+/// can read it in one call.
+fn doc_outcome(name: &'static str, full: bool) -> DocOutcome {
     let file = SKILL_FILES
         .iter()
         .find(|file| file.name == name)
@@ -467,21 +468,49 @@ fn print_doc(out: &mut OutputChannel, name: &str, full: bool) -> Result<()> {
     } else {
         Vec::new()
     };
-    if let Some(writer) = out.for_human() {
-        write!(writer, "{body}")?;
-        for (reference, text) in &references {
-            writeln!(writer, "\n--- but skill {} ---\n", reference.name)?;
-            write!(writer, "{text}")?;
+    DocOutcome {
+        name,
+        body: body.to_owned(),
+        references: references
+            .into_iter()
+            .map(|(reference, text)| (reference.name, text))
+            .collect(),
+    }
+}
+
+#[must_use]
+struct DocOutcome {
+    name: &'static str,
+    body: String,
+    /// The name and text of each appended reference.
+    references: Vec<(&'static str, String)>,
+}
+
+impl CliOutputHuman for DocOutcome {
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        _theme: &'static Theme,
+    ) -> Result<()> {
+        write!(out, "{}", self.body)?;
+        for (name, text) in &self.references {
+            writeln!(out, "\n--- but skill {name} ---\n")?;
+            write!(out, "{text}")?;
         }
+        Ok(())
     }
-    if let Some(out) = out.for_json() {
-        let docs: Vec<serde_json::Value> = references
+}
+
+impl CliOutput for DocOutcome {
+    fn on_json(self) -> impl Serialize {
+        let docs: Vec<serde_json::Value> = self
+            .references
             .iter()
-            .map(|(reference, text)| serde_json::json!({ "name": reference.name, "content": text }))
+            .map(|(name, text)| serde_json::json!({ "name": name, "content": text }))
             .collect();
-        out.write_value(serde_json::json!({ "name": name, "content": body, "references": docs }))?;
+        serde_json::json!({ "name": self.name, "content": self.body, "references": docs })
     }
-    Ok(())
 }
 
 /// The repository around `current_dir`, `None` when there is none. Any other
@@ -797,7 +826,7 @@ fn check_skills(
     global_only: bool,
     local_only: bool,
     auto_update: bool,
-) -> Result<()> {
+) -> CliResult<()> {
     let t = theme::get();
     let (check_global, check_local) = match (global_only, local_only) {
         (true, false) => (true, false),
@@ -813,10 +842,11 @@ fn check_skills(
     };
 
     if local_only && ctx.is_none() {
-        anyhow::bail!(
+        return Err(anyhow::anyhow!(
             "Cannot check local installations: not in a git repository.\n\
              Use --global to check global installations, or run from within a repository."
-        );
+        )
+        .into());
     }
 
     // First check to find outdated skills (reborrow ctx so we can use it again later)
@@ -842,7 +872,7 @@ fn check_skills(
 
         for path_str in &outdated_paths {
             // Pass None for ctx since the paths are already absolute and don't require repo context
-            install_skill(
+            let outcome = install_skill(
                 current_dir,
                 out,
                 false,
@@ -850,6 +880,7 @@ fn check_skills(
                 false,
                 SkillLayout::Full,
             )?;
+            out.print_cli_output(outcome)?;
         }
     }
 
@@ -860,22 +891,43 @@ fn check_skills(
         initial_result
     };
 
-    if let Some(writer) = out.for_human() {
-        print_human_check_output(writer, &result)?;
+    out.print_cli_output(CheckOutcome {
+        result,
+        auto_update,
+    })
+}
+
+#[must_use]
+struct CheckOutcome {
+    result: SkillCheckResult,
+    /// Whether outdated skills were updated, so there is no need to suggest it.
+    auto_update: bool,
+}
+
+impl CliOutputHuman for CheckOutcome {
+    fn on_human(self, out: &mut dyn WriteWithUtils, _agent: bool, t: &'static Theme) -> Result<()> {
+        let Self {
+            result,
+            auto_update,
+        } = self;
+        print_human_check_output(out, &result)?;
 
         if result.outdated_count > 0 && !auto_update {
-            writeln!(writer)?;
+            writeln!(out)?;
             writeln!(
-                writer,
+                out,
                 "{} Run 'but skill check --update' to update outdated skills",
                 t.sym().arrow.attention()
             )?;
         }
-    } else if let Some(json_out) = out.for_json() {
-        json_out.write_value(&result)?;
+        Ok(())
     }
+}
 
-    Ok(())
+impl CliOutput for CheckOutcome {
+    fn on_json(self) -> impl Serialize {
+        self.result
+    }
 }
 
 fn print_human_check_output(
@@ -1182,7 +1234,7 @@ fn install_skill(
     custom_path: Option<String>,
     detect: bool,
     layout: SkillLayout,
-) -> Result<()> {
+) -> Result<InstallOutcome> {
     let t = theme::get();
     let driving_agent = (!out.can_prompt())
         .then(crate::utils::detect_agent::detect)
@@ -1284,12 +1336,42 @@ fn install_skill(
     }
     // An existing stub is kept as a stub, so report what each location
     // actually holds rather than the layout that was requested.
-    let written: Vec<(&PathBuf, SkillLayout)> = install_paths
+    let written: Vec<(PathBuf, SkillLayout)> = install_paths
         .iter()
-        .map(|path| (path, installed_layout(&path.join("SKILL.md"))))
+        .map(|path| (path.clone(), installed_layout(&path.join("SKILL.md"))))
         .collect();
 
-    if let Some(writer) = out.for_human() {
+    Ok(InstallOutcome {
+        version,
+        install_paths,
+        written,
+        installed_for_driving_agent,
+    })
+}
+
+#[must_use]
+struct InstallOutcome {
+    version: &'static str,
+    install_paths: Vec<PathBuf>,
+    /// Each install path with the layout it holds after the install.
+    written: Vec<(PathBuf, SkillLayout)>,
+    /// Whether the skill went to the default location of the agent running `but`.
+    installed_for_driving_agent: bool,
+}
+
+impl CliOutputHuman for InstallOutcome {
+    fn on_human(
+        self,
+        writer: &mut dyn WriteWithUtils,
+        _agent: bool,
+        t: &'static Theme,
+    ) -> Result<()> {
+        let Self {
+            version: _,
+            install_paths,
+            written,
+            installed_for_driving_agent,
+        } = self;
         writeln!(writer)?;
         writeln!(
             writer,
@@ -1334,9 +1416,18 @@ fn install_skill(
             )?;
             writeln!(writer)?;
         }
+        Ok(())
     }
+}
 
-    if let Some(out) = out.for_json() {
+impl CliOutput for InstallOutcome {
+    fn on_json(self) -> impl Serialize {
+        let Self {
+            version,
+            install_paths,
+            written,
+            installed_for_driving_agent: _,
+        } = self;
         let installations: Vec<serde_json::Value> = written
             .iter()
             .map(|(path, layout)| {
@@ -1364,10 +1455,8 @@ fn install_skill(
         {
             result["files"] = installations[0]["files"].clone();
         }
-        out.write_value(result)?;
+        result
     }
-
-    Ok(())
 }
 
 #[cfg(test)]

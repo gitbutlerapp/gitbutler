@@ -7,8 +7,8 @@ use serde::Serialize;
 
 use super::git_config::{EditGlobalConfig, edit_git_config};
 use crate::{
-    theme::{self, Paint},
-    utils::OutputChannel,
+    theme::{Paint, Theme},
+    utils::{CliOutput, CliOutputHuman, WriteWithUtils},
 };
 
 #[derive(Debug, Clone, Serialize)]
@@ -19,7 +19,7 @@ pub struct AliasEntry {
     pub scopes: Vec<&'static str>,
 }
 
-pub fn list(ctx: Option<&Context>, out: &mut OutputChannel) -> Result<()> {
+pub fn list(ctx: Option<&Context>) -> Result<AliasOutcome> {
     let repo = ctx.map(|ctx| ctx.repo.get()).transpose()?;
     let user_aliases = match repo.as_deref() {
         Some(repo) => get_all_aliases(&repo.config_snapshot()),
@@ -28,96 +28,191 @@ pub fn list(ctx: Option<&Context>, out: &mut OutputChannel) -> Result<()> {
 
     let default_aliases = get_default_aliases();
 
-    if user_aliases.is_empty() && default_aliases.is_empty() {
-        if let Some(out) = out.for_human() {
-            writeln!(out, "No aliases configured.")?;
-            writeln!(out)?;
-            writeln!(out, "Create an alias with:")?;
-            writeln!(out, "  but alias add stup 'status --upstream'")?;
-        } else if let Some(out) = out.for_json() {
-            out.write_value(serde_json::json!({
-                "user": {},
-                "default": {}
-            }))?;
-        }
-        return Ok(());
-    }
+    Ok(AliasOutcome::List {
+        user_aliases,
+        default_aliases,
+    })
+}
 
-    if let Some(out) = out.for_human() {
-        let t = theme::get();
-        let max_name_len = user_aliases
-            .iter()
-            .map(|a| a.name.len())
-            .chain(default_aliases.iter().map(|(name, _)| name.len()))
-            .max()
-            .unwrap_or(0);
+#[must_use]
+pub enum AliasOutcome {
+    List {
+        user_aliases: Vec<AliasEntry>,
+        default_aliases: Vec<(String, String)>,
+    },
+    Added {
+        name: String,
+        value: String,
+        is_global: bool,
+    },
+    Removed {
+        name: String,
+        is_global: bool,
+        /// Whether the alias existed.
+        removed: bool,
+    },
+}
 
-        if !user_aliases.is_empty() {
-            writeln!(out, "{}:", t.important.paint("User aliases"))?;
-            writeln!(out)?;
+impl CliOutputHuman for AliasOutcome {
+    fn on_human(self, out: &mut dyn WriteWithUtils, _agent: bool, t: &'static Theme) -> Result<()> {
+        match self {
+            AliasOutcome::List {
+                user_aliases,
+                default_aliases,
+            } => {
+                if user_aliases.is_empty() && default_aliases.is_empty() {
+                    writeln!(out, "No aliases configured.")?;
+                    writeln!(out)?;
+                    writeln!(out, "Create an alias with:")?;
+                    writeln!(out, "  but alias add stup 'status --upstream'")?;
+                    return Ok(());
+                }
 
-            for alias in &user_aliases {
-                let scope_indicator = t.hint.paint(format!("({})", alias.scopes.join("+")));
+                let max_name_len = user_aliases
+                    .iter()
+                    .map(|a| a.name.len())
+                    .chain(default_aliases.iter().map(|(name, _)| name.len()))
+                    .max()
+                    .unwrap_or(0);
+
+                if !user_aliases.is_empty() {
+                    writeln!(out, "{}:", t.important.paint("User aliases"))?;
+                    writeln!(out)?;
+
+                    for alias in &user_aliases {
+                        let scope_indicator = t.hint.paint(format!("({})", alias.scopes.join("+")));
+                        writeln!(
+                            out,
+                            "  {:<width$}  {}  {} {}",
+                            t.config_key.paint(&alias.name),
+                            t.sym().arrow,
+                            t.config_value.paint(&alias.value),
+                            scope_indicator,
+                            width = max_name_len
+                        )?;
+                    }
+                    writeln!(out)?;
+                }
+
+                if !default_aliases.is_empty() {
+                    writeln!(
+                        out,
+                        "{} {}:",
+                        t.important.paint("Default aliases"),
+                        t.hint.paint("(overridable)")
+                    )?;
+                    writeln!(out)?;
+
+                    for (name, value) in &default_aliases {
+                        let is_overridden = user_aliases.iter().any(|a| &a.name == name);
+
+                        if is_overridden {
+                            writeln!(
+                                out,
+                                "  {:<width$}  {}  {}  {}",
+                                t.hint.paint(name),
+                                t.sym().arrow,
+                                t.hint.paint(value),
+                                t.hint.paint("(overridden)"),
+                                width = max_name_len
+                            )?;
+                        } else {
+                            writeln!(
+                                out,
+                                "  {:<width$}  {}  {}",
+                                t.config_key.paint(name),
+                                t.sym().arrow,
+                                t.config_value.paint(value),
+                                width = max_name_len
+                            )?;
+                        }
+                    }
+                }
+            }
+            AliasOutcome::Added {
+                name,
+                value,
+                is_global,
+            } => {
                 writeln!(
                     out,
-                    "  {:<width$}  {}  {} {}",
-                    t.config_key.paint(&alias.name),
+                    "{} Alias '{}' {} '{}'",
+                    t.sym().success,
+                    t.config_key.paint(&name),
                     t.sym().arrow,
-                    t.config_value.paint(&alias.value),
-                    scope_indicator,
-                    width = max_name_len
+                    t.config_value.paint(&value)
                 )?;
+                if is_global {
+                    writeln!(out, "  (configured globally)")?;
+                }
             }
-            writeln!(out)?;
-        }
-
-        if !default_aliases.is_empty() {
-            writeln!(
-                out,
-                "{} {}:",
-                t.important.paint("Default aliases"),
-                t.hint.paint("(overridable)")
-            )?;
-            writeln!(out)?;
-
-            for (name, value) in &default_aliases {
-                let is_overridden = user_aliases.iter().any(|a| &a.name == name);
-
-                if is_overridden {
+            AliasOutcome::Removed {
+                name,
+                is_global,
+                removed,
+            } => {
+                if !removed {
                     writeln!(
                         out,
-                        "  {:<width$}  {}  {}  {}",
-                        t.hint.paint(name),
-                        t.sym().arrow,
-                        t.hint.paint(value),
-                        t.hint.paint("(overridden)"),
-                        width = max_name_len
+                        "{} Alias '{}' not found",
+                        t.sym().error,
+                        t.config_key.paint(&name)
                     )?;
                 } else {
-                    writeln!(
-                        out,
-                        "  {:<width$}  {}  {}",
-                        t.config_key.paint(name),
-                        t.sym().arrow,
-                        t.config_value.paint(value),
-                        width = max_name_len
-                    )?;
+                    writeln!(out, "Alias '{}' removed", t.config_key.paint(&name))?;
+                    if is_global {
+                        writeln!(out, "  (globally)")?;
+                    }
                 }
             }
         }
-    } else if let Some(out) = out.for_json() {
-        let default_json: serde_json::Map<String, serde_json::Value> = default_aliases
-            .into_iter()
-            .map(|(k, v)| (k, serde_json::Value::String(v)))
-            .collect();
-
-        out.write_value(serde_json::json!({
-            "user": user_aliases,
-            "default": default_json
-        }))?;
+        Ok(())
     }
+}
 
-    Ok(())
+impl CliOutput for AliasOutcome {
+    fn on_json(self) -> impl Serialize {
+        let scope = |is_global| if is_global { "global" } else { "local" };
+        match self {
+            AliasOutcome::List {
+                user_aliases,
+                default_aliases,
+            } => {
+                if user_aliases.is_empty() && default_aliases.is_empty() {
+                    return serde_json::json!({
+                        "user": {},
+                        "default": {}
+                    });
+                }
+                let default_json: serde_json::Map<String, serde_json::Value> = default_aliases
+                    .into_iter()
+                    .map(|(k, v)| (k, serde_json::Value::String(v)))
+                    .collect();
+                serde_json::json!({
+                    "user": user_aliases,
+                    "default": default_json
+                })
+            }
+            AliasOutcome::Added {
+                name,
+                value,
+                is_global,
+            } => serde_json::json!({
+                "name": name,
+                "value": value,
+                "scope": scope(is_global)
+            }),
+            AliasOutcome::Removed {
+                name,
+                is_global,
+                removed,
+            } => serde_json::json!({
+                "name": name,
+                "scope": scope(is_global),
+                "removed": removed
+            }),
+        }
+    }
 }
 
 /// Get configured aliases from every source, preserving the last value for each name.
@@ -196,11 +291,10 @@ fn get_default_aliases() -> Vec<(String, String)> {
 
 pub fn add(
     ctx: Option<&Context>,
-    out: &mut OutputChannel,
     name: &str,
     value: &str,
     global: EditGlobalConfig,
-) -> Result<()> {
+) -> Result<AliasOutcome> {
     if crate::alias::is_known_subcommand(name) {
         anyhow::bail!("Cannot create alias '{name}': it conflicts with a built-in command");
     }
@@ -212,36 +306,14 @@ pub fn add(
         Ok(())
     })?;
 
-    if let Some(out) = out.for_human() {
-        let t = theme::get();
-        writeln!(
-            out,
-            "{} Alias '{}' {} '{}'",
-            t.sym().success,
-            t.config_key.paint(name),
-            t.sym().arrow,
-            t.config_value.paint(value)
-        )?;
-        if is_global {
-            writeln!(out, "  (configured globally)")?;
-        }
-    } else if let Some(out) = out.for_json() {
-        out.write_value(serde_json::json!({
-            "name": name,
-            "value": value,
-            "scope": if is_global { "global" } else { "local" }
-        }))?;
-    }
-
-    Ok(())
+    Ok(AliasOutcome::Added {
+        name: name.to_owned(),
+        value: value.to_owned(),
+        is_global,
+    })
 }
 
-pub fn remove(
-    ctx: Option<&Context>,
-    out: &mut OutputChannel,
-    name: &str,
-    global: EditGlobalConfig,
-) -> Result<()> {
+pub fn remove(ctx: Option<&Context>, name: &str, global: EditGlobalConfig) -> Result<AliasOutcome> {
     let is_global: bool = global.into();
     let repo = ctx.map(|ctx| ctx.repo.get()).transpose()?;
     let success = edit_git_config(repo.as_deref(), global, |config| {
@@ -249,31 +321,11 @@ pub fn remove(
         Ok(())
     })?;
 
-    if let Some(out) = out.for_human() {
-        let t = theme::get();
-        if !success {
-            writeln!(
-                out,
-                "{} Alias '{}' not found",
-                t.sym().error,
-                t.config_key.paint(name)
-            )?;
-            return Ok(());
-        } else {
-            writeln!(out, "Alias '{}' removed", t.config_key.paint(name))?;
-            if is_global {
-                writeln!(out, "  (globally)")?;
-            }
-        }
-    } else if let Some(out) = out.for_json() {
-        out.write_value(serde_json::json!({
-            "name": name,
-            "scope": if is_global { "global" } else { "local" },
-            "removed": success
-        }))?;
-    }
-
-    Ok(())
+    Ok(AliasOutcome::Removed {
+        name: name.to_owned(),
+        is_global,
+        removed: success,
+    })
 }
 
 fn remove_alias(config: &mut gix::config::File, name: &str) {

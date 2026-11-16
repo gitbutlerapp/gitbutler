@@ -15,11 +15,12 @@ use serde::{Deserialize, Serialize};
 use crate::{
     CliResult,
     args::PullUpdate,
+    command::legacy::resolve::ConflictedCommit,
     command::legacy::upstream::{
         self, BranchStatus as PullBranchStatus, BranchStatusInfo as PullBranchStatusInfo,
     },
-    theme::{self, Paint},
-    utils::{OutputChannel, shorten_hex_object_id},
+    theme::{self, Paint, Theme},
+    utils::{CliOutput, CliOutputHuman, OutputChannel, WriteWithUtils, shorten_hex_object_id},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -235,48 +236,87 @@ async fn handle_check(
         writeln!(progress, "Checking integration statuses...")?;
     }
 
-    if let Some(out) = out.for_json() {
-        let output = PullCheckOutput {
-            base_branch: BaseBranchInfo {
-                name: base_branch.branch_name.clone(),
-                remote_name: base_branch.remote_name.clone(),
-                base_sha: base_branch.base_sha.to_string(),
-                current_sha: base_branch
-                    .current_sha
-                    .context("The configured target upstream ref is unavailable")?
-                    .to_string(),
-            },
-            upstream_commits: UpstreamInfo {
-                count: incoming.len(),
-                commits: incoming,
-            },
-            branch_statuses: check_branch_statuses(&statuses),
+    writeln!(
+        progress,
+        "{}",
+        t.important.paint("Checking base branch status...")
+    )?;
+    let current_sha = base_branch.current_sha.map(|sha| sha.to_string());
+    if out.is_json() && current_sha.is_none() {
+        return Err(anyhow::anyhow!("The configured target upstream ref is unavailable").into());
+    }
+    // The shortened ids and the hint only appear in human output.
+    let (incoming_short_ids, untracked_hint) = if out.is_json() {
+        (Vec::new(), None)
+    } else {
+        let repo = ctx.repo.get()?.clone().for_commit_shortening();
+        let short_ids = incoming
+            .iter()
+            .take(3)
+            .map(|commit| shorten_hex_object_id(&repo, &commit.id))
+            .collect();
+        (short_ids, untracked_target_hint(ctx, has_upstream)?)
+    };
+    out.print_cli_output(CheckOutcome {
+        base_branch_name: base_branch.branch_name,
+        remote_name: base_branch.remote_name,
+        base_sha: base_branch.base_sha.to_string(),
+        current_sha: current_sha.unwrap_or_default(),
+        incoming,
+        incoming_short_ids,
+        untracked_hint,
+        up_to_date,
+        has_worktree_conflicts,
+        statuses,
+    })
+}
+
+#[must_use]
+struct CheckOutcome {
+    base_branch_name: String,
+    remote_name: Option<String>,
+    base_sha: String,
+    current_sha: String,
+    incoming: Vec<UpstreamCommit>,
+    /// The shortened IDs of the first incoming commits, for display.
+    incoming_short_ids: Vec<String>,
+    untracked_hint: Option<String>,
+    up_to_date: bool,
+    has_worktree_conflicts: bool,
+    statuses: Vec<PullBranchStatusInfo>,
+}
+
+impl CliOutputHuman for CheckOutcome {
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        t: &'static Theme,
+    ) -> anyhow::Result<()> {
+        let Self {
+            base_branch_name,
+            remote_name,
+            base_sha: _,
+            current_sha: _,
+            incoming,
+            incoming_short_ids,
+            untracked_hint,
             up_to_date,
             has_worktree_conflicts,
-        };
-        out.write_value(output)?;
-    } else if let Some(out) = out.for_human() {
-        writeln!(
-            progress,
-            "{}",
-            t.important.paint("Checking base branch status...")
-        )?;
+            statuses,
+        } = self;
         writeln!(
             out,
             "\n{}\t{}",
             t.hint.paint("Base branch:"),
-            t.remote_branch.paint(&base_branch.branch_name)
+            t.remote_branch.paint(&base_branch_name)
         )?;
-        let upstream_label = format!(
-            "{} new commits on {}",
-            incoming.len(),
-            base_branch.branch_name
-        );
+        let upstream_label = format!("{} new commits on {}", incoming.len(), base_branch_name);
         writeln!(
             out,
             "{}\t{}",
             // Without an upstream, the new commits are on the target branch itself.
-            t.hint.paint(if base_branch.remote_name.is_some() {
+            t.hint.paint(if remote_name.is_some() {
                 "Upstream:"
             } else {
                 "Incoming:"
@@ -289,11 +329,9 @@ async fn handle_check(
         )?;
 
         if !incoming.is_empty() {
-            let repo = ctx.repo.get()?.clone().for_commit_shortening();
             writeln!(out)?;
-            let commits = incoming.iter().take(3);
-            for commit in commits {
-                let commit_short = shorten_hex_object_id(&repo, &commit.id);
+            let commits = incoming.iter().zip(&incoming_short_ids);
+            for (commit, commit_short) in commits {
                 let msg: String = commit
                     .description
                     .replace('\n', " ")
@@ -303,7 +341,7 @@ async fn handle_check(
                 writeln!(
                     out,
                     "  {} {}",
-                    t.commit_id.paint(&commit_short),
+                    t.commit_id.paint(commit_short),
                     t.hint.paint(&msg)
                 )?;
             }
@@ -316,7 +354,7 @@ async fn handle_check(
                 )?;
             }
         }
-        if let Some(hint) = untracked_target_hint(ctx, has_upstream)? {
+        if let Some(hint) = untracked_hint {
             writeln!(out, "{}", t.hint.paint(hint))?;
         }
 
@@ -350,8 +388,28 @@ async fn handle_check(
                 t.hint.paint("Run `but pull` to update your branches")
             )?;
         }
+        Ok(())
     }
-    Ok(())
+}
+
+impl CliOutput for CheckOutcome {
+    fn on_json(self) -> impl Serialize {
+        PullCheckOutput {
+            base_branch: BaseBranchInfo {
+                name: self.base_branch_name,
+                remote_name: self.remote_name,
+                base_sha: self.base_sha,
+                current_sha: self.current_sha,
+            },
+            upstream_commits: UpstreamInfo {
+                count: self.incoming.len(),
+                commits: self.incoming,
+            },
+            branch_statuses: check_branch_statuses(&self.statuses),
+            up_to_date: self.up_to_date,
+            has_worktree_conflicts: self.has_worktree_conflicts,
+        }
+    }
 }
 
 async fn handle_pull(
@@ -468,12 +526,10 @@ async fn handle_pull(
     let behind = is_behind(ctx, &current_head_info, update, &base_branch)?;
     if !behind && !upstream::has_cleanup_candidate(&current_head_info, update) {
         pull_result.status = "up_to_date".to_string();
-        if let Some(out) = out.for_human() {
-            writeln!(out, "\n{}", t.success.paint("Everything is up to date"))?;
-        }
-        if let Some(out) = out.for_json() {
-            out.write_value(&pull_result)?;
-        }
+        out.print_cli_output(PullOutcome {
+            result: pull_result,
+            report: PullReport::UpToDate,
+        })?;
         return Ok(None);
     }
 
@@ -486,12 +542,10 @@ async fn handle_pull(
 
     if !behind && !statuses_need_update(&statuses) {
         pull_result.status = "up_to_date".to_string();
-        if let Some(out) = out.for_human() {
-            writeln!(out, "\n{}", t.success.paint("Everything is up to date"))?;
-        }
-        if let Some(out) = out.for_json() {
-            out.write_value(&pull_result)?;
-        }
+        out.print_cli_output(PullOutcome {
+            result: pull_result,
+            report: PullReport::UpToDate,
+        })?;
         return Ok(None);
     }
 
@@ -635,13 +689,14 @@ async fn handle_pull(
                     });
                 // Resolution mode can't check out a linked worktree's commit, so those
                 // branches get the `conflicts` and `apply` route instead of the steps below.
-                let worktree_conflicts: Vec<&String> = conflicted_rebases
+                let worktree_conflicts: Vec<String> = conflicted_rebases
                     .iter()
                     .filter(|branch| {
                         conflicted_commits.get(*branch).is_some_and(|commits| {
                             commits.iter().any(|c| c.worktree_lane.is_some())
                         })
                     })
+                    .cloned()
                     .collect();
                 let workspace_conflicts = conflicted_rebases.is_empty()
                     || worktree_conflicts.len() < conflicted_rebases.len();
@@ -666,159 +721,232 @@ async fn handle_pull(
                     });
                 }
 
-                if let Some(out) = out.for_human() {
-                    writeln!(out)?;
-
-                    if has_conflicts {
-                        writeln!(
-                            out,
-                            "{}",
-                            t.attention.paint("Rebase resulted in some conflicts")
-                        )?;
-                    } else {
-                        writeln!(out, "{}", t.success.paint("Rebase successful"))?;
-                    }
-
-                    if !pull_result.integrated_branches.is_empty() {
-                        writeln!(out)?;
-                        for branch in &pull_result.integrated_branches {
-                            if local_target {
-                                writeln!(
-                                    out,
-                                    "{} {} has been merged into {} and removed",
-                                    t.important.paint("Branch"),
-                                    t.local_branch.paint(branch),
-                                    t.local_branch.paint(&base_branch.branch_name)
-                                )?;
-                            } else {
-                                writeln!(
-                                    out,
-                                    "{} {} has been integrated upstream and removed locally",
-                                    t.important.paint("Branch"),
-                                    t.local_branch.paint(branch)
-                                )?;
-                            }
-                        }
-                    }
-
-                    writeln!(out, "\n{}", t.important.paint("Summary"))?;
-                    writeln!(out, "────────")?;
-
-                    for branch in &successful_rebases {
-                        writeln!(
-                            out,
-                            "  {} - {}",
-                            t.local_branch.paint(branch),
-                            t.success.paint("rebased")
-                        )?;
-                    }
-
-                    for branch in &pull_result.integrated_branches {
-                        writeln!(
-                            out,
-                            "  {} - {}",
-                            t.local_branch.paint(branch),
-                            t.info.paint("integrated")
-                        )?;
-                    }
-
-                    for branch in &conflicted_rebases {
-                        writeln!(
-                            out,
-                            "  {} - {}",
-                            t.local_branch.paint(branch),
-                            t.error.paint("conflicted")
-                        )?;
-                        for commit in conflicted_commits.get(branch).into_iter().flatten() {
-                            writeln!(
-                                out,
-                                "      {} {}",
-                                t.change_id.paint(&commit.commit_short_id),
-                                t.hint.paint(&commit.commit_message)
-                            )?;
-                        }
-                    }
-
-                    if has_conflicts {
-                        writeln!(out)?;
-                        writeln!(out, "{}", t.important.paint("To resolve conflicts:"))?;
-                        for branch in &worktree_conflicts {
-                            let arg = shell_words::quote(branch);
-                            writeln!(
-                                out,
-                                "  `{branch}` is in a worktree. Run `but resolve conflicts {arg}`, then `but resolve apply <path>:<N> --commit {arg}`"
-                            )?;
-                        }
-                        if workspace_conflicts {
-                            if single_branch_mode {
-                                // `but resolve <commit>` refuses while a branch is checked
-                                // out; these resolve without changing HEAD.
-                                writeln!(
-                                    out,
-                                    "  1. Run {} to show the conflicts of the oldest conflicted commit",
-                                    t.command_suggestion.paint("`but resolve conflicts`")
-                                )?;
-                                writeln!(
-                                    out,
-                                    "  2. Resolve each conflict with {}, as that output describes",
-                                    t.command_suggestion.paint("`but resolve apply`")
-                                )?;
-                            } else if let Some(next_commit) = conflicted_rebases
-                                .iter()
-                                .find_map(|branch| conflicted_commits.get(branch)?.first())
-                            {
-                                writeln!(
-                                    out,
-                                    "  1. Start with: {}. Worktree files show no conflict markers until this checks the commit out",
-                                    t.command_suggestion.paint(format!(
-                                        "`but resolve {}`",
-                                        next_commit.commit_short_id
-                                    ))
-                                )?;
-                            } else {
-                                writeln!(
-                                    out,
-                                    "  1. Run {} to inspect the conflicted commits, then {}. Worktree files show no conflict markers until resolve checks the commit out",
-                                    t.command_suggestion.paint("`but status`"),
-                                    t.command_suggestion.paint("`but resolve <commit>`")
-                                )?;
-                            }
-                            if !single_branch_mode {
-                                writeln!(out, "  2. Edit files to resolve the conflicts")?;
-                                writeln!(
-                                    out,
-                                    "  3. Run {} to finalize the resolution",
-                                    t.command_suggestion.paint("`but resolve finish`")
-                                )?;
-                            }
-                        }
-                    }
-
-                    writeln!(out)?;
-                    writeln!(out, "{}", t.important.paint("To undo this operation:"))?;
-                    writeln!(out, "  Run `but undo`")?;
-                }
-
-                if let Some(out) = out.for_json() {
-                    out.write_value(&pull_result)?;
-                }
+                out.print_cli_output(PullOutcome {
+                    result: pull_result,
+                    report: PullReport::Integrated(IntegrationReport {
+                        has_conflicts,
+                        local_target,
+                        target_branch_name: base_branch.branch_name,
+                        successful_rebases,
+                        conflicted_rebases,
+                        conflicted_commits,
+                        worktree_conflicts,
+                        workspace_conflicts,
+                        single_branch_mode,
+                    }),
+                })?;
                 return Ok(Some(outcome.workspace_state));
             }
             Err(e) => {
                 pull_result.status = "error".to_string();
-                if let Some(out) = out.for_human() {
-                    writeln!(out, "\n{}", t.error.paint("Failed to update branches"))?;
-                    writeln!(out, "   {e}")?;
-                }
-                if let Some(out) = out.for_json() {
-                    out.write_value(&pull_result)?;
-                }
+                out.print_cli_output(PullOutcome {
+                    result: pull_result,
+                    report: PullReport::Failed(e.to_string()),
+                })?;
                 return Err(e.into());
             }
         }
     }
 
     Ok(None)
+}
+
+#[must_use]
+struct PullOutcome {
+    result: PullResult,
+    report: PullReport,
+}
+
+enum PullReport {
+    UpToDate,
+    Integrated(IntegrationReport),
+    /// Updating the branches failed with this error.
+    Failed(String),
+}
+
+struct IntegrationReport {
+    has_conflicts: bool,
+    /// Whether the target has no upstream, so new commits are on the target branch itself.
+    local_target: bool,
+    target_branch_name: String,
+    successful_rebases: Vec<String>,
+    conflicted_rebases: Vec<String>,
+    conflicted_commits: std::collections::BTreeMap<String, Vec<ConflictedCommit>>,
+    /// Conflicted branches in a linked worktree, which resolution mode can't check out.
+    worktree_conflicts: Vec<String>,
+    /// Whether some conflicted branch is in the workspace.
+    workspace_conflicts: bool,
+    single_branch_mode: bool,
+}
+
+impl CliOutputHuman for PullOutcome {
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        t: &'static Theme,
+    ) -> anyhow::Result<()> {
+        let PullOutcome { result, report } = self;
+        let report = match report {
+            PullReport::UpToDate => {
+                writeln!(out, "\n{}", t.success.paint("Everything is up to date"))?;
+                return Ok(());
+            }
+            PullReport::Failed(error) => {
+                writeln!(out, "\n{}", t.error.paint("Failed to update branches"))?;
+                writeln!(out, "   {error}")?;
+                return Ok(());
+            }
+            PullReport::Integrated(report) => report,
+        };
+        let IntegrationReport {
+            has_conflicts,
+            local_target,
+            target_branch_name,
+            successful_rebases,
+            conflicted_rebases,
+            conflicted_commits,
+            worktree_conflicts,
+            workspace_conflicts,
+            single_branch_mode,
+        } = report;
+        let integrated_branches = result.integrated_branches;
+        writeln!(out)?;
+
+        if has_conflicts {
+            writeln!(
+                out,
+                "{}",
+                t.attention.paint("Rebase resulted in some conflicts")
+            )?;
+        } else {
+            writeln!(out, "{}", t.success.paint("Rebase successful"))?;
+        }
+
+        if !integrated_branches.is_empty() {
+            writeln!(out)?;
+            for branch in &integrated_branches {
+                if local_target {
+                    writeln!(
+                        out,
+                        "{} {} has been merged into {} and removed",
+                        t.important.paint("Branch"),
+                        t.local_branch.paint(branch),
+                        t.local_branch.paint(&target_branch_name)
+                    )?;
+                } else {
+                    writeln!(
+                        out,
+                        "{} {} has been integrated upstream and removed locally",
+                        t.important.paint("Branch"),
+                        t.local_branch.paint(branch)
+                    )?;
+                }
+            }
+        }
+
+        writeln!(out, "\n{}", t.important.paint("Summary"))?;
+        writeln!(out, "────────")?;
+
+        for branch in &successful_rebases {
+            writeln!(
+                out,
+                "  {} - {}",
+                t.local_branch.paint(branch),
+                t.success.paint("rebased")
+            )?;
+        }
+
+        for branch in &integrated_branches {
+            writeln!(
+                out,
+                "  {} - {}",
+                t.local_branch.paint(branch),
+                t.info.paint("integrated")
+            )?;
+        }
+
+        for branch in &conflicted_rebases {
+            writeln!(
+                out,
+                "  {} - {}",
+                t.local_branch.paint(branch),
+                t.error.paint("conflicted")
+            )?;
+            for commit in conflicted_commits.get(branch).into_iter().flatten() {
+                writeln!(
+                    out,
+                    "      {} {}",
+                    t.change_id.paint(&commit.commit_short_id),
+                    t.hint.paint(&commit.commit_message)
+                )?;
+            }
+        }
+
+        if has_conflicts {
+            writeln!(out)?;
+            writeln!(out, "{}", t.important.paint("To resolve conflicts:"))?;
+            for branch in &worktree_conflicts {
+                let arg = shell_words::quote(branch);
+                writeln!(
+                    out,
+                    "  `{branch}` is in a worktree. Run `but resolve conflicts {arg}`, then `but resolve apply <path>:<N> --commit {arg}`"
+                )?;
+            }
+            if workspace_conflicts {
+                if single_branch_mode {
+                    // `but resolve <commit>` refuses while a branch is checked
+                    // out; these resolve without changing HEAD.
+                    writeln!(
+                        out,
+                        "  1. Run {} to show the conflicts of the oldest conflicted commit",
+                        t.command_suggestion.paint("`but resolve conflicts`")
+                    )?;
+                    writeln!(
+                        out,
+                        "  2. Resolve each conflict with {}, as that output describes",
+                        t.command_suggestion.paint("`but resolve apply`")
+                    )?;
+                } else if let Some(next_commit) = conflicted_rebases
+                    .iter()
+                    .find_map(|branch| conflicted_commits.get(branch)?.first())
+                {
+                    writeln!(
+                        out,
+                        "  1. Start with: {}. Worktree files show no conflict markers until this checks the commit out",
+                        t.command_suggestion
+                            .paint(format!("`but resolve {}`", next_commit.commit_short_id))
+                    )?;
+                } else {
+                    writeln!(
+                        out,
+                        "  1. Run {} to inspect the conflicted commits, then {}. Worktree files show no conflict markers until resolve checks the commit out",
+                        t.command_suggestion.paint("`but status`"),
+                        t.command_suggestion.paint("`but resolve <commit>`")
+                    )?;
+                }
+                if !single_branch_mode {
+                    writeln!(out, "  2. Edit files to resolve the conflicts")?;
+                    writeln!(
+                        out,
+                        "  3. Run {} to finalize the resolution",
+                        t.command_suggestion.paint("`but resolve finish`")
+                    )?;
+                }
+            }
+        }
+
+        writeln!(out)?;
+        writeln!(out, "{}", t.important.paint("To undo this operation:"))?;
+        writeln!(out, "  Run `but undo`")?;
+        Ok(())
+    }
+}
+
+impl CliOutput for PullOutcome {
+    fn on_json(self) -> impl Serialize {
+        self.result
+    }
 }
 
 fn check_branch_statuses(statuses: &[PullBranchStatusInfo]) -> Vec<BranchStatusInfo> {

@@ -43,10 +43,12 @@ use crate::{
     id::{
         ChangeIdWithShortId, CommittedFileId, LaneWithId, SegmentWithId, ShortId, TreeChangeWithId,
     },
+    theme::Theme,
     tui::text::truncate_text,
     utils::{
-        InputOutputChannel, OutputChannel, WriteWithUtils, shorten_hex_object_id,
-        shorten_object_id, status_letter, status_letter_ui, time::format_relative_time_verbose,
+        CliOutput, CliOutputHuman, InputOutputChannel, OutputChannel, WriteWithUtils,
+        shorten_hex_object_id, shorten_object_id, status_letter, status_letter_ui,
+        time::format_relative_time_verbose,
     },
 };
 
@@ -325,9 +327,8 @@ pub(crate) fn worktree(
         return show_edit_mode_status(ctx, out);
     }
 
-    if let Some(out) = out.for_json() {
-        out.write_value(workspace_status(ctx, flags)?)?;
-        return Ok(());
+    if out.is_json() {
+        return out.print_cli_output(StatusOutcome::Json(Box::new(workspace_status(ctx, flags)?)));
     }
 
     let mut status_ctx = {
@@ -345,12 +346,10 @@ pub(crate) fn worktree(
 
     match render_mode {
         StatusRenderMode::Oneshot(_) => {
-            let Some(human_out) = out.for_human() else {
-                return Ok(());
-            };
-
-            let mut output = StatusOutput::Immediate { out: human_out };
+            let mut lines = Vec::new();
+            let mut output = StatusOutput { lines: &mut lines };
             build_status_output(ctx, &status_ctx, &mut output)?;
+            out.print_cli_output(StatusOutcome::Human(lines))?;
         }
         StatusRenderMode::Tui(launch_options) => {
             let initial_target =
@@ -365,7 +364,7 @@ pub(crate) fn worktree(
             let run_options = TuiRunOptions::Normal;
 
             let mut lines = Vec::new();
-            let mut output = StatusOutput::Buffer { lines: &mut lines };
+            let mut output = StatusOutput { lines: &mut lines };
             build_status_output(ctx, &status_ctx, &mut output)?;
             let (final_lines, _outcome) = tui::render_tui(
                 ctx,
@@ -379,17 +378,51 @@ pub(crate) fn worktree(
 
             drop(inout);
 
-            if !launch_options.skip_status_after
-                && let Some(human_out) = out.for_human()
-            {
-                for line in final_lines {
-                    render_oneshot::render_oneshot(line, human_out)?;
-                }
+            if !launch_options.skip_status_after {
+                out.print_cli_output(StatusOutcome::Human(final_lines))?;
             }
         }
     }
 
     Ok(())
+}
+
+/// The workspace status in the form of the output format, as human and JSON status are built
+/// separately.
+#[must_use]
+enum StatusOutcome {
+    Human(Vec<StatusOutputLine>),
+    Json(Box<json::WorkspaceStatus>),
+}
+
+impl CliOutputHuman for StatusOutcome {
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        _theme: &'static Theme,
+    ) -> anyhow::Result<()> {
+        match self {
+            StatusOutcome::Human(lines) => {
+                for line in lines {
+                    render_oneshot::render_oneshot(line, out)?;
+                }
+            }
+            StatusOutcome::Json(_) => {
+                unreachable!("JSON status is only built for JSON output")
+            }
+        }
+        Ok(())
+    }
+}
+
+impl CliOutput for StatusOutcome {
+    fn on_json(self) -> impl Serialize {
+        match self {
+            StatusOutcome::Json(status) => status,
+            StatusOutcome::Human(_) => unreachable!("human status is only built for human output"),
+        }
+    }
 }
 
 pub(crate) fn tui_with_options(
@@ -423,7 +456,7 @@ pub(crate) fn tui_with_options(
     drop(guard);
 
     let mut lines = Vec::new();
-    let mut output = StatusOutput::Buffer { lines: &mut lines };
+    let mut output = StatusOutput { lines: &mut lines };
     build_status_output(ctx, &status_ctx, &mut output)?;
     let (_final_lines, outcome) =
         tui::render_tui(ctx, out, flags, lines, launch_options, None, run_options)?;

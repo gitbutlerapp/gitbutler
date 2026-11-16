@@ -15,14 +15,14 @@ use super::{
 };
 use crate::{
     command::skill,
-    theme::{self, Paint},
-    utils::{Confirm, ConfirmDefault, OutputChannel},
+    theme::{self, Paint, Theme},
+    utils::{CliOutput, CliOutputHuman, Confirm, ConfirmDefault, OutputChannel, WriteWithUtils},
 };
 
 /// Remove every GitButler skill that `but skill check` finds and the managed
 /// block from every instruction file `but agent setup` writes, in the home
 /// directory and the current repository.
-pub(super) fn uninstall(current_dir: &Path, out: &mut OutputChannel) -> Result<()> {
+pub(super) fn uninstall(current_dir: &Path, out: &mut OutputChannel) -> Result<UninstallOutcome> {
     let repo = discover_repo(current_dir);
     let home = but_path::home_dir().context("Could not determine home directory")?;
 
@@ -49,14 +49,14 @@ pub(super) fn uninstall(current_dir: &Path, out: &mut OutputChannel) -> Result<(
     let found = !skills.is_empty() || !instruction_files.is_empty();
     // The list goes through the prompt's channel in a terminal, so a pager
     // can't hold it back until after the question.
+    let mut confirmed_in_terminal = false;
     if found && let Some(mut input) = out.prepare_for_terminal_input() {
         write_found(&mut input, &skills, &instruction_files)?;
         if input.confirm("Remove these?", ConfirmDefault::Yes)? == Confirm::No {
             writeln!(input, "Cancelled. Nothing was removed.")?;
-            return Ok(());
+            return Ok(UninstallOutcome::Cancelled);
         }
-    } else if let Some(writer) = out.for_human() {
-        write_found(writer, &skills, &instruction_files)?;
+        confirmed_in_terminal = true;
     }
 
     for path in &skills {
@@ -70,17 +70,59 @@ pub(super) fn uninstall(current_dir: &Path, out: &mut OutputChannel) -> Result<(
         remove_managed_block_file(path)?;
     }
 
-    if let Some(json_out) = out.for_json() {
-        json_out.write_value(serde_json::json!({
-            "skills": skills,
-            "instructionFiles": instruction_files,
-        }))?;
-    } else if let Some(writer) = out.for_human()
-        && found
-    {
-        writeln!(writer, "{} Removed.", theme::get().sym().success)?;
+    Ok(UninstallOutcome::Removed {
+        skills,
+        instruction_files,
+        confirmed_in_terminal,
+    })
+}
+
+#[must_use]
+pub(super) enum UninstallOutcome {
+    /// The user declined the confirmation prompt.
+    Cancelled,
+    Removed {
+        skills: Vec<PathBuf>,
+        instruction_files: Vec<PathBuf>,
+        /// The list of what was found was already shown with the confirmation prompt.
+        confirmed_in_terminal: bool,
+    },
+}
+
+impl CliOutputHuman for UninstallOutcome {
+    fn on_human(self, out: &mut dyn WriteWithUtils, _agent: bool, t: &'static Theme) -> Result<()> {
+        let UninstallOutcome::Removed {
+            skills,
+            instruction_files,
+            confirmed_in_terminal,
+        } = self
+        else {
+            return Ok(());
+        };
+        if !confirmed_in_terminal {
+            write_found(out, &skills, &instruction_files)?;
+        }
+        if !skills.is_empty() || !instruction_files.is_empty() {
+            writeln!(out, "{} Removed.", t.sym().success)?;
+        }
+        Ok(())
     }
-    Ok(())
+}
+
+impl CliOutput for UninstallOutcome {
+    fn on_json(self) -> impl serde::Serialize {
+        match self {
+            UninstallOutcome::Cancelled => None,
+            UninstallOutcome::Removed {
+                skills,
+                instruction_files,
+                confirmed_in_terminal: _,
+            } => Some(serde_json::json!({
+                "skills": skills,
+                "instructionFiles": instruction_files,
+            })),
+        }
+    }
 }
 
 fn write_found(

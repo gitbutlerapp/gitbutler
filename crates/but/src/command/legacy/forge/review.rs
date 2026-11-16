@@ -10,9 +10,9 @@ use crate::{
     CliError, CliId, CliResult, IdMap, bad_input,
     id::parser::parse_sources,
     legacy::workspace::{HeadInfoBranch, HeadInfoStack},
-    theme::{self, Paint},
+    theme::{self, Paint, Theme},
     tui::get_text::{self, HTML_COMMENT_END_MARKER, HTML_COMMENT_START_MARKER},
-    utils::{Confirm, ConfirmDefault, OutputChannel},
+    utils::{CliOutput, CliOutputHuman, Confirm, ConfirmDefault, OutputChannel, WriteWithUtils},
 };
 
 const RETRY_REVIEW_ACTION: &str = "If you still need this action after the review state changes, retry the same command; it fetches the latest review data.";
@@ -317,7 +317,7 @@ pub async fn create_review(
     draft: bool,
     message: Option<ForgeReviewMessage>,
     out: &mut OutputChannel,
-) -> CliResult<()> {
+) -> CliResult<CreateReviewOutcome> {
     // Fail fast if no forge user is authenticated, before pushing or prompting.
     ensure_forge_authentication(ctx).await?;
 
@@ -332,10 +332,7 @@ pub async fn create_review(
         let branches_without_prs = get_branches_without_prs(&review_map, &lanes)?;
 
         if branches_without_prs.is_empty() {
-            if let Some(out) = out.for_human() {
-                writeln!(out, "All branches already have reviews.")?;
-            }
-            return Ok(());
+            return Ok(CreateReviewOutcome::AllBranchesHaveReviews);
         } else if branches_without_prs.len() == 1 {
             let branch_name = &branches_without_prs[0];
             let mut inout = out
@@ -349,14 +346,14 @@ pub async fn create_review(
             {
                 Some(vec![branch_name.clone()])
             } else {
-                return Ok(());
+                return Ok(CreateReviewOutcome::Declined);
             }
         } else {
             None
         }
     };
 
-    handle_multiple_branches_in_workspace(
+    Ok(handle_multiple_branches_in_workspace(
         ctx,
         current_dir,
         &review_map,
@@ -370,8 +367,69 @@ pub async fn create_review(
         out,
         maybe_branch_names,
     )
-    .await?;
-    Ok(())
+    .await?)
+}
+
+#[must_use]
+pub enum CreateReviewOutcome {
+    AllBranchesHaveReviews,
+    /// The user declined to open a review on the only branch without one.
+    Declined,
+    NoBranchesSelected,
+    Published {
+        outcome: PublishReviewsOutcome,
+        /// Where `but` runs, which tells agent output which PR this session opened.
+        current_dir: std::path::PathBuf,
+    },
+}
+
+impl CliOutputHuman for CreateReviewOutcome {
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        agent: bool,
+        _theme: &'static Theme,
+    ) -> anyhow::Result<()> {
+        match self {
+            CreateReviewOutcome::AllBranchesHaveReviews => {
+                writeln!(out, "All branches already have reviews.")?;
+            }
+            CreateReviewOutcome::Declined => {}
+            CreateReviewOutcome::NoBranchesSelected => {
+                writeln!(
+                    out,
+                    "No branches selected for review publication. Aborting."
+                )?;
+            }
+            CreateReviewOutcome::Published {
+                outcome,
+                current_dir,
+            } => {
+                let pr_created_tag = agent
+                    .then(|| pr_created_tag_for(&current_dir, &outcome.published))
+                    .flatten();
+                display_review_publication_summary(outcome, out)?;
+                if let Some(tag) = pr_created_tag {
+                    writeln!(
+                        out,
+                        "\nClaude desktop counts this PR as opened by this session, which Auto-fix needs, when your reply contains:\n{tag}"
+                    )?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+impl CliOutput for CreateReviewOutcome {
+    fn on_json(self) -> impl Serialize {
+        match self {
+            CreateReviewOutcome::Published { outcome, .. } => Some(outcome),
+            CreateReviewOutcome::AllBranchesHaveReviews
+            | CreateReviewOutcome::Declined
+            | CreateReviewOutcome::NoBranchesSelected => None,
+        }
+    }
 }
 
 /// Make sure that the account that is about to be used in this repository's forge is correctly authenticated.
@@ -496,7 +554,7 @@ pub async fn handle_multiple_branches_in_workspace(
     message: Option<&ForgeReviewMessage>,
     out: &mut OutputChannel,
     selected_branches: Option<Vec<String>>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<CreateReviewOutcome> {
     let mut overall_outcome = PublishReviewsOutcome {
         published: vec![],
         already_existing: vec![],
@@ -510,13 +568,7 @@ pub async fn handle_multiple_branches_in_workspace(
     };
 
     if selected_branches.is_empty() {
-        if let Some(out) = out.for_human() {
-            writeln!(
-                out,
-                "No branches selected for review publication. Aborting."
-            )?;
-        }
-        return Ok(());
+        return Ok(CreateReviewOutcome::NoBranchesSelected);
     }
     if let Some(outside) = selected_branches
         .iter()
@@ -558,23 +610,10 @@ pub async fn handle_multiple_branches_in_workspace(
         overall_outcome.review_sync.extend(outcome.review_sync);
     }
 
-    let is_agent = out.is_agent();
-    if let Some(out) = out.for_json() {
-        out.write_value(overall_outcome)?;
-    } else if let Some(out) = out.for_human() {
-        let pr_created_tag = is_agent
-            .then(|| pr_created_tag_for(current_dir, &overall_outcome.published))
-            .flatten();
-        display_review_publication_summary(overall_outcome, out)?;
-        if let Some(tag) = pr_created_tag {
-            writeln!(
-                out,
-                "\nClaude desktop counts this PR as opened by this session, which Auto-fix needs, when your reply contains:\n{tag}"
-            )?;
-        }
-    }
-
-    Ok(())
+    Ok(CreateReviewOutcome::Published {
+        outcome: overall_outcome,
+        current_dir: current_dir.to_owned(),
+    })
 }
 
 /// Claude desktop lets a session turn on Auto-fix only for a PR it saw the session open:
@@ -859,7 +898,7 @@ fn print_existing_pr_info(
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct PublishReviewsOutcome {
+pub struct PublishReviewsOutcome {
     published: Vec<but_forge::ForgeReview>,
     already_existing: Vec<but_forge::ForgeReview>,
     review_sync: Vec<but_forge::ReviewSyncOutcome>,

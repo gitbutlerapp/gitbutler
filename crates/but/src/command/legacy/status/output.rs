@@ -3,21 +3,11 @@ use std::sync::Arc;
 use but_core::ref_metadata::StackId;
 use ratatui::text::Span;
 
-use crate::{
-    CliId,
-    command::legacy::status::{CommitClassification, render_oneshot},
-    utils::WriteWithUtils,
-};
+use crate::{CliId, command::legacy::status::CommitClassification};
 
-pub enum StatusOutput<'a> {
-    /// Immediately print the outputs as it's being generated.
-    ///
-    /// This is used when running the status command in one-shot mode.
-    Immediate { out: &'a mut dyn WriteWithUtils },
-    /// Buffer the output so it can be rendered in the TUI.
-    Buffer {
-        lines: &'a mut Vec<StatusOutputLine>,
-    },
+/// Collects the lines of the status output, which one-shot mode prints and the TUI renders.
+pub struct StatusOutput<'a> {
+    pub lines: &'a mut Vec<StatusOutputLine>,
 }
 
 impl StatusOutput<'_> {
@@ -33,15 +23,7 @@ impl StatusOutput<'_> {
             data,
         };
 
-        match self {
-            StatusOutput::Immediate { out } => {
-                render_oneshot::render_oneshot(output_line, *out)?;
-            }
-            StatusOutput::Buffer { lines } => {
-                lines.push(output_line);
-            }
-        }
-
+        self.lines.push(output_line);
         Ok(())
     }
 
