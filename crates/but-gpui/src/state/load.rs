@@ -949,7 +949,7 @@ impl Store {
                 })
                 && let Some(watcher) = &entry.watcher
             {
-                watcher.refresh_worktrees();
+                watcher.rescan();
             }
             entry.workspace = Some(workspace);
             entry.read();

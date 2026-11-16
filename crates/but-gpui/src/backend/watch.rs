@@ -1,13 +1,16 @@
 //! File watching, so the UI follows changes made by editors, agents and other GitButler clients.
 
-use std::{collections::HashSet, path::Path, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use anyhow::Result;
-use bstr::{BString, ByteSlice as _};
+use bstr::ByteSlice as _;
 use gix::notify::{Changes, Outcome, Scope, WorktreeChange, plumbing::PathKind};
 use tokio::sync::mpsc;
 
-use super::{Checkout, Project, open, run, runtime};
+use super::{Checkout, Project, open, runtime};
 
 /// The repository information a watcher invalidates.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -23,7 +26,6 @@ pub enum Change {
 /// Keeps a project's watcher alive; dropping it stops watching.
 pub struct Watcher {
     rescans: mpsc::UnboundedSender<()>,
-    worktrees: mpsc::UnboundedSender<()>,
 }
 
 impl Watcher {
@@ -31,12 +33,6 @@ impl Watcher {
     /// Return whether the monitor is still running.
     pub fn rescan(&self) -> bool {
         self.rescans.send(()).is_ok()
-    }
-
-    /// Re-list active linked worktrees after the app changes their archived state.
-    /// Return whether the event pump is still running.
-    pub fn refresh_worktrees(&self) -> bool {
-        self.worktrees.send(()).is_ok()
     }
 }
 
@@ -47,81 +43,52 @@ pub fn watch(
     on_change: impl Fn(Change, Checkout, Vec<Arc<str>>) + Send + Sync + 'static,
 ) -> Result<Watcher> {
     let ctx = open(&project.path)?;
-    // shortcut: Gix also covers archived worktrees; exclude their native watches when its API permits.
-    let monitor = but_filemonitor::FileMonitor::new(&*ctx.repo.get()?)?;
-    let mut active = linked_worktrees(&project.path)?;
     let path = project.path.clone();
-    let (events, mut received) = mpsc::unbounded_channel();
+    let monitor = but_filemonitor::FileMonitor::new(&*ctx.repo.get()?, move |repo| {
+        worktree_filter(repo, &path)
+    })?;
     let (rescans, requested) = mpsc::unbounded_channel();
-    let (worktrees, mut updates) = mpsc::unbounded_channel();
     runtime().spawn(async move {
         if let Err(err) = monitor
             .run(requested, move |outcome| {
-                events.send(outcome).ok();
+                tracing::debug!(
+                    received = outcome.statistics.received,
+                    rescans = outcome.statistics.rescans,
+                    added = outcome.statistics.added,
+                    removed = outcome.statistics.removed,
+                    "file watcher outcome"
+                );
+                for err in &outcome.errors {
+                    tracing::warn!(?err, "file watcher reported an error");
+                }
+                forward(outcome, &on_change);
             })
             .await
         {
             tracing::warn!(?err, "file watcher stopped");
         }
     });
-    runtime().spawn(async move {
-        while let Some(outcome) =
-            next_outcome(&path, &mut active, &mut updates, &mut received).await
+    Ok(Watcher { rescans })
+}
+
+fn worktree_filter(repo: &gix::Repository, path: &Path) -> Result<Option<Vec<PathBuf>>> {
+    let ctx = open(path)?;
+    ctx.worktrees_with_state()?;
+    let db = ctx.db.get_cache_mut()?;
+    let mut selected = Vec::new();
+    for proxy in repo.worktrees()? {
+        if !db
+            .worktree_meta()
+            .get(proxy.id()?.as_ref())?
+            .is_some_and(|meta| meta.archived)
         {
-            tracing::debug!(
-                received = outcome.statistics.received,
-                rescans = outcome.statistics.rescans,
-                added = outcome.statistics.added,
-                removed = outcome.statistics.removed,
-                "file watcher outcome"
-            );
-            for err in &outcome.errors {
-                tracing::warn!(?err, "file watcher reported an error");
-            }
-            if outcome.changes.layout {
-                refresh_worktrees(&path, &mut active).await;
-            }
-            forward(outcome, &active, &on_change);
-        }
-    });
-    Ok(Watcher { rescans, worktrees })
-}
-
-async fn next_outcome(
-    path: &Path,
-    active: &mut HashSet<BString>,
-    updates: &mut mpsc::UnboundedReceiver<()>,
-    received: &mut mpsc::UnboundedReceiver<Outcome>,
-) -> Option<Outcome> {
-    loop {
-        tokio::select! {
-            biased;
-            Some(()) = updates.recv() => refresh_worktrees(path, active).await,
-            outcome = received.recv() => return outcome,
+            selected.push(proxy.git_dir().to_owned());
         }
     }
+    Ok(Some(selected))
 }
 
-async fn refresh_worktrees(path: &Path, active: &mut HashSet<BString>) {
-    let path = path.to_owned();
-    match run(move || linked_worktrees(&path)).await {
-        Ok(listed) => *active = listed,
-        Err(err) => tracing::warn!(?err, "failed to refresh linked worktrees for watching"),
-    }
-}
-
-fn linked_worktrees(path: &Path) -> Result<HashSet<BString>> {
-    Ok((open(path)?.worktrees_with_state()?.into_iter())
-        .filter(|worktree| !worktree.archived)
-        .map(|worktree| worktree.name)
-        .collect())
-}
-
-fn forward(
-    outcome: Outcome,
-    active: &HashSet<BString>,
-    mut on_change: impl FnMut(Change, Checkout, Vec<Arc<str>>),
-) {
+fn forward(outcome: Outcome, mut on_change: impl FnMut(Change, Checkout, Vec<Arc<str>>)) {
     forward_changes(outcome.changes, Checkout::Main, &mut on_change);
     for worktree in outcome.other_worktrees {
         match worktree.kind {
@@ -136,9 +103,7 @@ fn forward(
                 else {
                     continue;
                 };
-                if active.contains(name) {
-                    forward_changes(changes, Checkout::Linked(name.to_owned()), &mut on_change);
-                }
+                forward_changes(changes, Checkout::Linked(name.to_owned()), &mut on_change);
             }
         }
     }
@@ -174,6 +139,143 @@ mod tests {
     use super::*;
 
     #[test]
+    fn native_coverage_excludes_archived_broken_worktrees_and_recovers_after_unarchive() {
+        use crate::backend::ops::tests::{agent_worktree, repo_with, target_origin_main};
+
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            let (_outside, _linked) = agent_worktree(path);
+            crate::backend::apply(
+                path,
+                super::super::worktrees::SetArchived {
+                    name: "agent".into(),
+                    archived: true,
+                },
+            )
+            .expect("the linked worktree can be archived");
+            let index = path.join(".git/worktrees/agent/index");
+            let original_index = std::fs::read(&index).expect("the linked index can be saved");
+            std::fs::write(&index, "invalid").expect("the archived index can be made unreadable");
+            let repo = gix::open_opts(path, gix::open::Options::isolated())
+                .expect("the main fixture repository can be opened");
+            let monitor = but_filemonitor::FileMonitor::new(&repo, {
+                let path = path.to_owned();
+                move |repo| worktree_filter(repo, &path)
+            })
+            .expect("the primary monitor can be constructed");
+            runtime().block_on(async {
+                let (rescans, requested) = mpsc::unbounded_channel();
+                let (events, mut received) = mpsc::unbounded_channel();
+                let task = runtime().spawn(monitor.run(requested, move |outcome| {
+                    events.send(outcome).ok();
+                }));
+                let initial =
+                    tokio::time::timeout(std::time::Duration::from_secs(10), received.recv())
+                        .await
+                        .expect("initial coverage is established")
+                        .expect("initial coverage emits an outcome");
+                assert!(
+                    initial.errors.is_empty(),
+                    "an archived index is never opened: {:?}",
+                    initial.errors
+                );
+                assert!(
+                    initial.other_worktrees.is_empty(),
+                    "archived worktrees receive no private or checkout coverage"
+                );
+                assert!(
+                    initial.changes.worktree.is_some(),
+                    "the selected primary checkout remains monitored"
+                );
+                std::fs::write(&index, original_index).expect("the linked index can be restored");
+                crate::backend::apply(
+                    path,
+                    super::super::worktrees::SetArchived {
+                        name: "agent".into(),
+                        archived: false,
+                    },
+                )
+                .expect("the linked worktree can be unarchived");
+                assert!(
+                    rescans.send(()).is_ok(),
+                    "the rescan channel remains connected"
+                );
+                tokio::time::timeout(std::time::Duration::from_secs(10), async {
+                    while let Some(outcome) = received.recv().await {
+                        assert!(
+                            outcome.errors.is_empty(),
+                            "unarchiving establishes native coverage without errors: {:?}",
+                            outcome.errors
+                        );
+                        if outcome.other_worktrees.iter().any(|worktree| {
+                            worktree.git_dir.ends_with("worktrees/agent")
+                                && matches!(worktree.kind, WorktreeChange::Added)
+                        }) {
+                            return;
+                        }
+                    }
+                    panic!("unarchived coverage must emit a fresh worktree baseline");
+                })
+                .await
+                .expect("unarchiving establishes coverage without restarting GPUI's watcher");
+                drop(rescans);
+                task.await
+                    .expect("the monitor task finishes")
+                    .expect("the monitor shuts down");
+            });
+        });
+    }
+
+    #[test]
+    fn selection_keeps_unreadable_and_inaccessible_unarchived_worktrees() {
+        use crate::backend::ops::tests::{agent_worktree, git, repo_with, target_origin_main};
+
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            let (outside, linked) = agent_worktree(path);
+            crate::backend::apply(
+                path,
+                super::super::worktrees::SetArchived {
+                    name: "agent".into(),
+                    archived: false,
+                },
+            )
+            .expect("the linked worktree can be made active");
+            let repo = gix::open_opts(path, gix::open::Options::isolated())
+                .expect("the main fixture repository can be opened");
+            std::fs::write(path.join(".git/worktrees/agent/HEAD"), "invalid\n")
+                .expect("the private HEAD can be made unreadable");
+            git(
+                path,
+                &[
+                    "worktree",
+                    "lock",
+                    linked.to_str().expect("the test path is UTF-8"),
+                ],
+            );
+            for inaccessible in [false, true] {
+                if inaccessible {
+                    std::fs::rename(&linked, outside.path().join("temporarily-moved"))
+                        .expect("the locked checkout can be made unavailable");
+                }
+                let selected = worktree_filter(&repo, path)
+                    .expect("selection reads registration and archive state")
+                    .expect("GPUI always selects explicit native coverage");
+                assert!(
+                    selected
+                        .iter()
+                        .any(|git_dir| git_dir.ends_with("worktrees/agent")),
+                    "unreadable or unavailable worktrees remain selected for Gix recovery"
+                );
+            }
+        });
+    }
+
+    #[test]
     fn index_and_ignore_invalidations_reload_only_files() {
         for changes in [
             Changes {
@@ -191,7 +293,6 @@ mod tests {
                     changes,
                     ..Outcome::default()
                 },
-                &HashSet::new(),
                 |change, checkout, paths| events.push((change, checkout, paths)),
             );
             assert_eq!(
@@ -214,7 +315,6 @@ mod tests {
                 },
                 ..Outcome::default()
             },
-            &HashSet::new(),
             |change, checkout, paths| events.push((change, checkout, paths)),
         );
         assert_eq!(
@@ -272,7 +372,6 @@ mod tests {
                     changes,
                     ..Outcome::default()
                 },
-                &HashSet::new(),
                 |change, checkout, paths| events.push((change, checkout, paths)),
             );
             assert_eq!(
@@ -281,68 +380,6 @@ mod tests {
                 "metadata invalidations reread only the affected repository views"
             );
         }
-    }
-
-    #[test]
-    fn archive_refreshes_precede_events_and_preserve_unreadable_worktrees() {
-        use crate::backend::ops::tests::{agent_worktree, repo_with, target_origin_main};
-
-        but_testsupport::isolated_app_data_dir(|| {
-            let dir = repo_with("one\n");
-            let path = dir.path();
-            target_origin_main(path);
-            let (_outside, linked) = agent_worktree(path);
-            crate::backend::apply(
-                path,
-                super::super::worktrees::SetArchived {
-                    name: "agent".into(),
-                    archived: false,
-                },
-            )
-            .expect("the linked worktree can be made active");
-            runtime().block_on(async {
-                let (worktrees, mut updates) = mpsc::unbounded_channel();
-                let (events, mut received) = mpsc::unbounded_channel();
-                let mut active = linked_worktrees(path).expect("the initial active set can be read");
-                let changed = || Outcome {
-                    other_worktrees: vec![WorktreeChanges {
-                        git_dir: path.join(".git/worktrees/agent"), worktree: linked.clone(),
-                        kind: WorktreeChange::Changed(Changes {
-                            worktree: Some(Scope::All), ..Changes::default()
-                        }),
-                    }], ..Outcome::default()
-                };
-                for (archived, unreadable) in [(true, false), (false, false), (false, true)] {
-                    crate::backend::apply(path, super::super::worktrees::SetArchived {
-                        name: "agent".into(), archived,
-                    }).expect("the archive intent succeeds");
-                    if unreadable {
-                        std::fs::write(path.join(".git/worktrees/agent/HEAD"), "invalid\n")
-                            .expect("the private HEAD can be made unreadable");
-                    }
-                    assert!(worktrees.send(()).is_ok(), "the relist command receiver is alive");
-                    assert!(events.send(changed()).is_ok(), "the outcome receiver is alive");
-                    let outcome = tokio::time::timeout(std::time::Duration::from_secs(10),
-                        next_outcome(path, &mut active, &mut updates, &mut received)).await
-                        .expect("queued re-lists and events finish without native watcher activity")
-                        .expect("the outcome sender is still alive");
-                    let mut forwarded = Vec::new();
-                    forward(outcome, &active,
-                        |change, checkout, paths| forwarded.push((change, checkout, paths)));
-                    let expected = if archived { Vec::new() } else {
-                        vec![(Change::Files, Checkout::Linked("agent".into()), Vec::new())]
-                    };
-                    assert_eq!(forwarded, expected,
-                        "archive commands apply before outcomes and unreadable HEAD does not archive a checkout");
-                }
-                drop(worktrees);
-                drop(events);
-                let ended = tokio::time::timeout(std::time::Duration::from_secs(1),
-                    next_outcome(path, &mut active, &mut updates, &mut received)).await
-                    .expect("closed command channels do not spin or prevent shutdown");
-                assert!(ended.is_none(), "closing both channels ends the event pump");
-            });
-        });
     }
 
     #[test]
@@ -369,7 +406,6 @@ mod tests {
                     },
                     ..Outcome::default()
                 },
-                &HashSet::new(),
                 |change, checkout, paths| {
                     events.push((change, checkout, paths));
                 },
@@ -398,7 +434,6 @@ mod tests {
                 },
                 ..Outcome::default()
             },
-            &HashSet::new(),
             |change, checkout, paths| events.push((change, checkout, paths)),
         );
         assert_eq!(
@@ -412,7 +447,7 @@ mod tests {
     }
 
     #[test]
-    fn lifecycle_reloads_even_after_a_worktree_is_removed_from_the_active_set() {
+    fn worktree_lifecycle_and_changes_preserve_checkout_identity() {
         for kind in [
             WorktreeChange::Added,
             WorktreeChange::Moved {
@@ -430,7 +465,6 @@ mod tests {
                     }],
                     ..Outcome::default()
                 },
-                &HashSet::new(),
                 |change, checkout, paths| {
                     events.push((change, checkout, paths));
                 },
@@ -441,35 +475,27 @@ mod tests {
                 "registration transitions require a fresh workspace listing"
             );
         }
-        for (active, expected) in [
-            (HashSet::new(), Vec::new()),
-            (
-                HashSet::from([BString::from("linked")]),
-                vec![(Change::Files, Checkout::Linked("linked".into()), Vec::new())],
-            ),
-        ] {
-            let mut events = Vec::new();
-            forward(
-                Outcome {
-                    other_worktrees: vec![WorktreeChanges {
-                        git_dir: ".git/worktrees/linked".into(),
-                        worktree: "linked".into(),
-                        kind: WorktreeChange::Changed(Changes {
-                            worktree: Some(Scope::All),
-                            ..Changes::default()
-                        }),
-                    }],
-                    ..Outcome::default()
-                },
-                &active,
-                |change, checkout, paths| {
-                    events.push((change, checkout, paths));
-                },
-            );
-            assert_eq!(
-                events, expected,
-                "only active linked worktrees emit incremental changes"
-            );
-        }
+        let mut events = Vec::new();
+        forward(
+            Outcome {
+                other_worktrees: vec![WorktreeChanges {
+                    git_dir: ".git/worktrees/linked".into(),
+                    worktree: "linked".into(),
+                    kind: WorktreeChange::Changed(Changes {
+                        worktree: Some(Scope::All),
+                        ..Changes::default()
+                    }),
+                }],
+                ..Outcome::default()
+            },
+            |change, checkout, paths| {
+                events.push((change, checkout, paths));
+            },
+        );
+        assert_eq!(
+            events,
+            vec![(Change::Files, Checkout::Linked("linked".into()), Vec::new())],
+            "selected worktree changes preserve checkout identity"
+        );
     }
 }
