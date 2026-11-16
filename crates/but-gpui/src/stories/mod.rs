@@ -18,6 +18,7 @@ mod checkbox;
 mod counts;
 mod dropdown_button;
 mod empty_state;
+mod file_list;
 mod icons;
 mod keycap;
 mod popover;
@@ -123,7 +124,7 @@ struct Example {
 
 /// Every story's examples.
 fn examples() -> impl Iterator<Item = Example> {
-    button::EXAMPLES.into_iter()
+    (button::EXAMPLES.into_iter()).chain(file_list::EXAMPLES)
 }
 
 /// An example under its name, as the docs site titles it.
@@ -178,6 +179,7 @@ impl Gallery {
             story("Counts and marks", counts::CountsStory, cx),
             story("Dropdown button", dropdown_button::DropdownButtonStory, cx),
             story("Empty state", empty_state::EmptyStateStory, cx),
+            story("File list", file_list::FileListStory::default(), cx),
             story("Icons", icons::IconsStory::default(), cx),
             story("Keycap", keycap::KeycapStory, cx),
             story("List rows", rows::RowsStory::default(), cx),

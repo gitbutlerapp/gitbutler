@@ -93,7 +93,7 @@ fn toward(from: Hsla, to: Hsla, part: f32) -> Rgba {
 }
 
 /// A colour as the SVG writes it.
-fn hex(Rgba { r, g, b, .. }: Rgba) -> String {
+pub(crate) fn hex(Rgba { r, g, b, .. }: Rgba) -> String {
     let byte = |channel: f32| (channel.clamp(0., 1.) * 255.).round() as u8;
     format!("#{:02x}{:02x}{:02x}", byte(r), byte(g), byte(b))
 }
