@@ -224,8 +224,8 @@ export const Default = meta.story({ args: { children: "42" } });
 ```
 
 A story takes `args`, a `render(args)`, `decorators`, `parameters` (`design`,
-the Figma link, and `layout`) and a `play` function. The docs site, in
-`docs/`, is a small Vite app that draws every page with these components: one
+the Figma link, and `layout`) and a `play` function. The docs site, the
+pantry, in `docs/`, is a small Vite app that draws every page with these components: one
 page per component under its group's heading, every story on it with its
 JSDoc, and the design notes from but-ui's `DESIGN.md` and `design/`, and this
 library's own `design/`. A component's own note, in but-ui's
@@ -235,7 +235,7 @@ it opens the first of them. A note there that no component names shows
 nowhere. It runs on port 6007:
 
 ```console
-$ pnpm -F @gitbutler/but-ui-react demos
+$ pnpm -F @gitbutler/but-ui-react pantry
 ```
 
 A page is at `http://localhost:6007/?page=components-<name>`. A story renders

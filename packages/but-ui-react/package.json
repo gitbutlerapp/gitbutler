@@ -20,8 +20,8 @@
 		"test": "vitest run && pnpm test:stories",
 		"test:stories": "vitest run --config vitest.stories.config.ts",
 		"playwright:install:unit": "playwright install chromium",
-		"demos": "vite",
-		"build:demos": "vite build"
+		"pantry": "vite",
+		"build:pantry": "vite build"
 	},
 	"dependencies": {
 		"@base-ui/react": "^1.6.0",

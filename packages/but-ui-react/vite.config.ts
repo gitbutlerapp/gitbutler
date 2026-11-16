@@ -129,7 +129,7 @@ const docsPages = (): Plugin => ({
 	},
 });
 
-/** The docs site, `pnpm demos`: every component's page, drawn with the components. */
+/** The docs site, the pantry, `pnpm pantry`: every component's page, drawn with the components. */
 export default defineConfig({
 	root: "docs",
 	plugins: [react(), docsPages()],
