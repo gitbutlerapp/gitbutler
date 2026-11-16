@@ -748,11 +748,25 @@ impl SettingsView {
                 (Density::Spacious, "Spacious"),
             ],
             prefs.density,
-            move |density, window, cx| {
-                store.update(cx, |store, cx| store.set_prefs(|p| p.density = density, cx));
-                app_look(&app, window, cx);
+            {
+                let (store, app) = (store.clone(), app.clone());
+                move |density, window, cx| {
+                    store.update(cx, |store, cx| store.set_prefs(|p| p.density = density, cx));
+                    app_look(&app, window, cx);
+                }
             },
             theme,
+        );
+        let ui_font = (prefs.ui_font.clone()).unwrap_or_else(|| "GitButler's own".into());
+        let ui_font = select("ui-font", ui_font, theme).on_click(
+            {
+                let app = app.clone();
+                move |_, window, cx| {
+                    app.update_later(window, cx, |app, window, cx| {
+                        app.pick_ui_font(window, cx)
+                    })
+                }
+            },
         );
         let mut accent = Row::new(
             "Accent",
@@ -799,6 +813,12 @@ impl SettingsView {
                 density,
             )
             .with_keywords("compact spacious size height"),
+            Row::new(
+                "Font",
+                "The font the interface shows in, beside GitButler's own.",
+                ui_font,
+            )
+            .with_keywords("font typeface cjk chinese"),
         ]
     }
 

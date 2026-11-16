@@ -542,6 +542,19 @@ impl Theme {
         self
     }
 
+    /// This theme with the interface in `family`, unless `installed`, which gives whether the
+    /// machine has it, says it hasn't.
+    pub fn with_ui_font(
+        mut self,
+        family: Option<&str>,
+        installed: impl Fn(&str) -> bool,
+    ) -> Self {
+        if let Some(family) = family.filter(|family| installed(family)) {
+            self.ui_font = family.to_owned().into();
+        }
+        self
+    }
+
     /// This theme with `diff_font`'s ligatures on or off. Fonts keep them under `liga` or `calt`.
     pub fn with_ligatures(mut self, on: bool) -> Self {
         let off = [("liga".to_owned(), 0), ("calt".to_owned(), 0)];

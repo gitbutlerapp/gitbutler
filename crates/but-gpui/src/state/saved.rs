@@ -581,6 +581,8 @@ pub struct Prefs {
     /// Changed lines go without their green and red ground, keeping the bar beside them.
     pub plain_lines: bool,
     pub code_size: crate::theme::CodeSize,
+    /// The family the interface shows in, or `None` for the app's own.
+    pub ui_font: Option<String>,
     /// The family code in diffs shows in, or `None` for the app's own.
     pub diff_font: Option<String>,
     /// The size text shows in the app's own terminals, or `None` for Ghostty's.

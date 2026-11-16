@@ -790,6 +790,13 @@ impl AppView {
         self.open_picker(None, prompt, "Use", choices, window, cx);
     }
 
+    pub fn pick_ui_font(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let current = self.store.read(cx).prefs.ui_font.clone();
+        let own = Theme::get(cx).ui_font.clone();
+        let set = |prefs: &mut Prefs, font| prefs.ui_font = font;
+        self.pick_font(own, "GitButler's own".into(), current, set, window, cx);
+    }
+
     pub fn pick_diff_font(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let current = self.store.read(cx).prefs.diff_font.clone();
         let own = Theme::get(cx).mono_font.clone();
@@ -6020,6 +6027,7 @@ fn theme_for(store: &Store, previewed: Option<&(Shade, ColorScheme)>, window: &W
         .with_corners(corners)
         .with_density(density)
         .with_scale(prefs.ui_scale)
+        .with_ui_font(prefs.ui_font.as_deref(), installed)
         .with_diff_font(prefs.diff_font.as_deref(), digit)
         .with_ligatures(prefs.ligatures)
         .with_terminal_font(prefs.terminal_font.as_deref(), &ghostty, installed)
