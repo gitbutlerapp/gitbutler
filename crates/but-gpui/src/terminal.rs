@@ -27,6 +27,7 @@ use crate::state::Store;
 use crate::theme::Theme;
 use crate::transfer::Dragged;
 use crate::transfer::ProjectDrag;
+use crate::ui::Text;
 use crate::ui::{dp, fixed};
 
 actions!(terminal, [NewTerminal, NewTerminalWith]);
@@ -706,7 +707,7 @@ impl Render for Terminal {
             .when(!font.features.tag_value_list().is_empty(), |el| {
                 el.font_features(font.features)
             })
-            .text_size(dp(text_size))
+            .text_off_scale(text_size)
             .line_height(cell_height)
             .child(div().relative().size_full().overflow_hidden().child(grid))
     }

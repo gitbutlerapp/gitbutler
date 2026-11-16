@@ -11,6 +11,7 @@ use crate::detail::file_list::At;
 use crate::overlays::MenuItem;
 use crate::state::{CodePlace, ProjectId, ProjectTab};
 use crate::theme::Theme;
+use crate::ui::Text;
 use crate::ui::{dp, faint, h_flex};
 
 impl Detail {
@@ -139,7 +140,7 @@ impl Detail {
                     div()
                         .flex_1()
                         .min_w_0()
-                        .text_size(dp(12.))
+                        .text_12()
                         .text_ellipsis_middle()
                         .child(path),
                 )

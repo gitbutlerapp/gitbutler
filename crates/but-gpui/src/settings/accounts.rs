@@ -17,6 +17,7 @@ use crate::backend::run;
 use crate::clipboard;
 use crate::overlays::MenuItem;
 use crate::theme::Theme;
+use crate::ui::Text;
 use crate::ui::person::account_avatar;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{ButtonStyle, button, dp, field, h_flex, v_flex};
@@ -481,16 +482,11 @@ fn identity(user: &GitButlerUser, avatar: Option<Arc<Image>>, theme: &Theme) -> 
                 .gap(dp(2.))
                 .child(
                     div()
-                        .text_size(dp(13.))
+                        .text_13()
                         .text_color(theme.text_1)
                         .child(user.name.clone()),
                 )
-                .children(email.map(|email| {
-                    div()
-                        .text_size(dp(12.))
-                        .text_color(theme.text_2)
-                        .child(email)
-                })),
+                .children(email.map(|email| div().text_12().text_color(theme.text_2).child(email))),
         )
 }
 

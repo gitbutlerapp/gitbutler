@@ -2,13 +2,14 @@
 //! request's.
 
 use gpui::{
-    App, Context, Entity, EventEmitter, FocusHandle, Focusable, FontWeight, ScrollHandle,
-    Subscription, Window, actions, div, prelude::*,
+    App, Context, Entity, EventEmitter, FocusHandle, Focusable, ScrollHandle, Subscription, Window,
+    actions, div, prelude::*,
 };
 
 use super::text_input::{InputEvent, TextInput};
 use super::{dp, field, fixed, v_flex};
 use crate::theme::Theme;
+use crate::ui::Text;
 
 actions!(message_editor, [ToBody, ToTitle, LeaveEmptyBody]);
 
@@ -125,11 +126,10 @@ impl Render for MessageEditor {
                 theme.border_2
             })
             .bg(theme.bg_1)
-            .line_height(dp(19.))
+            .body()
             .child(
                 part(&self.title)
                     .key_context("MessageTitle")
-                    .font_weight(FontWeight::MEDIUM)
                     .when(self.size == MessageSize::Compact, |el| el.pr(dp(30.)))
                     .on_action(cx.listener(|this, _: &ToBody, window, cx| {
                         window.focus(&this.body.focus_handle(cx), cx)

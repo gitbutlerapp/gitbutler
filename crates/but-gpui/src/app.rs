@@ -35,6 +35,7 @@ use crate::transfer::{
     Changes, Dragged, Move, Moving, Op, Place, ProjectDrag, TerminalDrag, Transfer,
     terminal_preview,
 };
+use crate::ui::Text;
 use crate::ui::fold::{OnTop, Slide, edge, inert, on_top};
 use crate::ui::{
     Button, ButtonStyle, HEADER_HEIGHT, Icon, TILE_BAR, TILE_MARGIN, commit_title, dp, fixed,
@@ -2893,8 +2894,8 @@ impl AppView {
                 .size(dp(72.))
                 .rounded(dp(theme.shape.popup))
                 .bg(theme.pop)
-                .text_size(dp(36.))
-                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .text_off_scale(36.)
+                .semibold()
                 .text_color(theme.bg_1)
                 .child(SharedString::from(letter.to_ascii_uppercase().to_string()));
             Some(
@@ -3130,7 +3131,7 @@ impl AppView {
                     .bg(theme.bg_1)
                     .border_1()
                     .border_color(theme.hue(hue(ix)))
-                    .text_size(dp(11.))
+                    .text_11()
                     .text_color(theme.text_1)
                     .child(text);
                 Some((placed(biggest).flex().items_center().justify_center()).child(label))
@@ -3166,7 +3167,7 @@ impl AppView {
                 .bg(theme.bg_1)
                 .border_1()
                 .border_color(color)
-                .text_size(dp(11.))
+                .text_11()
                 .text_color(theme.text_1)
                 .child(text);
             Some(
@@ -4828,7 +4829,7 @@ fn tile_bar(
         .pl(dp(8.))
         .pr(dp(2.))
         .gap(dp(6.))
-        .text_size(dp(12.))
+        .text_12()
         .text_color(theme.text_2)
         .child(small_icon(kind).text_color(theme.text_3))
         .child(div().flex_grow(1.).min_w_0().truncate().child(title))
@@ -5837,8 +5838,7 @@ impl Render for AppView {
             .when(!ligatures, |el| {
                 el.font_features(FontFeatures(std::sync::Arc::new(vec![("liga".into(), 0)])))
             })
-            .text_size(dp(13.))
-            .line_height(dp(18.))
+            .text_13()
             // Keeping its height as it slides, the bottom edge coming down over the panes.
             .when(tabs_share > 0., |el| {
                 el.child(

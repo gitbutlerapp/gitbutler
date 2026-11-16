@@ -17,8 +17,8 @@ pub fn count_badge(count: usize, theme: &Theme) -> Div {
         .justify_center()
         .rounded_full()
         .bg(theme.muted)
-        .text_size(dp(11.))
-        .font_weight(gpui::FontWeight::SEMIBOLD)
+        .text_11()
+        .semibold()
         .text_color(theme.text_1)
         .child(count.to_string())
 }

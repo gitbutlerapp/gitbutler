@@ -18,6 +18,7 @@ use crate::backend::{self, Branch, Checkout, Commit, CommitId, Conflict, FullNam
 use crate::state::{Overlay, ProjectId, Rereads, Selection, snack};
 use crate::theme::{Hue, Theme};
 use crate::transfer::{Move, Op};
+use crate::ui::Text;
 use crate::ui::conflict::{self, Actions, Kept, Name, Part, Pick};
 use crate::ui::diff::{DiffRow, Layout, OnToggle};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -974,8 +975,8 @@ pub(super) fn warn_banner(
                 .flex_1()
                 .min_w_0()
                 .truncate()
-                .text_size(dp(13.))
-                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .text_13()
+                .semibold()
                 .child(title),
         )
         .children(action)

@@ -85,7 +85,7 @@ impl Render for Tooltip {
                 false => tokens::PADDING_TOOLTIP_INLINE,
             }))
             .py(dp(tokens::PADDING_TOOLTIP_BLOCK))
-            .text_size(dp(12.))
+            .text_12()
             .text_color(theme.text_1)
             .font_family(theme.ui_font.clone())
             .gap(dp(tokens::GAP_TOOLTIP))

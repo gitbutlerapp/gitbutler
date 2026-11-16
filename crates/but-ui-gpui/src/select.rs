@@ -22,7 +22,7 @@ pub fn select(
         .border_1()
         .border_color(theme.border_2)
         .bg(theme.bg_1)
-        .text_size(dp(13.))
+        .text_13()
         .text_color(theme.text_1)
         .hover(|el| el.border_color(theme.border_1))
         .child(div().min_w_0().truncate().child(label.into()))

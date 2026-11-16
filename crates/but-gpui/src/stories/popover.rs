@@ -2,6 +2,7 @@ use gpui::{Context, Div, Window, div, prelude::*};
 
 use super::{framed, page, section};
 use crate::theme::Theme;
+use crate::ui::Text;
 use crate::ui::modal::{ModalSize, modal};
 use crate::ui::{ButtonStyle, button, dp, h_flex, muted, popover, v_flex};
 
@@ -59,12 +60,7 @@ fn dialog(card: Div, title: &'static str, confirm: Option<&'static str>, theme: 
             .px(dp(20.))
             .pt(dp(18.))
             .pb(dp(12.))
-            .child(
-                div()
-                    .text_size(dp(15.))
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
-                    .child(title),
-            )
+            .child(div().text_15().semibold().child(title))
             .child(muted("What it's for, in a line.", theme)),
     )
     .when_some(confirm, |el, confirm| {

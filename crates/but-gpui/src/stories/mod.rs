@@ -40,6 +40,7 @@ use crate::backend::{
     rebuild::{Printed, Rebuild},
 };
 use crate::theme::{CodeSize, Density, Theme, UiScale};
+use crate::ui::Text;
 use crate::ui::{
     self, ButtonStyle, button, dp, faint, fixed, h_flex, list_row, section_label, segmented, v_flex,
 };
@@ -378,13 +379,7 @@ impl Gallery {
             .gap(dp(12.))
             .border_b_1()
             .border_color(theme.border_3)
-            .child(
-                div()
-                    .flex_1()
-                    .text_size(dp(15.))
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
-                    .child(name),
-            )
+            .child(div().flex_1().text_15().semibold().child(name))
             .children(rebuild)
             .child(segmented(true, theme, densities))
             .child(segmented(true, theme, scales))
@@ -406,7 +401,7 @@ impl Render for Gallery {
             .size_full()
             .items_start()
             .font_family(theme.ui_font.clone())
-            .text_size(dp(13.))
+            .text_13()
             .text_color(theme.text_1)
             .bg(theme.bg_1)
             .child(self.sidebar(&theme, cx))
@@ -436,7 +431,7 @@ fn solo(example: Example, theme: &Theme, dark: bool) -> Div {
         .size_full()
         .items_start()
         .font_family(theme.ui_font.clone())
-        .text_size(dp(13.))
+        .text_13()
         .text_color(theme.text_1)
         .bg(docs_ground(dark))
         .child(div().flex_none().p(dp(24.)).child((example.draw)(theme)))
@@ -505,6 +500,6 @@ fn framed(caption: impl Into<SharedString>, theme: &Theme, el: impl IntoElement)
     v_flex()
         .gap(dp(6.))
         .child(el)
-        .child(faint(caption.into(), theme).text_size(dp(11.)))
+        .child(faint(caption.into(), theme).text_11())
         .into_any_element()
 }

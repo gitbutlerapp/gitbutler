@@ -13,6 +13,7 @@ use super::Image;
 use super::figure::fetched;
 use crate::app::{AppView, Cancel};
 use crate::theme::Theme;
+use crate::ui::Text;
 use crate::ui::modal::{ModalSize, modal};
 use crate::ui::{Icon, dp, h_flex, icon_button, muted, v_flex};
 
@@ -127,8 +128,8 @@ impl Render for Preview {
                     .flex_grow(1.)
                     .min_w_0()
                     .truncate()
-                    .text_size(dp(13.))
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .text_13()
+                    .semibold()
                     .child(title),
             )
             .children(paging)

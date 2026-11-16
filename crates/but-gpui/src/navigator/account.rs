@@ -6,6 +6,7 @@ use gpui::{AnyElement, App, ClickEvent, Context, div, prelude::*};
 use super::Navigator;
 use crate::overlays::MenuItem;
 use crate::theme::Theme;
+use crate::ui::Text;
 use crate::ui::person::account_avatar;
 use crate::ui::{ButtonStyle, Icon, button, dp, icon_button, picture_button};
 
@@ -38,8 +39,8 @@ impl Navigator {
             .invisible()
             .h(dp(20.))
             .px(dp(6.))
-            .text_size(dp(12.))
-            .font_weight(gpui::FontWeight::SEMIBOLD)
+            .text_12()
+            .semibold()
             .whitespace_nowrap()
             .child("Downloading 100%");
         Some(

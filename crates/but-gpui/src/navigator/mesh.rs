@@ -17,6 +17,7 @@ use crate::palette::{Choice, heading_choice};
 use crate::state::{
     MeshBranch, MeshPick, ProjectEntry, ProjectId, Section, Selection, Store, snack,
 };
+use crate::ui::Text;
 use crate::ui::{Icon, Tooltip, commit_title, faint, icon, review, small_icon};
 
 impl Navigator {
@@ -195,7 +196,7 @@ impl Navigator {
                             .flex_1()
                             .min_w_0()
                             .truncate()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .semibold()
                             .child(name.clone()),
                     )
                     .children(style.unpushed(unpushed))
@@ -241,7 +242,6 @@ impl Navigator {
                             .flex_grow(1.)
                             .min_w_0()
                             .truncate()
-                            .font_weight(gpui::FontWeight::MEDIUM)
                             .when(!checkout.online, |el| el.text_color(style.muted()))
                             .when(checkout.error.is_some() && !style.solid, |el| {
                                 el.text_color(theme.warn)

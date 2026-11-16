@@ -14,10 +14,10 @@ use std::time::Duration;
 use gpui::prelude::*;
 use gpui::{
     AnyElement, App, Bounds, Context, CursorStyle, Decorations, Entity, FocusHandle,
-    Focusable as _, FontWeight, HighlightStyle, KeyDownEvent, ListAlignment, ListState,
-    MouseButton, MouseDownEvent, MouseMoveEvent, Pixels, Role, SharedString, StyledText,
-    Subscription, Task, TextLayout, TitlebarOptions, Toggled, Window, WindowBounds, WindowHandle,
-    WindowOptions, actions, canvas, div, list, point, size,
+    Focusable as _, HighlightStyle, KeyDownEvent, ListAlignment, ListState, MouseButton,
+    MouseDownEvent, MouseMoveEvent, Pixels, Role, SharedString, StyledText, Subscription, Task,
+    TextLayout, TitlebarOptions, Toggled, Window, WindowBounds, WindowHandle, WindowOptions,
+    actions, canvas, div, list, point, size,
 };
 
 use crate::app::CloseWindow;
@@ -27,6 +27,7 @@ use crate::keymap::edit::{self, Bound};
 use crate::keymap::{self, Binding, Keymap, KeymapFile, Loaded};
 use crate::state::Store;
 use crate::theme::{Highlight, Theme};
+use crate::ui::Text;
 use crate::ui::modal::{ModalSize, modal};
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{self, InputEvent, TextInput};
@@ -53,8 +54,6 @@ const PLACE_WIDTH: f32 = 270.;
 const SIDE_PAD: f32 = 12.;
 /// What the keys' column keeps as the window narrows: the columns of text give way first.
 const KEYS_MIN_WIDTH: f32 = 190.;
-/// The table's small text: what's mono, and the notes beside a key.
-const SMALL_TEXT: f32 = 13.;
 
 struct EditorWindow(WindowHandle<CommandEditor>);
 
@@ -614,7 +613,7 @@ impl CommandEditor {
                 .child(
                     h_flex()
                         .gap(dp(5.))
-                        .text_size(dp(SMALL_TEXT))
+                        .text_13()
                         .child(ui::dot(theme.pop))
                         .child("Shown in tooltips and right-click menus"),
                 ),
@@ -655,7 +654,7 @@ impl CommandEditor {
             .border_1()
             .border_color(if finding { theme.pop } else { theme.border_2 })
             .bg(theme.bg_1)
-            .text_size(dp(13.))
+            .text_13()
             .child(press)
             .children(found.map(|_| {
                 icon_button("clear-found-keys", Icon::Cross)
@@ -822,7 +821,7 @@ impl CommandEditor {
                     .items_center()
                     .gap(dp(4.))
                     .font_family(theme.mono_font.clone())
-                    .text_size(dp(SMALL_TEXT))
+                    .text_13()
                     .when(row.locked(), |el| {
                         el.child(
                             icon_at(Icon::Lock, 12.)
@@ -832,9 +831,7 @@ impl CommandEditor {
                     })
                     .child(div().min_w_0().truncate().child(text))
             }
-            Place::Unbound => text_column(PLACE_WIDTH)
-                .text_size(dp(SMALL_TEXT))
-                .child("Nowhere"),
+            Place::Unbound => text_column(PLACE_WIDTH).text_13().child("Nowhere"),
         };
         let add_place = (!repeats && !row.locked() && row.place != Place::Unbound).then(|| {
             let (action, title) = (row.action.clone(), row.title.clone());
@@ -887,7 +884,7 @@ impl CommandEditor {
         let action = text_column(ACTION_WIDTH)
             .truncate()
             .font_family(theme.mono_font.clone())
-            .text_size(dp(SMALL_TEXT))
+            .text_13()
             .when(!repeats, |el| {
                 el.child(self.action_text(ix, row, theme, cx))
             });
@@ -1019,7 +1016,7 @@ impl CommandEditor {
                 false => gpui::transparent_black(),
             })
             .hover(|el| el.bg(theme.selected_unfocused))
-            .text_size(dp(SMALL_TEXT))
+            .text_13()
             .tooltip(Tooltip::text(tooltip))
             .on_click(cx.listener(move |this, _, window, cx| {
                 this.start_recording(target.clone(), window, cx)
@@ -1138,7 +1135,7 @@ impl CommandEditor {
             .gap(dp(12.))
             .border_t_1()
             .border_color(theme.border_2)
-            .text_size(dp(SMALL_TEXT))
+            .text_13()
             .child(
                 div()
                     .flex_1()
@@ -1169,7 +1166,7 @@ impl CommandEditor {
                 .h(dp(26.))
                 .px(dp(12.))
                 .font_family(theme.mono_font.clone())
-                .text_size(dp(SMALL_TEXT))
+                .text_13()
                 .child(label)
                 .on_click(cx.listener(move |this, _, window, cx| {
                     this.pick_place(context.clone(), window, cx)
@@ -1181,7 +1178,7 @@ impl CommandEditor {
                 div()
                     .flex_none()
                     .p(dp(14.))
-                    .font_weight(FontWeight::SEMIBOLD)
+                    .semibold()
                     .child(format!("Where should {} work?", picking.title)),
             )
             .child(
@@ -1249,7 +1246,7 @@ fn recording_cap(recording: &Recording, theme: &Theme) -> impl IntoElement + use
         .rounded(dp(theme.shape.control))
         .border_1()
         .border_color(theme.pop)
-        .text_size(dp(SMALL_TEXT))
+        .text_13()
         .text_color(theme.text_1)
         .child(label)
 }
@@ -1266,10 +1263,7 @@ fn keys_column() -> gpui::Div {
 
 /// A column's or a group's name.
 fn table_heading(text: impl IntoElement) -> gpui::Div {
-    div()
-        .text_size(dp(SMALL_TEXT))
-        .font_weight(FontWeight::SEMIBOLD)
-        .child(text)
+    div().text_13().semibold().child(text)
 }
 
 /// `on` with platform `ix` switched, unless that'd leave none for the key to bind on.
@@ -1370,7 +1364,7 @@ impl Render for CommandEditor {
             .relative()
             .size_full()
             .font_family(theme.ui_font.clone())
-            .text_size(dp(14.))
+            .text_14()
             .text_color(theme.text_1)
             .bg(theme.bg_1)
             .on_action(|_: &CloseWindow, window, _| window.remove_window())

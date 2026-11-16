@@ -7,6 +7,7 @@ use super::{Card, Page, ProjectPage, Row, SettingsView, field_with_save, read_fa
 use crate::backend::{Checkout, Forge, settings as backend};
 use crate::state::ProjectId;
 use crate::theme::Theme;
+use crate::ui::Text;
 use crate::ui::{ButtonStyle, button, dp, error_summary, h_flex, muted, switch};
 
 impl SettingsView {
@@ -346,13 +347,9 @@ impl SettingsView {
             "Sign the commits GitButler makes, with the key and program your Git config names.",
             h_flex()
                 .gap(dp(8.))
-                .children(signing_note.map(|note| {
-                    div()
-                        .max_w(dp(220.))
-                        .text_size(dp(12.))
-                        .truncate()
-                        .child(note)
-                }))
+                .children(
+                    signing_note.map(|note| div().max_w(dp(220.)).text_12().truncate().child(note)),
+                )
                 .when(sign, |el| {
                     el.child(
                         button("test-signing", "Test")

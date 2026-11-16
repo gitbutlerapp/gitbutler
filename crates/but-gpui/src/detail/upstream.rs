@@ -31,6 +31,7 @@ use crate::overlays::{MenuItem, has_keys};
 use crate::state::{Pane, Part, ProjectId, ProjectTab, Selection};
 use crate::theme::{Hue, Theme};
 use crate::transfer::Moving;
+use crate::ui::Text;
 use crate::ui::emoji::ProjectIcon;
 use crate::ui::fold::inert;
 use crate::ui::markdown;
@@ -722,8 +723,7 @@ impl Detail {
         cx: &gpui::App,
     ) -> Option<(gpui::Div, Option<gpui::Div>)> {
         let commit = self.target_message_commit(project, cx)?;
-        let title =
-            title_text(label(commit)).when(flat, |el| el.text_size(dp(18.)).line_height(dp(26.)));
+        let title = title_text(label(commit)).when(flat, |el| el.text_h2());
         let meta = meta_row(theme)
             .child(byline(
                 &commit.author,
@@ -778,9 +778,8 @@ impl Detail {
             .child(
                 div()
                     .id("target-message-title")
-                    .text_size(dp(15.))
-                    .line_height(dp(22.))
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .text_15()
+                    .semibold()
                     .when(!open, |el| {
                         el.truncate().tooltip(Tooltip::text(title.clone()))
                     })
@@ -803,7 +802,7 @@ impl Detail {
                 el.child(
                     div()
                         .id("target-message-body")
-                        .text_size(dp(13.))
+                        .text_13()
                         .line_height(dp(LINE))
                         .text_color(theme.text_2)
                         .whitespace_normal()
@@ -1058,12 +1057,7 @@ impl Detail {
                         v_flex()
                             .items_center()
                             .gap(dp(6.))
-                            .child(
-                                div()
-                                    .text_size(dp(14.))
-                                    .font_weight(gpui::FontWeight::SEMIBOLD)
-                                    .child(asked),
-                            )
+                            .child(div().text_14().semibold().child(asked))
                             .child(muted(said, theme)),
                     )
                     .child(answers),
@@ -1088,12 +1082,7 @@ impl Detail {
             .gap(dp(4.))
             .px(dp(16.))
             .text_center()
-            .child(
-                div()
-                    .text_size(dp(14.))
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
-                    .child(title),
-            )
+            .child(div().text_14().semibold().child(title))
             .child(muted(detail.into(), theme).mb(dp(8.)))
             .child(
                 crate::ui::button("pick-target", "Choose a target branch…").on_click(cx.listener(
@@ -1647,7 +1636,7 @@ impl Detail {
             .justify_center()
             .rounded(dp(theme.shape.control))
             .hover(|el| el.bg(theme.hover))
-            .text_size(dp(16.))
+            .text_16()
             .child(mark)
             // No tooltip: it would sit over the picker's search field.
             .on_click(
@@ -2230,7 +2219,7 @@ impl Detail {
             .size_full()
             .children(unfinished)
             .when(!needs_doing.is_empty(), |el| {
-                el.child(side_header(theme).text_size(dp(12.)).children(needs_doing))
+                el.child(side_header(theme).text_12().children(needs_doing))
             })
             .child(list)
             .into_any_element()
@@ -2390,7 +2379,7 @@ fn activity_strip(
         .child(ends_drag(h_flex().children(bars), gesture, cx))
         .child(
             h_flex()
-                .text_size(dp(11.))
+                .text_11()
                 .child(faint(format!("{ACTIVITY_DAYS} days ago"), theme).flex_grow(1.))
                 .child(faint("Today", theme)),
         )

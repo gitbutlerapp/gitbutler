@@ -15,6 +15,7 @@ use crate::backend::briefs::{BriefBlock, BriefBody, BriefPage, CommentTo, Note, 
 use crate::detail::Detail;
 use crate::detail::pull_request::{card, tag};
 use crate::theme::{Hue, Theme};
+use crate::ui::Text;
 use crate::ui::person::person_avatar;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{ButtonStyle, Icon, Tooltip, button, dp, h_flex, icon_button, markdown, v_flex};
@@ -333,7 +334,7 @@ impl Detail {
             .child(
                 h_flex()
                     .gap(dp(8.))
-                    .text_size(dp(12.))
+                    .text_12()
                     .text_color(theme.text_3)
                     .children(self.next_brief(true, cx).map(|next| {
                         button("brief-next", format!("Next: {}", next.title))
@@ -378,13 +379,13 @@ impl Detail {
                         h_flex()
                             .min_h(dp(20.))
                             .gap(dp(6.))
-                            .text_size(dp(12.))
+                            .text_12()
                             .text_color(theme.text_2)
                             .child(person_avatar(name, 16., theme))
                             .child(
                                 div()
                                     .flex_none()
-                                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                                    .semibold()
                                     .text_color(theme.text_1)
                                     .child(name.to_owned()),
                             )
@@ -524,8 +525,8 @@ impl Detail {
                         div()
                             .flex_auto()
                             .min_w_0()
-                            .text_size(dp(13.))
-                            .line_height(dp(20.))
+                            .text_13()
+                            .body()
                             .text_color(theme.text_1)
                             .child(note.body.clone()),
                     )

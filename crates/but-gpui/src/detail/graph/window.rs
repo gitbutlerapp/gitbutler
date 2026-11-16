@@ -11,6 +11,7 @@ use super::{GraphState, GraphView};
 use crate::app::{CloseWindow, Minimize, Zoom};
 use crate::state::{ProjectId, Store};
 use crate::theme::Theme;
+use crate::ui::Text;
 use crate::ui::{self, HEADER_HEIGHT, dp, fixed, h_flex, v_flex};
 
 /// How big it opens, and how small it can be made, in logical pixels.
@@ -161,7 +162,7 @@ impl Render for GraphWindow {
                 .bg(theme.bg_1)
                 .border_b_1()
                 .border_color(theme.border_2)
-                .text_size(dp(13.))
+                .text_13()
                 .child(self.name.clone())
                 .child(div().text_color(theme.text_3).child("Graph")),
         );
@@ -177,8 +178,7 @@ impl Render for GraphWindow {
             .bg(theme.bg_2)
             .text_color(theme.text_1)
             .font_family(theme.ui_font.clone())
-            .text_size(dp(13.))
-            .line_height(dp(18.))
+            .text_13()
             .child(header)
             .child(
                 div()

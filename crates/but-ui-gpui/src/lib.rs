@@ -43,6 +43,7 @@ mod segmented;
 mod select;
 mod snackbar;
 mod switch;
+mod text;
 mod toggle_group;
 mod tooltip;
 
@@ -62,5 +63,6 @@ pub use segmented::*;
 pub use select::*;
 pub use snackbar::*;
 pub use switch::*;
+pub use text::*;
 pub use toggle_group::*;
 pub use tooltip::*;

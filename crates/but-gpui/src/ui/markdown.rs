@@ -33,6 +33,7 @@ use super::{
 };
 use crate::backend::{DiffLine, images};
 use crate::theme::{Highlight, Theme};
+use crate::ui::Text;
 
 mod figure;
 mod preview;
@@ -1027,7 +1028,7 @@ impl gpui::Render for Peek {
                     .py(dp(5.))
                     .border_b_1()
                     .border_color(theme.border_3)
-                    .text_size(dp(11.))
+                    .text_11()
                     .text_color(theme.text_2)
                     .font_family(theme.ui_font.clone())
                     .child(self.path.clone()),
@@ -1187,24 +1188,19 @@ fn element(
             .py(dp(8.))
             .rounded(dp(theme.shape.card))
             .bg(theme.muted)
-            .text_size(dp(12.))
+            .text_12()
             .line_height(dp(18.))
             .child(text(id, ix, block, range, texts, theme))
             .into_any_element(),
         // As GitHub draws them, the top two over a rule.
         Kind::Heading(level) => div()
             .pt(dp(8.))
-            .text_size(dp(match level {
-                1 => 22.,
-                2 => 17.,
-                3 => 15.,
-                _ => 14.,
-            }))
-            .line_height(dp(match level {
-                1 => 30.,
-                2 => 24.,
-                _ => 22.,
-            }))
+            .map(|el| match level {
+                1 => el.text_h1(),
+                2 => el.text_h2(),
+                3 => el.text_h3(),
+                _ => el.text_14().semibold(),
+            })
             .when(*level <= 2 && !block.centered, |el| {
                 el.pb(dp(6.)).border_b_1().border_color(theme.border_3)
             })
@@ -1251,8 +1247,8 @@ fn placed(block: &Block, space: f32, el: AnyElement, theme: &Theme) -> AnyElemen
     let indented = div()
         .mt(dp(space))
         .pl(dp(block.depth as f32 * 16.))
-        .text_size(dp(13.))
-        .line_height(dp(20.))
+        .text_13()
+        .body()
         .when(block.centered, |el| el.text_center())
         .child(el);
     match block.quoted {

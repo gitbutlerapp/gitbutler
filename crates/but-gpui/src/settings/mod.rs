@@ -27,6 +27,7 @@ use crate::state::{
     NavigatorPlace, Prefs, ProjectEntry, ProjectId, ScopeLines, Store, TerminalRuns, TileDragFeel,
 };
 use crate::theme::{Accent, Appearance, CodeSize, Corners, Density, Ground, Shade, Theme, UiScale};
+use crate::ui::Text;
 use crate::ui::fold::{self, Folds};
 use crate::ui::modal::{ModalSize, modal};
 use crate::ui::scrollbar::{Scroll, scrolled};
@@ -895,12 +896,7 @@ impl SettingsView {
                 });
             h_flex()
                 .gap(dp(8.))
-                .child(
-                    div()
-                        .text_size(dp(13.))
-                        .text_color(theme.text_2)
-                        .child(name),
-                )
+                .child(div().text_13().text_color(theme.text_2).child(name))
                 .child(scheme)
         };
         let schemes = Row::new(
@@ -1774,8 +1770,8 @@ impl SettingsView {
             .children(card.heading.map(|heading| {
                 div()
                     .pl(dp(16.))
-                    .text_size(dp(12.))
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .text_12()
+                    .semibold()
                     .text_color(theme.text_3)
                     .child(heading)
             }))
@@ -1818,16 +1814,16 @@ impl SettingsView {
                     .gap(dp(6.))
                     .child(
                         div()
-                            .text_size(dp(15.))
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .text_15()
+                            .semibold()
                             .text_color(theme.text_1)
                             .child(row.title),
                     )
                     .when(hint, |el| {
                         el.child(
                             div()
-                                .text_size(dp(12.))
-                                .line_height(dp(18.))
+                                .text_12()
+                                .body()
                                 .text_color(theme.text_2)
                                 .child(row.description),
                         )
@@ -1998,8 +1994,8 @@ impl Render for SettingsView {
                 div()
                     .px(dp(8.))
                     .pb(dp(8.))
-                    .text_size(dp(12.))
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .text_12()
+                    .semibold()
                     .text_color(theme.text_3)
                     .child(label)
             };
@@ -2071,8 +2067,8 @@ impl Render for SettingsView {
                     .px(dp(20.))
                     .pt(dp(20.))
                     .pb(dp(10.))
-                    .text_size(dp(16.))
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .text_16()
+                    .semibold()
                     .text_color(theme.text_1)
                     .child("Settings"),
             )

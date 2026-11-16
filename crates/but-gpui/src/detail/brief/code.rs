@@ -11,6 +11,7 @@ use crate::detail::find::Spot;
 use crate::detail::page::PageTab;
 use crate::state::{Axis, CodePlace, RowKey, Selection, StoreEvent, Tile};
 use crate::theme::Theme;
+use crate::ui::Text;
 use crate::ui::diff::split_path;
 use crate::ui::file_icons::file_icon;
 use crate::ui::{Icon, diff, dp, h_flex, icon_at, v_flex};
@@ -30,7 +31,7 @@ fn chip(words: &str, warning: bool, theme: &Theme) -> Div {
         .rounded(dp(theme.shape.control))
         .border_1()
         .border_color(edge)
-        .text_size(dp(11.))
+        .text_11()
         .line_height(dp(16.))
         .text_color(color)
         .bg(theme.bg_1)
@@ -41,7 +42,7 @@ fn chip(words: &str, warning: bool, theme: &Theme) -> Div {
 fn not_shown(omitted: &[String], theme: &Theme) -> Option<Div> {
     (!omitted.is_empty()).then(|| {
         div()
-            .text_size(dp(11.))
+            .text_11()
             .text_color(theme.text_3)
             .child(format!("Not shown: {}", omitted.join(", ")))
     })
@@ -140,7 +141,7 @@ impl Detail {
                     .py(dp(4.))
                     .border_t_1()
                     .border_color(theme.border_3)
-                    .text_size(dp(11.))
+                    .text_11()
                     .children(whole.as_ref().map(|file| {
                         let (added, removed) = file.stats();
                         let words = match shows_whole {
@@ -225,7 +226,7 @@ impl Detail {
             .px(dp(10.))
             .gap(dp(6.))
             .bg(theme.bg_2)
-            .text_size(dp(12.))
+            .text_12()
             .when(goes, |el| {
                 el.role(gpui::Role::Button)
                     .aria_label(SharedString::from(format!("Show {path} in Changes")))
@@ -260,7 +261,7 @@ impl Detail {
                 el.child(
                     div()
                         .flex_none()
-                        .text_size(dp(11.))
+                        .text_11()
                         .text_color(theme.text_3)
                         .child("not on the branch now"),
                 )

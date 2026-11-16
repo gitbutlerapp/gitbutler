@@ -1,12 +1,13 @@
 //! The `but` CLI's row on General and its card on the welcome: install it with a click, then
 //! copy the command that gives coding agents GitButler's skill.
 
-use gpui::{App, Context, Div, Entity, FontWeight, div, prelude::*};
+use gpui::{App, Context, Div, Entity, div, prelude::*};
 
 use super::{Row, SettingsView};
 use crate::clipboard;
 use crate::state::Store;
 use crate::theme::Theme;
+use crate::ui::Text;
 use crate::ui::illustration::{Illustration, illustration};
 use crate::ui::{Button, ButtonStyle, Icon, button, dp, h_flex, icon_button, v_flex};
 
@@ -43,7 +44,7 @@ fn agent_setup(id: &'static str, store: &Entity<Store>, theme: &Theme) -> Div {
         .rounded(dp(theme.shape.card))
         .bg(theme.secondary)
         .font_family(theme.mono_font.clone())
-        .text_size(dp(12.))
+        .text_12()
         .child(div().text_color(theme.text_3).child("$"))
         .child(div().flex_1().text_color(theme.text_1).child(AGENT_SETUP))
         .child(
@@ -109,18 +110,12 @@ pub fn welcome_card(store: &Entity<Store>, theme: &Theme, cx: &App) -> Option<Di
                     .gap(dp(4.))
                     .child(
                         div()
-                            .text_size(dp(13.))
-                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_13()
+                            .semibold()
                             .text_color(theme.text_1)
                             .child(title),
                     )
-                    .child(
-                        div()
-                            .text_size(dp(12.))
-                            .line_height(dp(18.))
-                            .text_color(theme.text_2)
-                            .child(body),
-                    )
+                    .child(div().text_12().body().text_color(theme.text_2).child(body))
                     .when(installed, |el| {
                         el.child(agent_setup("welcome-copy-setup", store, theme).mt(dp(6.)))
                     }),

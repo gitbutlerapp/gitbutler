@@ -34,6 +34,7 @@ use crate::state::{
 };
 use crate::terminal::{NewTerminalWith, TerminalId};
 use crate::theme::{ColorScheme, Shade, Theme};
+use crate::ui::Text;
 use crate::ui::file_icons::file_icon;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -2091,7 +2092,7 @@ impl AppView {
                 .gap(dp(14.))
                 .border_b_1()
                 .border_color(theme.border_3)
-                .text_size(dp(12.))
+                .text_12()
                 .children(tabs)
         });
         let tab_hint = palette.groups.as_ref().map(|_| ("⇥", "Filter"));
@@ -2166,7 +2167,7 @@ impl AppView {
                     // Its ground fills the card's bottom corners, which it rounds as the card
                     // does, inside its border.
                     .rounded_b(dp(theme.shape.popup - 1.))
-                    .text_size(dp(12.))
+                    .text_12()
                     .text_color(theme.text_2)
                     .children(
                         [

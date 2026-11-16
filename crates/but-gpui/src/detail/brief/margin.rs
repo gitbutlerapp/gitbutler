@@ -19,6 +19,7 @@ use crate::backend::briefs::{BriefBlock, BriefBody, BriefPage, CommentTo, Note, 
 use crate::detail::Detail;
 use crate::overlays::MenuItem;
 use crate::theme::Theme;
+use crate::ui::Text;
 use crate::ui::markdown::Tint;
 use crate::ui::{Button, ButtonStyle, Icon, button, dp, h_flex, icon_button, markdown, v_flex};
 
@@ -454,13 +455,8 @@ impl Detail {
                         .border_color(theme.focus_border)
                         .bg(theme.bg_1),
                 })
-                .children(title.map(|title| {
-                    div()
-                        .text_size(dp(12.))
-                        .text_color(theme.text_2)
-                        .child(title)
-                }))
-                .child(div().text_size(dp(13.)).child(input.field.clone()))
+                .children(title.map(|title| div().text_12().text_color(theme.text_2).child(title)))
+                .child(div().text_13().child(input.field.clone()))
                 .children(shortcuts)
                 .child(actions),
         )
@@ -725,7 +721,7 @@ impl Detail {
 pub(super) fn quote_line(quote: &str, theme: &Theme) -> Div {
     div()
         .truncate()
-        .text_size(dp(12.))
+        .text_12()
         .text_color(theme.text_3)
         .child(format!("“{}”", quote.lines().next().unwrap_or_default()))
 }

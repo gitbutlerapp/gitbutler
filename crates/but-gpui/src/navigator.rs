@@ -69,6 +69,7 @@ pub(crate) use rows::{lists_changes, worktrees_listed};
 pub(crate) use tabs::NavigatorTabs;
 pub(crate) use terminals::TerminalOverview;
 
+use crate::ui::Text;
 use moving::Mark;
 use rows::{
     CARD_EDGE, CARD_PADDING, COMMIT_INDENT, Drawer, Fold, HEADING_HEIGHT, ROW_LEFT, Row, RowKey,
@@ -227,7 +228,7 @@ pub(super) fn card_bar(
             open.map(|open| fold::turned(format!("{id}-fold"), open, Icon::ChevronUp, PI, muted)),
         )
         .child(section_label(title, theme).text_color(ink).truncate())
-        .children(count.map(|count| faint(count, theme).text_size(dp(12.)).text_color(muted)));
+        .children(count.map(|count| faint(count, theme).text_12().text_color(muted)));
     // In from its card's edges as a row is, its hover rounded as one's, so it stays inside the
     // card's corners.
     h_flex()
@@ -1661,7 +1662,7 @@ impl Navigator {
                         .child(commit_title(title)),
                 )
                 .when(*slow, |el| {
-                    el.child(div().text_size(dp(11.)).text_color(theme.text_2).child("…"))
+                    el.child(div().text_11().text_color(theme.text_2).child("…"))
                 })
                 .into_any_element(),
             Some(Row::NewBranch(_)) => self.new_branch_zone(ix, theme),
@@ -2649,7 +2650,7 @@ impl Navigator {
             .w(dp(16.))
             .flex()
             .justify_center()
-            .text_size(dp(13.))
+            .text_13()
             .child(project_glyph(store, id, style.muted(), theme));
         let glyph = self.fold(
             ElementId::Name(format!("fold-project-{id}").into()),
@@ -3480,10 +3481,7 @@ impl Navigator {
     ) -> Option<AnyElement> {
         let (title, slow) = self.store.read(cx).pending_commit(project, op)?;
         let glyph = small_icon(Icon::Commit).text_color(style.meta(style.theme.blue));
-        let ellipsis = div()
-            .text_size(dp(11.))
-            .text_color(style.muted())
-            .child("…");
+        let ellipsis = div().text_11().text_color(style.muted()).child("…");
         Some(
             style
                 .commit_line(
@@ -3803,7 +3801,7 @@ fn note_row(text: &SharedString, is_error: bool, theme: &Theme) -> AnyElement {
         .px(dp(12.))
         .py(dp(4.))
         .gap(dp(6.))
-        .text_size(dp(12.))
+        .text_12()
         .text_color(if is_error { theme.danger } else { theme.text_2 })
         .when(is_error, |el| {
             el.child(small_icon(Icon::Warning).text_color(theme.danger))

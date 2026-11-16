@@ -1,5 +1,5 @@
-//! Compiles in but-ui's tokens (`packages/but-ui/tokens`) as constants, so the theme draws in
-//! the colours but.dev does.
+//! Compiles in but-ui's tokens (`packages/but-ui/tokens`) and its type scale (`styles/text.css`)
+//! as constants, so the theme draws in the colours and sizes but.dev does.
 #![expect(
     clippy::disallowed_methods,
     reason = "it runs while building, with no UI to block"
@@ -35,6 +35,79 @@ fn color_tokens(out: &Path) {
         + &grounds(&data)
         + &shapes(&data);
     fs::write(out.join("color_tokens.rs"), consts).expect("OUT_DIR is writable");
+    text_tokens(out);
+}
+
+/// The type scale, from but-ui's text classes (`styles/text.css`, `.text-13`) and the font tokens
+/// they read (`tokens/tokens.css`, `--but-font-weight-regular`): each base class as a `TextClass`,
+/// and each weight and line height as a constant, for `text.rs`.
+fn text_tokens(out: &Path) {
+    let [css, tokens] = ["styles/text.css", "tokens/tokens.css"].map(|file| {
+        let path = Path::new("../../packages/but-ui").join(file);
+        println!("cargo:rerun-if-changed={}", path.display());
+        fs::read_to_string(&path).unwrap_or_else(|_| panic!("but-ui has {file}"))
+    });
+    // `--but-font-weight-regular: 460;` and `--but-font-line-height-default: 120%;`.
+    let token = |prefix: &str| -> Vec<(String, f32)> {
+        (tokens.lines())
+            .filter_map(|line| {
+                let (name, value) = line.trim().strip_prefix(prefix)?.split_once(':')?;
+                let value = value.trim().trim_end_matches(';');
+                let number = match value.strip_suffix('%') {
+                    Some(percent) => percent.parse::<f32>().ok()? / 100.,
+                    None => value.parse().ok()?,
+                };
+                Some((name.to_owned(), number))
+            })
+            .collect()
+    };
+    let weights = token("--but-font-weight-");
+    let line_heights = token("--but-font-line-height-");
+    let lookup = |table: &[(String, f32)], value: &str, what: &str| -> f32 {
+        if let Some(name) = value.strip_prefix(&format!("var(--but-font-{what}-")) {
+            let name = name.trim_end_matches(')');
+            let found = table.iter().find(|(n, _)| n == name);
+            found
+                .unwrap_or_else(|| panic!("tokens.css has --but-font-{what}-{name}"))
+                .1
+        } else {
+            value
+                .parse()
+                .unwrap_or_else(|_| panic!("a {what} is a token or a number: {value}"))
+        }
+    };
+    // The base classes, up to the modifiers, each `.text-x { property: value; … }`.
+    let base = css.split("/* MODIFIERS */").next().unwrap_or(&css);
+    let classes: String = (base.split(".text-").skip(1))
+        .filter_map(|block| {
+            let (name, body) = block.split_once('{')?;
+            let body = body.split('}').next()?;
+            let property = |key: &str| {
+                body.lines().find_map(|line| {
+                    line.trim().strip_prefix(key)?.trim().strip_suffix(';').map(str::to_owned)
+                })
+            };
+            let rem: f32 = property("font-size:")?.strip_suffix("rem")?.parse().ok()?;
+            let weight = lookup(&weights, &property("font-weight:")?, "weight");
+            let line_height = lookup(&line_heights, &property("line-height:")?, "line-height");
+            let name = name.trim().to_uppercase().replace('-', "_");
+            Some(format!(
+                "pub const TEXT_{name}: TextClass = TextClass {{ size: {:?}, weight: {weight:?}, line_height: {line_height:?} }};\n",
+                rem * 16.
+            ))
+        })
+        .collect();
+    let constants = |table: &[(String, f32)], prefix: &str| -> String {
+        (table.iter())
+            .map(|(name, value)| {
+                let name = name.to_uppercase().replace('-', "_");
+                format!("pub const {prefix}_{name}: f32 = {value:?};\n")
+            })
+            .collect()
+    };
+    let generated =
+        classes + &constants(&weights, "FONT_WEIGHT") + &constants(&line_heights, "LINE_HEIGHT");
+    fs::write(out.join("text_tokens.rs"), generated).expect("OUT_DIR is writable");
 }
 
 fn lengths(tokens: &serde_json::Value) -> String {

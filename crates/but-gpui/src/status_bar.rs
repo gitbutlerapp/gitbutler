@@ -20,6 +20,7 @@ use crate::pr::{CreatePullRequest, create_offer};
 use crate::state::{Part, ProjectId, ProjectTab, SLOW, Selection};
 use crate::theme::{Hue, Theme};
 use crate::transfer::{Op, Transfer};
+use crate::ui::Text;
 use crate::ui::{
     Icon, STATUS_BAR_HEIGHT, Tooltip, ago, dot, dp, duration, h_flex, plural, shortcut,
     shortcut_here, small_icon,
@@ -400,7 +401,7 @@ impl AppView {
             .gap(dp(10.))
             // On the ground the cards are on, with nothing between, as the top bars are.
             .bg(theme.bg_2)
-            .text_size(dp(12.))
+            .text_12()
             .text_color(theme.text_2)
             // What's going on on the left, how fresh the remote is first, as it's there whatever
             // else is, and the keys on the right, Commands last so it stays put.

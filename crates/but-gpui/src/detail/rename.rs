@@ -1,14 +1,13 @@
 //! A branch's name edited in its page's header, where a click on the name starts it.
 
-use gpui::{
-    AnyElement, App, Context, Entity, Focusable as _, FontWeight, Subscription, Window, prelude::*,
-};
+use gpui::{AnyElement, App, Context, Entity, Focusable as _, Subscription, Window, prelude::*};
 
 use super::Detail;
 use crate::backend::{FullName, short_ref};
 use crate::overlays::{branch_name_input, branch_went, on_branch_name};
 use crate::state::{ProjectId, Selection, snack};
 use crate::theme::Theme;
+use crate::ui::Text;
 use crate::ui::text_input::TextInput;
 use crate::ui::{dp, field};
 
@@ -106,9 +105,7 @@ impl Detail {
                 .my(dp(-1.))
                 .px(dp(4.))
                 .py_0()
-                .text_size(dp(16.))
-                .line_height(dp(22.))
-                .font_weight(FontWeight::SEMIBOLD)
+                .text_h3()
                 .text_color(theme.text_1)
                 .into_any_element(),
         )

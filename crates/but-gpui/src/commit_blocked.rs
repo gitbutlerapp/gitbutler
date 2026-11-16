@@ -4,8 +4,8 @@
 //! without the user saying so here.
 
 use gpui::{
-    App, Context, DismissEvent, Div, Entity, EventEmitter, FocusHandle, Focusable, FontWeight,
-    ScrollHandle, SharedString, Window, div, prelude::*,
+    App, Context, DismissEvent, Div, Entity, EventEmitter, FocusHandle, Focusable, ScrollHandle,
+    SharedString, Window, div, prelude::*,
 };
 
 use crate::app::{AppView, Confirm};
@@ -15,6 +15,7 @@ use crate::backend::{
 };
 use crate::state::{BlockedCommit, Store};
 use crate::theme::Theme;
+use crate::ui::Text;
 use crate::ui::diff::excerpt;
 use crate::ui::modal::{ModalSize, modal};
 use crate::ui::scrollbar::{Scroll, scrolled};
@@ -283,8 +284,7 @@ fn left_out(change: &BlockedChange, theme: &Theme) -> Div {
     let path = div()
         .min_w_0()
         .truncate()
-        .text_size(dp(13.))
-        .font_weight(FontWeight::MEDIUM)
+        .text_13()
         .child(change.path.clone());
     let why = match (change.hunks.as_slice(), change.suspects.as_slice()) {
         ([], []) => Some(capitalized(change.why)),
@@ -468,8 +468,8 @@ impl Render for CommitBlocked {
             .gap(dp(12.))
             .child(
                 div()
-                    .text_size(dp(14.))
-                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_14()
+                    .semibold()
                     .child(format!("Can't commit all of this to {target}")),
             )
             .child(muted(explanation(&blocked.blocked, to), theme))

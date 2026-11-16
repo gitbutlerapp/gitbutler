@@ -2,6 +2,7 @@
 
 use gpui::{Div, Pixels, Rems, div, prelude::*};
 
+use crate::Text;
 use crate::theme::Theme;
 use gpui::rems;
 
@@ -27,19 +28,13 @@ pub fn v_flex() -> Div {
 }
 
 pub fn muted(text: impl IntoElement, theme: &Theme) -> Div {
-    div()
-        .text_size(dp(12.))
-        .text_color(theme.text_2)
-        .child(text)
+    div().text_12().text_color(theme.text_2).child(text)
 }
 
 pub fn faint(text: impl IntoElement, theme: &Theme) -> Div {
-    div()
-        .text_size(dp(11.))
-        .text_color(theme.text_3)
-        .child(text)
+    div().text_11().text_color(theme.text_3).child(text)
 }
 
 pub fn section_label(text: impl IntoElement, theme: &Theme) -> Div {
-    faint(text, theme).font_weight(gpui::FontWeight::SEMIBOLD)
+    faint(text, theme).semibold()
 }

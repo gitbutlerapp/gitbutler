@@ -9,6 +9,7 @@ use gpui::{
 };
 
 use super::{Card, Row, SettingsView};
+use crate::ui::Text;
 use crate::ui::{self, dp, fixed, h_flex};
 
 /// Commands by the area their name starts with, in the order the page lists them.
@@ -132,8 +133,8 @@ impl SettingsView {
                 .child(
                     div()
                         .pl(dp(16.))
-                        .text_size(dp(12.))
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .text_12()
+                        .semibold()
                         .text_color(theme.text_3)
                         .child(*heading),
                 ),
@@ -207,7 +208,7 @@ fn shortcut_row(shortcut: Shortcut, theme: &crate::theme::Theme) -> Row {
         .h(dp(26.))
         .px(dp(6.))
         .gap(dp(8.))
-        .text_size(dp(12.))
+        .text_12()
         .children(keys.iter().enumerate().map(|(ix, key)| {
             h_flex()
                 .child(ui::keycap(key, theme))

@@ -75,6 +75,7 @@ use crate::state::{
     Selection, Side, Store, StoreEvent, Tile,
 };
 use crate::theme::Theme;
+use crate::ui::Text;
 use crate::ui::change_marks::{Change, ChangeMarks};
 use crate::ui::diff::{self, DiffRow};
 use crate::ui::fold::{FOLD, Folds, Slide, edge, inert};
@@ -4729,8 +4730,7 @@ fn welcome(store: &Entity<Store>, theme: &Theme, cx: &App) -> AnyElement {
                 .child(illustration(Illustration::Waving, theme, cx).mb(dp(14.)))
                 .child(
                     div()
-                        .text_size(dp(18.))
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .text_h2()
                         .text_color(theme.text_1)
                         .child("Welcome to GitButler"),
                 )
@@ -4738,7 +4738,7 @@ fn welcome(store: &Entity<Store>, theme: &Theme, cx: &App) -> AnyElement {
                     div()
                         .max_w(dp(420.))
                         .text_center()
-                        .text_size(dp(13.))
+                        .text_13()
                         .text_color(theme.text_2)
                         .child(
                             "Add a repository your coding agents work in. What they change shows \
@@ -4815,7 +4815,7 @@ fn usage_notice(theme: &Theme) -> AnyElement {
     // One line the column centers, not `text_center`: GPUI maps a click on centered text as if
     // the line were left-aligned, so the links would miss.
     div()
-        .text_size(dp(12.))
+        .text_12()
         .text_color(theme.text_3)
         .child(gpui::InteractiveText::new("usage-notice", styled).on_click(
             vec![policy, opt_out],

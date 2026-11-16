@@ -6,6 +6,10 @@
 # the UI thread. Anywhere else, `#[expect]` says why the call can't block the UI. Tests, which
 # don't run on it, may call them anywhere (`lib.rs`).
 #
+# Text is set in but-ui's classes, `.text_13().semibold()` (`Text`, in but-ui-gpui's `text.rs`),
+# as React and Figma set it. A size the scale doesn't have, as a letter filling an avatar or code
+# at the user's size, is `text_off_scale`.
+#
 # A colour comes from `Theme`, which reads but-ui's tokens, or a colour scheme, in `src/theme.rs`.
 # A tint is a token too, or a named strength there (`Theme::highlight`, `Theme::wash`), never
 # a share picked at the call site. Dimming a whole element is `Styled::opacity`, as CSS's
@@ -39,6 +43,8 @@ disallowed-methods = [
     { path = "gpui::green", reason = "colours come from Theme: a new one is a but-ui token, read in src/theme.rs" },
     { path = "gpui::blue", reason = "colours come from Theme: a new one is a but-ui token, read in src/theme.rs" },
     { path = "gpui::yellow", reason = "colours come from Theme: a new one is a but-ui token, read in src/theme.rs" },
+    { path = "gpui::Styled::text_size", reason = "set text with a class, as .text_13(), or .text_off_scale for a size the scale doesn't have" },
+    { path = "gpui::Styled::font_weight", reason = "set a weight with .semibold() or .bold() after a class" },
     { path = "gpui::px", reason = "use ui::dp, which follows the interface scale, or ui::fixed for what must stay put" },
     { path = "gpui::App::write_to_clipboard", reason = "copy through crate::clipboard, which says what it copied" },
     { path = "gpui::App::read_from_clipboard", reason = "paste through crate::clipboard" },

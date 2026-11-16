@@ -17,6 +17,7 @@ use crate::state::{
 };
 use crate::terminal::TerminalId;
 use crate::theme::{Hue, Theme};
+use crate::ui::Text;
 use crate::ui::diff::split_path;
 use crate::ui::file_icons::{file_icon, folder_icon};
 use crate::ui::{Icon, commit_title, count_badge, dp, h_flex, popover, small_icon};
@@ -1866,7 +1867,7 @@ pub fn drag_pill(
         .max_w(dp(320.))
         .border_color(theme.pop)
         .font_family(theme.ui_font.clone())
-        .text_size(dp(12.))
+        .text_12()
         .text_color(theme.text_1)
         .child(mark)
         .child(label)
