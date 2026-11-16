@@ -1,5 +1,5 @@
-//! GitButler's file-type marks, shared with but.dev: which one a file gets, by the
-//! same map and rule as `@gitbutler/but-ui-react`.
+//! A file's type mark and a folder's, as but-ui-react's `FileIcon` and `FolderIcon`: which
+//! mark a file gets, by the same map and rule.
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -9,7 +9,7 @@ use gpui::{
     App, Div, Hsla, ImageSource, Img, RenderImage, Rgba, SvgRenderer, div, img, prelude::*,
 };
 
-use super::dp;
+use crate::dp;
 use crate::theme::Theme;
 
 include!(concat!(env!("OUT_DIR"), "/file_icons.rs"));
@@ -25,7 +25,7 @@ thread_local! {
 
 /// The icon names by whole file name, then by extension, from the UI package's map.
 static TYPES: LazyLock<[HashMap<&'static str, &'static str>; 2]> = LazyLock::new(|| {
-    let source = include_str!("../../../../packages/but-ui-react/src/file-icons/typeMap.ts");
+    let source = include_str!("../../../packages/but-ui-react/src/file-icons/typeMap.ts");
     // File names follow extensions, as a test checks.
     let (extensions, names) = source
         .split_once("symbolFileNamesToIcons")
@@ -157,7 +157,7 @@ mod tests {
 
     #[test]
     fn every_mark_draws() {
-        let renderer = gpui::SvgRenderer::new(std::sync::Arc::new(crate::ui::Assets));
+        let renderer = gpui::SvgRenderer::new(std::sync::Arc::new(crate::Assets));
         for icon in TYPES
             .iter()
             .flat_map(|map| map.values())

@@ -6,7 +6,6 @@ pub mod change_marks;
 pub mod conflict;
 pub mod diff;
 pub mod emoji;
-pub mod file_icons;
 pub mod fold;
 mod format;
 pub mod markdown;

@@ -19,6 +19,7 @@
 #![cfg_attr(not(test), deny(clippy::indexing_slicing, clippy::string_slice))]
 #![cfg_attr(test, allow(clippy::disallowed_methods))]
 
+pub mod file_icons;
 pub mod illustration;
 pub mod modal;
 #[expect(
