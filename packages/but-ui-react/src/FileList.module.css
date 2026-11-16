@@ -423,9 +423,10 @@
 	align-items: center;
 }
 
+/* Inter's own figures, as 🍑 But UI and the GPUI client draw them: its tabular "1" is another
+   glyph, and each count is centred in a cell of its own anyway. */
 .count {
 	color: var(--but-muted-foreground);
-	font-variant-numeric: tabular-nums;
 
 	:where([data-selection-focused="true"]:not([data-selection-focus-styles="false"] *))
 		.item[data-selected]
