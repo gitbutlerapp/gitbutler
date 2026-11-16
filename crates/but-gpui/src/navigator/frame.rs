@@ -86,6 +86,7 @@ pub(super) fn at_top(list: &ListState) -> bool {
 /// other side of a fold, as "Show fewer" becomes "N more".
 fn same_place(old: &Row, new: &Row) -> bool {
     match (old, new) {
+        (Row::Group(old), Row::Group(new)) => old.id == new.id,
         (Row::Fewer(project, ref_name), Row::More(p, r, _)) => project == p && ref_name == r,
         _ => old == new,
     }

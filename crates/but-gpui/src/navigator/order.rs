@@ -125,7 +125,7 @@ impl Navigator {
     pub(super) fn view_button(&self, cx: &Context<Self>) -> AnyElement {
         icon_button("watched-view-options", Icon::Mixer)
             .small()
-            .tooltip("Order and fold watched projects")
+            .tooltip("Organize repositories")
             .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
                 this.open_menu(event.position(), |this, cx| this.view_menu(cx), cx)
             }))
@@ -153,6 +153,36 @@ impl Navigator {
             })
         };
         vec![
+            MenuItem::new("New repository group…", |app, window, cx| {
+                app.edit_project_group(None, None, window, cx)
+            })
+            .under("Groups"),
+            MenuItem::new("Collapse all groups", |app, _, cx| {
+                app.store.update(cx, |store, cx| {
+                    store.set_prefs(
+                        |prefs| {
+                            for group in &mut prefs.project_groups {
+                                group.folded = true;
+                            }
+                            prefs.ungrouped_folded = true;
+                        },
+                        cx,
+                    )
+                });
+            }),
+            MenuItem::new("Expand all groups", |app, _, cx| {
+                app.store.update(cx, |store, cx| {
+                    store.set_prefs(
+                        |prefs| {
+                            for group in &mut prefs.project_groups {
+                                group.folded = false;
+                            }
+                            prefs.ungrouped_folded = false;
+                        },
+                        cx,
+                    )
+                });
+            }),
             set("Manual, by dragging", WatchedOrder::Manual).under("Order watched projects"),
             set("Name", WatchedOrder::Name),
             set("Last activity", WatchedOrder::Activity),
@@ -574,7 +604,7 @@ pub(super) fn cards(rows: &[Row]) -> Vec<(&ProjectId, Range<usize>)> {
     for (ix, row) in rows.iter().enumerate() {
         match row {
             Row::Item(Selection::Project(id)) => cards.push((id, ix..ix + 1)),
-            Row::Gap => {}
+            Row::Gap | Row::Group(_) => {}
             _ => {
                 if let Some((_, span)) = cards.last_mut() {
                     span.end = ix + 1;
@@ -614,7 +644,9 @@ fn worktree_end(rows: &[Row], heading: usize) -> usize {
     (rows.iter().enumerate().skip(heading + 1))
         .find_map(|(ix, row)| match row {
             Row::WorktreeDivider => Some(ix + 1),
-            Row::Item(Selection::Checkout(_, Checkout::Linked(_))) | Row::Gap => Some(ix),
+            Row::Item(Selection::Checkout(_, Checkout::Linked(_)) | Selection::Project(_))
+            | Row::Gap
+            | Row::Group(_) => Some(ix),
             _ => None,
         })
         .unwrap_or(rows.len())
@@ -817,6 +849,33 @@ fn terminal_slot(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn repository_groups_keep_worktree_spans_inside_their_project() {
+        use super::Row;
+        use crate::state::Selection;
+        let rows = [
+            Row::Item(Selection::Project("alpha".into())),
+            Row::Item(Selection::Checkout(
+                "alpha".into(),
+                crate::backend::Checkout::Linked("agent".into()),
+            )),
+            Row::Item(Selection::Branch("alpha".into(), None)),
+            Row::Item(Selection::Project("beta".into())),
+            Row::Item(Selection::Branch("beta".into(), None)),
+        ];
+        assert_eq!(
+            super::worktree_end(&rows, 1),
+            3,
+            "grouped repositories share a card but never a worktree span"
+        );
+        let cards = super::cards(&rows);
+        assert_eq!(
+            cards.first().map(|(_, span)| span.clone()),
+            Some(0..3),
+            "the first repository owns only its own rows"
+        );
+    }
+
     use bstr::BString;
     use gpui::{Bounds, point, size};
 
