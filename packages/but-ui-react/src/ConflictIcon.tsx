@@ -6,7 +6,8 @@ type Props = {
 } & Omit<ComponentProps<"svg">, "width" | "height">;
 
 /**
- * Marks a conflict: `conflict` is the warning triangle for a conflicted commit or file; `plus` and
+ * Marks a conflict: `conflict` is the warning triangle for a conflicted commit or file, filled in
+ * the warning amber, as a conflict waits to be resolved rather than having failed; `plus` and
  * `minus` are the paired marks on the two sides of a conflicted hunk.
  *
  * @import import { ConflictIcon } from "@gitbutler/but-ui-react/ConflictIcon.tsx";
@@ -24,11 +25,11 @@ export const ConflictIcon: FC<Props> = ({ variant, size = 16, ...props }) => {
 			>
 				<path
 					d="M6.20252 2.82467C6.95455 1.40909 8.98295 1.40909 9.73498 2.82467L14.3765 11.5617C15.0842 12.8938 14.1187 14.5 12.6103 14.5H3.32721C1.8188 14.5 0.853298 12.8938 1.56098 11.5617L6.20252 2.82467Z"
-					fill="var(--but-danger)"
+					fill="var(--but-warning)"
 				/>
 				<path
 					d="M7.96875 8.9375L7.96875 5.9375M7.96875 11.9375L7.96875 10.4375"
-					stroke="white"
+					stroke="var(--but-warning-foreground)"
 					strokeWidth="1.5"
 				/>
 			</svg>
