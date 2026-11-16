@@ -376,7 +376,7 @@ fn settings(state: &State) -> Props {
         ("mergedWorktrees", json!(prefs.merged_worktrees)),
         ("branchesStartOpen", json!(!prefs.branches_start_folded)),
         ("allBranchCommits", json!(prefs.all_branch_commits)),
-        ("openBranchOnClick", json!(!prefs.click_only_selects_branch)),
+        ("openBranchOnClick", json!(prefs.click_opens_branch)),
         ("branchesLocalOnly", json!(prefs.branches_local_only)),
         ("branchesStatus", json!(prefs.branches_status)),
         ("defaultTerminal", json!(prefs.terminal)),

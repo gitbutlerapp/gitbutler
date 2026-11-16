@@ -1049,8 +1049,8 @@ impl SettingsView {
                  last click listed. Off, a click only selects it.",
                 self.pref_switch(
                     "branch-click-opens",
-                    !prefs.click_only_selects_branch,
-                    |p| p.click_only_selects_branch ^= true,
+                    prefs.click_opens_branch,
+                    |p| p.click_opens_branch ^= true,
                     cx,
                 ),
             ),
