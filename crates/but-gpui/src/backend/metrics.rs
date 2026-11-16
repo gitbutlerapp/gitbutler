@@ -374,7 +374,7 @@ fn settings(state: &State) -> Props {
         ("activeProjectsOnly", json!(prefs.active_projects_only)),
         ("inactiveAfter", json!(prefs.inactive_after)),
         ("mergedWorktrees", json!(prefs.merged_worktrees)),
-        ("branchesStartOpen", json!(prefs.branches_start_open)),
+        ("branchesStartOpen", json!(!prefs.branches_start_folded)),
         ("allBranchCommits", json!(prefs.all_branch_commits)),
         ("openBranchOnClick", json!(!prefs.click_only_selects_branch)),
         ("branchesLocalOnly", json!(prefs.branches_local_only)),

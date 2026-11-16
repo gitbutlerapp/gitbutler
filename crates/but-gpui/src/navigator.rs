@@ -698,8 +698,8 @@ impl Navigator {
             }),
             cx.observe(&store, |this, store, cx| {
                 let prefs = &store.read(cx).prefs;
-                if this.branches_start_open != prefs.branches_start_open {
-                    this.branches_start_open = prefs.branches_start_open;
+                if this.branches_start_open == prefs.branches_start_folded {
+                    this.branches_start_open = !prefs.branches_start_folded;
                     this.flipped.clear();
                     this.click_opened = None;
                 }
@@ -747,7 +747,7 @@ impl Navigator {
         ];
         let prefs = &store.read(cx).prefs;
         let (branches_start_open, all_branch_commits) =
-            (prefs.branches_start_open, prefs.all_branch_commits);
+            (!prefs.branches_start_folded, prefs.all_branch_commits);
         Self {
             app,
             store,

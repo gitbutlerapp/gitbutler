@@ -1021,12 +1021,14 @@ impl SettingsView {
         let navigator = vec![
             Row::new(
                 "Show branches' commits",
-                "Branches in the navigator start with their commits listed. Off, each starts \
-                 folded to one row, which ⇧→ or its chevron opens.",
+                crate::ui::keys_text(
+                    "Branches in the navigator start with their commits listed. Off, each starts \
+                     folded to one row, which ↩ or its chevron opens.",
+                ),
                 self.pref_switch(
                     "branches-open",
-                    prefs.branches_start_open,
-                    |p| p.branches_start_open ^= true,
+                    !prefs.branches_start_folded,
+                    |p| p.branches_start_folded ^= true,
                     cx,
                 ),
             ),
