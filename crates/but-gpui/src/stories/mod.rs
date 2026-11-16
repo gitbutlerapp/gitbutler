@@ -130,9 +130,11 @@ fn examples() -> impl Iterator<Item = Example> {
         .chain(file_list::EXAMPLES)
 }
 
-/// An example under its name, as the docs site titles it.
+/// An example under its name, as the docs site titles it, at its own width at the start of the
+/// column, as the docs site's ground places a story, rather than stretched across it.
 fn example(example: Example, theme: &Theme) -> Div {
     v_flex()
+        .items_start()
         .gap(dp(12.))
         .child(section_label(example.name, theme))
         .child((example.draw)(theme))
