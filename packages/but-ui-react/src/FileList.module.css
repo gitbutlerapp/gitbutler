@@ -163,6 +163,8 @@
 
 	/* After hover, so a selected row reads the same under the pointer. */
 	&[data-selected] {
+		--joined-line: var(--but-background);
+
 		background-color: var(--but-selected-inactive);
 	}
 
@@ -171,12 +173,43 @@
 	}
 }
 
+/* A run of picked rows reads as one block, as Finder draws one: rounded only where it starts and
+   ends, the pixel between two of its rows filled with the selection, and a faint line across that
+   pixel, set in from the ends as the row's contents are. */
+.item[data-selected]:has(+ .item[data-selected]) {
+	border-end-start-radius: 0;
+	border-end-end-radius: 0;
+}
+
+.item[data-selected] + .item[data-selected] {
+	position: relative;
+	border-start-start-radius: 0;
+	border-start-end-radius: 0;
+	box-shadow: 0 -1px 0 0 var(--but-selected-inactive);
+
+	&::after {
+		position: absolute;
+		height: 1px;
+		inset-block-start: -1px;
+		inset-inline: var(--but-space-lg);
+		background-color: var(--joined-line);
+		content: "";
+	}
+}
+
+:where([data-selection-focused="true"]:not([data-selection-focus-styles="false"] *))
+	.item[data-selected]
+	+ .item[data-selected] {
+	box-shadow: 0 -1px 0 0 var(--but-selected);
+}
+
 /* The solid fill and inverted contents are for the list holding the selection focus only, so
    where the cursor sits in every other list stays legible without competing. */
 :where([data-selection-focused="true"]:not([data-selection-focus-styles="false"] *))
 	.item[data-selected] {
 	--checkbox-bg: var(--but-inverse);
 	--guide-color: color-mix(in srgb, var(--but-inverse-muted-foreground) 40%, transparent);
+	--joined-line: var(--but-inverse-soft);
 
 	background-color: var(--but-selected);
 	color: var(--but-selected-foreground);

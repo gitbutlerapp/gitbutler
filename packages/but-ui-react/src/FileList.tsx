@@ -210,6 +210,8 @@ export const FileList: FC<
  * - The last cell says what happened: the conflict mark if it is `conflicted`, else a tick if it
  *   is `reviewed`, which also fades the name (a reviewed file's news is that it is done with),
  *   else the letter for its `status`, else a folded directory's `count` of files.
+ * - Selected rows next to one another read as one block, as Finder draws a picked run: rounded
+ *   only where it starts and ends, with a faint line between two of its rows.
  * - The row has no ⋯: its menu opens with a right-click, the row a `ContextMenu`'s `trigger`, so
  *   the last cell always says what happened and the letters read down the list. `marks` show
  *   before it.

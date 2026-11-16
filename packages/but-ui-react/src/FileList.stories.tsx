@@ -1,14 +1,13 @@
 import { stories } from "../stories/stories.ts";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Toast } from "@base-ui/react";
-import { useRef, useState } from "react";
+import { useRef, useState, type MouseEvent } from "react";
 import { Button } from "./Button.tsx";
 import { Checkbox } from "./Checkbox.tsx";
 import { FileList, FileListItem } from "./FileList.tsx";
 import type { FileStatusType } from "./FileStatusBadge.tsx";
 import { Icon } from "./Icon.tsx";
 import { ContextMenu, MenuItem, MenuSection } from "./Menu.tsx";
-import { Snackbars, type SnackbarData } from "./Snackbars.tsx";
+import { Snackbar } from "./Snackbar.tsx";
 import { treeGuides } from "./treeGuides.ts";
 
 const statuses: Array<FileStatusType> = ["Addition", "Deletion", "Modification", "Rename"];
@@ -124,38 +123,85 @@ const changes: Array<{ name: string; directory: string; status: FileStatusType }
 	{ name: "theme.css", directory: "src/styles", status: "Modification" },
 ];
 const discarding = new Set(["Button.tsx", "apiService.ts", "routes.ts"]);
-const discardManager = Toast.createToastManager<SnackbarData>();
+
+const plural = (count: number) => `${count} ${count === 1 ? "file" : "files"}`;
 
 /**
- * Files an action is working on: Discard on three picked files, which takes a moment to answer.
- * The rows go `inert`, faded and out of reach, with no spinner of their own; one snackbar says
- * "Discarding 3 files…" for all of them and turns into the result as the rows leave.
+ * Picking files and acting on them: click picks a file, ⌘-click (Ctrl-click) adds or takes one
+ * away, and Shift-click picks the run from the last one clicked. Picked rows next to one another
+ * read as one block. Discard works on what's picked: the rows go `inert`, faded and out of reach,
+ * with no spinner of their own, and one snackbar counts them ("Discarding 3 files…") and turns
+ * into the result as the rows leave. In an app the snackbar floats at the window's foot
+ * (`Snackbars`); here it's drawn under the list.
  */
 export const Discarding = meta.story({
-	parameters: { layout: "fullscreen", height: 360 },
 	render: function Render() {
 		const [shown, setShown] = useState(changes);
-		const [working, setWorking] = useState(false);
+		const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set(discarding));
+		const [anchor, setAnchor] = useState<string | null>(null);
+		const [working, setWorking] = useState<ReadonlySet<string>>(() => new Set());
+		// What the snackbar says, drawn under the list rather than floating at the window's foot.
+		const [notice, setNotice] = useState<{ done: boolean; text: string } | null>(null);
+
+		const order = shown.map((file) => file.name);
+
+		/** A click on `name`. */
+		const pick = (name: string, event: MouseEvent) => {
+			if (event.shiftKey && anchor !== null && order.includes(anchor)) {
+				const [a, b] = [order.indexOf(anchor), order.indexOf(name)];
+				setPicked(new Set(order.slice(Math.min(a, b), Math.max(a, b) + 1)));
+				return;
+			}
+			setAnchor(name);
+			if (event.metaKey || event.ctrlKey) {
+				setPicked((set) => {
+					const next = new Set(set);
+					if (!next.delete(name)) next.add(name);
+					return next;
+				});
+			} else {
+				setPicked(new Set([name]));
+			}
+		};
+		// Shift-click picks a run; it shouldn't select the text in between too.
+		const noTextSelection = (event: MouseEvent) => {
+			if (event.shiftKey) event.preventDefault();
+		};
+
 		const discard = () => {
-			setWorking(true);
-			const id = discardManager.add({ type: "loading", title: "Discarding 3 files…" });
+			const files = new Set(picked);
+			const count = plural(files.size);
+			setWorking(files);
+			setPicked(new Set());
+			setNotice({ done: false, text: `Discarding ${count}…` });
 			setTimeout(() => {
-				setWorking(false);
-				setShown((files) => files.filter((file) => !discarding.has(file.name)));
-				discardManager.update(id, { type: "safe", title: "3 files discarded", data: {} });
+				const result = `${count} discarded`;
+				setWorking(new Set());
+				setShown((rows) => rows.filter((file) => !files.has(file.name)));
+				setNotice({ done: true, text: result });
+				setTimeout(() => setNotice((now) => (now?.text === result ? null : now)), 5000);
 			}, 2500);
 		};
+
 		return (
-			<div style={{ display: "flex", flexDirection: "column", gap: 16, width: 340 }}>
+			<div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 				<div style={{ display: "flex", gap: 8 }}>
 					<Button
 						variant="danger"
 						onClick={discard}
-						disabled={working || shown.length < changes.length}
+						disabled={working.size > 0 || picked.size === 0}
 					>
-						Discard 3 files
+						{picked.size === 0 ? "Discard" : `Discard ${plural(picked.size)}`}
 					</Button>
-					<Button variant="outline" onClick={() => setShown(changes)} disabled={working}>
+					<Button
+						variant="outline"
+						onClick={() => {
+							setShown(changes);
+							setPicked(new Set(discarding));
+							setNotice(null);
+						}}
+						disabled={working.size > 0}
+					>
 						Reset
 					</Button>
 				</div>
@@ -164,12 +210,22 @@ export const Discarding = meta.story({
 						<FileListItem
 							key={file.name}
 							{...file}
-							selected={!working && discarding.has(file.name)}
-							inert={working && discarding.has(file.name)}
+							selected={picked.has(file.name)}
+							inert={working.has(file.name)}
+							onClick={(event: MouseEvent) => pick(file.name, event)}
+							onMouseDown={noTextSelection}
 						/>
 					))}
 				</FileList>
-				<Snackbars manager={discardManager} />
+				{notice !== null && (
+					<Snackbar
+						variant={notice.done ? "safe" : "info"}
+						icon={notice.done ? undefined : "spinner"}
+						style={{ alignSelf: "center" }}
+					>
+						{notice.text}
+					</Snackbar>
+				)}
 			</div>
 		);
 	},
