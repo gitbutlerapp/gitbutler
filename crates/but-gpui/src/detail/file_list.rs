@@ -68,7 +68,6 @@ use crate::theme::Theme;
 use crate::transfer::{Changes, Chip, DragPreview, Dragged, Moving};
 use crate::ui::Text;
 use crate::ui::diff;
-use crate::ui::diff_stats;
 use crate::ui::file_icons::{file_icon, folder_icon};
 use crate::ui::fold;
 use crate::ui::illustration::Illustration;
@@ -76,6 +75,7 @@ use crate::ui::{
     Icon, Tooltip, blink_once, checkbox, commit_title, count_badge, dp, empty_state, faint, fixed,
     h_flex, icon_button, matched, muted, plural, popover, shortcut, side_row, small_icon, v_flex,
 };
+use crate::ui::{diff_stats, file_status_badge};
 
 #[derive(Clone)]
 enum FileSource {
@@ -1335,10 +1335,7 @@ impl Detail {
                             .flex_none()
                             .flex()
                             .justify_center()
-                            .text_11()
-                            .semibold()
-                            .text_color(diff::change_color(file.file.kind, theme))
-                            .child(file.file.kind.letter()),
+                            .child(file_status_badge(file.file.kind.into(), theme)),
                     )
                     .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                         this.scroll_to_file(ix, true, cx)
@@ -1672,11 +1669,7 @@ impl Detail {
                     .tooltip(Tooltip::text("Opened to edit, nothing changed yet")),
             ),
             (false, true) => el.child(small_icon(Icon::Warning).text_color(theme.warn)),
-            (false, false) => el
-                .text_11()
-                .semibold()
-                .text_color(diff::change_color(file.kind, theme))
-                .child(file.kind.letter()),
+            (false, false) => el.child(file_status_badge(file.kind.into(), theme)),
         });
         let end = div()
             .flex_none()

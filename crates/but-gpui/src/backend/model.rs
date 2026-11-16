@@ -962,15 +962,6 @@ pub enum ChangeKind {
 }
 
 impl ChangeKind {
-    pub fn letter(self) -> &'static str {
-        match self {
-            Self::Added => "A",
-            Self::Modified => "M",
-            Self::Deleted => "D",
-            Self::Renamed => "R",
-        }
-    }
-
     /// The change in a word, for screen readers.
     pub fn word(self) -> &'static str {
         match self {

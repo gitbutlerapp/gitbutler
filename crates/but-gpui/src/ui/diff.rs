@@ -21,7 +21,7 @@ use crate::backend::{
 };
 use crate::theme::{Highlight, Theme};
 use crate::ui::Text;
-use crate::ui::diff_stats;
+use crate::ui::{FileStatus, diff_stats};
 
 /// How tall a file's header is: a bar, as a popup's search row is, inside its card's edge, which
 /// follows the density; or as tall as the file list's heading beside it where it titles the
@@ -341,13 +341,15 @@ fn context_rows(rows: &mut Vec<DiffRow>, file: usize, lines: Range<u32>, ahead: 
     }));
 }
 
-pub fn change_color(kind: ChangeKind, theme: &Theme) -> Hsla {
-    let [added, modified, deleted, renamed] = theme.change_status;
-    match kind {
-        ChangeKind::Added => added,
-        ChangeKind::Modified => modified,
-        ChangeKind::Deleted => deleted,
-        ChangeKind::Renamed => renamed,
+/// A change as the [`FileStatus`] its badge draws.
+impl From<ChangeKind> for FileStatus {
+    fn from(kind: ChangeKind) -> Self {
+        match kind {
+            ChangeKind::Added => FileStatus::Addition,
+            ChangeKind::Modified => FileStatus::Modification,
+            ChangeKind::Deleted => FileStatus::Deletion,
+            ChangeKind::Renamed => FileStatus::Rename,
+        }
     }
 }
 

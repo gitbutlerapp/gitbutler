@@ -21,6 +21,7 @@ mod diff_stats;
 mod dropdown_button;
 mod empty_state;
 mod file_list;
+mod file_status_badge;
 mod icons;
 mod keycap;
 mod popover;
@@ -130,6 +131,7 @@ fn examples() -> impl Iterator<Item = Example> {
         .chain(button::EXAMPLES)
         .chain(diff_stats::EXAMPLES)
         .chain(file_list::EXAMPLES)
+        .chain(file_status_badge::EXAMPLES)
 }
 
 /// An example under its name, as the docs site titles it, at its own width at the start of the
@@ -189,6 +191,7 @@ impl Gallery {
             story("Dropdown button", dropdown_button::DropdownButtonStory, cx),
             story("Empty state", empty_state::EmptyStateStory, cx),
             story("File list", file_list::FileListStory::default(), cx),
+            story("File status", file_status_badge::FileStatusBadgeStory, cx),
             story("Icons", icons::IconsStory::default(), cx),
             story("Keycap", keycap::KeycapStory, cx),
             story("List rows", rows::RowsStory::default(), cx),

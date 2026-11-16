@@ -104,6 +104,18 @@ const PARITY = [
 		values: { regular: ["BadgeSize::Regular"], large: ["BadgeSize::Large"] },
 	},
 	{
+		component: "FileStatusBadge",
+		react: "FileStatusBadge.tsx",
+		type: "FileStatusType",
+		gpui: "file_status_badge.rs",
+		values: {
+			Addition: ["FileStatus::Addition"],
+			Deletion: ["FileStatus::Deletion"],
+			Modification: ["FileStatus::Modification"],
+			Rename: ["FileStatus::Rename"],
+		},
+	},
+	{
 		component: "SegmentedControl",
 		react: "SegmentedControl.tsx",
 		type: "SegmentedControlSize",
