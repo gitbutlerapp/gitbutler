@@ -1137,6 +1137,7 @@ impl Store {
             self.left_in.insert(at, left.clone());
         }
         self.selection = selection;
+        self.update_status_checkouts();
         self.number_tiles();
         self.show_terminals(cx);
         self.save_soon(cx);

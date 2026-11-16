@@ -31,6 +31,7 @@ gix = { workspace = true, features = [
     "parallel",
     "serde",
     "status",
+    "status-monitor",
     "merge",
     "worktree-mutation",
 ] }

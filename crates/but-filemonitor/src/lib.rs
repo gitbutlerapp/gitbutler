@@ -1,28 +1,77 @@
-//! Repository invalidations backed by Gix, with asynchronous waits and blocking filesystem work.
+//! Repository invalidations and demand-driven status snapshots backed by Gix.
 #![deny(unsafe_code)]
 
 use std::{
     path::{Path, PathBuf},
+    sync::atomic::AtomicBool,
     time::Instant,
 };
 
 use anyhow::{Context as _, Result};
 use gix::{
     bstr::ByteSlice as _,
-    notify::{
-        Changes, InvalidationPath, Outcome, RepositoryMonitor, Scope, WorktreeChange, plumbing,
+    notify::{Changes, InvalidationPath, Outcome, Scope, WorktreeChange, plumbing},
+    status::{
+        Item, Monitor,
+        monitor::{Options, Update},
     },
 };
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 
-/// A repository monitor plus GitButler's refresh and compatibility signals.
+/// Work requested by the application. Dropping every sender stops the monitor.
+pub enum Request {
+    /// Reconcile subscriptions before rescanning all selected checkouts.
+    Rescan,
+    /// Request status only for these private Git directories, retaining filesystem subscriptions.
+    /// Snapshots for checkouts excluded from native coverage need `refresh: true` after external changes.
+    SetCheckouts(Vec<PathBuf>),
+    /// Refresh the selected checkout's cached status only when its consumer needs it.
+    Snapshot {
+        /// The private Git directory of the checkout whose status is requested.
+        git_dir: PathBuf,
+        /// Invalidate the whole snapshot after application-owned mutations or explicit reloads.
+        refresh: bool,
+        /// Receives the complete snapshot, or the refresh error without discarding cached status.
+        response: oneshot::Sender<Result<Snapshot>>,
+    },
+}
+
+/// A successful status snapshot with the coverage recomputed for its consumer.
+#[derive(Clone, Debug)]
+pub struct Snapshot {
+    /// The private Git directory identifying the checkout these items describe.
+    pub git_dir: PathBuf,
+    /// Owned staged and worktree status items for the selected checkout.
+    pub items: Vec<Item>,
+    /// Content refresh coverage remains significant even if status items compare equal.
+    pub update: Update,
+    /// The committed HEAD baseline retained by the status monitor.
+    pub head: Option<gix::ObjectId>,
+}
+
+/// A status monitor plus GitButler's refresh and compatibility signals.
 ///
-/// Construct this off the UI thread, then run it on a Tokio runtime. Gix owns repository
-/// coverage, application dependencies and recovery.
+/// Construct this off the UI thread, then run it on a Tokio runtime. Notification service
+/// continues while status consumers are hidden; status refreshes run only on request.
 pub struct FileMonitor<F> {
-    repository: RepositoryMonitor,
+    status: Monitor,
     selector: F,
     open_options: gix::open::Options,
+    status_options: fn(&gix::Repository) -> Result<Options>,
+}
+
+struct IdleMonitor {
+    monitor: Option<Monitor>,
+    runtime: tokio::runtime::Handle,
+}
+
+impl Drop for IdleMonitor {
+    fn drop(&mut self) {
+        if let Some(monitor) = self.monitor.take() {
+            // Cancellation while idle must not join native watcher threads on the executor.
+            self.runtime.spawn_blocking(move || drop(monitor));
+        }
+    }
 }
 
 impl<F> FileMonitor<F>
@@ -31,170 +80,242 @@ where
 {
     /// Resolve coverage and GitButler's signal paths, performing filesystem work.
     /// The selector returns private Git directories to monitor, or `None` for all checkouts.
-    /// It runs again off the executor after configuration/layout changes and explicit rescans.
-    pub fn new(repo: &gix::Repository, mut selector: F) -> Result<Self> {
+    /// Status options are read again for each requested checkout to follow submodule configuration.
+    pub fn new(
+        repo: &gix::Repository,
+        status_options: fn(&gix::Repository) -> Result<Options>,
+        mut selector: F,
+    ) -> Result<Self> {
+        let mut options = status_options(repo)?;
+        let repository = repository_options(repo, selector(repo)?)?;
+        options.repository.all_worktrees = true;
+        options.repository.worktree_filter = repository.worktree_filter;
+        options.repository.additional_paths = repository.additional_paths;
+        let mut status = Monitor::new(repo, options)?;
+        status.set_loss_debounce(Some(status.options().repository.max_latency))?;
+        if status
+            .options()
+            .repository
+            .checkout_filter
+            .as_ref()
+            .is_some_and(Vec::is_empty)
+        {
+            status.select_worktree(None)?;
+        }
         Ok(Self {
-            repository: repository_monitor(repo, selector(repo)?)?,
+            status,
             selector,
             open_options: repo.open_options().clone_without_trust(),
+            status_options,
         })
     }
 
-    /// Establish coverage and monitor until every sender of `rescans` is dropped.
-    /// Sending `()` requests a full rescan of every monitored checkout.
-    ///
-    /// Every outcome is forwarded whole, including simultaneous errors and invalidations. Native
-    /// resources are shut down on their workers before this returns. The callback should only signal
-    /// its consumer; filesystem registration, inventory and ignore filtering run off the executor.
+    /// Establish coverage and monitor until every request sender is dropped.
+    /// Every outcome is forwarded whole, including simultaneous errors and invalidations.
+    /// Filesystem work and native teardown remain on Tokio blocking workers.
     pub async fn run(
         self,
-        mut rescans: mpsc::UnboundedReceiver<()>,
+        mut requests: mpsc::UnboundedReceiver<Request>,
         mut on_change: impl FnMut(Outcome),
     ) -> Result<()> {
         let Self {
-            repository: mut monitor,
+            status: monitor,
             mut selector,
             open_options,
+            status_options,
         } = self;
-        let git_dir = monitor.layout().git_dir.clone();
-        let retry_interval = monitor.options().retry_interval;
+        let git_dir = monitor.repository_monitor().layout().git_dir.clone();
+        let retry_interval = monitor.options().repository.retry_interval;
         let mut refresh_options = false;
-        let mut rescan_requested = false;
-        let mut rescan_after_refresh = false;
+        let mut rescan = false;
         let mut retry = None;
+        let mut request = None;
+        let mut checkouts = monitor.options().repository.checkout_filter.clone();
+        let mut idle = IdleMonitor {
+            monitor: Some(monitor),
+            runtime: tokio::runtime::Handle::current(),
+        };
 
-        let (result, monitor) = loop {
-            let requested = std::mem::take(&mut rescan_requested);
-            rescan_after_refresh |= requested;
-            let mut outcome = if requested {
-                // Resolve the selection before a rescan can read now-excluded indexes.
-                Outcome::default()
-            } else {
-                let open_at = git_dir.clone();
-                let options = open_options.clone_without_trust();
-                let (next, outcome) = match monitor
-                    .service_async(Instant::now(), move || {
-                        gix::open_opts(&open_at, options.clone_without_trust())
-                    })
-                    .await
-                {
-                    Ok(result) => result,
-                    Err(err) => break (Err(anyhow::Error::from(err)), None),
-                };
-                monitor = next;
-                outcome
-            };
-
-            refresh_options |= requested || outcome.changes.configuration || outcome.changes.layout;
+        loop {
+            let monitor = idle
+                .monitor
+                .take()
+                .context("The monitor is idle between service calls")?;
             let open_at = git_dir.clone();
             let options = open_options.clone_without_trust();
-            let current_options = monitor.options().clone();
-            let prepare_options =
-                refresh_options && retry.is_none_or(|deadline| deadline <= Instant::now());
-            let has_files = |changes: &Changes| matches!(&changes.worktree, Some(Scope::Paths(paths)) if paths.iter().any(|path| path.path_kind == plumbing::PathKind::File));
-            let filter_needed = has_files(&outcome.changes)
-                || outcome.other_worktrees.iter().any(|worktree| {
-                    matches!(&worktree.kind, WorktreeChange::Changed(changes) if has_files(changes))
-                });
-            let (mut outcome, prepared) = if prepare_options || filter_needed {
-                match tokio::task::spawn_blocking(move || {
+            let now = Instant::now();
+            let processed = monitor
+                .process_async(move |monitor| {
+                    let mut preparation_errors = Vec::new();
+                    if refresh_options && retry.is_none_or(|deadline| deadline <= now) {
+                        let prepared = (|| -> Result<()> {
+                            let repo = gix::open_opts(&open_at, options.clone_without_trust())?;
+                            let next = repository_options(&repo, selector(&repo)?)?;
+                            monitor.update_subscriptions(
+                                next.worktree_filter,
+                                next.additional_paths,
+                            )?;
+                            if checkouts.as_ref().is_some_and(|paths| {
+                                monitor
+                                    .selected_worktree()
+                                    .is_some_and(|selected| !paths.contains(&selected.git_dir))
+                            }) {
+                                monitor.select_worktree(None)?;
+                            }
+                            Ok(())
+                        })();
+                        match prepared {
+                            Ok(()) => {
+                                refresh_options = false;
+                                retry = None;
+                            }
+                            Err(error) => {
+                                preparation_errors
+                                    .push(gix::Error::from_boxed(error.into_boxed_dyn_error()));
+                                retry = Some(now + retry_interval);
+                            }
+                        }
+                    }
+                    // Excluded indexes must not be opened by a rescan before selection is updated.
+                    let blocked = refresh_options && retry.is_some();
+                    let mut outcome = if blocked {
+                        Outcome::default()
+                    } else {
+                        if rescan {
+                            monitor.rescan();
+                            rescan = false;
+                        }
+                        monitor.service(now, || {
+                            gix::open_opts(&open_at, options.clone_without_trust())
+                        })
+                    };
+                    outcome.errors.extend(preparation_errors);
+                    refresh_options |= outcome.changes.configuration || outcome.changes.layout;
                     filter_outcome(&open_at, &options, &mut outcome);
-                    let prepared = prepare_options.then(|| {
-                        let repo = gix::open_opts(&open_at, options)?;
-                        let candidate = repository_monitor(&repo, selector(&repo)?)?;
-                        let next_options = candidate.options();
-                        let changed = current_options.additional_paths
-                            != next_options.additional_paths
-                            || current_options.worktree_filter != next_options.worktree_filter;
-                        Ok::<_, anyhow::Error>(changed.then_some(candidate))
-                    });
-                    (selector, outcome, prepared)
+                    let response = match request {
+                        Some(Request::Snapshot {
+                            git_dir,
+                            refresh,
+                            response,
+                        }) if !response.is_closed() => {
+                            let snapshot = (|| -> Result<Snapshot> {
+                                anyhow::ensure!(
+                                    !blocked,
+                                    "status refresh waits for subscription selection to recover"
+                                );
+                                anyhow::ensure!(
+                                    checkouts
+                                        .as_ref()
+                                        .is_none_or(|paths| paths.contains(&git_dir)),
+                                    "the checkout no longer has a status consumer"
+                                );
+                                let repo = gix::open_opts(&git_dir, options)?;
+                                monitor.select_worktree(Some(&repo))?;
+                                monitor.set_submodules(status_options(&repo)?.submodules);
+                                if refresh {
+                                    monitor.invalidate();
+                                }
+                                let update = monitor.refresh(&repo, &AtomicBool::new(false))?;
+                                let items = monitor
+                                    .snapshot()
+                                    .context("A successful refresh owns status")?
+                                    .to_vec();
+                                let head = monitor.snapshot_head_id();
+                                Ok(Snapshot {
+                                    git_dir: gix::path::realpath(repo.git_dir())?,
+                                    items,
+                                    update,
+                                    head,
+                                })
+                            })();
+                            Some((response, snapshot))
+                        }
+                        _ => None,
+                    };
+                    outcome.coverage = monitor.coverage_status();
+                    outcome.recovery_pending = matches!(
+                        outcome.coverage,
+                        gix::notify::CoverageStatus::Recovering { .. }
+                    );
+                    (
+                        selector,
+                        refresh_options,
+                        rescan,
+                        retry,
+                        checkouts,
+                        outcome,
+                        response,
+                    )
                 })
-                .await
-                {
-                    Ok((next_selector, outcome, prepared)) => {
-                        selector = next_selector;
-                        (outcome, prepared)
-                    }
-                    Err(err) => {
-                        break (
-                            Err(err).context("Preparing repository invalidations"),
-                            Some(monitor),
-                        );
-                    }
-                }
-            } else {
-                (outcome, None)
+                .await;
+            let (next, state) = match processed {
+                Ok(result) => result,
+                Err(error) => return Err(error.into()),
             };
-            let mut replacement = None;
-            if let Some(prepared) = prepared {
-                match prepared {
-                    Ok(candidate) => {
-                        refresh_options = false;
-                        retry = None;
-                        replacement = candidate;
-                    }
-                    Err(error) => {
-                        outcome
-                            .errors
-                            .push(gix::Error::from_boxed(error.into_boxed_dyn_error()));
-                        retry = Some(Instant::now() + retry_interval);
-                    }
-                }
+            idle.monitor = Some(next);
+            let (
+                next_selector,
+                next_refresh,
+                next_rescan,
+                next_retry,
+                next_checkouts,
+                outcome,
+                response,
+            ) = state;
+            selector = next_selector;
+            refresh_options = next_refresh;
+            rescan = next_rescan;
+            retry = next_retry;
+            checkouts = next_checkouts;
+            request = None;
+            on_change(outcome);
+            if let Some((response, snapshot)) = response {
+                response.send(snapshot).ok();
             }
-            if !outcome.changes.is_empty()
-                || !outcome.other_worktrees.is_empty()
-                || !outcome.errors.is_empty()
-            {
-                on_change(outcome);
-            }
-            if let Some(next) = replacement {
-                rescan_after_refresh = false;
-                // Candidates have no native coverage until serviced; finish old coverage first.
-                let shutdown = monitor.shutdown_async().await;
-                monitor = next;
-                if let Err(error) = shutdown {
-                    break (Err(anyhow::Error::from(error)), Some(monitor));
-                }
-                continue;
-            }
-            if rescan_after_refresh && !refresh_options {
-                rescan_after_refresh = false;
-                monitor.rescan();
+            if refresh_options && retry.is_none() {
                 continue;
             }
 
+            let monitor = idle
+                .monitor
+                .as_ref()
+                .context("Successful service returns the monitor")?;
             tokio::select! {
                 biased;
-                rescan = rescans.recv() => match rescan {
-                    Some(()) => {
-                        while rescans.try_recv().is_ok() {}
-                        rescan_requested = true;
-                        retry = None;
+                received = requests.recv() => match received {
+                    Some(next) => {
+                        if matches!(&next, Request::Rescan | Request::SetCheckouts(_) | Request::Snapshot { refresh: true, .. }) {
+                            refresh_options = true;
+                            retry = None;
+                        }
+                        rescan |= matches!(&next, Request::Rescan);
+                        if let Request::SetCheckouts(paths) = &next {
+                            checkouts = Some(paths.clone());
+                        }
+                        request = Some(next);
                     }
-                    None => break (Ok(()), Some(monitor)),
+                    None => break,
                 },
-                _ = monitor.ready_async() => {},
+                _ = monitor.ready_service_async(), if !(refresh_options && retry.is_some()) => {},
                 _ = async {
                     match retry {
                         Some(deadline) => tokio::time::sleep_until(deadline.into()).await,
                         None => std::future::pending::<()>().await,
                     }
-                } => refresh_options = true,
+                } => {},
             }
-        };
-        let repository_shutdown = match monitor {
-            Some(monitor) => monitor.shutdown_async().await.map_err(anyhow::Error::from),
+        }
+        match idle.monitor.take() {
+            Some(monitor) => monitor.shutdown_async().await.map_err(Into::into),
             None => Ok(()),
-        };
-        result.and(repository_shutdown)
+        }
     }
 }
 
-fn repository_monitor(
+fn repository_options(
     repo: &gix::Repository,
     mut worktree_filter: Option<Vec<PathBuf>>,
-) -> Result<RepositoryMonitor> {
+) -> Result<gix::notify::Options> {
     let sentinel = Path::new(but_project_handle::REFRESH_SENTINEL_PATH)
         .file_name()
         .context("Refresh sentinel has a filename")?;
@@ -207,7 +328,7 @@ fn repository_monitor(
         layout: true,
         ..Changes::default()
     };
-    Ok(repo.monitor(gix::notify::Options {
+    Ok(gix::notify::Options {
         all_worktrees: true,
         worktree_filter,
         additional_paths: vec![
@@ -227,8 +348,8 @@ fn repository_monitor(
                 },
             },
         ],
-        ..gix::notify::Options::default()
-    })?)
+        ..Default::default()
+    })
 }
 
 fn filter_outcome(git_dir: &Path, options: &gix::open::Options, outcome: &mut Outcome) {

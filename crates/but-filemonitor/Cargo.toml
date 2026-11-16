@@ -10,7 +10,7 @@ doctest = false
 
 [dependencies]
 anyhow.workspace = true
-gix = { workspace = true, features = ["async-notify", "excludes"] }
+gix = { workspace = true, features = ["async-notify", "status-monitor", "excludes"] }
 but-project-handle.workspace = true
 tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
 
