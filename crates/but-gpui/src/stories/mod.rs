@@ -13,6 +13,7 @@
 
 mod activity;
 mod avatar;
+mod badge;
 mod button;
 mod checkbox;
 mod counts;
@@ -124,7 +125,9 @@ struct Example {
 
 /// Every story's examples.
 fn examples() -> impl Iterator<Item = Example> {
-    (button::EXAMPLES.into_iter()).chain(file_list::EXAMPLES)
+    (badge::EXAMPLES.into_iter())
+        .chain(button::EXAMPLES)
+        .chain(file_list::EXAMPLES)
 }
 
 /// An example under its name, as the docs site titles it.
@@ -174,6 +177,7 @@ impl Gallery {
         let stories = vec![
             story("Activity", activity::ActivityStory::default(), cx),
             story("Avatar", avatar::AvatarStory, cx),
+            story("Badge", badge::BadgeStory, cx),
             story("Button", button::ButtonStory, cx),
             story("Checkbox", checkbox::CheckboxStory::default(), cx),
             story("Counts and marks", counts::CountsStory, cx),

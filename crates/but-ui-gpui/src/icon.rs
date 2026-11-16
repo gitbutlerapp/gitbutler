@@ -97,6 +97,7 @@ icons! {
     Pr => "pr",
     PrClose => "pr-close",
     PrDraft => "pr-draft",
+    Question => "question",
     Refresh => "refresh",
     Repo => "repo",
     Search => "search",

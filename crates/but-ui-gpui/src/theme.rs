@@ -49,6 +49,8 @@ pub struct Theme {
     pub muted_hover: Hsla,
     pub muted_on_solid: Hsla,
     pub hover_on_solid: Hsla,
+    /// `--but-neutral-soft`: the text colour as a soft tint, as a light grey badge's fill.
+    pub neutral_soft: Hsla,
     pub inverse_soft: Hsla,
     pub inverse_soft_hover: Hsla,
     pub scrollbar: Hsla,
@@ -683,6 +685,7 @@ impl Theme {
             muted_hover: halfway(on_ground!(MUTED), on_ground!(MUTED_NESTED)),
             muted_on_solid: token(on_ground!(INVERSE_MUTED_FOREGROUND)),
             hover_on_solid: token(on_ground!(INVERSE_GHOST_HOVER)),
+            neutral_soft: token(on_ground!(NEUTRAL_SOFT)),
             inverse_soft: token(on_ground!(INVERSE_SOFT)),
             inverse_soft_hover: token(on_ground!(INVERSE_SOFT_HOVER)),
             scrollbar: token(on_ground!(SCROLLBAR_THUMB)),
