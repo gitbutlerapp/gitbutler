@@ -16,7 +16,7 @@ use crate::ui::{dp, faint, h_flex};
 impl Detail {
     /// Filter the history to the commits that changed the paths of `query`, and nothing else,
     /// or let go of them. What's read so far may hold none of them, so the list starts again
-    /// from the target's tip.
+    /// from the overview's tip.
     fn filter_path(
         &mut self,
         project: &ProjectId,
@@ -57,15 +57,21 @@ impl Detail {
     }
 
     /// What the menu of a file or folder `at` offers while `project` has a history to list: the
-    /// target's commits that changed it, on the project's page.
+    /// commits that changed it, on the project's page.
     pub(in crate::detail) fn path_history_item(
         &self,
         project: &ProjectId,
         at: &At,
         cx: &mut Context<Self>,
     ) -> Option<MenuItem> {
-        (self.store.read(cx).workspace(project))
-            .filter(|workspace| workspace.target.is_some() && workspace.editing.is_none())?;
+        (self.store.read(cx).workspace(project)).filter(|workspace| {
+            workspace.editing.is_none()
+                && if workspace.managed {
+                    workspace.target.is_some()
+                } else {
+                    workspace.head_id.is_some()
+                }
+        })?;
         let (label, path) = match at {
             At::File(path, _) => ("Show file history", path),
             At::Folder(path) => ("Show folder history", path),
