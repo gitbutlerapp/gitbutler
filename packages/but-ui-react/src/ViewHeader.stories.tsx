@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { Avatar } from "./Avatar.tsx";
 import { Badge } from "./Badge.tsx";
 import { Button } from "./Button.tsx";

@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { Icon } from "./Icon.tsx";
 import { MetaCount } from "./MetaCount.tsx";
 import { BranchItem, MachineItem, RepoItem, UncommittedItem, WorktreeItem } from "./SidebarRow.tsx";

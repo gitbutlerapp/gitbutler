@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { Avatar, type AvatarSize } from "./Avatar.tsx";
 
 const sizes: Array<AvatarSize> = [14, 16, 18];

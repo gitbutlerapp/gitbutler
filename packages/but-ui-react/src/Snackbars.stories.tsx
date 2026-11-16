@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import type { FC } from "react";
 import { Button } from "./Button.tsx";
 import { Toast } from "@base-ui/react";

@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { Button } from "./Button.tsx";
 import { Kbd } from "./Kbd.tsx";
 import { PickerDialog, type PickerDialogGroup } from "./PickerDialog.tsx";

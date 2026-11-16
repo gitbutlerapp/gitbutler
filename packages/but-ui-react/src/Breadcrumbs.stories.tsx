@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { useState } from "react";
 import { Breadcrumbs, type Crumb } from "./Breadcrumbs.tsx";
 import { MenuRadioGroup, MenuRadioItem } from "./Menu.tsx";

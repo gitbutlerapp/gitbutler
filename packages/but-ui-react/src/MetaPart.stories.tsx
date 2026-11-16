@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { MetaCount } from "./MetaCount.tsx";
 import { MetaPart, MetaWord } from "./MetaPart.tsx";
 import { ViewHeader } from "./ViewHeader.tsx";

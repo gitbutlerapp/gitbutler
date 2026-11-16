@@ -1,13 +1,13 @@
-import { Badge } from "../src/Badge.tsx";
-import { Menu, MenuRadioGroup, MenuRadioItem } from "../src/Menu.tsx";
-import { PopupSearch } from "../src/Popup.tsx";
-import { ResizeHandle } from "../src/ResizeHandle.tsx";
-import { ScrollArea } from "../src/ScrollArea.tsx";
-import { GroupLabel, NavItem } from "../src/SidebarRow.tsx";
-import { treeGuides } from "../src/treeGuides.ts";
+import { Badge } from "@gitbutler/but-ui-react/Badge.tsx";
+import { Menu, MenuRadioGroup, MenuRadioItem } from "@gitbutler/but-ui-react/Menu.tsx";
+import { PopupSearch } from "@gitbutler/but-ui-react/Popup.tsx";
+import { ResizeHandle } from "@gitbutler/but-ui-react/ResizeHandle.tsx";
+import { ScrollArea } from "@gitbutler/but-ui-react/ScrollArea.tsx";
+import { GroupLabel, NavItem } from "@gitbutler/but-ui-react/SidebarRow.tsx";
+import { treeGuides } from "@gitbutler/but-ui-react/treeGuides.ts";
 import { ComponentPage } from "./ComponentPage.tsx";
 import { DesignPage } from "./DesignPage.tsx";
-import type { IconName } from "../src/iconNames.ts";
+import type { IconName } from "@gitbutler/but-ui-react/iconNames.ts";
 import {
 	findPage,
 	groupPages,

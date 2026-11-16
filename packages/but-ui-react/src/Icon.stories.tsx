@@ -1,5 +1,5 @@
 import { useState, type FC } from "react";
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { Icon } from "./Icon.tsx";
 import { icons } from "./icons.ts";
 import { Range } from "./Range.tsx";

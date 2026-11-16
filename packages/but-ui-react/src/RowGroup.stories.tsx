@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { useId, useState } from "react";
 import { Badge } from "./Badge.tsx";
 import { Cell } from "./Cell.tsx";

@@ -2,7 +2,7 @@ import { defineConfig } from "vitest/config";
 
 /**
  * Every story as a test, in headless Chromium: it renders without throwing and its play function
- * passes. The test is `docs/stories.test.tsx`.
+ * passes. The test is `stories/stories.test.tsx`.
  */
 export default defineConfig({
 	// Base UI is pre-bundled with whichever copy of React Vite finds first; without
@@ -23,7 +23,7 @@ export default defineConfig({
 	},
 	test: {
 		name: "stories",
-		include: ["docs/stories.test.tsx"],
+		include: ["stories/stories.test.tsx"],
 		browser: {
 			enabled: true,
 			headless: true,

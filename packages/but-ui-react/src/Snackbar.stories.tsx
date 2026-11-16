@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { Snackbar } from "./Snackbar.tsx";
 
 const meta = stories({

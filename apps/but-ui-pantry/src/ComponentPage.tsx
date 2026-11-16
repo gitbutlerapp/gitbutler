@@ -1,6 +1,6 @@
-import { Cell } from "../src/Cell.tsx";
-import { Code } from "../src/Code.tsx";
-import { RowGroup } from "../src/RowGroup.tsx";
+import { Cell } from "@gitbutler/but-ui-react/Cell.tsx";
+import { Code } from "@gitbutler/but-ui-react/Code.tsx";
+import { RowGroup } from "@gitbutler/but-ui-react/RowGroup.tsx";
 import { DesignNote } from "./DesignPage.tsx";
 import {
 	isDesignPage,
@@ -13,9 +13,9 @@ import {
 import { pageLink } from "./site.ts";
 import { GpuiView } from "./GpuiView.tsx";
 import { gpuiShots, type Renderer } from "./gpui.ts";
-import { Icon } from "../src/Icon.tsx";
-import { Segment, SegmentedControl } from "../src/SegmentedControl.tsx";
-import { Tab, Tabs } from "../src/Tabs.tsx";
+import { Icon } from "@gitbutler/but-ui-react/Icon.tsx";
+import { Segment, SegmentedControl } from "@gitbutler/but-ui-react/SegmentedControl.tsx";
+import { Tab, Tabs } from "@gitbutler/but-ui-react/Tabs.tsx";
 import { useState, type CSSProperties, type FC, type ReactNode } from "react";
 
 type PageTab = "specs" | "examples";

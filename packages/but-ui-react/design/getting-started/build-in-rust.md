@@ -28,8 +28,8 @@ isn't: a gap to fill, or a variant the GPUI component doesn't have yet.
 **Add a story's GPUI version** to the component's story in
 `crates/but-gpui/src/stories`, under this site's id and name for it
 (`components-button--icon-only`, "Icon Only"). Then run
-`packages/but-ui-react/scripts/gpui-shots.mjs`, which takes it light and dark,
-and commit the pictures in `packages/but-ui-react/docs/gpui`. `pnpm check` fails
+`apps/but-ui-pantry/scripts/gpui-shots.mjs`, which takes it light and dark,
+and commit the pictures in `apps/but-ui-pantry/src/gpui`. `pnpm check` fails
 when an example names a story this site doesn't have.
 
 **Keep the two in step.** Change a shared component on both sides in the same

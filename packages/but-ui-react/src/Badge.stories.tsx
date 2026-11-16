@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { Badge, type BadgeVariant } from "./Badge.tsx";
 import { Icon } from "./Icon.tsx";
 import type { IconName } from "./iconNames.ts";

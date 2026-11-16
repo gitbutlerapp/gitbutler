@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { DropdownButton, type DropdownButtonVariant } from "./DropdownButton.tsx";
 import { Kbd } from "./Kbd.tsx";
 import { Tooltip } from "@base-ui/react";

@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { TextLink } from "./TextLink.tsx";
 
 const meta = stories({

@@ -1,6 +1,6 @@
 // Shots of the GPUI client's examples of this library's stories, for the docs site's GPUI view:
 // every `id: "components-…--…"` in crates/but-gpui/src/stories, light and dark, at 2x, into
-// docs/gpui as `<story id>.<appearance>.png`.
+// src/gpui as `<story id>.<appearance>.png`.
 //
 //   node scripts/gpui-shots.mjs [story id…]
 //
@@ -18,7 +18,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "../../..");
 const drive = join(root, "crates/but-gpui/scripts/drive.sh");
 const stories = join(root, "crates/but-gpui/src/stories");
-const out = resolve(here, "../docs/gpui");
+const out = resolve(here, "../src/gpui");
 mkdirSync(out, { recursive: true });
 
 const EXAMPLE_ID = /id: "(components-[a-z0-9-]+--[a-z0-9-]+)"/g;

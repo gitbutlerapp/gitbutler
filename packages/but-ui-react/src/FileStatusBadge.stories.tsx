@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { FileStatusBadge, type FileStatusType } from "./FileStatusBadge.tsx";
 
 const statuses: Array<FileStatusType> = ["Addition", "Deletion", "Modification", "Rename"];

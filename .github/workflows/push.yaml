@@ -94,9 +94,10 @@ jobs:
               - 'crates/but-gpui/**'
               - 'crates/but-ui-gpui/**'
               - 'crates/but-tty/**'
-            # oxlint checks only this package, and nothing else lints it before merge.
+            # oxlint checks only these, and nothing else lints them before merge.
             but_ui_react:
               - 'packages/but-ui-react/**'
+              - 'apps/but-ui-pantry/**'
 
   deploy-web:
     name: Deploy web frontend to ECS

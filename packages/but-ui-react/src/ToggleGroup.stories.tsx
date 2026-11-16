@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { ToggleGroup, Toggle } from "@base-ui/react";
 import { Badge } from "./Badge.tsx";
 import { Icon } from "./Icon.tsx";

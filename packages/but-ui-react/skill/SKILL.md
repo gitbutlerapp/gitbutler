@@ -60,4 +60,4 @@ on screen, once, without parentheses.
 
 Look at the result in light and dark, and keep one screenshot. In the
 gitbutler repository the docs site, the pantry, runs with
-`pnpm -F @gitbutler/but-ui-react pantry`; `packages/but-ui-react/AGENTS.md` has how to reach a single story.
+`pnpm -F @gitbutler/but-ui-pantry dev`; `packages/but-ui-react/AGENTS.md` has how to reach a single story.

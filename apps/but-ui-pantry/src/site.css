@@ -2,7 +2,7 @@
    own. */
 
 @import "@gitbutler/but-ui/core";
-@import "../src/base.css";
+@import "@gitbutler/but-ui-react/base.css";
 
 body {
 	margin: 0;

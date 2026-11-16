@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { useState, type FC } from "react";
 import { Breadcrumbs, CrumbMenuButton, type Crumb } from "./Breadcrumbs.tsx";
 import { Button } from "./Button.tsx";

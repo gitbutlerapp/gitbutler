@@ -1,0 +1,4 @@
+/* What every story needs around it when it renders as a test: the tokens and the base styles. */
+
+@import "@gitbutler/but-ui/core";
+@import "../src/base.css";

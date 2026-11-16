@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useRef, useState } from "react";
 import { Button } from "./Button.tsx";

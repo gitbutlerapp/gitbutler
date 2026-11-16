@@ -1,4 +1,4 @@
-import { stories } from "../docs/stories.ts";
+import { stories } from "../stories/stories.ts";
 import { DiffFile } from "./DiffFile.tsx";
 import { DiffFileHeader } from "./DiffFileHeader.tsx";
 import { DiffFileList } from "./DiffFileList.tsx";

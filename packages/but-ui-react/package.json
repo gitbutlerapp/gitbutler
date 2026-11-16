@@ -6,6 +6,7 @@
 	"type": "module",
 	"license": "FSL-1.1-MIT",
 	"exports": {
+		"./stories/*": "./stories/*",
 		"./*": "./src/*"
 	},
 	"scripts": {
@@ -19,9 +20,7 @@
 		"optimize-icons": "node scripts/optimize-icons.mjs",
 		"test": "vitest run && pnpm test:stories",
 		"test:stories": "vitest run --config vitest.stories.config.ts",
-		"playwright:install:unit": "playwright install chromium",
-		"pantry": "vite",
-		"build:pantry": "vite build"
+		"playwright:install:unit": "playwright install chromium"
 	},
 	"dependencies": {
 		"@base-ui/react": "^1.6.0",
@@ -44,7 +43,6 @@
 		"@types/react": "^19.2.14",
 		"@types/react-dom": "^19.2.3",
 		"@typescript/native-preview": "7.0.0-dev.20260707.2",
-		"@vitejs/plugin-react": "^5.2.0",
 		"@vitest/browser": "catalog:",
 		"eslint-plugin-react-you-might-not-need-an-effect": "^1.0.0",
 		"jsdom": "28.1.0",

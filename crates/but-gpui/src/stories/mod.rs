@@ -9,7 +9,7 @@
 //!
 //! A story draws but-ui-react's stories of its component as [`Example`]s, under the docs site's
 //! ids. `GITBUTLER_GPUI_STORY=<id>` opens one of them alone, the window fitted to it, which is
-//! how `packages/but-ui-react/scripts/gpui-shots.mjs` shoots it for the docs site.
+//! how `apps/but-ui-pantry/scripts/gpui-shots.mjs` shoots it for the pantry.
 
 mod activity;
 mod avatar;

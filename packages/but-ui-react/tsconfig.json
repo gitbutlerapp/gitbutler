@@ -17,5 +17,5 @@
 		"skipLibCheck": true,
 		"types": ["vite/client"]
 	},
-	"include": ["src", "docs", "vite.config.ts", "vitest.config.ts", "vitest.stories.config.ts"]
+	"include": ["src", "stories", "vitest.config.ts", "vitest.stories.config.ts"]
 }

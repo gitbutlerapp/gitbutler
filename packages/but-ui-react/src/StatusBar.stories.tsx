@@ -1,4 +1,4 @@
-import { stories, type Decorator } from "../docs/stories.ts";
+import { stories, type Decorator } from "../stories/stories.ts";
 import { Button } from "./Button.tsx";
 import { Icon } from "./Icon.tsx";
 import {
