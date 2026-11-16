@@ -96,7 +96,7 @@ fn inside_fenced_block(haystack: &str, idx: usize) -> bool {
 /// end-exclusive `Range`). Pairs every line-anchored start with the first
 /// line-anchored end after it. Errors when a start marker has no matching end,
 /// so callers refuse to touch a malformed block.
-pub(super) fn managed_block_spans(existing: &str) -> Result<Vec<std::ops::Range<usize>>> {
+fn managed_block_spans(existing: &str) -> Result<Vec<std::ops::Range<usize>>> {
     let mut spans = Vec::new();
     let mut pos = 0;
     while let Some(start) = find_line_anchored(existing, MANAGED_BLOCK_START, pos) {
