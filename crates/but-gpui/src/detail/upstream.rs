@@ -1765,7 +1765,7 @@ impl Detail {
     }
 
     /// The tabs to a project's pages, `page` the one selected; Branches says how many are in
-    /// progress without being applied. They take the keys as the panes do.
+    /// the current branch list. They take the keys as the panes do.
     fn project_tabs(
         &self,
         page: &Selection,
@@ -1774,7 +1774,7 @@ impl Detail {
         cx: &Context<Self>,
     ) -> AnyElement {
         let project = page.project();
-        let unapplied = self.unapplied(project).filter(|n| *n > 0);
+        let count = self.listed_branch_count(project, cx).filter(|n| *n > 0);
         let solid = has_keys(&self.project_tabs_focus, window, cx);
         h_flex()
             .track_focus(&self.project_tabs_focus)
@@ -1791,11 +1791,8 @@ impl Detail {
                 let selected = self.project_tab() == to;
                 tab(id, glyph, label, selected, solid, theme)
                     .when(id == "tab-branches", |el| {
-                        el.children(unapplied.map(|n| count_badge(n, theme)))
-                            .tooltip(Tooltip::text(
-                                "Branches that aren't applied. The count is those in progress: \
-                                 with commits of their own, and no merged or closed pull request",
-                            ))
+                        el.children(count.map(|n| count_badge(n, theme)))
+                            .tooltip(Tooltip::text("Branches matching the current filters"))
                     })
                     // Clicking what's open only gives the tabs the keys, as any press on them.
                     .when(!selected, |el| {
