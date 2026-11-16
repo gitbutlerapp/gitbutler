@@ -75,7 +75,7 @@ use crate::ui::{
     Icon, Tooltip, blink_once, checkbox, commit_title, count_badge, dp, empty_state, faint, fixed,
     h_flex, icon_button, matched, muted, plural, popover, shortcut, side_row, small_icon, v_flex,
 };
-use crate::ui::{diff_stats, file_status_badge};
+use crate::ui::{conflict_icon, diff_stats, file_status_badge};
 
 #[derive(Clone)]
 enum FileSource {
@@ -1668,7 +1668,8 @@ impl Detail {
                     .child(small_icon(Icon::Edit).text_color(muted))
                     .tooltip(Tooltip::text("Opened to edit, nothing changed yet")),
             ),
-            (false, true) => el.child(small_icon(Icon::Warning).text_color(theme.warn)),
+            // As the shared row and React's FileListItem mark one: the filled amber triangle.
+            (false, true) => el.child(conflict_icon(14., theme, cx)),
             (false, false) => el.child(file_status_badge(file.kind.into(), theme)),
         });
         let end = div()
