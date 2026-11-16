@@ -433,9 +433,20 @@ const filterable = [
 	{ name: "index.ts", directory: "src", status: "Deletion" },
 ] satisfies Array<{ name: string; directory: string; status: FileStatusType }>;
 
+/** Every place `query` is in `text`, ignoring case, as `[start, end)` offsets. */
+const found = (text: string, query: string): Array<[number, number]> => {
+	const ranges: Array<[number, number]> = [];
+	const lower = text.toLowerCase();
+	const needle = query.toLowerCase();
+	for (let at = lower.indexOf(needle); needle !== "" && at >= 0; at = lower.indexOf(needle, at + 1))
+		ranges.push([at, at + needle.length]);
+	return ranges;
+};
+
 /**
  * The search button turns the header into the filter field in place, so narrowing the list costs
- * no height; the cross or Escape brings the header back.
+ * no height; the cross or Escape brings the header back. Each row underlines what the query found
+ * in its name or folder, so it's clear why it's listed.
  */
 export const Filter = meta.story({
 	parameters: {
@@ -469,9 +480,48 @@ export const Filter = meta.story({
 				}
 			>
 				{shown.map((file) => (
-					<FileListItem key={file.name} {...file} />
+					<FileListItem
+						key={file.name}
+						{...file}
+						matches={{
+							name: found(file.name, query ?? ""),
+							directory: found(file.directory, query ?? ""),
+						}}
+					/>
 				))}
 			</FileList>
 		);
 	},
+});
+
+/**
+ * Two files of one name deep in long folders, in a narrow pane: the name stays whole and the
+ * folder gives way first, cut in the middle, so the end of each path still tells them apart.
+ */
+export const LongPaths = meta.story({
+	parameters: { width: 300 },
+	render: () => (
+		<FileList title="Changes" count={3} added={21} removed={4}>
+			<FileListItem
+				name="mod.rs"
+				directory="crates/but-gpui/src/detail/upstream"
+				status="Modification"
+				added={12}
+				removed={3}
+			/>
+			<FileListItem
+				name="mod.rs"
+				directory="crates/but-gpui/src/detail/graph"
+				status="Modification"
+				added={8}
+				removed={1}
+			/>
+			<FileListItem
+				name="TextField.tsx"
+				directory="packages/design-system/components/forms/inputs"
+				status="Addition"
+				added={1}
+			/>
+		</FileList>
+	),
 });

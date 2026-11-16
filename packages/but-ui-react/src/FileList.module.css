@@ -374,15 +374,53 @@
 }
 
 .text {
+	display: flex;
+	min-width: 0;
 	overflow: hidden;
 	line-height: 16px;
-	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-/* Subtle, so the name reads first and the folder only says where it is. */
+/* Whole until the folder is gone; cut only when it alone is wider than the row. */
+.name {
+	flex-shrink: 0;
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* Subtle, so the name reads first and the folder only says where it is. Short of room it gives
+   way first, by far, and is cut in the middle: its first half takes the ellipsis, so the end
+   that tells two folders apart stays. */
 .directory {
+	display: flex;
+	flex-shrink: 1000;
+	min-width: 0;
+	overflow: hidden;
 	color: var(--but-subtle-foreground);
+}
+
+.directoryStart {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* Clipped from its start as the halves shrink together, so the one ellipsis is the first half's
+   and the cut falls in the middle. Right to left only to clip that side; the text inside keeps
+   its own order. */
+.directoryEnd {
+	min-width: 0;
+	overflow: hidden;
+	direction: rtl;
+}
+
+/* What a filter found, as the GPUI client marks it: 1px, close under the letters, so the
+   row's line box doesn't clip it. */
+.match {
+	text-decoration: underline;
+	text-decoration-thickness: 1px;
+	text-underline-offset: 1px;
 }
 
 .directoryTrail {

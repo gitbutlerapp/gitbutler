@@ -188,13 +188,58 @@ export const FileList: FC<
 	);
 };
 
+type Ranges = ReadonlyArray<readonly [start: number, end: number]>;
+
+/** `text` with the letters `found` covers underlined; `offset` is where `text` starts in what was
+ * matched. */
+const marked = (text: string, found: Ranges | undefined, offset = 0): ReactNode => {
+	if (found === undefined || found.length === 0) return text;
+	const parts: Array<ReactNode> = [];
+	let at = 0;
+	for (const [start, end] of found) {
+		const [from, to] = [Math.max(start - offset, at), Math.min(end - offset, text.length)];
+		if (to <= from) continue;
+		if (from > at) parts.push(text.slice(at, from));
+		parts.push(
+			<span key={from} className={styles.match}>
+				{text.slice(from, to)}
+			</span>,
+		);
+		at = to;
+	}
+	if (at < text.length) parts.push(text.slice(at));
+	return parts;
+};
+
+/** A row's folder, in two halves that shrink together, so a narrow row cuts it in the middle: the
+ * first half ends in the ellipsis and the second loses its start. */
+const Directory: FC<{ text: string; found: Ranges | undefined; trail?: boolean }> = ({
+	text,
+	found,
+	trail = false,
+}) => {
+	const half = Math.ceil(text.length / 2);
+	return (
+		<span className={classes(styles.directory, trail && styles.directoryTrail)}>
+			<span className={styles.directoryStart}>{marked(text.slice(0, half), found)}</span>
+			<span className={styles.directoryEnd}>
+				<span dir="ltr">{marked(text.slice(half), found, half)}</span>
+			</span>
+		</span>
+	);
+};
+
 /**
  * One changed file, or a directory of them, in a {@link FileList}: its icon, its name, and what
  * happened to it. The row is the host's to wire: `render` it as a tree item or an option, and
  * give it `onClick`, `inert` while it can't be acted on, and a `ref` and `style` when virtualised.
  *
  * - `directory` is the path to the file, shown faded after its name, or before it with
- *   `directoryPosition="lead"`; leave it out where a tree already says where the file is.
+ *   `directoryPosition="lead"`; leave it out where a tree already says where the file is. Short of
+ *   room, the folder gives way before the name and is cut in the middle, so its end, which tells
+ *   two folders apart, stays.
+ * - `matches` underlines what a filter found, as `[start, end)` offsets into `name` and into
+ *   `directory`, so it's clear why a row is listed.
  * - `depth` indents the row one step per directory it sits in, each step drawing the guide that
  *   ties it to its directory, so a tree reads as one; `guides`, from `treeGuides`, end each
  *   directory's guide with a tail into its last row. A directory row sets `folded`, which gives
@@ -229,6 +274,8 @@ export const FileListItem: FC<
 		name: string;
 		directory?: string | null;
 		directoryPosition?: "lead" | "trail";
+		/** What a filter found, as `[start, end)` offsets into `name` and `directory`, underlined. */
+		matches?: { name?: Ranges; directory?: Ranges };
 		icon?: ReactNode;
 		checkbox?: ReactNode;
 		depth?: number;
@@ -253,6 +300,7 @@ export const FileListItem: FC<
 	name,
 	directory,
 	directoryPosition = "trail",
+	matches,
 	icon,
 	checkbox,
 	depth = 0,
@@ -280,11 +328,11 @@ export const FileListItem: FC<
 			children: (
 				<span className={classes("text-13", styles.text)}>
 					{directory != null && directoryPosition === "lead" && (
-						<span className={styles.directory}>{directory}/</span>
+						<Directory text={`${directory}/`} found={matches?.directory} />
 					)}
-					{name}
+					<span className={styles.name}>{marked(name, matches?.name)}</span>
 					{directory != null && directoryPosition === "trail" && (
-						<span className={classes(styles.directory, styles.directoryTrail)}>{directory}</span>
+						<Directory text={directory} found={matches?.directory} trail />
 					)}
 				</span>
 			),
