@@ -5,6 +5,8 @@
 //! file's icon, its name and path, its line counts and what happened to it, or a directory's,
 //! stepped in under the directory it sits in.
 
+use std::ops::Range;
+
 use gpui::{
     AnyElement, App, ClickEvent, Div, ElementId, Hsla, Role, SharedString, Toggled, Window, div,
     prelude::*, relative,
@@ -204,6 +206,8 @@ pub struct FileListItem {
     name: SharedString,
     directory: Option<SharedString>,
     directory_lead: bool,
+    name_matches: Vec<Range<usize>>,
+    directory_matches: Vec<Range<usize>>,
     icon: Option<AnyElement>,
     checkbox: Option<(Toggled, OnClick)>,
     depth: usize,
@@ -230,6 +234,8 @@ pub fn file_list_item(id: impl Into<ElementId>, name: impl Into<SharedString>) -
         name: name.into(),
         directory: None,
         directory_lead: false,
+        name_matches: Vec::new(),
+        directory_matches: Vec::new(),
         icon: None,
         checkbox: None,
         depth: 0,
@@ -260,6 +266,17 @@ impl FileListItem {
     /// The path before the name rather than after it.
     pub fn directory_lead(mut self) -> Self {
         self.directory_lead = true;
+        self
+    }
+
+    /// What a filter found, as byte ranges of the name and of the directory, underlined.
+    pub fn matches(
+        mut self,
+        name: impl IntoIterator<Item = Range<usize>>,
+        directory: impl IntoIterator<Item = Range<usize>>,
+    ) -> Self {
+        self.name_matches = name.into_iter().collect();
+        self.directory_matches = directory.into_iter().collect();
         self
     }
 
@@ -460,9 +477,13 @@ impl RenderOnce for FileListItem {
                 true => muted,
                 false => theme.text_3,
             };
-            truncated(text).flex_shrink(1000.).text_color(color)
+            // Cut in the middle, so the end that tells two folders apart stays.
+            truncated(matched(text, self.directory_matches))
+                .text_ellipsis_middle()
+                .flex_shrink(1000.)
+                .text_color(color)
         });
-        let name = truncated(self.name.to_string()).flex_shrink(1.);
+        let name = truncated(matched(self.name, self.name_matches)).flex_shrink(1.);
         let label = faded(
             h_flex()
                 .flex_grow(1.)
@@ -597,7 +618,7 @@ impl RenderOnce for FileListItem {
 }
 
 /// Text cut short at its end where it doesn't fit.
-fn truncated(text: String) -> Div {
+fn truncated(text: impl IntoElement) -> Div {
     div()
         .min_w_0()
         .overflow_hidden()

@@ -6,9 +6,13 @@
 //! modifier comes after it. The values are generated from `packages/but-ui/styles/text.css` and
 //! the font tokens in `tokens.css`, so the scale is changed there, never here.
 
-use gpui::{FontWeight, Styled, relative};
+use std::ops::Range;
 
-use crate::dp;
+use gpui::{
+    FontWeight, HighlightStyle, SharedString, Styled, StyledText, UnderlineStyle, relative,
+};
+
+use crate::{dp, fixed};
 
 /// One of but-ui's base text classes: its size in px as designed, its weight as but-ui writes it
 /// (`--but-font-weight-regular`, 460) and its line height as a share of the size.
@@ -122,6 +126,22 @@ pub trait Text: Styled + Sized {
 }
 
 impl<T: Styled> Text for T {}
+
+/// `text` with the letters a search found in it underlined, so a list shows why each row is
+/// there. `found` are byte ranges of `text`, in order and apart.
+pub fn matched(
+    text: impl Into<SharedString>,
+    found: impl IntoIterator<Item = Range<usize>>,
+) -> StyledText {
+    let underline = HighlightStyle {
+        underline: Some(UnderlineStyle {
+            thickness: fixed(1.),
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    StyledText::new(text).with_highlights(found.into_iter().map(|range| (range, underline)))
+}
 
 #[cfg(test)]
 mod tests {

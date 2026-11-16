@@ -21,9 +21,8 @@ use std::ops::Range;
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, CursorStyle, DispatchPhase, Div, DragMoveEvent,
-    ElementId, EmptyView, Entity, FocusHandle, HighlightStyle, Hsla, MouseButton, MouseDownEvent,
-    Pixels, Point, SharedString, Stateful, StyledText, TextLayout, UnderlineStyle, Window, div,
-    prelude::*, relative,
+    ElementId, EmptyView, Entity, FocusHandle, Hsla, MouseButton, MouseDownEvent, Pixels, Point,
+    Stateful, TextLayout, Window, div, prelude::*, relative,
 };
 
 use crate::state::{Area, Pane, Store};
@@ -245,22 +244,6 @@ pub fn placed(area: Area) -> Div {
         .top(relative(area.top))
         .w(relative(area.width))
         .h(relative(area.height))
-}
-
-/// `text` with the letters a search found in it underlined, so a list shows why each row is
-/// there. `found` are byte ranges of `text`, in order and apart.
-pub fn matched(
-    text: impl Into<SharedString>,
-    found: impl IntoIterator<Item = Range<usize>>,
-) -> StyledText {
-    let underline = HighlightStyle {
-        underline: Some(UnderlineStyle {
-            thickness: fixed(1.),
-            ..Default::default()
-        }),
-        ..Default::default()
-    };
-    StyledText::new(text).with_highlights(found.into_iter().map(|range| (range, underline)))
 }
 
 /// A place in text drawn as rows, as the diff's lines or a description's blocks: the row, and
