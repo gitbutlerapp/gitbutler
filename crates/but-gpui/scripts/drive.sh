@@ -41,7 +41,7 @@ build() {
     local features=dev-script,gpui_platform/runtime_shaders name=gitbutler-gpui
     if [[ $stories == true ]]; then
         features+=,stories
-        name=gitbutler-gpui-stories
+        name=gitbutler-gpui-pantry
     fi
     local args=(build -q -p but-gpui --bin "$name" --features "$features")
     if [[ $profile == release ]]; then

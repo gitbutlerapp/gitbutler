@@ -14,7 +14,7 @@ use parking_lot::Mutex;
 const BIN: &str = "gitbutler-gpui";
 
 /// The stories' window, built again from its own Rebuild button.
-const STORIES_BIN: &str = "gitbutler-gpui-stories";
+const STORIES_BIN: &str = "gitbutler-gpui-pantry";
 
 /// The askpass helper that fetch and push run, which they look for beside [`BIN`].
 const ASKPASS_BIN: &str = "gitbutler-git-askpass";
@@ -642,7 +642,7 @@ mod tests {
                 "-p",
                 "but-gpui",
                 "--bin",
-                "gitbutler-gpui-stories",
+                "gitbutler-gpui-pantry",
                 "--features"
             ],
             "the stories' binary alone, without the client's askpass helper"

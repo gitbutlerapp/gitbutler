@@ -1,6 +1,6 @@
 //! A window of the shared controls in `ui`, each in its states side by side, in light or dark
 //! and at a few interface scales, as but-ui-react's docs site shows its components. Built only
-//! with `--features stories`, as `gitbutler-gpui-stories`. `GITBUTLER_GPUI_STORY=<name>`
+//! with `--features stories`, as `gitbutler-gpui-pantry`. `GITBUTLER_GPUI_STORY=<name>`
 //! opens it on one story, and with `dev-script` too a script drives it as it does the app
 //! (`scripts/drive.sh --stories`).
 //!
@@ -57,7 +57,7 @@ pub fn run() {
             }
             cx.on_action(|_: &Quit, cx| cx.quit());
             cx.bind_keys([KeyBinding::new("cmd-q", Quit, None)]);
-            cx.set_menus([Menu::new("Stories").items([MenuItem::action("Quit", Quit)])]);
+            cx.set_menus([Menu::new("Pantry").items([MenuItem::action("Quit", Quit)])]);
             // Its own icon, so the Dock tells it from the app.
             #[cfg(target_os = "macos")]
             crate::set_dock_icon(include_bytes!("../../assets/stories-icon.png"));
@@ -79,7 +79,7 @@ pub fn run() {
                 WindowOptions {
                     window_bounds: Some(WindowBounds::Windowed(bounds)),
                     titlebar: Some(TitlebarOptions {
-                        title: Some("GitButler Stories".into()),
+                        title: Some("GPUI pantry".into()),
                         ..Default::default()
                     }),
                     focus: !scripted,
