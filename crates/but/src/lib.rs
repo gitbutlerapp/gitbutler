@@ -21,7 +21,7 @@ use clap::{CommandFactory, FromArgMatches as _, Parser as _};
 
 pub mod args;
 use args::{
-    Args, OutputFormat, Subcommands, actions, agent, alias as alias_args, branch, forge,
+    Args, OutputFormat, Subcommands, agent, alias as alias_args, branch, forge,
     update as update_args, worktree,
 };
 use but_settings::AppSettings;
@@ -849,8 +849,7 @@ async fn dispatch_subcommand(
                 out,
             )
         }
-        Subcommands::Actions { .. }
-        | Subcommands::Pull { .. }
+        Subcommands::Pull { .. }
         | Subcommands::Fetch
         | Subcommands::Push(..)
         | Subcommands::Oplog(..)
@@ -1123,20 +1122,6 @@ async fn dispatch_subcommand(
                 &InvokedFrom::discover(&args.current_dir)?,
             )?;
             out.print_cli_output(outcome)?;
-            None
-        }
-        Subcommands::Actions(actions::Platform { cmd }) => {
-            match cmd {
-                Some(actions::Subcommands::HandleChanges {
-                    description,
-                    handler,
-                }) => {
-                    command::legacy::actions::handle_changes(&mut ctx, out, handler, &description)?;
-                }
-                None => {
-                    command::legacy::actions::list_actions(&ctx, out, 0, 10)?;
-                }
-            }
             None
         }
         Subcommands::Pull { check, update } => {

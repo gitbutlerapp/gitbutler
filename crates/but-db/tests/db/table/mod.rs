@@ -1,7 +1,6 @@
 use but_db::DbHandle;
 
 mod branch_order;
-mod butler_actions;
 mod ci_check;
 mod fetch_status;
 mod forge_review;

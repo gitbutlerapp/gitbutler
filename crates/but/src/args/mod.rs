@@ -941,11 +941,6 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Mcp(mcp::Platform),
 
-    /// INTERNAL: GitButler Actions are automated tasks (like macros) that can be performed on a repository.
-    #[clap(hide = true)]
-    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    Actions(actions::Platform),
-
     /// INTERNAL: If metrics are permitted, this subcommand handles posthog event creation.
     #[clap(hide = true)]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
@@ -1044,32 +1039,6 @@ pub mod unapply;
 pub mod uncommit;
 pub mod undo;
 pub mod update;
-
-pub mod actions {
-    #[derive(Debug, clap::Parser)]
-    pub struct Platform {
-        #[clap(subcommand)]
-        pub cmd: Option<Subcommands>,
-    }
-    #[derive(Debug, clap::Subcommand)]
-    pub enum Subcommands {
-        /// Automatically handles the changes in the repository, creating a commit with the provided context.
-        HandleChanges {
-            /// A context describing the changes that are currently uncommitted
-            #[clap(long, short = 'd', alias = "desc", visible_alias = "description")]
-            description: String,
-            /// Which handler is to be used for the operation. Different handles would have different behavior.
-            #[clap(long, value_enum, default_value = "simple")]
-            handler: Handler,
-        },
-    }
-
-    #[derive(Debug, Clone, Copy, clap::ValueEnum)]
-    pub enum Handler {
-        /// Handles changes in a simple way.
-        Simple,
-    }
-}
 
 pub mod forge;
 pub mod metrics;

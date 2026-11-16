@@ -162,7 +162,6 @@ pub(crate) fn grouped_subcommands(cmd: &clap::Command) -> IndexMap<Group, Vec<&c
                 SubcommandDiscriminant::External => continue,
 
                 SubcommandDiscriminant::RefreshRemoteData => continue,
-                SubcommandDiscriminant::Actions => continue,
                 SubcommandDiscriminant::Fetch => continue,
                 SubcommandDiscriminant::AgentLog | SubcommandDiscriminant::Setup => continue,
             };

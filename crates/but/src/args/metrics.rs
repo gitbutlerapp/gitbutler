@@ -80,7 +80,6 @@ pub enum CommandName {
     Help,
     Onboarding,
     AgentLog,
-    Actions,
     Skill,
     SkillInstall,
     SkillCheck,
