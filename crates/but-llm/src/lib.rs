@@ -11,7 +11,7 @@ mod openrouter;
 
 use std::sync::Arc;
 
-pub use chat::{ChatMessage, StreamToolCallResult, ToolCall, ToolCallContent, ToolResponseContent};
+pub use chat::ChatMessage;
 pub use config::*;
 pub use key::CredentialsKeyOption;
 use schemars::JsonSchema;
@@ -216,87 +216,7 @@ impl LLMProvider {
         .to_string()
     }
 
-    /// Lets the model call tools from `tool_set` until it answers without tool calls, streaming
-    /// all text it produces through `on_token`.
-    ///
-    /// Returns the final response along with the full conversation, including all tool calls and
-    /// their results.
-    pub fn tool_calling_loop_stream(
-        &self,
-        system_message: &str,
-        chat_messages: Vec<ChatMessage>,
-        tool_set: &mut impl but_tools::tool::Toolset,
-        model: &str,
-        on_token: impl Fn(&str) + Send + Sync + 'static,
-    ) -> anyhow::Result<(String, Vec<ChatMessage>)> {
-        match &self.client {
-            LLMClientType::OpenAi(client) => client.tool_calling_loop_stream(
-                system_message,
-                chat_messages,
-                tool_set,
-                model,
-                on_token,
-            ),
-            LLMClientType::Anthropic(client) => client.tool_calling_loop_stream(
-                system_message,
-                chat_messages,
-                tool_set,
-                model,
-                on_token,
-            ),
-            LLMClientType::Ollama(client) => client.tool_calling_loop_stream(
-                system_message,
-                chat_messages,
-                tool_set,
-                model,
-                on_token,
-            ),
-            LLMClientType::LMStudio(client) => client.tool_calling_loop_stream(
-                system_message,
-                chat_messages,
-                tool_set,
-                model,
-                on_token,
-            ),
-            LLMClientType::OpenRouter(client) => client.tool_calling_loop_stream(
-                system_message,
-                chat_messages,
-                tool_set,
-                model,
-                on_token,
-            ),
-        }
-    }
-
-    /// Like [`Self::tool_calling_loop_stream()`], but returns only the final response, once all
-    /// tool calls have been resolved.
-    pub fn tool_calling_loop(
-        &self,
-        system_message: &str,
-        chat_messages: Vec<ChatMessage>,
-        tool_set: &mut impl but_tools::tool::Toolset,
-        model: &str,
-    ) -> anyhow::Result<String> {
-        match &self.client {
-            LLMClientType::OpenAi(client) => {
-                client.tool_calling_loop(system_message, chat_messages, tool_set, model)
-            }
-            LLMClientType::Anthropic(client) => {
-                client.tool_calling_loop(system_message, chat_messages, tool_set, model)
-            }
-            LLMClientType::Ollama(client) => {
-                client.tool_calling_loop(system_message, chat_messages, tool_set, model)
-            }
-            LLMClientType::LMStudio(client) => {
-                client.tool_calling_loop(system_message, chat_messages, tool_set, model)
-            }
-            LLMClientType::OpenRouter(client) => {
-                client.tool_calling_loop(system_message, chat_messages, tool_set, model)
-            }
-        }
-    }
-
-    /// Streams the response through `on_token`, without tool calling.
+    /// Streams the response through `on_token`.
     ///
     /// Returns `None` if the model produced no output.
     pub fn stream_response(
@@ -356,7 +276,7 @@ impl LLMProvider {
         }
     }
 
-    /// The complete response, without streaming or tool calling, or `None` if the model produced
+    /// The complete response, without streaming, or `None` if the model produced
     /// no output.
     pub fn response(
         &self,
