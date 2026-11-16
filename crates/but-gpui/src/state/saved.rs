@@ -660,9 +660,9 @@ pub struct Prefs {
     /// The common notes a click leaves on a brief, the stock ones if never changed.
     pub brief_shortcuts: Option<Vec<String>>,
     pub branches_status: BranchStatus,
-    /// The navigator's branches start with their commits listed, rather than folded to a
-    /// row each.
-    pub branches_start_open: bool,
+    /// The navigator's branches start folded to a row each, rather than with their commits
+    /// listed. Off unless picked.
+    pub branches_start_folded: bool,
     /// The navigator's open branches list all their commits, rather than the first few and
     /// how many more.
     pub all_branch_commits: bool,
