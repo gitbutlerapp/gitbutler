@@ -133,13 +133,7 @@ const Changes: FC = () => (
 				focused
 			>
 				<FileListItem name="useAuthHook.ts" directory="src/hooks" status="Addition" />
-				<FileListItem
-					selected
-					name="Button.tsx"
-					directory="src/components"
-					status="Modification"
-					actions={kebab("File menu")}
-				/>
+				<FileListItem selected name="Button.tsx" directory="src/components" status="Modification" />
 				<FileListItem name="apiService.ts" directory="src/services" status="Modification" />
 				<FileListItem name="styles.css" directory="src/styles" status="Addition" />
 				<FileListItem name="theme.css" directory="src/styles" status="Modification" />

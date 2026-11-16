@@ -6,6 +6,7 @@ import { Checkbox } from "./Checkbox.tsx";
 import { FileList, FileListItem } from "./FileList.tsx";
 import type { FileStatusType } from "./FileStatusBadge.tsx";
 import { Icon } from "./Icon.tsx";
+import { ContextMenu, MenuItem, MenuSection } from "./Menu.tsx";
 import { treeGuides } from "./treeGuides.ts";
 
 const statuses: Array<FileStatusType> = ["Addition", "Deletion", "Modification", "Rename"];
@@ -47,31 +48,46 @@ export const Default = meta.story({
 	),
 });
 
-const kebab = (
-	<Button variant="ghost" size="small" iconOnly aria-label="File menu">
-		<Icon name="kebab" />
-	</Button>
+/** A file's actions, from a right-click on its row: a file row has no ⋯. */
+const fileActions = (
+	<>
+		<MenuSection>
+			<MenuItem>Open in editor</MenuItem>
+			<MenuItem>Copy path</MenuItem>
+		</MenuSection>
+		<MenuSection>
+			<MenuItem>Discard changes</MenuItem>
+		</MenuSection>
+	</>
 );
 
 /**
  * Every state a row can be in. The list holds the selection focus, so the selected row is solid;
  * the second list has lost it. A row that can't be acted on right now is `inert`; one whose action
- * is running is `busy` too, with a spinner in its icon's place.
+ * is running is `busy` too, with a spinner in its icon's place. A row's menu opens with a
+ * right-click, as on the selected one: a file row has no ⋯, so its last cell always says what
+ * happened.
  */
 export const States = meta.story({
 	render: () => (
 		<div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 			<FileList title="Changes" count={5} added={120} removed={48} focused>
 				<FileListItem name="useAuthHook.ts" directory="src/hooks" status="Addition" added={64} />
-				<FileListItem
-					selected
-					name="Button.tsx"
-					directory="src/components"
-					status="Modification"
-					added={18}
-					removed={9}
-					actions={kebab}
-				/>
+				<ContextMenu
+					aria-label="File actions"
+					trigger={
+						<FileListItem
+							selected
+							name="Button.tsx"
+							directory="src/components"
+							status="Modification"
+							added={18}
+							removed={9}
+						/>
+					}
+				>
+					{fileActions}
+				</ContextMenu>
 				<FileListItem
 					name="apiService.ts"
 					directory="src/services"

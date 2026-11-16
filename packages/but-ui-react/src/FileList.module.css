@@ -375,39 +375,19 @@
 	color: var(--but-muted-foreground);
 }
 
-/* The status and the actions share the row's last cell, both centred in it, so neither moves
-   when one gives way to the other and the letters line up down the list. As wide as a small
-   icon-only Button (Button.module.css), the widest thing that goes in it. The actions show while
-   the row is hovered, holds focus or is selected, so a keyboard user sees them where the pointer
-   would. */
+/* The row's last cell, reserved on every row and its mark centred in it, so the letters line up
+   down the list. 22px, as a small icon-only Button is, so a file row's end lines up with a
+   sidebar row's. A file row has no ⋯ to swap in here: its menu opens with a right-click. */
 .end {
 	display: grid;
 	flex-shrink: 0;
 	place-items: center;
 	width: 22px;
-
-	& > * {
-		grid-area: 1 / 1;
-	}
 }
 
 .status {
 	display: flex;
 	align-items: center;
-
-	.item:is(:hover, :focus-within, [data-selected]) .end:has(> .actions) > & {
-		visibility: hidden;
-	}
-}
-
-.actions {
-	display: flex;
-	visibility: hidden;
-	align-items: center;
-
-	.item:is(:hover, :focus-within, [data-selected]) & {
-		visibility: visible;
-	}
 }
 
 .count {

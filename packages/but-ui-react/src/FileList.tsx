@@ -209,9 +209,9 @@ export const FileList: FC<
  * - The last cell says what happened: the conflict mark if it is `conflicted`, else a tick if it
  *   is `reviewed`, which also fades the name (a reviewed file's news is that it is done with),
  *   else the letter for its `status`, else a folded directory's `count` of files.
- * - `actions` take the status's place while the row is hovered, holds focus or is selected, so a
- *   keyboard user finds them where the pointer would; both sit centred in one fixed cell, so
- *   nothing moves. `marks` always show, before it.
+ * - The row has no ⋯: its menu opens with a right-click, the row a `ContextMenu`'s `trigger`, so
+ *   the last cell always says what happened and the letters read down the list. `marks` show
+ *   before it.
  * - `added` and `removed` give the file's line counts, after its name; either side shows only
  *   when it isn't zero.
  * - `labelRender` and `statusRender` wrap the name and the status, for tooltip triggers.
@@ -241,7 +241,6 @@ export const FileListItem: FC<
 		reviewed?: boolean;
 		conflicted?: boolean;
 		selected?: boolean;
-		actions?: ReactNode;
 		marks?: ReactNode;
 		added?: number;
 		removed?: number;
@@ -265,7 +264,6 @@ export const FileListItem: FC<
 	reviewed = false,
 	conflicted = false,
 	selected = false,
-	actions,
 	marks,
 	added = 0,
 	removed = 0,
@@ -373,10 +371,7 @@ export const FileListItem: FC<
 					/>
 					{marks !== undefined && <span className={styles.marks}>{marks}</span>}
 					{/* Reserved on every row, so what comes before it lines up down the list. */}
-					<span className={styles.end}>
-						{hasStatus && statusMark}
-						{actions !== undefined && <span className={styles.actions}>{actions}</span>}
-					</span>
+					<span className={styles.end}>{hasStatus && statusMark}</span>
 				</>
 			),
 		}),
