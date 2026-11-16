@@ -202,7 +202,8 @@ export const FileList: FC<
  *   answers the chevron, and `toggleRender` wraps it, for a tooltip trigger.
  * - `icon` defaults to the file's type glyph, or a folder for a directory.
  * - `checkbox` shares the icon's cell and takes its place once the pointer is over it or it is
- *   checked, so a row stays quiet while browsing.
+ *   checked, so a row stays quiet while browsing. A directory's stands for every file under it,
+ *   `indeterminate` while only some are checked.
  * - `busy` while an action on the file runs: a spinner takes the icon's cell, checkbox and all,
  *   until it is done, as on a sidebar row. Make the row `inert` meanwhile.
  * - The last cell says what happened: the conflict mark if it is `conflicted`, else a tick if it

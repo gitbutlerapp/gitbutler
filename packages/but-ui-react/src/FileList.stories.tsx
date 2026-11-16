@@ -139,13 +139,16 @@ const tree: Array<TreeNode> = [
 	{ kind: "file", name: "package.json", status: "Modification" },
 ];
 
-const countFiles = (node: TreeNode): number =>
-	node.kind === "file" ? 1 : node.children.reduce((n, child) => n + countFiles(child), 0);
+const filePaths = (node: TreeNode, path: string): Array<string> =>
+	node.kind === "file"
+		? [path]
+		: node.children.flatMap((child) => filePaths(child, `${path}/${child.name}`));
 
 /**
  * A tree: each row steps in under its directory, with the guide that ties it there. A directory
  * folds on its chevron and says how many files it holds while folded; files under one leave out
- * their path, since the tree says it.
+ * their path, since the tree says it. A directory's checkbox checks every file under it, and shows
+ * indeterminate while only some are.
  */
 export const Tree = meta.story({
 	parameters: {
@@ -156,7 +159,9 @@ export const Tree = meta.story({
 	},
 	render: function Render() {
 		const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set(["src/styles"]));
-		const [checked, setChecked] = useState<ReadonlySet<string>>(() => new Set(["Button.tsx"]));
+		const [checked, setChecked] = useState<ReadonlySet<string>>(
+			() => new Set(["src/components/Button.tsx"]),
+		);
 		const toggle = (set: ReadonlySet<string>, key: string) => {
 			const next = new Set(set);
 			if (!next.delete(key)) next.add(key);
@@ -173,25 +178,39 @@ export const Tree = meta.story({
 		};
 		visit(tree, 0, "");
 		const guides = treeGuides(shown.map(({ depth }) => ({ depth })));
-		const rows = shown.map(({ node, depth, path }, index) =>
-			node.kind === "file" ? (
-				<FileListItem
-					key={path}
-					role="treeitem"
-					aria-level={depth + 1}
-					name={node.name}
-					depth={depth}
-					guides={guides[index]}
-					status={node.status}
-					checkbox={
-						<Checkbox
-							aria-label={`Check ${path}`}
-							checked={checked.has(node.name)}
-							onCheckedChange={() => setChecked((set) => toggle(set, node.name))}
-						/>
-					}
-				/>
-			) : (
+		const checkAll = (paths: Array<string>, on: boolean) =>
+			setChecked((set) => {
+				const next = new Set(set);
+				for (const path of paths) {
+					if (on) next.add(path);
+					else next.delete(path);
+				}
+				return next;
+			});
+		const rows = shown.map(({ node, depth, path }, index) => {
+			if (node.kind === "file") {
+				return (
+					<FileListItem
+						key={path}
+						role="treeitem"
+						aria-level={depth + 1}
+						name={node.name}
+						depth={depth}
+						guides={guides[index]}
+						status={node.status}
+						checkbox={
+							<Checkbox
+								aria-label={`Check ${path}`}
+								checked={checked.has(path)}
+								onCheckedChange={() => setChecked((set) => toggle(set, path))}
+							/>
+						}
+					/>
+				);
+			}
+			const files = filePaths(node, path);
+			const done = files.filter((file) => checked.has(file)).length;
+			return (
 				<FileListItem
 					key={path}
 					role="treeitem"
@@ -202,10 +221,18 @@ export const Tree = meta.story({
 					guides={guides[index]}
 					folded={folded.has(path)}
 					onToggleFolded={() => setFolded((set) => toggle(set, path))}
-					count={folded.has(path) ? countFiles(node) : undefined}
+					count={folded.has(path) ? files.length : undefined}
+					checkbox={
+						<Checkbox
+							aria-label={`Check ${path}`}
+							checked={done === files.length}
+							indeterminate={done > 0 && done < files.length}
+							onCheckedChange={() => checkAll(files, done < files.length)}
+						/>
+					}
 				/>
-			),
-		);
+			);
+		});
 		return (
 			<FileList title="Changes" count={6} added={214} removed={37} focused>
 				<div role="tree" aria-label="Changes" style={{ display: "contents" }}>
