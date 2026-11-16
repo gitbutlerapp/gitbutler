@@ -385,7 +385,7 @@ fn worktree_changes_inner(
                         source_dirwalk_entry_id,
                         ..
                     } => ChangeState {
-                        id: source_dirwalk_entry_id,
+                        id: source_dirwalk_entry_id.unwrap_or_else(|| repo.object_hash().null()),
                         kind: match disk_kind_to_entry_kind(
                             source_dirwalk_entry.disk_kind,
                             source_dirwalk_entry.index_kind,
