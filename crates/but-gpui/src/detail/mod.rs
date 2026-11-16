@@ -91,8 +91,6 @@ actions!(
     [
         NextFile,
         PreviousFile,
-        PickNextFile,
-        PickPreviousFile,
         PickAllFiles,
         FirstFile,
         LastFile,
@@ -111,7 +109,6 @@ actions!(
         PreviousTab,
         ShowBrief,
         ShowBranchesWithBriefs,
-        PickCommitTarget,
         ToggleWrap,
         TogglePlainLines,
         ToggleSplit,
@@ -4474,8 +4471,6 @@ impl Render for Detail {
                     false => this.move_file(isize::MAX / 2, false, cx),
                 }
             }))
-            .on_action(cx.listener(|this, _: &PickNextFile, _, cx| this.pick_step(1, cx)))
-            .on_action(cx.listener(|this, _: &PickPreviousFile, _, cx| this.pick_step(-1, cx)))
             .on_action(cx.listener(|this, _: &PickAllFiles, _, cx| this.pick_all_files(cx)))
             .on_action(
                 cx.listener(|this, _: &NextHunk, window, cx| this.move_hunk(true, window, cx)),

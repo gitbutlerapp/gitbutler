@@ -1171,7 +1171,7 @@ impl NavigatorTabs {
             return;
         };
         let going = match action {
-            RowAction::Step(_) | RowAction::Pick(_) | RowAction::Section { .. } => true,
+            RowAction::Step(_) | RowAction::Section { .. } => true,
             RowAction::Expand
             | RowAction::Collapse
             | RowAction::ToggleFold

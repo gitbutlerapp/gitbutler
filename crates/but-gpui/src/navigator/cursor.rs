@@ -5,8 +5,8 @@ use gpui::{App, Context, InteractiveElement, Window};
 
 use super::rows::{Fold, Moving, Row};
 use super::{
-    CARD_MARGIN, ClickOpened, DRAWER_CHROME, Navigator, NextSection, PickNext, PickPrevious,
-    PreviousSection, SelectFirst, SelectLast, items, parent, tabs,
+    CARD_MARGIN, ClickOpened, DRAWER_CHROME, Navigator, NextSection, PreviousSection, SelectFirst,
+    SelectLast, items, parent, tabs,
 };
 use crate::app::{Collapse, Confirm, Expand, SelectNext, SelectPrevious, ToggleFold};
 use crate::backend::Checkout;
@@ -30,8 +30,6 @@ pub(super) enum Step {
 pub(super) enum RowAction {
     /// By `delta` rows, or to the first or the last with a step past either end.
     Step(isize),
-    /// To the commit before or after, picking it.
-    Pick(isize),
     /// To the next section's heading, or the one before.
     Section {
         forward: bool,
@@ -73,14 +71,6 @@ pub(super) fn row_actions<E: InteractiveElement, V: 'static>(
     .on_action(cx.listener(move |this, _: &SelectLast, window, cx| {
         act(this, RowAction::Step(isize::MAX / 2), window, cx)
     }))
-    .on_action(cx.listener(move |this, _: &PickPrevious, window, cx| {
-        act(this, RowAction::Pick(-1), window, cx)
-    }))
-    .on_action(
-        cx.listener(move |this, _: &PickNext, window, cx| {
-            act(this, RowAction::Pick(1), window, cx)
-        }),
-    )
     .on_action(cx.listener(move |this, _: &PreviousSection, window, cx| {
         act(this, RowAction::Section { forward: false }, window, cx)
     }))
@@ -146,7 +136,6 @@ impl Navigator {
     ) {
         match action {
             RowAction::Step(delta) => self.step(delta, window, cx),
-            RowAction::Pick(delta) => self.pick_step(delta, window, cx),
             RowAction::Section { forward } => self.jump_section(forward, window, cx),
             RowAction::Expand => self.expand(&Expand, window, cx),
             RowAction::Collapse => self.collapse(&Collapse, window, cx),
@@ -246,26 +235,6 @@ impl Navigator {
         };
         self.set_unfolded((project.clone(), ref_name.clone()), true);
         true
-    }
-
-    /// Step `delta` commits from the selected one, picking the run as ⇧-click does. Off a
-    /// commit, it's a plain step.
-    pub(super) fn pick_step(&mut self, delta: isize, window: &mut Window, cx: &mut Context<Self>) {
-        let store = self.store.read(cx);
-        // What's moving was picked when the move started.
-        if store.moving.is_some() {
-            return;
-        }
-        let (project, id) = match &store.selection {
-            Some(Selection::Commit(project, id)) => (project.clone(), *id),
-            _ => return self.step(delta, window, cx),
-        };
-        let order = self.commit_order(&project, id, cx);
-        let next = (order.iter().position(|commit| *commit == id))
-            .and_then(|at| order.get(at.checked_add_signed(delta)?).copied());
-        if let Some(next) = next {
-            (self.store).update(cx, |store, cx| store.pick(&project, next, Some(order), cx));
-        }
     }
 
     /// Select the first item before (`forward` false) or after the selection that starts a

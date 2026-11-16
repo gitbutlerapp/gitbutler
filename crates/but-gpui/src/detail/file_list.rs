@@ -980,23 +980,6 @@ impl Detail {
         self.picked_file(next, cx);
     }
 
-    /// Step `delta` files from the cursor, picking the run as ⇧-click does.
-    pub(super) fn pick_step(&mut self, delta: isize, cx: &mut Context<Self>) {
-        let next = match self.file_step(delta, false, cx) {
-            Some(super::ListStop::Entry(super::Entry::File(file))) => self.diff_path(file),
-            _ => None,
-        };
-        let (Some(cursor), Some(next)) = (self.cursor_path(), next) else {
-            return;
-        };
-        let order = self.listed_paths(cx);
-        let Some(files) = self.page.files_mut() else {
-            return;
-        };
-        let next = files.file_picks.run(&order, &cursor, &next);
-        self.picked_file(next, cx);
-    }
-
     pub(super) fn pick_all_files(&mut self, cx: &mut Context<Self>) {
         let order = self.listed_paths(cx);
         if let Some(files) = self.page.files_mut() {

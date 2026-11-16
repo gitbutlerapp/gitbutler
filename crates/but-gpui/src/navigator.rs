@@ -137,8 +137,6 @@ actions!(
         SelectLast,
         PreviousSection,
         NextSection,
-        PickPrevious,
-        PickNext,
         FocusFilter
     ]
 );
