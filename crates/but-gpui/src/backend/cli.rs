@@ -4,8 +4,8 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
-use but_action::cli::ExistingSymlinkPolicy;
 use but_api::legacy::cli;
+use but_api::legacy::cli::ExistingSymlinkPolicy;
 
 /// The `but` a terminal runs: the first on the `PATH`, which the app takes from the user's
 /// login shell.

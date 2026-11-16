@@ -57,7 +57,6 @@ but-comments.workspace = true
 but-db.workspace = true
 but-error.workspace = true
 but-utils.workspace = true
-but-action.workspace = true
 but-hunk-assignment.workspace = true
 but-gerrit.workspace = true
 gitbutler-project.workspace = true

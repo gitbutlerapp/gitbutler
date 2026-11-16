@@ -113,7 +113,7 @@ fn main() -> anyhow::Result<()> {
         // As the web app's setup does: hooks and signing need the PATH and the like of the
         // user's shell, which an app opened from the Dock or Finder doesn't have.
         #[cfg(target_os = "macos")]
-        but_action::cli::auto_fix_broken_but_cli_symlink();
+        but_api::legacy::cli::auto_fix_broken_but_cli_symlink();
         inherit_interactive_login_shell_environment_if_not_launched_from_terminal();
         // It asks the web app's update feed, as often as the web app would, and installs what
         // it offers with a run of this binary, `install_update_for_gpui`.
@@ -190,7 +190,7 @@ fn main() -> anyhow::Result<()> {
                 logs::init(app_handle, &app_log_dir, performance_logging, tokio_debug);
 
                 #[cfg(target_os = "macos")]
-                but_action::cli::auto_fix_broken_but_cli_symlink();
+                but_api::legacy::cli::auto_fix_broken_but_cli_symlink();
                 inherit_interactive_login_shell_environment_if_not_launched_from_terminal();
                 migrate_projects().ok();
 

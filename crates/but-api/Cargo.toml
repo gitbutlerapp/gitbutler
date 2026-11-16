@@ -30,6 +30,8 @@ tauri = ["dep:tauri", "legacy"]
 ## When paths are turned into strings they are lossy. Also provide a `_bytes` variant of such fields with the original value
 ## for lossless use.
 path-bytes = []
+## If enabled, we will let the current executable (gitbutler-tauri) be the source for the `but` link.
+builtin-but = []
 ## Generate JSON schemas for TypeScript type generation via schemars.
 export-schema = [
     "but-error/export-schema",
@@ -68,7 +70,6 @@ legacy = [
     "dep:gitbutler-edit-mode",
     "dep:gitbutler-operating-modes",
     "dep:gitbutler-oplog",
-    "dep:but-action",
     "dep:but-gerrit",
 ]
 
@@ -105,7 +106,6 @@ itertools.workspace = true
 
 # What follows is *basically* newly written crates that are built on top of legacy,
 # so need some refactoring/rethinking to become usable.
-but-action = { workspace = true, optional = true }
 but-gerrit = { workspace = true, optional = true }
 gitbutler-user = { workspace = true, optional = true }
 gitbutler-project = { workspace = true, optional = true }

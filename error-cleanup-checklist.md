@@ -24,7 +24,7 @@ Tracking fixes for the top `toast:show_error` events identified via PostHog (las
 
 - [x] **Generate commit message: info toast on no changes** — swap `showError` → info `showToast` in `macros.svelte.ts` (covers both commit-message and branch-name generation paths) — 104 events / 48 users
 - [x] **WSL2 / UNC guidance as info toast** — `projectsService.ts:142-161` now uses `showToast({style: "info"})` for both unsupported-path cases — 53 events / 37 users
-- [x] **install_cli osascript decline as info** — Rust side tags status-1 with `Code::CliInstallCancelled` (`but-action/src/cli.rs`); `GeneralSettings.svelte` matches on that code and shows info toast — 32 events / 24 users
+- [x] **install_cli osascript decline as info** — Rust side tags status-1 with `Code::CliInstallCancelled` (`but-api/src/legacy/cli.rs`); `GeneralSettings.svelte` matches on that code and shows info toast — 32 events / 24 users
 - [x] **App update RO-filesystem: info toast with guidance** — detect "Read-only file system" / EROFS in `updater.ts:handleError` and show info toast linking to downloads — 14 events / 5 users
 
 ## Follow-ups from review

@@ -695,9 +695,11 @@ pub fn conflict_entries_from_merge_outcome(
 
 mod conflict;
 use conflict::message_is_conflicted;
+mod message_format;
 pub use conflict::{
     add_conflict_markers, rewrite_conflict_markers_on_message_change, strip_conflict_markers,
 };
+pub use message_format::format_commit_message;
 pub mod padding;
 pub mod tree_expression;
 

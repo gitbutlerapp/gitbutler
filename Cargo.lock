@@ -1153,7 +1153,6 @@ dependencies = [
  "arboard",
  "boolean-enums",
  "bstr",
- "but-action",
  "but-agentlog",
  "but-api",
  "but-askpass",
@@ -1237,18 +1236,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "but-action"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "but-error",
- "schemars 1.2.1",
- "serde",
- "tempfile",
- "tracing",
-]
-
-[[package]]
 name = "but-agentlog"
 version = "0.0.0"
 dependencies = [
@@ -1278,7 +1265,6 @@ dependencies = [
  "anyhow",
  "boolean-enums",
  "bstr",
- "but-action",
  "but-api",
  "but-api-macros",
  "but-askpass",
@@ -1695,7 +1681,6 @@ dependencies = [
  "backtrace",
  "block2 0.6.2",
  "bstr",
- "but-action",
  "but-api",
  "but-askpass",
  "but-bitbucket",
@@ -4981,7 +4966,6 @@ dependencies = [
  "anyhow",
  "backtrace",
  "but",
- "but-action",
  "but-api",
  "but-askpass",
  "but-core",
