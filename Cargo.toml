@@ -53,7 +53,6 @@ members = [
     # 👉Could be exemplary after review.
     "crates/but-update", # 📄Retrieve information about available program versions to guide updates.
     # 👉Unclear purpose (a mix of everything?); lacks tests and docs. Uses legacy crates (a lot).
-    "crates/but-action", # 📄TBD
     # 👉No tests, lacks top-level docs, purpose somewhat unclear.
     "crates/but-llm", # 📄TBD
     # 👉lacks top-level docs and docs.
@@ -157,7 +156,6 @@ but-db = { path = "crates/but-db" }
 but-path = { path = "crates/but-path" }
 but-graph = { path = "crates/but-graph" }
 but-meta = { path = "crates/but-meta" }
-but-action = { path = "crates/but-action" }
 but-api = { path = "crates/but-api" }
 but-api-macros = { path = "crates/but-api-macros" }
 but-gerrit = { path = "crates/but-gerrit" }

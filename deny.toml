@@ -196,14 +196,14 @@ deny = [
     # The `gitbutler-*` crates are legacy. Only the crates in each `wrappers`
     # list may depend on one, so new code can't start using them. Remove a
     # crate from a list when it stops depending on that legacy crate.
-    { crate = "gitbutler-branch-actions", wrappers = ["but", "but-action", "but-api"] },
+    { crate = "gitbutler-branch-actions", wrappers = ["but", "but-api"] },
     { crate = "gitbutler-edit-mode", wrappers = ["but", "but-api"] },
     { crate = "gitbutler-filemonitor", wrappers = ["but-gpui", "gitbutler-watcher"] },
     { crate = "gitbutler-git", wrappers = ["but", "but-api", "but-workspace"] },
-    { crate = "gitbutler-operating-modes", wrappers = ["but", "but-action", "but-api", "but-gpui", "gitbutler-branch-actions", "gitbutler-edit-mode", "gitbutler-watcher"] },
-    { crate = "gitbutler-oplog", wrappers = ["but", "but-action", "but-api", "but-oplog", "gitbutler-branch-actions", "gitbutler-edit-mode"] },
+    { crate = "gitbutler-operating-modes", wrappers = ["but", "but-api", "but-gpui", "gitbutler-branch-actions", "gitbutler-edit-mode", "gitbutler-watcher"] },
+    { crate = "gitbutler-oplog", wrappers = ["but", "but-api", "but-oplog", "gitbutler-branch-actions", "gitbutler-edit-mode"] },
     { crate = "gitbutler-project", wrappers = ["but", "but-api", "but-ctx", "but-gpui", "gitbutler-branch-actions", "gitbutler-repo", "gitbutler-tauri"] },
-    { crate = "gitbutler-reference", wrappers = ["but-action", "but-api", "but-branches", "but-graph", "but-meta", "but-rebase", "but-workspace", "gitbutler-branch-actions", "gitbutler-repo"] },
+    { crate = "gitbutler-reference", wrappers = ["but-api", "but-branches", "but-graph", "but-meta", "but-rebase", "but-workspace", "gitbutler-branch-actions", "gitbutler-repo"] },
     { crate = "gitbutler-repo", wrappers = ["but", "but-api", "but-gpui", "but-workspace", "gitbutler-branch-actions", "gitbutler-oplog"] },
     { crate = "gitbutler-user", wrappers = ["but-api"] },
     { crate = "gitbutler-watcher", wrappers = ["but", "but-server", "gitbutler-tauri"] },

@@ -12,11 +12,7 @@ use crate::M;
 mod handle;
 mod table;
 
-#[rustfmt::skip]
-pub use table::{
-    agent_skill_notice::AgentSkillNotice,
-    update::{CachedCheckResult, CheckUpdateStatus},
-};
+pub use table::update::{CachedCheckResult, CheckUpdateStatus};
 
 /// Just like [`crate::SchemaVersion`], but for project caches. Note that caches can always be created though
 /// as they are generated in memory in the worst case, particularly on migration failure.

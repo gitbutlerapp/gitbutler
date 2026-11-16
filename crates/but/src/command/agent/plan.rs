@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::{Context as _, Result};
 
-use crate::utils::detect_agent;
+use crate::{command::skill::join_relative_path, utils::detect_agent};
 
 use super::{RepoInfo, Scope};
 
@@ -291,7 +291,7 @@ pub(super) fn collect_skill_installs(
             if let Some(components) = agent.skill_path_components(*location) {
                 installs.push(SkillInstallPlan {
                     agent: *agent,
-                    path: join_components(base_dir, components),
+                    path: join_relative_path(base_dir, components),
                 });
             }
         }
@@ -315,7 +315,7 @@ pub(super) fn collect_instruction_writes(
         if matches!(scope, Scope::Repository | Scope::Both) {
             let repo = repo.context("Repository instructions requested outside a repository")?;
             by_path
-                .entry(join_components(
+                .entry(join_relative_path(
                     &repo.root,
                     agent.shared_instruction_components(),
                 ))
@@ -326,7 +326,7 @@ pub(super) fn collect_instruction_writes(
         if let Some(home) = &home {
             if let Some(components) = agent.global_instruction_components() {
                 by_path
-                    .entry(join_components(home, components))
+                    .entry(join_relative_path(home, components))
                     .or_default()
                     .push(*agent);
             } else {
@@ -347,14 +347,8 @@ pub(super) fn collect_instruction_writes(
     ))
 }
 
-pub(super) fn join_components(base: &Path, components: &[&str]) -> PathBuf {
-    components
-        .iter()
-        .fold(base.to_path_buf(), |path, component| path.join(component))
-}
-
 /// Whether `base` joined with `marker`'s components exists on disk. `None` marker
 /// (the agent has no such location) is never present.
 fn marker_exists(base: &Path, marker: Option<&'static [&'static str]>) -> bool {
-    marker.is_some_and(|components| join_components(base, components).exists())
+    marker.is_some_and(|components| join_relative_path(base, components).exists())
 }

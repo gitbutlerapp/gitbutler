@@ -170,10 +170,6 @@ fn formerly_unclassified_commands_have_explicit_names() {
             },
             "agentLog",
         ),
-        (
-            Subcommands::Actions(crate::args::actions::Platform { cmd: None }),
-            "actions",
-        ),
     ];
 
     for (command, expected) in commands {

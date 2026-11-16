@@ -7,7 +7,7 @@ use std::ops::Range;
 
 use gpui::{
     AnyElement, App, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable,
-    FontWeight, ScrollHandle, SharedString, Subscription, Task, Window, actions, div, prelude::*,
+    FontWeight, ScrollHandle, SharedString, Subscription, Task, Window, div, prelude::*,
 };
 
 use crate::app::AppView;
@@ -23,8 +23,6 @@ use crate::ui::{
     self, ButtonStyle, Icon, button, dp, error_summary, faint, field, fold_glyph, h_flex, muted,
     plural, quiet, quoted, section_label, side_row, small_icon, v_flex,
 };
-
-actions!(whats_new, [PreviousRelease, NextRelease]);
 
 const RELEASES: &str = "https://github.com/gitbutlerapp/gitbutler/releases";
 
@@ -280,30 +278,6 @@ impl WhatsNew {
     /// What's searched for, lowered as [`matches`] wants it.
     fn query(&self, cx: &App) -> String {
         self.search.read(cx).text().trim().to_ascii_lowercase()
-    }
-
-    fn previous_release(&mut self, _: &PreviousRelease, _: &mut Window, cx: &mut Context<Self>) {
-        self.step(-1, cx);
-    }
-
-    fn next_release(&mut self, _: &NextRelease, _: &mut Window, cx: &mut Context<Self>) {
-        self.step(1, cx);
-    }
-
-    /// Pick the release `by` rows from the picked one, while not searching.
-    fn step(&mut self, by: isize, cx: &mut Context<Self>) {
-        let Some(Ok(releases)) = &self.releases else {
-            return;
-        };
-        if !self.query(cx).is_empty() {
-            return;
-        }
-        let at = (releases.iter()).position(|r| Some(&r.version) == self.selected.as_ref());
-        let next = (at.and_then(|at| at.checked_add_signed(by)))
-            .and_then(|row| Some((row, releases.get(row)?.version.clone())));
-        if let Some((row, version)) = next {
-            self.pick(version, row, cx);
-        }
     }
 
     /// Whether the running release has `release`; `None` when that can't be told.
@@ -685,9 +659,6 @@ impl Render for WhatsNew {
         };
         modal(ModalSize::Large, &theme)
             .id("whats-new")
-            .key_context("WhatsNew")
-            .on_action(cx.listener(Self::previous_release))
-            .on_action(cx.listener(Self::next_release))
             .h(dp(height))
             .flex_row()
             .child(side)

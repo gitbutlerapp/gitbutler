@@ -5,7 +5,6 @@ use anyhow::Result;
 use bstr::ByteSlice;
 
 pub mod absorb;
-pub mod actions;
 pub mod amend;
 pub mod apply;
 pub mod branch;

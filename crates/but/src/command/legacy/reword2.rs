@@ -290,9 +290,7 @@ pub fn run(
                 )?;
                 commit_details.commit.inner.message.to_string()
             };
-            let new_message = Some(but_action::commit_format::format_commit_message(
-                &current_message,
-            ));
+            let new_message = Some(but_core::commit::format_commit_message(&current_message));
             let (outcome, ws) =
                 reword_commit(ctx, meta, perm, target, &current_message, new_message)?;
             Ok((outcome, ws))

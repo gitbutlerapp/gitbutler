@@ -25,9 +25,8 @@ const GROUPS: [(&str, &str); 9] = [
 ];
 
 /// Actions that are only a field's or a list's own, which the page leaves out.
-const UNLISTED: [&str; 5] = [
+const UNLISTED: [&str; 4] = [
     "text_input::",
-    "whats_new::",
     "image_preview::",
     "palette::Palette",
     "zed::",

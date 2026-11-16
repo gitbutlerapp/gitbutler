@@ -240,42 +240,7 @@ fn link_blocks(mut blocks: Vec<&mut Block>, files: &[FileDiff]) {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// A file with one hunk of `lines`, each a kind of line and its text.
-    fn file_of(path: &str, lines: &[(LineKind, &str)]) -> FileDiff {
-        use crate::backend::{DiffBody, FileChange, Hunk, HunkKey};
-        let hunk = Hunk {
-            key: HunkKey(but_core::HunkHeader {
-                old_start: 1,
-                old_lines: 1,
-                new_start: 1,
-                new_lines: 1,
-            }),
-            header: String::new(),
-            patch: "".into(),
-            lines: (lines.iter())
-                .map(|(kind, text)| DiffLine::new(*kind, Some(1), Some(1), text))
-                .collect(),
-            scope: Vec::new(),
-            lead: Vec::new(),
-            tail: Vec::new(),
-        };
-        FileDiff {
-            file: FileChange::bare(path),
-            body: DiffBody::Hunks {
-                hunks: vec![hunk],
-                added: 0,
-                removed: 0,
-                widest: [1, 1],
-                conflicts: Vec::new(),
-            },
-            fingerprint: 0,
-            annotated: true,
-            scope_lines: None,
-            drawing: None,
-            made_by: Vec::new(),
-        }
-    }
+    use crate::backend::model::build::file_of;
 
     #[test]
     fn what_looks_like_code_is_looked_for() {

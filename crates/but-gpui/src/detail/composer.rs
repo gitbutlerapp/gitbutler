@@ -8,7 +8,7 @@ use gpui::{
     div, prelude::*,
 };
 
-use super::{ChecksChanged, Detail, DiffKey, PickCommitTarget, page};
+use super::{ChecksChanged, Detail, DiffKey, page};
 use crate::backend::{
     self, Branch, Checkout, CommitId, CommitTo, DiffBody, DiffSource, FileChange, FileDiff,
     FullName, Hunk, HunkKey, LineKind, PushState, Selected, ai, short_ref,
@@ -21,7 +21,7 @@ use crate::ui::message_editor::{COMMIT_PLACEHOLDERS, MessageEditor, MessageSize}
 use crate::ui::text_input::InputEvent;
 use crate::ui::{
     ButtonStyle, Icon, Tooltip, button, commit_title, dp, faint, h_flex, icon_button, plural,
-    shortcut, small_icon, v_flex,
+    small_icon, v_flex,
 };
 
 /// The message box's text while a commit's being amended.
@@ -1734,7 +1734,6 @@ impl Detail {
         theme: &Theme,
         cx: &Context<Self>,
     ) -> impl IntoElement {
-        let key = shortcut(&PickCommitTarget, cx);
         h_flex()
             .id("commit-target")
             .min_w_0()
@@ -1756,7 +1755,7 @@ impl Detail {
             .when(pickable && !self.checks_worktree.is_linked(), |el| {
                 el.hover(|el| el.bg(theme.muted_hover))
                     .child(small_icon(Icon::ChevronDown).text_color(theme.text_2))
-                    .tooltip(Tooltip::keyed("Pick the branch to commit to", key))
+                    .tooltip(Tooltip::text("Pick the branch to commit to"))
                     .on_click(
                         cx.listener(|this, _, window, cx| this.pick_commit_target(window, cx)),
                     )
@@ -1764,7 +1763,7 @@ impl Detail {
     }
 
     /// Pick the branch the next commit goes to, or make a new one for it, typing to filter.
-    pub(crate) fn pick_commit_target(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    fn pick_commit_target(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(Selection::Uncommitted(project, Checkout::Main)) = self.selection() else {
             return;
         };

@@ -1,6 +1,6 @@
 //! Several items of one list picked together, the way Finder picks them: ⌘-click (ctrl-click
-//! off macOS) picks an item or drops it, and ⇧-click and ⇧-arrows pick the run from where the
-//! last other click left off, growing or shrinking it as they go.
+//! off macOS) picks an item or drops it, and ⇧-click picks the run from where the last other
+//! click left off, growing or shrinking it.
 
 use std::collections::HashSet;
 use std::hash::Hash;

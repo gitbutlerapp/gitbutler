@@ -1153,7 +1153,6 @@ dependencies = [
  "arboard",
  "boolean-enums",
  "bstr",
- "but-action",
  "but-agentlog",
  "but-api",
  "but-askpass",
@@ -1237,39 +1236,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "but-action"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "bstr",
- "but-core",
- "but-ctx",
- "but-db",
- "but-error",
- "but-graph",
- "but-hunk-assignment",
- "but-llm",
- "but-rebase",
- "but-serde",
- "but-workspace",
- "chrono",
- "gitbutler-branch-actions",
- "gitbutler-operating-modes",
- "gitbutler-oplog",
- "gitbutler-reference",
- "gix",
- "rmcp",
- "schemars 1.2.1",
- "serde",
- "serde-error",
- "serde_json",
- "strum 0.27.2",
- "tempfile",
- "tracing",
- "uuid",
-]
-
-[[package]]
 name = "but-agentlog"
 version = "0.0.0"
 dependencies = [
@@ -1299,7 +1265,6 @@ dependencies = [
  "anyhow",
  "boolean-enums",
  "bstr",
- "but-action",
  "but-api",
  "but-api-macros",
  "but-askpass",
@@ -1716,7 +1681,6 @@ dependencies = [
  "backtrace",
  "block2 0.6.2",
  "bstr",
- "but-action",
  "but-api",
  "but-askpass",
  "but-bitbucket",
@@ -5002,7 +4966,6 @@ dependencies = [
  "anyhow",
  "backtrace",
  "but",
- "but-action",
  "but-api",
  "but-askpass",
  "but-core",

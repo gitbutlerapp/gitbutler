@@ -70,7 +70,6 @@ pub mod worktrees;
 pub use table::{
     hunk_assignments::{HunkAssignmentsHandleMut, HunkAssignmentsHandle, HunkAssignment},
     branch_order::{BranchOrderEntry, BranchOrderHandle, BranchOrderHandleMut, BranchOrderSnapshot},
-    butler_actions::ButlerAction,
     fetch_status::FetchStatus,
     gerrit_metadata::{GerritMeta, GerritMetadataHandle},
     obs_markers::{ObsMarker, ObsMarkersHandle, ObsMarkersHandleMut},
@@ -127,7 +126,6 @@ pub const MIGRATIONS: &[&[M<'static>]] = &[
     table::M_FULLY_REMOVED,
     table::hunk_assignments::M,
     table::branch_order::M,
-    table::butler_actions::M,
     table::fetch_status::M,
     table::gerrit_metadata::M,
     table::forge_reviews::M,

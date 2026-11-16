@@ -2244,22 +2244,6 @@ impl AppView {
         }
     }
 
-    fn in_composer(
-        &self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-        act: impl FnOnce(&mut crate::detail::Detail, &mut Window, &mut Context<crate::detail::Detail>),
-    ) {
-        if self.covered() {
-            return;
-        }
-        self.detail.update(cx, |detail, cx| {
-            if detail.composing() {
-                act(detail, window, cx)
-            }
-        });
-    }
-
     /// Whether a menu, prompt, picker or modal is open over the window.
     fn covered(&self) -> bool {
         self.menu.is_some()
@@ -5756,12 +5740,6 @@ impl Render for AppView {
             .on_action(cx.listener(Self::toggle_detail))
             .on_action(cx.listener(Self::command_palette))
             .on_action(cx.listener(Self::change_theme))
-            // The composer's keys, pressed with the focus elsewhere, like the navigator.
-            .on_action(
-                cx.listener(|this, _: &crate::detail::PickCommitTarget, window, cx| {
-                    this.in_composer(window, cx, Detail::pick_commit_target)
-                }),
-            )
             // The diff's own keys, pressed with the focus elsewhere, like the navigator: Space
             // there reads the diff beside it.
             .on_action(

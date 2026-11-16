@@ -71,7 +71,6 @@ impl Subcommands {
             Subcommands::Setup { .. } => Setup,
             Subcommands::Init(_) => Init,
             Subcommands::AgentLog { .. } => AgentLog,
-            Subcommands::Actions(_) => Actions,
             Subcommands::Status { .. } => Status,
             Subcommands::Tui { .. } => Tui,
             Subcommands::Diff(..) => Diff,

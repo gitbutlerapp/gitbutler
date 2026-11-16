@@ -87,7 +87,6 @@ indexmap = { workspace = true, features = ["serde"] }
 strum = { version = "0.27", features = ["derive"] }
 
 # GitButler, consumed only from `src/backend`.
-but-action.workspace = true
 but-api = { workspace = true, features = ["legacy"] }
 but-branches.workspace = true
 but-askpass.workspace = true

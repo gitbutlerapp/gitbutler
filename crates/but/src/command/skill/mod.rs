@@ -176,7 +176,7 @@ fn skill_format_for_name(name: &str, global: bool) -> Option<&'static SkillForma
 }
 
 /// Join a relative path from components using platform-native separators.
-fn join_relative_path(base_dir: &std::path::Path, components: &[&str]) -> PathBuf {
+pub(crate) fn join_relative_path(base_dir: &std::path::Path, components: &[&str]) -> PathBuf {
     components
         .iter()
         .fold(base_dir.to_path_buf(), |path, component| {

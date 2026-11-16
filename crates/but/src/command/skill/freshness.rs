@@ -31,15 +31,6 @@ impl AgentSkillNotice {
         }
     }
 
-    fn into_text(self) -> String {
-        match self {
-            Self::NotInstalled(text)
-            | Self::Hint(text)
-            | Self::Updated(text)
-            | Self::UpdateFailed(text) => text,
-        }
-    }
-
     pub(crate) fn is_hint(&self) -> bool {
         matches!(self, Self::NotInstalled(_) | Self::Hint(_))
     }
@@ -56,7 +47,7 @@ pub(crate) fn agent_skill_notice(current_dir: &std::path::Path) -> Option<AgentS
 }
 
 pub(crate) fn agent_skill_update_notice() -> Option<String> {
-    agent_skill_freshness_check().map(AgentSkillNotice::into_text)
+    agent_skill_freshness_check().map(|notice| notice.text().to_owned())
 }
 
 /// Skill upkeep for agent commands. Returns `None` when no agent is detected.

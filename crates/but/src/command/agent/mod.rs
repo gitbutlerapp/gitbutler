@@ -16,15 +16,12 @@ use crate::{
     utils::{InputOutputChannel, OutputChannel, PromptLine, detect_agent},
 };
 
-mod cleanup;
 mod files;
 mod plan;
 mod policy;
 #[cfg(test)]
 mod tests;
 mod uninstall;
-
-pub(crate) use cleanup::retired_policy_syntax_notice;
 
 use files::upsert_managed_block_file;
 use plan::{AgentTarget, Plan};

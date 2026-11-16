@@ -635,7 +635,7 @@ fn refs_fingerprint(repo: &gix::Repository) -> Result<u64> {
 
 /// `message` with its body wrapped as `git log` and `but reword` expect.
 pub fn wrapped_message(message: &str) -> String {
-    but_action::commit_format::format_commit_message(message)
+    but_core::commit::format_commit_message(message)
 }
 
 /// The branch of `segment`, with its pull request as the forge cache, `cached`, has it.

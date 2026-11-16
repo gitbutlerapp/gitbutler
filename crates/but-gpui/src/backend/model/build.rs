@@ -1,6 +1,10 @@
 use bstr::ByteSlice as _;
 
-use super::{Branch, Checkout, Commit, CommitId, FullName, Lane, PushState, Workspace, Worktree};
+use super::{
+    Branch, Checkout, Commit, CommitId, DiffBody, DiffLine, FileDiff, FullName, Hunk, HunkKey,
+    Lane, LineKind, PushState, Workspace, Worktree,
+};
+use crate::backend::FileChange;
 
 pub(crate) fn full(name: &str) -> FullName {
     name.try_into().expect("fixtures name valid refs")
@@ -123,4 +127,39 @@ pub(crate) fn describe_chain(workspace: &Workspace, ref_name: &FullName) -> Stri
         .collect::<Vec<_>>()
         .join(", ");
     links.chain([format!("history: [{history}]\n")]).collect()
+}
+
+/// A file with one hunk of `lines`, each a kind of line and its text.
+pub(crate) fn file_of(path: &str, lines: &[(LineKind, &str)]) -> FileDiff {
+    let hunk = Hunk {
+        key: HunkKey(but_core::HunkHeader {
+            old_start: 1,
+            old_lines: 1,
+            new_start: 1,
+            new_lines: 1,
+        }),
+        header: String::new(),
+        patch: "".into(),
+        lines: (lines.iter())
+            .map(|(kind, text)| DiffLine::new(*kind, Some(1), Some(1), text))
+            .collect(),
+        scope: Vec::new(),
+        lead: Vec::new(),
+        tail: Vec::new(),
+    };
+    FileDiff {
+        file: FileChange::bare(path),
+        body: DiffBody::Hunks {
+            hunks: vec![hunk],
+            added: 0,
+            removed: 0,
+            widest: [1, 1],
+            conflicts: Vec::new(),
+        },
+        fingerprint: 0,
+        annotated: true,
+        scope_lines: None,
+        drawing: None,
+        made_by: Vec::new(),
+    }
 }

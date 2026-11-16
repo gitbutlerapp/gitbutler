@@ -428,7 +428,7 @@ pub struct Store {
     pub left_on: HashMap<ProjectId, Selection>,
     /// The row selected last in each checkout the selection has left, likewise.
     pub left_in: HashMap<(ProjectId, Checkout), Selection>,
-    /// Commits picked along with the selected one (⌘- or ⇧-click, ⇧-arrows) to squash or
+    /// Commits picked along with the selected one (⌘- or ⇧-click) to squash or
     /// uncommit together: two or more, or none, all in the selected commit's project.
     pub picked: Picks<CommitId>,
     /// The commit the selection was on and the one it moved to, when it last moved because
@@ -1281,7 +1281,7 @@ impl Store {
     }
 
     /// ⌘-click picks `id` along with the selected commit, or drops it from the picks;
-    /// ⇧-click and ⇧-arrows pick the run of commits to `id` in `range`, the commits as
+    /// ⇧-click picks the run of commits to `id` in `range`, the commits as
     /// they're shown, from where the last other click left off. The clicked commit becomes
     /// the selection while it's picked. Picks stay in one stack, or linked worktree's lane, so
     /// their changes show as one diff: a commit in another is selected alone.

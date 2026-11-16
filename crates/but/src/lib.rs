@@ -21,7 +21,7 @@ use clap::{CommandFactory, FromArgMatches as _, Parser as _};
 
 pub mod args;
 use args::{
-    Args, OutputFormat, Subcommands, actions, agent, alias as alias_args, branch, forge,
+    Args, OutputFormat, Subcommands, agent, alias as alias_args, branch, forge,
     update as update_args, worktree,
 };
 use but_settings::AppSettings;
@@ -588,30 +588,11 @@ async fn match_subcommand(
         writeln!(human, "{}", notice.text()).ok();
         writeln!(human).ok();
     }
-    // Unlike the skill notice, the policy cleanup also runs for JSON-driven
-    // agents; its notice goes to stderr there so the JSON contract on stdout
-    // stays intact.
-    let retired_policy_notice = notice_worthy_command
-        .then(command::agent::retired_policy_syntax_notice)
-        .flatten();
-    if let Some(notice) = retired_policy_notice.as_ref() {
-        if let Some(human) = out.for_human() {
-            writeln!(human, "{notice}").ok();
-            writeln!(human).ok();
-        } else if out.is_json() {
-            print_err_infallible(format!("{notice}\n"));
-        }
-    }
     let mut metrics_ctx = cmd.to_metrics_context(&app_settings, &args.current_dir);
     if agent_skill_notice.is_some_and(|notice| notice.is_hint())
         && let Some(metrics_ctx) = metrics_ctx.as_mut()
     {
         metrics_ctx.push_extra_prop("agentSkillHintShown", true);
-    }
-    if retired_policy_notice.is_some()
-        && let Some(metrics_ctx) = metrics_ctx.as_mut()
-    {
-        metrics_ctx.push_extra_prop("retiredPolicySyntaxCleaned", true);
     }
     if retired_syntax::was_used()
         && let Some(metrics_ctx) = metrics_ctx.as_mut()
@@ -868,8 +849,7 @@ async fn dispatch_subcommand(
                 out,
             )
         }
-        Subcommands::Actions { .. }
-        | Subcommands::Pull { .. }
+        Subcommands::Pull { .. }
         | Subcommands::Fetch
         | Subcommands::Push(..)
         | Subcommands::Oplog(..)
@@ -1142,20 +1122,6 @@ async fn dispatch_subcommand(
                 &InvokedFrom::discover(&args.current_dir)?,
             )?;
             out.print_cli_output(outcome)?;
-            None
-        }
-        Subcommands::Actions(actions::Platform { cmd }) => {
-            match cmd {
-                Some(actions::Subcommands::HandleChanges {
-                    description,
-                    handler,
-                }) => {
-                    command::legacy::actions::handle_changes(&mut ctx, out, handler, &description)?;
-                }
-                None => {
-                    command::legacy::actions::list_actions(&ctx, out, 0, 10)?;
-                }
-            }
             None
         }
         Subcommands::Pull { check, update } => {

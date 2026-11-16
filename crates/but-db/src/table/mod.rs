@@ -1,7 +1,6 @@
 use crate::{M, SchemaVersion};
 
 pub(crate) mod branch_order;
-pub(crate) mod butler_actions;
 pub(crate) mod ci_checks;
 pub(crate) mod fetch_status;
 pub(crate) mod forge_reviews;
@@ -201,5 +200,41 @@ ALTER TABLE `claude_permission_requests` ADD COLUMN `use_wildcard` BOOLEAN NOT N
 	`created_at` TIMESTAMP NOT NULL,
 	`owner` TEXT NOT NULL
 );",
+    ),
+    M::up(
+        20250529110746,
+        SchemaVersion::Zero,
+        "CREATE TABLE `butler_actions`(
+	`id` TEXT NOT NULL PRIMARY KEY,
+	`created_at` TIMESTAMP NOT NULL,
+	`external_prompt` TEXT NOT NULL,
+	`handler` TEXT NOT NULL,
+	`handler_prompt` TEXT,
+	`snapshot_before` TEXT NOT NULL,
+	`snapshot_after` TEXT NOT NULL,
+	`response` TEXT,
+	`error` TEXT
+);
+
+CREATE INDEX `idx_butler_actions_created_at` ON `butler_actions`(`created_at`);
+",
+    ),
+    M::up(
+        20250530112246,
+        SchemaVersion::Zero,
+        "ALTER TABLE `butler_actions` DROP COLUMN `external_prompt`;
+ALTER TABLE `butler_actions` ADD COLUMN `external_summary` TEXT NOT NULL;
+ALTER TABLE `butler_actions` ADD COLUMN `external_prompt` TEXT;
+",
+    ),
+    M::up(
+        20250616090656,
+        SchemaVersion::Zero,
+        "ALTER TABLE `butler_actions` ADD COLUMN `source` TEXT;",
+    ),
+    M::up(
+        20250619181700,
+        SchemaVersion::Zero,
+        "ALTER TABLE `butler_actions` DROP COLUMN `handler_prompt`;",
     ),
 ];

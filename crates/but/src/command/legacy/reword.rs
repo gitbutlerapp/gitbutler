@@ -268,9 +268,7 @@ fn edit_commit_message_by_id_and_reword_commit(
         if message.is_some() {
             bail!("Cannot use both --fix-formatting and --message flags together");
         }
-        Some(but_action::commit_format::format_commit_message(
-            &current_message,
-        ))
+        Some(but_core::commit::format_commit_message(&current_message))
     } else if let Some(message) = message {
         Some(normalize_commit_message(message).to_owned())
     } else {
