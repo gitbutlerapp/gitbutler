@@ -1,6 +1,13 @@
 #![cfg(unix)]
 
-use std::{path::Path, time::Duration};
+use std::{
+    path::Path,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::Duration,
+};
 
 use anyhow::{Context as _, Result};
 use but_filemonitor::FileMonitor;
@@ -83,7 +90,7 @@ fn start(
     mpsc::UnboundedReceiver<Outcome>,
     tokio::task::JoinHandle<Result<()>>,
 )> {
-    let monitor = FileMonitor::new(repo)?;
+    let monitor = FileMonitor::new(repo, |_| Ok(None))?;
     let (stop, stopped) = mpsc::unbounded_channel();
     let (events, received) = mpsc::unbounded_channel();
     let task = tokio::spawn(monitor.run(stopped, move |outcome| {
@@ -159,6 +166,74 @@ async fn files_refresh_sentinel_and_idle_shutdown() -> Result<()> {
             "idle shutdown releases the event sender"
         );
     }
+    Ok(())
+}
+
+#[tokio::test]
+async fn refresh_sentinel_follows_live_storage_configuration() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let repo = repository(tmp.path())?;
+    let default_storage = but_project_handle::gitbutler_storage_path(&repo)?;
+    assert!(
+        !default_storage.exists(),
+        "monitoring begins before the default storage directory exists"
+    );
+    let external = tempfile::tempdir()?;
+    let (control, mut events, task) = start(&repo)?;
+    expect_outcome(&mut events, |outcome| {
+        matches!(outcome.changes.worktree, Some(Scope::All))
+    })
+    .await
+    .context("initial coverage before changing storage")?;
+    settle(&mut events).await;
+
+    git(
+        tmp.path(),
+        &[
+            "config",
+            but_project_handle::storage_path_config_key(),
+            external.path().to_str().expect("temporary path is UTF-8"),
+        ],
+    );
+    expect_outcome(&mut events, |outcome| outcome.changes.configuration)
+        .await
+        .context("configuration change retargets storage")?;
+    // A queued configuration invalidation must not satisfy the new sentinel assertion.
+    settle(&mut events).await;
+    let fresh = gix::open_opts(repo.git_dir(), gix::open::Options::isolated())?;
+    let storage = but_project_handle::gitbutler_storage_path(&fresh)?;
+    assert!(
+        storage.starts_with(external.path()) && !storage.exists(),
+        "the reconfigured storage directory is external and initially missing"
+    );
+    std::fs::create_dir_all(&storage)?;
+    settle(&mut events).await;
+    let sentinel = storage.join("REFRESH");
+    std::fs::write(&sentinel, "after changing storage")?;
+    expect_outcome(&mut events, |outcome| {
+        outcome.changes.references && outcome.changes.layout
+    })
+    .await
+    .context("REFRESH at the new external storage path")?;
+
+    // An external sentinel can also be published by replacing the file atomically.
+    settle(&mut events).await;
+    let replacement = storage.join("REFRESH.next");
+    std::fs::write(&replacement, "atomic refresh")?;
+    settle(&mut events).await;
+    std::fs::rename(&replacement, &sentinel)?;
+    expect_outcome(&mut events, |outcome| {
+        outcome.changes.references && outcome.changes.layout
+    })
+    .await
+    .context("atomic replacement of the external REFRESH sentinel")?;
+
+    drop(control);
+    tokio::time::timeout(Duration::from_secs(10), task).await???;
+    assert!(
+        events.is_closed(),
+        "live retargeting keeps orderly shutdown"
+    );
     Ok(())
 }
 
@@ -324,6 +399,55 @@ async fn manual_rescan_refreshes_every_checkout_without_writes() -> Result<()> {
         events.is_closed(),
         "dropping the control sender shuts down the monitor"
     );
+    Ok(())
+}
+
+#[tokio::test]
+async fn manual_rescan_survives_a_selector_retry_without_option_changes() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let repo = repository(tmp.path())?;
+    let fail_next = Arc::new(AtomicBool::new(false));
+    let selector_failure = fail_next.clone();
+    let monitor = FileMonitor::new(&repo, move |_| {
+        if selector_failure.swap(false, Ordering::SeqCst) {
+            anyhow::bail!("fixture selector fails once");
+        }
+        Ok(None)
+    })?;
+    let (control, requested) = mpsc::unbounded_channel();
+    let (events, mut received) = mpsc::unbounded_channel();
+    let task = tokio::spawn(monitor.run(requested, move |outcome| {
+        events.send(outcome).ok();
+    }));
+    expect_outcome(&mut received, |outcome| {
+        matches!(outcome.changes.worktree, Some(Scope::All))
+    })
+    .await?;
+    settle(&mut received).await;
+
+    fail_next.store(true, Ordering::SeqCst);
+    control.send(())?;
+    let failed = tokio::time::timeout(Duration::from_secs(10), received.recv())
+        .await
+        .context("manual rescan reports the selector failure")?
+        .context("selector failure keeps the outcome stream open")?;
+    assert!(
+        !failed.errors.is_empty() && !fail_next.load(Ordering::SeqCst),
+        "the armed selector failure reaches the consumer"
+    );
+    assert!(
+        !task.is_finished(),
+        "a selector error retains the main monitor for recovery"
+    );
+    expect_outcome(&mut received, |outcome| {
+        outcome.changes.references && matches!(outcome.changes.worktree, Some(Scope::All))
+    })
+    .await
+    .context("retry completes the pending rescan with unchanged options and no writes")?;
+
+    drop(control);
+    tokio::time::timeout(Duration::from_secs(10), task).await???;
+    assert!(received.is_closed(), "recovery preserves orderly shutdown");
     Ok(())
 }
 

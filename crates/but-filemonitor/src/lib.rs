@@ -9,31 +9,33 @@ use std::{
 use anyhow::{Context as _, Result};
 use gix::{
     bstr::ByteSlice as _,
-    notify::{Changes, Outcome, RepositoryMonitor, Scope, WorktreeChange, plumbing},
+    notify::{
+        Changes, InvalidationPath, Outcome, RepositoryMonitor, Scope, WorktreeChange, plumbing,
+    },
 };
 use tokio::sync::mpsc;
 
 /// A repository monitor plus GitButler's refresh and compatibility signals.
 ///
 /// Construct this off the UI thread, then run it on a Tokio runtime. Gix owns repository
-/// coverage and recovery; the extra shallow watches only cover signals Gix does not classify.
-pub struct FileMonitor {
+/// coverage, application dependencies and recovery.
+pub struct FileMonitor<F> {
     repository: RepositoryMonitor,
-    signals: plumbing::asynchronous::Watcher,
-    paths: Vec<PathBuf>,
+    selector: F,
     open_options: gix::open::Options,
 }
 
-impl FileMonitor {
-    /// Resolve repository coverage and GitButler's signal paths, performing filesystem work.
-    pub fn new(repo: &gix::Repository) -> Result<Self> {
+impl<F> FileMonitor<F>
+where
+    F: FnMut(&gix::Repository) -> Result<Option<Vec<PathBuf>>> + Send + 'static,
+{
+    /// Resolve coverage and GitButler's signal paths, performing filesystem work.
+    /// The selector returns private Git directories to monitor, or `None` for all checkouts.
+    /// It runs again off the executor after configuration/layout changes and explicit rescans.
+    pub fn new(repo: &gix::Repository, mut selector: F) -> Result<Self> {
         Ok(Self {
-            repository: repo.monitor(gix::notify::Options {
-                all_worktrees: true,
-                ..Default::default()
-            })?,
-            signals: plumbing::asynchronous::Watcher::new(Default::default())?,
-            paths: signal_paths(repo)?,
+            repository: repository_monitor(repo, selector(repo)?)?,
+            selector,
             open_options: repo.open_options().clone_without_trust(),
         })
     }
@@ -51,76 +53,69 @@ impl FileMonitor {
     ) -> Result<()> {
         let Self {
             repository: mut monitor,
-            mut signals,
-            mut paths,
+            mut selector,
             open_options,
         } = self;
         let git_dir = monitor.layout().git_dir.clone();
         let retry_interval = monitor.options().retry_interval;
-        let mut refresh_signals = true;
-        let mut reset_signals = false;
+        let mut refresh_options = false;
+        let mut rescan_requested = false;
+        let mut rescan_after_refresh = false;
         let mut retry = None;
 
         let (result, monitor) = loop {
-            let open_at = git_dir.clone();
-            let options = open_options.clone_without_trust();
-            let (next, mut outcome) = match monitor
-                .service_async(Instant::now(), move || {
-                    gix::open_opts(&open_at, options.clone_without_trust())
-                })
-                .await
-            {
-                Ok(result) => result,
-                Err(err) => break (Err(anyhow::Error::from(err)), None),
-            };
-            monitor = next;
-
-            let batch = signals.drain(plumbing::Budget::default());
-            let mut signal_changed = batch.loss.is_some();
-            let mut layout_changed = signal_changed;
-            for changed in batch.events.iter().flat_map(|event| &event.paths) {
-                if paths
-                    .iter()
-                    .any(|signal| changed == signal || signal.starts_with(changed))
-                {
-                    signal_changed = true;
-                    layout_changed |= paths.last() != Some(changed);
-                }
-            }
-            refresh_signals |=
-                layout_changed || outcome.changes.configuration || outcome.changes.layout;
-            if signal_changed {
-                outcome.changes.references = true;
-                outcome.changes.layout |= layout_changed;
-            }
-            if let Some(error) = batch.error {
-                outcome.errors.push(error);
-                refresh_signals = true;
-            }
-
-            let open_at = git_dir.clone();
-            let options = open_options.clone_without_trust();
-            let prepare_signals =
-                refresh_signals && retry.is_none_or(|deadline| deadline <= Instant::now());
-            let has_paths = |changes: &Changes| matches!(&changes.worktree, Some(Scope::Paths(_)));
-            let filter_needed = has_paths(&outcome.changes)
-                || outcome.other_worktrees.iter().any(|worktree| {
-                    matches!(&worktree.kind, WorktreeChange::Changed(changes) if has_paths(changes))
-                });
-            let (mut outcome, prepared) = if prepare_signals || filter_needed {
-                match tokio::task::spawn_blocking(move || {
-                    filter_outcome(&open_at, &options, &mut outcome);
-                    let prepared = prepare_signals.then(|| {
-                        let repo = gix::open_opts(&open_at, options)?;
-                        let paths = signal_paths(&repo)?;
-                        let watches = signal_watches(&paths)?;
-                        Ok::<_, anyhow::Error>((paths, watches))
-                    });
-                    (outcome, prepared)
-                })
-                .await
+            let requested = std::mem::take(&mut rescan_requested);
+            rescan_after_refresh |= requested;
+            let mut outcome = if requested {
+                // Resolve the selection before a rescan can read now-excluded indexes.
+                Outcome::default()
+            } else {
+                let open_at = git_dir.clone();
+                let options = open_options.clone_without_trust();
+                let (next, outcome) = match monitor
+                    .service_async(Instant::now(), move || {
+                        gix::open_opts(&open_at, options.clone_without_trust())
+                    })
+                    .await
                 {
                     Ok(result) => result,
+                    Err(err) => break (Err(anyhow::Error::from(err)), None),
+                };
+                monitor = next;
+                outcome
+            };
+
+            refresh_options |= requested || outcome.changes.configuration || outcome.changes.layout;
+            let open_at = git_dir.clone();
+            let options = open_options.clone_without_trust();
+            let current_options = monitor.options().clone();
+            let prepare_options =
+                refresh_options && retry.is_none_or(|deadline| deadline <= Instant::now());
+            let has_files = |changes: &Changes| matches!(&changes.worktree, Some(Scope::Paths(paths)) if paths.iter().any(|path| path.path_kind == plumbing::PathKind::File));
+            let filter_needed = has_files(&outcome.changes)
+                || outcome.other_worktrees.iter().any(|worktree| {
+                    matches!(&worktree.kind, WorktreeChange::Changed(changes) if has_files(changes))
+                });
+            let (mut outcome, prepared) = if prepare_options || filter_needed {
+                match tokio::task::spawn_blocking(move || {
+                    filter_outcome(&open_at, &options, &mut outcome);
+                    let prepared = prepare_options.then(|| {
+                        let repo = gix::open_opts(&open_at, options)?;
+                        let candidate = repository_monitor(&repo, selector(&repo)?)?;
+                        let next_options = candidate.options();
+                        let changed = current_options.additional_paths
+                            != next_options.additional_paths
+                            || current_options.worktree_filter != next_options.worktree_filter;
+                        Ok::<_, anyhow::Error>(changed.then_some(candidate))
+                    });
+                    (selector, outcome, prepared)
+                })
+                .await
+                {
+                    Ok((next_selector, outcome, prepared)) => {
+                        selector = next_selector;
+                        (outcome, prepared)
+                    }
                     Err(err) => {
                         break (
                             Err(err).context("Preparing repository invalidations"),
@@ -131,28 +126,13 @@ impl FileMonitor {
             } else {
                 (outcome, None)
             };
+            let mut replacement = None;
             if let Some(prepared) = prepared {
                 match prepared {
-                    Ok((next_paths, next_watches)) => {
-                        paths = next_paths;
-                        match async {
-                            if reset_signals {
-                                signals.replace([])?.await?;
-                            }
-                            signals.replace(next_watches)?.await
-                        }
-                        .await
-                        {
-                            Ok(()) => {
-                                refresh_signals = false;
-                                reset_signals = false;
-                                retry = None;
-                            }
-                            Err(error) => {
-                                outcome.errors.push(error);
-                                retry = Some(Instant::now() + retry_interval);
-                            }
-                        }
+                    Ok(candidate) => {
+                        refresh_options = false;
+                        retry = None;
+                        replacement = candidate;
                     }
                     Err(error) => {
                         outcome
@@ -168,79 +148,87 @@ impl FileMonitor {
             {
                 on_change(outcome);
             }
+            if let Some(next) = replacement {
+                rescan_after_refresh = false;
+                // Candidates have no native coverage until serviced; finish old coverage first.
+                let shutdown = monitor.shutdown_async().await;
+                monitor = next;
+                if let Err(error) = shutdown {
+                    break (Err(anyhow::Error::from(error)), Some(monitor));
+                }
+                continue;
+            }
+            if rescan_after_refresh && !refresh_options {
+                rescan_after_refresh = false;
+                monitor.rescan();
+                continue;
+            }
 
             tokio::select! {
                 biased;
                 rescan = rescans.recv() => match rescan {
                     Some(()) => {
                         while rescans.try_recv().is_ok() {}
-                        monitor.rescan();
-                        refresh_signals = true;
-                        reset_signals = true;
+                        rescan_requested = true;
                         retry = None;
                     }
                     None => break (Ok(()), Some(monitor)),
                 },
                 _ = monitor.ready_async() => {},
-                _ = signals.ready() => {},
                 _ = async {
                     match retry {
                         Some(deadline) => tokio::time::sleep_until(deadline.into()).await,
                         None => std::future::pending::<()>().await,
                     }
-                } => refresh_signals = true,
+                } => refresh_options = true,
             }
         };
         let repository_shutdown = match monitor {
             Some(monitor) => monitor.shutdown_async().await.map_err(anyhow::Error::from),
             None => Ok(()),
         };
-        let signals_shutdown = signals.shutdown().await.map_err(anyhow::Error::from);
-        result.and(repository_shutdown).and(signals_shutdown)
+        result.and(repository_shutdown)
     }
 }
 
-fn signal_paths(repo: &gix::Repository) -> Result<Vec<PathBuf>> {
+fn repository_monitor(
+    repo: &gix::Repository,
+    mut worktree_filter: Option<Vec<PathBuf>>,
+) -> Result<RepositoryMonitor> {
     let sentinel = Path::new(but_project_handle::REFRESH_SENTINEL_PATH)
         .file_name()
         .context("Refresh sentinel has a filename")?;
-    // Only an exact change to the last signal, the reflog, can avoid a layout reload.
-    [
-        but_project_handle::gitbutler_storage_path(repo)?.join(sentinel),
-        repo.git_dir().join("GB_FLUSH"),
-        repo.git_dir().join("logs/HEAD"),
-    ]
-    .into_iter()
-    .map(|path| gix::path::realpath(path).map_err(anyhow::Error::from))
-    .collect()
-}
-
-fn signal_watches(paths: &[PathBuf]) -> Result<Vec<plumbing::Watch>> {
-    let mut watches = Vec::new();
-    for signal in paths {
-        let mut parent = signal.parent().context("Signal has a parent directory")?;
-        loop {
-            match std::fs::metadata(parent) {
-                Ok(metadata) if metadata.is_dir() => break,
-                Ok(_) => anyhow::bail!("Signal parent is not a directory: {}", parent.display()),
-                Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-                    parent = parent
-                        .parent()
-                        .context("Signal has an existing ancestor directory")?;
-                }
-                Err(err) => {
-                    return Err(err).with_context(|| format!("Inspecting {}", parent.display()));
-                }
-            }
-        }
-        watches.push(plumbing::Watch {
-            path: parent.to_owned(),
-            recursive: false,
-        });
+    if let Some(paths) = &mut worktree_filter {
+        paths.sort();
+        paths.dedup();
     }
-    watches.sort();
-    watches.dedup();
-    Ok(watches)
+    let full = Changes {
+        references: true,
+        layout: true,
+        ..Changes::default()
+    };
+    Ok(repo.monitor(gix::notify::Options {
+        all_worktrees: true,
+        worktree_filter,
+        additional_paths: vec![
+            InvalidationPath {
+                path: but_project_handle::gitbutler_storage_path(repo)?.join(sentinel),
+                changes: full.clone(),
+            },
+            InvalidationPath {
+                path: repo.git_dir().join("GB_FLUSH"),
+                changes: full,
+            },
+            InvalidationPath {
+                path: repo.git_dir().join("logs/HEAD"),
+                changes: Changes {
+                    references: true,
+                    ..Changes::default()
+                },
+            },
+        ],
+        ..gix::notify::Options::default()
+    })?)
 }
 
 fn filter_outcome(git_dir: &Path, options: &gix::open::Options, outcome: &mut Outcome) {
