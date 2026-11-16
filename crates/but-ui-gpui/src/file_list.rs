@@ -110,7 +110,7 @@ pub fn tree_guides(depths: &[usize]) -> Vec<Vec<Guide>> {
 pub fn file_list(
     title: impl Into<SharedString>,
     count: usize,
-    (added, removed): (usize, usize),
+    (added, removed): (u32, u32),
     actions: Option<AnyElement>,
     rows: impl IntoIterator<Item = AnyElement>,
     theme: &Theme,
@@ -147,7 +147,9 @@ pub fn file_list(
                                 .flex_none()
                                 .gap(dp(6.))
                                 .child(count_badge(count, theme))
-                                .children(line_counts(added, removed, theme)),
+                                .when(added + removed > 0, |el| {
+                                    el.child(diff_stats(added, removed, false, theme))
+                                }),
                         ),
                 )
                 .children(actions.map(|actions| h_flex().flex_none().ml_auto().child(actions))),
@@ -159,23 +161,6 @@ pub fn file_list(
                 .pb(dp(tokens::PADDING_PANEL))
                 .children(rows),
         )
-}
-
-/// The lines a file or a list adds and removes, each side only when it isn't zero, as
-/// but-ui-react's `DiffStats`.
-pub fn line_counts(added: usize, removed: usize, theme: &Theme) -> Option<Div> {
-    (added + removed > 0).then(|| {
-        h_flex()
-            .flex_none()
-            .gap(dp(4.))
-            .text_12()
-            .when(added > 0, |el| {
-                el.child(div().text_color(theme.safe).child(format!("+{added}")))
-            })
-            .when(removed > 0, |el| {
-                el.child(div().text_color(theme.danger).child(format!("-{removed}")))
-            })
-    })
 }
 
 /// One changed file, or a directory of them, in a [`file_list`]. Start from `name` and add what
@@ -223,8 +208,8 @@ pub struct FileListItem {
     focused: bool,
     inert: bool,
     marks: Option<AnyElement>,
-    added: usize,
-    removed: usize,
+    added: u32,
+    removed: u32,
     on_click: Option<OnClick>,
 }
 
@@ -362,7 +347,7 @@ impl FileListItem {
         self
     }
 
-    pub fn line_counts(mut self, added: usize, removed: usize) -> Self {
+    pub fn line_counts(mut self, added: u32, removed: u32) -> Self {
         (self.added, self.removed) = (added, removed);
         self
     }
@@ -605,7 +590,9 @@ impl RenderOnce for FileListItem {
                     .child(lead),
             )
             .child(label)
-            .children(line_counts(self.added, self.removed, &theme).map(faded))
+            .when(self.added + self.removed > 0, |el| {
+                el.child(faded(diff_stats(self.added, self.removed, solid, &theme)))
+            })
             .children(
                 self.marks
                     .map(|marks| h_flex().flex_none().text_color(muted).child(marks)),

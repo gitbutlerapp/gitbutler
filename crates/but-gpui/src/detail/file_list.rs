@@ -68,6 +68,7 @@ use crate::theme::Theme;
 use crate::transfer::{Changes, Chip, DragPreview, Dragged, Moving};
 use crate::ui::Text;
 use crate::ui::diff;
+use crate::ui::diff_stats;
 use crate::ui::file_icons::{file_icon, folder_icon};
 use crate::ui::fold;
 use crate::ui::illustration::Illustration;
@@ -228,7 +229,7 @@ fn files_heading(count: usize, (added, removed): (u32, u32), theme: &Theme) -> D
         .gap(dp(8.))
         .child(div().text_14().semibold().child("Files"))
         .child(count_badge(count, theme))
-        .child(diff::stats(added, removed, false, theme))
+        .child(diff_stats(added, removed, false, theme))
 }
 
 /// A file list's header row, as GitButler's other file lists lay it out.
@@ -1279,7 +1280,7 @@ impl Detail {
                     ),
             )
             .child(faint(plural(files.len(), "file"), theme).flex_none())
-            .child(diff::stats(added, removed, false, theme))
+            .child(diff_stats(added, removed, false, theme))
             .children(diff::change_scale(added, removed, theme));
         let height = files.len() as f32 * theme.sizes.control + 8.;
         let prefix = format!("{dir}/");
@@ -1326,7 +1327,7 @@ impl Detail {
                                 })
                                 .child(sub.to_owned()),
                             )
-                            .child(diff::stats(added, removed, solid, theme)),
+                            .child(diff_stats(added, removed, solid, theme)),
                     )
                     .child(
                         div()
@@ -1427,7 +1428,7 @@ impl Detail {
                 // the names.
                 .when(added + removed > 0, |el| {
                     el.child(
-                        diff::stats(added, removed, false, theme)
+                        diff_stats(added, removed, false, theme)
                             .ml_auto()
                             .when(!always_counts, |el| {
                                 el.opacity(0.).group_hover(ROW_GROUP, |s| s.opacity(1.))
@@ -1751,7 +1752,7 @@ impl Detail {
                         )
                     })
                     .when_some(stats, |el, (added, removed)| {
-                        el.child(diff::stats(added, removed, solid, theme))
+                        el.child(diff_stats(added, removed, solid, theme))
                     }),
             )
             .child(end)

@@ -17,6 +17,7 @@ mod badge;
 mod button;
 mod checkbox;
 mod counts;
+mod diff_stats;
 mod dropdown_button;
 mod empty_state;
 mod file_list;
@@ -127,6 +128,7 @@ struct Example {
 fn examples() -> impl Iterator<Item = Example> {
     (badge::EXAMPLES.into_iter())
         .chain(button::EXAMPLES)
+        .chain(diff_stats::EXAMPLES)
         .chain(file_list::EXAMPLES)
 }
 
@@ -183,6 +185,7 @@ impl Gallery {
             story("Button", button::ButtonStory, cx),
             story("Checkbox", checkbox::CheckboxStory::default(), cx),
             story("Counts and marks", counts::CountsStory, cx),
+            story("Diff stats", diff_stats::DiffStatsStory, cx),
             story("Dropdown button", dropdown_button::DropdownButtonStory, cx),
             story("Empty state", empty_state::EmptyStateStory, cx),
             story("File list", file_list::FileListStory::default(), cx),

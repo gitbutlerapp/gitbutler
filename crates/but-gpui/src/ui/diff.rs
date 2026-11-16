@@ -21,6 +21,7 @@ use crate::backend::{
 };
 use crate::theme::{Highlight, Theme};
 use crate::ui::Text;
+use crate::ui::diff_stats;
 
 /// How tall a file's header is: a bar, as a popup's search row is, inside its card's edge, which
 /// follows the density; or as tall as the file list's heading beside it where it titles the
@@ -363,58 +364,6 @@ pub fn total_stats<'a>(files: impl IntoIterator<Item = &'a FileDiff>) -> (u32, u
     (files.into_iter().map(FileDiff::stats)).fold((0, 0), |(a, r), (fa, fr)| (a + fa, r + fr))
 }
 
-/// The count [`stats`] writes in thousands from: six figures leave a file list's name no room.
-const THOUSANDS_FROM: u32 = 100_000;
-
-/// `count` lines with their `sign`, as [`stats`] writes them.
-fn count_text(sign: char, count: u32) -> String {
-    match count {
-        0 => String::new(),
-        1..THOUSANDS_FROM => format!("{sign}{count}"),
-        _ => format!("{sign}{}k", count / 1000),
-    }
-}
-
-/// A file's or a change's lines added and removed, `solid` when on a solid selection, as
-/// but-ui-react's `DiffStats`: in the UI font, each side only when it isn't zero.
-pub fn stats(added: u32, removed: u32, solid: bool, theme: &Theme) -> gpui::Div {
-    // One run of text, coloured in parts: a list draws this on every row.
-    let (text, [added, removed]) = stats_text(added, removed);
-    let [safe, danger] = match solid {
-        true => [theme.safe_on_solid, theme.danger_on_solid],
-        false => [theme.safe, theme.danger],
-    };
-    let colors = [(added, safe), (removed, danger)]
-        .into_iter()
-        .filter(|(range, _)| !range.is_empty())
-        .map(|(range, color)| (range, HighlightStyle::from(color)));
-    div()
-        .flex_none()
-        .text_12()
-        .child(StyledText::new(text).with_highlights(colors))
-}
-
-/// What [`stats`] writes, and where in it its added and removed counts are: empty ranges for
-/// counts of nothing.
-fn stats_text(added: u32, removed: u32) -> (String, [Range<usize>; 2]) {
-    let mut text = String::new();
-    let mut ranges = [0..0, 0..0];
-    let counts = [('+', added), ('-', removed)];
-    for ((sign, count), range) in counts.into_iter().zip(&mut ranges) {
-        let count = count_text(sign, count);
-        if count.is_empty() {
-            continue;
-        }
-        if !text.is_empty() {
-            text.push(' ');
-        }
-        let start = text.len();
-        text.push_str(&count);
-        *range = start..text.len();
-    }
-    (text, ranges)
-}
-
 /// What the diff's owner adds to a file or hunk header.
 #[derive(Default)]
 pub struct HeaderDecor {
@@ -660,7 +609,7 @@ pub fn file_header(
         )
         .when(file.file.conflicted, |el| el.child(conflicted_badge(theme)))
         .when(!decor.uncounted, |el| {
-            el.child(stats(added, removed, on, theme))
+            el.child(diff_stats(added, removed, on, theme))
                 .children(change_scale(added, removed, theme))
         })
         // Parts what the file changed from what can be done to it.
@@ -1515,27 +1464,8 @@ fn image_row(before: Option<Picture>, after: Option<Picture>, theme: &Theme) -> 
 #[cfg(test)]
 mod tests {
     use super::DiffRow::{Context, File, Gap, Line, Note, Pair};
-    use super::{MOVING_ROWS, moving_rows, pair_lines, stats_text};
+    use super::{MOVING_ROWS, moving_rows, pair_lines};
     use crate::backend::{DiffLine, LineKind};
-
-    #[test]
-    fn stats_write_each_side_only_when_it_changed() {
-        let texts: Vec<String> = [(676, 1140), (0, 72), (139, 0), (0, 0), (120_000, 2)]
-            .into_iter()
-            .map(|(added, removed)| stats_text(added, removed).0)
-            .collect();
-        assert_eq!(
-            texts,
-            ["+676 -1140", "-72", "+139", "", "+120k -2"],
-            "as React's DiffStats, a side of nothing takes no room"
-        );
-        let (text, ranges) = stats_text(0, 72);
-        assert_eq!(
-            (&text[ranges[1].clone()], ranges[0].is_empty()),
-            ("-72", true),
-            "only the counts there are get a colour",
-        );
-    }
 
     #[test]
     fn a_moving_file_keeps_the_rows_after_those_it_leaves_out() {

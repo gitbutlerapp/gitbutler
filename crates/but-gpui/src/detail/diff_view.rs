@@ -33,6 +33,7 @@ use crate::transfer::{Changes, Dragged};
 use crate::ui::Text;
 use crate::ui::change_marks::{RAIL, change_marks};
 use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
+use crate::ui::diff_stats;
 use crate::ui::fold::{MOVING_ROWS, clipped, curtain};
 use crate::ui::illustration::Illustration;
 use crate::ui::scrollbar::{Scroll, scrollbar, shown_scrollbar};
@@ -2304,7 +2305,7 @@ pub(super) fn files_toggle(
         .child(icon(glyph).text_color(theme.text_2))
         .when_some(counts, |el, (n, added, removed)| {
             el.child(count_badge(n, theme))
-                .child(diff::stats(added, removed, false, theme))
+                .child(diff_stats(added, removed, false, theme))
         })
 }
 

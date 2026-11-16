@@ -15,6 +15,7 @@ use crate::detail::page::PageTab;
 use crate::state::Selection;
 use crate::theme::{Hue, Theme};
 use crate::ui::Text;
+use crate::ui::diff_stats;
 use crate::ui::person::person_avatar;
 use crate::ui::{
     ButtonStyle, Icon, Tooltip, ago, button, diff, dp, h_flex, icon, icon_button, plural, v_flex,
@@ -301,7 +302,7 @@ impl Detail {
             h_flex()
                 .gap(dp(5.))
                 .child(plural(files, "file"))
-                .child(diff::stats(added, removed, false, theme))
+                .child(diff_stats(added, removed, false, theme))
         };
         let written = sized(changed.files as usize, changed.additions, changed.deletions);
         match self.brief_sizes_differ(page) {
@@ -377,7 +378,7 @@ impl Detail {
                 let row = h_flex()
                     .gap_x(dp(5.))
                     .child(plural(files, "file"))
-                    .child(diff::stats(tests.added, tests.removed, false, theme));
+                    .child(diff_stats(tests.added, tests.removed, false, theme));
                 Some(measure("Tests", row, theme))
             }
         }

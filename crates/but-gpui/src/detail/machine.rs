@@ -17,7 +17,7 @@ use crate::backend::{self, CommitId, DiffSource};
 use crate::state::{MeshBranch, MeshPick, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::Text;
-use crate::ui::diff;
+use crate::ui::diff_stats;
 use crate::ui::file_icons::file_icon;
 use crate::ui::{
     ButtonStyle, Icon, age_column, button, commit_title, dp, empty_state, faint, h_flex, just_now,
@@ -357,7 +357,7 @@ impl Detail {
                 .child(file_icon(&file.path, cx))
                 .child(div().flex_1().min_w_0().truncate().child(file.path.clone()))
                 .child(faint(c.label(), theme).min_w_0().truncate())
-                .child(diff::stats(
+                .child(diff_stats(
                     file.additions as u32,
                     file.deletions as u32,
                     false,
@@ -443,7 +443,7 @@ fn uncommitted_list(checkout: &Checkout, theme: &Theme, cx: &App) -> AnyElement 
             .gap(dp(8.))
             .child(file_icon(&file.path, cx))
             .child(div().flex_1().min_w_0().truncate().child(file.path.clone()))
-            .child(diff::stats(
+            .child(diff_stats(
                 file.additions as u32,
                 file.deletions as u32,
                 false,

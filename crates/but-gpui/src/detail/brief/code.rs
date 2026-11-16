@@ -13,6 +13,7 @@ use crate::state::{Axis, CodePlace, RowKey, Selection, StoreEvent, Tile};
 use crate::theme::Theme;
 use crate::ui::Text;
 use crate::ui::diff::split_path;
+use crate::ui::diff_stats;
 use crate::ui::file_icons::file_icon;
 use crate::ui::{Icon, diff, dp, h_flex, icon_at, v_flex};
 
@@ -254,9 +255,7 @@ impl Detail {
                     .text_color(theme.text_3)
                     .child(dir),
             )
-            .children(
-                stats.map(|stats| diff::stats(stats.additions, stats.deletions, false, theme)),
-            )
+            .children(stats.map(|stats| diff_stats(stats.additions, stats.deletions, false, theme)))
             .when(!goes, |el| {
                 el.child(
                     div()
