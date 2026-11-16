@@ -1,5 +1,6 @@
 import { stories } from "../stories/stories.ts";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { Toast } from "@base-ui/react";
 import { useRef, useState } from "react";
 import { Button } from "./Button.tsx";
 import { Checkbox } from "./Checkbox.tsx";
@@ -7,6 +8,7 @@ import { FileList, FileListItem } from "./FileList.tsx";
 import type { FileStatusType } from "./FileStatusBadge.tsx";
 import { Icon } from "./Icon.tsx";
 import { ContextMenu, MenuItem, MenuSection } from "./Menu.tsx";
+import { Snackbars, type SnackbarData } from "./Snackbars.tsx";
 import { treeGuides } from "./treeGuides.ts";
 
 const statuses: Array<FileStatusType> = ["Addition", "Deletion", "Modification", "Rename"];
@@ -63,8 +65,8 @@ const fileActions = (
 
 /**
  * Every state a row can be in. The list holds the selection focus, so the selected row is solid;
- * the second list has lost it. A row that can't be acted on right now is `inert`; one whose action
- * is running is `busy` too, with a spinner in its icon's place. A row's menu opens with a
+ * the second list has lost it. A row that can't be acted on right now, or whose action is running,
+ * is `inert`. A row's menu opens with a
  * right-click, as on the selected one: a file row has no ⋯, so its last cell always says what
  * happened.
  */
@@ -105,15 +107,6 @@ export const States = meta.story({
 					conflicted
 				/>
 				<FileListItem name="index.ts" directory="src" status="Deletion" inert />
-				<FileListItem
-					name="routes.ts"
-					directory="src"
-					status="Modification"
-					added={7}
-					removed={1}
-					busy
-					inert
-				/>
 			</FileList>
 			<FileList title="Changes" count={2} added={30}>
 				<FileListItem name="styles.css" directory="src/styles" status="Addition" />
@@ -121,6 +114,65 @@ export const States = meta.story({
 			</FileList>
 		</div>
 	),
+});
+
+const changes: Array<{ name: string; directory: string; status: FileStatusType }> = [
+	{ name: "useAuthHook.ts", directory: "src/hooks", status: "Addition" },
+	{ name: "Button.tsx", directory: "src/components", status: "Modification" },
+	{ name: "apiService.ts", directory: "src/services", status: "Modification" },
+	{ name: "routes.ts", directory: "src", status: "Modification" },
+	{ name: "theme.css", directory: "src/styles", status: "Modification" },
+];
+const discarding = new Set(["Button.tsx", "apiService.ts", "routes.ts"]);
+const discardManager = Toast.createToastManager<SnackbarData>();
+
+/**
+ * Files an action is working on: Discard on three picked files, which takes a moment to answer.
+ * The rows go `inert`, faded and out of reach, with no spinner of their own; one snackbar says
+ * "Discarding 3 files…" for all of them and turns into the result as the rows leave.
+ */
+export const Discarding = meta.story({
+	parameters: { layout: "fullscreen", height: 360 },
+	render: function Render() {
+		const [shown, setShown] = useState(changes);
+		const [working, setWorking] = useState(false);
+		const discard = () => {
+			setWorking(true);
+			const id = discardManager.add({ type: "loading", title: "Discarding 3 files…" });
+			setTimeout(() => {
+				setWorking(false);
+				setShown((files) => files.filter((file) => !discarding.has(file.name)));
+				discardManager.update(id, { type: "safe", title: "3 files discarded", data: {} });
+			}, 2500);
+		};
+		return (
+			<div style={{ display: "flex", flexDirection: "column", gap: 16, width: 340 }}>
+				<div style={{ display: "flex", gap: 8 }}>
+					<Button
+						variant="danger"
+						onClick={discard}
+						disabled={working || shown.length < changes.length}
+					>
+						Discard 3 files
+					</Button>
+					<Button variant="outline" onClick={() => setShown(changes)} disabled={working}>
+						Reset
+					</Button>
+				</div>
+				<FileList title="Changes" count={shown.length} focused>
+					{shown.map((file) => (
+						<FileListItem
+							key={file.name}
+							{...file}
+							selected={!working && discarding.has(file.name)}
+							inert={working && discarding.has(file.name)}
+						/>
+					))}
+				</FileList>
+				<Snackbars manager={discardManager} />
+			</div>
+		);
+	},
 });
 
 type TreeNode =

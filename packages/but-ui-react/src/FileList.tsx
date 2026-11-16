@@ -204,8 +204,9 @@ export const FileList: FC<
  * - `checkbox` shares the icon's cell and takes its place once the pointer is over it or it is
  *   checked, so a row stays quiet while browsing. A directory's stands for every file under it,
  *   `indeterminate` while only some are checked.
- * - `busy` while an action on the file runs: a spinner takes the icon's cell, checkbox and all,
- *   until it is done, as on a sidebar row. Make the row `inert` meanwhile.
+ * - `inert` while an action on the file runs, or while it can't be acted on: the row fades and
+ *   takes no clicks. It shows no spinner of its own: one snackbar says what's running, once for
+ *   all the files it touches (but-ui's Toasts and snackbars note).
  * - The last cell says what happened: the conflict mark if it is `conflicted`, else a tick if it
  *   is `reviewed`, which also fades the name (a reviewed file's news is that it is done with),
  *   else the letter for its `status`, else a folded directory's `count` of files.
@@ -228,7 +229,6 @@ export const FileListItem: FC<
 		directoryPosition?: "lead" | "trail";
 		icon?: ReactNode;
 		checkbox?: ReactNode;
-		busy?: boolean;
 		depth?: number;
 		/** How each level's guide draws on this row, outermost first: work them out with
 		 * `treeGuides` (treeGuides.ts) from the rows the tree shows. */
@@ -253,7 +253,6 @@ export const FileListItem: FC<
 	directoryPosition = "trail",
 	icon,
 	checkbox,
-	busy = false,
 	depth = 0,
 	guides,
 	folded,
@@ -349,19 +348,10 @@ export const FileListItem: FC<
 						</span>
 					)}
 					<span className={styles.lead}>
-						{busy ? (
-							// The spinner itself is hidden from a screen reader; its cell says what it means.
-							<output className={styles.icon} aria-label="Working">
-								<Icon name="spinner" size={14} />
-							</output>
-						) : (
-							<>
-								<span className={classes(styles.icon, reviewed && styles.faded)}>
-									{icon ?? (folded !== undefined ? <FolderIcon /> : <FileIcon fileName={name} />)}
-								</span>
-								{checkbox !== undefined && <span className={styles.checkbox}>{checkbox}</span>}
-							</>
-						)}
+						<span className={classes(styles.icon, reviewed && styles.faded)}>
+							{icon ?? (folded !== undefined ? <FolderIcon /> : <FileIcon fileName={name} />)}
+						</span>
+						{checkbox !== undefined && <span className={styles.checkbox}>{checkbox}</span>}
 					</span>
 					{label}
 					<DiffStats

@@ -57,6 +57,14 @@ list, the branch on screen — needs neither. An absorb does the first
 ("Absorbing…", then "Changes absorbed into 3 commits"). A failure with a raw
 error leaves the snackbar for a toast; see below.
 
+**The rows the work is on fade; only the snackbar spins.** While a busy
+snackbar runs, the rows it acts on go `inert`: faded and out of reach, so the
+list still shows which ones, with no spinner on each. One snackbar covers them
+all and counts them ("Discarding 3 files…", then "3 files discarded"), so ten
+files make one message, not ten spinners. The rows leave, or come back, when
+the result lands. A sidebar row whose own long job is the news, a worktree
+updating from its target, keeps its spinner (`WorktreeItem`'s `busy`).
+
 **The verdict is carried by the glyph, not the surface.** The four snackbar
 variants share ground and border; `info`, `warning`, `danger` and `safe` differ
 only in the leading icon. `warning` is for an act that ran with a catch — it
