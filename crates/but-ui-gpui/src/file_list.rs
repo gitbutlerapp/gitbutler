@@ -455,7 +455,12 @@ impl RenderOnce for FileListItem {
                 true => format!("{directory}/"),
                 false => directory.to_string(),
             };
-            truncated(text).flex_shrink(1000.).text_color(muted)
+            // Subtle, so the name reads first; on the solid ground, the inverted muted colour.
+            let color = match solid {
+                true => muted,
+                false => theme.text_3,
+            };
+            truncated(text).flex_shrink(1000.).text_color(color)
         });
         let name = truncated(self.name.to_string()).flex_shrink(1.);
         let label = faded(

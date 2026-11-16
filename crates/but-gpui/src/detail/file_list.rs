@@ -1643,6 +1643,11 @@ impl Detail {
             true => theme.muted_on_solid,
             false => theme.text_2,
         };
+        // The folder in subtle, so the name reads first, as but-ui-react's FileListItem draws it.
+        let folder = match solid {
+            true => theme.muted_on_solid,
+            false => theme.text_3,
+        };
         // In a tree a file sits under its directory, which names its path.
         let dir = if extras.depth.is_some() { "" } else { dir };
         // While composing, the checkbox takes the icon's place once it's checked, or while
@@ -1751,7 +1756,7 @@ impl Detail {
                             .overflow_hidden()
                             .whitespace_nowrap())
                         .text_ellipsis_middle()
-                        .text_color(muted)
+                        .text_color(folder)
                         .when(!dir.is_empty(), |el| {
                             el.child(matched(dir.to_owned(), dir_found))
                         }),

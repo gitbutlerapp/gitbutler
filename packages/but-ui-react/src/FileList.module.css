@@ -380,8 +380,9 @@
 	white-space: nowrap;
 }
 
+/* Subtle, so the name reads first and the folder only says where it is. */
 .directory {
-	color: var(--but-muted-foreground);
+	color: var(--but-subtle-foreground);
 }
 
 .directoryTrail {
