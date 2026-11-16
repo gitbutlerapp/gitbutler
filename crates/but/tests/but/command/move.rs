@@ -1261,7 +1261,7 @@ Moved zll above commit ywx
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊●   zll add first
 ┊●   ywx add second
 ├╯
@@ -1309,7 +1309,7 @@ Moved ywx below commit zll
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊●   zll add first
 ┊●   ywx add second
 ├╯
@@ -1371,7 +1371,7 @@ Moved vvl, mzz [..] commit [..]
             .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊●   usn add A13
 ┊●   opy add A12
 ┊●   opk add A11
@@ -1452,7 +1452,7 @@ Moved tpw, zpl, pyq [..] commit [..]
             .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊●   usn add A13
 ┊●   opy add A12
 ┊●   opk add A11
@@ -1514,7 +1514,7 @@ Moved zll to new branch 'a-branch-1' above branch 'A'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ br [a-branch-1]
+┊╭┄ br [a-branch-1] [HEAD]
 ┊●   zll add first
 ┊│
 ┊├┄ g0 [A]
@@ -1564,7 +1564,7 @@ Moved ywx to new branch 'a-branch-1' above branch 'A'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ br [a-branch-1]
+┊╭┄ br [a-branch-1] [HEAD]
 ┊●   ywx add second
 ┊│
 ┊├┄ g0 [A]
@@ -1614,7 +1614,7 @@ Moved ywx to new branch 'a-branch-1' below branch 'A'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊●   zll add first
 ┊│
 ┊├┄ br [a-branch-1]
@@ -1664,7 +1664,7 @@ Moved zll to new branch 'a-branch-1' below branch 'A'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊●   ywx add second
 ┊│
 ┊├┄ br [a-branch-1]
@@ -1714,7 +1714,7 @@ Moved ywx, zll to new branch 'a-branch-1' above branch 'A'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ br [a-branch-1]
+┊╭┄ br [a-branch-1] [HEAD]
 ┊●   ywx add second
 ┊●   zll add first
 ┊│
@@ -1764,7 +1764,7 @@ Moved ywx, zll to new branch 'a-branch-1' below branch 'A'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A] (no commits)
+┊╭┄ g0 [A] [HEAD] (no commits)
 ┊│
 ┊├┄ br [a-branch-1]
 ┊●   ywx add second
@@ -2928,7 +2928,7 @@ Stacked branch 'B' on top of branch 'C'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [B]
+┊╭┄ g0 [B] [HEAD]
 ┊●   wwm add B
 ┊│
 ┊├┄ h0 [C]
@@ -5438,7 +5438,7 @@ Moved ywx to new branch 'top' above branch 'A'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ to [top]
+┊╭┄ to [top] [HEAD]
 ┊●   ywx add second
 ┊│
 ┊├┄ g0 [A]
@@ -5465,7 +5465,7 @@ Moved ywx to new branch 'bottom' below branch 'A'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ to [top] (no commits)
+┊╭┄ to [top] [HEAD] (no commits)
 ┊│
 ┊├┄ g0 [A]
 ┊●   zll add first

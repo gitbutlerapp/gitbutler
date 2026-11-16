@@ -1290,7 +1290,7 @@ Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove 
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊◐   ozt add A
 ├╯
 ┊
@@ -1795,9 +1795,8 @@ Summary
       rou [conflict] bottom change
 
 To resolve conflicts:
-  1. Start with: `but resolve rou`. Worktree files show no conflict markers until this checks the commit out
-  2. Edit files to resolve the conflicts
-  3. Run `but resolve finish` to finalize the resolution
+  1. Run `but resolve conflicts` to show the conflicts of the oldest conflicted commit
+  2. Resolve each conflict with `but resolve apply`, as that output describes
 
 To undo this operation:
   Run `but undo`
@@ -1807,7 +1806,7 @@ To undo this operation:
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊◐   rvk top change
 ┊│
 ┊├┄ h0 [B]
@@ -1949,7 +1948,7 @@ To undo this operation:
 ╭┄ @ [uncommitted]
 ┊    shared.txt {conflicted}
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊◐   zyx add A
 ├╯
 ┊

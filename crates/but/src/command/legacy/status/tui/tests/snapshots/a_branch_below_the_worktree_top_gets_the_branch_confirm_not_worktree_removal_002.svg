@@ -16,6 +16,9 @@
     <text x="66" y="60" style="fill:#CCCCCC;">[</text>
     <text x="74" y="60" style="fill:#00AA00;">A</text>
     <text x="82" y="60" style="fill:#CCCCCC;">]</text>
+    <text x="98" y="60" style="fill:#CCCCCC;">[</text>
+    <text x="106 114 122 130" y="60" style="fill:#AA00AA;">HEAD</text>
+    <text x="138" y="60" style="fill:#CCCCCC;">]</text>
     <text x="10 18" y="78" style="fill:#CCCCCC;">┊┊</text>
     <text x="10 18 26 34" y="96" style="fill:#CCCCCC;">┊┊╭┄</text>
     <text x="50 58 66 74" y="96" style="fill:#0000AA;font-weight:bold;">wt:@</text>

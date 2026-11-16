@@ -631,10 +631,12 @@ fn move_empty_branch_on_top_of_empty_branch_in_same_stack() -> anyhow::Result<()
     let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("empty-workspace-target-advanced")?;
     invoke_bash(
-        "git branch A gitbutler/target\ngit branch B gitbutler/target\n",
+        "git branch A gitbutler/target\ngit branch B gitbutler/target\ngit branch C gitbutler/target\n",
         &repo,
     );
     add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["A"]);
+    // A second stack keeps the workspace, which records the order of empty branches.
+    add_stack_with_segments(&mut meta, 2, "C", StackState::InWorkspace, &[]);
 
     let project_meta = project_meta(&repo)?;
     let graph =
@@ -645,9 +647,11 @@ fn move_empty_branch_on_top_of_empty_branch_in_same_stack() -> anyhow::Result<()
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main⇣1 on 3183e43
-└── ≡📙:B on 3183e43 {1}
-    ├── 📙:B
-    └── 📙:A
+├── ≡📙:B on 3183e43 {1}
+│   ├── 📙:B
+│   └── 📙:A
+└── ≡📙:C on 3183e43 {2}
+    └── 📙:C
 
 "#]]
     );
@@ -666,9 +670,11 @@ fn move_empty_branch_on_top_of_empty_branch_in_same_stack() -> anyhow::Result<()
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main⇣1 on 3183e43
-└── ≡📙:A on 3183e43 {1}
-    ├── 📙:A
-    └── 📙:B
+├── ≡📙:A on 3183e43 {1}
+│   ├── 📙:A
+│   └── 📙:B
+└── ≡📙:C on 3183e43 {2}
+    └── 📙:C
 
 "#]]
     );

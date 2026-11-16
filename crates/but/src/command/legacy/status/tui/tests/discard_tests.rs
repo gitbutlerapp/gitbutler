@@ -233,7 +233,8 @@ fn discard_branch_confirm_yes_removes_branch() {
 
     tui.input('y');
 
-    tui.reload().assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
+    tui.reload()
+        .assert_current_line_eq(str!["┊╭┄ g0 [A] [HEAD]"]);
 
     let branches = tui.env().invoke_git("branch --list");
     assert!(

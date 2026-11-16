@@ -3,7 +3,7 @@ pub(super) mod function {
     use but_core::RefMetadata;
     use but_rebase::graph_rebase::mutate::SomeSelectors;
 
-    use crate::editor_workspace::{TipCount, enter_workspace};
+    use crate::editor_workspace::{enter_workspace, leave_unnecessary_workspace};
     use crate::graph_manipulation::DisconnectParameters;
     use crate::graph_manipulation::get_disconnect_parameters;
     use crate::graph_manipulation::traverse_nodes;
@@ -146,8 +146,8 @@ pub(super) mod function {
     /// - above or below a commit, it splits the branch owning that commit there, taking over
     ///   everything beneath it.
     ///
-    /// Moving the only branch of a stack onto another stack leaves the workspace with a tip
-    /// less, and it is left if that made it unnecessary, see
+    /// A workspace that is unnecessary afterwards is left, as when the only branch of a stack
+    /// moves onto the only other stack, see
     /// [`leave_unnecessary_workspace()`](crate::editor_workspace::leave_unnecessary_workspace()).
     ///
     /// Moving the branch a linked worktree has checked out leaves that worktree on what the
@@ -301,7 +301,6 @@ pub(super) mod function {
         let (source_lane, subject_segment) = source;
 
         let mut editor = successful_rebase.into_editor();
-        let tips = TipCount::of(&editor)?;
         let target_selector = relative_to
             .to_selector(&editor)
             .context("Failed to find target in graph.")?;
@@ -351,7 +350,7 @@ pub(super) mod function {
         }
         editor.insert_segment(target_selector, subject_delimiter, side)?;
 
-        tips.rebase_leaving_unnecessary_workspace(editor)
+        leave_unnecessary_workspace(editor.rebase()?.into_editor())
     }
 
     /// A segment and the lane holding it.

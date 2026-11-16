@@ -96,7 +96,7 @@ Discarded branch 'A'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [C]
+┊╭┄ g0 [C] [HEAD]
 ┊●   wlx add C
 ┊│
 ┊├┄ h0 [B]
@@ -112,8 +112,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* c4a9f43 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* ec33a86 (C) add C
+* ec33a86 (HEAD -> C) add C
 * 05d3df1 (B) add B
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
@@ -143,7 +142,7 @@ Discarded branch 'B'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [C]
+┊╭┄ g0 [C] [HEAD]
 ┊●   wlx add C
 ┊│
 ┊├┄ h0 [A]
@@ -159,8 +158,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* ea6cfac (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 983f317 (C) add C
+* 983f317 (HEAD -> C) add C
 * 9477ae7 (A) add A
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
@@ -190,7 +188,7 @@ Discarded branch 'C'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [B]
+┊╭┄ g0 [B] [HEAD]
 ┊●   wwm add B
 ┊│
 ┊├┄ h0 [A]
@@ -206,8 +204,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 5299ad0 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 582f37b (B) add B
+* 582f37b (HEAD -> B) add B
 * 9477ae7 (A) add A
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
@@ -237,7 +234,7 @@ Discarded branch 'C'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [B]
+┊╭┄ g0 [B] [HEAD]
 ┊●   wwm add B
 ┊│
 ┊├┄ h0 [A]

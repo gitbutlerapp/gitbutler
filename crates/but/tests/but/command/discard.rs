@@ -412,7 +412,7 @@ Discarded commit tvn
 ╭┄ @ [uncommitted]
 ┊    commit.txt {conflicted}
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯
@@ -474,7 +474,7 @@ Discarded commit syk
 ╭┄ @ [uncommitted]
 ┊    commit.txt {conflicted}
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊●   pmw commit
 ┊│     pmw:t A commit.txt
 ┊●   tpm add A
@@ -564,7 +564,7 @@ Discarded commits lmp, yqn
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯

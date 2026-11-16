@@ -506,7 +506,7 @@ fn resolve_marks_several_conflicted_files_resolved_including_deleted() {
 ┊   xw A other.txt
 ┊   or M second.txt
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊●   sxy first
 ┊●   tpm add A
 ├╯

@@ -84,8 +84,7 @@ fn diamond_partially_historically_integrated_rebase() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 996b85e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 2eb4a8c (E) E
+* 2eb4a8c (HEAD -> E) E
 *   aecdc68 (C) C
 |\  
 | * 020d090 (D) D
@@ -162,8 +161,7 @@ fn diamond_partially_historically_integrated_merge() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* dcb5024 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-*   e9b2f42 (E) Merge refs/remotes/origin/master into merge
+*   e9b2f42 (HEAD -> E) Merge refs/remotes/origin/master into merge
 |\  
 | * 7de2393 (origin/master, master) o4
 | *   7d62953 (o3) o3
@@ -260,8 +258,7 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 8b48706 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* cb866ec (E) E
+* cb866ec (HEAD -> E) E
 *   c7b32b8 (C) C
 |\  
 | * e05e7c1 (D) D
@@ -288,12 +285,12 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(materialized.workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/master on 162b064
-└── ≡📙:E on 162b064 {1}
-    ├── 📙:E
-    │   └── ·cb866ec (🏘️)
-    └── 📙:C
-        └── ·c7b32b8 (🏘️)
+⌂:E[🌳] <> ✓refs/heads/master on 162b064
+└── ≡:E[🌳] on 162b064 {1}
+    ├── :E[🌳]
+    │   └── ·cb866ec
+    └── :C
+        └── ·c7b32b8
 
 "#]]
     );
@@ -352,8 +349,7 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* aed8274 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-*   ec29bcc (E) Merge refs/remotes/origin/master into merge
+*   ec29bcc (HEAD -> E) Merge refs/remotes/origin/master into merge
 |\  
 | * 162b064 (origin/master, master) o4
 | * dd87d69 (o3) B
@@ -1132,10 +1128,10 @@ fn squash_merged_branch_below_stacked_work_is_pruned() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 6204bf3
-└── ≡:B on 6204bf3 {1}
-    └── :B
-        └── ·3f21b99 (🏘️)
+⌂:B[🌳] <> ✓refs/heads/main on 6204bf3
+└── ≡:B[🌳] on 6204bf3 {1}
+    └── :B[🌳]
+        └── ·3f21b99
 
 "#]]
     );
@@ -1143,8 +1139,7 @@ fn squash_merged_branch_below_stacked_work_is_pruned() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 20c6172 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 3f21b99 (B) add B1
+* 3f21b99 (HEAD -> B) add B1
 * 6204bf3 (origin/main) add X
 * 039050a A1 + A2 (#1)
 * 9bede57 (main) add M1
@@ -1240,12 +1235,12 @@ fn canceling_segments_above_squash_merged_bottom_are_not_swept_up() -> Result<()
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on cfc7fef
-└── ≡:C on cfc7fef {1}
-    ├── :C
-    │   └── ·1b83941 (🏘️)
+⌂:C[🌳] <> ✓refs/heads/main on cfc7fef
+└── ≡:C[🌳] on cfc7fef {1}
+    ├── :C[🌳]
+    │   └── ·1b83941
     └── :B
-        └── ·30c179e (🏘️)
+        └── ·30c179e
 
 "#]]
     );
@@ -1254,8 +1249,7 @@ fn canceling_segments_above_squash_merged_bottom_are_not_swept_up() -> Result<()
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 845405d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 1b83941 (C) delete Y
+* 1b83941 (HEAD -> C) delete Y
 * 30c179e (B) add Y
 * cfc7fef (origin/main) add X
 * 80a3c61 A1 + A2 (#1)
@@ -2641,7 +2635,7 @@ fn orphan_reparent_does_not_run_when_parent_remains() -> Result<()> {
 }
 
 #[test]
-fn orphan_reparent_empty_stack_to_target_tip() -> Result<()> {
+fn integrating_an_empty_stack_checks_it_out_at_the_target_tip() -> Result<()> {
     let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("fully-integrated-empty-stack-target-advanced")?;
     let target_sha = repo.rev_parse_single("main^")?.detach();
@@ -2663,10 +2657,14 @@ fn orphan_reparent_empty_stack_to_target_tip() -> Result<()> {
         }],
     )?;
 
-    assert_eq!(
-        workspace_first_parent(&repo)?,
-        repo.rev_parse_single("origin/main")?,
-        "orphaned workspace commit should be reparented to the target tip after integrating an empty stack"
+    // The workspace is left for what remains of the stack, at the target tip rather than orphaned.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 2eb11a7 (HEAD -> B, origin/main, main) add X
+* 8d5739f add C
+
+"#]]
     );
 
     Ok(())
@@ -2831,18 +2829,17 @@ fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> 
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 364a08f
-└── ≡📙:topic <> origin/topic⇡1 on 364a08f {1}
-    └── 📙:topic <> origin/topic⇡1
-        └── ·f3ceb3d (🏘️)
+⌂:topic[🌳] <> ✓refs/heads/main on 364a08f
+└── ≡:topic[🌳] <> origin/topic⇡1 on 364a08f {1}
+    └── :topic[🌳] <> origin/topic⇡1
+        └── ·f3ceb3d
 
 "#]]
     );
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* d0cd028 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* f3ceb3d (topic) add local
+* f3ceb3d (HEAD -> topic) add local
 *   364a08f (origin/main, main) merge topic
 |\  
 | * 6ba217e (origin/topic) add topic
@@ -2920,18 +2917,16 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 563a7fc
-└── ≡📙:top <> origin/top on 563a7fc {1}
-    └── 📙:top <> origin/top
-        └── ·334227d (🏘️|✓)
+⌂:top[🌳] <> ✓refs/heads/main on 334227d
+└── ≡:top[🌳] <> origin/top on 334227d {1}
+    └── :top[🌳] <> origin/top
 
 "#]]
     );
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* f381153 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-*   334227d (origin/main, top, main) merge bottom
+*   334227d (HEAD -> top, origin/main, main) merge bottom
 |\  
 | * 141de4f (origin/top, origin/bottom) add bottom
 |/  
@@ -3452,18 +3447,17 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_work
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on e2f5892
-└── ≡📙:A on e2f5892 {1}
-    └── 📙:A
-        └── ·92f1780 (🏘️)
+⌂:A[🌳] <> ✓refs/heads/main on e2f5892
+└── ≡:A[🌳] on e2f5892 {1}
+    └── :A[🌳]
+        └── ·92f1780
 
 "#]]
     );
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* a7a874f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 92f1780 (A) add A3
+* 92f1780 (HEAD -> A) add A3
 * e2f5892 (origin/main) squash A1 and A2
 * 3183e43 (main) M1
 

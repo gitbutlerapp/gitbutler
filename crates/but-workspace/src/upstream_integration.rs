@@ -18,7 +18,7 @@ use but_rebase::{
     },
 };
 
-use crate::editor_workspace::TipCount;
+use crate::editor_workspace::leave_unnecessary_workspace;
 use crate::graph_manipulation::traverse_nodes;
 use crate::resolve_tracking_branch_ref_name;
 use but_core::changeset::{compute_upstream_commits_lut, identify_matching_content, squash_in_lut};
@@ -265,8 +265,6 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
             ..Default::default()
         },
     )?;
-
-    let tips = TipCount::of(&editor)?;
 
     let updates_with_selectors = updates
         .iter()
@@ -638,7 +636,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
 
     let mut project_meta = project_meta;
     project_meta.target_commit_id = Some(target_ref_commit.detach());
-    let mut rebase = tips.rebase_leaving_unnecessary_workspace(editor)?;
+    let mut rebase = leave_unnecessary_workspace(editor.rebase()?.into_editor())?;
     // Materializing re-projects the workspace from the graph's own project meta, and the
     // dry-run overlay reads its target from there too. Without this the outcome is projected
     // against the old base, with the target's commits folded into the stacks as integrated.

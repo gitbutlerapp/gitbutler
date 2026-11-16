@@ -2,7 +2,7 @@ use anyhow::bail;
 use but_core::RefMetadata;
 use but_rebase::graph_rebase::{Editor, SuccessfulRebase};
 
-use crate::editor_workspace::TipCount;
+use crate::editor_workspace::leave_unnecessary_workspace;
 
 /// Discard one or more commits in a single rebase operation.
 ///
@@ -10,13 +10,12 @@ use crate::editor_workspace::TipCount;
 /// children. All removals share a single editor session so only one rebase
 /// is performed. Duplicate commit IDs are silently deduplicated.
 ///
-/// A workspace that has fewer tips for it is left if it's unnecessary, see
+/// A workspace that is unnecessary afterwards is left, see
 /// [`leave_unnecessary_workspace()`](crate::editor_workspace::leave_unnecessary_workspace()).
 pub fn discard_commits<'ws, 'meta, M: RefMetadata>(
     mut editor: Editor<'ws, 'meta, M>,
     subject_commits: impl IntoIterator<Item = gix::ObjectId>,
 ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
-    let tips = TipCount::of(&editor)?;
     let mut seen = gix::hashtable::HashSet::default();
     let mut count = 0usize;
     for commit_id in subject_commits {
@@ -32,5 +31,5 @@ pub fn discard_commits<'ws, 'meta, M: RefMetadata>(
         bail!("no commit IDs provided for discard");
     }
 
-    tips.rebase_leaving_unnecessary_workspace(editor)
+    leave_unnecessary_workspace(editor.rebase()?.into_editor())
 }
