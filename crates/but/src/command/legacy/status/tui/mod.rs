@@ -529,10 +529,6 @@ pub enum Message {
     CopyToClipboard(String),
     #[expect(clippy::enum_variant_names)]
     RegisterOutOfBandMessage(Receiver<Message>),
-    AndThen {
-        lhs: Box<Message>,
-        rhs: Box<Message>,
-    },
     #[allow(dead_code)]
     Debug(&'static str),
     OpenInProgram(ProgramSpec, Openable),
@@ -547,17 +543,6 @@ pub enum Message {
 fn message_is_send() {
     fn assert_send<T: Send>() {}
     assert_send::<Message>();
-}
-
-impl Message {
-    /// Send another message only if handling the first succeeds.
-    #[expect(dead_code)]
-    pub fn and_then(self, other: Self) -> Self {
-        Self::AndThen {
-            lhs: Box::new(self),
-            rhs: Box::new(other),
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -603,10 +588,6 @@ pub enum FilesMessage {
 pub enum SelectAfterReload {
     Commit(gix::ObjectId),
     FirstFileInCommit(gix::ObjectId),
-    #[expect(dead_code)]
-    UncommittedFile {
-        path: BString,
-    },
     UncommittedDetailsSection {
         index: usize,
         direction: ScrollDirection,
@@ -670,7 +651,6 @@ where
 fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec<Message>) {
     fn is_repo_mutation(m: &Message) -> bool {
         match m {
-            Message::AndThen { lhs, rhs } => is_repo_mutation(lhs) || is_repo_mutation(rhs),
             Message::Reload(_, cause) => match cause {
                 ReloadCause::Mutation
                 | ReloadCause::Watcher { .. }

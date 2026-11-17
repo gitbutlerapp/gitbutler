@@ -1379,12 +1379,6 @@ impl KeyBindsInModesBuilder<'_> {
         self
     }
 
-    #[expect(dead_code)]
-    fn short_description(mut self, short_description: &'static str) -> Self {
-        self.short_description = short_description;
-        self
-    }
-
     fn long_description(mut self, long_description: &'static str) -> Self {
         self.long_description = Some(long_description);
         self

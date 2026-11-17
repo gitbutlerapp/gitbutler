@@ -811,13 +811,6 @@ impl App {
             Message::DropToBeDiscarded => {
                 self.to_be_discarded.clear();
             }
-            Message::AndThen { lhs, rhs } => {
-                self.try_handle_message(ctx, out, terminal_guard, messages, *lhs)?;
-
-                // Push `rhs` to the end of the queue. That way any messages enqueued by `lhs` will
-                // be handled first.
-                messages.push(*rhs);
-            }
             Message::Debug(text) => {
                 messages.push(Message::ShowToast {
                     kind: ToastKind::Debug,
@@ -1481,7 +1474,6 @@ impl App {
                 } => *details_section,
                 SelectAfterReload::Commit(_)
                 | SelectAfterReload::FirstFileInCommit(_)
-                | SelectAfterReload::UncommittedFile { .. }
                 | SelectAfterReload::Branch(_)
                 | SelectAfterReload::CliId(_)
                 | SelectAfterReload::Worktree(_)
@@ -1526,7 +1518,6 @@ impl App {
                 SelectAfterReload::Branch(_)
                 | SelectAfterReload::Worktree(_)
                 | SelectAfterReload::Uncommitted
-                | SelectAfterReload::UncommittedFile { .. }
                 | SelectAfterReload::UncommittedDetailsSection { .. }
                 | SelectAfterReload::CliId(_) => {}
             }
@@ -1588,9 +1579,6 @@ impl App {
                 Cursor::select_worktree(worktree.as_ref(), &new_lines)
             }
             Some(SelectAfterReload::Uncommitted) => Cursor::select_uncommitted(&new_lines),
-            Some(SelectAfterReload::UncommittedFile { path }) => {
-                Cursor::select_uncommitted_file(path.as_ref(), &new_lines)
-            }
             Some(SelectAfterReload::FirstFileInCommit(commit_id)) => {
                 Cursor::select_first_file_in_commit(commit_id, &new_lines)
             }
