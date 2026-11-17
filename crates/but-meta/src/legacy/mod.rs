@@ -233,7 +233,7 @@ impl Snapshot {
 
     fn project_workspace(&self, repo: &gix::Repository) -> anyhow::Result<but_graph::Workspace> {
         let mut reference = repo.find_reference(INTEGRATION_BRANCH)?;
-        let commit_id = reference.peel_to_commit()?.id();
+        let commit_id = reference.peel_to_commit()?.id;
         let sideeffect_free_meta = std::mem::ManuallyDrop::new(VirtualBranchesTomlMetadata {
             snapshot: Snapshot {
                 changed_at: None,
@@ -241,18 +241,17 @@ impl Snapshot {
             },
             write_on_drop: false,
         });
-        let project_meta = ProjectMeta::resolve(repo)?;
-        let graph = but_graph::Graph::from_commit_traversal(
-            commit_id,
-            reference.name().to_owned(),
+        but_graph::nosegment::workspace(
+            repo,
             &*sideeffect_free_meta,
-            project_meta,
-            // A throwaway handle: this side-effect free view must not touch the
-            // project database, and worktree discovery stays off.
-            &mut but_db::DbHandle::new_at_path(":memory:")?,
-            but_graph::init::Options::limited(),
-        )?;
-        graph.into_workspace()
+            ProjectMeta::resolve(repo)?,
+            Some(reference.name()),
+            Some(commit_id),
+            [],
+            Vec::new(),
+            false,
+            but_graph::init::Options::limited().commits_limit_hint,
+        )
     }
 }
 
