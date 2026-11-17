@@ -811,7 +811,9 @@ impl WorkspaceGraph {
             // branches with metadata still name segments of their own. Like after a
             // traversal, the managed workspace commit stays with the workspace reference,
             // and every other reference on it is recorded on it the same way, unless the
-            // graph is seen from it.
+            // graph is seen from it. So is a branch no stack claims that the empty segments of
+            // several stack branches on its commit reach, which a traversal leaves on their
+            // anonymous commit.
             if let Some((full_name, commit_id)) = reference
                 && !is_workspace_ref_name(full_name.as_ref())
                 && ((self.workspace_commit == Some(commit_id)
@@ -825,7 +827,28 @@ impl WorkspaceGraph {
                             full_name.as_ref(),
                             overlay_meta,
                         )?
-                        .is_none()))
+                        .is_none())
+                    || (predecessor_segment_info.segment_indexes.len() > 1
+                        && !predecessor_segment_info.must_start_new_segment
+                        && seen_from_ref != Some(full_name.as_ref())
+                        && full_name.category() == Some(gix::refs::Category::LocalBranch)
+                        && self.unclaimed_branches.contains(full_name)
+                        && !worktree_by_branch.contains_key(full_name)
+                        && predecessor_segment_info.segment_indexes.iter().all(
+                            |(segment_index, _)| {
+                                let segment = &inner_graph[*segment_index];
+                                segment.commits.is_empty()
+                                    && segment.ref_info.as_ref().is_some_and(|ref_info| {
+                                        ref_info.ref_name.category() == full_name.category()
+                                            && (self
+                                                .unclaimed_branches
+                                                .contains(&ref_info.ref_name)
+                                                || !is_workspace_ref_name(
+                                                    ref_info.ref_name.as_ref(),
+                                                ))
+                                    })
+                            },
+                        )))
             {
                 forward_awaiting_refs(
                     &mut refs_awaiting_commit,
