@@ -2,6 +2,7 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
+use but_core::sync::RepoShared;
 use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 
 pub struct Archival {
@@ -29,27 +30,57 @@ impl Archival {
     }
 
     /// Create an anonymous archive commit graph for `ctx`, such that it doesn't reveal PII.
-    pub fn zip_anonymous_graph(&self, ctx: &Context) -> Result<PathBuf> {
-        let mut options = but_graph::init::Options {
-            worktrees: true,
-            ..Default::default()
+    ///
+    /// It's the graph the rebase editor is built from. If the workspace can't be built, it's
+    /// walked without one from `HEAD` and the linked worktrees' `HEAD`s.
+    pub fn zip_anonymous_graph(&self, ctx: &Context, perm: &RepoShared) -> Result<PathBuf> {
+        let meta = ctx.meta()?;
+        let editor_graph = ctx
+            .workspace_and_db_with_perm(perm)
+            .and_then(|(repo, ws, _db)| {
+                let mut heads = Vec::from_iter(ws.graph.entrypoint()?.commit().map(|c| c.id));
+                heads.extend(ws.graph.worktree_tips.iter().map(|tip| tip.id));
+                but_graph::nosegment::workspace_segment_graph(&ws, &repo, &meta, heads)
+            });
+        let mut graph = match editor_graph {
+            Ok(graph) => graph,
+            Err(_) => {
+                // Assume it fails because of post-processing, and walk without a workspace.
+                let mut worktree_heads = Vec::new();
+                for worktree in ctx.worktrees_with_state()? {
+                    if !worktree.archived
+                        && let Some(head) = ctx.worktree_head(worktree.name.as_ref())?
+                    {
+                        worktree_heads.push(head.id);
+                    }
+                }
+                let repo = ctx.repo.get()?;
+                let project_meta = ctx.project_meta()?;
+                let head_ref = repo.head_name()?;
+                let head_id = repo.head_id().ok().map(|id| id.detach());
+                // An unavailable target commit bounds nothing, instead of failing the walk.
+                let target_commit_id = project_meta
+                    .resolve_target_commit(&repo)
+                    .ok()
+                    .filter(|id| repo.find_commit(*id).is_ok());
+                let mut heads = Vec::from_iter(head_id);
+                heads.extend(worktree_heads);
+                but_graph::nosegment::segment_graph(
+                    &repo,
+                    &meta,
+                    but_graph::init::Overlay::default(),
+                    project_meta,
+                    head_ref.as_ref().map(|name| name.as_ref()),
+                    head_id,
+                    heads,
+                    Vec::new(),
+                    target_commit_id,
+                    false,
+                    None,
+                )?
+            }
         };
         let repo = ctx.repo.get()?;
-        let meta = ctx.meta()?;
-        let project_meta = ctx.project_meta()?;
-        let mut db = ctx.db.get_cache_mut()?;
-        let mut graph = but_graph::Graph::from_head(
-            &repo,
-            &meta,
-            project_meta.clone(),
-            &mut db,
-            options.clone(),
-        )
-        .or_else(|_| {
-            // Assume it fails because of post-processing, try again without.
-            options.dangerously_skip_postprocessing_for_debugging = true;
-            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, options)
-        })?;
         let dot_file_contents = graph.anonymize(&repo.remote_names())?.dot_graph_pruned();
         let output_file = self.cache_dir.join(format!(
             "commit-graph-anon-{date}.zip",
