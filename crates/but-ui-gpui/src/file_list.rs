@@ -8,8 +8,8 @@
 use std::ops::Range;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Div, ElementId, Hsla, Role, SharedString, Toggled, UniformList,
-    UniformListScrollHandle, Window, div, prelude::*, relative,
+    Action, AnyElement, App, ClickEvent, Div, ElementId, Hsla, Role, SharedString, Stateful,
+    Toggled, UniformList, UniformListScrollHandle, Window, div, prelude::*, relative,
 };
 
 use crate::file_icons::{file_icon, folder_icon};
@@ -65,15 +65,11 @@ pub fn tree_guides(depths: &[usize]) -> Vec<Vec<Guide>> {
         .collect()
 }
 
-/// A panel of changed files: `title`, with how many there are (`count`) and the lines they add
-/// and remove, over the rows, its children, which scroll under the header inset from the panel's
-/// edges and a pixel apart.
+/// A panel of changed files: its [`FileListHeader`], naming them, over the rows, its children,
+/// which scroll under the header inset from the panel's edges and a pixel apart.
 ///
-/// - [`FileList::actions`] sit at the header's end, after the search button that
-///   [`FileList::on_open_filter`] adds while there are files. With [`FileList::filter`] given, the
-///   header is the filter field instead, over the title, and the search button is the button that
-///   closes it. The field holds the host's input, which takes Escape to close it, and ends on
-///   [`FileList::found`], how many of the `count` files the filter keeps, as "2 of 7".
+/// - The header's builder methods are the panel's too: [`FileList::actions`],
+///   [`FileList::on_open_filter`], [`FileList::filter`] and the rest.
 /// - The rows scroll, a hairline under the header once they've moved. A long list goes in
 ///   [`FileList::virtualised`], whose rows take the pixel between them themselves.
 /// - A selected row is solid while the list holds the selection focus: pass `focused` to its rows.
@@ -81,14 +77,7 @@ pub fn tree_guides(depths: &[usize]) -> Vec<Vec<Guide>> {
 pub struct FileList {
     base: Div,
     id: ElementId,
-    title: SharedString,
-    count: usize,
-    added: u32,
-    removed: u32,
-    actions: Option<AnyElement>,
-    on_open_filter: Option<OnClick>,
-    filter: Option<(AnyElement, bool, OnClick)>,
-    found: Option<usize>,
+    header: FileListHeader,
     scroll: Option<UniformListScrollHandle>,
     virtualised: Option<UniformList>,
     rows: Vec<AnyElement>,
@@ -98,19 +87,12 @@ pub fn file_list(
     id: impl Into<ElementId>,
     title: impl Into<SharedString>,
     count: usize,
-    (added, removed): (u32, u32),
+    lines: (u32, u32),
 ) -> FileList {
     FileList {
         base: v_flex().min_h_0(),
         id: id.into(),
-        title: title.into(),
-        count,
-        added,
-        removed,
-        actions: None,
-        on_open_filter: None,
-        filter: None,
-        found: None,
+        header: file_list_header(title, count, lines),
         scroll: None,
         virtualised: None,
         rows: Vec::new(),
@@ -119,34 +101,30 @@ pub fn file_list(
 
 impl FileList {
     pub fn actions(mut self, actions: impl IntoElement) -> Self {
-        self.actions = Some(actions.into_any_element());
+        self.header = self.header.actions(actions);
         self
     }
 
-    /// The search button, which opens the filter.
     pub fn on_open_filter(
         mut self,
         on_open: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
     ) -> Self {
-        self.on_open_filter = Some(Box::new(on_open));
+        self.header = self.header.on_open_filter(on_open);
         self
     }
 
-    /// The filter, open: `field` is the host's input, ringed while `focused`, and `on_close`
-    /// answers the button that closes it.
     pub fn filter(
         mut self,
         field: impl IntoElement,
         focused: bool,
         on_close: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
     ) -> Self {
-        self.filter = Some((field.into_any_element(), focused, Box::new(on_close)));
+        self.header = self.header.filter(field, focused, on_close);
         self
     }
 
-    /// How many of the files the open filter keeps, while something's typed in it.
     pub fn found(mut self, found: usize) -> Self {
-        self.found = Some(found);
+        self.header = self.header.found(found);
         self
     }
 
@@ -188,12 +166,161 @@ impl RenderOnce for FileList {
             .clone(),
         };
         let scrolled = scroll.0.borrow().base_handle.offset().y < gpui::Pixels::ZERO;
+        let inset = |el: Div| {
+            el.px(dp(tokens::PADDING_PANEL))
+                .pb(dp(tokens::PADDING_PANEL))
+        };
+        let virtualised = self.virtualised.is_some();
+        let body = match self.virtualised {
+            Some(list) => list
+                .track_scroll(&scroll)
+                .size_full()
+                .px(dp(tokens::PADDING_PANEL))
+                .pb(dp(tokens::PADDING_PANEL))
+                .into_any_element(),
+            None => v_flex()
+                .id("rows")
+                .flex_grow(1.)
+                .min_h_0()
+                .overflow_y_scroll()
+                .track_scroll(&scroll.0.borrow().base_handle)
+                .child(inset(v_flex().gap(fixed(1.))).children(self.rows))
+                .into_any_element(),
+        };
+
+        self.base.id(self.id).child(self.header).child(
+            v_flex()
+                // A `uniform_list` lays out only in the height it's given; plain rows give
+                // the panel theirs until it has less.
+                .map(|el| match virtualised {
+                    true => el.flex_1(),
+                    false => el.flex_grow(1.),
+                })
+                .min_h_0()
+                .relative()
+                .child(body)
+                // Rows passing under the header read as passing under it.
+                .when(scrolled, |el| {
+                    el.child(
+                        div()
+                            .absolute()
+                            .top_0()
+                            .left_0()
+                            .right_0()
+                            .h(fixed(1.))
+                            .bg(theme.border_3),
+                    )
+                }),
+        )
+    }
+}
+
+/// A [`FileList`]'s header, for a host whose rows scroll in a list of its own: `title`, with how
+/// many files there are (`count`) and the lines they add and remove.
+///
+/// - [`FileListHeader::lead`] goes before the title, as a checkbox for every file.
+/// - [`FileListHeader::actions`] sit at its end, after the search button that
+///   [`FileListHeader::on_open_filter`] adds while there are files, its tooltip showing the keys
+///   of [`FileListHeader::filter_keys`].
+/// - With [`FileListHeader::filter`] given, the header is the filter field instead, over the
+///   title, and the search button is the button that closes it. The field holds the host's
+///   input, which takes Escape to close it, and ends on [`FileListHeader::found`], how many of
+///   the `count` files the filter keeps, as "2 of 7".
+#[derive(IntoElement)]
+pub struct FileListHeader {
+    title: SharedString,
+    count: usize,
+    added: u32,
+    removed: u32,
+    lead: Option<AnyElement>,
+    actions: Option<AnyElement>,
+    on_open_filter: Option<OnClick>,
+    filter_keys: Option<Box<dyn Action>>,
+    filter: Option<(AnyElement, bool, OnClick)>,
+    found: Option<usize>,
+}
+
+pub fn file_list_header(
+    title: impl Into<SharedString>,
+    count: usize,
+    (added, removed): (u32, u32),
+) -> FileListHeader {
+    FileListHeader {
+        title: title.into(),
+        count,
+        added,
+        removed,
+        lead: None,
+        actions: None,
+        on_open_filter: None,
+        filter_keys: None,
+        filter: None,
+        found: None,
+    }
+}
+
+impl FileListHeader {
+    pub fn lead(mut self, lead: impl IntoElement) -> Self {
+        self.lead = Some(lead.into_any_element());
+        self
+    }
+
+    pub fn actions(mut self, actions: impl IntoElement) -> Self {
+        self.actions = Some(actions.into_any_element());
+        self
+    }
+
+    /// The search button, which opens the filter.
+    pub fn on_open_filter(
+        mut self,
+        on_open: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.on_open_filter = Some(Box::new(on_open));
+        self
+    }
+
+    /// The action that opens the filter too, whose keys the search button's tooltip shows.
+    pub fn filter_keys(mut self, action: &dyn Action) -> Self {
+        self.filter_keys = Some(action.boxed_clone());
+        self
+    }
+
+    /// The filter, open: `field` is the host's input, ringed while `focused`, and `on_close`
+    /// answers the button that closes it.
+    pub fn filter(
+        mut self,
+        field: impl IntoElement,
+        focused: bool,
+        on_close: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.filter = Some((field.into_any_element(), focused, Box::new(on_close)));
+        self
+    }
+
+    /// How many of the files the open filter keeps, while something's typed in it.
+    pub fn found(mut self, found: usize) -> Self {
+        self.found = Some(found);
+        self
+    }
+}
+
+impl RenderOnce for FileListHeader {
+    fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let theme = Theme::get(cx).clone();
         let filtering = self.filter.is_some();
+        // The title starts 16px in, as the view header's above it; a lead starts where the rows'
+        // icons do, the list's inset and a top-level row's padding in, so a checkbox for every
+        // file lines up with each file's.
+        let start = match self.lead {
+            Some(_) => tokens::PADDING_PANEL + tokens::SPACE_LG - 1.,
+            None => tokens::SPACE_3XL,
+        };
 
         let label = h_flex()
             .min_w_0()
             .gap(dp(tokens::GAP_ICON_TEXT))
             .when(filtering, |el| el.opacity(0.))
+            .children(self.lead)
             .child(
                 div()
                     .min_w_0()
@@ -239,9 +366,12 @@ impl RenderOnce for FileList {
             None => (
                 None,
                 (self.on_open_filter.filter(|_| self.count > 0)).map(|on_open| {
-                    icon_button("filter-toggle", Icon::Search)
-                        .tooltip("Filter files")
-                        .on_click(on_open)
+                    let button = icon_button("filter-toggle", Icon::Search);
+                    match &self.filter_keys {
+                        Some(action) => button.tooltip_for("Filter files", action.as_ref()),
+                        None => button.tooltip("Filter files"),
+                    }
+                    .on_click(on_open)
                 }),
             ),
         };
@@ -251,66 +381,18 @@ impl RenderOnce for FileList {
             .children(toggle)
             .children(self.actions.filter(|_| !filtering));
 
-        let header = h_flex()
+        h_flex()
             .flex_none()
             .relative()
             .gap(dp(tokens::GAP_ICON_TEXT))
-            // The panel's 12px in from its top and end; the title starts 16px in, as the view
-            // header's above it. The rows start 10px under the buttons.
-            .pl(dp(tokens::SPACE_3XL))
+            // The panel's 12px in from its top and end. The rows start 10px under the buttons.
+            .pl(dp(start))
             .pr(dp(tokens::PADDING_PANEL))
             .pt(dp(tokens::PADDING_PANEL))
             .pb(dp(tokens::SPACE_XL))
             .child(label)
             .child(end)
-            .children(field);
-
-        let inset = |el: Div| {
-            el.px(dp(tokens::PADDING_PANEL))
-                .pb(dp(tokens::PADDING_PANEL))
-        };
-        let virtualised = self.virtualised.is_some();
-        let body = match self.virtualised {
-            Some(list) => list
-                .track_scroll(&scroll)
-                .size_full()
-                .px(dp(tokens::PADDING_PANEL))
-                .pb(dp(tokens::PADDING_PANEL))
-                .into_any_element(),
-            None => v_flex()
-                .id("rows")
-                .flex_grow(1.)
-                .min_h_0()
-                .overflow_y_scroll()
-                .track_scroll(&scroll.0.borrow().base_handle)
-                .child(inset(v_flex().gap(fixed(1.))).children(self.rows))
-                .into_any_element(),
-        };
-
-        self.base.id(self.id).child(header).child(
-            v_flex()
-                // A `uniform_list` lays out only in the height it's given; plain rows give
-                // the panel theirs until it has less.
-                .map(|el| match virtualised {
-                    true => el.flex_1(),
-                    false => el.flex_grow(1.),
-                })
-                .min_h_0()
-                .relative()
-                .child(body)
-                // Rows passing under the header read as passing under it.
-                .when(scrolled, |el| {
-                    el.child(
-                        div()
-                            .absolute()
-                            .top_0()
-                            .left_0()
-                            .right_0()
-                            .h(fixed(1.))
-                            .bg(theme.border_3),
-                    )
-                }),
-        )
+            .children(field)
     }
 }
 
@@ -369,6 +451,13 @@ fn described(count: usize, added: u32, removed: u32) -> String {
     parts.join(", ")
 }
 
+/// The hover group the icon's cell shows the checkbox for.
+const LEAD: &str = "file-list-item-lead";
+
+/// How wide a step of the indent is, and the room between steps.
+const STEP: f32 = 12.;
+const STEP_GAP: f32 = 4.;
+
 /// One changed file, or a directory of them, in a [`file_list`]. Start from `name` and add what
 /// the row shows:
 ///
@@ -417,6 +506,7 @@ pub struct FileListItem {
     focused: bool,
     inert: bool,
     marks: Option<AnyElement>,
+    status_tooltip: Option<SharedString>,
     added: u32,
     removed: u32,
     on_click: Option<OnClick>,
@@ -446,6 +536,7 @@ pub fn file_list_item(id: impl Into<ElementId>, name: impl Into<SharedString>) -
         focused: false,
         inert: false,
         marks: None,
+        status_tooltip: None,
         added: 0,
         removed: 0,
         on_click: None,
@@ -567,6 +658,12 @@ impl FileListItem {
         self
     }
 
+    /// A tooltip on the last cell's mark, saying more than its letter or glyph.
+    pub fn status_tooltip(mut self, tooltip: impl Into<SharedString>) -> Self {
+        self.status_tooltip = Some(tooltip.into());
+        self
+    }
+
     pub fn on_click(
         mut self,
         on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
@@ -574,17 +671,10 @@ impl FileListItem {
         self.on_click = Some(Box::new(on_click));
         self
     }
-}
 
-/// The hover group the icon's cell shows the checkbox for.
-const LEAD: &str = "file-list-item-lead";
-
-/// How wide a step of the indent is, and the room between steps.
-const STEP: f32 = 12.;
-const STEP_GAP: f32 = 4.;
-
-impl RenderOnce for FileListItem {
-    fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
+    /// The row, built, for a host to add the listeners a builder method doesn't cover: a drag, a
+    /// right-click menu, what a press does before a click.
+    pub fn row(self, cx: &App) -> Stateful<Div> {
         let theme = Theme::get(cx).clone();
         let solid = self.selected && self.focused;
         // On the solid ground the row's quieter parts read in the inverted muted colour.
@@ -666,12 +756,17 @@ impl RenderOnce for FileListItem {
                             .when(!shown, |el| {
                                 el.opacity(0.).group_hover(LEAD, |s| s.opacity(1.))
                             })
-                            .child(checkbox("check", check, &theme).on_click(
-                                move |event, window, cx| {
-                                    cx.stop_propagation();
-                                    on_click(event, window, cx);
-                                },
-                            ))
+                            .child(
+                                checkbox("check", check, &theme)
+                                    // Checking a file doesn't press the row under it.
+                                    .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| {
+                                        cx.stop_propagation()
+                                    })
+                                    .on_click(move |event, window, cx| {
+                                        cx.stop_propagation();
+                                        on_click(event, window, cx);
+                                    }),
+                            )
                     }))
             });
 
@@ -753,6 +848,10 @@ impl RenderOnce for FileListItem {
                     .child(count.to_string())
             })
         };
+        let status = status.map(|status| match self.status_tooltip {
+            Some(tooltip) => status.tooltip(Tooltip::text(tooltip)),
+            None => status,
+        });
         // Reserved on every row, so what comes before it lines up down the list.
         let end = div()
             .flex_none()
@@ -829,6 +928,12 @@ impl RenderOnce for FileListItem {
             .when_some(self.on_click.filter(|_| !self.inert), |el, on_click| {
                 el.on_click(on_click)
             })
+    }
+}
+
+impl RenderOnce for FileListItem {
+    fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
+        self.row(cx)
     }
 }
 
