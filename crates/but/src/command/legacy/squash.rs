@@ -690,6 +690,7 @@ fn cannot_uncommit_uncommitted_changes_error() -> CliError {
 /// which means that the hinted command passes this check.
 fn ensure_uncommit_causes_no_conflicts(
     ctx: &mut Context,
+    meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     what: &str,
     dry_run: &WorkspaceState,
@@ -699,7 +700,7 @@ fn ensure_uncommit_causes_no_conflicts(
         return Ok(());
     }
     loop {
-        let dry_run = dry_run_uncommit(ctx, dependents.clone(), perm)?;
+        let dry_run = dry_run_uncommit(ctx, meta, perm, dependents.clone())?;
         let further = newly_conflicted_commits(ctx, &dry_run)?;
         if further.is_empty() {
             break;
@@ -849,24 +850,17 @@ fn newly_conflicted_commits(
 
 fn dry_run_uncommit(
     ctx: &mut Context,
-    commits: Vec<ObjectId>,
+    meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
+    commits: Vec<ObjectId>,
 ) -> anyhow::Result<WorkspaceState> {
-    let but_api::commit::types::UncommitResult {
-        workspace,
-        uncommitted_ids: _,
-    } = but_api::commit::uncommit::commit_uncommit_only_with_perm(
+    let (_, workspace) = but_transaction::with_transaction_with_perm_only(
         ctx,
-        commits,
-        None,
-        DryRun::Yes,
+        meta,
         perm,
+        DryRun::Yes,
+        |mut tx| tx.uncommit_commits(commits),
     )?;
-    // The implementation of `commit_uncommit_only_with_perm` requires a write lock on
-    // the workspace even in dry run mode. Ideally, we should change that function
-    // (or better, check for conflicts another way). For now, invalidate the workspace cache
-    // to enable future code to once again take locks.
-    ctx.invalidate_workspace_cache()?;
     Ok(workspace)
 }
 
@@ -1733,8 +1727,8 @@ pub fn run(
         }
         ExecutableSquashOperation::Uncommit(op) => {
             if op.has_commit_sources() {
-                let workspace = dry_run_uncommit(ctx, op.commit_sources().collect(), perm)?;
-                ensure_uncommit_causes_no_conflicts(ctx, perm, "commits", &workspace)?;
+                let workspace = dry_run_uncommit(ctx, meta, perm, op.commit_sources().collect())?;
+                ensure_uncommit_causes_no_conflicts(ctx, meta, perm, "commits", &workspace)?;
             }
 
             let snapshot_details = SnapshotDetails::new(OperationKind::UndoCommit);
@@ -1785,25 +1779,17 @@ pub fn run(
             Ok((outcome, Some(ws)))
         }
         ExecutableSquashOperation::UncommitHunks { source, changes } => {
-            {
-                let but_api::commit::types::MoveChangesResult { workspace } =
-                    but_api::commit::uncommit::commit_uncommit_changes_only_with_perm(
-                        ctx,
-                        source.commit_id,
-                        changes.clone(),
-                        None,
-                        DryRun::Yes,
-                        perm,
-                    )?;
-                // The implementation of `commit_uncommit_changes_only_with_perm` requires a write lock on
-                // the workspace even in dry run mode. Ideally, we should change that function
-                // (or better, remove this whole `if` block and instead check for conflicts another
-                // way). For now, invalidate the workspace cache to enable future code to once
-                // again take locks.
-                ctx.invalidate_workspace_cache()?;
-
-                ensure_uncommit_causes_no_conflicts(ctx, perm, "hunks", &workspace)?;
-            }
+            let (_, workspace) = but_transaction::with_transaction_with_perm_only(
+                ctx,
+                meta,
+                perm,
+                DryRun::Yes,
+                |mut tx| {
+                    tx.uncommit_changes_from_commit(source.commit_id, changes.clone())?;
+                    Ok(())
+                },
+            )?;
+            ensure_uncommit_causes_no_conflicts(ctx, meta, perm, "hunks", &workspace)?;
 
             let but_api::commit::types::MoveChangesResult { workspace: _ } =
                 but_api::commit::uncommit::commit_uncommit_changes_with_perm(
