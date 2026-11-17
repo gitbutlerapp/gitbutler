@@ -741,6 +741,24 @@ impl WorkspaceGraph {
                 refs_awaiting_commit.entry(to).or_default().extend(refs);
             }
         }
+        // The branches no stack claims and no metadata names on each commit, which can't tell
+        // where a segment starts when there are several of them.
+        let mut ambiguous_branches_by_commit = HashMap::<gix::ObjectId, usize>::new();
+        for (i, node) in self.nodes.iter().enumerate() {
+            if let NodeWeight::Ref { full_name } = &node.weight
+                && full_name.category() == Some(gix::refs::Category::LocalBranch)
+                && self.unclaimed_branches.contains(full_name)
+                && crate::init::walk::extract_local_branch_metadata(
+                    full_name.as_ref(),
+                    overlay_meta,
+                )?
+                .is_none()
+            {
+                *ambiguous_branches_by_commit
+                    .entry(self.commit_id_of(i))
+                    .or_default() += 1;
+            }
+        }
 
         for (i, node) in self.nodes.iter().enumerate() {
             let mut predecessor_segment_info = node_index_to_predecessor_segment_info
@@ -896,7 +914,18 @@ impl WorkspaceGraph {
                                     overlay_meta,
                                 )?
                                 .is_none();
-                            ((continues_anonymous || shares_segment)
+                            // Like after a traversal, a lane goes on through several branches
+                            // that nothing tells apart, recording them on its commit.
+                            let continues_through_ambiguous = !segment.commits.is_empty()
+                                && segment.workspace_metadata().is_none()
+                                && !segment.ref_info.as_ref().is_some_and(|ref_info| {
+                                    is_workspace_ref_name(ref_info.ref_name.as_ref())
+                                })
+                                && self.unclaimed_branches.contains(full_name)
+                                && ambiguous_branches_by_commit
+                                    .get(&self.commit_id_of(i))
+                                    .is_some_and(|count| *count > 1);
+                            ((continues_anonymous || shares_segment || continues_through_ambiguous)
                                 && !worktree_by_branch.contains_key(full_name))
                             .then_some(segment_index)
                         }
