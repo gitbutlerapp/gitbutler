@@ -447,24 +447,52 @@ pub(crate) fn graph(
                     .extend(stack_of_branch(&stacks, full_name.as_ref()).iter().cloned());
             }
             // Without a workspace commit, the workspace reference sits on top
-            // of the branches on its commit, whichever stack they belong to.
-            if is_workspace_ref_name(full_name.as_ref()) {
-                new_stack_lineage.is_unclaimed_workspace_edge = true;
-            }
-            new_map
-                .entry(new_stack_lineage)
-                .or_default()
-                .push(ToRepoint {
-                    node_index,
-                    parent_index: 0,
-                });
+            // of the branches on its commit, whichever stack they belong to,
+            // unless several stacks of the workspace rest on that commit: then,
+            // like the parents of a workspace commit, it leads to each of them.
+            let stacks_resting_here: Vec<&Stack> =
+                if is_workspace_ref_name(full_name.as_ref()) && workspace_commit.is_none() {
+                    stacks
+                        .iter()
+                        .filter(|stack| stack.in_workspace && stack.tip == commit_id)
+                        .collect()
+                } else {
+                    Vec::new()
+                };
+            let parent_count = if stacks_resting_here.len() > 1 {
+                for (parent_index, stack) in stacks_resting_here.iter().enumerate() {
+                    new_map
+                        .entry(StackLineage {
+                            branches_in_lineage: stack.branches.iter().cloned().collect(),
+                            is_unclaimed_workspace_edge: false,
+                        })
+                        .or_default()
+                        .push(ToRepoint {
+                            node_index,
+                            parent_index,
+                        });
+                }
+                stacks_resting_here.len()
+            } else {
+                if is_workspace_ref_name(full_name.as_ref()) {
+                    new_stack_lineage.is_unclaimed_workspace_edge = true;
+                }
+                new_map
+                    .entry(new_stack_lineage)
+                    .or_default()
+                    .push(ToRepoint {
+                        node_index,
+                        parent_index: 0,
+                    });
+                1
+            };
             unassigned_oid_map.insert(commit_id, new_map);
 
             // 3. Push the node for this ref.
 
             nodes.push(Node {
                 weight: NodeWeight::Ref { full_name },
-                parents: vec![UNKNOWN_PARENT_NODE_INDEX],
+                parents: vec![UNKNOWN_PARENT_NODE_INDEX; parent_count],
             });
         }
 
@@ -856,7 +884,13 @@ impl WorkspaceGraph {
                                                     ref_info.ref_name.as_ref(),
                                                 )))
                                 });
+                            let in_workspace = segment.commits.last().is_some_and(|commit| {
+                                commit.flags.contains(CommitFlags::InWorkspace)
+                            });
                             let continues_anonymous = segment.ref_info.is_none()
+                                && !(in_workspace
+                                    && full_name.category()
+                                        == Some(gix::refs::Category::LocalBranch))
                                 && crate::init::walk::extract_local_branch_metadata(
                                     full_name.as_ref(),
                                     overlay_meta,
@@ -1290,9 +1324,12 @@ impl WorkspaceGraph {
         // The entrypoint so far is the first commit of the walk, which may lie above what the
         // graph is seen from, like a remote-tracking branch that is ahead.
         let entrypoint = match seen_from_ref {
+            // An empty segment leading to several lanes, like a workspace reference without
+            // its workspace commit, is seen from the commit it's on.
             Some(name) => graph
                 .segment_and_commit_by_ref_name(name)
-                .map(|(segment, commit)| (segment.id, commit.id)),
+                .map(|(segment, commit)| (segment.id, commit.id))
+                .or_else(|| Some((graph.segment_by_ref_name(name)?.id, seen_from_commit?))),
             None => seen_from_commit.and_then(|commit_id| {
                 let segment_index = graph.segment_id_by_commit_id(commit_id).ok()?;
                 Some((segment_index, commit_id))
