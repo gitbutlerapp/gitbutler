@@ -723,10 +723,13 @@ pub fn apply(
         }))
         .with_branch_metadata_override(branch_mds)
         .with_workspace_metadata_override(ws_md_override);
-    let ws = ws
-        .graph
-        .redo_traversal_with_overlay(repo, meta, overlay.clone())?
-        .into_workspace()?;
+    let ws = super::reprojected(
+        &ws,
+        repo,
+        meta,
+        overlay.clone(),
+        Some((Some(workspace_ref_name_to_update.as_ref()), ws_ref_id)),
+    )?;
 
     let all_applied_branches_are_already_visible = branches_to_apply
         .iter()
