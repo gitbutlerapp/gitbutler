@@ -27,10 +27,10 @@ export type AbsorptionTarget = {
 /** Result of adding a local repository as a project. */
 export type AddProjectOutcome = {
   type: "added";
-  subject: ProjectForFrontend;
+  subject: Project;
 } | {
   type: "alreadyExists";
-  subject: ProjectForFrontend;
+  subject: Project;
 } | {
   type: "pathNotFound";
 } | {
@@ -1965,10 +1965,8 @@ export type PadLine = "blank" | "ancestor" | "parent";
 /**
  * API-specific project type that can be enriched with computed/derived data
  * while preserving the original project structure for persistence.
- *
- * Not registered for ts types because it is only consumed while flattened
  */
-export type ProjectForFrontend = {
+export type Project = {
   id: string;
   title: string;
   description: string | null;

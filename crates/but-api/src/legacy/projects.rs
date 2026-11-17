@@ -102,18 +102,14 @@ pub fn get_project(
 /// List all stored projects, skipping those that fail to migrate.
 #[but_api]
 #[instrument(err(Debug))]
-pub fn list_projects() -> Result<Vec<ProjectForFrontend>> {
+pub fn list_projects() -> Result<Vec<gitbutler_project::api::Project>> {
     gitbutler_project::assure_app_can_startup_or_fix_it(
         gitbutler_project::dangerously_list_projects_without_migration(),
     )
     .map(|projects| {
         projects
             .into_iter()
-            .map(|project| {
-                anyhow::Ok(ProjectForFrontend {
-                    inner: project.migrated().map(Into::into)?,
-                })
-            })
+            .map(|project| project.migrated().map(Into::into))
             .filter_map(|res| match res {
                 Ok(p) => Some(p),
                 Err(err) => {
@@ -174,27 +170,16 @@ pub fn is_gerrit(ctx: &but_ctx::Context) -> Result<bool> {
     )
 }
 
-#[derive(serde::Serialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-pub struct ProjectForFrontend {
-    #[serde(flatten)]
-    pub inner: gitbutler_project::api::Project,
-}
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(ProjectForFrontend);
-
 pub mod json {
-    use super::ProjectForFrontend;
-
     /// Result of adding a local repository as a project.
     #[derive(serde::Serialize)]
     #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
     #[serde(rename_all = "camelCase", tag = "type", content = "subject")]
     pub enum AddProjectOutcome {
         /// The repository was added.
-        Added(ProjectForFrontend),
+        Added(gitbutler_project::api::Project),
         /// The repository was already configured.
-        AlreadyExists(ProjectForFrontend),
+        AlreadyExists(gitbutler_project::api::Project),
         /// The selected path does not exist.
         PathNotFound,
         /// The selected path is not a directory.
@@ -220,12 +205,8 @@ pub mod json {
             use gitbutler_project::AddProjectOutcome as Domain;
 
             match value {
-                Domain::Added(project) => Self::Added(ProjectForFrontend {
-                    inner: project.into(),
-                }),
-                Domain::AlreadyExists(project) => Self::AlreadyExists(ProjectForFrontend {
-                    inner: project.into(),
-                }),
+                Domain::Added(project) => Self::Added(project.into()),
+                Domain::AlreadyExists(project) => Self::AlreadyExists(project.into()),
                 Domain::PathNotFound => Self::PathNotFound,
                 Domain::NotADirectory => Self::NotADirectory,
                 Domain::BareRepository => Self::BareRepository,

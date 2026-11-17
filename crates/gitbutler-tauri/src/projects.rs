@@ -15,7 +15,7 @@ use crate::{WindowState, window, window::state::ProjectAccessMode};
 
 #[tauri::command(async)]
 #[instrument(err(Debug))]
-pub fn list_projects() -> Result<Vec<but_api::legacy::projects::ProjectForFrontend>, json::Error> {
+pub fn list_projects() -> Result<Vec<gitbutler_project::api::Project>, json::Error> {
     but_api::legacy::projects::list_projects().map_err(Into::into)
 }
 

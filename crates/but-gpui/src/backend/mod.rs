@@ -93,7 +93,7 @@ pub fn list_projects() -> Result<Vec<Project>> {
     let mut projects: Vec<Project> = but_api::legacy::projects::list_projects()?
         .into_iter()
         .filter_map(|entry| {
-            let project: gitbutler_project::Project = entry.inner.into();
+            let project: gitbutler_project::Project = entry.into();
             let git_dir = project.git_dir();
             let path = match git_dir.ends_with(".git") {
                 true => git_dir.parent()?.to_owned(),
