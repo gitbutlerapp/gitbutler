@@ -7,32 +7,35 @@
 			"teal": {
 				"primary": "teal-9",
 				"primary-hover": "teal-10",
+				"primary-mark": "teal-mark",
 				"primary-soft": "teal-a3",
 				"primary-soft-foreground": "teal-11",
 				"primary-soft-hover": "teal-a4",
 				"primary-surface": "teal-3",
 				"primary-surface-hover": "teal-4",
-				"primary-text": "teal-11"
+				"primary-text": "teal-text"
 			},
 			"blue": {
 				"primary": "blue-9",
 				"primary-hover": "blue-10",
+				"primary-mark": "blue-mark",
 				"primary-soft": "blue-a3",
 				"primary-soft-foreground": "blue-11",
 				"primary-soft-hover": "blue-a4",
 				"primary-surface": "blue-3",
 				"primary-surface-hover": "blue-4",
-				"primary-text": "blue-11"
+				"primary-text": "blue-text"
 			},
 			"purple": {
 				"primary": "purple-9",
 				"primary-hover": "purple-10",
+				"primary-mark": "purple-mark",
 				"primary-soft": "purple-a3",
 				"primary-soft-foreground": "purple-11",
 				"primary-soft-hover": "purple-a4",
 				"primary-surface": "purple-3",
 				"primary-surface-hover": "purple-4",
-				"primary-text": "purple-11"
+				"primary-text": "purple-text"
 			}
 		},
 		"custom": {
@@ -42,86 +45,96 @@
 			"tokens": {
 				"primary": {
 					"light": {
-						"lightness": 0.512,
+						"lightness": 0.551,
 						"chroma": 1
 					},
 					"dark": {
 						"lightness": 0.512,
-						"chroma": 1
+						"chroma": 0.935
 					}
 				},
 				"primary-hover": {
 					"light": {
-						"lightness": 0.481,
-						"chroma": 0.943
+						"lightness": 0.522,
+						"chroma": 0.951
 					},
 					"dark": {
 						"lightness": 0.481,
-						"chroma": 0.943
+						"chroma": 0.882
+					}
+				},
+				"primary-mark": {
+					"light": {
+						"lightness": 0.578,
+						"chroma": 1.046
+					},
+					"dark": {
+						"lightness": 0.732,
+						"chroma": 1.101
 					}
 				},
 				"primary-soft": {
 					"light": {
 						"lightness": 0.766,
-						"chroma": 1.4,
+						"chroma": 1.309,
 						"alpha": 0.15
 					},
 					"dark": {
 						"lightness": 0.905,
-						"chroma": 1.639,
+						"chroma": 1.532,
 						"alpha": 0.13
 					}
 				},
 				"primary-soft-foreground": {
 					"light": {
 						"lightness": 0.452,
-						"chroma": 0.889
+						"chroma": 0.831
 					},
 					"dark": {
 						"lightness": 0.827,
-						"chroma": 1.31
+						"chroma": 1.224
 					}
 				},
 				"primary-soft-hover": {
 					"light": {
 						"lightness": 0.73,
-						"chroma": 1.326,
+						"chroma": 1.24,
 						"alpha": 0.25
 					},
 					"dark": {
 						"lightness": 0.905,
-						"chroma": 1.639,
+						"chroma": 1.532,
 						"alpha": 0.19
 					}
 				},
 				"primary-surface": {
 					"light": {
 						"lightness": 0.955,
-						"chroma": 0.319
+						"chroma": 0.298
 					},
 					"dark": {
 						"lightness": 0.274,
-						"chroma": 0.394
+						"chroma": 0.368
 					}
 				},
 				"primary-surface-hover": {
 					"light": {
 						"lightness": 0.928,
-						"chroma": 0.52
+						"chroma": 0.486
 					},
 					"dark": {
 						"lightness": 0.317,
-						"chroma": 0.551
+						"chroma": 0.515
 					}
 				},
 				"primary-text": {
 					"light": {
-						"lightness": 0.452,
-						"chroma": 0.889
+						"lightness": 0.481,
+						"chroma": 0.882
 					},
 					"dark": {
-						"lightness": 0.827,
-						"chroma": 1.31
+						"lightness": 0.732,
+						"chroma": 1.101
 					}
 				}
 			}

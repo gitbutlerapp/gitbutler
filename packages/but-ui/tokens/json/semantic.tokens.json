@@ -104,12 +104,12 @@
       },
       "text": {
         "$type": "color",
-        "$value": "{ramps.teal.11}",
-        "$description": "The accent text: reads at 4.5:1 on background, muted and primary/soft.",
+        "$value": "{ramps.teal.text}",
+        "$description": "The accent text: reads at 4.5:1 on background, canvas and muted. On primary/soft or primary/surface, use primary/soft/foreground.",
         "$extensions": {
           "mode": {
-            "light": "{ramps.teal.11}",
-            "dark": "{ramps.teal.11}"
+            "light": "{ramps.teal.text}",
+            "dark": "{ramps.teal.text}"
           }
         }
       },
@@ -222,6 +222,17 @@
             }
           }
         }
+      },
+      "mark": {
+        "$type": "color",
+        "$value": "{ramps.teal.mark}",
+        "$description": "The accent as a mark: an icon, a dot, a switch or a light with no text beside it, at 3:1 on background, canvas and muted. Never text; text takes primary/text.",
+        "$extensions": {
+          "mode": {
+            "light": "{ramps.teal.mark}",
+            "dark": "{ramps.teal.mark}"
+          }
+        }
       }
     },
     "danger": {
@@ -249,12 +260,12 @@
       },
       "text": {
         "$type": "color",
-        "$value": "{ramps.red.11}",
-        "$description": "Danger text: reads at 4.5:1 on background, muted and danger/soft.",
+        "$value": "{ramps.red.text}",
+        "$description": "Danger text: reads at 4.5:1 on background, canvas and muted. On danger/soft or danger/surface, use danger/soft/foreground.",
         "$extensions": {
           "mode": {
-            "light": "{ramps.red.11}",
-            "dark": "{ramps.red.11}"
+            "light": "{ramps.red.text}",
+            "dark": "{ramps.red.text}"
           }
         }
       },
@@ -365,6 +376,17 @@
               "light": "{ramps.red.4}",
               "dark": "{ramps.red.4}"
             }
+          }
+        }
+      },
+      "mark": {
+        "$type": "color",
+        "$value": "{ramps.red.mark}",
+        "$description": "Danger as a mark: an icon, a dot, a switch or a light with no text beside it, at 3:1 on background, canvas and muted. Never text; text takes danger/text.",
+        "$extensions": {
+          "mode": {
+            "light": "{ramps.red.mark}",
+            "dark": "{ramps.red.mark}"
           }
         }
       }
@@ -531,12 +553,12 @@
       },
       "text": {
         "$type": "color",
-        "$value": "{ramps.amber.11}",
-        "$description": "Warning text: reads at 4.5:1 on background, muted and warning/soft.",
+        "$value": "{ramps.amber.text}",
+        "$description": "Warning text: reads at 4.5:1 on background, canvas, muted and warning/outline-hover. On warning/soft or warning/surface, use warning/soft/foreground.",
         "$extensions": {
           "mode": {
-            "light": "{ramps.amber.11}",
-            "dark": "{ramps.amber.11}"
+            "light": "{ramps.amber.text}",
+            "dark": "{ramps.amber.text}"
           }
         }
       },
@@ -660,6 +682,17 @@
             "dark": "{ramps.amber.a2}"
           }
         }
+      },
+      "mark": {
+        "$type": "color",
+        "$value": "{ramps.amber.mark}",
+        "$description": "Warning as a mark: an icon, a dot, a switch or a light with no text beside it, at 3:1 on background, canvas and muted. Never text; text takes warning/text.",
+        "$extensions": {
+          "mode": {
+            "light": "{ramps.amber.mark}",
+            "dark": "{ramps.amber.mark}"
+          }
+        }
       }
     },
     "success": {
@@ -687,12 +720,12 @@
       },
       "text": {
         "$type": "color",
-        "$value": "{ramps.green.11}",
-        "$description": "Success text: reads at 4.5:1 on background, muted and success/soft.",
+        "$value": "{ramps.green.text}",
+        "$description": "Success text: reads at 4.5:1 on background, canvas, muted and success/outline-hover. On success/soft or success/surface, use success/soft/foreground.",
         "$extensions": {
           "mode": {
-            "light": "{ramps.green.11}",
-            "dark": "{ramps.green.11}"
+            "light": "{ramps.green.text}",
+            "dark": "{ramps.green.text}"
           }
         }
       },
@@ -816,6 +849,17 @@
             "dark": "{ramps.green.a2}"
           }
         }
+      },
+      "mark": {
+        "$type": "color",
+        "$value": "{ramps.green.mark}",
+        "$description": "Success as a mark: an icon, a dot, a switch or a light with no text beside it, at 3:1 on background, canvas and muted. Never text; text takes success/text.",
+        "$extensions": {
+          "mode": {
+            "light": "{ramps.green.mark}",
+            "dark": "{ramps.green.mark}"
+          }
+        }
       }
     },
     "done": {
@@ -843,12 +887,12 @@
       },
       "text": {
         "$type": "color",
-        "$value": "{ramps.purple.11}",
-        "$description": "Done text: reads at 4.5:1 on background, muted and done/soft.",
+        "$value": "{ramps.purple.text}",
+        "$description": "Done text: reads at 4.5:1 on background, canvas and muted. On done/soft or done/surface, use done/soft/foreground.",
         "$extensions": {
           "mode": {
-            "light": "{ramps.purple.11}",
-            "dark": "{ramps.purple.11}"
+            "light": "{ramps.purple.text}",
+            "dark": "{ramps.purple.text}"
           }
         }
       },
@@ -961,6 +1005,17 @@
             }
           }
         }
+      },
+      "mark": {
+        "$type": "color",
+        "$value": "{ramps.purple.mark}",
+        "$description": "Done as a mark: an icon, a dot, a switch or a light with no text beside it, at 3:1 on background, canvas and muted. Never text; text takes done/text.",
+        "$extensions": {
+          "mode": {
+            "light": "{ramps.purple.mark}",
+            "dark": "{ramps.purple.mark}"
+          }
+        }
       }
     },
     "foreground": {
@@ -988,12 +1043,12 @@
     "info": {
       "text": {
         "$type": "color",
-        "$value": "{ramps.blue.11}",
-        "$description": "Info text: reads at 4.5:1 on background, muted and info/soft.",
+        "$value": "{ramps.blue.text}",
+        "$description": "Info text: reads at 4.5:1 on background, canvas, muted and info/outline-hover. On info/soft or info/surface, use info/soft/foreground.",
         "$extensions": {
           "mode": {
-            "light": "{ramps.blue.11}",
-            "dark": "{ramps.blue.11}"
+            "light": "{ramps.blue.text}",
+            "dark": "{ramps.blue.text}"
           }
         }
       },
@@ -1137,6 +1192,17 @@
           "mode": {
             "light": "{ramps.blue.a2}",
             "dark": "{ramps.blue.a2}"
+          }
+        }
+      },
+      "mark": {
+        "$type": "color",
+        "$value": "{ramps.blue.mark}",
+        "$description": "Info as a mark: an icon, a dot, a switch or a light with no text beside it, at 3:1 on background, canvas and muted. Never text; text takes info/text.",
+        "$extensions": {
+          "mode": {
+            "light": "{ramps.blue.mark}",
+            "dark": "{ramps.blue.mark}"
           }
         }
       }
@@ -1896,7 +1962,7 @@
           "semantic",
           "ramps"
         ],
-        "createdAt": "2026-11-14T23:56:28.334Z"
+        "createdAt": "2026-11-17T13:57:51.420Z"
       }
     }
   }

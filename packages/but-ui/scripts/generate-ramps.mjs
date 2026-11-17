@@ -3,7 +3,9 @@
 // names make from them read. Steps keep Radix's jobs: 1–2 grounds, 3–5 tints (3 soft, 4 its
 // hover), 6–8 lines, 9 the solid fill and 10 its hover, 11 text, 12 strong text. Each colour
 // (not gray or a ground) also has a2, a3 and a4, see-through: a2 for a coloured outline's hover,
-// a3 and a4 for the soft fills, each half a step past steps 2, 3 and 4.
+// a3 and a4 for the soft fills, each half a step past steps 2, 3 and 4. And it has text and
+// mark: the colour picked, moved only as far from the plain grounds as text (4.5:1) and a mark
+// (3:1) need, where step 11 is held to the tinted fills too and comes out darker.
 //
 //   node scripts/generate-ramps.mjs          writes tokens/ramps.json and prints the report
 //   node scripts/generate-ramps.mjs --check  fails if tokens/ramps.json is out of date
@@ -12,7 +14,7 @@
 // tokens are exported from.
 
 import * as radix from "@radix-ui/colors";
-import { clampChroma, differenceEuclidean, formatHex, oklch, parse } from "culori";
+import { clampChroma, differenceEuclidean, displayable, formatHex, oklch, parse } from "culori";
 import { DittoTones } from "dittotones";
 import { radixRamps } from "dittotones/ramps/radix";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -40,7 +42,14 @@ const HUES = {
 
 // Every floor is aimed a little above its minimum, so rounding to hex never lands on 4.49.
 const TEXT = 4.5 + 0.05;
+const MARK = 3 + 0.05;
 const LABEL_LC = 60 + 1;
+// A light fill under a white label (a button, a solid badge) reads by APCA alone, at Lc 70:
+// halfway between WCAG 2's 4.5:1, which darkens teal and green to murk, and Figma's own Lc 61.
+// Teal and green labels come to about 3.8:1 by WCAG 2. Dark mode's fills keep both floors.
+const LIGHT_FILL_LC = 70 + 1;
+// How much of the chroma left at a fill's luminance it takes: all of it is garish in purple.
+const FILL_VIVID = 0.7;
 
 function rgb(hex) {
 	return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
@@ -70,6 +79,27 @@ function apca(text, ground) {
 // Whether a label of colour `on` reads on `fill`.
 function reads(on, fill) {
 	return wcag(on, fill) >= TEXT && apca(on, fill) >= LABEL_LC;
+}
+// Whether a white label reads on a light mode fill.
+function readsOnLight(fill) {
+	return apca("#ffffff", fill) >= LIGHT_FILL_LC;
+}
+// `hex` given FILL_VIVID of the chroma left at its luminance: more colour, the same contrast.
+function vivid(hex) {
+	const c = oklch(parse(hex));
+	const want = luminance(hex);
+	function at(chroma) {
+		let [lo, hi] = [0, 1];
+		for (let i = 0; i < 40; i++) {
+			const mid = (lo + hi) / 2;
+			if (luminance(formatHex({ ...c, l: mid, c: chroma })) < want) lo = mid;
+			else hi = mid;
+		}
+		return { ...c, l: (lo + hi) / 2, c: chroma };
+	}
+	let most = c.c;
+	for (let chroma = c.c + 0.002; displayable(at(chroma)); chroma += 0.002) most = chroma;
+	return formatHex(at(c.c + (most - c.c) * FILL_VIVID));
 }
 
 // `hex`'s tint at the luminance of `like`: its OKLCH lightness found by halving, its hue and
@@ -191,8 +221,14 @@ for (const [hue, { seed, label, ground }] of Object.entries(HUES)) {
 		if (label) {
 			if (label === "white") {
 				// Under white the fill darkens until the label reads, and its hover sits a step darker.
-				s[8] = until(s[8], -0.005, (c) => reads("#ffffff", c));
-				s[9] = until(shift(s[8], -0.03), -0.005, (c) => reads("#ffffff", c));
+				// In light, from the colour itself, by APCA alone, and as vivid as that luminance allows.
+				if (mode === "light") {
+					s[8] = vivid(until(seed, -0.005, readsOnLight));
+					s[9] = until(shift(s[8], -0.03), -0.005, readsOnLight);
+				} else {
+					s[8] = until(s[8], -0.005, (c) => reads("#ffffff", c));
+					s[9] = until(shift(s[8], -0.03), -0.005, (c) => reads("#ffffff", c));
+				}
 			} else {
 				// The fill keeps its colour and the dark text darkens to read on it: light mode's step
 				// 12, which dark mode's fill uses too, as dark mode's 12 is pale. The hover sits a step
@@ -221,7 +257,30 @@ for (const [hue, { seed, label, ground }] of Object.entries(HUES)) {
 			: {};
 		if (gray) grounds.push(over(alphas.a3, gray["3"]));
 		s[10] = until(s[10], away, (c) => grounds.every((g) => wcag(c, g) >= TEXT));
-		ramps[hue][mode] = { ...Object.fromEntries(s.map((c, i) => [String(i + 1), c])), ...alphas };
+		// Text on the plain grounds and the marks, the colour itself moved away from those grounds
+		// only as far as each needs: text to 4.5:1, and a mark (an icon, a dot, a switch, a light,
+		// never text) to 3:1. Step 11 stays the text for the tinted fills, which are darker.
+		const roles = {};
+		if (gray) {
+			const plain = [
+				gray["1"],
+				gray["2"],
+				gray["3"],
+				...(mode === "light" ? ["#ffffff"] : []),
+				// A coloured outline button's hover.
+				over(alphas.a2, gray["1"]),
+			];
+			function reaches(floor) {
+				return (c) => plain.every((g) => wcag(c, g) >= floor);
+			}
+			roles.text = until(seed, away, reaches(TEXT));
+			roles.mark = until(seed, away, reaches(MARK));
+		}
+		ramps[hue][mode] = {
+			...Object.fromEntries(s.map((c, i) => [String(i + 1), c])),
+			...alphas,
+			...roles,
+		};
 		report.push({ hue, mode, moved9: before[9] !== s[8], moved11: before[11] !== s[10], s });
 	}
 }
