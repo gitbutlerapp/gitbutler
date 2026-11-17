@@ -1,8 +1,7 @@
 //! Mutations of commits, branches and uncommitted changes; the UI reloads the workspace
 //! afterwards. An [`Intent`], such as [`Squash`], runs under the one lock [`Run::locked`] takes,
-//! in one `but_transaction` transaction or one `_with_perm` call, recording one oplog entry. One
-//! that makes or moves a branch runs as the CLI's do outside the workspace
-//! ([`SingleBranchMode`]). [`DiscardChanges`] records its own before it writes, as does
+//! in one `but_transaction` transaction or one `_with_perm` call, recording one oplog entry.
+//! [`DiscardChanges`] records its own before it writes, as does
 //! [`super::conflicts::ResolveMarkers`].
 
 use gitbutler_repo::hooks::{ErrorData, HookResult, MessageHookResult};
@@ -17,8 +16,8 @@ use but_core::tree::create_tree::RejectionReason;
 use but_core::{DiffSpec, DryRun, RefMetadata};
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
-use but_transaction::single_branch_mode::SingleBranchMode;
 use but_transaction::{DynamicOutcome, Transaction};
+use but_workspace::branch::create_reference::Anchor;
 use but_workspace::commit::ChangeSource;
 
 use super::intent::Run;
@@ -873,49 +872,33 @@ fn commit_locked(
     let details = SnapshotDetails::new(OperationKind::CreateCommit);
     let mut meta = ctx.meta()?;
     let at = (&branch, below);
-    let outcome = match new_at {
-        // A branch made for it runs as `but commit` makes one.
-        Some((beside, before)) => {
-            let sbm = SingleBranchMode::new(ctx, perm.read_permission(), false)?;
-            let independent = beside.is_none();
-            let order = stack_order(ctx, before.as_ref(), None)?;
-            sbm.transaction_with_workspace_setup(
-                ctx,
-                &mut meta,
-                details,
-                &refs,
-                perm,
-                independent,
-                |mut tx| {
-                    stack_in(&mut tx, restack.as_ref())?;
-                    match &beside {
-                        Some((beside, below)) => sbm.create_stacked_reference(
-                            &mut tx,
-                            branch.as_ref(),
-                            beside.as_ref(),
-                            position(*below),
-                        )?,
-                        // A stack's place is its tip's among the workspace commit's
-                        // parents.
-                        None => sbm.create_unstacked_reference(&mut tx, branch.as_ref(), order)?,
-                    }
-                    commit_in(&mut tx, at, specs, message, source, leave_out)
-                },
-            )?
-        }
-        None => but_transaction::with_transaction_with_perm(
-            ctx,
-            &mut meta,
-            perm,
-            details,
-            &refs,
-            DryRun::No,
-            |mut tx| {
-                stack_in(&mut tx, restack.as_ref())?;
-                commit_in(&mut tx, at, specs, message, source, leave_out)
-            },
-        )?,
+    let order = match &new_at {
+        Some((None, before)) => stack_order(ctx, before.as_ref(), None)?,
+        _ => None,
     };
+    let outcome = but_transaction::with_transaction_with_perm(
+        ctx,
+        &mut meta,
+        perm,
+        details,
+        &refs,
+        DryRun::No,
+        |mut tx| {
+            stack_in(&mut tx, restack.as_ref())?;
+            // A branch made for it is placed as `but commit` places one.
+            match &new_at {
+                Some((Some((beside, below)), _)) => tx.create_reference(
+                    branch.as_ref(),
+                    Anchor::at_segment(beside.as_ref(), position(*below)),
+                    None,
+                )?,
+                // A stack's place is its tip's among the workspace commit's parents.
+                Some((None, _)) => tx.create_reference(branch.as_ref(), None, order)?,
+                None => {}
+            }
+            commit_in(&mut tx, at, specs, message, source, leave_out)
+        },
+    )?;
     match outcome {
         DynamicOutcome::Commit(((made, rejected), _workspace)) => {
             Ok((branch.clone(), made, rejected))
@@ -1021,16 +1004,15 @@ impl Intent for CreateBranch {
             // It lists the new branch, so undo deletes it again.
             let details = SnapshotDetails::new(OperationKind::CreateBranch)
                 .with_trailers([Trailer::Name(new_ref.to_string())]);
-            let sbm = SingleBranchMode::new(ctx, perm.read_permission(), false)?;
             let mut meta = ctx.meta()?;
-            sbm.transaction_with_workspace_setup(
+            but_transaction::with_transaction_with_perm(
                 ctx,
                 &mut meta,
+                perm,
                 details,
                 &[new_ref.as_ref()],
-                perm,
-                true,
-                |mut tx| sbm.create_unstacked_reference(&mut tx, new_ref.as_ref(), None),
+                DryRun::No,
+                |mut tx| tx.create_reference(new_ref.as_ref(), None, None),
             )?;
             Ok(new_ref)
         })
@@ -1052,18 +1034,17 @@ impl Intent for CreateDependentBranch {
             // It lists the new branch, so undo deletes it again.
             let details = SnapshotDetails::new(OperationKind::CreateBranch)
                 .with_trailers([Trailer::Name(new_ref.to_string())]);
-            let sbm = SingleBranchMode::new(ctx, perm.read_permission(), false)?;
             let mut meta = ctx.meta()?;
-            sbm.transaction_with_workspace_setup(
+            but_transaction::with_transaction_with_perm(
                 ctx,
                 &mut meta,
+                perm,
                 details,
                 &[new_ref.as_ref()],
-                perm,
-                false,
+                DryRun::No,
                 |mut tx| {
-                    let (new_ref, below) = (new_ref.as_ref(), self.below.as_ref());
-                    sbm.create_stacked_reference(&mut tx, new_ref, below, position(false))
+                    let above = Anchor::at_segment(self.below.as_ref(), position(false));
+                    tx.create_reference(new_ref.as_ref(), above, None)
                 },
             )?;
             Ok(new_ref)
@@ -1082,7 +1063,7 @@ impl Intent for CreateBranchAtCommit {
     type Done = FullName;
 
     fn apply(self, run: &mut Run) -> Result<FullName> {
-        use but_workspace::branch::create_reference::{Anchor, Position};
+        use but_workspace::branch::create_reference::Position;
         let position = match self.below {
             true => Position::Below,
             false => Position::Above,
@@ -1096,15 +1077,14 @@ impl Intent for CreateBranchAtCommit {
             // It lists the new branch, so undo deletes it again.
             let details = SnapshotDetails::new(OperationKind::CreateBranch)
                 .with_trailers([Trailer::Name(new_ref.to_string())]);
-            let sbm = SingleBranchMode::new(ctx, perm.read_permission(), false)?;
             let mut meta = ctx.meta()?;
-            sbm.transaction_with_workspace_setup(
+            but_transaction::with_transaction_with_perm(
                 ctx,
                 &mut meta,
+                perm,
                 details,
                 &[new_ref.as_ref()],
-                perm,
-                false,
+                DryRun::No,
                 |mut tx| tx.create_reference(new_ref.as_ref(), anchor, None),
             )?;
             Ok(new_ref)
@@ -1180,24 +1160,20 @@ fn move_branch(
         BranchTo::Beside(..) => OperationKind::MoveBranch,
         BranchTo::Apart(_) => OperationKind::TearOffBranch,
     };
-    // Out of a stack, it's a branch of its own, which a branch checked out on its own only has
-    // beside it in GitButler's workspace, as `but move` sets it up.
-    let independent = matches!(to, BranchTo::Apart(_));
     run.locked(|ctx, perm| {
         let was = but_api::legacy::workspace::head_info(ctx)?;
         let order = match &to {
             BranchTo::Apart(before) => stack_order(ctx, before.as_ref(), Some(branch))?,
             BranchTo::Beside(..) => None,
         };
-        let sbm = SingleBranchMode::new(ctx, perm.read_permission(), false)?;
         let mut meta = ctx.meta()?;
-        let moved = sbm.transaction_with_workspace_setup(
+        let moved = but_transaction::with_transaction_with_perm(
             ctx,
             &mut meta,
+            perm,
             SnapshotDetails::new(kind),
             &[],
-            perm,
-            independent,
+            DryRun::No,
             |mut tx| match to {
                 BranchTo::Beside(relative_to, side) => {
                     tx.move_branch(branch.as_ref(), relative_to, side)
@@ -1953,24 +1929,23 @@ impl Intent for MoveToNewBranch {
         run.locked(|ctx, perm| {
             let name = but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?;
             let order = stack_order(ctx, before.as_ref(), None)?;
-            let sbm = SingleBranchMode::new(ctx, perm.read_permission(), false)?;
             let mut meta = ctx.meta()?;
-            let workspace = sbm.transaction_with_workspace_setup(
+            let workspace = but_transaction::with_transaction_with_perm(
                 ctx,
                 &mut meta,
+                perm,
                 details,
                 &[name.as_ref()],
-                perm,
-                beside.is_none(),
+                DryRun::No,
                 |mut tx| {
                     match &beside {
-                        Some((branch, below)) => sbm.create_stacked_reference(
-                            &mut tx,
+                        Some((branch, below)) => tx.create_reference(
                             name.as_ref(),
-                            branch.as_ref(),
-                            position(*below),
+                            Anchor::at_segment(branch.as_ref(), position(*below)),
+                            None,
                         )?,
-                        None => sbm.create_unstacked_reference(&mut tx, name.as_ref(), order)?,
+                        // A stack's place is its tip's among the workspace commit's parents.
+                        None => tx.create_reference(name.as_ref(), None, order)?,
                     }
                     let to = RelativeTo::Reference(name.clone());
                     let ids = commits.iter().map(|commit| commit.0);

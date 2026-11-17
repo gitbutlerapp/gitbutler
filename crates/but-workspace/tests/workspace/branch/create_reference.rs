@@ -2541,6 +2541,100 @@ fn detached_head() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// The stacks `C` over `B` and `A`, with `checkout` checked out on its own and no workspace
+/// reference.
+fn plain_checkout(
+    checkout: &str,
+) -> anyhow::Result<(
+    but_testsupport::gix_testtools::tempfile::TempDir,
+    gix::Repository,
+    but_meta::VirtualBranchesTomlMetadata,
+    but_db::DbHandle,
+    but_graph::Workspace,
+)> {
+    use but_testsupport::CommandExt as _;
+
+    let (tmp, repo, meta, mut db) =
+        named_writable_scenario("ws-ref-ws-commit-single-stack-double-stack")?;
+    but_testsupport::git(&repo)
+        .args(["checkout", checkout])
+        .run();
+    but_testsupport::git(&repo)
+        .args(["update-ref", "-d", "refs/heads/gitbutler/workspace"])
+        .run();
+    let ws = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta(&repo)?,
+        &mut db,
+        Options::limited(),
+    )?
+    .into_workspace()?;
+    Ok((tmp, repo, meta, db, ws))
+}
+
+#[test]
+fn branch_without_anchor_enters_the_workspace_beside_the_checked_out_stack() -> anyhow::Result<()> {
+    let (_tmp, repo, mut meta, mut db, mut ws) = plain_checkout("C")?;
+
+    crate::utils::create_reference(
+        &repo,
+        &mut ws,
+        &mut meta,
+        &mut db,
+        rc("refs/heads/new"),
+        None,
+        None,
+    )?;
+
+    // A workspace commit now holds the stack that was checked out and the new branch.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 09d8e52 (A) A
+| *   f2ca8a1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+| |/  
+| |/  
+|/|   
+| * 09bc93e (C) C
+| * c813d8d (B) B
+|/  
+* 85efbe4 (origin/main, new, main) M
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn branch_without_anchor_is_checked_out_in_place_of_the_target() -> anyhow::Result<()> {
+    let (_tmp, repo, mut meta, mut db, mut ws) = plain_checkout("main")?;
+
+    crate::utils::create_reference(
+        &repo,
+        &mut ws,
+        &mut meta,
+        &mut db,
+        rc("refs/heads/new"),
+        None,
+        None,
+    )?;
+
+    // The target is no lane, so a workspace would hold the new branch alone, and isn't kept.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 09d8e52 (A) A
+| * 09bc93e (C) C
+| * c813d8d (B) B
+|/  
+* 85efbe4 (HEAD -> new, origin/main, main) M
+
+"#]]
+    );
+    Ok(())
+}
+
 /// [`Anchor::AtReference`] in an ad-hoc (single-branch) workspace, where the tip-to-base order of
 /// same-commit branches lives in the `branch_order` table rather than workspace metadata.
 mod ad_hoc_at_reference {

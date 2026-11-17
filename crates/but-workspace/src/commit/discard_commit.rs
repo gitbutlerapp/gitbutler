@@ -2,11 +2,16 @@ use anyhow::bail;
 use but_core::RefMetadata;
 use but_rebase::graph_rebase::{Editor, SuccessfulRebase};
 
+use crate::editor_workspace::leave_unnecessary_workspace;
+
 /// Discard one or more commits in a single rebase operation.
 ///
 /// Each commit is removed from history and its parents are reconnected to its
 /// children. All removals share a single editor session so only one rebase
 /// is performed. Duplicate commit IDs are silently deduplicated.
+///
+/// A workspace that is unnecessary afterwards is left, see
+/// [`leave_unnecessary_workspace()`](crate::editor_workspace::leave_unnecessary_workspace()).
 pub fn discard_commits<'ws, 'meta, M: RefMetadata>(
     mut editor: Editor<'ws, 'meta, M>,
     subject_commits: impl IntoIterator<Item = gix::ObjectId>,
@@ -26,5 +31,5 @@ pub fn discard_commits<'ws, 'meta, M: RefMetadata>(
         bail!("no commit IDs provided for discard");
     }
 
-    editor.rebase()
+    leave_unnecessary_workspace(editor.rebase()?.into_editor())
 }

@@ -1293,7 +1293,7 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    // creating a new branch puts us back on a workspace with the previous and new branches applied
+    // creating a new branch enters a workspace with the checked out and the new branch applied
     env.but("branch new three")
         .assert()
         .success()

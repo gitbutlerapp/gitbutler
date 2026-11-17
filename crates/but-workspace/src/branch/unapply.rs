@@ -133,7 +133,9 @@ pub(crate) mod function {
         },
     };
 
-    use crate::{WorkspaceCommit, branch::try_find_validated_ref};
+    use crate::{
+        WorkspaceCommit, branch::try_find_validated_ref, editor_workspace::dissolve_workspace,
+    };
     use crate::{branch::anon_stacks, ref_info::WorkspaceExt};
     use but_rebase::graph_rebase::{Editor, LookupStep as _, Step, SuccessfulRebase};
 
@@ -218,10 +220,7 @@ pub(crate) mod function {
             };
             if let Some(checkout) = checkout {
                 editor.set_head_checkout(checkout)?;
-                if let Some(workspace_commit) = workspace_commit {
-                    editor.prune(workspace_commit)?;
-                }
-                editor.replace_with_none(workspace_reference)?;
+                dissolve_workspace(&mut editor, workspace_reference)?;
                 return editor.rebase();
             }
         }

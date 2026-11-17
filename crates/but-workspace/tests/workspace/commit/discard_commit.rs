@@ -401,3 +401,25 @@ fn discard_both_commits_in_workspace_stack() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn discarding_the_last_commit_of_an_unnamed_lane_leaves_the_workspace() -> Result<()> {
+    let (_tmp, graph, repo, mut meta, mut db, unnamed) = super::workspace_with_an_unnamed_lane()?;
+
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    discard_commits(editor, [unnamed])?.materialize(Default::default())?;
+
+    // One stack is left, so `HEAD` is on its branch and the workspace commit is gone.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 09bc93e (HEAD -> C) C
+* c813d8d (B) B
+* 85efbe4 (origin/main, main) M
+
+"#]]
+    );
+
+    Ok(())
+}

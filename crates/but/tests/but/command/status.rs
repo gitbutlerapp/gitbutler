@@ -1186,11 +1186,8 @@ Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove 
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* dc0b7ae (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-*   334227d (origin/main, origin/HEAD, top, main, gitbutler/target) merge bottom
+*   334227d (HEAD -> top, origin/main, origin/HEAD, main, gitbutler/target) merge bottom
 |\  
-| | * 07e525c (origin/gitbutler/workspace) GitButler Workspace Commit
-| |/  
 | * 141de4f (origin/top) add bottom
 |/  
 * 563a7fc add base

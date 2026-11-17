@@ -1224,6 +1224,52 @@ fn materialize_checks_out_what_head_checkout_is_set_to() -> Result<()> {
 }
 
 #[test]
+fn materialize_refuses_a_switch_that_overwrites_uncommitted_changes() -> Result<()> {
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
+    let other = gix::refs::FullName::try_from("refs/heads/other")?;
+    let head_name = repo.head_name()?;
+    let parent = repo.rev_parse_single("HEAD~")?.detach();
+    std::fs::write(
+        repo.workdir()
+            .context("the fixture has a worktree")?
+            .join("c"),
+        "changed\n",
+    )?;
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+
+    let reference = editor.add_step(Step::new_reference(other.clone()))?;
+    editor.add_edge(reference, parent, 0)?;
+    editor.switch_head(reference)?;
+
+    let err = editor
+        .rebase()?
+        .materialize(Default::default())
+        .err()
+        .context("the parent has no `c` to keep the change in")?;
+    snapbox::assert_data_eq!(
+        err.to_string(),
+        snapbox::str![[r#"Uncommitted files would be overwritten by checkout: "c""#]]
+    );
+    assert_eq!(repo.head_name()?, head_name, "HEAD stays where it was");
+    assert!(
+        repo.try_find_reference(other.as_ref())?.is_none(),
+        "nothing is written once the checkout is refused"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn materialize_checks_out_another_branch_on_the_same_commit() -> Result<()> {
     let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
     let other = gix::refs::FullName::try_from("refs/heads/other")?;

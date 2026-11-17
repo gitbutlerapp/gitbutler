@@ -9,6 +9,54 @@ mod reword;
 mod squash_commits;
 mod uncommit_changes;
 
+/// A workspace that merges the stack of `C` over `B` with a lane of one commit and no branch,
+/// returned along with that commit.
+fn workspace_with_an_unnamed_lane() -> anyhow::Result<(
+    but_testsupport::gix_testtools::tempfile::TempDir,
+    but_graph::Graph,
+    gix::Repository,
+    but_meta::VirtualBranchesTomlMetadata,
+    but_db::DbHandle,
+    gix::ObjectId,
+)> {
+    use but_testsupport::CommandExt as _;
+    use snapbox::IntoData as _;
+
+    use crate::ref_info::with_workspace_commit::utils::{
+        StackState, add_stack_with_segments, named_writable_scenario_with_description, project_meta,
+    };
+
+    let (tmp, repo, mut meta, _description, mut db) =
+        named_writable_scenario_with_description("ws-ref-ws-commit-single-stack-double-stack")?;
+    add_stack_with_segments(&mut meta, 2, "C", StackState::InWorkspace, &["B"]);
+    let unnamed = repo.rev_parse_single("A")?.detach();
+    but_testsupport::git(&repo)
+        .args(["branch", "-D", "A"])
+        .run();
+    snapbox::assert_data_eq!(
+        but_testsupport::visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*   f3e1bf2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 09d8e52 A
+* | 09bc93e (C) C
+* | c813d8d (B) B
+|/  
+* 85efbe4 (origin/main, main) M
+
+"#]]
+        .raw()
+    );
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta(&repo)?,
+        &mut db,
+        but_graph::init::Options::limited(),
+    )?;
+    Ok((tmp, graph, repo, meta, db, unnamed))
+}
+
 mod from_new_merge_with_metadata {
     use bstr::ByteSlice;
     use but_core::ref_metadata::WorkspaceCommitRelation::Outside;

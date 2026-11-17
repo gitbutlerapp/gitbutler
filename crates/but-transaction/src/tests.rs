@@ -88,8 +88,7 @@ fn squashing_three_commits() {
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 12cb130 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* c0462e6 (branch) squashed
+* c0462e6 (HEAD -> branch) squashed
 * 6674d4f (origin/main, origin/HEAD, main, gitbutler/target) add random-file
 
 "#]]
@@ -278,7 +277,7 @@ fn create_reference_at_commit_then_commit_and_checkout() {
             assert_eq!(
                 ref_target(&env, new_branch.as_ref()),
                 None,
-                "rollback and dry run must remove the eagerly created reference"
+                "rollback and dry run must not create the reference"
             );
             assert_eq!(
                 repo.head_name().unwrap().unwrap(),
@@ -310,12 +309,12 @@ fn create_reference_at_commit_then_commit_and_checkout() {
                 base,
                 "the new branch must start at the requested base, not the old HEAD"
             );
-            assert!(
+            assert_eq!(
                 ctx.meta()
                     .unwrap()
                     .branch_stack_order(new_branch.as_ref())
-                    .unwrap()
-                    .is_none(),
+                    .unwrap(),
+                Some(vec![new_branch.clone()]),
                 "independent creation must not record a stack relationship with the base"
             );
             assert_num_snapshots(&ctx, 1);
@@ -948,8 +947,7 @@ fn move_commits_then_commit_relative_to_moved_commit() {
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* d70d81f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 3fb70d9 (branch) 
+* 3fb70d9 (HEAD -> branch) 
 * b18afe3 add file-one
 * 5fdd02a add file-three
 * 0d4aae5 add file-two
@@ -991,8 +989,7 @@ fn move_commits_reorders_multiple_subjects() {
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 7fc8bdd (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* aedbf87 (branch) add file-two
+* aedbf87 (HEAD -> branch) add file-two
 * 18aee11 add file-one
 * 647709c add file-three
 * 6674d4f (origin/main, origin/HEAD, main, gitbutler/target) add random-file
@@ -1189,8 +1186,7 @@ fn discarding_three_commits() {
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 8413d71 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 6674d4f (origin/main, origin/HEAD, main, gitbutler/target, branch) add random-file
+* 6674d4f (HEAD -> branch, origin/main, origin/HEAD, main, gitbutler/target) add random-file
 
 "#]]
     );

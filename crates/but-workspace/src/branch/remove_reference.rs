@@ -15,8 +15,13 @@ pub struct Options {
 use anyhow::{Context as _, bail};
 use but_core::RefMetadata;
 use but_error::bail_precondition;
+use but_rebase::graph_rebase::{Editor, SuccessfulRebase};
 use gix::refs::transaction::PreviousValue;
 use itertools::Itertools as _;
+
+use crate::editor_workspace::{
+    leave_unnecessary_workspace, remove_lane_without_tip, switch_to_workspace,
+};
 
 /// Delete `ref_name` and its local branch configuration, returning whether the ref existed.
 ///
@@ -172,4 +177,26 @@ pub fn remove_reference(
     } else {
         Ok(Some(ws))
     }
+}
+
+/// Remove the branch `ref_name` from the step graph of `editor`, keeping its commits.
+///
+/// A lane that it leaves with nothing but the target beneath is taken out of the workspace
+/// commit, and a workspace that is unnecessary afterwards is left, see
+/// [`leave_unnecessary_workspace()`](crate::editor_workspace::leave_unnecessary_workspace()).
+/// With a target, `HEAD` on `ref_name` alone enters the workspace where it is rather than being
+/// left detached, so it's left again for the local target or the branch below if either has the
+/// same files.
+pub fn drop_reference<'ws, 'meta, M: RefMetadata>(
+    mut editor: Editor<'ws, 'meta, M>,
+    ref_name: &gix::refs::FullNameRef,
+) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+    let reference = editor.select_reference(ref_name)?;
+    let head_was_on_it = editor.head() == Some(reference) && editor.target_ref().is_some();
+    editor.replace_with_none(reference)?;
+    remove_lane_without_tip(&mut editor, reference)?;
+    if head_was_on_it {
+        editor = switch_to_workspace(editor)?.0.into_editor();
+    }
+    leave_unnecessary_workspace(editor.rebase()?.into_editor())
 }

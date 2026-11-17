@@ -118,7 +118,7 @@ Squashed wmm into zxw
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ br [a-branch-1]
+┊╭┄ br [a-branch-1] [HEAD]
 ┊●   zxw squashed
 ┊│     zxw:o A three
 ┊│     zxw:t A two
@@ -164,7 +164,7 @@ Squashed wmm, zxw into unl
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ br [a-branch-1]
+┊╭┄ br [a-branch-1] [HEAD]
 ┊●   unl squashed
 ┊│     unl:k A one
 ┊│     unl:o A three
@@ -198,7 +198,7 @@ Squashed unl into wmm
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ br [a-branch-1]
+┊╭┄ br [a-branch-1] [HEAD]
 ┊●   wmm squashed
 ┊│     wmm:k A one
 ┊│     wmm:o A three
@@ -229,7 +229,7 @@ Squashed wmm into unl
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ br [a-branch-1]
+┊╭┄ br [a-branch-1] [HEAD]
 ┊●   zxw add two
 ┊│     zxw:t A two
 ┊●   unl squashed
@@ -258,7 +258,7 @@ fn use_target_message() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ br [a-branch-1]
+┊╭┄ br [a-branch-1] [HEAD]
 ┊● zxw author 2000-01-01 00:00:00 +0000 (sha 24ba093)
 ┊│     add two
 ┊│     zxw:o A three
@@ -289,7 +289,7 @@ fn use_source_message() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ br [a-branch-1]
+┊╭┄ br [a-branch-1] [HEAD]
 ┊● zxw author 2000-01-01 00:00:00 +0000 (sha 83dd951)
 ┊│     add three
 ┊│     zxw:o A three
@@ -324,7 +324,7 @@ Squashed branch 'a-branch-1' into unl
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ br [a-branch-1]
+┊╭┄ br [a-branch-1] [HEAD]
 ┊● unl author 2000-01-01 00:00:00 +0000 (sha ed1d278)
 ┊│     squashed a branch
 ┊│     unl:k A one
@@ -357,7 +357,7 @@ Squashed branch 'a-branch-1' into zxw
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ br [a-branch-1]
+┊╭┄ br [a-branch-1] [HEAD]
 ┊● zxw author 2000-01-01 00:00:00 +0000 (sha 1a1b8f3)
 ┊│     add two
 ┊│     zxw:k A one
@@ -559,7 +559,7 @@ Squashed branch 'a-branch-1' into unl
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ br [a-branch-1]
+┊╭┄ br [a-branch-1] [HEAD]
 ┊● unl author 2000-01-01 00:00:00 +0000 (sha a806dcc)
 ┊│     message from editor
 ┊│     unl:k A one
@@ -598,7 +598,7 @@ Squashed branch 'a-branch-1' into unl
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ br [a-branch-1]
+┊╭┄ br [a-branch-1] [HEAD]
 ┊● unl author 2000-01-01 00:00:00 +0000 (sha 615f4cb)
 ┊│     add one  add three  add two
 ┊│     unl:k A one
@@ -630,7 +630,7 @@ fn agent_squash_without_message_keeps_combined_message_instead_of_editor() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ br [a-branch-1]
+┊╭┄ br [a-branch-1] [HEAD]
 ┊● unl author 2000-01-01 00:00:00 +0000 (sha 615f4cb)
 ┊│     add one  add three  add two
 ┊│     unl:k A one
@@ -661,7 +661,7 @@ fn json_squash_without_message_keeps_combined_message_instead_of_editor() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ br [a-branch-1]
+┊╭┄ br [a-branch-1] [HEAD]
 ┊● unl author 2000-01-01 00:00:00 +0000 (sha 615f4cb)
 ┊│     add one  add three  add two
 ┊│     unl:k A one
@@ -978,7 +978,7 @@ Squashed wmm into zxw
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ br [a-branch-1]
+┊╭┄ br [a-branch-1] [HEAD]
 ┊●   zxw add two
 ┊│     zxw:o A three
 ┊│     zxw:t A two
@@ -1489,7 +1489,7 @@ Uncommitted wmm
 ╭┄ @ [uncommitted]
 ┊   or A three
 ┊
-┊╭┄ br [a-branch-1]
+┊╭┄ br [a-branch-1] [HEAD]
 ┊●   zxw add two
 ┊│     zxw:t A two
 ┊●   unl add one
@@ -2314,7 +2314,7 @@ fn commit_without_message_to_commit() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊●   our add one.txt
 ┊●   tpm add A
 ├╯
@@ -3013,7 +3013,7 @@ Hint: run `but help` for all commands
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊●   tpm add A
 ┊│     tpm:t A A
 ├╯
@@ -3065,7 +3065,7 @@ Hint: run `but help` for all commands
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊●   orn add A
 ┊│     orn:t A A
 ├╯
@@ -3119,7 +3119,7 @@ Hint: run `but help` for all commands
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊●   orn (no commit message) (no changes)
 ┊●   tpm add A
 ┊│     tpm:t A A
@@ -3418,8 +3418,7 @@ Squashed nsn into tpm
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* c773930 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 53e4c58 (wt-feature, A) add A and W
+* 53e4c58 (HEAD -> A, wt-feature) add A and W
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]
@@ -3428,7 +3427,6 @@ Squashed nsn into tpm
     snapbox::assert_data_eq!(
         but_testsupport::visualize_commit_graph_all_from_dir(&wt_dir).unwrap(),
         snapbox::str![[r#"
-* c773930 (gitbutler/workspace) GitButler Workspace Commit
 * 53e4c58 (HEAD -> wt-feature, A) add A and W
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
@@ -3464,9 +3462,7 @@ Squashed branch 'wt-feature' into nsn
     snapbox::assert_data_eq!(
         but_testsupport::visualize_commit_graph_all_from_dir(&wt_dir).unwrap(),
         snapbox::str![[r#"
-* edd3eb7 (gitbutler/workspace) GitButler Workspace Commit
-| * 376d6e7 (HEAD -> wt-feature) add W
-|/  
+* 376d6e7 (HEAD -> wt-feature) add W
 * 9477ae7 (A) add A
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
@@ -3551,7 +3547,7 @@ Uncommitted nsn
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊┊
 ┊┊╭┄ wt:@ [uncommitted] {wt-feature}
 ┊┊┊   nv A wt-file.txt
@@ -3568,7 +3564,6 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         but_testsupport::visualize_commit_graph_all_from_dir(&wt_dir).unwrap(),
         snapbox::str![[r#"
-* edd3eb7 (gitbutler/workspace) GitButler Workspace Commit
 * 9477ae7 (HEAD -> wt-feature, A) add A
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 

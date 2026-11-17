@@ -45,9 +45,9 @@ plain Git, and there is no `gitbutler/workspace` branch:
   branch while a feature branch is checked out) switches `HEAD` to `gitbutler/workspace`.
 - `but apply` while the target branch is checked out also switches to `gitbutler/workspace`,
   even for a single stack.
-- Unapplying, discarding, deleting, uncommitting, or squashing away branches down to one stack
-  checks that stack's branch out again. Moving a branch onto another stack leaves `HEAD` on
-  `gitbutler/workspace`, even with one stack left.
+- Unapplying, discarding, deleting, uncommitting, squashing, moving commits or branches, and
+  `but pull` check the stack's branch out again whenever one stack is left. That includes a single
+  stack that `but apply` put on `gitbutler/workspace`.
 - When the last stack leaves, whether removed, landed by `but pull`, or moved onto a linked
   worktree's branch, `HEAD` moves to the target's local branch.
 

@@ -1,4 +1,4 @@
-import { createNewBranch } from "../src/branch.ts";
+import { assertRefDoesNotExist, assertSymbolicHead, createNewBranch } from "../src/branch.ts";
 import { expect } from "../src/expect.ts";
 import { applyUpstream, openWorkspace } from "../src/setup.ts";
 import { test } from "../src/test.ts";
@@ -36,27 +36,6 @@ async function expectCheckoutToReachOriginMaster(pathToRepo: string) {
 		})
 		.toBe(git(pathToRepo, ["rev-parse", "origin/master"]));
 	expect(git(pathToRepo, ["branch", "--list", "gitbutler/workspace"])).toBe("");
-}
-
-async function expectWorkspaceCommitToStayParentedToRemainingStack(pathToRepo: string) {
-	await expect
-		.poll(() => git(pathToRepo, ["rev-parse", "gitbutler/workspace^@"]).split("\n").length, {
-			message: "Expected the workspace commit to have only the remaining stack as parent",
-			intervals: [100, 200, 500, 1000],
-		})
-		.toBe(1);
-
-	await expect
-		.poll(
-			() =>
-				git(pathToRepo, ["rev-parse", "gitbutler/workspace^"]) ===
-				git(pathToRepo, ["rev-parse", "origin/master"]),
-			{
-				message: "Expected the workspace commit not to be reparented to origin/master",
-				intervals: [100, 200, 500, 1000],
-			},
-		)
-		.toBe(false);
 }
 
 function git(pathToRepo: string, args: string[]): string {
@@ -270,7 +249,11 @@ test("should keep the remaining stack when only one of two stacks is integrated"
 	await expect(stack(page)).toHaveCount(1);
 	await expect(getByTestId(page, "branch-card")).toHaveCount(1);
 	await expect(getByTestId(page, "branch-card")).toContainText("branch2");
-	await expectWorkspaceCommitToStayParentedToRemainingStack(localClone);
+	await assertSymbolicHead("branch2", localClone);
+	await assertRefDoesNotExist("refs/heads/gitbutler/workspace", localClone);
+	expect(git(localClone, ["rev-parse", "HEAD"])).not.toBe(
+		git(localClone, ["rev-parse", "origin/master"]),
+	);
 });
 
 test("should leave no applied stacks when both stacks are integrated", async ({

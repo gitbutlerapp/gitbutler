@@ -7,11 +7,16 @@ use but_rebase::graph_rebase::{
     mutate::{InsertSide, RelativeTo},
 };
 
+use crate::editor_workspace::leave_unnecessary_workspace;
+
 /// The commits are ordered by parentage before moving so callers do not need to
 /// provide them in graph order.
 ///
 /// Each subject hands its children to its first parent, so a branch a commit was moved out
 /// of rests on the commit below, and is then placed relative to `relative_to`.
+///
+/// A workspace that is unnecessary afterwards is left, see
+/// [`leave_unnecessary_workspace()`](crate::editor_workspace::leave_unnecessary_workspace()).
 pub fn move_commits<'ws, 'meta, M: RefMetadata>(
     editor: Editor<'ws, 'meta, M>,
     subject_commit_ids: impl IntoIterator<Item = gix::ObjectId>,
@@ -36,5 +41,5 @@ pub fn move_commits<'ws, 'meta, M: RefMetadata>(
         editor.move_pick(selector, relative_to.clone(), side)?;
     }
 
-    editor.rebase()
+    leave_unnecessary_workspace(editor.rebase()?.into_editor())
 }

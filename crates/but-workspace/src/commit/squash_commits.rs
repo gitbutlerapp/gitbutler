@@ -8,6 +8,8 @@ use but_rebase::{
     },
 };
 
+use crate::editor_workspace::leave_unnecessary_workspace;
+
 #[derive(Debug)]
 pub struct SquashCommitsOutcome<'ws, 'meta, M: RefMetadata> {
     pub rebase: SuccessfulRebase<'ws, 'meta, M>,
@@ -90,6 +92,9 @@ but_schemars::register_sdk_type!(MessageCombinationStrategy);
 ///
 /// Subject messages are appended in the order they are provided, with at least
 /// one blank line between non-empty message blocks.
+///
+/// A workspace that is unnecessary afterwards is left, see
+/// [`leave_unnecessary_workspace()`](crate::editor_workspace::leave_unnecessary_workspace()).
 pub fn squash_commits<'ws, 'meta, M: RefMetadata, S: ToCommitSelector, T: ToCommitSelector>(
     editor: Editor<'ws, 'meta, M>,
     subjects: Vec<S>,
@@ -187,7 +192,7 @@ pub fn squash_commits<'ws, 'meta, M: RefMetadata, S: ToCommitSelector, T: ToComm
     editor.amend_pick(target_commit_selector, new_commit)?;
 
     Ok(SquashCommitsOutcome {
-        rebase: editor.rebase()?,
+        rebase: leave_unnecessary_workspace(editor.rebase()?.into_editor())?,
         commit_selector: target_commit_selector,
     })
 }

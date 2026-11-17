@@ -287,7 +287,7 @@ Hint: Later commits depend on these changes. Run `but uncommit lmk` first, then 
 ╭┄ @ [uncommitted]
 ┊   qs A file
 ┊
-┊╭┄ br [a-branch-1]
+┊╭┄ br [a-branch-1] [HEAD]
 ┊●   vyr add unrelated
 ├╯
 ┊

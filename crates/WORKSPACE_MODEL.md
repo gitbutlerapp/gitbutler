@@ -195,6 +195,16 @@ When touching code that should work in normal Git mode:
 - distinguish feature-branch divergence, local-target divergence, and the workspace cutoff;
 - avoid managed-workspace-only assumptions unless the API explicitly requires managed workspace mode.
 
+### Entering and leaving the workspace
+
+Editor-backed `but_workspace` operations put `HEAD` on the workspace reference when their result needs a workspace commit, and take it off again when it no longer does. Callers, `but-transaction` included, don't set a workspace up beforehand or tidy one up afterwards.
+
+- **Entering** (`editor_workspace::enter_workspace`): an operation that makes a second stack beside the checked-out one, as `create_reference` without an anchor and `tear_off_branch` do. `apply_stack` enters even for one stack, as that's what it's asked for.
+- **Leaving** (`editor_workspace::leave_unnecessary_workspace`): an operation that can take a tip away from the workspace commit leaves the workspace whenever at most one tip is left when it's done, whether or not it took one away. It checks that tip's branch out, or the local target once none is left. Discarding, moving and squashing commits do this, as do moving and dropping a branch and integrating upstream.
+- **Switching** (`editor_workspace::switch_to_branch`): a checkout that was asked for is recorded in the editor too, so materializing refuses it before writing anything if it would overwrite uncommitted changes.
+
+A branch without an anchor has no lane to go to without a target, or while the target's own branch is checked out with commits. It goes on top of the checked-out branch then, and `HEAD` follows it.
+
 ## Checklist before adding graph/workspace code
 
 Ask this for both read/query code and mutation code:

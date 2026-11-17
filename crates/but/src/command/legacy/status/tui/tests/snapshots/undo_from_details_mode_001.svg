@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="820" height="380" viewBox="0 0 820 380">
   <rect x="0" y="0" width="820" height="380" fill="#000000" />
-  <rect x="10" y="46" width="400" height="18" fill="#313244" />
+  <rect x="10" y="10" width="400" height="18" fill="#313244" />
   <rect x="10" y="352" width="88" height="18" fill="#FFA500" />
   <g font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">
     <text x="10 18" y="24" style="fill:#CCCCCC;">╭┄</text>
@@ -23,8 +23,11 @@
     <text x="66" y="60" style="fill:#CCCCCC;">[</text>
     <text x="74" y="60" style="fill:#00AA00;">A</text>
     <text x="82" y="60" style="fill:#CCCCCC;">]</text>
-    <text x="98 106 114" y="60" style="fill:#CCCCCC;opacity:0.75;">(no</text>
-    <text x="130 138 146 154 162 170 178 186" y="60" style="fill:#CCCCCC;opacity:0.75;">commits)</text>
+    <text x="98" y="60" style="fill:#CCCCCC;">[</text>
+    <text x="106 114 122 130" y="60" style="fill:#AA00AA;">HEAD</text>
+    <text x="138" y="60" style="fill:#CCCCCC;">]</text>
+    <text x="154 162 170" y="60" style="fill:#CCCCCC;opacity:0.75;">(no</text>
+    <text x="186 194 202 210 218 226 234 242" y="60" style="fill:#CCCCCC;opacity:0.75;">commits)</text>
     <text x="410" y="60" style="fill:#555555;">│</text>
     <text x="10 18" y="78" style="fill:#CCCCCC;">├╯</text>
     <text x="410" y="78" style="fill:#555555;">│</text>

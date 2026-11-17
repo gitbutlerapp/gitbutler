@@ -675,11 +675,9 @@ fn move_commit_below_a_worktree_reference() {
     snapbox::assert_data_eq!(
         tui.env().git_log(),
         str![[r#"
-* 6919fdf (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-| * 76d9e4b (wt-branch) 
-| * 998a235 add W
-|/  
-* 9477ae7 (A) add A
+* 76d9e4b (wt-branch) 
+* 998a235 add W
+* 9477ae7 (HEAD -> A) add A
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]
@@ -745,8 +743,7 @@ fn uncommit_a_worktree_commit_into_its_own_area() {
     snapbox::assert_data_eq!(
         tui.env().git_log(),
         str![[r#"
-* edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 9477ae7 (wt-branch, A) add A
+* 9477ae7 (HEAD -> A, wt-branch) add A
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]

@@ -139,7 +139,20 @@ pub fn in_single_branch_mode(ctx: &Context) -> anyhow::Result<bool> {
     in_single_branch_mode_with_perm(ctx, guard.read_permission())
 }
 
-pub use but_transaction::single_branch_mode::in_single_branch_mode_with_perm;
+/// Whether the main worktree has a branch checked out on its own rather than GitButler's
+/// workspace, using `ctx` with shared `perm`ission.
+pub fn in_single_branch_mode_with_perm(
+    ctx: &Context,
+    perm: &but_core::sync::RepoShared,
+) -> anyhow::Result<bool> {
+    let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
+
+    Ok(match &ws.kind {
+        but_graph::workspace::WorkspaceKind::AdHoc => true,
+        but_graph::workspace::WorkspaceKind::Managed { .. }
+        | but_graph::workspace::WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => false,
+    })
+}
 
 /// The name of the branch an operation makes: `name`, or a made-up one from `repo` it's filled in
 /// with when none was given. It's picked before the operation's transaction, so its snapshot can

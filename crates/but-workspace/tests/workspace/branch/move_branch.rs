@@ -293,8 +293,7 @@ fn move_single_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 4c58dd4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 148f8f3 (A) A
+* 148f8f3 (HEAD -> A) A
 * 09bc93e (C) C
 * c813d8d (B) B
 * 85efbe4 (origin/main, main) M
@@ -305,14 +304,14 @@ fn move_single_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 85efbe4
-└── ≡📙:A on 85efbe4 {2}
-    ├── 📙:A
-    │   └── ·148f8f3 (🏘️)
-    ├── 📙:C
-    │   └── ·09bc93e (🏘️)
-    └── 📙:B
-        └── ·c813d8d (🏘️)
+⌂:A[🌳] <> ✓refs/heads/main on 85efbe4
+└── ≡:A[🌳] on 85efbe4 {1}
+    ├── :A[🌳]
+    │   └── ·148f8f3
+    ├── :C
+    │   └── ·09bc93e
+    └── :B
+        └── ·c813d8d
 
 "#]]
     );
@@ -465,8 +464,7 @@ fn insert_branch_in_the_middle_of_a_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 0c5cde5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 3e7ff55 (C) C
+* 3e7ff55 (HEAD -> C) C
 * 4dfe841 (A) A
 * c813d8d (B) B
 * 85efbe4 (origin/main, main) M
@@ -477,14 +475,14 @@ fn insert_branch_in_the_middle_of_a_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 85efbe4
-└── ≡📙:C on 85efbe4 {2}
-    ├── 📙:C
-    │   └── ·3e7ff55 (🏘️)
-    ├── 📙:A
-    │   └── ·4dfe841 (🏘️)
-    └── 📙:B
-        └── ·c813d8d (🏘️)
+⌂:C[🌳] <> ✓refs/heads/main on 85efbe4
+└── ≡:C[🌳] on 85efbe4 {1}
+    ├── :C[🌳]
+    │   └── ·3e7ff55
+    ├── :A
+    │   └── ·4dfe841
+    └── :B
+        └── ·c813d8d
 
 "#]]
     );
@@ -541,8 +539,7 @@ fn move_empty_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 2c820f0 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 09d8e52 (B, A) A
+* 09d8e52 (HEAD -> B, A) A
 * 85efbe4 (origin/main, main) M
 
 "#]]
@@ -551,11 +548,10 @@ fn move_empty_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 85efbe4
-└── ≡📙:B on 85efbe4 {1}
-    ├── 📙:B
-    └── 📙:A
-        └── ·09d8e52 (🏘️)
+⌂:B[🌳] <> ✓refs/heads/main on 85efbe4
+└── ≡:B[🌳] on 85efbe4 {1}
+    └── :B[🌳]
+        └── ·09d8e52 ►A
 
 "#]]
     );
@@ -611,8 +607,7 @@ fn move_branch_on_top_of_empty_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 2c820f0 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 09d8e52 (A) A
+* 09d8e52 (HEAD -> A) A
 * 85efbe4 (origin/main, main, B) M
 
 "#]]
@@ -621,11 +616,10 @@ fn move_branch_on_top_of_empty_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 85efbe4
-└── ≡📙:A on 85efbe4 {2}
-    ├── 📙:A
-    │   └── ·09d8e52 (🏘️)
-    └── 📙:B
+⌂:A[🌳] <> ✓refs/heads/main on 85efbe4
+└── ≡:A[🌳] on 85efbe4 {1}
+    └── :A[🌳]
+        └── ·09d8e52
 
 "#]]
     );
@@ -637,10 +631,12 @@ fn move_empty_branch_on_top_of_empty_branch_in_same_stack() -> anyhow::Result<()
     let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("empty-workspace-target-advanced")?;
     invoke_bash(
-        "git branch A gitbutler/target\ngit branch B gitbutler/target\n",
+        "git branch A gitbutler/target\ngit branch B gitbutler/target\ngit branch C gitbutler/target\n",
         &repo,
     );
     add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["A"]);
+    // A second stack keeps the workspace, which records the order of empty branches.
+    add_stack_with_segments(&mut meta, 2, "C", StackState::InWorkspace, &[]);
 
     let project_meta = project_meta(&repo)?;
     let graph =
@@ -651,9 +647,11 @@ fn move_empty_branch_on_top_of_empty_branch_in_same_stack() -> anyhow::Result<()
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main⇣1 on 3183e43
-└── ≡📙:B on 3183e43 {1}
-    ├── 📙:B
-    └── 📙:A
+├── ≡📙:B on 3183e43 {1}
+│   ├── 📙:B
+│   └── 📙:A
+└── ≡📙:C on 3183e43 {2}
+    └── 📙:C
 
 "#]]
     );
@@ -672,9 +670,11 @@ fn move_empty_branch_on_top_of_empty_branch_in_same_stack() -> anyhow::Result<()
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main⇣1 on 3183e43
-└── ≡📙:A on 3183e43 {1}
-    ├── 📙:A
-    └── 📙:B
+├── ≡📙:A on 3183e43 {1}
+│   ├── 📙:A
+│   └── 📙:B
+└── ≡📙:C on 3183e43 {2}
+    └── 📙:C
 
 "#]]
     );
@@ -723,10 +723,9 @@ fn move_empty_branch_on_top_of_empty_branch_across_stacks() -> anyhow::Result<()
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main⇣1 on 3183e43
-└── ≡📙:A on 3183e43 {2}
-    ├── 📙:A
-    └── 📙:B
+⌂:A[🌳] <> ✓refs/heads/main⇣1 on 3183e43
+└── ≡:A[🌳] on 3183e43 {1}
+    └── :A[🌳]
 
 "#]]
     );
@@ -994,8 +993,7 @@ fn move_branch_when_base_segment_has_no_ref_name() -> anyhow::Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 * 148c87a (origin/main) M2
-| * 0db3c2f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-| * f9061ed (B) B
+| * f9061ed (HEAD -> B) B
 | * 09d8e52 (A) A
 |/  
 * 85efbe4 (main) M
@@ -1010,12 +1008,12 @@ fn move_branch_when_base_segment_has_no_ref_name() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 85efbe4
-└── ≡📙:B on 85efbe4 {1}
-    ├── 📙:B
-    │   └── ·f9061ed (🏘️)
-    └── 📙:A
-        └── ·09d8e52 (🏘️)
+⌂:B[🌳] <> ✓refs/heads/main on 85efbe4
+└── ≡:B[🌳] on 85efbe4 {1}
+    ├── :B[🌳]
+    │   └── ·f9061ed
+    └── :A
+        └── ·09d8e52
 
 "#]]
     );
@@ -1081,8 +1079,7 @@ fn move_empty_branch_onto_non_empty_branch_with_advanced_target() -> anyhow::Res
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 2c820f0 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 09d8e52 (B, A) A
+* 09d8e52 (HEAD -> B, A) A
 | * e1bbad3 (origin/main, main) add X
 |/  
 * 85efbe4 (gitbutler/target) M
@@ -1092,11 +1089,10 @@ fn move_empty_branch_onto_non_empty_branch_with_advanced_target() -> anyhow::Res
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main⇣1 on 85efbe4
-└── ≡📙:B on 85efbe4 {1}
-    ├── 📙:B
-    └── 📙:A
-        └── ·09d8e52 (🏘️)
+⌂:B[🌳] <> ✓refs/heads/main⇣1 on 85efbe4
+└── ≡:B[🌳] on 85efbe4 {1}
+    └── :B[🌳]
+        └── ·09d8e52 ►A
 
 "#]]
     );
@@ -1159,8 +1155,7 @@ fn move_non_empty_branch_onto_empty_branch_with_advanced_target() -> anyhow::Res
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 2c820f0 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 09d8e52 (A) A
+* 09d8e52 (HEAD -> A) A
 | * e1bbad3 (origin/main, main) add X
 |/  
 * 85efbe4 (gitbutler/target, B) M
@@ -1170,11 +1165,10 @@ fn move_non_empty_branch_onto_empty_branch_with_advanced_target() -> anyhow::Res
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main⇣1 on 85efbe4
-└── ≡📙:A on 85efbe4 {2}
-    ├── 📙:A
-    │   └── ·09d8e52 (🏘️)
-    └── 📙:B
+⌂:A[🌳] <> ✓refs/heads/main⇣1 on 85efbe4
+└── ≡:A[🌳] on 85efbe4 {1}
+    └── :A[🌳]
+        └── ·09d8e52
 
 "#]]
     );

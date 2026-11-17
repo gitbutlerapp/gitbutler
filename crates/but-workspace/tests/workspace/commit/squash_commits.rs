@@ -970,3 +970,33 @@ fn squash_all_c_commits_into_second_commit_of_b_keeps_new_file_content() -> Resu
 
     Ok(())
 }
+
+#[test]
+fn squashing_the_last_commit_of_an_unnamed_lane_leaves_the_workspace() -> Result<()> {
+    let (_tmp, graph, repo, mut meta, mut db, unnamed) = super::workspace_with_an_unnamed_lane()?;
+    let c = repo.rev_parse_single("C")?.detach();
+
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    squash_commits(
+        editor,
+        vec![unnamed],
+        c,
+        but_workspace::commit::squash_commits::MessageCombinationStrategy::KeepTarget,
+    )?
+    .rebase
+    .materialize(Default::default())?;
+
+    // One stack is left, so `HEAD` is on its branch and the workspace commit is gone.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 9c26731 (HEAD -> C) C
+* c813d8d (B) B
+* 85efbe4 (origin/main, main) M
+
+"#]]
+    );
+
+    Ok(())
+}
