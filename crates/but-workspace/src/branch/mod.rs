@@ -534,17 +534,17 @@ pub(crate) fn try_find_validated_ref<'repo>(
 /// Project `workspace` again from the nosegment graph of `repo` and `meta`, amended by
 /// `overlay`, with its project metadata, linked worktrees and options.
 ///
-/// It's seen from the branch and commit in `seen_from` if given, or else from the same branch as
-/// `workspace` if it still exists, or the same commit.
+/// It's seen from the commit in `seen_from` if given, and the branch along with it if there is one,
+/// or else from the same branch as `workspace` if it still exists, or the same commit.
 pub(crate) fn reprojected(
     workspace: &but_graph::Workspace,
     repo: &gix::Repository,
     meta: &impl but_core::RefMetadata,
     overlay: but_graph::init::Overlay,
-    seen_from: Option<(&gix::refs::FullNameRef, gix::ObjectId)>,
+    seen_from: Option<(Option<&gix::refs::FullNameRef>, gix::ObjectId)>,
 ) -> anyhow::Result<but_graph::Workspace> {
     let (seen_from_ref, seen_from_commit) = match seen_from {
-        Some((ref_name, commit_id)) => (Some(ref_name.to_owned()), Some(commit_id)),
+        Some((ref_name, commit_id)) => (ref_name.map(ToOwned::to_owned), Some(commit_id)),
         None => {
             let entrypoint = workspace.graph.entrypoint()?;
             let entrypoint_commit_id = entrypoint
