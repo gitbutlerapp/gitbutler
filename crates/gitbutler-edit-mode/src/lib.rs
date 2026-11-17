@@ -214,16 +214,18 @@ fn workspace_from_workspace_ref(ctx: &Context) -> Result<but_graph::Workspace> {
     let repo = ctx.repo.get()?;
     let meta = ctx.meta()?;
     let mut workspace_ref = open_workspace_ref(&repo)?;
-    let mut db = ctx.db.get_cache_mut()?;
-    let graph = but_graph::Graph::from_commit_traversal(
-        workspace_ref.peel_to_id()?,
-        Some(workspace_ref.inner.name.clone()),
+    let workspace_commit_id = workspace_ref.peel_to_id()?.detach();
+    but_graph::nosegment::workspace(
+        &repo,
         &meta,
         ctx.project_meta()?,
-        &mut db,
-        but_graph::init::Options::limited(),
-    )?;
-    graph.into_workspace()
+        Some(workspace_ref.name()),
+        Some(workspace_commit_id),
+        [],
+        Vec::new(),
+        false,
+        but_graph::init::Options::limited().commits_limit_hint,
+    )
 }
 
 fn ensure_stack_in_workspace(ctx: &Context, stack_id: StackId) -> Result<()> {
