@@ -124,9 +124,9 @@
 	content: "";
 }
 
-/* The last row under its parent: the guide comes down to the row's middle and turns, with a round
-   corner, into the glyph, and ends there: 3px short of a chevron, or of a glyph, which sits further
-   off. */
+/* The last row under its parent: the guide comes down to the row's middle and turns, at a
+   control's radius so it follows the corners setting, into the glyph, and ends there: 3px short
+   of a chevron, or of a glyph, which sits further off. */
 .guideLast::before {
 	width: auto;
 	inset-block: 0 calc(50% - 0.5px);
@@ -134,7 +134,7 @@
 	border-inline-start: 1px solid;
 	border-block-end: 1px solid;
 	border-color: var(--guide-color);
-	border-end-start-radius: 5px;
+	border-end-start-radius: var(--but-radius-control);
 	background-color: transparent;
 }
 
