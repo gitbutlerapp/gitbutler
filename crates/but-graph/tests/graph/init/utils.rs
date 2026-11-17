@@ -157,6 +157,7 @@ pub fn standard_options() -> but_graph::init::Options {
         hard_limit: None,
         dangerously_skip_postprocessing_for_debugging: false,
         worktrees: false,
+        extra_refs: vec![],
     }
 }
 

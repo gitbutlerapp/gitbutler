@@ -282,6 +282,9 @@ pub struct Editor<'ws, 'meta, M: RefMetadata> {
     initial_references: Vec<gix::refs::FullName>,
     /// Worktrees that we might need to perform `safe_checkout` on.
     checkouts: Vec<Checkout>,
+    /// The steps of the graph's [extra refs](but_graph::init::Options::extra_refs), so
+    /// re-traversals keep them under the names they have then.
+    extra_refs: Vec<Selector>,
     /// The in-memory repository that the rebase engine works with.
     repo: gix::Repository,
     history: RevisionHistory,
@@ -301,6 +304,7 @@ pub struct SuccessfulRebase<'ws, 'meta, M: RefMetadata> {
     pub(crate) ref_edits: Vec<RefEdit>,
     pub(crate) graph: StepGraph,
     pub(crate) checkouts: Vec<Checkout>,
+    pub(crate) extra_refs: Vec<Selector>,
     pub history: RevisionHistory,
     workspace: &'ws mut but_graph::Workspace,
     meta: &'meta mut M,
@@ -498,6 +502,16 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
             .collect()
     }
 
+    fn extra_refs_after_rebase(&self) -> Result<Vec<gix::refs::FullName>> {
+        let mut names = Vec::new();
+        for selector in &self.extra_refs {
+            if let Step::Reference { refname, .. } = self.lookup_step(*selector)? {
+                names.push(refname);
+            }
+        }
+        Ok(names)
+    }
+
     /// Return the commit targeted by `ref_name` in the post-rebase step graph.
     pub fn reference_target(&self, ref_name: &gix::refs::FullNameRef) -> Result<gix::ObjectId> {
         let reference = self
@@ -601,6 +615,7 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
         }
         let mut graph = self.workspace.graph.clone();
         graph.worktree_tips = self.worktree_tips_after_rebase()?;
+        graph.options.extra_refs = self.extra_refs_after_rebase()?;
         graph.redo_traversal_with_overlay(&self.repo, self.meta, overlay)
     }
 
