@@ -703,7 +703,7 @@ impl FileListItem {
                 let kind = self.guides.get(level).copied().unwrap_or(Guide::Line);
                 // A tail turning into the icon ends 3px short of it: further off than a chevron.
                 let into_icon = level + 1 == self.depth && self.folded.is_none();
-                guide(kind, into_icon, guide_color)
+                guide(kind, into_icon, theme.shape.control, guide_color)
             });
             let chevron = self
                 .folded
@@ -961,8 +961,8 @@ fn centred(el: Div) -> Div {
 
 /// One level of the indent: the line that joins the rows under one directory, or on its last row
 /// the tail that turns into the row's glyph, `into_icon` when that is a file's icon rather than a
-/// chevron.
-fn guide(kind: Guide, into_icon: bool, color: Hsla) -> Div {
+/// chevron, round by `radius`.
+fn guide(kind: Guide, into_icon: bool, radius: f32, color: Hsla) -> Div {
     let step = div().relative().flex_none().w(dp(STEP)).h_full();
     match kind {
         Guide::None => step,
@@ -976,22 +976,40 @@ fn guide(kind: Guide, into_icon: bool, color: Hsla) -> Div {
                 .w(fixed(1.))
                 .bg(color),
         ),
-        // Down to the row's middle, then round a corner towards the glyph.
-        Guide::Last => step.child(
-            div()
-                .absolute()
-                .top_0()
-                .bottom(relative(0.5))
-                .left(dp(STEP / 2. - 0.5))
-                .right(dp(match into_icon {
-                    true => -3.,
-                    false => -1.,
-                }))
-                .border_l_1()
-                .border_b_1()
-                .border_color(color)
-                .rounded_bl(dp(5.)),
-        ),
+        // Down to the row's middle, then round a control's corner towards the glyph. GPUI rounds a
+        // corner by at most half the box, and this one is narrower than twice a round corner, so
+        // the turn draws in a box reaching past this one's top and end, cut back to it. Like CSS,
+        // the corner rounds by no more than the box is wide.
+        Guide::Last => {
+            let reach = STEP / 2.
+                + 0.5
+                + match into_icon {
+                    true => 3.,
+                    false => 1.,
+                };
+            let corner = radius.min(reach);
+            step.child(
+                div()
+                    .absolute()
+                    .top_0()
+                    .bottom(relative(0.5))
+                    .left(dp(STEP / 2. - 0.5))
+                    .w(dp(reach))
+                    .overflow_hidden()
+                    .child(
+                        div()
+                            .absolute()
+                            .top(dp(-corner))
+                            .bottom_0()
+                            .left_0()
+                            .right(dp(-corner))
+                            .border_l_1()
+                            .border_b_1()
+                            .border_color(color)
+                            .rounded_bl(dp(corner)),
+                    ),
+            )
+        }
     }
 }
 
