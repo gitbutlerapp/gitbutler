@@ -26,7 +26,7 @@ use gitbutler_oplog::{
 use itertools::Itertools;
 use tracing::instrument;
 
-use crate::{commit::insert_blank::commit_insert_blank_only_impl, commit::json::ChangesSource};
+use crate::commit::json::ChangesSource;
 use but_core::DryRun;
 
 /// Absorb the changes described by `absorption_plan` using the behavior documented by
@@ -390,6 +390,26 @@ fn target_segment(
     Ok((ref_name, segment.commits.first().map(|commit| commit.id)))
 }
 
+/// Add a blank commit at the top of `reference`, recording no undo step as absorb records its own.
+fn add_blank_commit_to(
+    ctx: &mut Context,
+    reference: gix::refs::FullName,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<()> {
+    let mut meta = ctx.meta()?;
+    but_transaction::with_transaction_with_perm_only(
+        ctx,
+        &mut meta,
+        perm,
+        DryRun::No,
+        |mut tx| {
+            tx.insert_blank_commit(RelativeTo::Reference(reference), InsertSide::Below)?;
+            Ok(())
+        },
+    )?;
+    Ok(())
+}
+
 /// Determine the target commit for a candidate based on dependencies and assignments
 /// Create a blank one if needed.
 fn ensure_target_commit(
@@ -427,13 +447,7 @@ fn ensure_target_commit(
         }
 
         // If there are no commits in the target branch, create a blank commit first
-        commit_insert_blank_only_impl(
-            ctx,
-            RelativeTo::Reference(reference),
-            InsertSide::Below,
-            DryRun::No,
-            perm,
-        )?;
+        add_blank_commit_to(ctx, reference, perm)?;
 
         // Project the workspace again to see the newly created commit
         *workspace = crate::legacy::workspace::head_info(ctx)?;
@@ -452,13 +466,7 @@ fn ensure_target_commit(
         }
 
         // If the first stack has no commits, create a blank commit first
-        commit_insert_blank_only_impl(
-            ctx,
-            RelativeTo::Reference(reference),
-            InsertSide::Below,
-            DryRun::No,
-            perm,
-        )?;
+        add_blank_commit_to(ctx, reference, perm)?;
 
         // Now project the workspace again to see the newly created commit
         *workspace = crate::legacy::workspace::head_info(ctx)?;
