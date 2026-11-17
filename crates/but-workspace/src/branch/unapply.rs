@@ -599,14 +599,12 @@ pub(crate) mod function {
         // Fully remove the workspace metadata. Project metadata remains independent in Git config.
         meta.remove(workspace_ref_name)?;
 
-        let overlay = Overlay::default().with_entrypoint(
-            ref_to_checkout.commit_id,
-            Some(ref_to_checkout.ref_name.clone()),
-        );
-        let ws = ws
-            .graph
-            .redo_traversal_with_overlay(repo, meta, overlay)?
-            .into_workspace()?;
+        let ws = reprojected(
+            ws,
+            repo,
+            meta,
+            Some((ref_to_checkout.ref_name.as_ref(), ref_to_checkout.commit_id)),
+        )?;
         Ok(Outcome {
             workspace: Cow::Owned(ws),
             checked_out: Some(ref_to_checkout.ref_name),
