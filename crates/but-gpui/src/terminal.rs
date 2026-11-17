@@ -699,8 +699,9 @@ impl Render for Terminal {
             .on_scroll_wheel(cx.listener(Self::scroll))
             .cursor(pointer_style)
             .size_full()
-            // Ghostty's default window padding.
-            .p(dp(2.))
+            // Ghostty's default window padding, 2px, and 3px more, as it reaches its card's
+            // border.
+            .p(dp(5.))
             .bg(background)
             .text_color(foreground)
             .font_family(font.family)

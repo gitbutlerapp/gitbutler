@@ -63,9 +63,9 @@ const capitalise = (words: string) =>
 	words.charAt(0).toUpperCase() + words.slice(1).replaceAll("-", " ");
 
 /**
- * Fills in `src/page-list.ts`, every page the site lists: a design note per Markdown file, a
- * component per stories file with the notes its component's `@see` tags name. Read off the files
- * here, so the sidebar knows the pages without loading every component.
+ * Fills in `src/page-list.ts`, every page the site lists: a design note per Markdown file, the
+ * Colours page, and a component per stories file with the notes its component's `@see` tags name.
+ * Read off the files here, so the sidebar knows the pages without loading every component.
  */
 const docsPages = (): Plugin => ({
 	name: "docs-pages",
@@ -79,6 +79,12 @@ const docsPages = (): Plugin => ({
 
 		const design = [
 			{ id: "design-overview", title: "Design/Overview", file: "../../packages/but-ui/DESIGN.md" },
+			// The colour tokens, drawn from the stylesheet that defines them rather than from a note.
+			{
+				id: "design-foundations-colours",
+				title: "Design/Foundations/Colours",
+				file: "../../packages/but-ui/tokens/tokens.css",
+			},
 			...designFolders.flatMap(([dir, folder]) =>
 				readdirSync(`${dir}/${folder}`)
 					.filter((file) => file.endsWith(".md"))

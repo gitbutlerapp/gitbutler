@@ -6,8 +6,9 @@ use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Div, ElementId, Entity, MouseButton, MouseDownEvent,
-    Pixels, Point, SharedString, Stateful, Toggled, Window, actions, div, prelude::*,
+    AnyElement, App, ClickEvent, Context, Div, ElementId, Entity, Focusable as _, ListOffset,
+    ListState, MouseButton, MouseDownEvent, Pixels, Point, SharedString, Stateful, Toggled, Window,
+    actions, div, prelude::*,
 };
 
 use super::blame::Blamed;
@@ -64,16 +65,17 @@ use crate::detail::Stop;
 use crate::navigator::upstream_label;
 use crate::overlays::{MenuItem, has_keys};
 use crate::state::{FileSort, FileView, Overlay, ProjectId, Rereads, Selection, Side, Store};
-use crate::theme::Theme;
+use crate::theme::{Theme, tokens};
 use crate::transfer::{Changes, Chip, DragPreview, Dragged, Moving};
 use crate::ui::Text;
 use crate::ui::diff;
-use crate::ui::file_icons::{file_icon, folder_icon};
-use crate::ui::fold;
+use crate::ui::diff_stats;
+use crate::ui::file_icons::folder_icon;
 use crate::ui::illustration::Illustration;
 use crate::ui::{
-    Icon, Tooltip, blink_once, checkbox, commit_title, count_badge, dp, empty_state, faint, fixed,
-    h_flex, icon_button, matched, muted, plural, popover, shortcut, side_row, small_icon, v_flex,
+    FileListHeader, Guide, Icon, Tooltip, blink_once, checkbox, commit_title, dp, empty_state,
+    faint, file_list_header, file_list_item, h_flex, icon_button, muted, plural, popover, shortcut,
+    side_row, small_icon, tree_guides, v_flex,
 };
 
 #[derive(Clone)]
@@ -102,81 +104,49 @@ struct FileRow {
     checkbox: Option<Toggled>,
     /// The changes right-clicking or dragging the row takes: see [`Detail::changes_menu`].
     menu: Option<(ProjectId, Changes)>,
-    /// How deep the file sits in a tree; it then shows only its name.
-    depth: Option<usize>,
-    /// The tree has folders: the row keeps a step empty where theirs have the chevron, so a
-    /// file sits a step in from its folder and lines up with the folders beside it.
-    folders: bool,
+    /// How deep the file sits in a tree, and how its guides draw; it then shows only its name.
+    depth: Option<(usize, Vec<Guide>)>,
     /// Picked with other files, which its menu and a drag take along.
     picked: bool,
     /// The rows above and below are picked with it: see [`crate::ui::joined`].
     joined: (bool, bool),
     /// The byte ranges of its path the filter found, to underline.
     found: Vec<Range<usize>>,
-    /// The characters the list's widest added and removed counts take, to line its own up
-    /// with the other rows': see [`diff::column_stats`].
-    columns: (usize, usize),
 }
 
-/// The room a row keeps for its file's change letter, which a folder's keeps empty, so their
-/// counts end in one place.
-const MARK_WIDTH: f32 = 16.;
+/// Scroll file list `scroll` to show row `row`, as near as it is, with the room the rows have
+/// under the header at rest on the side it comes in from, so a row followed to the top doesn't
+/// touch the header, nor one followed down the list's bottom. The rows are all a control tall.
+fn reveal_with_room(scroll: &ListState, row: usize, theme: &Theme) {
+    let tall = theme.scaled(theme.sizes.control);
+    let room = theme.scaled(tokens::SPACE_XL);
+    let shown = scroll.viewport_bounds().size.height;
+    let top = scroll.logical_scroll_top();
+    let at = tall * top.item_ix as f32 + top.offset_in_item;
+    let start = tall * row as f32;
+    let to = if start < at + room {
+        (start - room).max(Pixels::ZERO)
+    } else if start + tall > at + shown - room {
+        start + tall + room - shown
+    } else {
+        return;
+    };
+    let item_ix = (to / tall).floor() as usize;
+    scroll.scroll_to(ListOffset {
+        item_ix,
+        offset_in_item: to - tall * item_ix as f32,
+    });
+}
 
-/// The space between the parts of a row.
-const GAP: f32 = 6.;
-
-/// How far each level of a file tree steps in.
-const STEP: f32 = 12.;
-
-/// The group a row's hover reaches a file's checkbox or a folder's line counts through.
-const ROW_GROUP: &str = "file-row";
-
-/// A row of a file list, inset in the panel as GitButler's other file lists are, its
+/// A row of a file list that isn't a file, inset in the panel as the file rows are, its
 /// selection `solid` while the list holds the focus.
 fn file_row(id: impl Into<ElementId>, selected: bool, solid: bool, theme: &Theme) -> Stateful<Div> {
     side_row(id, selected, solid, theme)
-        .mx(dp(8.))
-        .pl(dp(8.))
-        .pr(dp(4.))
-        .gap(dp(GAP))
+        .mx(dp(tokens::PADDING_PANEL))
+        .pl(dp(tokens::SPACE_LG))
+        .pr(dp(tokens::SPACE_SM))
+        .gap(dp(tokens::GAP_ICON_TEXT))
         .text_13()
-}
-
-/// Where a row's name goes, then its marks and line counts. What follows the name and would cut
-/// it short wraps, whole and from the end, onto a second line the row is too short to show, so
-/// a narrow list keeps the names. A part with a zero basis, as a file's folder, only takes the
-/// room left.
-fn name_and_counts(theme: &Theme) -> Div {
-    h_flex()
-        .flex_1()
-        .min_w_0()
-        .h_full()
-        .flex_wrap()
-        .overflow_hidden()
-        .gap(dp(GAP))
-        // Each line as tall as the row, so the second starts below it.
-        .line_height(dp(theme.sizes.control))
-}
-
-/// A tree row's indent, as but-ui-react's FileListItem draws it: a step per level, each with a
-/// guide that joins the rows above and below into one line down its directory, and a
-/// directory's `chevron` in a step of its own, which a file's row keeps empty. A file's icon so
-/// sits a step in from its directory's, under its name.
-fn steps(depth: usize, chevron: Option<AnyElement>, theme: &Theme) -> Div {
-    let step = || {
-        div()
-            .w(dp(STEP))
-            .h_full()
-            .flex_none()
-            .flex()
-            .justify_center()
-    };
-    h_flex()
-        .flex_none()
-        .h_full()
-        .gap(dp(4.))
-        .children((0..depth).map(|_| step().child(div().w(fixed(1.)).h_full().bg(theme.border_3))))
-        .children(chevron.map(|chevron| step().items_center().child(chevron)))
 }
 
 /// Those of `found`, byte ranges of a path, in its part `part`, as ranges of that part.
@@ -225,27 +195,6 @@ fn underlined(
     underlined
 }
 
-/// The panel's heading: Files, how many, and their lines added and removed.
-fn files_heading(count: usize, (added, removed): (u32, u32), theme: &Theme) -> Div {
-    h_flex()
-        .gap(dp(8.))
-        .child(div().text_14().semibold().child("Files"))
-        .child(count_badge(count, theme))
-        .child(diff::stats(added, removed, false, theme))
-}
-
-/// A file list's header row, as GitButler's other file lists lay it out.
-fn header_row() -> Div {
-    h_flex()
-        .flex_none()
-        .pt(dp(12.))
-        .pb(dp(10.))
-        .pl(dp(16.))
-        .pr(dp(12.))
-        .gap(dp(8.))
-        .text_12()
-}
-
 /// The commit that `files` of a range of commits are taken from: the oldest of those that made
 /// each ([`Selected::made_by`]), when that's the same one for them all. `None` when it isn't,
 /// when the range names no commits for one of them, and for some of a file that several
@@ -271,6 +220,7 @@ impl Detail {
         checkout: &Checkout,
         files: &[FileChange],
         theme: &Theme,
+        window: &Window,
         cx: &Context<Self>,
     ) -> AnyElement {
         let source = FileSource::Uncommitted(project.clone(), checkout.clone());
@@ -286,7 +236,7 @@ impl Detail {
                 .filter(|path| shown(path)),
             diffs.iter().filter(|diff| shown(&diff.file.path)),
             self.check_all_box(theme, cx),
-            theme,
+            window,
             cx,
         );
         // A clean checkout is good news, as but.dev greets it, here as its overview is beside.
@@ -362,7 +312,7 @@ impl Detail {
             .map(|f| f.file.path.as_str())
             .filter(|path| !leaving(path));
         let diffs = diff.files.iter().filter(|f| !leaving(&f.file.path));
-        let header = self.list_header(paths, diffs, None, theme, cx);
+        let header = self.list_header(paths, diffs, None, window, cx);
         v_flex()
             .flex_1()
             .min_h_0()
@@ -533,7 +483,6 @@ impl Detail {
                 .map(|pos| TreeRow::File { pos, depth: 0 })
                 .collect()
         };
-        let folders = tree && rows.iter().any(|row| matches!(row, TreeRow::Dir { .. }));
         let depth = |row: &TreeRow| match row {
             TreeRow::Dir { depth, .. } | TreeRow::File { depth, .. } => *depth,
         };
@@ -552,18 +501,9 @@ impl Detail {
             |dir| rows_under(scroll, dir, theme),
         );
         let found = underlined(&rows, &paths, found);
-        // Room for the widest counts any row shows: a file's own, or in a tree a folder's,
-        // which all the files' together bound.
-        let counted = self
-            .counted_diff(&source)
-            .map_or(&[][..], |diff| &diff.files[..]);
-        let counts = counted.iter().map(FileDiff::stats);
-        let columns = match tree {
-            true => {
-                let folders = diff::widest_up_to(diff::total_stats(counted));
-                diff::stats_columns(counts.chain(folders))
-            }
-            false => diff::stats_columns(counts),
+        let guides = match tree {
+            true => tree_guides(&rows.iter().map(depth).collect::<Vec<_>>()),
+            false => Vec::new(),
         };
         // The list follows the cursor to another file, as j and ↓ move it, or to the folded
         // directory the file is in, or to the folder the keys stepped onto.
@@ -648,13 +588,14 @@ impl Detail {
                             && this.cursor_folder(cx).is_some()
                             && has_keys(&this.files_focus, window, cx);
                         let held = (holds_cursor, solid);
-                        this.render_dir_row(dir, held, &source, found, columns, theme, cx)
+                        let guides = guides.get(ix).cloned().unwrap_or_default();
+                        this.render_dir_row(dir, held, guides, &source, found, cx)
                     }
                     TreeRow::File { pos, depth } => {
                         let lit = |ix: usize| lit.get(ix).copied().unwrap_or(false);
                         let row = FileRow {
-                            depth: tree.then_some(*depth),
-                            folders,
+                            depth: tree
+                                .then(|| (*depth, guides.get(ix).cloned().unwrap_or_default())),
                             joined: match lit(ix) {
                                 true => (ix > 0 && lit(ix - 1), lit(ix + 1)),
                                 false => (false, false),
@@ -662,7 +603,6 @@ impl Detail {
                             picked: lit(ix),
                             menu: picked.clone().filter(|_| lit(ix)),
                             found: found.get(ix)?.clone(),
-                            columns,
                             ..Default::default()
                         };
                         // The current file is solid while the list holds the focus, as the
@@ -679,8 +619,22 @@ impl Detail {
         );
         // Once the list has its rows.
         if let Some(row) = follow {
-            scroll.scroll_to_reveal_item(row);
+            reveal_with_room(scroll, row, theme);
         }
+        // Rows passing under the header read as passing under it, as on FileList.
+        let top = scroll.logical_scroll_top();
+        let scrolled = top.item_ix > 0 || top.offset_in_item > Pixels::ZERO;
+        let list = list.when(scrolled, |el| {
+            el.child(
+                div()
+                    .absolute()
+                    .top_0()
+                    .left_0()
+                    .right_0()
+                    .h(crate::ui::fixed(1.))
+                    .bg(theme.border_3),
+            )
+        });
         (list, count)
     }
 
@@ -1263,7 +1217,6 @@ impl Detail {
         let files = self.folder_files(dir, cx);
         let listed = || (files.iter()).filter_map(|ix| diff.files.get(*ix));
         let (added, removed) = diff::total_stats(listed());
-        let columns = diff::stats_columns(listed().map(FileDiff::stats));
         if self.summarized.borrow().as_deref() != Some(dir) {
             *self.summarized.borrow_mut() = Some(dir.to_owned());
             self.folder_rows.scroll_to(gpui::ListOffset::default());
@@ -1297,7 +1250,7 @@ impl Detail {
                     ),
             )
             .child(faint(plural(files.len(), "file"), theme).flex_none())
-            .child(diff::stats(added, removed, false, theme))
+            .child(diff_stats(added, removed, false, theme))
             .children(diff::change_scale(added, removed, theme));
         let height = files.len() as f32 * theme.sizes.control + 8.;
         let prefix = format!("{dir}/");
@@ -1309,54 +1262,22 @@ impl Detail {
             "folder-summary-scrollbar",
             cx,
             |_, _| None,
-            move |this, at, theme, window, cx| {
+            move |this, at, _, window, cx| {
                 let ix = *files.get(at)?;
                 let file = this.diff.as_ref()?.files.get(ix)?;
                 let path = &file.file.path;
                 let (name, sub) = diff::split_path(path.strip_prefix(&prefix).unwrap_or(path));
                 let (added, removed) = file.stats();
                 let solid = current == Some(ix) && has_keys(&this.focus, window, cx);
-                let row = side_row(("folder-file", ix), solid, solid, theme)
+                let row = file_list_item(("folder-file", ix), name.to_owned())
+                    .directory(sub.to_owned())
+                    .status(file.file.kind.into())
+                    .line_counts(added, removed)
+                    .selected(solid)
+                    .focused(solid)
+                    .row(cx)
                     .mx(dp(4.))
-                    .pl(dp(8.))
-                    .pr(dp(4.))
-                    .gap(dp(GAP))
-                    .text_13()
                     .aria_label(path.clone())
-                    .child(file_icon(path, cx))
-                    .child(
-                        name_and_counts(theme)
-                            .child(
-                                (div().min_w_0().overflow_hidden().whitespace_nowrap())
-                                    .text_ellipsis_middle()
-                                    .child(name.to_owned()),
-                            )
-                            .child(
-                                (div()
-                                    .flex_1()
-                                    .min_w_0()
-                                    .overflow_hidden()
-                                    .whitespace_nowrap())
-                                .text_ellipsis_middle()
-                                .text_color(match solid {
-                                    true => theme.muted_on_solid,
-                                    false => theme.text_3,
-                                })
-                                .child(sub.to_owned()),
-                            )
-                            .child(diff::column_stats(added, removed, columns, solid, theme)),
-                    )
-                    .child(
-                        div()
-                            .w(dp(MARK_WIDTH))
-                            .flex_none()
-                            .flex()
-                            .justify_center()
-                            .text_11()
-                            .semibold()
-                            .text_color(diff::change_color(file.file.kind, theme))
-                            .child(file.file.kind.letter()),
-                    )
                     .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                         this.scroll_to_file(ix, true, cx)
                     }));
@@ -1393,17 +1314,14 @@ impl Detail {
             .into_any_element()
     }
 
-    /// A tree's folder row, with the byte ranges of its name the filter `found`, its end lined
-    /// up with the list's other rows at `columns`.
-    #[expect(clippy::too_many_arguments)]
+    /// A tree's folder row, with the byte ranges of its name the filter `found`.
     fn render_dir_row(
         &self,
         row: &TreeRow,
         (holds_cursor, solid): (bool, bool),
+        guides: Vec<Guide>,
         source: &FileSource,
         found: &[Range<usize>],
-        columns: (usize, usize),
-        theme: &Theme,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let TreeRow::Dir {
@@ -1417,65 +1335,60 @@ impl Detail {
             return None;
         };
         let (added, removed) = self.folder_stats(source, &path, cx);
-        let always_counts = self.store.read(cx).prefs.folder_line_counts;
         let chip = Chip::Folder(name.clone().into());
-        let fold = PageFold::Dir(path.clone());
-        let open = !collapsed && !self.page_folds.closing(&fold);
-        let chevron = fold::chevron("fold", open, theme.text_3).into_any_element();
-        let row = file_row(
-            ElementId::Name(format!("dir-{path}").into()),
-            holds_cursor,
-            solid,
-            theme,
-        )
-        .group(ROW_GROUP)
-        .child(steps(depth, Some(chevron), theme))
-        .child(folder_icon(theme, cx))
-        // Cut in the middle: a chain of folders, `ios/App/Resources/de.lproj`, ends in the one
-        // that tells it from its siblings. Folded, how many files it holds follows the name, so
-        // its end lines up with the files'.
-        .child(
-            name_and_counts(theme)
-                .child(
-                    (div().min_w_0().overflow_hidden().whitespace_nowrap())
-                        .text_ellipsis_middle()
-                        .child(matched(name, found.iter().cloned())),
-                )
-                .when(!open, |el| {
-                    el.child(faint(files.to_string(), theme).flex_none())
-                })
-                // Only under the pointer unless picked in Settings: always there, they crowd
-                // the names.
-                .when(added + removed > 0, |el| {
-                    el.child(
-                        diff::column_stats(added, removed, columns, false, theme)
-                            .ml_auto()
-                            .when(!always_counts, |el| {
-                                el.opacity(0.).group_hover(ROW_GROUP, |s| s.opacity(1.))
-                            }),
-                    )
+        let open = !collapsed && !self.page_folds.closing(&PageFold::Dir(path.clone()));
+        let fold = {
+            let (this, path) = (cx.entity().downgrade(), path.clone());
+            move |_: &ClickEvent, _: &mut Window, cx: &mut App| {
+                this.update(cx, |this, cx| this.fold_dir(path.clone(), None, cx))
+                    .ok();
+            }
+        };
+        // While composing, its box stands for every file under it the commit can take.
+        let check = (self.composing && matches!(source, FileSource::Uncommitted(..)))
+            .then(|| self.folder_check(&path, cx))
+            .flatten()
+            .map(|check| {
+                let path = path.clone();
+                let on_click = cx.listener(move |this, _: &ClickEvent, _, cx| {
+                    this.set_folder_checked(&path, check != Toggled::True, cx)
+                });
+                (check, on_click)
+            });
+        // Folded, how many files it holds and the lines they change; open, its files say it.
+        let row = file_list_item(ElementId::Name(format!("dir-{path}").into()), name)
+            .folded(!open)
+            .on_toggle_folded(fold)
+            .when_some(check, |item, (check, on_click)| {
+                item.checkbox(check, on_click)
+            })
+            .count(files)
+            .line_counts(added, removed)
+            .matches(found.iter().cloned(), [])
+            .depth(depth, guides)
+            .selected(holds_cursor)
+            .focused(solid)
+            .row(cx)
+            .mx(dp(tokens::PADDING_PANEL))
+            .when_some(self.changes_from(source, Vec::new(), cx), |el, nothing| {
+                let nothing = Dragged::from(nothing);
+                el.on_drag(nothing, self.folder_preview(source, &path, chip, cx))
+            })
+            .on_mouse_down(
+                MouseButton::Right,
+                cx.listener({
+                    let (source, path) = (source.clone(), path.clone());
+                    move |this, event: &MouseDownEvent, _, cx| {
+                        let payload = this.folder_payload(&source, &path, cx);
+                        this.right_click_folder(payload.as_ref().map(|(_, changes)| changes), cx);
+                        let at = At::Folder(path.clone());
+                        this.changes_menu(payload, at, None, true, event.position, cx)
+                    }
                 }),
-        )
-        .child(div().flex_none().w(dp(MARK_WIDTH)))
-        .when_some(self.changes_from(source, Vec::new(), cx), |el, nothing| {
-            let nothing = Dragged::from(nothing);
-            el.on_drag(nothing, self.folder_preview(source, &path, chip, cx))
-        })
-        .on_mouse_down(
-            MouseButton::Right,
-            cx.listener({
-                let (source, path) = (source.clone(), path.clone());
-                move |this, event: &MouseDownEvent, _, cx| {
-                    let payload = this.folder_payload(&source, &path, cx);
-                    this.right_click_folder(payload.as_ref().map(|(_, changes)| changes), cx);
-                    let at = At::Folder(path.clone());
-                    this.changes_menu(payload, at, None, true, event.position, cx)
-                }
-            }),
-        )
-        .on_click(
-            cx.listener(move |this, _: &ClickEvent, _, cx| this.fold_dir(path.clone(), None, cx)),
-        );
+            )
+            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                this.fold_dir(path.clone(), None, cx)
+            }));
         Some(row.into_any_element())
     }
 
@@ -1506,59 +1419,37 @@ impl Detail {
 
     /// A file list's header: `check_all`, how many `paths` it has, the lines `diffs` add and
     /// remove, and ways to filter it or show it as a tree. While the filter is open: the
-    /// filter, how many of `paths` it keeps, and a way to close it.
+    /// filter, how many of `paths` it keeps once something's typed, and a way to close it.
     fn list_header<'a>(
         &self,
         paths: impl Iterator<Item = &'a str>,
         diffs: impl Iterator<Item = &'a FileDiff>,
         check_all: Option<Stateful<Div>>,
-        theme: &Theme,
+        window: &Window,
         cx: &Context<Self>,
-    ) -> Div {
+    ) -> FileListHeader {
+        let terms = self.filter_terms(cx);
+        let (kept, total) = paths.fold((0, 0), |(kept, total), path| {
+            (kept + usize::from(keeps_path(&terms, path)), total + 1)
+        });
+        let header = file_list_header("Files", total, diff::total_stats(diffs));
         if self.filtering {
-            let terms = self.filter_terms(cx);
-            let (kept, total) = paths.fold((0, 0), |(kept, total), path| {
-                (kept + usize::from(keeps_path(&terms, path)), total + 1)
-            });
-            return header_row()
-                .child(small_icon(Icon::Search).text_color(theme.text_3))
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w_0()
-                        .text_13()
-                        .child(self.file_filter.clone()),
+            let focused = self.file_filter.focus_handle(cx).is_focused(window);
+            let typed = !self.file_filter.read(cx).text().trim().is_empty();
+            return header
+                .filter(
+                    self.file_filter.clone(),
+                    focused,
+                    cx.listener(|this, _, window, cx| this.close_filter(window, cx)),
                 )
-                .child(
-                    div()
-                        .flex_none()
-                        .text_color(theme.text_3)
-                        .child(format!("{kept} of {total}")),
-                )
-                .child(
-                    icon_button("close-filter", Icon::Cross)
-                        .small()
-                        .tooltip("Close the filter")
-                        .on_click(cx.listener(|this, _, window, cx| this.close_filter(window, cx))),
-                );
+                .when(typed, |header| header.found(kept));
         }
-        header_row()
-            .children(check_all)
-            .child(files_heading(
-                paths.count(),
-                diff::total_stats(diffs),
-                theme,
-            ))
-            .child(div().flex_1())
-            .child(
-                icon_button("filter-files", Icon::Search)
-                    .small()
-                    .tooltip_for("Filter files", &FilterFiles)
-                    .on_click(cx.listener(|this, _, window, cx| this.open_file_filter(window, cx))),
-            )
-            .child(
+        header
+            .when_some(check_all, |header, check_all| header.lead(check_all))
+            .on_open_filter(cx.listener(|this, _, window, cx| this.open_file_filter(window, cx)))
+            .filter_keys(&FilterFiles)
+            .actions(
                 icon_button("file-view", Icon::Kebab)
-                    .small()
                     .tooltip("View options")
                     .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
                         this.open_menu(event.position(), |this, cx| this.view_items(cx), cx)
@@ -1643,140 +1534,73 @@ impl Detail {
             true => theme.muted_on_solid,
             false => theme.text_2,
         };
-        // In a tree a file sits under its directory, which names its path.
-        let dir = if extras.depth.is_some() { "" } else { dir };
-        // While composing, the checkbox takes the icon's place once it's checked, or while
-        // the pointer is on the row.
-        let lead = match extras.checkbox {
-            None => file_icon(&file.path, cx).into_any_element(),
-            Some(check) => {
-                let on = check != Toggled::False;
-                let check = checkbox(("check", ix), check, theme)
-                    // Checking a file doesn't scroll to it.
-                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                        cx.stop_propagation();
-                        this.toggle_checked(&path, cx)
-                    }));
-                div()
-                    .relative()
-                    .flex_none()
-                    .size(dp(14.))
-                    .child(file_icon(&file.path, cx).absolute().map(|el| match on {
-                        true => el.opacity(0.),
-                        false => el.group_hover(ROW_GROUP, |s| s.opacity(0.)),
-                    }))
-                    .child(
+        // Being edited in the diff: a quiet pencil; typed in and not saved yet, a dot, as the
+        // diff's header marks it.
+        let being_edited = editing && !opened;
+        let marks = (being_edited || unsaved).then(|| {
+            h_flex()
+                .gap(dp(6.))
+                .when(being_edited, |el| {
+                    el.child(
                         div()
-                            .absolute()
-                            .map(|el| match on {
-                                true => el,
-                                false => el.opacity(0.).group_hover(ROW_GROUP, |s| s.opacity(1.)),
-                            })
-                            .child(check),
+                            .id(("editing", ix))
+                            .child(small_icon(Icon::Edit).text_color(muted))
+                            .tooltip(Tooltip::text("Being edited")),
                     )
-                    .into_any_element()
-            }
-        };
-        // Its menu is a right-click away, as a commit's is.
-        let mark = div().map(|el| match (opened, file.conflicted) {
-            (true, _) => el.child(
-                div()
-                    .id(("opened", ix))
-                    .child(small_icon(Icon::Edit).text_color(muted))
-                    .tooltip(Tooltip::text("Opened to edit, nothing changed yet")),
-            ),
-            (false, true) => el.child(small_icon(Icon::Warning).text_color(theme.warn)),
-            (false, false) => el
-                .text_11()
-                .semibold()
-                .text_color(diff::change_color(file.kind, theme))
-                .child(file.kind.letter()),
+                })
+                .when(unsaved, |el| {
+                    el.child(
+                        div()
+                            .id(("unsaved", ix))
+                            .child(diff::unsaved_dot(muted))
+                            .tooltip(Tooltip::keyed("Not saved", shortcut(&super::SaveEdits, cx))),
+                    )
+                })
         });
-        let end = div()
-            .flex_none()
-            .w(dp(MARK_WIDTH))
-            .h_full()
-            .flex()
-            .items_center()
-            .justify_center()
-            .child(mark);
+        let (depth, guides) = extras.depth.unzip();
+        // In a tree a file sits under its directory, which names its path.
+        let dir = (depth.is_none() && !dir.is_empty()).then(|| dir.to_owned());
+        let item = file_list_item(("file", ix), name.to_owned())
+            .matches(name_found, dir_found)
+            .status(file.kind.into())
+            .conflicted(file.conflicted)
+            // Opened to edit with nothing changed yet: the pencil in the change letter's place,
+            // and no counts.
+            .editing(opened)
+            .selected(current || picked)
+            .focused(solid)
+            .joined(extras.joined.0, extras.joined.1)
+            .when_some(dir, |item, dir| item.directory(dir))
+            .when_some(depth.zip(guides), |item, (depth, guides)| {
+                item.depth(depth, guides)
+            })
+            .when_some(stats, |item, (added, removed)| {
+                item.line_counts(added, removed)
+            })
+            .when_some(marks, |item, marks| item.marks(marks))
+            .when(opened, |item| {
+                item.status_tooltip("Opened to edit, nothing changed yet")
+            })
+            .when_some(extras.checkbox, |item, check| {
+                item.checkbox(
+                    check,
+                    cx.listener(move |this, _: &ClickEvent, _, cx| this.toggle_checked(&path, cx)),
+                )
+            });
         // Copied while the list has the keys, not the files picked with it.
         let blink = (current && solid)
             .then(|| self.blink(Copied::Cursor))
             .flatten();
-        let mut row = file_row(("file", ix), current || picked, solid, theme)
+        let mut row = item
+            .row(cx)
+            .mx(dp(tokens::PADDING_PANEL))
             .when_some(blink, |el, n| {
                 let shape = div().absolute().inset_0().rounded(dp(theme.shape.control));
                 el.relative()
                     .child(blink_once(("blink", n), shape, theme.pop))
             })
-            .map(|el| crate::ui::joined(el, extras.joined, solid, theme))
             .aria_label(file.path.clone())
             .aria_description(file.kind.word())
-            .group(ROW_GROUP)
-            .children(extras.depth.and_then(|depth| {
-                let room = extras.folders.then(|| div().into_any_element());
-                (depth > 0 || room.is_some()).then(|| steps(depth, room, theme))
-            }))
-            .child(lead)
-            // The name whole where it fits, then its folder dimmed and cut in the middle, as the
-            // folder's end tells two files of one name apart.
-            .child(
-                name_and_counts(theme)
-                    .child(
-                        (div().min_w_0().overflow_hidden().whitespace_nowrap())
-                            .text_ellipsis_middle()
-                            .child(matched(name.to_owned(), name_found)),
-                    )
-                    // Typed in and not saved yet, as the diff's header marks it.
-                    .when(unsaved, |el| {
-                        el.child(
-                            div()
-                                .id(("unsaved", ix))
-                                .flex_none()
-                                .child(diff::unsaved_dot(muted))
-                                .tooltip(Tooltip::keyed(
-                                    "Not saved",
-                                    shortcut(&super::SaveEdits, cx),
-                                )),
-                        )
-                    })
-                    // A zero basis (`flex_1`, not `flex_grow`), so the folder's length never
-                    // wraps the counts away. Empty in a tree, it still keeps them at the end.
-                    .child(
-                        (div()
-                            .flex_1()
-                            .min_w_0()
-                            .overflow_hidden()
-                            .whitespace_nowrap())
-                        .text_ellipsis_middle()
-                        .text_color(muted)
-                        .when(!dir.is_empty(), |el| {
-                            el.child(matched(dir.to_owned(), dir_found))
-                        }),
-                    )
-                    // Being edited in the diff: a quiet pencil.
-                    .when(editing && !opened, |el| {
-                        el.child(
-                            div()
-                                .id(("editing", ix))
-                                .flex_none()
-                                .child(small_icon(Icon::Edit).text_color(muted))
-                                .tooltip(Tooltip::text("Being edited")),
-                        )
-                    })
-                    .when_some(stats, |el, (added, removed)| {
-                        el.child(diff::column_stats(
-                            added,
-                            removed,
-                            extras.columns,
-                            solid,
-                            theme,
-                        ))
-                    }),
-            )
-            .child(end)
             .when_some(diff_ix, |el, diff_ix| {
                 // ⌘ (ctrl off macOS) or ⇧ picks files. A plain press on a picked file keeps
                 // the picks, for dragging them, until it's let go as a click.

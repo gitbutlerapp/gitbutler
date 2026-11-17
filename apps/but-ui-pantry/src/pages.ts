@@ -21,6 +21,9 @@ export const pages: Array<Page> = pageList;
 
 export const isDesignPage = (page: Page) => page.id.startsWith("design-");
 
+/** The Colours page draws the stylesheet itself, not a note. */
+const isColoursPage = (page: Page) => page.file.endsWith("/tokens.css");
+
 /** The pages under their headings: a design page's folder, a component's group. */
 export function groupPages(list: Array<Page>): Array<[heading: string, pages: Array<Page>]> {
 	const groups = new Map<string, Array<Page>>();
@@ -68,6 +71,11 @@ const markdown = import.meta.glob<string>(
 	},
 );
 
+const stylesheet = import.meta.glob<string>("../../../packages/but-ui/tokens/tokens.css", {
+	query: "?raw",
+	import: "default",
+});
+
 export type StoryEntry = {
 	id: string;
 	name: string;
@@ -83,6 +91,7 @@ export type ComponentPageData = {
 	stories: Array<StoryEntry>;
 };
 export type DesignPageData = { kind: "design"; source: string };
+export type ColoursPageData = { kind: "colours"; source: string };
 
 /** A JSDoc block's text, less its stars and its tags (`@import …`). */
 function jsdoc(comment: string | undefined): string | undefined {
@@ -153,7 +162,13 @@ async function loadDesignPage(page: Page): Promise<DesignPageData> {
 	return { kind: "design", source };
 }
 
-type PageData = ComponentPageData | DesignPageData;
+async function loadColoursPage(page: Page): Promise<ColoursPageData> {
+	const source = await stylesheet[`../${page.file}`]?.();
+	if (source === undefined) throw new Error(`No stylesheet at ${page.file}`);
+	return { kind: "colours", source };
+}
+
+type PageData = ComponentPageData | DesignPageData | ColoursPageData;
 
 const loads = new Map<string, Promise<PageData>>();
 
@@ -164,9 +179,11 @@ const loads = new Map<string, Promise<PageData>>();
 export function loadPage(page: Page): Promise<PageData> {
 	let load = loads.get(page.id);
 	if (load === undefined) {
-		const started: Promise<PageData> = isDesignPage(page)
-			? loadDesignPage(page)
-			: loadComponentPage(page);
+		const started: Promise<PageData> = isColoursPage(page)
+			? loadColoursPage(page)
+			: isDesignPage(page)
+				? loadDesignPage(page)
+				: loadComponentPage(page);
 		void started.then(
 			(value) => {
 				const settled: Promise<PageData> & { status?: "fulfilled"; value?: PageData } = started;

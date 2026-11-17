@@ -7,9 +7,9 @@
 	white-space: nowrap;
 }
 
+/* The glyph in its label's colour, as one: a count reads as one thing. */
 .glyph {
 	flex-shrink: 0;
-	opacity: 0.7;
 }
 
 /* The words give way to the glyph when the line runs out of room. */

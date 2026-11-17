@@ -1067,17 +1067,6 @@ impl SettingsView {
             )
             .with_keywords("stale"),
         ];
-        let folder_counts = Row::new(
-            "Show folders' line counts",
-            "Folders in a file tree always show the lines their files add and remove. Off, they \
-             show them only under the pointer.",
-            self.pref_switch(
-                "folder-line-counts",
-                prefs.folder_line_counts,
-                |p| p.folder_line_counts ^= true,
-                cx,
-            ),
-        );
         let folder_stops = Row::new(
             "Step through folders",
             crate::ui::keys_text(
@@ -1136,7 +1125,7 @@ impl SettingsView {
                 ],
             ),
             Card::new(Some("Navigator"), navigator),
-            Card::new(Some("File list"), vec![folder_counts, folder_stops]),
+            Card::new(Some("File list"), vec![folder_stops]),
             Card::new(Some("Diff"), diff),
             Card::new(Some("Terminal"), vec![terminal_font, terminal_text]),
         ]

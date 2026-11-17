@@ -1,5 +1,6 @@
 // Fails when a pair of semantic tokens that is meant to be read stops reading, in light or
-// dark: text on the grounds it sits on at 4.5:1 (WCAG AA), marks and faint details at 3:1.
+// dark: text on the grounds it sits on at 4.5:1 (WCAG AA), marks and faint details at 3:1, and
+// a label on a colour's solid fill at 4.5:1, or at APCA Lc 70 in light.
 // generate-ramps.mjs holds the ramps to these floors; this holds the names built from them,
 // so a token pointed at the wrong step in Figma fails here rather than on screen.
 //
@@ -11,6 +12,10 @@ import { readFileSync } from "node:fs";
 
 const TEXT = 4.5;
 const MARK = 3;
+// A label on a colour's solid fill reads at 4.5:1, or in light mode by APCA at Lc 70 instead:
+// the white labels, whose fills generate-ramps.mjs makes that way.
+const LABEL = "label";
+const LABEL_LC = 70;
 
 const css = readFileSync("tokens/tokens.css", "utf8");
 const defaults = rootDeclarations(css);
@@ -57,6 +62,21 @@ function contrast(a, b) {
 	const [x, y] = [luminance(a), luminance(b)];
 	return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
 }
+// APCA 0.0.98G's |Lc| of `text` on `ground`, as generate-ramps.mjs has it.
+function apca(text, ground) {
+	function y({ r, g, b }) {
+		const l = 0.2126729 * r ** 2.4 + 0.7151522 * g ** 2.4 + 0.072175 * b ** 2.4;
+		return l < 0.022 ? l + (0.022 - l) ** 1.414 : l;
+	}
+	const [t, g] = [y(text), y(ground)];
+	const s = g > t ? (g ** 0.56 - t ** 0.57) * 1.14 : (g ** 0.65 - t ** 0.62) * 1.14;
+	return Math.abs(s) < 0.1 ? 0 : Math.abs(s > 0 ? s - 0.027 : s + 0.027) * 100;
+}
+
+// Whether tokens.css declares `--but-${name}`.
+function declared(name) {
+	return defaults.has(name);
+}
 
 // The pairs, as [what's read, what it's read on, floor]. A translucent ground sits on
 // background, as a tint or a hover does in a card; translucent text sits on its ground. A soft
@@ -76,23 +96,22 @@ const pairs = [
 	["inverse-foreground", "inverse-hover", TEXT],
 	["inverse-muted-foreground", "inverse", TEXT],
 	["inverse-subtle-foreground", "inverse", MARK],
-	// Each colour's weights: -text and soft-foreground on soft and on surface, its opaque twin for
-	// areas, and foreground on the solid.
+	// Each colour's weights: -text on the plain grounds and an outline button's hover, -mark (an
+	// icon, a dot, a switch) on the plain grounds, soft-foreground on soft and on surface, and
+	// foreground on the solid.
 	...STATUSES.flatMap((status) => [
 		...[
 			...GROUNDS,
-			`${status}-soft`,
-			`${status}-soft-hover`,
-			`${status}-surface`,
-			`${status}-surface-hover`,
+			...(declared(`${status}-outline-hover`) ? [`${status}-outline-hover`] : []),
 		].map((ground) => [`${status}-text`, ground, TEXT]),
+		...GROUNDS.map((ground) => [`${status}-mark`, ground, MARK]),
 		...[`soft`, `soft-hover`, `surface`, `surface-hover`].map((ground) => [
 			`${status}-soft-foreground`,
 			`${status}-${ground}`,
 			TEXT,
 		]),
-		[`${status}-foreground`, status, TEXT],
-		[`${status}-foreground`, `${status}-hover`, TEXT],
+		[`${status}-foreground`, status, LABEL],
+		[`${status}-foreground`, `${status}-hover`, LABEL],
 	]),
 	...["local", "remote", "upstream", "integrated"].flatMap((commit) =>
 		["background", "canvas"].map((ground) => [`commit-${commit}`, ground, MARK]),
@@ -120,12 +139,20 @@ for (const [groundName, groundOverrides] of grounds)
 						resolve(`var(--but-${ground})`, mode),
 						resolve(`var(--but-${under})`, mode),
 					);
-					const ratio = contrast(over(resolve(`var(--but-${text})`, mode), on), on);
+					const ink = over(resolve(`var(--but-${text})`, mode), on);
+					const ratio = contrast(ink, on);
 					const where = under === "background" ? "" : ` over --but-${under}`;
-					if (ratio < floor)
-						failures.push(
-							`${groundName.padEnd(5)} ${accent.padEnd(7)} ${mode.padEnd(5)}  --but-${text} on --but-${ground}${where}: ${ratio.toFixed(2)}:1, needs ${floor}:1`,
-						);
+					const said = `${groundName.padEnd(5)} ${accent.padEnd(7)} ${mode.padEnd(5)}  --but-${text} on --but-${ground}${where}`;
+					if (floor === LABEL) {
+						const lc = apca(ink, on);
+						if (ratio < TEXT && (mode === "dark" || lc < LABEL_LC))
+							failures.push(
+								mode === "light"
+									? `${said}: ${ratio.toFixed(2)}:1 and Lc ${lc.toFixed(1)}, needs ${TEXT}:1 or Lc ${LABEL_LC}`
+									: `${said}: ${ratio.toFixed(2)}:1, needs ${TEXT}:1`,
+							);
+					} else if (ratio < floor)
+						failures.push(`${said}: ${ratio.toFixed(2)}:1, needs ${floor}:1`);
 				}
 			}
 		}

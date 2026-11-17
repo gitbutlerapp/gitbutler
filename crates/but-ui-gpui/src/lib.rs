@@ -19,6 +19,7 @@
 #![cfg_attr(not(test), deny(clippy::indexing_slicing, clippy::string_slice))]
 #![cfg_attr(test, allow(clippy::disallowed_methods))]
 
+pub mod file_icons;
 pub mod illustration;
 pub mod modal;
 #[expect(
@@ -30,7 +31,11 @@ pub mod theme;
 mod badge;
 mod button;
 mod checkbox;
+mod conflict_icon;
+mod diff_stats;
 mod empty_state;
+mod file_list;
+mod file_status_badge;
 mod focus;
 mod fonts;
 mod icon;
@@ -50,7 +55,11 @@ mod tooltip;
 pub use badge::*;
 pub use button::*;
 pub use checkbox::*;
+pub use conflict_icon::*;
+pub use diff_stats::*;
 pub use empty_state::*;
+pub use file_list::*;
+pub use file_status_badge::*;
 pub use focus::*;
 pub use fonts::*;
 pub use icon::*;

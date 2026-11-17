@@ -250,7 +250,7 @@ fn side_look(side: Side, plain: bool, theme: &Theme) -> Look {
         Side::NewBase => look(LineKind::Added, plain, theme),
         Side::Commit => Look {
             bg: (!plain).then_some(theme.surface(Hue::Blue)),
-            number: theme.blue,
+            number: theme.blue_on_soft,
             emph: theme.highlight(Highlight::Incoming),
             bar: Some(theme.blue.into()),
         },
@@ -294,7 +294,7 @@ fn bar(row: &Row, theme: &Theme) -> AnyElement {
         true => (Icon::Tick, theme.safe, theme.hover, theme.secondary),
         false => (
             Icon::Warning,
-            theme.warn,
+            theme.warn_on_soft,
             theme.surface(Hue::Warn),
             theme.surface_hover(Hue::Warn),
         ),

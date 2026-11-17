@@ -17,7 +17,9 @@ const FIGMA = "teal";
 // cyans and reds that leave sRGB at teal's lightness, at 4.5:1 once the browser clips them.
 const CHROMA_CAP = 0.15;
 const LIGHTNESS_MARGIN = 0.04;
-const MARGIN_STEPS = new Set(["9", "10", "11"]);
+const MARGIN_STEPS = new Set(["9", "10", "11", "text", "mark"]);
+// The steps drawn on the ground, which move lighter for dark rather than darker.
+const ON_GROUND = new Set(["11", "text", "mark"]);
 
 const oklch = converter("oklch");
 function round(n) {
@@ -35,7 +37,7 @@ export function accentSetting(css) {
 	const family = [...css.matchAll(/^\s*--but-(primary[\w-]*):\s*(.+?);\s*$/gm)]
 		.filter(([, , value]) => value.includes(`--but-${FIGMA}-`))
 		.map(([, token, value]) => {
-			const step = value.match(new RegExp(`^var\\(--but-${FIGMA}-(a?\\d+)\\)$`))?.[1];
+			const step = value.match(new RegExp(`^var\\(--but-${FIGMA}-(a?\\d+|text|mark)\\)$`))?.[1];
 			if (step === undefined) throw new Error(`--but-${token} isn't one step of ${FIGMA}.`);
 			return [token, step];
 		});
@@ -62,8 +64,8 @@ export function accentSetting(css) {
 			tokens: Object.fromEntries(
 				family.map(([token, step]) => {
 					const [light, dark] = ramp(step).map((colour, mode) => {
-						// Further from the ground: darker in light, and for text on dark, lighter.
-						const away = MARGIN_STEPS.has(step) ? (mode === 1 && step === "11" ? 1 : -1) : 0;
+						// Further from the ground: darker in light, and for text and marks on dark, lighter.
+						const away = MARGIN_STEPS.has(step) ? (mode === 1 && ON_GROUND.has(step) ? 1 : -1) : 0;
 						return {
 							lightness: round(colour.l + away * LIGHTNESS_MARGIN),
 							chroma: round(colour.c / primary.c),

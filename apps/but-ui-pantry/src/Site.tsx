@@ -5,6 +5,7 @@ import { ResizeHandle } from "@gitbutler/but-ui-react/ResizeHandle.tsx";
 import { ScrollArea } from "@gitbutler/but-ui-react/ScrollArea.tsx";
 import { GroupLabel, NavItem } from "@gitbutler/but-ui-react/SidebarRow.tsx";
 import { treeGuides } from "@gitbutler/but-ui-react/treeGuides.ts";
+import { ColoursPage } from "./ColoursPage.tsx";
 import { ComponentPage } from "./ComponentPage.tsx";
 import { DesignPage } from "./DesignPage.tsx";
 import type { IconName } from "@gitbutler/but-ui-react/iconNames.ts";
@@ -76,7 +77,9 @@ export const Site: FC = () => {
 
 const PageView: FC<{ page: Page }> = ({ page }) => {
 	const data = use(loadPage(page));
-	return data.kind === "design" ? (
+	return data.kind === "colours" ? (
+		<ColoursPage source={data.source} />
+	) : data.kind === "design" ? (
 		<DesignPage source={data.source} folder={page.file.split("/").at(-2) ?? ""} />
 	) : (
 		<ComponentPage key={page.id} page={page} data={data} />

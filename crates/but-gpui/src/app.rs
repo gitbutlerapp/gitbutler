@@ -2755,6 +2755,7 @@ impl AppView {
                 el.on_action(move |_: &CloseWindow, window, cx| close(window, cx))
             })
             .child(tile_content().child(page).children(home_bar))
+            .children(crate::ui::tile_corners(theme))
             .children(self.tile_edge(&Tile::Home, window, theme, cx))
             .when(self.shown_terminal(cx).is_some(), |el| {
                 el.child(self.paste_outline(theme))
@@ -3017,6 +3018,7 @@ impl AppView {
                         .child(bar)
                         .child(div().flex_1().min_h_0().relative().child(content)),
                 )
+                .children(crate::ui::tile_corners(theme))
                 .children(edge)
                 .when(terminal, |el| el.child(self.paste_outline(theme))),
         )

@@ -66,6 +66,17 @@
 	}
 }
 
+/* How many files the filter keeps, at the field's end, in the field's own text style. */
+.filterFound {
+	display: flex;
+	position: absolute;
+	align-items: center;
+	inset-block: 0;
+	inset-inline-end: 8px;
+	color: var(--but-subtle-foreground);
+	pointer-events: none;
+}
+
 .headerEnd {
 	display: flex;
 	flex-shrink: 0;
@@ -216,6 +227,7 @@
 
 	.directory,
 	.marks,
+	.editing,
 	.toggle {
 		color: var(--but-inverse-muted-foreground);
 	}
@@ -374,14 +386,47 @@
 }
 
 .text {
+	display: flex;
+	min-width: 0;
 	overflow: hidden;
 	line-height: 16px;
-	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
+/* Whole until the folder is gone; cut only when it alone is wider than the row. */
+.name {
+	flex-shrink: 0;
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* Subtle, so the name reads first and the folder only says where it is. Short of room it gives
+   way first, by far, and is cut in the middle, as the GPUI client cuts it, so its end, which tells
+   two folders apart, stays. Its width is the whole folder's, set as it's measured. */
 .directory {
-	color: var(--but-muted-foreground);
+	position: relative;
+	flex-shrink: 1000;
+	min-width: 0;
+	overflow: hidden;
+	color: var(--but-subtle-foreground);
+	white-space: pre;
+}
+
+/* What the cut is measured on: the whole folder, laid out as it would show but out of sight. */
+.directoryCopy {
+	visibility: hidden;
+	position: absolute;
+	inset-inline-start: 0;
+	pointer-events: none;
+}
+
+/* What a filter found, as the GPUI client marks it: 1px, close under the letters, so the
+   row's line box doesn't clip it. */
+.match {
+	text-decoration: underline;
+	text-decoration-thickness: 1px;
+	text-underline-offset: 1px;
 }
 
 .directoryTrail {
@@ -424,9 +469,12 @@
 }
 
 /* Inter's own figures, as 🍑 But UI and the GPUI client draw them: its tabular "1" is another
-   glyph, and each count is centred in a cell of its own anyway. */
+   glyph, and each count is centred in a cell of its own anyway. The line counts' size, and their
+   step down, so a folded directory's numbers read as one line. Subtle, as the folder is, since it
+   says only how many files are inside. */
 .count {
-	color: var(--but-muted-foreground);
+	translate: 0 1px;
+	color: var(--but-subtle-foreground);
 
 	:where([data-selection-focused="true"]:not([data-selection-focus-styles="false"] *))
 		.item[data-selected]
@@ -435,12 +483,18 @@
 	}
 }
 
+/* Open to edit with nothing changed yet: quiet, as the folder is, since nothing has happened. */
+.editing {
+	display: flex;
+	color: var(--but-subtle-foreground);
+}
+
 /* The box the change-type letter occupies, so a row that swaps one for the other keeps everything
    before it in place. Kept in step with the width FileStatusBadge.module.css sizes off its text. */
 .reviewed {
 	display: flex;
 	justify-content: center;
 	width: 1.1em;
-	color: var(--but-primary);
+	color: var(--but-primary-mark);
 	font-size: 11px;
 }

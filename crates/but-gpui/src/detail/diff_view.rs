@@ -28,11 +28,12 @@ use crate::backend::{
 };
 use crate::overlays::{MenuItem, has_keys};
 use crate::state::{Part, Prefs, ProjectId, Selection};
-use crate::theme::Theme;
+use crate::theme::{Theme, tokens};
 use crate::transfer::{Changes, Dragged};
 use crate::ui::Text;
 use crate::ui::change_marks::{RAIL, change_marks};
 use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
+use crate::ui::diff_stats;
 use crate::ui::fold::{MOVING_ROWS, clipped, curtain};
 use crate::ui::illustration::Illustration;
 use crate::ui::scrollbar::{Scroll, scrollbar, shown_scrollbar};
@@ -796,22 +797,26 @@ impl Detail {
                 .into_any_element();
         }
         let entity = cx.entity().downgrade();
-        // A copy of the header of the file at the top, while the file scrolls under it. It's
-        // clipped to the list, so the next file can push it out the top.
+        // A copy of the header of the file at the top, while the file scrolls under it, as a
+        // navigator card's top edge holds while its rows pass under it. Once the card's end
+        // comes up to it, the card thins from the bottom over the header to nothing, its top
+        // edge never cut.
         let header_height = self.file_header_height(cx);
+        let flat = self.single_file_shown();
         let sticky = self.sticky_header(diff, cx).map(|(ix, lift)| {
+            let height = header_height + lift;
             div()
                 .absolute()
                 .top_0()
                 .left_0()
                 .right_0()
-                .h(header_height)
+                .h(height)
                 .overflow_hidden()
                 .child(
                     div()
                         .id("sticky-header")
                         .absolute()
-                        .top(lift)
+                        .top_0()
                         .left_0()
                         .right_0()
                         // The pane's ground, so the lines under it don't show past the header's
@@ -820,6 +825,9 @@ impl Detail {
                         .block_mouse_except_scroll()
                         .child(self.render_diff_row(ix, entity.clone(), window, cx)),
                 )
+                .when(lift < Pixels::ZERO && !flat, |el| {
+                    el.children(card_end(height, theme))
+                })
         });
         // Beside the marks, the thumb shows where among them the diff is.
         let scroll = Scroll::List(self.list.clone());
@@ -911,9 +919,9 @@ impl Detail {
             .absolute()
         };
         ground()
-            // With the bar above it, as far down as but.dev starts its first card. A title
+            // As far under the bar as the file list's rows start under its heading. A title
             // starts at the pane's top, beside the file list's heading.
-            .when(!self.titled_header(cx), |el| el.pt(dp(7.)))
+            .when(!self.titled_header(cx), |el| el.pt(dp(tokens::SPACE_XL)))
             // A press anywhere ends the last drag; one on a line starts a new one after this.
             .capture_any_mouse_down(cx.listener(|this, _, _, _| this.selecting = false))
             // A drag's let-go comes as one outside, as gpui takes the pointer to have left
@@ -1207,8 +1215,10 @@ impl Detail {
         Some(
             h_flex()
                 .flex_none()
-                .h(dp(40.))
-                .px(dp(12.))
+                // Its controls 12px down, level with the file list's heading beside it.
+                .h(dp(tokens::PADDING_PANEL + theme.sizes.control))
+                .pt(dp(tokens::PADDING_PANEL))
+                .px(dp(tokens::PADDING_PANEL))
                 .gap(dp(8.))
                 .bg(theme.bg_1)
                 .children(files)
@@ -1263,19 +1273,16 @@ impl Detail {
         }
         let header =
             (diff.rows.get(..=top.item_ix)?.iter()).rposition(|row| *row == DiffRow::File(file))?;
-        // The file's last row pushes it, so that row and the card's end below it show whole
-        // rather than a sliver of them under the header.
+        // It holds while any of the file shows under it, as a navigator card's top edge does,
+        // and the card's end pushes it out once it reaches it, the card thinning to nothing.
         let same_file =
             (diff.rows.iter().skip(top.item_ix)).take_while(|row| row.file() == Some(file));
         let last = top.item_ix + same_file.count() - 1;
-        let lift = self
-            .list
-            .bounds_for_item(last)
-            .map_or(Pixels::ZERO, |last| {
-                let room = last.top() - self.list.viewport_bounds().top();
-                (room - self.file_header_height(cx)).min(Pixels::ZERO)
-            });
-        Some((header, lift))
+        let past = self.list.bounds_for_item(last).map_or(Pixels::MAX, |last| {
+            let room = last.bottom() - self.list.viewport_bounds().top();
+            room - self.file_header_height(cx)
+        });
+        Some((header, past.min(Pixels::ZERO)))
     }
 
     fn render_diff_row(
@@ -1319,7 +1326,7 @@ impl Detail {
         // The margin between the cards and the sides of the pane. A flat file runs from side
         // to side, its lines clear of the marks and the scrollbar, which start below its header.
         let padded = match (flat, row) {
-            (false, _) => div().w_full().px(dp(12.)),
+            (false, _) => div().w_full().px(dp(tokens::PADDING_PANEL)),
             (true, DiffRow::Message | DiffRow::File(_)) => div().w_full(),
             (true, _) => div().w_full().pr(fixed(RAIL)),
         };
@@ -2042,7 +2049,7 @@ fn hunk_marks(solid: bool, last: bool, theme: &Theme) -> impl Iterator<Item = gp
         .absolute()
         .top_0()
         .bottom_0()
-        .left(dp(12.))
+        .left(dp(tokens::PADDING_PANEL))
         .ml(fixed(1.))
         .w(dp(4.))
         .bg(match solid {
@@ -2053,19 +2060,51 @@ fn hunk_marks(solid: bool, last: bool, theme: &Theme) -> impl Iterator<Item = gp
         .absolute()
         .top_0()
         .bottom_0()
-        .left(dp(12.))
-        .right(dp(12.))
+        .left(dp(tokens::PADDING_PANEL))
+        .right(dp(tokens::PADDING_PANEL))
         .bg(theme.selected_unfocused)
         .when(last, |el| el.rounded_b(dp(theme.shape.card)));
     solid.then_some(tint).into_iter().chain([tab])
+}
+
+/// A diff card's rounded end over a sticky header `height` tall, which the card's end has come
+/// up to: the pane's ground outside the end's rounding, a ring as wide as it cut to the end's
+/// rows so only its corners show, then the card's edge around it all.
+fn card_end(height: Pixels, theme: &Theme) -> [Div; 2] {
+    let reach = theme.scaled(theme.shape.card);
+    let round = reach.min(height / 2.);
+    let side = dp(tokens::PADDING_PANEL);
+    let mut ring = div()
+        .absolute()
+        .left(-reach)
+        .right(-reach)
+        .bottom(-reach)
+        .top(-(reach + round))
+        .rounded(reach + round)
+        .border_color(theme.bg_1);
+    ring.style().border_widths = gpui::EdgesRefinement {
+        top: Some(reach.into()),
+        right: Some(reach.into()),
+        bottom: Some(reach.into()),
+        left: Some(reach.into()),
+    };
+    [
+        (div().absolute().bottom_0().left(side).right(side).h(round))
+            .overflow_hidden()
+            .child(ring),
+        (div().absolute().top_0().bottom_0().left(side).right(side))
+            .rounded(round)
+            .border_1()
+            .border_color(theme.border_2),
+    ]
 }
 
 /// The blink `n` over a row of the diff's card, where the hunk's tint lies, but over the
 /// line's own ground: see [`crate::ui::blink_once`].
 fn row_blink(n: usize, last: bool, theme: &Theme) -> impl IntoElement {
     let shape = (div().absolute().top_0().bottom_0())
-        .left(dp(12.))
-        .right(dp(12.))
+        .left(dp(tokens::PADDING_PANEL))
+        .right(dp(tokens::PADDING_PANEL))
         .when(last, |el| el.rounded_b(dp(theme.shape.card)));
     blink_once(("blink", n), shape, diff::copy_wash(theme))
 }
@@ -2304,7 +2343,7 @@ pub(super) fn files_toggle(
         .child(icon(glyph).text_color(theme.text_2))
         .when_some(counts, |el, (n, added, removed)| {
             el.child(count_badge(n, theme))
-                .child(diff::stats(added, removed, false, theme))
+                .child(diff_stats(added, removed, false, theme))
         })
 }
 

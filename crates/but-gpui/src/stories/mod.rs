@@ -13,11 +13,15 @@
 
 mod activity;
 mod avatar;
+mod badge;
 mod button;
 mod checkbox;
 mod counts;
+mod diff_stats;
 mod dropdown_button;
 mod empty_state;
+mod file_list;
+mod file_status_badge;
 mod icons;
 mod keycap;
 mod popover;
@@ -58,6 +62,8 @@ pub fn run() {
             }
             cx.on_action(|_: &Quit, cx| cx.quit());
             cx.bind_keys([KeyBinding::new("cmd-q", Quit, None)]);
+            // Escape and the rest of a field's keys, for the stories that take typing.
+            ui::text_input::bind_keys(cx);
             cx.set_menus([Menu::new("Pantry").items([MenuItem::action("Quit", Quit)])]);
             // Its own icon, so the Dock tells it from the app.
             #[cfg(target_os = "macos")]
@@ -123,12 +129,18 @@ struct Example {
 
 /// Every story's examples.
 fn examples() -> impl Iterator<Item = Example> {
-    button::EXAMPLES.into_iter()
+    (badge::EXAMPLES.into_iter())
+        .chain(button::EXAMPLES)
+        .chain(diff_stats::EXAMPLES)
+        .chain(file_list::EXAMPLES)
+        .chain(file_status_badge::EXAMPLES)
 }
 
-/// An example under its name, as the docs site titles it.
+/// An example under its name, as the docs site titles it, at its own width at the start of the
+/// column, as the docs site's ground places a story, rather than stretched across it.
 fn example(example: Example, theme: &Theme) -> Div {
     v_flex()
+        .items_start()
         .gap(dp(12.))
         .child(section_label(example.name, theme))
         .child((example.draw)(theme))
@@ -173,11 +185,15 @@ impl Gallery {
         let stories = vec![
             story("Activity", activity::ActivityStory::default(), cx),
             story("Avatar", avatar::AvatarStory, cx),
+            story("Badge", badge::BadgeStory, cx),
             story("Button", button::ButtonStory, cx),
             story("Checkbox", checkbox::CheckboxStory::default(), cx),
             story("Counts and marks", counts::CountsStory, cx),
+            story("Diff stats", diff_stats::DiffStatsStory, cx),
             story("Dropdown button", dropdown_button::DropdownButtonStory, cx),
             story("Empty state", empty_state::EmptyStateStory, cx),
+            story("File list", file_list::FileListStory::default(), cx),
+            story("File status", file_status_badge::FileStatusBadgeStory, cx),
             story("Icons", icons::IconsStory::default(), cx),
             story("Keycap", keycap::KeycapStory, cx),
             story("List rows", rows::RowsStory::default(), cx),

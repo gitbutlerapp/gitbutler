@@ -1530,6 +1530,25 @@ impl Detail {
         self.set_checked(paths, check, cx);
     }
 
+    /// As [`Self::set_all_checked`], for the files under the folder `dir` only.
+    pub(super) fn set_folder_checked(&mut self, dir: &str, check: bool, cx: &mut Context<Self>) {
+        let mut paths = match check {
+            true => self.checkable_paths(cx),
+            false => self.listed_paths(cx),
+        };
+        let prefix = format!("{dir}/");
+        paths.retain(|path| path.starts_with(&prefix));
+        self.set_checked(paths, check, cx);
+    }
+
+    /// How much of the folder `dir`'s files goes in the next commit, if it has any it can take.
+    pub(super) fn folder_check(&self, dir: &str, cx: &App) -> Option<Toggled> {
+        let prefix = format!("{dir}/");
+        let mut paths = self.checkable_paths(cx);
+        paths.retain(|path| path.starts_with(&prefix));
+        self.checks.all_check(&paths)
+    }
+
     /// The files the list shows, but those that start out of the commit.
     pub(super) fn checkable_paths(&self, cx: &App) -> Vec<String> {
         let files = (self.checks_project.as_ref())

@@ -6,7 +6,6 @@ pub mod change_marks;
 pub mod conflict;
 pub mod diff;
 pub mod emoji;
-pub mod file_icons;
 pub mod fold;
 mod format;
 pub mod markdown;
@@ -22,9 +21,8 @@ use std::ops::Range;
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, CursorStyle, DispatchPhase, Div, DragMoveEvent,
-    ElementId, EmptyView, Entity, FocusHandle, HighlightStyle, Hsla, MouseButton, MouseDownEvent,
-    Pixels, Point, SharedString, Stateful, StyledText, TextLayout, UnderlineStyle, Window, div,
-    prelude::*, relative,
+    ElementId, EmptyView, Entity, FocusHandle, Hsla, MouseButton, MouseDownEvent, Pixels, Point,
+    Stateful, TextLayout, Window, div, prelude::*, relative,
 };
 
 use crate::state::{Area, Pane, Store};
@@ -209,11 +207,6 @@ pub const TILE_BAR: f32 = 30.;
 /// cards are apart, but-ui's `gap/stack`.
 pub const TILE_MARGIN: f32 = tokens::GAP_STACK / 2.;
 
-/// How far a tile's content sits in from its card's edge, its border included: as the
-/// navigator's cards hold their rows, and clear of the rounded corners, as GPUI cuts what's
-/// inside to a rectangle.
-pub const TILE_PAD: f32 = 4.;
-
 /// `el` absolutely over the room it's in, `by` in from every side.
 pub fn inset_by(el: Div, by: f32) -> Div {
     el.absolute()
@@ -232,10 +225,38 @@ pub fn tile_card(theme: &Theme) -> Div {
         .rounded(dp(theme.shape.card))
 }
 
-/// Where a tile's content goes in its area: inside its card, and cut to it, as a header wider
-/// than the tile is.
+/// Where a tile's content goes in its area: inside its card's border, and cut to it, as a
+/// header wider than the tile is. The border is the card's own hairline, which an unseen one
+/// here leaves clear at every scale.
 pub fn tile_content() -> Div {
-    inset_by(div(), TILE_MARGIN + TILE_PAD).overflow_hidden()
+    inset_by(div(), TILE_MARGIN)
+        .border_1()
+        .border_color(gpui::transparent_black())
+        .overflow_hidden()
+}
+
+/// A tile's card's corners, drawn over what's in it: GPUI cuts the content to a rectangle, so
+/// a ground that reaches the border, as a terminal's or the diff's, would square the card off.
+/// A ring of the room's ground as wide as the rounding, its inside the card's outline, cut to
+/// the card's box so only its corners show, then the card's border again.
+pub fn tile_corners(theme: &Theme) -> [Div; 2] {
+    let reach = dp(theme.shape.card);
+    let mut ring = inset_by(div(), -theme.shape.card)
+        .rounded(dp(2. * theme.shape.card))
+        .border_color(theme.bg_2);
+    ring.style().border_widths = gpui::EdgesRefinement {
+        top: Some(reach.into()),
+        right: Some(reach.into()),
+        bottom: Some(reach.into()),
+        left: Some(reach.into()),
+    };
+    [
+        inset_by(div(), TILE_MARGIN).overflow_hidden().child(ring),
+        inset_by(div(), TILE_MARGIN)
+            .rounded(dp(theme.shape.card))
+            .border_1()
+            .border_color(theme.border_3),
+    ]
 }
 
 /// A box over `area` of the room it's in, which is `relative`: where a tile goes.
@@ -246,22 +267,6 @@ pub fn placed(area: Area) -> Div {
         .top(relative(area.top))
         .w(relative(area.width))
         .h(relative(area.height))
-}
-
-/// `text` with the letters a search found in it underlined, so a list shows why each row is
-/// there. `found` are byte ranges of `text`, in order and apart.
-pub fn matched(
-    text: impl Into<SharedString>,
-    found: impl IntoIterator<Item = Range<usize>>,
-) -> StyledText {
-    let underline = HighlightStyle {
-        underline: Some(UnderlineStyle {
-            thickness: fixed(1.),
-            ..Default::default()
-        }),
-        ..Default::default()
-    };
-    StyledText::new(text).with_highlights(found.into_iter().map(|range| (range, underline)))
 }
 
 /// A place in text drawn as rows, as the diff's lines or a description's blocks: the row, and
