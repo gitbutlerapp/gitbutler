@@ -11,7 +11,7 @@ use but_testsupport::{InMemoryRefMetadata, visualize_commit_graph_all, visualize
 use but_workspace::branch::integrate_branch_upstream::{
     BranchIntegrationStrategy, InitialBranchIntegration, IntegrationDivergenceCommit,
     IntegrationDivergenceTargetRelation, InteractiveIntegration, InteractiveIntegrationStep,
-    get_initial_integration_steps_for_branch, integrate_branch_with_steps,
+    get_initial_integration_steps_for_branch, integrate_branch_in_editor,
 };
 use but_workspace::resolve_tracking_branch_ref_name;
 use gix::prelude::ObjectIdExt;
@@ -22,6 +22,18 @@ use crate::{
     },
     utils::{read_only_in_memory_scenario, read_only_in_memory_scenario_named},
 };
+
+fn integrate_branch_with_steps<'ws, 'meta, M: but_core::RefMetadata>(
+    ref_name: &gix::refs::FullNameRef,
+    integration: InteractiveIntegration,
+    workspace: &'ws mut but_graph::Workspace,
+    meta: &'meta mut M,
+    repo: &gix::Repository,
+    db: &'meta mut but_db::DbHandle,
+) -> Result<but_rebase::graph_rebase::SuccessfulRebase<'ws, 'meta, M>> {
+    let editor = but_rebase::graph_rebase::Editor::create(workspace, meta, repo, db)?;
+    integrate_branch_in_editor(editor, ref_name, integration)
+}
 
 fn normalized_graph_snapshot(repo: &gix::Repository) -> Result<String> {
     let rendered = visualize_commit_graph_all(repo)?;
