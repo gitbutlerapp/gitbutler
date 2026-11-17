@@ -470,10 +470,11 @@
 
 /* Inter's own figures, as 🍑 But UI and the GPUI client draw them: its tabular "1" is another
    glyph, and each count is centred in a cell of its own anyway. The line counts' size, and their
-   step down, so a folded directory's numbers read as one line. */
+   step down, so a folded directory's numbers read as one line. Subtle, as the folder is, since it
+   says only how many files are inside. */
 .count {
 	translate: 0 1px;
-	color: var(--but-muted-foreground);
+	color: var(--but-subtle-foreground);
 
 	:where([data-selection-focused="true"]:not([data-selection-focus-styles="false"] *))
 		.item[data-selected]
