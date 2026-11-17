@@ -4602,7 +4602,8 @@ impl Render for Detail {
                                                 .top(dp(self.bar_inset(cx)))
                                                 .child(body),
                                         ),
-                                    );
+                                    )
+                                    .children(crate::ui::tile_corners(&theme));
                                 // Dragged by its bar or zoomed, over the tiles beside it.
                                 match self.store.read(cx).lifted_tile() == Some(&Tile::Home) {
                                     true => crate::ui::fold::on_top(tile).into_any_element(),
