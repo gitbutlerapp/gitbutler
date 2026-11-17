@@ -24,8 +24,8 @@ use crate::{
     },
     bad_input,
     command::legacy::commit::{
-        BranchNameTarget, CommitOperation, CommitOperationTargetIsh, RouteCommitOperationError,
-        refuse_switch_with_detached_head, route_commit_operation,
+        BranchNameTarget, CommitOperation, CommitOperationTargetIsh, CommitToNewBranchOperation,
+        RouteCommitOperationError, refuse_switch_with_detached_head, route_commit_operation,
     },
     id::CommitId,
     theme::{self, Theme},
@@ -308,8 +308,11 @@ fn pick_with_transaction(
     order_commits_by_parentage: bool,
 ) -> anyhow::Result<but_transaction::Commit<(Vec<CommitIdentifiers>, Option<BranchNameTarget>)>> {
     let (relative_to, side, branch_name_target) = match commit_op {
-        CommitOperation::CommitToNewBranch(op) => {
-            let branch_name = op.create_reference(&mut tx)?;
+        CommitOperation::CommitToNewBranch(CommitToNewBranchOperation {
+            branch_name,
+            switch,
+        }) => {
+            let branch_name = tx.create_unstacked_reference(branch_name, switch)?;
             (
                 RelativeTo::Reference(branch_name.clone()),
                 InsertSide::Below,

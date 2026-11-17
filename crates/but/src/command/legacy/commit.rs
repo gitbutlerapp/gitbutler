@@ -1039,28 +1039,6 @@ impl CommitOperation {
     }
 }
 
-/// Create `new_ref` in `tx` as a branch of its own, first among the stacks. With `switch`, it
-/// starts at the target and is checked out instead, unless the target is what's checked out.
-pub(crate) fn create_unstacked_reference(
-    tx: &mut Transaction<'_, '_, impl RefMetadata>,
-    new_ref: &FullNameRef,
-    switch: bool,
-) -> anyhow::Result<()> {
-    if switch {
-        let project_meta = but_core::ref_metadata::ProjectMeta::resolve(tx.repo())?;
-        let checked_out = tx.repo().head_name()?;
-        if let Some(target_ref) = &project_meta.target_ref
-            && checked_out.as_ref().map(|name| name.as_ref())
-                != Some(target_ref.as_local_full_name_ref())
-        {
-            let target = project_meta.resolve_target_commit(tx.repo())?;
-            tx.create_reference_at_commit(new_ref, target)?;
-            return tx.checkout(new_ref);
-        }
-    }
-    tx.create_reference(new_ref, None, Some(0))
-}
-
 /// Fail if `HEAD` in `repo` is detached, as `--switch` has no branch to switch from then.
 pub(crate) fn refuse_switch_with_detached_head(repo: &gix::Repository) -> anyhow::Result<()> {
     let on_branch = (repo.head()?.referent_name())
@@ -1085,7 +1063,11 @@ impl CommitToNewBranchOperation {
         changes: Vec<DiffSpec>,
         source: ChangeSource<'_>,
     ) -> anyhow::Result<(IntermediateCommitCreateResult, Option<BranchNameTarget>)> {
-        let branch_name = self.create_reference(tx)?;
+        let Self {
+            branch_name,
+            switch,
+        } = self;
+        let branch_name = tx.create_unstacked_reference(branch_name, switch)?;
 
         let commit_create_result = tx
             .create_commit(
@@ -1101,26 +1083,6 @@ impl CommitToNewBranchOperation {
             commit_create_result,
             Some(BranchNameTarget::New(branch_name)),
         ))
-    }
-
-    pub(crate) fn create_reference(
-        self,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
-    ) -> anyhow::Result<FullName> {
-        let Self {
-            branch_name,
-            switch,
-        } = self;
-
-        let new_ref = if let Some(branch_name) = branch_name {
-            branch_name
-        } else {
-            but_core::branch::unique_canned_refname(tx.repo())?
-        };
-
-        create_unstacked_reference(tx, new_ref.as_ref(), switch)?;
-
-        Ok(new_ref)
     }
 }
 

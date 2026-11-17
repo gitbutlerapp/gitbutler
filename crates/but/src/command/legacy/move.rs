@@ -25,7 +25,7 @@ use crate::{
     command::legacy::{
         commit::{
             BranchNameTarget, CommitAtOperation, CommitRelativeToTarget,
-            CommitToNewBranchOperation, refuse_switch_with_detached_head,
+            refuse_switch_with_detached_head,
         },
         reword2::CommitMessageSource,
     },
@@ -389,11 +389,7 @@ impl MoveCommitsToNewBranchOperation {
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
         switch: bool,
     ) -> anyhow::Result<FullName> {
-        let new_branch_name = CommitToNewBranchOperation {
-            branch_name: self.branch_name,
-            switch,
-        }
-        .create_reference(tx)?;
+        let new_branch_name = tx.create_unstacked_reference(self.branch_name, switch)?;
         tx.move_commits(
             self.sources.iter().map(|c| c.commit_id),
             RelativeTo::Reference(new_branch_name.clone()),
@@ -455,11 +451,7 @@ impl MoveChangesToNewBranchOperation {
             reword,
         } = self;
 
-        let new_branch_name = CommitToNewBranchOperation {
-            branch_name,
-            switch,
-        }
-        .create_reference(tx)?;
+        let new_branch_name = tx.create_unstacked_reference(branch_name, switch)?;
 
         let new_commit = tx.split_commit(
             source_commit.commit_id,

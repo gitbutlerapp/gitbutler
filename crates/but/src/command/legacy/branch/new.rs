@@ -16,7 +16,7 @@ use crate::{
         branch::NewPlatform,
     },
     bad_input,
-    command::legacy::commit::{create_unstacked_reference, refuse_switch_with_detached_head},
+    command::legacy::commit::refuse_switch_with_detached_head,
     id::CommitId,
     theme::{self, Theme},
     utils::{
@@ -204,7 +204,10 @@ impl NewUnstackedBranchOperation {
             snapshot_details,
             &[new_ref.as_ref()],
             DryRun::No,
-            |mut tx| create_unstacked_reference(&mut tx, new_ref.as_ref(), switch),
+            |mut tx| {
+                tx.create_unstacked_reference(Some(new_ref.clone()), switch)?;
+                anyhow::Ok(())
+            },
         )?;
 
         Ok(NewOutcome {
