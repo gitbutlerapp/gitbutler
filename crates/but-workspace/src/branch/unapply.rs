@@ -413,19 +413,18 @@ pub(crate) mod function {
         // Everything past this point is stricly in non-dry-run mode and we may totally end up in intermediate states
         // if something fails.
         // Redo the traversal with the changed workspace metadata so code below can rely on the reconciled version.
-        let ws = ws
-            .graph
-            .redo_traversal_with_overlay(
-                repo,
-                meta,
-                Overlay::default()
-                    .with_dropped_references([branch.to_owned()])
-                    .with_workspace_metadata_override(Some((
-                        workspace_ref_name.to_owned(),
-                        ws_md.clone(),
-                    ))),
-            )?
-            .into_workspace()?;
+        let ws = reprojected(
+            ws,
+            repo,
+            meta,
+            Overlay::default()
+                .with_dropped_references([branch.to_owned()])
+                .with_workspace_metadata_override(Some((
+                    workspace_ref_name.to_owned(),
+                    ws_md.clone(),
+                ))),
+            None,
+        )?;
         // Normal unapply first:
         // - re-merge or collapse the workspace commit
         // - point workspace to it
