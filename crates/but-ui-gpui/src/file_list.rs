@@ -840,11 +840,15 @@ impl FileListItem {
             )
         } else {
             count.map(|count| {
-                // The line counts' size, so a folded directory's numbers read as one line.
+                // The line counts' size, so a folded directory's numbers read as one line. Subtle,
+                // as the folder is, since it says only how many files are inside.
                 div()
                     .id("status")
                     .text_12()
-                    .text_color(muted)
+                    .text_color(match solid {
+                        true => muted,
+                        false => theme.text_3,
+                    })
                     .child(count.to_string())
             })
         };
