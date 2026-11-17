@@ -11,34 +11,33 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use bstr::BString;
 use but_core::RefMetadata;
-use but_graph::{CommitFlags, Graph, SegmentIndex, Workspace, init::Tip};
+use but_graph::{CommitFlags, Graph, SegmentIndex, Workspace};
 
 use gix::refs::{Category, FullName};
 
 use crate::display_identity;
 
-/// Build the workspace graph from `head`, additionally traversing the given
-/// `(tip, ref name)` pairs.
+/// Build the workspace graph seen from `head` and `head_ref`, walked from `head` and the
+/// given `(tip, ref name)` pairs.
 pub(crate) fn build_workspace(
-    head: gix::Id<'_>,
+    repo: &gix::Repository,
+    head: gix::ObjectId,
     head_ref: Option<FullName>,
     extra_tips: impl IntoIterator<Item = (gix::ObjectId, FullName)>,
     meta: &impl RefMetadata,
     project_meta: but_core::ref_metadata::ProjectMeta,
-    db: &mut but_db::DbHandle,
 ) -> anyhow::Result<Workspace> {
-    Graph::from_commit_traversal_with_extra_tips(
-        head,
-        head_ref,
-        extra_tips
-            .into_iter()
-            .map(|(tip, ref_name)| Tip::reachable(tip, Some(ref_name))),
+    but_graph::nosegment::workspace(
+        repo,
         meta,
         project_meta,
-        db,
-        but_graph::init::Options::default(),
-    )?
-    .into_workspace()
+        head_ref.as_ref().map(|name| name.as_ref()),
+        Some(head),
+        extra_tips.into_iter().map(|(tip, _ref_name)| tip),
+        Vec::new(),
+        false,
+        None,
+    )
 }
 
 /// The configured local target's tip and owning segment, without upstream or cutoff fallback.
