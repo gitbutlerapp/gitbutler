@@ -531,6 +531,50 @@ pub(crate) fn try_find_validated_ref<'repo>(
     Ok(branch_ref)
 }
 
+/// Project `workspace` again from the nosegment graph of `repo` and `meta`, with its project
+/// metadata, linked worktrees and options.
+///
+/// It's seen from the branch and commit in `seen_from` if given, or else from the same branch as
+/// `workspace` if it still exists, or the same commit.
+pub(crate) fn reprojected(
+    workspace: &but_graph::Workspace,
+    repo: &gix::Repository,
+    meta: &impl but_core::RefMetadata,
+    seen_from: Option<(&gix::refs::FullNameRef, gix::ObjectId)>,
+) -> anyhow::Result<but_graph::Workspace> {
+    let (seen_from_ref, seen_from_commit) = match seen_from {
+        Some((ref_name, commit_id)) => (Some(ref_name.to_owned()), Some(commit_id)),
+        None => {
+            let entrypoint = workspace.graph.entrypoint()?;
+            let entrypoint_commit_id = entrypoint
+                .commit()
+                .map(|commit| commit.id)
+                .or_else(|| entrypoint.segment.tip());
+            match entrypoint.segment.ref_name() {
+                Some(ref_name) => match repo.try_find_reference(ref_name)? {
+                    Some(mut reference) => (
+                        Some(ref_name.to_owned()),
+                        Some(reference.peel_to_id()?.detach()),
+                    ),
+                    None => (None, entrypoint_commit_id),
+                },
+                None => (None, entrypoint_commit_id),
+            }
+        }
+    };
+    but_graph::nosegment::workspace(
+        repo,
+        meta,
+        workspace.graph.project_meta.clone(),
+        seen_from_ref.as_ref().map(|name| name.as_ref()),
+        seen_from_commit,
+        [],
+        workspace.graph.worktree_tips.clone(),
+        workspace.graph.options.collect_tags,
+        workspace.graph.options.commits_limit_hint,
+    )
+}
+
 /// Setup `local_tracking_ref` to track `remote_tracking_ref`, and prepare a locked configuration
 /// transaction with the branch configuration added.
 /// We also return the commit at which `local_tracking_ref` should be placed, which is assumed to not exist.

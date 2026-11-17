@@ -136,7 +136,10 @@ pub(crate) mod function {
     use crate::{
         WorkspaceCommit, branch::try_find_validated_ref, editor_workspace::dissolve_workspace,
     };
-    use crate::{branch::anon_stacks, ref_info::WorkspaceExt};
+    use crate::{
+        branch::{anon_stacks, reprojected},
+        ref_info::WorkspaceExt,
+    };
     use but_rebase::graph_rebase::{Editor, LookupStep as _, Step, SuccessfulRebase};
 
     /// Ensure that `branch` is not a parent of the workspace commit.
@@ -346,12 +349,12 @@ pub(crate) mod function {
                 PreviousValue::Any,
                 "GitButler unapply last branch",
             ))?;
-            let overlay = Overlay::default()
-                .with_entrypoint(destination.commit_id, Some(destination.ref_name.clone()));
-            let workspace = ws
-                .graph
-                .redo_traversal_with_overlay(repo, meta, overlay)?
-                .into_workspace()?;
+            let workspace = reprojected(
+                ws,
+                repo,
+                meta,
+                Some((destination.ref_name.as_ref(), destination.commit_id)),
+            )?;
             return Ok(Outcome {
                 workspace: Cow::Owned(workspace),
                 checked_out: Some(destination.ref_name),

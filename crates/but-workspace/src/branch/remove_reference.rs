@@ -19,6 +19,7 @@ use but_rebase::graph_rebase::{Editor, SuccessfulRebase};
 use gix::refs::transaction::PreviousValue;
 use itertools::Itertools as _;
 
+use super::reprojected;
 use crate::editor_workspace::{
     leave_unnecessary_workspace, remove_lane_without_tip, switch_to_workspace,
 };
@@ -134,7 +135,7 @@ pub fn remove_reference(
     }
 
     let stack_id = stack.id;
-    let ws = reprojected(workspace, repo, meta)?;
+    let ws = reprojected(workspace, repo, meta, None)?;
     if avoid_anonymous_stacks {
         let Some(stack) = ws.stacks.iter().find(|s| s.id == stack_id) else {
             // The whole stack is gone, so nothing that could be anonymous.
@@ -164,49 +165,13 @@ pub fn remove_reference(
                 PreviousValue::MustExistAndMatch(gix::refs::Target::Object(target_id)),
                 "move segment reference up to avoid anonymous stack",
             )?;
-            Ok(Some(reprojected(&ws, repo, meta)?))
+            Ok(Some(reprojected(&ws, repo, meta, None)?))
         } else {
             Ok(Some(ws))
         }
     } else {
         Ok(Some(ws))
     }
-}
-
-/// Project `workspace` again from the nosegment graph of `repo` and `meta`, seen from the same
-/// branch if it still exists, or else from the same commit, with its project metadata, linked
-/// worktrees and options.
-fn reprojected(
-    workspace: &but_graph::Workspace,
-    repo: &gix::Repository,
-    meta: &impl RefMetadata,
-) -> anyhow::Result<but_graph::Workspace> {
-    let entrypoint = workspace.graph.entrypoint()?;
-    let entrypoint_commit_id = entrypoint
-        .commit()
-        .map(|commit| commit.id)
-        .or_else(|| entrypoint.segment.tip());
-    let (seen_from_ref, seen_from_commit) = match entrypoint.segment.ref_name() {
-        Some(ref_name) => match repo.try_find_reference(ref_name)? {
-            Some(mut reference) => (
-                Some(ref_name.to_owned()),
-                Some(reference.peel_to_id()?.detach()),
-            ),
-            None => (None, entrypoint_commit_id),
-        },
-        None => (None, entrypoint_commit_id),
-    };
-    but_graph::nosegment::workspace(
-        repo,
-        meta,
-        workspace.graph.project_meta.clone(),
-        seen_from_ref.as_ref().map(|name| name.as_ref()),
-        seen_from_commit,
-        [],
-        workspace.graph.worktree_tips.clone(),
-        workspace.graph.options.collect_tags,
-        workspace.graph.options.commits_limit_hint,
-    )
 }
 
 /// Remove the branch `ref_name` from the step graph of `editor`, keeping its commits.
