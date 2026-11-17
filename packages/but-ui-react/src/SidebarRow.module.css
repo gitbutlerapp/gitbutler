@@ -397,24 +397,24 @@ button.toggle {
 	}
 }
 
-/* A pull request's state in its glyph. */
+/* A pull request's state in its glyph, a mark with no words of its own. */
 .branchGlyph.open {
-	color: var(--but-success-text);
+	color: var(--but-success-mark);
 }
 
 .branchGlyph.closed {
-	color: var(--but-danger-text);
+	color: var(--but-danger-mark);
 }
 
 .branchGlyph.merged {
-	color: var(--but-done-text);
+	color: var(--but-done-mark);
 }
 
 /* A conflicted commit's warning, in its glyph's place. Flex, so the wrapper that names it takes
    no line box of its own, which would sit the icon on a text baseline above the row's centre. */
 .conflicted {
 	display: flex;
-	color: var(--but-danger-text);
+	color: var(--but-danger-mark);
 }
 
 .badge {

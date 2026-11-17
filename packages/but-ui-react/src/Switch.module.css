@@ -14,8 +14,10 @@
 	background-color: var(--but-border);
 	transition: background-color var(--but-transition-medium);
 
+	/* A mark, not a fill under text: the thumb carries no label, so the track takes the brighter
+	   colour drawn for marks. */
 	&[data-checked] {
-		background-color: var(--but-primary);
+		background-color: var(--but-primary-mark);
 	}
 
 	&:disabled,

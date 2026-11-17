@@ -114,15 +114,15 @@
 }
 
 .root[data-type="warning"] {
-	--toast-icon: var(--but-warning-text);
+	--toast-icon: var(--but-warning-mark);
 }
 
 .root[data-type="error"] {
-	--toast-icon: var(--but-danger-text);
+	--toast-icon: var(--but-danger-mark);
 }
 
 .root[data-type="success"] {
-	--toast-icon: var(--but-success-text);
+	--toast-icon: var(--but-success-mark);
 }
 
 /* The action sits under the words rather than beside the close button, so a long label never

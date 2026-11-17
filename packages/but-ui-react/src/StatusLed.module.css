@@ -8,11 +8,11 @@
 }
 
 .safe {
-	background-color: var(--but-success);
+	background-color: var(--but-success-mark);
 }
 
 .warning {
-	background-color: var(--but-warning);
+	background-color: var(--but-warning-mark);
 }
 
 .gray {
