@@ -6,9 +6,9 @@ use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Div, ElementId, Entity, Focusable as _, MouseButton,
-    MouseDownEvent, Pixels, Point, SharedString, Stateful, Toggled, Window, actions, div,
-    prelude::*,
+    AnyElement, App, ClickEvent, Context, Div, ElementId, Entity, Focusable as _, ListOffset,
+    ListState, MouseButton, MouseDownEvent, Pixels, Point, SharedString, Stateful, Toggled, Window,
+    actions, div, prelude::*,
 };
 
 use super::blame::Blamed;
@@ -112,6 +112,30 @@ struct FileRow {
     joined: (bool, bool),
     /// The byte ranges of its path the filter found, to underline.
     found: Vec<Range<usize>>,
+}
+
+/// Scroll file list `scroll` to show row `row`, as near as it is, with the room the rows have
+/// under the header at rest on the side it comes in from, so a row followed to the top doesn't
+/// touch the header, nor one followed down the list's bottom. The rows are all a control tall.
+fn reveal_with_room(scroll: &ListState, row: usize, theme: &Theme) {
+    let tall = theme.scaled(theme.sizes.control);
+    let room = theme.scaled(tokens::SPACE_XL);
+    let shown = scroll.viewport_bounds().size.height;
+    let top = scroll.logical_scroll_top();
+    let at = tall * top.item_ix as f32 + top.offset_in_item;
+    let start = tall * row as f32;
+    let to = if start < at + room {
+        (start - room).max(Pixels::ZERO)
+    } else if start + tall > at + shown - room {
+        start + tall + room - shown
+    } else {
+        return;
+    };
+    let item_ix = (to / tall).floor() as usize;
+    scroll.scroll_to(ListOffset {
+        item_ix,
+        offset_in_item: to - tall * item_ix as f32,
+    });
 }
 
 /// A row of a file list that isn't a file, inset in the panel as the file rows are, its
@@ -595,8 +619,22 @@ impl Detail {
         );
         // Once the list has its rows.
         if let Some(row) = follow {
-            scroll.scroll_to_reveal_item(row);
+            reveal_with_room(scroll, row, theme);
         }
+        // Rows passing under the header read as passing under it, as on FileList.
+        let top = scroll.logical_scroll_top();
+        let scrolled = top.item_ix > 0 || top.offset_in_item > Pixels::ZERO;
+        let list = list.when(scrolled, |el| {
+            el.child(
+                div()
+                    .absolute()
+                    .top_0()
+                    .left_0()
+                    .right_0()
+                    .h(crate::ui::fixed(1.))
+                    .bg(theme.border_3),
+            )
+        });
         (list, count)
     }
 
@@ -1299,9 +1337,17 @@ impl Detail {
         let (added, removed) = self.folder_stats(source, &path, cx);
         let chip = Chip::Folder(name.clone().into());
         let open = !collapsed && !self.page_folds.closing(&PageFold::Dir(path.clone()));
+        let fold = {
+            let (this, path) = (cx.entity().downgrade(), path.clone());
+            move |_: &ClickEvent, _: &mut Window, cx: &mut App| {
+                this.update(cx, |this, cx| this.fold_dir(path.clone(), None, cx))
+                    .ok();
+            }
+        };
         // Folded, how many files it holds and the lines they change; open, its files say it.
         let row = file_list_item(ElementId::Name(format!("dir-{path}").into()), name)
             .folded(!open)
+            .on_toggle_folded(fold)
             .count(files)
             .line_counts(added, removed)
             .matches(found.iter().cloned(), [])
