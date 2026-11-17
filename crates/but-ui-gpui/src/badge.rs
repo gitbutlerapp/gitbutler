@@ -33,12 +33,12 @@ impl BadgeVariant {
         match self {
             BadgeVariant::FillGray => (theme.fill_gray, theme.text_inverted),
             BadgeVariant::LightGray => (theme.neutral_soft, theme.text_1),
-            BadgeVariant::Safe => (theme.safe_soft, theme.safe),
-            BadgeVariant::Warn => (theme.warn_soft, theme.warn),
-            BadgeVariant::Danger => (theme.danger_soft, theme.danger),
-            BadgeVariant::Purple => (theme.purple_soft, theme.purple),
-            BadgeVariant::Blue => (theme.blue_soft, theme.blue),
-            BadgeVariant::Pop => (theme.pop_soft, theme.pop),
+            BadgeVariant::Safe => (theme.safe_soft, theme.safe_on_soft),
+            BadgeVariant::Warn => (theme.warn_soft, theme.warn_on_soft),
+            BadgeVariant::Danger => (theme.danger_soft, theme.danger_on_soft),
+            BadgeVariant::Purple => (theme.purple_soft, theme.purple_on_soft),
+            BadgeVariant::Blue => (theme.blue_soft, theme.blue_on_soft),
+            BadgeVariant::Pop => (theme.pop_soft, theme.pop_on_soft),
         }
     }
 }

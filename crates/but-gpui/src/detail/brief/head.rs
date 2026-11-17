@@ -193,7 +193,7 @@ impl Detail {
             fact(
                 div()
                     .semibold()
-                    .text_color(theme.warn)
+                    .text_color(theme.warn_on_soft)
                     .child(words.to_owned()),
             )
         };

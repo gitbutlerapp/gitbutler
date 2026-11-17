@@ -1117,7 +1117,7 @@ impl AppView {
             .size(dp(32.))
             .rounded(dp(theme.shape.popup))
             .bg(theme.surface(Hue::Pop))
-            .child(icon(Icon::ArrowInBox).text_color(theme.pop));
+            .child(icon(Icon::ArrowInBox).text_color(theme.pop_on_soft));
         Some(
             popover(theme)
                 .id("update-card")

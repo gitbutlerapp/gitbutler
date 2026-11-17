@@ -1868,7 +1868,11 @@ impl Detail {
             missing.then(|| {
                 let remove = project.clone();
                 callout(theme.surface(Hue::Danger))
-                    .child(div().text_color(theme.danger).children(entry.error.clone()))
+                    .child(
+                        div()
+                            .text_color(theme.danger_on_soft)
+                            .children(entry.error.clone()),
+                    )
                     .child(
                         crate::ui::button("forget", "Remove")
                             .small()
@@ -1883,7 +1887,11 @@ impl Detail {
             entry.commits_above.map(|above| {
                 let project = project.clone();
                 callout(theme.surface(Hue::Danger))
-                    .child(div().text_color(theme.danger).children(entry.error.clone()))
+                    .child(
+                        div()
+                            .text_color(theme.danger_on_soft)
+                            .children(entry.error.clone()),
+                    )
                     .child(
                         crate::ui::button("uncommit-above", "Uncommit, keep the changes")
                             .small()

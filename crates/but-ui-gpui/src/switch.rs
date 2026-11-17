@@ -23,7 +23,7 @@ pub fn switch_spring(on: bool) -> gpui::SpringAnimation<bool> {
 /// A switch's ground off and on, to mix in sRGB as CSS does: mixing `Hsla` would sweep the
 /// gray's hue round to pop's and tint the middle.
 pub fn switch_grounds(theme: &Theme) -> [gpui::Rgba; 2] {
-    [theme.border_2.into(), theme.pop_bg.into()]
+    [theme.border_2.into(), theme.pop_mark.into()]
 }
 
 pub struct Switch {

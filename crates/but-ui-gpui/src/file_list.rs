@@ -830,7 +830,7 @@ impl FileListItem {
                     .justify_center()
                     .id("status")
                     .aria_label("Reviewed")
-                    .child(icon_at(Icon::Tick, 11.).text_color(theme.pop)),
+                    .child(icon_at(Icon::Tick, 11.).text_color(theme.pop_mark)),
             )
         } else if let Some(status) = self.status {
             Some(

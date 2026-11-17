@@ -14,7 +14,7 @@ pub fn state_glyph(state: ReviewState, theme: &Theme) -> (Icon, Hsla) {
         ReviewState::Merged => Icon::BranchMerge,
         ReviewState::Closed => Icon::PrClose,
     };
-    (glyph, theme.hue(state_hue(state)))
+    (glyph, theme.mark(state_hue(state)))
 }
 
 /// The colour a pull request's state is tinted in.
@@ -41,7 +41,7 @@ pub fn title_color(state: ReviewState, theme: &Theme) -> Hsla {
 pub fn merged_color(solid: bool, theme: &Theme) -> Hsla {
     match solid {
         true => theme.purple_on_solid,
-        false => theme.purple,
+        false => theme.purple_mark,
     }
 }
 

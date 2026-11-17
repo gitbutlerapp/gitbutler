@@ -420,7 +420,7 @@ impl<'a> RowStyle<'a> {
     /// 3:1, on a row that only holds unread commits, so the commits stand out.
     fn unread_line(&self, own: bool) -> Div {
         unread_line(if own {
-            self.meta(self.theme.pop)
+            self.meta(self.theme.pop_mark)
         } else {
             self.quiet()
         })
@@ -470,12 +470,12 @@ impl<'a> RowStyle<'a> {
     ) -> Stateful<Div> {
         let theme = self.theme;
         let (glyph, color) = if commit.conflicted {
-            (Icon::Warning, theme.warn)
+            (Icon::Warning, theme.warn_mark)
         } else {
             match commit.state {
-                CommitState::Local => (Icon::Commit, theme.blue),
+                CommitState::Local => (Icon::Commit, theme.blue_mark),
                 CommitState::Pushed => (Icon::CommitFill, self.muted()),
-                CommitState::Integrated => (Icon::CommitFill, theme.purple),
+                CommitState::Integrated => (Icon::CommitFill, theme.purple_mark),
             }
         };
         let glyph = small_icon(glyph).text_color(self.meta(color));
@@ -494,7 +494,7 @@ impl<'a> RowStyle<'a> {
     /// The copy of a commit titled `title` from outside the workspace a cherry-pick would
     /// make, `id` the row's: a local commit.
     fn copy(&self, id: String, title: SharedString) -> Stateful<Div> {
-        let glyph = small_icon(Icon::Commit).text_color(self.meta(self.theme.blue));
+        let glyph = small_icon(Icon::Commit).text_color(self.meta(self.theme.blue_mark));
         self.commit_line(id, COMMIT_INDENT, glyph, title, false, None)
     }
 }
@@ -1652,7 +1652,7 @@ impl Navigator {
                 .pr(dp(12.))
                 .gap(dp(10.))
                 .when(*slow, |el| el.opacity(0.5))
-                .child(small_icon(Icon::Commit).text_color(theme.blue))
+                .child(small_icon(Icon::Commit).text_color(theme.blue_mark))
                 .child(
                     div()
                         .flex_1()
@@ -3480,7 +3480,7 @@ impl Navigator {
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let (title, slow) = self.store.read(cx).pending_commit(project, op)?;
-        let glyph = small_icon(Icon::Commit).text_color(style.meta(style.theme.blue));
+        let glyph = small_icon(Icon::Commit).text_color(style.meta(style.theme.blue_mark));
         let ellipsis = div().text_11().text_color(style.muted()).child("…");
         Some(
             style
@@ -3941,12 +3941,15 @@ pub(crate) fn status_mark(status: &Status, seen: bool, style: RowStyle) -> Optio
             "Working".into(),
         ),
         Status::Blocked(reason) => (
-            glyph(Icon::Warning, style.meta(theme.warn)),
+            glyph(Icon::Warning, style.meta(theme.warn_mark)),
             said(reason, "Waiting for you"),
         ),
-        Status::Done => (glyph(Icon::Tick, style.meta(theme.safe)), "Finished".into()),
+        Status::Done => (
+            glyph(Icon::Tick, style.meta(theme.safe_mark)),
+            "Finished".into(),
+        ),
         Status::Failed(reason) => (
-            glyph(Icon::Cross, style.meta(theme.danger)),
+            glyph(Icon::Cross, style.meta(theme.danger_mark)),
             said(reason, "Failed"),
         ),
     };

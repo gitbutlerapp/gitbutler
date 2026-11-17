@@ -191,7 +191,7 @@ impl RenderOnce for Button {
             ButtonStyle::Gray => (theme.text_1, Some(theme.muted), None, theme.muted_hover),
             ButtonStyle::Pop => (theme.on_pop, Some(theme.pop_button), None, theme.pop_hover),
             ButtonStyle::Danger => (
-                theme.danger,
+                theme.danger_on_soft,
                 Some(theme.danger_soft),
                 None,
                 theme.danger_soft_hover,
@@ -199,7 +199,10 @@ impl RenderOnce for Button {
         };
         let (fg, bg, hover) = match self.tint {
             Some(tint) => (
-                theme.hue(tint),
+                match bg {
+                    Some(_) => theme.on_soft(tint),
+                    None => theme.hue(tint),
+                },
                 bg.map(|_| theme.soft(tint)),
                 match bg {
                     Some(_) => theme.soft_hover(tint),

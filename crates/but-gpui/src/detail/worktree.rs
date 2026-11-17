@@ -681,8 +681,8 @@ impl Detail {
                     let ((glyph, color), said, unread, target) = match made {
                         Made::Here(branch, commit) => (
                             match commit.conflicted {
-                                true => (Icon::Warning, theme.warn),
-                                false => (Icon::Commit, theme.blue),
+                                true => (Icon::Warning, theme.warn_mark),
+                                false => (Icon::Commit, theme.blue_mark),
                             },
                             branch_said(store, project, branch, theme),
                             store.is_unread(project, commit),

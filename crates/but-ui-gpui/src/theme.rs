@@ -67,6 +67,22 @@ pub struct Theme {
     pub warn: Hsla,
     pub danger: Hsla,
     pub purple: Hsla,
+    /// Each hue as a mark: an icon, a dot, a switch or a light with no words beside it, at 3:1 on
+    /// the grounds, brighter than its text.
+    pub pop_mark: Hsla,
+    pub blue_mark: Hsla,
+    pub safe_mark: Hsla,
+    pub warn_mark: Hsla,
+    pub danger_mark: Hsla,
+    pub purple_mark: Hsla,
+    /// Each hue's text on its own soft or surface fill, which is darker than the grounds `pop`
+    /// and its kin are drawn for.
+    pub pop_on_soft: Hsla,
+    pub blue_on_soft: Hsla,
+    pub safe_on_soft: Hsla,
+    pub warn_on_soft: Hsla,
+    pub danger_on_soft: Hsla,
+    pub purple_on_soft: Hsla,
     /// Each hue's soft ground, see-through, for a mark or a control sitting on a ground.
     pub pop_soft: Hsla,
     pub pop_soft_hover: Hsla,
@@ -518,6 +534,12 @@ impl Theme {
         if let Some(text) = token("primary-text") {
             self.pop = text;
         }
+        if let Some(mark) = token("primary-mark") {
+            self.pop_mark = mark;
+        }
+        if let Some(text) = token("primary-soft-foreground") {
+            self.pop_on_soft = text;
+        }
         if let Some(hover) = token("primary-hover") {
             self.pop_hover = hover;
         }
@@ -702,6 +724,18 @@ impl Theme {
             warn: token(on_ground!(WARNING_TEXT)),
             danger,
             purple: token([done_light, done_dark]),
+            pop_mark: token(on_ground!(PRIMARY_MARK)),
+            blue_mark: token(on_ground!(INFO_MARK)),
+            safe_mark: token(on_ground!(SUCCESS_MARK)),
+            warn_mark: token(on_ground!(WARNING_MARK)),
+            danger_mark: token(on_ground!(DANGER_MARK)),
+            purple_mark: token(on_ground!(DONE_MARK)),
+            pop_on_soft: token(on_ground!(PRIMARY_SOFT_FOREGROUND)),
+            blue_on_soft: token(on_ground!(INFO_SOFT_FOREGROUND)),
+            safe_on_soft: token(on_ground!(SUCCESS_SOFT_FOREGROUND)),
+            warn_on_soft: token(on_ground!(WARNING_SOFT_FOREGROUND)),
+            danger_on_soft: token(on_ground!(DANGER_SOFT_FOREGROUND)),
+            purple_on_soft: token(on_ground!(DONE_SOFT_FOREGROUND)),
             pop_soft: token(on_ground!(PRIMARY_SOFT)),
             pop_soft_hover: token(on_ground!(PRIMARY_SOFT_HOVER)),
             blue_soft: token(on_ground!(INFO_SOFT)),
@@ -932,6 +966,19 @@ impl Theme {
             warn: color(hue_text(ansi(3))),
             danger: color(danger),
             purple: color(purple),
+            // A scheme's text already reads on the soft fills too; its marks only need 3:1.
+            pop_mark: color(toned(pop, ink, &grounds, 3.).unwrap_or(pop_text)),
+            blue_mark: color(text(ansi(4), 3.)),
+            safe_mark: color(text(ansi(2), 3.)),
+            warn_mark: color(text(ansi(3), 3.)),
+            danger_mark: color(text(ansi(1), 3.)),
+            purple_mark: color(text(ansi(5), 3.)),
+            pop_on_soft: color(pop_text),
+            blue_on_soft: color(blue),
+            safe_on_soft: color(safe),
+            warn_on_soft: color(hue_text(ansi(3))),
+            danger_on_soft: color(danger),
+            purple_on_soft: color(purple),
             pop_soft: color(soft(pop)),
             pop_soft_hover: color(soft_hover(pop)),
             blue_soft: color(soft(ansi(4))),
@@ -1045,6 +1092,32 @@ impl Theme {
             Hue::Warn => self.warn,
             Hue::Danger => self.danger,
             Hue::Purple => self.purple,
+            Hue::Gray => self.text_2,
+        }
+    }
+
+    /// The hue as a mark: an icon, a dot or a light with no words beside it.
+    pub fn mark(&self, hue: Hue) -> Hsla {
+        match hue {
+            Hue::Pop => self.pop_mark,
+            Hue::Blue => self.blue_mark,
+            Hue::Safe => self.safe_mark,
+            Hue::Warn => self.warn_mark,
+            Hue::Danger => self.danger_mark,
+            Hue::Purple => self.purple_mark,
+            Hue::Gray => self.text_2,
+        }
+    }
+
+    /// The hue's text and icons on its own soft or surface fill.
+    pub fn on_soft(&self, hue: Hue) -> Hsla {
+        match hue {
+            Hue::Pop => self.pop_on_soft,
+            Hue::Blue => self.blue_on_soft,
+            Hue::Safe => self.safe_on_soft,
+            Hue::Warn => self.warn_on_soft,
+            Hue::Danger => self.danger_on_soft,
+            Hue::Purple => self.purple_on_soft,
             Hue::Gray => self.text_2,
         }
     }
@@ -1554,7 +1627,8 @@ mod tests {
                 Hue::Purple,
                 Hue::Gray,
             ] {
-                let ink = rgb_hex(theme.hue(hue));
+                // Text on a hue's own fill takes its on-soft colour; `hue` is for the plain grounds.
+                let ink = rgb_hex(theme.on_soft(hue));
                 // Soft fills are see-through, so each is checked on what it sits on, as
                 // but-ui checks.
                 for (what, ground, unders) in [

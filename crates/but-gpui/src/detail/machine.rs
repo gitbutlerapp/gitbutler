@@ -319,7 +319,7 @@ impl Detail {
         let commit_rows = (recent.iter().take(SHOWN).enumerate()).map(|(ix, (c, b, commit))| {
             let (glyph, color) = match commit.pushed {
                 true => (Icon::CommitFill, theme.text_2),
-                false => (Icon::Commit, theme.blue),
+                false => (Icon::Commit, theme.blue_mark),
             };
             let pick = MeshPick::Commit(b.name.clone(), commit.id);
             let at = Selection::Mesh(project.clone(), c.id.as_str().into(), pick);

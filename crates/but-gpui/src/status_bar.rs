@@ -481,7 +481,7 @@ impl AppView {
                         Note {
                             id,
                             mark: small_icon(glyph)
-                                .text_color(theme.hue(tone))
+                                .text_color(theme.on_soft(tone))
                                 .into_any_element(),
                             tone: Some(tone),
                             text,
@@ -575,7 +575,7 @@ impl AppView {
                 let hover = note.tone.map_or(theme.hover, |hue| theme.soft_hover(hue));
                 clickable(note.id, &note.text, hover, theme)
                     .when_some(note.tone, |el, hue| {
-                        el.text_color(theme.hue(hue)).bg(theme.soft(hue))
+                        el.text_color(theme.on_soft(hue)).bg(theme.soft(hue))
                     })
                     .child(note.mark)
                     .child(note.text)

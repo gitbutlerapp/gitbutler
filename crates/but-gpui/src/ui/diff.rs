@@ -508,9 +508,11 @@ pub fn change_scale(added: u32, removed: u32, theme: &Theme) -> Option<gpui::Div
             .flex_none()
             .gap(fixed(1.))
             .children((0..5).map(|ix| {
-                div()
-                    .size(dp(5.))
-                    .bg(if ix < green { theme.safe } else { theme.danger })
+                div().size(dp(5.)).bg(if ix < green {
+                    theme.safe_mark
+                } else {
+                    theme.danger_mark
+                })
             })),
     )
 }
