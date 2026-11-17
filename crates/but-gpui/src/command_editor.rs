@@ -1026,15 +1026,15 @@ impl CommandEditor {
             .when(key.shared(), |el| el.child("shared"))
             .when_some(key.platforms.clone(), |el, platforms| el.child(platforms));
         let remove = div()
-            .id(("remove", ix))
-            .role(Role::Button)
-            .aria_label(format!("Remove {}", key.label))
             .flex_none()
             .invisible()
             .group_hover("key", |el| el.visible())
-            .tooltip(Tooltip::text("Remove these keys"))
-            .on_click(cx.listener(move |this, _, _, cx| this.remove(binding.clone(), cx)))
-            .child(icon_at(Icon::Cross, 12.).text_color(theme.text_1));
+            .child(
+                icon_button(("remove", ix), Icon::Cross)
+                    .small()
+                    .tooltip("Remove these keys")
+                    .on_click(cx.listener(move |this, _, _, cx| this.remove(binding.clone(), cx))),
+            );
         h_flex()
             .group("key")
             .flex_none()
