@@ -1,5 +1,3 @@
-use std::{convert::Infallible, ops::Deref};
-
 use nonempty::NonEmpty;
 use strum::VariantArray;
 
@@ -618,55 +616,6 @@ impl MarkStore<BranchId> for Marks {
 
         if remove_from_non_empty(branches, |marked| marked == mark) {
             *self = Self::Empty;
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct SingleSourceMarks<T>(Vec<T>);
-
-impl<T> Default for SingleSourceMarks<T> {
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
-
-impl<T> SingleSourceMarks<T> {
-    #[expect(dead_code)]
-    pub fn clear(&mut self) {
-        self.0.clear();
-    }
-}
-
-impl<T> Deref for SingleSourceMarks<T> {
-    type Target = [T];
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<T> MarkStore<T> for SingleSourceMarks<T>
-where
-    T: PartialEq,
-{
-    type Error = Infallible;
-
-    fn contains_mark(&self, mark: &T) -> bool {
-        self.0.iter().any(|hunk| hunk == mark)
-    }
-
-    fn insert_mark(&mut self, mark: T) -> Result<(), Self::Error> {
-        if self.contains_mark(&mark) {
-            return Ok(());
-        }
-        self.0.push(mark);
-        Ok(())
-    }
-
-    fn remove_mark(&mut self, mark: &T) {
-        if let Some(index) = self.0.iter().position(|hunk| hunk == mark) {
-            self.0.remove(index);
         }
     }
 }

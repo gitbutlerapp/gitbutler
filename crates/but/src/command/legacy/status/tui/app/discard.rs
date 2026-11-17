@@ -467,7 +467,6 @@ fn map_selected_commits(
         }
         SelectAfterReload::Branch(name) => SelectAfterReload::Branch(name),
         SelectAfterReload::Uncommitted => SelectAfterReload::Uncommitted,
-        SelectAfterReload::UncommittedFile { path } => SelectAfterReload::UncommittedFile { path },
         SelectAfterReload::UncommittedDetailsSection { index, direction } => {
             SelectAfterReload::UncommittedDetailsSection { index, direction }
         }

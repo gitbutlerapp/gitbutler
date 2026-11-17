@@ -82,11 +82,6 @@ impl Backstack {
         self.stack.retain(|entry| f(*entry));
     }
 
-    #[expect(dead_code)]
-    pub fn clear(&mut self) {
-        self.stack.clear();
-    }
-
     #[cfg(test)]
     pub fn iter(&self) -> impl Iterator<Item = &BackstackEntry> {
         self.stack.iter()
