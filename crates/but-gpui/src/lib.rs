@@ -82,10 +82,15 @@ impl gpui::Global for Embedded {}
 /// that launch opens the web app, and takes the variable out before its own relaunches.
 pub const WEB_APP_ONCE: &str = "GITBUTLER_WEB_APP_ONCE";
 
-/// Set when the client starts the desktop app's binary to install the update its feed offers:
-/// that run opens no window, installs it with the web app's updater, and writes how much it
-/// has downloaded, in percent, a line each time it changes.
+/// Set to the client's version when it starts the desktop app's binary to install the update
+/// its feed offers: that run opens no window, installs it with the web app's updater, and
+/// writes how much it has downloaded, in percent, a line each time it changes.
 pub const INSTALL_UPDATE: &str = "GITBUTLER_INSTALL_UPDATE";
+
+/// How a run with [`INSTALL_UPDATE`] ends when its binary is another version than the client's
+/// and the feed has nothing newer: the update was installed while the client ran, and starting
+/// the binary again opens it. Not 3, which C's `abort` ends a run with on Windows.
+pub const UPDATE_INSTALLED_BEFORE: i32 = 42;
 
 /// How small the window can be made, in logical pixels, but for its width while it's narrowed
 /// to the navigator.
@@ -163,9 +168,10 @@ fn relaunch(web_once: bool) -> std::io::Result<()> {
 }
 
 /// Install the update the desktop app's feed offers with a run of its binary, telling
-/// `progress` how much it has downloaded, in percent. Waits until it's installed.
+/// `progress` how much it has downloaded, in percent. Waits until it's installed, and says
+/// whether it was installed before this run, while the client of `version` ran.
 #[expect(clippy::disallowed_methods, reason = "called in `backend::run`")]
-fn install_update(progress: impl Fn(u8)) -> anyhow::Result<()> {
+fn install_update(version: &str, progress: impl Fn(u8)) -> anyhow::Result<bool> {
     use std::io::BufRead as _;
     use std::process::{Command, Stdio};
 
@@ -174,7 +180,7 @@ fn install_update(progress: impl Fn(u8)) -> anyhow::Result<()> {
     #[cfg(windows)]
     std::os::windows::process::CommandExt::creation_flags(&mut install, 0x0800_0000);
     let mut install = install
-        .env(INSTALL_UPDATE, "1")
+        .env(INSTALL_UPDATE, version)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()?;
@@ -186,10 +192,13 @@ fn install_update(progress: impl Fn(u8)) -> anyhow::Result<()> {
         }
     }
     let output = install.wait_with_output()?;
+    if output.status.code() == Some(UPDATE_INSTALLED_BEFORE) {
+        return Ok(true);
+    }
     if !output.status.success() {
         anyhow::bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
     }
-    Ok(())
+    Ok(false)
 }
 
 /// The desktop app's icon for this build's channel, as its bundle has it.
