@@ -855,14 +855,16 @@ pub(crate) mod function {
         )?;
         meta.remove(workspace_ref_name)?;
 
-        let overlay = overlay.with_entrypoint(
-            ref_to_switch_to.commit_id,
-            Some(ref_to_switch_to.ref_name.clone()),
-        );
-        let ws = ws
-            .graph
-            .redo_traversal_with_overlay(repo, meta, overlay)?
-            .into_workspace()?;
+        let ws = reprojected(
+            ws,
+            repo,
+            meta,
+            overlay,
+            Some((
+                ref_to_switch_to.ref_name.as_ref(),
+                ref_to_switch_to.commit_id,
+            )),
+        )?;
         Ok(Some((ws, ref_to_switch_to.ref_name)))
     }
 
