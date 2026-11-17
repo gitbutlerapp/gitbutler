@@ -68,6 +68,32 @@ cp -R single-branch-empty-feature single-branch-empty-feature-with-upstream
   git branch --set-upstream-to=origin/feature feature
 )
 
+git init history-below-target
+(cd history-below-target
+  commit old-1
+  commit old-2
+  commit M
+  setup_target_to_match_main
+  git checkout -b A
+  commit A
+)
+
+# Two branches merged into main one after the other, with another commit on top. All commits
+# have the same time, so a walk takes them in the order of their ids, which here reaches A before
+# "merge A".
+git init branches-merged-into-target
+(cd branches-merged-into-target
+  commit init
+  git checkout -b A
+    commit A
+  git checkout -b B main
+    commit B
+  git checkout main
+  git merge --no-ff -m "merge A" A
+  git merge --no-ff -m "merge B" B
+  commit upstream
+)
+
 git init ad-hoc-branch-integrated-upstream
 (cd ad-hoc-branch-integrated-upstream
   commit M1
