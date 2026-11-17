@@ -372,26 +372,6 @@ pub enum BranchNameSource {
     },
 }
 
-impl RewordOperation {
-    #[expect(dead_code)]
-    fn will_open_editor(&self) -> bool {
-        match self {
-            RewordOperation::Commit { new_message, .. } => new_message.will_open_editor(),
-            RewordOperation::FormatCommit { .. } => false,
-            RewordOperation::Branch { new_name, .. } => new_name.will_open_editor(),
-        }
-    }
-}
-
-impl BranchNameSource {
-    fn will_open_editor(&self) -> bool {
-        match self {
-            BranchNameSource::Provided(_) => false,
-            BranchNameSource::Editor { .. } => true,
-        }
-    }
-}
-
 impl CommitMessageSource {
     /// Used by the TUI to suspend itself.
     pub fn will_open_editor(&self) -> bool {

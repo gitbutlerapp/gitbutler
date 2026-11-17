@@ -30,16 +30,6 @@ impl Strings {
         self.lock().get(s)
     }
 
-    #[expect(dead_code)]
-    pub fn get_u32(&self, n: u32) -> &'static str {
-        self.lock().get_u32(n)
-    }
-
-    #[expect(dead_code)]
-    pub fn get_spaces(&self, n: usize) -> &'static str {
-        self.lock().get_spaces(n)
-    }
-
     pub fn lock(&self) -> std::sync::MutexGuard<'_, SharedStrings> {
         self.shared.lock().unwrap()
     }
