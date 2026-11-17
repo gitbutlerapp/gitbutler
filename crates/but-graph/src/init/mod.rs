@@ -18,15 +18,15 @@ use crate::{
     CommitFlags, CommitIndex, Edge, EntryPointCommit, Graph, Segment, SegmentIndex, SegmentMetadata,
 };
 
-mod walk;
+pub(crate) mod walk;
 use walk::*;
 
 pub(crate) mod types;
 use types::{EdgeOwned, Goals, Instruction, Limit, Queue};
 
-use crate::init::overlay::{OverlayMetadata, OverlayRepo};
+pub(crate) use crate::init::overlay::{OverlayMetadata, OverlayRepo};
 
-mod remotes;
+pub(crate) mod remotes;
 
 mod overlay;
 mod post;
@@ -496,7 +496,7 @@ impl Options {
 /// adoption of [`but_db::worktrees::worktrees_with_state()`], so it may write to `db`.
 /// Worktrees with nothing to seed - vanished, unborn, or on the workspace ref - are
 /// skipped.
-fn discover_worktree_tips(
+pub fn discover_worktree_tips(
     repo: &gix::Repository,
     db: &mut but_db::DbHandle,
     collect: bool,
