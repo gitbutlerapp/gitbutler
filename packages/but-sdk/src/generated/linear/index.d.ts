@@ -2000,8 +2000,6 @@ export type ProjectForFrontend = {
   gerrit_mode?: boolean;
   /** Path to the forge review template, if set in git configuration. */
   forge_review_template_path: string | null;
-  /** Tell if the project is known to be open in a Window in the frontend. */
-  is_open: boolean;
 };
 
 /**

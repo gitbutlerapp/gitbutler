@@ -90,7 +90,7 @@ pub fn run<T: Send + 'static>(
 }
 
 pub fn list_projects() -> Result<Vec<Project>> {
-    let mut projects: Vec<Project> = but_api::legacy::projects::list_projects_stateless()?
+    let mut projects: Vec<Project> = but_api::legacy::projects::list_projects()?
         .into_iter()
         .filter_map(|entry| {
             let project: gitbutler_project::Project = entry.inner.into();

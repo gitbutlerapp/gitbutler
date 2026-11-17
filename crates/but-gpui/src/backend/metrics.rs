@@ -626,7 +626,7 @@ impl Metrics {
         {
             self.identify(&user);
         }
-        let projects = but_api::legacy::projects::list_projects_stateless().map_or(0, |p| p.len());
+        let projects = but_api::legacy::projects::list_projects().map_or(0, |p| p.len());
         let props = json!({
             "previousExit": previous_exit,
             "launchedBy": launched_by,
