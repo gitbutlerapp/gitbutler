@@ -1344,10 +1344,24 @@ impl Detail {
                     .ok();
             }
         };
+        // While composing, its box stands for every file under it the commit can take.
+        let check = (self.composing && matches!(source, FileSource::Uncommitted(..)))
+            .then(|| self.folder_check(&path, cx))
+            .flatten()
+            .map(|check| {
+                let path = path.clone();
+                let on_click = cx.listener(move |this, _: &ClickEvent, _, cx| {
+                    this.set_folder_checked(&path, check != Toggled::True, cx)
+                });
+                (check, on_click)
+            });
         // Folded, how many files it holds and the lines they change; open, its files say it.
         let row = file_list_item(ElementId::Name(format!("dir-{path}").into()), name)
             .folded(!open)
             .on_toggle_folded(fold)
+            .when_some(check, |item, (check, on_click)| {
+                item.checkbox(check, on_click)
+            })
             .count(files)
             .line_counts(added, removed)
             .matches(found.iter().cloned(), [])
