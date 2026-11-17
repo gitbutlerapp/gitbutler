@@ -354,7 +354,7 @@ pub(crate) mod function {
                 repo,
                 meta,
                 Overlay::default(),
-                Some((destination.ref_name.as_ref(), destination.commit_id)),
+                Some((Some(destination.ref_name.as_ref()), destination.commit_id)),
             )?;
             return Ok(Outcome {
                 workspace: Cow::Owned(workspace),
@@ -598,7 +598,10 @@ pub(crate) mod function {
             repo,
             meta,
             Overlay::default(),
-            Some((ref_to_checkout.ref_name.as_ref(), ref_to_checkout.commit_id)),
+            Some((
+                Some(ref_to_checkout.ref_name.as_ref()),
+                ref_to_checkout.commit_id,
+            )),
         )?;
         Ok(Outcome {
             workspace: Cow::Owned(ws),
@@ -861,7 +864,7 @@ pub(crate) mod function {
             meta,
             overlay,
             Some((
-                ref_to_switch_to.ref_name.as_ref(),
+                Some(ref_to_switch_to.ref_name.as_ref()),
                 ref_to_switch_to.commit_id,
             )),
         )?;

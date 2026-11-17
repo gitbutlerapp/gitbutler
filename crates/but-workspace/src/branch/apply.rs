@@ -539,14 +539,16 @@ pub fn apply(
             add_branch_as_stack_forcefully(&mut ws_md, branch.as_ref(), new_stack_id);
             persist_metadata_and_gitconfig(meta, &applied_branches, &ws_md, None)?;
         }
-        let ws = ws
-            .graph
-            .redo_traversal_with_overlay(
-                repo,
-                meta,
-                Overlay::default().with_entrypoint(commit_to_checkout, ws_ref_name.clone()),
-            )?
-            .into_workspace()?;
+        let ws = super::reprojected(
+            &ws,
+            repo,
+            meta,
+            Overlay::default(),
+            Some((
+                ws_ref_name.as_ref().map(|name| name.as_ref()),
+                commit_to_checkout,
+            )),
+        )?;
         set_head_to_reference(
             repo,
             commit_to_checkout,
