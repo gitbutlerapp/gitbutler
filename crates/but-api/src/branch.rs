@@ -1243,13 +1243,9 @@ pub fn branch_remove_only_with_perm(
         )?;
         let deleted_meta = meta.remove(ref_name.as_ref())?;
         if deleted_ref || deleted_meta {
-            let new_ws = ws
-                .graph
-                .redo_traversal_with_overlay(&repo, &meta, Default::default())?
-                .into_workspace()?;
             drop(ws);
             drop(repo);
-            ctx.update_workspace_cache(new_ws);
+            ctx.invalidate_workspace_cache()?;
             true
         } else {
             drop(ws);
