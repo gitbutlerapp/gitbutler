@@ -75,14 +75,11 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
 #[but_api]
 #[instrument(err(Debug))]
 pub fn show_graph_svg(ctx: &Context) -> Result<()> {
-    let mut options = but_graph::init::Options::limited();
-    options.collect_tags = true;
-    options.worktrees = true;
-    let repo = ctx.open_isolated_repo()?;
     let meta = ctx.meta()?;
-    let mut db = ctx.db.get_cache_mut()?;
-    let graph = but_graph::Graph::from_head(&repo, &meta, ctx.project_meta()?, &mut db, options)?;
-    graph.open_as_svg();
+    let (_guard, repo, ws, _db) = ctx.workspace_and_db()?;
+    // This is the graph the rebase editor is built from, which is walked from the entrypoint as well.
+    let heads = Vec::from_iter(ws.graph.entrypoint()?.commit().map(|commit| commit.id));
+    but_graph::nosegment::workspace_segment_graph(&ws, &repo, &meta, heads)?.open_as_svg();
     Ok(())
 }
 
