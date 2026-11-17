@@ -619,17 +619,28 @@ impl Context {
             self.project_data_dir(),
         )?;
         let mut db = self.db.get_cache_mut()?;
-        let graph = but_graph::Graph::from_head(
+        let traversal = but_graph::init::Options {
+            worktrees: true,
+            ..but_graph::init::Options::limited()
+        };
+        let head = repo.head()?;
+        but_graph::nosegment::workspace(
             &repo,
             &meta,
             self.project_meta()?,
-            &mut db,
-            but_graph::init::Options {
-                worktrees: true,
-                ..but_graph::init::Options::limited()
-            },
-        )?;
-        graph.into_workspace()
+            head.referent_name(),
+            head.id().map(|id| id.detach()),
+            [],
+            but_graph::init::discover_worktree_tips(&repo, &mut db, traversal.worktrees)?,
+            traversal.collect_tags,
+            traversal.commits_limit_hint,
+        )
+        // Traversals redone from this workspace use the options it was made with, linked
+        // worktrees included.
+        .map(|mut ws| {
+            ws.graph.options = traversal;
+            ws
+        })
     }
 
     pub fn workspace_from_head_uncached(
