@@ -5,7 +5,7 @@ use gpui::{AnyElement, ClickEvent, Context, SharedString, prelude::*};
 
 use super::{Row, SettingsView};
 use crate::state::MeshState;
-use crate::ui::{ButtonStyle, button};
+use crate::ui::button;
 
 impl SettingsView {
     pub(super) fn mesh_row(&self, cx: &Context<Self>) -> Row {
@@ -53,7 +53,6 @@ impl SettingsView {
                     Some(
                         button("mesh-sign-out", "Sign out")
                             .small()
-                            .style(ButtonStyle::Ghost)
                             .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
                                 let store = this.store.clone();
                                 let message = format!("Take {machine} out of your mesh?");
