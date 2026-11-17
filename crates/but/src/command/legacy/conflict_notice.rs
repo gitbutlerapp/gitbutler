@@ -10,7 +10,7 @@ use std::collections::HashSet;
 
 use but_core::{ChangeId, commit::CommitIdentifiers};
 use but_ctx::Context;
-use but_rebase::graph_rebase::ConflictedCheckout;
+use but_transaction::ConflictedCheckout;
 use gix::prelude::ObjectIdExt as _;
 use itertools::Itertools as _;
 
