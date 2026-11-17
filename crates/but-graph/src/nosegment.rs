@@ -40,6 +40,7 @@ const UNKNOWN_PARENT_NODE_INDEX: NodeIndex = usize::MAX;
 #[expect(clippy::too_many_arguments)]
 pub(crate) fn graph(
     repo: &gix::Repository,
+    overlay_repo: &crate::init::OverlayRepo<'_>,
     overlay_meta: &crate::init::OverlayMetadata<'_, impl RefMetadata>,
     remote_names: &gix::remote::Names,
     worktree_by_branch: &crate::init::walk::WorktreeByBranch,
@@ -59,8 +60,8 @@ pub(crate) fn graph(
         let mut heads_on_reaching = HashMap::<gix::ObjectId, Vec<gix::ObjectId>>::new();
         let mut oid_to_refs = HashMap::<gix::ObjectId, Vec<FullName>>::new();
         let mut ref_to_oid = BTreeMap::<FullName, gix::ObjectId>::new();
-        for reference in repo.references()?.local_branches()? {
-            let reference = reference.map_err(|err| anyhow::anyhow!(err))?;
+        // The references are those the overlay sees, which may amend the repository's.
+        for reference in overlay_repo.references_with_prefix("refs/heads/")? {
             let Some(id) = reference.try_id() else {
                 continue;
             };
@@ -76,8 +77,7 @@ pub(crate) fn graph(
             ref_to_oid.insert(full_name.clone(), id.detach());
             oid_to_refs.entry(id.detach()).or_default().push(full_name);
         }
-        for reference in repo.references()?.remote_branches()? {
-            let reference = reference.map_err(|err| anyhow::anyhow!(err))?;
+        for reference in overlay_repo.references_with_prefix("refs/remotes/")? {
             let Some(id) = reference.try_id() else {
                 continue;
             };
@@ -100,8 +100,7 @@ pub(crate) fn graph(
             oid_to_refs.entry(id.detach()).or_default().push(full_name);
         }
         if collect_tags {
-            for reference in repo.references()?.tags()? {
-                let mut reference = reference.map_err(|err| anyhow::anyhow!(err))?;
+            for mut reference in overlay_repo.references_with_prefix("refs/tags/")? {
                 let Ok(commit) = reference.peel_to_commit() else {
                     continue;
                 };
@@ -1415,7 +1414,8 @@ pub fn workspace_segment_graph(
 
 /// Project the workspace seen from the branch `seen_from_ref`, or from `seen_from_commit` if
 /// there's no such branch, for callers that have no workspace yet. It's projected from the
-/// [segment graph](segment_graph()) walked from `seen_from_commit` and `extra_heads`.
+/// [segment graph](segment_graph()) walked from `seen_from_commit` and `extra_heads`, with
+/// `overlay` amending the references of `repo` and `meta`.
 ///
 /// Without `seen_from_commit`, `seen_from_ref` is an unborn branch, and like a traversal, the
 /// workspace is that branch alone, as there's nothing to walk.
@@ -1430,6 +1430,7 @@ pub fn workspace_segment_graph(
 pub fn workspace(
     repo: &gix::Repository,
     meta: &impl RefMetadata,
+    overlay: Overlay,
     project_meta: but_core::ref_metadata::ProjectMeta,
     seen_from_ref: Option<&FullNameRef>,
     seen_from_commit: Option<gix::ObjectId>,
@@ -1443,7 +1444,7 @@ pub fn workspace(
         let ref_name = seen_from_ref
             .context("an unborn workspace is seen from the branch HEAD points to")?
             .to_owned();
-        let (_overlay_repo, overlay_meta, _entrypoint) = Overlay::default().into_parts(repo, meta);
+        let (_overlay_repo, overlay_meta, _entrypoint) = overlay.into_parts(repo, meta);
         let worktree_by_branch = BTreeMap::from([(
             ref_name.clone(),
             vec![crate::Worktree {
@@ -1471,25 +1472,28 @@ pub fn workspace(
         .filter(|id| repo.find_commit(*id).is_ok());
     let mut heads = vec![seen_from_commit];
     heads.extend(extra_heads);
-    let seen_from_workspace = seen_from_ref
-        .map(|name| meta.workspace_opt(name))
-        .transpose()?
-        .flatten()
-        .is_some();
-    if !seen_from_workspace {
-        for (ref_name, data) in meta.iter().filter_map(Result::ok) {
-            if data.is::<but_core::ref_metadata::Workspace>()
-                && ref_name.category() == Some(gix::refs::Category::LocalBranch)
-                && let Some(mut reference) = repo.try_find_reference(ref_name.as_ref())?
-            {
-                heads.push(reference.peel_to_commit()?.id);
+    {
+        let (overlay_repo, overlay_meta, _entrypoint) = overlay.clone().into_parts(repo, meta);
+        let seen_from_workspace = seen_from_ref
+            .map(|name| overlay_meta.workspace_opt(name))
+            .transpose()?
+            .flatten()
+            .is_some();
+        if !seen_from_workspace {
+            for (ref_name, _workspace) in overlay_meta.iter_workspaces() {
+                if ref_name.category() == Some(gix::refs::Category::LocalBranch)
+                    && let Some(mut reference) =
+                        overlay_repo.try_find_reference(ref_name.as_ref())?
+                {
+                    heads.push(reference.peel_to_commit()?.id);
+                }
             }
         }
     }
     segment_graph(
         repo,
         meta,
-        Overlay::default(),
+        overlay,
         project_meta,
         seen_from_ref,
         Some(seen_from_commit),
@@ -1557,7 +1561,8 @@ pub fn segment_graph(
         .collect();
     // A configured target branch may have moved on to commits nothing else reaches.
     if let Some(target_ref) = &project_meta.target_ref
-        && let Some(mut reference) = repo.try_find_reference(target_ref.as_local_full_name_ref())?
+        && let Some(mut reference) =
+            overlay_repo.try_find_reference(target_ref.as_local_full_name_ref())?
     {
         heads.push(reference.peel_to_commit()?.id);
     }
@@ -1571,6 +1576,7 @@ pub fn segment_graph(
     let target_upstream_ref = project_meta.remote_target_ref(repo)?;
     let mut graph = graph(
         repo,
+        &overlay_repo,
         &overlay_meta,
         &overlay_repo.remote_names(),
         &worktree_by_branch,

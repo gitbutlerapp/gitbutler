@@ -645,6 +645,7 @@ fn read_only_workspace(ctx: &but_ctx::Context) -> Option<but_graph::Workspace> {
     but_graph::nosegment::workspace(
         &repo,
         &meta,
+        but_graph::init::Overlay::default(),
         ctx.project_meta().ok()?,
         head_ref.as_ref().map(|name| name.as_ref()),
         Some(head_id),

@@ -275,6 +275,7 @@ impl Sandbox {
         let graph = but_graph::nosegment::workspace(
             &repo,
             &meta,
+            but_graph::init::Overlay::default(),
             self.project_meta(),
             head_ref.as_ref().map(|name| name.as_ref()),
             head_id,

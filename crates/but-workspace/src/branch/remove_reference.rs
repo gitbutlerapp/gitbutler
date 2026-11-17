@@ -135,7 +135,7 @@ pub fn remove_reference(
     }
 
     let stack_id = stack.id;
-    let ws = reprojected(workspace, repo, meta, None)?;
+    let ws = reprojected(workspace, repo, meta, Default::default(), None)?;
     if avoid_anonymous_stacks {
         let Some(stack) = ws.stacks.iter().find(|s| s.id == stack_id) else {
             // The whole stack is gone, so nothing that could be anonymous.
@@ -165,7 +165,13 @@ pub fn remove_reference(
                 PreviousValue::MustExistAndMatch(gix::refs::Target::Object(target_id)),
                 "move segment reference up to avoid anonymous stack",
             )?;
-            Ok(Some(reprojected(&ws, repo, meta, None)?))
+            Ok(Some(reprojected(
+                &ws,
+                repo,
+                meta,
+                Default::default(),
+                None,
+            )?))
         } else {
             Ok(Some(ws))
         }

@@ -244,6 +244,7 @@ impl Snapshot {
         but_graph::nosegment::workspace(
             repo,
             &*sideeffect_free_meta,
+            but_graph::init::Overlay::default(),
             ProjectMeta::resolve(repo)?,
             Some(reference.name()),
             Some(commit_id),

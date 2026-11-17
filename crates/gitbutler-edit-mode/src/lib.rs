@@ -218,6 +218,7 @@ fn workspace_from_workspace_ref(ctx: &Context) -> Result<but_graph::Workspace> {
     but_graph::nosegment::workspace(
         &repo,
         &meta,
+        but_graph::init::Overlay::default(),
         ctx.project_meta()?,
         Some(workspace_ref.name()),
         Some(workspace_commit_id),
@@ -356,6 +357,7 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
         let mut workspace = but_graph::nosegment::workspace(
             repo,
             &meta,
+            but_graph::init::Overlay::default(),
             ctx.project_meta()?,
             Some(workspace_ref.as_ref()),
             Some(workspace_commit_id),

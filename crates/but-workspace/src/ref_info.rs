@@ -571,6 +571,7 @@ pub fn workspace(
     but_graph::nosegment::workspace(
         repo,
         meta,
+        but_graph::init::Overlay::default(),
         project_meta,
         seen_from_ref.as_ref().map(|name| name.as_ref()),
         seen_from_commit,

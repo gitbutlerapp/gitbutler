@@ -627,6 +627,7 @@ impl Context {
         but_graph::nosegment::workspace(
             &repo,
             &meta,
+            but_graph::init::Overlay::default(),
             self.project_meta()?,
             head.referent_name(),
             head.id().map(|id| id.detach()),
@@ -680,6 +681,7 @@ impl Context {
         but_graph::nosegment::workspace(
             &repo,
             &meta,
+            but_graph::init::Overlay::default(),
             self.project_meta()?,
             Some(reference.name()),
             Some(tip),
