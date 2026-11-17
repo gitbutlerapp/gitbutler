@@ -9,7 +9,7 @@ use but_core::{
 };
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
-use but_transaction::{Transaction, single_branch_mode::SingleBranchMode};
+use but_transaction::Transaction;
 use but_workspace::RefInfo;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::{ObjectId, refs::FullNameRef};
@@ -274,40 +274,17 @@ pub fn run(
     let new_branch = commit_op.name_new_branch(&*ctx.repo.get()?)?;
     // Named so undo deletes the new branch again.
     let snapshot_refs: Vec<&FullNameRef> = new_branch.iter().map(AsRef::as_ref).collect();
-    let sbm = (commit_op.will_create_reference() || commit_op.switch())
-        .then(|| SingleBranchMode::new(ctx, perm.read_permission(), commit_op.switch()))
-        .transpose()?;
     let snapshot_details =
         SnapshotDetails::new(OperationKind::CherryPick).with_count(sources.len());
-    let ((new_commits, branch_name_target), ws) = if let Some(sbm) = sbm {
-        sbm.transaction_with_workspace_setup(
-            ctx,
-            meta,
-            snapshot_details,
-            &snapshot_refs,
-            perm,
-            commit_op.will_create_unstacked_reference(),
-            |tx| {
-                pick_with_transaction(
-                    tx,
-                    commit_op,
-                    &sources,
-                    order_commits_by_parentage,
-                    Some(&sbm),
-                )
-            },
-        )
-    } else {
-        but_transaction::with_transaction_with_perm(
-            ctx,
-            meta,
-            perm,
-            snapshot_details,
-            &snapshot_refs,
-            DryRun::No,
-            |tx| pick_with_transaction(tx, commit_op, &sources, order_commits_by_parentage, None),
-        )
-    }?;
+    let ((new_commits, branch_name_target), ws) = but_transaction::with_transaction_with_perm(
+        ctx,
+        meta,
+        perm,
+        snapshot_details,
+        &snapshot_refs,
+        DryRun::No,
+        |tx| pick_with_transaction(tx, commit_op, &sources, order_commits_by_parentage),
+    )?;
 
     let new_commits = new_commits.into_iter().map(Into::into).collect();
 
@@ -326,18 +303,17 @@ fn pick_with_transaction(
     commit_op: CommitOperation,
     sources: &[ObjectId],
     order_commits_by_parentage: bool,
-    sbm: Option<&SingleBranchMode>,
 ) -> anyhow::Result<but_transaction::Commit<(Vec<CommitIdentifiers>, Option<BranchNameTarget>)>> {
     let (relative_to, side, branch_name_target) = match commit_op {
         CommitOperation::CommitToNewBranch(op) => {
-            let branch_name = op.create_reference(&mut tx, sbm)?;
+            let branch_name = op.create_reference(&mut tx)?;
             (
                 RelativeTo::Reference(branch_name.clone()),
                 InsertSide::Below,
                 Some(BranchNameTarget::New(branch_name)),
             )
         }
-        CommitOperation::CommitAt(op) => op.create_target(&mut tx, sbm)?,
+        CommitOperation::CommitAt(op) => op.create_target(&mut tx)?,
     };
     let new_commits = tx.cherry_pick_commits(
         sources.iter().copied(),

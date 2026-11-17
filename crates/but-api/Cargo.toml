@@ -59,7 +59,6 @@ graph-workspace = ["but-transaction/graph-workspace"]
 ## Make legacy functionality available.
 legacy = [
     "but-ctx/legacy",
-    "but-transaction/legacy",
     "but-workspace/legacy",
     "dep:but-askpass",
     "dep:gitbutler-user",

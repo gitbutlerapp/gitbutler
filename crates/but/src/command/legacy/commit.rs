@@ -12,9 +12,7 @@ use but_core::{
 };
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
-use but_transaction::{
-    IntermediateCommitCreateResult, Transaction, single_branch_mode::SingleBranchMode,
-};
+use but_transaction::{IntermediateCommitCreateResult, Transaction};
 use but_workspace::{RefInfo, commit::ChangeSource};
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_repo::hooks::{ErrorData, HookResult, MessageData, MessageHookResult};
@@ -481,9 +479,6 @@ pub fn run(
     // suggest it.
     let rejection_target = commit_op.rejection_target();
     let new_branch = commit_op.name_new_branch(&*ctx.repo.get()?)?;
-    let sbm = (commit_op.will_create_reference() || commit_op.switch())
-        .then(|| SingleBranchMode::new(ctx, perm.read_permission(), commit_op.switch()))
-        .transpose()?;
 
     let changed_path_count = changes.len();
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateCommit);
@@ -506,47 +501,24 @@ pub fn run(
     // The transaction borrows `ctx`, so the commit-msg hook gets a context of its own.
     let hooks_ctx = run_hooks.then(|| ctx.to_sync().into_thread_local());
 
-    let ((new_commit, branch_name), ws) = if let Some(sbm) = sbm {
-        sbm.transaction_with_workspace_setup(
-            ctx,
-            meta,
-            snapshot_details,
-            &snapshot_refs,
-            perm,
-            commit_op.will_create_unstacked_reference(),
-            |tx| {
-                commit_with_transaction(
-                    tx,
-                    commit_op,
-                    changes,
-                    source_repo.as_change_source(),
-                    Some(&sbm),
-                    reword_op,
-                    hooks_ctx.as_ref(),
-                )
-            },
-        )
-    } else {
-        but_transaction::with_transaction_with_perm(
-            ctx,
-            meta,
-            perm,
-            snapshot_details,
-            &snapshot_refs,
-            DryRun::No,
-            |tx| {
-                commit_with_transaction(
-                    tx,
-                    commit_op,
-                    changes,
-                    source_repo.as_change_source(),
-                    sbm.as_ref(),
-                    reword_op,
-                    hooks_ctx.as_ref(),
-                )
-            },
-        )
-    }
+    let ((new_commit, branch_name), ws) = but_transaction::with_transaction_with_perm(
+        ctx,
+        meta,
+        perm,
+        snapshot_details,
+        &snapshot_refs,
+        DryRun::No,
+        |tx| {
+            commit_with_transaction(
+                tx,
+                commit_op,
+                changes,
+                source_repo.as_change_source(),
+                reword_op,
+                hooks_ctx.as_ref(),
+            )
+        },
+    )
     .map_err(|err| rejection::explain_after_rollback(ctx, perm, "commit", rejection_target, err))?;
 
     let outcome = CommitOutcome {
@@ -564,7 +536,6 @@ fn commit_with_transaction(
     commit_op: CommitOperation,
     changes: Vec<DiffSpec>,
     source: ChangeSource<'_>,
-    sbm: Option<&SingleBranchMode>,
     reword_op: CommitMessageSource,
     hooks_ctx: Option<&Context>,
 ) -> anyhow::Result<but_transaction::Commit<(CommitId, Option<BranchNameTarget>)>> {
@@ -574,7 +545,7 @@ fn commit_with_transaction(
             rejected_specs,
         },
         branch_name,
-    ) = commit_op.execute(&mut tx, changes, source, sbm)?;
+    ) = commit_op.execute(&mut tx, changes, source)?;
 
     if !rejected_specs.is_empty() {
         return Err(rejection::RejectedChanges(rejected_specs).into());
@@ -955,7 +926,6 @@ fn route_commit_above_or_below(
                     name,
                     side,
                     new_branch_name,
-                    switch,
                 }
             }
         },
@@ -1012,27 +982,6 @@ impl CommitOperation {
         name_new_branch(name, repo).map(Some)
     }
 
-    pub fn will_create_reference(&self) -> bool {
-        match self {
-            CommitOperation::CommitToNewBranch(op) => op.will_create_reference(),
-            CommitOperation::CommitAt(op) => op.will_create_reference(),
-        }
-    }
-
-    pub fn will_create_unstacked_reference(&self) -> bool {
-        match self {
-            CommitOperation::CommitToNewBranch(op) => op.will_create_unstacked_reference(),
-            CommitOperation::CommitAt(op) => op.will_create_unstacked_reference(),
-        }
-    }
-
-    pub fn switch(&self) -> bool {
-        match self {
-            CommitOperation::CommitToNewBranch(op) => op.switch,
-            CommitOperation::CommitAt(op) => op.switch(),
-        }
-    }
-
     /// What the operation targets, for explaining rejected changes after a
     /// rollback.
     fn rejection_target(&self) -> rejection::Target {
@@ -1053,7 +1002,6 @@ impl CommitOperation {
                     name: _,
                     new_branch_name,
                     side: _,
-                    switch: _,
                 } => rejection::Target::NewBranch(
                     new_branch_name
                         .as_ref()
@@ -1071,11 +1019,10 @@ impl CommitOperation {
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
         changes: Vec<DiffSpec>,
         source: ChangeSource<'_>,
-        sbm: Option<&SingleBranchMode>,
     ) -> anyhow::Result<(IntermediateCommitCreateResult, Option<BranchNameTarget>)> {
         match self {
-            CommitOperation::CommitToNewBranch(op) => op.execute(tx, changes, source, sbm),
-            CommitOperation::CommitAt(op) => op.execute(tx, changes, source, sbm),
+            CommitOperation::CommitToNewBranch(op) => op.execute(tx, changes, source),
+            CommitOperation::CommitAt(op) => op.execute(tx, changes, source),
         }
     }
 }
@@ -1087,22 +1034,13 @@ pub struct CommitToNewBranchOperation {
 }
 
 impl CommitToNewBranchOperation {
-    pub fn will_create_reference(&self) -> bool {
-        true
-    }
-
-    pub fn will_create_unstacked_reference(&self) -> bool {
-        true
-    }
-
     fn execute(
         self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
         changes: Vec<DiffSpec>,
         source: ChangeSource<'_>,
-        sbm: Option<&SingleBranchMode>,
     ) -> anyhow::Result<(IntermediateCommitCreateResult, Option<BranchNameTarget>)> {
-        let branch_name = self.create_reference(tx, sbm)?;
+        let branch_name = self.create_reference(tx)?;
 
         let commit_create_result = tx
             .create_commit(
@@ -1123,11 +1061,10 @@ impl CommitToNewBranchOperation {
     pub(crate) fn create_reference(
         self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
-        sbm: Option<&SingleBranchMode>,
     ) -> anyhow::Result<FullName> {
         let Self {
             branch_name,
-            switch: _,
+            switch,
         } = self;
 
         let new_ref = if let Some(branch_name) = branch_name {
@@ -1136,8 +1073,11 @@ impl CommitToNewBranchOperation {
             but_core::branch::unique_canned_refname(tx.repo())?
         };
 
-        sbm.context("BUG: sbm must always be set when committing to a new unstacked branch")?
-            .create_unstacked_reference(tx, new_ref.as_ref(), Some(0))?;
+        if switch {
+            tx.switch_to_new_reference(new_ref.as_ref())?;
+        } else {
+            tx.create_unstacked_reference(new_ref.as_ref(), Some(0))?;
+        }
 
         Ok(new_ref)
     }
@@ -1154,9 +1094,8 @@ impl CommitAtOperation {
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
         changes: Vec<DiffSpec>,
         source: ChangeSource<'_>,
-        sbm: Option<&SingleBranchMode>,
     ) -> anyhow::Result<(IntermediateCommitCreateResult, Option<BranchNameTarget>)> {
-        let (relative_to, side, branch_name_target) = self.create_target(tx, sbm)?;
+        let (relative_to, side, branch_name_target) = self.create_target(tx)?;
 
         let commit_create_result =
             tx.create_commit(relative_to, side, changes, String::new(), source)?;
@@ -1164,40 +1103,9 @@ impl CommitAtOperation {
         Ok((commit_create_result, branch_name_target))
     }
 
-    pub fn will_create_reference(&self) -> bool {
-        match &self.target {
-            CommitRelativeToTarget::Commit { .. } | CommitRelativeToTarget::BranchTip { .. } => {
-                false
-            }
-            CommitRelativeToTarget::BranchBucket { .. } => true,
-            // Its reference is created for a linked worktree, so single-branch mode, which is
-            // about the main worktree, has nothing to set up for it.
-            CommitRelativeToTarget::DetachedWorktree { .. } => false,
-        }
-    }
-
-    pub fn will_create_unstacked_reference(&self) -> bool {
-        match &self.target {
-            CommitRelativeToTarget::Commit { .. }
-            | CommitRelativeToTarget::BranchTip { .. }
-            | CommitRelativeToTarget::BranchBucket { .. }
-            | CommitRelativeToTarget::DetachedWorktree { .. } => false,
-        }
-    }
-
-    pub fn switch(&self) -> bool {
-        match &self.target {
-            CommitRelativeToTarget::Commit { .. }
-            | CommitRelativeToTarget::DetachedWorktree { .. } => false,
-            CommitRelativeToTarget::BranchTip { switch, .. }
-            | CommitRelativeToTarget::BranchBucket { switch, .. } => *switch,
-        }
-    }
-
     pub fn create_target(
         &self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
-        sbm: Option<&SingleBranchMode>,
     ) -> anyhow::Result<(RelativeTo, InsertSide, Option<BranchNameTarget>)> {
         Ok(match &self.target {
             CommitRelativeToTarget::Commit { commit, side } => {
@@ -1207,7 +1115,6 @@ impl CommitAtOperation {
                 name,
                 side,
                 new_branch_name,
-                switch: _,
             } => {
                 let new_branch_name = if let Some(new_branch_name) = new_branch_name {
                     new_branch_name.clone()
@@ -1215,13 +1122,11 @@ impl CommitAtOperation {
                     but_core::branch::unique_canned_refname(tx.repo())?
                 };
 
-                sbm.context("BUG: sbm must always be set when committing to a new stacked branch")?
-                    .create_stacked_reference(
-                        tx,
-                        new_branch_name.as_ref(),
-                        name.as_ref(),
-                        (*side).into(),
-                    )?;
+                tx.create_stacked_reference(
+                    new_branch_name.as_ref(),
+                    name.as_ref(),
+                    (*side).into(),
+                )?;
 
                 let where_to_create_commit = InsertSide::Below;
                 (
@@ -1279,7 +1184,6 @@ pub enum CommitRelativeToTarget {
         name: FullName,
         new_branch_name: Option<FullName>,
         side: Side,
-        switch: bool,
     },
     /// Place the commit on the new branch `new_branch_name` at `head`, the detached `HEAD` of the
     /// linked worktree `worktree`, which then has the new branch checked out.
