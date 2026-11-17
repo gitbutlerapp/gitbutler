@@ -30,17 +30,17 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
     // borrows the database again below.
     let ws = {
         let mut db = ctx.db.get_cache_mut()?;
-        but_graph::Graph::from_head(
+        but_workspace::ref_info::workspace(
             &repo,
             &meta,
-            ctx.project_meta()?,
             &mut db,
-            but_graph::init::Options {
+            ctx.project_meta()?,
+            &but_graph::init::Options {
                 worktrees: true,
                 ..but_graph::init::Options::limited()
             },
+            None,
         )?
-        .into_workspace()?
     };
     let gerrit_mode_enabled = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
     let db = gerrit_mode_enabled
