@@ -1097,6 +1097,12 @@ impl AppView {
         use futures::StreamExt as _;
 
         let store = self.store.read(cx);
+        let Some(version) = cx
+            .try_global::<crate::Embedded>()
+            .map(|e| e.version.clone())
+        else {
+            return;
+        };
         if store.newer_version.is_none() || store.updating.is_some() {
             return;
         }
@@ -1115,7 +1121,7 @@ impl AppView {
             // Off the UI thread: on Windows, starting a process can run the window's
             // message loop, which would enter the app again while this holds it.
             let installed = backend::run(move || {
-                crate::install_update(|percent| _ = sender.unbounded_send(percent))
+                crate::install_update(&version, |percent| _ = sender.unbounded_send(percent))
             });
             let shown = async {
                 while let Some(percent) = progress.next().await {
@@ -1126,13 +1132,16 @@ impl AppView {
                 }
             };
             let (installed, ()) = futures::join!(installed, shown);
-            if let Err(err) = installed {
-                store.update(cx, |store, cx| {
-                    store.updating = None;
-                    store.failed("Couldn't update GitButler", &err, cx)
-                });
-                return;
-            }
+            let installed_before = match installed {
+                Ok(before) => before,
+                Err(err) => {
+                    store.update(cx, |store, cx| {
+                        store.updating = None;
+                        store.failed("Couldn't update GitButler", &err, cx)
+                    });
+                    return;
+                }
+            };
             // What was started while it downloaded finishes first.
             while store.update(cx, |store, _| store.unfinished() > 0) {
                 cx.background_executor()
@@ -1140,8 +1149,9 @@ impl AppView {
                     .await;
             }
             this.update(cx, |app, cx| app.save_view(cx)).ok();
-            // The Windows installer it started closes this app and starts the new one itself.
-            if !cfg!(windows)
+            // The Windows installer it started closes this app and starts the new one itself,
+            // but no installer ran when it was installed before.
+            if (installed_before || !cfg!(windows))
                 && let Err(err) = backend::run(|| Ok(crate::relaunch(false)?)).await
             {
                 store.update(cx, |store, cx| {
