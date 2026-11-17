@@ -660,20 +660,29 @@ impl Context {
             self.project_data_dir(),
         )?;
         let mut reference = repo.find_reference(ref_name)?;
-        let tip = reference.peel_to_id()?;
+        let tip = reference.peel_to_id()?.detach();
         let mut db = self.db.get_cache_mut()?;
-        let graph = but_graph::Graph::from_commit_traversal(
-            tip,
-            reference.name().to_owned(),
+        let traversal = but_graph::init::Options {
+            worktrees: true,
+            ..but_graph::init::Options::limited()
+        };
+        but_graph::nosegment::workspace(
+            &repo,
             &meta,
             self.project_meta()?,
-            &mut db,
-            but_graph::init::Options {
-                worktrees: true,
-                ..but_graph::init::Options::limited()
-            },
-        )?;
-        graph.into_workspace()
+            Some(reference.name()),
+            Some(tip),
+            [],
+            but_graph::init::discover_worktree_tips(&repo, &mut db, traversal.worktrees)?,
+            traversal.collect_tags,
+            traversal.commits_limit_hint,
+        )
+        // Traversals redone from this workspace use the options it was made with, linked
+        // worktrees included.
+        .map(|mut ws| {
+            ws.graph.options = traversal;
+            ws
+        })
     }
 }
 
