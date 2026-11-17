@@ -20,7 +20,10 @@ use but_workspace::commit::{
     UncommitChangesFromCommitsOutcome, UncommitChangesSource,
     squash_commits::MessageCombinationStrategy,
 };
-use gix::{ObjectId, refs::FullNameRef};
+use gix::{
+    ObjectId,
+    refs::{FullName, FullNameRef},
+};
 
 #[cfg(test)]
 mod tests;
@@ -489,6 +492,35 @@ where
             let rebase = but_workspace::branch::create_reference(editor, ref_name, anchor, order)?;
             Ok(((), rebase))
         })
+    }
+
+    /// Create `ref_name`, or a unique canned name without one, as a branch of its own, first
+    /// among the stacks, and return its name. With `switch`, it starts at the target and is
+    /// checked out instead, unless the target is what's checked out.
+    pub fn create_unstacked_reference(
+        &mut self,
+        ref_name: Option<FullName>,
+        switch: bool,
+    ) -> anyhow::Result<FullName> {
+        let ref_name = match ref_name {
+            Some(ref_name) => ref_name,
+            None => but_core::branch::unique_canned_refname(self.repo())?,
+        };
+        if switch {
+            let project_meta = but_core::ref_metadata::ProjectMeta::resolve(self.repo())?;
+            let checked_out = self.repo().head_name()?;
+            if let Some(target_ref) = &project_meta.target_ref
+                && checked_out.as_ref().map(|name| name.as_ref())
+                    != Some(target_ref.as_local_full_name_ref())
+            {
+                let target = project_meta.resolve_target_commit(self.repo())?;
+                self.create_reference_at_commit(ref_name.as_ref(), target)?;
+                self.checkout(ref_name.as_ref())?;
+                return Ok(ref_name);
+            }
+        }
+        self.create_reference(ref_name.as_ref(), None, Some(0))?;
+        Ok(ref_name)
     }
 
     /// Name the anonymous segment whose top commit is `top` as `ref_name`, as seen from
