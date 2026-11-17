@@ -11,7 +11,7 @@ use petgraph::{Direction, prelude::EdgeRef};
 
 use crate::{
     Commit, CommitFlags, CommitIndex, Edge, Graph, Segment, SegmentIndex, SegmentMetadata,
-    Worktree,
+    StopCondition, Worktree,
     init::{
         Goals, PetGraph,
         overlay::{OverlayMetadata, OverlayRepo},
@@ -1130,6 +1130,43 @@ pub fn prune_integrated_tips(graph: &mut Graph, next: &mut Queue) -> anyhow::Res
     }
 
     next.exhaust();
+    Ok(())
+}
+
+/// Queue the parents of each walk that stopped before its history ended, as if it had gone on.
+/// A resumed walk only goes on while a queued tip still seeks a goal in the history it carries,
+/// so tips queued after the traversal can meet history it cut short.
+pub fn resume_stopped_walks(
+    graph: &Graph,
+    next: &mut Queue,
+    commit_graph: Option<&gix::commitgraph::Graph>,
+    objects: &impl gix::objs::Find,
+    buf: &mut Vec<u8>,
+) -> anyhow::Result<()> {
+    for sidx in graph.segments() {
+        if !graph
+            .stop_condition(sidx)
+            .is_some_and(|condition| condition.contains(StopCondition::Limit))
+        {
+            continue;
+        }
+        let segment = &graph[sidx];
+        let Some(last_commit) = segment.commits.last() else {
+            continue;
+        };
+        queue_parents(
+            next,
+            &last_commit.parent_ids,
+            last_commit.flags,
+            sidx,
+            segment.commits.len() - 1,
+            Limit::spent(),
+            false,
+            commit_graph,
+            objects,
+            buf,
+        )?;
+    }
     Ok(())
 }
 
