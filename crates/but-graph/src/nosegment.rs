@@ -127,7 +127,7 @@ pub(crate) fn graph(
         /// workspace commit.
         in_workspace: bool,
     }
-    let stacks: Vec<Stack> = {
+    let (stacks, unstacked_workspace_branches) = {
         let live_stack = |branches: Vec<FullName>, in_workspace: bool| {
             let branches: Vec<FullName> = branches
                 .into_iter()
@@ -193,7 +193,7 @@ pub(crate) fn graph(
                 stacks.extend(live_stack(branches, false));
             }
         }
-        stacks
+        (stacks, unstacked_workspace_branches)
     };
 
     /// The branches of the stack containing `branch`, or none if no stack does.
@@ -259,10 +259,13 @@ pub(crate) fn graph(
         });
     }
 
+    // Like a traversal, the branches of every stack the workspace has are walked, even those of
+    // a stack left out above, so they're in the graph however far from the workspace commit.
     heads.extend(
         stacks
             .iter()
             .flat_map(|stack| &stack.branches)
+            .chain(&unstacked_workspace_branches)
             .filter_map(|name| ref_to_oid.get(name)),
     );
 
@@ -527,8 +530,25 @@ pub(crate) fn graph(
             .is_some_and(|commit| commit.id == commit_id);
         let mut stack_edges = Vec::<(gix::ObjectId, StackLineage)>::new();
         if is_managed_workspace_commit {
+            // Like after a traversal, a parent of the workspace commit is one lane however many
+            // stacks rest on it, unless the target already has it, where each is an empty lane.
+            let target_tips: Vec<gix::ObjectId> = std::iter::once(target_ref)
+                .chain(target_upstream_ref)
+                .filter_map(|name| ref_to_oid.get(name).copied())
+                .collect();
+            let is_in_target = |id: gix::ObjectId| {
+                Some(id) == target_commit_id
+                    || target_tips.iter().any(|&tip| {
+                        repo.merge_base(id, tip)
+                            .is_ok_and(|base| base.is_some_and(|base| base.detach() == id))
+                    })
+            };
             for stack in stacks.iter().filter(|stack| stack.in_workspace) {
-                if parent_ids.contains(&stack.tip) || Some(stack.tip) == target_commit_id {
+                let parent_has_a_lane = stack_edges.iter().any(|(tip, _)| *tip == stack.tip)
+                    && !is_in_target(stack.tip);
+                if (parent_ids.contains(&stack.tip) || Some(stack.tip) == target_commit_id)
+                    && !parent_has_a_lane
+                {
                     stack_edges.push((
                         stack.tip,
                         StackLineage {
@@ -959,11 +979,12 @@ impl WorkspaceGraph {
                 // themselves, so in the editor they don't pass through the local branch, and so
                 // does a branch checked out in another worktree, which is a lane of its own.
                 // Unless the graph is seen from the workspace, where a stack resting on a commit
-                // that other lanes reach stays an empty lane, the commit also stays with the
-                // branch if other segments with commits of their own reach it. Without such a
-                // local branch, the commit stays with a remote-tracking branch without commits of
-                // its own that points at it if only remote-tracking branches with commits reach
-                // it too, so each remote history keeps the commits its branch points at.
+                // that other lanes of the workspace or the target reach stays an empty lane, the
+                // commit also stays with the branch if other segments with commits of their own
+                // reach it. Without such a local branch, the commit stays with a remote-tracking
+                // branch without commits of its own that points at it if only remote-tracking
+                // branches with commits reach it too, so each remote history keeps the commits
+                // its branch points at.
                 _ => match &node.weight {
                     NodeWeight::Pick { oid } | NodeWeight::ShallowPoint { oid }
                         if !is_workspace_commit && detached_commit != Some(*oid) =>
@@ -978,6 +999,20 @@ impl WorkspaceGraph {
                                 .ref_info
                                 .as_ref()
                                 .and_then(|ref_info| ref_info.ref_name.category());
+                            // A branch outside the workspace and the target, and not checked
+                            // out elsewhere, reaching the commit doesn't take it from its branch.
+                            let is_branch_outside_lanes = category
+                                == Some(gix::refs::Category::LocalBranch)
+                                && !segment.ref_info.as_ref().is_some_and(|ref_info| {
+                                    worktree_by_branch.get(&ref_info.ref_name).is_some_and(
+                                        |worktrees| worktrees.iter().any(|wt| !wt.owned_by_repo),
+                                    )
+                                })
+                                && !segment.commits.last().is_some_and(|commit| {
+                                    commit.flags.intersects(
+                                        CommitFlags::InWorkspace | CommitFlags::Integrated,
+                                    )
+                                });
                             match category {
                                 Some(gix::refs::Category::RemoteBranch)
                                     if segment.commits.is_empty() =>
@@ -1009,7 +1044,8 @@ impl WorkspaceGraph {
                                     others_leave_the_commit = false
                                 }
                                 _ if !segment.commits.is_empty()
-                                    && !seen_from_ref.is_some_and(is_workspace_ref_name) =>
+                                    && (!seen_from_ref.is_some_and(is_workspace_ref_name)
+                                        || is_branch_outside_lanes) =>
                                 {
                                     only_remotes_with_commits_reach = false;
                                 }
