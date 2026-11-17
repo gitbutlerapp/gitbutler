@@ -56,7 +56,7 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: NodeIndex(4),
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -159,7 +159,7 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: NodeIndex(4),
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -260,7 +260,7 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: NodeIndex(1),
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -280,14 +280,14 @@ Ok(
                 ref_name: FullName(
                     "refs/heads/main",
                 ),
-                segment_index: NodeIndex(2),
+                segment_index: NodeIndex(4),
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
+                segment_index: NodeIndex(4),
             },
         ),
         target_upstream: Some(
@@ -303,7 +303,7 @@ Ok(
         ),
         can_fast_forward_local_target: false,
         lower_bound: Some(
-            NodeIndex(2),
+            NodeIndex(4),
         ),
         ancestor_workspace_commit: None,
     },
@@ -362,7 +362,7 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: NodeIndex(4),
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [

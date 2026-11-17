@@ -273,7 +273,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(3),
+                    id: NodeIndex(2),
                     ref_name: "►A",
                     remote_tracking_ref_name: "refs/remotes/origin/A",
                     commits: [
@@ -294,14 +294,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(4),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(4),
         },
     ),
     target_upstream: Some(
@@ -317,7 +317,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: false,
     lower_bound: Some(
-        NodeIndex(2),
+        NodeIndex(4),
     ),
     ancestor_workspace_commit: None,
 }
@@ -346,7 +346,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(0),
+                    id: NodeIndex(2),
                     ref_name: "►A",
                     remote_tracking_ref_name: "refs/remotes/origin/A",
                     commits: [
@@ -367,14 +367,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(3),
+            segment_index: NodeIndex(4),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-            segment_index: NodeIndex(3),
+            segment_index: NodeIndex(4),
         },
     ),
     target_upstream: Some(
@@ -390,7 +390,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: false,
     lower_bound: Some(
-        NodeIndex(3),
+        NodeIndex(4),
     ),
     ancestor_workspace_commit: None,
 }
@@ -423,7 +423,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(0),
+                    id: NodeIndex(2),
                     ref_name: "►A",
                     remote_tracking_ref_name: "refs/remotes/origin/A",
                     commits: [
@@ -444,14 +444,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(3),
+            segment_index: NodeIndex(4),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-            segment_index: NodeIndex(3),
+            segment_index: NodeIndex(4),
         },
     ),
     target_upstream: Some(
@@ -467,7 +467,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: false,
     lower_bound: Some(
-        NodeIndex(3),
+        NodeIndex(4),
     ),
     ancestor_workspace_commit: None,
 }
@@ -516,7 +516,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(3),
+                    id: NodeIndex(1),
                     ref_name: "►B-on-A",
                     remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                     commits: [
@@ -528,7 +528,7 @@ RefInfo {
                     base: "f504e38",
                 },
                 ref_info::ui::Segment {
-                    id: NodeIndex(4),
+                    id: NodeIndex(2),
                     ref_name: "►A",
                     remote_tracking_ref_name: "refs/remotes/origin/A",
                     commits: [
@@ -548,14 +548,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(7),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(7),
         },
     ),
     target_upstream: Some(
@@ -571,7 +571,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: false,
     lower_bound: Some(
-        NodeIndex(2),
+        NodeIndex(7),
     ),
     ancestor_workspace_commit: None,
 }
@@ -694,7 +694,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(3),
+                    id: NodeIndex(1),
                     ref_name: "►B-on-A",
                     remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                     commits: [
@@ -706,7 +706,7 @@ RefInfo {
                     base: "f504e38",
                 },
                 ref_info::ui::Segment {
-                    id: NodeIndex(4),
+                    id: NodeIndex(2),
                     ref_name: "►A",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -718,7 +718,7 @@ RefInfo {
                     base: "807f596",
                 },
                 ref_info::ui::Segment {
-                    id: NodeIndex(6),
+                    id: NodeIndex(5),
                     ref_name: "►base-of-A",
                     remote_tracking_ref_name: "refs/remotes/origin/A",
                     commits: [
@@ -737,14 +737,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(7),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(7),
         },
     ),
     target_upstream: Some(
@@ -760,7 +760,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: false,
     lower_bound: Some(
-        NodeIndex(2),
+        NodeIndex(7),
     ),
     ancestor_workspace_commit: None,
 }
@@ -840,7 +840,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(3),
+                    id: NodeIndex(2),
                     ref_name: "►B-on-A",
                     remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                     commits: [
@@ -852,7 +852,7 @@ RefInfo {
                     base: "0ee3a9e",
                 },
                 ref_info::ui::Segment {
-                    id: NodeIndex(4),
+                    id: NodeIndex(5),
                     ref_name: "►A",
                     remote_tracking_ref_name: "refs/remotes/origin/A",
                     commits: [
@@ -871,14 +871,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(7),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(7),
         },
     ),
     target_upstream: Some(
@@ -894,7 +894,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: true,
     lower_bound: Some(
-        NodeIndex(2),
+        NodeIndex(7),
     ),
     ancestor_workspace_commit: None,
 }
@@ -1160,7 +1160,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(3),
+                    id: NodeIndex(1),
                     ref_name: "►B",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -1172,7 +1172,7 @@ RefInfo {
                     base: "1818c17",
                 },
                 ref_info::ui::Segment {
-                    id: NodeIndex(4),
+                    id: NodeIndex(2),
                     ref_name: "►A",
                     remote_tracking_ref_name: "refs/remotes/origin/A",
                     commits: [
@@ -1191,14 +1191,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(6),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(281456a55524d78e1e0ecab946032423aec1abe8),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(6),
         },
     ),
     target_upstream: Some(
@@ -1214,7 +1214,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: true,
     lower_bound: Some(
-        NodeIndex(2),
+        NodeIndex(6),
     ),
     ancestor_workspace_commit: None,
 }
@@ -1264,7 +1264,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(2),
+                    id: NodeIndex(1),
                     ref_name: "►B",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -1276,7 +1276,7 @@ RefInfo {
                     base: "1818c17",
                 },
                 ref_info::ui::Segment {
-                    id: NodeIndex(3),
+                    id: NodeIndex(2),
                     ref_name: "►A",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -1295,20 +1295,20 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(1),
+            segment_index: NodeIndex(6),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(281456a55524d78e1e0ecab946032423aec1abe8),
-            segment_index: NodeIndex(1),
+            segment_index: NodeIndex(6),
         },
     ),
     target_upstream: None,
     can_fast_forward_local_target: false,
     lower_bound: Some(
-        NodeIndex(1),
+        NodeIndex(6),
     ),
     ancestor_workspace_commit: None,
 }
@@ -1365,7 +1365,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(0),
+                    id: NodeIndex(1),
                     ref_name: "►A",
                     remote_tracking_ref_name: "refs/remotes/origin/A",
                     commits: [
@@ -1389,14 +1389,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(3),
+            segment_index: NodeIndex(5),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-            segment_index: NodeIndex(3),
+            segment_index: NodeIndex(5),
         },
     ),
     target_upstream: Some(
@@ -1412,7 +1412,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: false,
     lower_bound: Some(
-        NodeIndex(3),
+        NodeIndex(5),
     ),
     ancestor_workspace_commit: None,
 }
@@ -1465,7 +1465,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(5),
+                    id: NodeIndex(4),
                     ref_name: "►lane",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -1485,7 +1485,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(3),
+                    id: NodeIndex(1),
                     ref_name: "►advanced-lane-2",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -1507,7 +1507,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(4),
+                    id: NodeIndex(2),
                     ref_name: "►advanced-lane",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -1526,14 +1526,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(5),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(5),
         },
     ),
     target_upstream: Some(
@@ -1549,7 +1549,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: false,
     lower_bound: Some(
-        NodeIndex(2),
+        NodeIndex(5),
     ),
     ancestor_workspace_commit: None,
 }
@@ -1614,7 +1614,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(0),
+                    id: NodeIndex(1),
                     ref_name: "►lane",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -1633,14 +1633,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(3),
+            segment_index: NodeIndex(5),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            segment_index: NodeIndex(3),
+            segment_index: NodeIndex(5),
         },
     ),
     target_upstream: Some(
@@ -1656,7 +1656,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: false,
     lower_bound: Some(
-        NodeIndex(3),
+        NodeIndex(5),
     ),
     ancestor_workspace_commit: None,
 }
@@ -1704,7 +1704,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(0),
+                    id: NodeIndex(1),
                     ref_name: "►lane",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -1723,14 +1723,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(3),
+            segment_index: NodeIndex(5),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            segment_index: NodeIndex(3),
+            segment_index: NodeIndex(5),
         },
     ),
     target_upstream: Some(
@@ -1746,7 +1746,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: false,
     lower_bound: Some(
-        NodeIndex(3),
+        NodeIndex(5),
     ),
     ancestor_workspace_commit: None,
 }
@@ -1795,7 +1795,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(3),
+                    id: NodeIndex(1),
                     ref_name: "►advanced-lane",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -1817,7 +1817,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(4),
+                    id: NodeIndex(3),
                     ref_name: "►lane",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -1834,14 +1834,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(4),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(4),
         },
     ),
     target_upstream: Some(
@@ -1857,7 +1857,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: false,
     lower_bound: Some(
-        NodeIndex(2),
+        NodeIndex(4),
     ),
     ancestor_workspace_commit: None,
 }
@@ -1904,7 +1904,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(3),
+                    id: NodeIndex(2),
                     ref_name: "►advanced-lane",
                     remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                     commits: [
@@ -1923,14 +1923,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(4),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(4),
         },
     ),
     target_upstream: Some(
@@ -1946,7 +1946,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: false,
     lower_bound: Some(
-        NodeIndex(2),
+        NodeIndex(4),
     ),
     ancestor_workspace_commit: None,
 }
@@ -2001,7 +2001,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(5),
+                    id: NodeIndex(2),
                     ref_name: "►dependent",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -2011,7 +2011,7 @@ RefInfo {
                     base: "cbc6713",
                 },
                 ref_info::ui::Segment {
-                    id: NodeIndex(6),
+                    id: NodeIndex(3),
                     ref_name: "►advanced-lane",
                     remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                     commits: [
@@ -2030,14 +2030,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(5),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(5),
         },
     ),
     target_upstream: Some(
@@ -2053,7 +2053,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: false,
     lower_bound: Some(
-        NodeIndex(2),
+        NodeIndex(5),
     ),
     ancestor_workspace_commit: None,
 }
@@ -2091,7 +2091,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(5),
+                    id: NodeIndex(2),
                     ref_name: "►advanced-lane",
                     remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                     commits: [],
@@ -2101,7 +2101,7 @@ RefInfo {
                     base: "cbc6713",
                 },
                 ref_info::ui::Segment {
-                    id: NodeIndex(6),
+                    id: NodeIndex(3),
                     ref_name: "►dependent",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -2120,14 +2120,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(5),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(5),
         },
     ),
     target_upstream: Some(
@@ -2143,7 +2143,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: false,
     lower_bound: Some(
-        NodeIndex(2),
+        NodeIndex(5),
     ),
     ancestor_workspace_commit: None,
 }
@@ -2195,7 +2195,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(5),
+                    id: NodeIndex(2),
                     ref_name: "►on-top-of-dependent",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -2205,7 +2205,7 @@ RefInfo {
                     base: "cbc6713",
                 },
                 ref_info::ui::Segment {
-                    id: NodeIndex(6),
+                    id: NodeIndex(3),
                     ref_name: "►dependent",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -2215,7 +2215,7 @@ RefInfo {
                     base: "cbc6713",
                 },
                 ref_info::ui::Segment {
-                    id: NodeIndex(7),
+                    id: NodeIndex(4),
                     ref_name: "►advanced-lane",
                     remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                     commits: [
@@ -2234,14 +2234,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(6),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(6),
         },
     ),
     target_upstream: Some(
@@ -2257,7 +2257,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: false,
     lower_bound: Some(
-        NodeIndex(2),
+        NodeIndex(6),
     ),
     ancestor_workspace_commit: None,
 }
@@ -2293,7 +2293,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(5),
+                    id: NodeIndex(2),
                     ref_name: "►dependent",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -2303,7 +2303,7 @@ RefInfo {
                     base: "cbc6713",
                 },
                 ref_info::ui::Segment {
-                    id: NodeIndex(6),
+                    id: NodeIndex(3),
                     ref_name: "►on-top-of-dependent",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -2313,7 +2313,7 @@ RefInfo {
                     base: "cbc6713",
                 },
                 ref_info::ui::Segment {
-                    id: NodeIndex(7),
+                    id: NodeIndex(4),
                     ref_name: "►advanced-lane",
                     remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                     commits: [
@@ -2332,14 +2332,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(6),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(6),
         },
     ),
     target_upstream: Some(
@@ -2355,7 +2355,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: false,
     lower_bound: Some(
-        NodeIndex(2),
+        NodeIndex(6),
     ),
     ancestor_workspace_commit: None,
 }
@@ -2406,7 +2406,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(3),
+                    id: NodeIndex(2),
                     ref_name: "►on-top-of-lane",
                     remote_tracking_ref_name: "refs/remotes/origin/on-top-of-lane",
                     commits: [
@@ -2437,14 +2437,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(6),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(6),
         },
     ),
     target_upstream: Some(
@@ -2460,7 +2460,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: false,
     lower_bound: Some(
-        NodeIndex(2),
+        NodeIndex(6),
     ),
     ancestor_workspace_commit: None,
 }
@@ -2580,7 +2580,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(0),
+                    id: NodeIndex(1),
                     ref_name: "►A",
                     remote_tracking_ref_name: "refs/remotes/origin/A",
                     commits: [
@@ -2613,14 +2613,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(3),
+            segment_index: NodeIndex(6),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            segment_index: NodeIndex(3),
+            segment_index: NodeIndex(6),
         },
     ),
     target_upstream: Some(
@@ -2636,7 +2636,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: true,
     lower_bound: Some(
-        NodeIndex(3),
+        NodeIndex(6),
     ),
     ancestor_workspace_commit: None,
 }
@@ -2900,7 +2900,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(4),
+                    id: NodeIndex(2),
                     ref_name: "►lane",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -2920,7 +2920,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(3),
+                    id: NodeIndex(1),
                     ref_name: "►advanced-lane",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -2939,14 +2939,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(5),
+            segment_index: NodeIndex(3),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(3),
         },
     ),
     target_upstream: Some(
@@ -2962,7 +2962,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: false,
     lower_bound: Some(
-        NodeIndex(2),
+        NodeIndex(3),
     ),
     ancestor_workspace_commit: None,
 }
@@ -2995,7 +2995,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(0),
+                    id: NodeIndex(1),
                     ref_name: "►advanced-lane",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -3014,7 +3014,7 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(4),
+            segment_index: NodeIndex(3),
             commits_ahead: 0,
         },
     ),
@@ -3069,7 +3069,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(0),
+                    id: NodeIndex(2),
                     ref_name: "►lane",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -3086,14 +3086,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(4),
+            segment_index: NodeIndex(3),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            segment_index: NodeIndex(4),
+            segment_index: NodeIndex(3),
         },
     ),
     target_upstream: Some(
@@ -3109,7 +3109,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: false,
     lower_bound: Some(
-        NodeIndex(4),
+        NodeIndex(3),
     ),
     ancestor_workspace_commit: None,
 }
@@ -3142,7 +3142,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(3),
+                    id: NodeIndex(1),
                     ref_name: "►advanced-lane",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -3164,7 +3164,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(4),
+                    id: NodeIndex(2),
                     ref_name: "►lane",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -3181,14 +3181,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(5),
+            segment_index: NodeIndex(3),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(3),
         },
     ),
     target_upstream: Some(
@@ -3204,7 +3204,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: false,
     lower_bound: Some(
-        NodeIndex(2),
+        NodeIndex(3),
     ),
     ancestor_workspace_commit: None,
 }
@@ -3339,7 +3339,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(3),
+                    id: NodeIndex(2),
                     ref_name: "►C-on-A",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -3373,7 +3373,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(6),
+                    id: NodeIndex(1),
                     ref_name: "►B-on-A",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -3406,14 +3406,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(6),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(6),
         },
     ),
     target_upstream: Some(
@@ -3429,7 +3429,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: false,
     lower_bound: Some(
-        NodeIndex(2),
+        NodeIndex(6),
     ),
     ancestor_workspace_commit: None,
 }
@@ -3463,7 +3463,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(0),
+                    id: NodeIndex(2),
                     ref_name: "►C-on-A",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -3496,14 +3496,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(3),
+            segment_index: NodeIndex(6),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-            segment_index: NodeIndex(3),
+            segment_index: NodeIndex(6),
         },
     ),
     target_upstream: Some(
@@ -3519,7 +3519,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: false,
     lower_bound: Some(
-        NodeIndex(3),
+        NodeIndex(6),
     ),
     ancestor_workspace_commit: None,
 }
@@ -3553,7 +3553,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(0),
+                    id: NodeIndex(1),
                     ref_name: "►B-on-A",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -3565,7 +3565,7 @@ RefInfo {
                     base: "d79bba9",
                 },
                 ref_info::ui::Segment {
-                    id: NodeIndex(5),
+                    id: NodeIndex(4),
                     ref_name: "►A",
                     remote_tracking_ref_name: "refs/remotes/origin/A",
                     commits: [
@@ -3586,14 +3586,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(3),
+            segment_index: NodeIndex(6),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-            segment_index: NodeIndex(3),
+            segment_index: NodeIndex(6),
         },
     ),
     target_upstream: Some(
@@ -3609,7 +3609,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: false,
     lower_bound: Some(
-        NodeIndex(3),
+        NodeIndex(6),
     ),
     ancestor_workspace_commit: None,
 }
@@ -3644,7 +3644,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(0),
+                    id: NodeIndex(4),
                     ref_name: "►A",
                     remote_tracking_ref_name: "refs/remotes/origin/A",
                     commits: [
@@ -3665,14 +3665,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(3),
+            segment_index: NodeIndex(6),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-            segment_index: NodeIndex(3),
+            segment_index: NodeIndex(6),
         },
     ),
     target_upstream: Some(
@@ -3688,7 +3688,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: false,
     lower_bound: Some(
-        NodeIndex(3),
+        NodeIndex(6),
     ),
     ancestor_workspace_commit: None,
 }
@@ -3733,7 +3733,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(3),
+                    id: NodeIndex(2),
                     ref_name: "►unrelated",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -3750,14 +3750,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(3),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-            segment_index: NodeIndex(2),
+            segment_index: NodeIndex(3),
         },
     ),
     target_upstream: Some(
@@ -3773,7 +3773,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: false,
     lower_bound: Some(
-        NodeIndex(2),
+        NodeIndex(3),
     ),
     ancestor_workspace_commit: None,
 }
@@ -3805,7 +3805,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(0),
+                    id: NodeIndex(1),
                     ref_name: "►unrelated",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -3871,7 +3871,7 @@ RefInfo {
             ref_name: FullName(
                 "refs/heads/main",
             ),
-            segment_index: NodeIndex(3),
+            segment_index: NodeIndex(2),
             commits_ahead: 0,
         },
     ),
@@ -3927,7 +3927,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(0),
+                    id: NodeIndex(1),
                     ref_name: "►unrelated",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -4047,7 +4047,7 @@ fn advanced_workspace_single_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         err.to_string(),
         snapbox::str![[r#"
-Found 4 commit(s) on top of the workspace commit.
+Found 5 commit(s) on top of the workspace commit.
 
 Run the following command in your working directory to fix this while leaving your worktree unchanged.
 Worktree changes need to be re-committed manually for now.
@@ -4097,7 +4097,7 @@ fn a_padding_commit_does_not_count_as_on_top_of_the_workspace_commit() -> anyhow
     snapbox::assert_data_eq!(
         err.to_string(),
         snapbox::str![[r#"
-Found 4 commit(s) on top of the workspace commit.
+Found 5 commit(s) on top of the workspace commit.
 
 Run the following command in your working directory to fix this while leaving your worktree unchanged.
 Worktree changes need to be re-committed manually for now.
