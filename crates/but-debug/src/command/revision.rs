@@ -2,11 +2,7 @@ use std::io::{self, Write as _};
 
 use anyhow::{Context as _, Result, bail, ensure};
 use but_graph::FirstParent;
-use but_graph::init::Tip;
-use gix::{
-    odb::store::RefreshMode, prelude::ObjectIdExt as _, reference::Category,
-    revision::plumbing::Spec,
-};
+use gix::{odb::store::RefreshMode, reference::Category, revision::plumbing::Spec};
 
 use crate::{
     args::{Args, LogArgs, MergeBaseArgs, RevisionArgs, RevisionGraphArgs, RevisionSubcommands},
@@ -50,11 +46,11 @@ fn log(
     let mut graph_commits = vec![included];
     graph_commits.extend(excluded);
 
-    let graph_tips = args_to_tips(repo, &log_args.graph)?;
+    let target_commit_id = target_commit_from_args(repo, &log_args.graph)?;
     let graph = {
         let _span =
             tracing::info_span!("build graph", commit_count = graph_commits.len()).entered();
-        graph_for_revisions(repo, meta, &graph_commits, graph_tips)?
+        graph_for_revisions(repo, meta, &graph_commits, target_commit_id)?
     };
 
     let _span = tracing::info_span!("traverse graph").entered();
@@ -99,10 +95,10 @@ fn merge_base(
             .collect::<Result<Vec<_>>>()?
     };
 
-    let graph_tips = args_to_tips(repo, &merge_base_args.graph)?;
+    let target_commit_id = target_commit_from_args(repo, &merge_base_args.graph)?;
     let graph = {
         let _span = tracing::info_span!("build graph", commit_count = commits.len()).entered();
-        graph_for_revisions(repo, meta, &commits, graph_tips)?
+        graph_for_revisions(repo, meta, &commits, target_commit_id)?
     };
 
     let segments = {
@@ -146,10 +142,12 @@ fn merge_base(
     Ok(())
 }
 
-fn args_to_tips(repo: &gix::Repository, graph_args: &RevisionGraphArgs) -> Result<Vec<Tip>> {
-    let mut tips = Vec::new();
-
-    if let Some(tip) = graph_args
+/// The commit of the remote-tracking branch `graph_args` names as the target, if any.
+fn target_commit_from_args(
+    repo: &gix::Repository,
+    graph_args: &RevisionGraphArgs,
+) -> Result<Option<gix::ObjectId>> {
+    graph_args
         .target_ref
         .as_deref()
         .map(|target_ref| {
@@ -161,45 +159,34 @@ fn args_to_tips(repo: &gix::Repository, graph_args: &RevisionGraphArgs) -> Resul
                 name.category() == Some(Category::RemoteBranch),
                 "Target ref '{name}' resolved from '{target_ref}' is not a remote-tracking branch"
             );
-            let id = reference.peel_to_id()?.detach();
-            Ok(Tip::integrated(id, Some(name)))
+            Ok(reference.peel_to_id()?.detach())
         })
-        .transpose()?
-    {
-        tips.push(tip);
-    }
-
-    Ok(tips)
+        .transpose()
 }
 
+/// Walk the graph from `commits` and the target commit, ending below the latter.
 fn graph_for_revisions(
     repo: &gix::Repository,
     meta: &EmptyRefMetadata,
     commits: &[gix::ObjectId],
-    graph_tips: Vec<Tip>,
+    target_commit_id: Option<gix::ObjectId>,
 ) -> Result<but_graph::Graph> {
     let first = *commits
         .first()
         .context("BUG: revision graph requires at least one commit")?;
-    let options = but_graph::init::Options {
-        collect_tags: false,
-        commits_limit_hint: None,
-        ..Default::default()
-    };
-    let extra_tips = commits
-        .iter()
-        .copied()
-        .skip(1)
-        .map(|id| Tip::reachable(id, None))
-        .chain(graph_tips);
-
-    but_graph::Graph::from_commit_traversal_with_extra_tips(
-        first.attach(repo),
-        None,
-        extra_tips,
+    let mut heads = commits.to_vec();
+    heads.extend(target_commit_id);
+    but_graph::nosegment::segment_graph(
+        repo,
         meta,
+        but_graph::init::Overlay::default(),
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut setup::debug_db()?,
-        options,
+        None,
+        Some(first),
+        heads,
+        Vec::new(),
+        target_commit_id,
+        false,
+        None,
     )
 }
