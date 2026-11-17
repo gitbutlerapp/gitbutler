@@ -24,8 +24,10 @@ pub fn get_anonymous_graph_path(
     project_id: ProjectHandleOrLegacyProjectId,
 ) -> Result<PathBuf, Error> {
     let ctx: Context = project_id.try_into()?;
-    let _guard = ctx.shared_worktree_access();
-    archival.zip_anonymous_graph(&ctx).map_err(Into::into)
+    let guard = ctx.shared_worktree_access();
+    archival
+        .zip_anonymous_graph(&ctx, guard.read_permission())
+        .map_err(Into::into)
 }
 
 #[tauri::command(async)]
