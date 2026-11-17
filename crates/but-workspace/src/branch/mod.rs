@@ -623,7 +623,7 @@ pub mod unapply;
 pub use unapply::function::{dissolve_unnecessary_workspace, unapply, unapply_stack};
 
 pub mod remove_reference;
-pub use remove_reference::{drop_reference, remove_reference};
+pub use remove_reference::drop_reference;
 
 pub mod create_reference;
 pub use create_reference::function::{create_reference, ensure_name_is_available};

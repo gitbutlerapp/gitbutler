@@ -777,10 +777,6 @@ export class StackService {
 		return this.backendApi.endpoints.reviewApply.mutate;
 	}
 
-	get deleteLocalBranch() {
-		return this.backendApi.endpoints.deleteLocalBranch.mutate;
-	}
-
 	get squashCommits() {
 		return this.backendApi.endpoints.squashCommits.mutate;
 	}

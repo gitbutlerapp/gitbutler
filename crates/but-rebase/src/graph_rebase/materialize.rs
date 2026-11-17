@@ -6,7 +6,7 @@ use but_core::{
 use gix::{
     bstr::{BString, ByteSlice as _},
     refs::{
-        Target,
+        Category, Target,
         transaction::{Change, PreviousValue, RefEdit},
     },
 };
@@ -125,6 +125,48 @@ fn edit_references_deleting_directory_conflicts_first(
     });
     repo.edit_references(directory_conflicts)?;
     repo.edit_references(edits)?;
+    Ok(())
+}
+
+fn linked_worktree_id(repo: &gix::Repository) -> Result<Option<BString>> {
+    Ok(match repo.worktree() {
+        Some(worktree) => worktree.id()?.map(ToOwned::to_owned),
+        None => None,
+    })
+}
+
+fn refuse_deleting_branches_checked_out_elsewhere(
+    repo: &gix::Repository,
+    moved: &[LinkedCheckoutSpec],
+    deleted_branches: &[gix::refs::FullName],
+) -> Result<()> {
+    if deleted_branches.is_empty() {
+        return Ok(());
+    }
+    let own = linked_worktree_id(repo)?;
+    let mut elsewhere = Vec::new();
+    for worktree in repo.worktrees_including_main()? {
+        let worktree = worktree?;
+        let id = linked_worktree_id(&worktree)?;
+        let moves_with_the_edit = id == own
+            || id
+                .as_ref()
+                .is_some_and(|id| moved.iter().any(|spec| &spec.name == id));
+        if !moves_with_the_edit
+            && worktree
+                .head_name()?
+                .is_some_and(|head| deleted_branches.contains(&head))
+            && let Some(dir) = worktree.workdir()
+        {
+            elsewhere.push(dir.display().to_string());
+        }
+    }
+    if !elsewhere.is_empty() {
+        but_error::bail_precondition!(
+            "Refusing to delete a branch that is checked out. Worktrees are: {}",
+            elsewhere.join(", ")
+        );
+    }
     Ok(())
 }
 
@@ -266,12 +308,15 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
     }
 
     /// Materializes a history rewrite, and records how its branches stack in the metadata.
+    ///
+    /// The editor's own checkout and the visible linked worktrees move off a branch the rewrite
+    /// deletes. If any other worktree has one checked out, this fails without changing anything.
     pub fn materialize(
         mut self,
         materialize_options: MaterializeOptions,
     ) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
         let branch_stacks = self.branch_stacks()?;
-        let repo = self.repo.clone();
+        let mut repo = self.repo.clone();
         let checkouts = self.padded_checkouts()?;
         let mut ref_edits = self.padded_ref_edits(&checkouts)?;
         if !self.updates_references(&checkouts, &ref_edits) {
@@ -289,6 +334,15 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         }
 
         let specs = linked_checkout_specs(&checkouts)?;
+        let deleted_branches: Vec<_> = ref_edits
+            .iter()
+            .filter(|edit| {
+                matches!(edit.change, Change::Delete { .. })
+                    && edit.name.category() == Some(Category::LocalBranch)
+            })
+            .map(|edit| edit.name.clone())
+            .collect();
+        refuse_deleting_branches_checked_out_elsewhere(&repo, &specs, &deleted_branches)?;
         let head = if materialize_options.without_checkout {
             None
         } else {
@@ -359,6 +413,9 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         }
 
         edit_references_deleting_directory_conflicts_first(&repo, ref_edits)?;
+        if let Err(err) = repo.delete_local_branches(deleted_branches) {
+            tracing::warn!(?err, "deleted branches kept their local configuration");
+        }
         branch_stacks.persist(self.meta)?;
         self.refresh_workspace(&repo)?;
 

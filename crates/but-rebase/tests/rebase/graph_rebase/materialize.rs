@@ -669,7 +669,7 @@ fn visible_attached_and_detached_worktrees_follow_a_rewritten_commit() -> Result
 }
 
 #[test]
-fn references_checked_out_in_linked_worktrees_are_not_deleted() -> Result<()> {
+fn a_branch_checked_out_in_a_worktree_the_edit_does_not_move_is_not_deleted() -> Result<()> {
     let (repo, _tmpdir, mut meta, mut db) = worktree_fixture("worktree-checkout-heads")?;
     let middle = repo.rev_parse_single("middle")?.detach();
     repo.reference(
@@ -693,15 +693,22 @@ fn references_checked_out_in_linked_worktrees_are_not_deleted() -> Result<()> {
         let selector = editor.select_reference(refname.try_into()?)?;
         editor.replace_with_none(selector)?;
     }
-    editor.rebase()?.materialize(Default::default())?;
+    let err = editor
+        .rebase()?
+        .materialize(Default::default())
+        .expect_err("the worktree on middle isn't visible, so its HEAD can't move off it");
 
     assert!(
-        repo.try_find_reference("middle")?.is_some(),
-        "a checked-out branch must not be deleted, even when the worktree is not visible"
+        err.to_string().contains("checked out"),
+        "unexpected error: {err}"
     );
     assert!(
-        repo.try_find_reference("doomed")?.is_none(),
-        "an otherwise-identical unchecked-out branch is deleted"
+        repo.try_find_reference("middle")?.is_some(),
+        "the checked-out branch stays"
+    );
+    assert!(
+        repo.try_find_reference("doomed")?.is_some(),
+        "a refused edit deletes nothing"
     );
     Ok(())
 }
