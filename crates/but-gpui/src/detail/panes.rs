@@ -499,7 +499,7 @@ impl Detail {
             .size_full()
             .children(unfinished)
             .children(banner.map(|banner| side_header(theme).child(banner)))
-            .child(self.render_uncommitted_files(project, checkout, files, theme, cx))
+            .child(self.render_uncommitted_files(project, checkout, files, theme, window, cx))
             .child(footer)
             .into_any_element()
     }

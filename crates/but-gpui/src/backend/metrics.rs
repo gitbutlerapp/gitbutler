@@ -362,7 +362,6 @@ fn settings(state: &State) -> Props {
         ("diffControls", json!(prefs.shows(Part::DiffTools))),
         ("fileView", json!(prefs.file_view)),
         ("fileSort", json!(prefs.file_sort)),
-        ("folderLineCounts", json!(prefs.folder_line_counts)),
         ("folderStops", json!(prefs.folder_stops)),
         (
             "composerStartsUnchecked",

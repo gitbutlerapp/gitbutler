@@ -568,9 +568,6 @@ pub struct Prefs {
     pub terminal: Option<String>,
     pub file_view: FileView,
     pub file_sort: FileSort,
-    /// A file tree's folders always show the lines their files add and remove, rather than
-    /// only under the pointer.
-    pub folder_line_counts: bool,
     /// The file list's keys stop on a file tree's folders too, rather than going from file to
     /// file.
     pub folder_stops: bool,
