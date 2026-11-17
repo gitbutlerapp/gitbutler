@@ -63,24 +63,18 @@ fn head_info(
         let mut options = but_graph::init::Options::limited();
         options.worktrees = edit_mode_workspace_ref.is_none();
         let mut db = ctx.db.get_cache_mut()?;
-        let graph = match &edit_mode_workspace_ref {
-            Some(ref_name) => {
-                let mut reference = repo.find_reference(ref_name.as_ref())?;
-                let id = reference.peel_to_id()?;
-                but_graph::Graph::from_commit_traversal(
-                    id,
-                    reference.name().to_owned(),
-                    &meta,
-                    ctx.project_meta()?,
-                    &mut db,
-                    options,
-                )?
-            }
-            None => {
-                but_graph::Graph::from_head(&repo, &meta, ctx.project_meta()?, &mut db, options)?
-            }
-        };
-        graph.into_workspace()?
+        let seen_from = edit_mode_workspace_ref
+            .as_ref()
+            .map(|ref_name| repo.find_reference(ref_name.as_ref()))
+            .transpose()?;
+        ref_info::workspace(
+            &repo,
+            &meta,
+            &mut db,
+            ctx.project_meta()?,
+            &options,
+            seen_from,
+        )?
     };
     let gerrit_mode_enabled = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
     let db = gerrit_mode_enabled
