@@ -415,9 +415,14 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                 placement: Default::default(),
             }))
             .collect();
+        let extra_refs = (workspace.graph.options.extra_refs.iter())
+            .filter_map(|ref_name| reference_to_ix.get(ref_name))
+            .map(|&id| Selector { id, revision: 0 })
+            .collect();
 
         Ok(Self {
             graph,
+            extra_refs,
             initial_references: references,
             checkouts,
             repo: repo.clone().with_object_memory(),
@@ -443,6 +448,7 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
             checkouts: self.checkouts,
             repo: self.repo,
             history: self.history,
+            extra_refs: self.extra_refs,
             workspace: self.workspace,
             meta: self.meta,
             db: self.db,

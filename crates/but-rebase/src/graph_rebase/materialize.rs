@@ -259,6 +259,7 @@ fn head_checkout(checkouts: &[PaddedCheckout<'_>]) -> Result<Option<HeadCheckout
 
 impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
     fn refresh_workspace(&mut self, repo: &gix::Repository) -> Result<()> {
+        self.workspace.graph.options.extra_refs = self.extra_refs_after_rebase()?;
         let project_meta = self.workspace.graph.project_meta.clone();
         self.workspace
             .refresh_from_head(repo, &*self.meta, project_meta, &mut *self.db)
