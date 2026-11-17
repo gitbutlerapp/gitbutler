@@ -768,21 +768,26 @@ pub fn apply(
             head_id.object()?.peel_to_tree()?.id,
         )?;
         let ws_commit_with_new_message = ws_commit_with_new_message.id.detach();
-        let (graph, new_head_id) = if (ws_commit_with_new_message != head_id
+        let (workspace, new_head_id) = if (ws_commit_with_new_message != head_id
             && ws.kind.has_managed_commit())
             || needs_workspace_commit_without_remerge(&ws)
         {
-            let graph = ws.graph.redo_traversal_with_overlay(
+            let workspace = super::reprojected(
+                &ws,
                 repo,
                 meta,
                 overlay.with_entrypoint(
                     ws_commit_with_new_message,
                     Some(workspace_ref_name_to_update.clone()),
                 ),
+                Some((
+                    Some(workspace_ref_name_to_update.as_ref()),
+                    ws_commit_with_new_message,
+                )),
             )?;
-            (graph, ws_commit_with_new_message)
+            (workspace, ws_commit_with_new_message)
         } else {
-            (ws.graph, ws_ref_id)
+            (ws, ws_ref_id)
         };
 
         set_head_to_reference(
@@ -793,7 +798,7 @@ pub fn apply(
             (!head_on_workspace_ref).then_some(workspace_ref_name_to_update.as_ref()),
         )?;
         return Ok(Outcome {
-            workspace: graph.into_workspace()?,
+            workspace,
             status: OutcomeStatus::Applied,
             conflicting_stacks: Vec::new(),
             applied_branches,
