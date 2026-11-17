@@ -682,10 +682,10 @@ impl FileListItem {
             true => theme.muted_on_solid,
             false => theme.text_2,
         };
-        // React mixes the muted foreground in at 20%, 40% on the solid ground, which isn't a token
-        // yet: the subtle border is what the app's trees draw their guides in.
+        // React mixes the muted foreground in at 20%, which isn't a token yet: the subtle border is
+        // what the app's trees draw their guides in.
         let guide_color = match solid {
-            true => theme.inverse_soft,
+            true => theme.guide_on_solid,
             false => theme.border_3,
         };
         let faded = |el: Div| el.when(self.reviewed, |el| el.opacity(0.5));
