@@ -473,10 +473,9 @@ fn generate_branch_summary(
 ) -> anyhow::Result<String> {
     use but_llm::LLMProvider;
 
-    // Get OpenAI provider (tries GitButler proxied, own key, then env var)
     let llm = LLMProvider::from_git_config(git_config).ok_or_else(|| {
         anyhow::anyhow!(
-            "No AI credentials found. Configure in GitButler settings or set OPENAI_API_KEY environment variable."
+            "AI is not configured. Set up a provider with `but config ai` or in the GitButler settings."
         )
     })?;
 

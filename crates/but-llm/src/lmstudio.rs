@@ -12,19 +12,9 @@ use crate::{
     },
 };
 
-const LMSTUDIO_API_BASE_DEFAULT: &str = "http://localhost:1234/v1";
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone)]
 pub struct LMStudioConfig {
     pub api_base: String,
-}
-
-impl Default for LMStudioConfig {
-    fn default() -> Self {
-        Self {
-            api_base: LMSTUDIO_API_BASE_DEFAULT.to_string(),
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -34,14 +24,9 @@ pub struct LMStudioProvider {
 }
 
 impl LMStudioProvider {
-    pub fn with(config: Option<LMStudioConfig>, model: Option<String>) -> Option<Self> {
-        let mut config = config.unwrap_or_default();
+    pub fn new(mut config: LMStudioConfig, model: Option<String>) -> Self {
         config.api_base = normalize_api_base(&config.api_base);
-        Some(Self { config, model })
-    }
-
-    pub fn config(&self) -> &LMStudioConfig {
-        &self.config
+        Self { config, model }
     }
 }
 

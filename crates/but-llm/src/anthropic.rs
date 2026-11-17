@@ -1,4 +1,4 @@
-use anyhow::{Context as _, Result};
+use anyhow::Result;
 use but_secret::{Sensitive, secret};
 use reqwest::{
     Response,
@@ -15,9 +15,8 @@ const ANTHROPIC_API_BASE: &str = "https://api.anthropic.com/v1";
 const ANTHROPIC_VERSION: &str = "2023-06-01";
 pub const GB_ANTHROPIC_API_BASE: &str = "https://app.gitbutler.com/api/proxy/anthropic";
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, strum::Display)]
+#[derive(Debug, Clone)]
 pub enum CredentialsKind {
-    EnvVarAnthropicKey,
     OwnAnthropicKey,
     GitButlerProxied,
 }
@@ -69,9 +68,7 @@ impl AnthropicClient {
 fn endpoint(kind: &CredentialsKind, credentials: &Sensitive<String>) -> (&'static str, HeaderMap) {
     let (api_base, auth) = match kind {
         CredentialsKind::GitButlerProxied => (GB_ANTHROPIC_API_BASE, "X-Auth-Token"),
-        CredentialsKind::EnvVarAnthropicKey | CredentialsKind::OwnAnthropicKey => {
-            (ANTHROPIC_API_BASE, "x-api-key")
-        }
+        CredentialsKind::OwnAnthropicKey => (ANTHROPIC_API_BASE, "x-api-key"),
     };
     let mut headers = HeaderMap::new();
     headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
@@ -96,18 +93,10 @@ pub struct AnthropicProvider {
 }
 
 impl AnthropicProvider {
-    pub fn with(preferred_creds: Option<CredentialsKind>, model: Option<String>) -> Option<Self> {
-        let credentials = if let Some(kind) = preferred_creds {
-            match kind {
-                CredentialsKind::EnvVarAnthropicKey => AnthropicProvider::anthropic_env_var_creds(),
-                CredentialsKind::OwnAnthropicKey => AnthropicProvider::anthropic_own_key_creds(),
-                CredentialsKind::GitButlerProxied => AnthropicProvider::gitbutler_proxied_creds(),
-            }
-        } else {
-            AnthropicProvider::gitbutler_proxied_creds()
-                .or_else(|_| AnthropicProvider::anthropic_own_key_creds())
-                .or_else(|_| AnthropicProvider::anthropic_env_var_creds())
-                .context("No Anthropic credentials found. This can be configured in the app or read from a ANTHROPIC_API_KEY environment variable")
+    pub fn with(kind: CredentialsKind, model: Option<String>) -> Option<Self> {
+        let credentials = match kind {
+            CredentialsKind::OwnAnthropicKey => AnthropicProvider::anthropic_own_key_creds(),
+            CredentialsKind::GitButlerProxied => AnthropicProvider::gitbutler_proxied_creds(),
         };
 
         match credentials {
@@ -125,9 +114,6 @@ impl AnthropicProvider {
         AnthropicClient::new(kind, credentials)
     }
 
-    pub fn credentials_kind(&self) -> CredentialsKind {
-        self.credentials.0.clone()
-    }
     fn gitbutler_proxied_creds() -> Result<(CredentialsKind, Sensitive<String>)> {
         let creds = secret::retrieve(GITBUTLER_ACCESS_TOKEN_HANDLE, secret::Namespace::BuildKind)?
             .ok_or(anyhow::anyhow!(
@@ -142,18 +128,6 @@ impl AnthropicProvider {
                 "No Anthropic own key configured. Add this through the GitButler settings"
             ))?;
         Ok((CredentialsKind::OwnAnthropicKey, creds))
-    }
-
-    fn anthropic_env_var_creds() -> Result<(CredentialsKind, Sensitive<String>)> {
-        let creds = Sensitive(
-            std::env::var_os("ANTHROPIC_API_KEY")
-                .ok_or(anyhow::anyhow!(
-                    "Environment variable ANTHROPIC_API_KEY is not set"
-                ))?
-                .into_string()
-                .map_err(|_| anyhow::anyhow!("Invalid UTF-8 in ANTHROPIC_API_KEY"))?,
-        );
-        Ok((CredentialsKind::EnvVarAnthropicKey, creds))
     }
 }
 
@@ -242,10 +216,6 @@ impl From<ChatMessage> for AnthropicMessage {
         match msg {
             ChatMessage::User(content) => AnthropicMessage {
                 role: "user".to_string(),
-                content: serde_json::json!([{"type": "text", "text": content}]),
-            },
-            ChatMessage::Assistant(content) => AnthropicMessage {
-                role: "assistant".to_string(),
                 content: serde_json::json!([{"type": "text", "text": content}]),
             },
         }
