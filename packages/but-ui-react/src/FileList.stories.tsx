@@ -65,8 +65,8 @@ const fileActions = (
 /**
  * Every state a row can be in. The list holds the selection focus, so the selected row is solid;
  * the second list has lost it. A row that can't be acted on right now, or whose action is running,
- * is `inert`. A row's menu opens with a
- * right-click, as on the selected one: a file row has no ⋯, so its last cell always says what
+ * is `inert`, and one open to edit with nothing changed yet is `editing`. A row's menu opens with
+ * a right-click, as on the selected one: a file row has no ⋯, so its last cell always says what
  * happened.
  */
 export const States = meta.story({
@@ -107,9 +107,10 @@ export const States = meta.story({
 				/>
 				<FileListItem name="index.ts" directory="src" status="Deletion" inert />
 			</FileList>
-			<FileList title="Changes" count={2} added={30}>
+			<FileList title="Changes" count={3} added={30}>
 				<FileListItem name="styles.css" directory="src/styles" status="Addition" />
 				<FileListItem selected name="theme.css" directory="src/styles" status="Modification" />
+				<FileListItem name="tokens.css" directory="src/styles" editing />
 			</FileList>
 		</div>
 	),
@@ -233,7 +234,7 @@ export const Discarding = meta.story({
 
 type TreeNode =
 	| { kind: "dir"; name: string; children: Array<TreeNode> }
-	| { kind: "file"; name: string; status: FileStatusType };
+	| { kind: "file"; name: string; status: FileStatusType; added: number; removed: number };
 
 const tree: Array<TreeNode> = [
 	{
@@ -244,23 +245,23 @@ const tree: Array<TreeNode> = [
 				kind: "dir",
 				name: "components",
 				children: [
-					{ kind: "file", name: "Button.tsx", status: "Modification" },
-					{ kind: "file", name: "Tooltip.tsx", status: "Addition" },
+					{ kind: "file", name: "Button.tsx", status: "Modification", added: 18, removed: 9 },
+					{ kind: "file", name: "Tooltip.tsx", status: "Addition", added: 64, removed: 0 },
 				],
 			},
 			{
 				kind: "dir",
 				name: "styles",
 				children: [
-					{ kind: "file", name: "theme.css", status: "Modification" },
-					{ kind: "file", name: "reset.css", status: "Deletion" },
-					{ kind: "file", name: "tokens.css", status: "Addition" },
+					{ kind: "file", name: "theme.css", status: "Modification", added: 20, removed: 12 },
+					{ kind: "file", name: "reset.css", status: "Deletion", added: 0, removed: 16 },
+					{ kind: "file", name: "tokens.css", status: "Addition", added: 14, removed: 0 },
 				],
 			},
-			{ kind: "file", name: "index.ts", status: "Modification" },
+			{ kind: "file", name: "index.ts", status: "Modification", added: 92, removed: 0 },
 		],
 	},
-	{ kind: "file", name: "package.json", status: "Modification" },
+	{ kind: "file", name: "package.json", status: "Modification", added: 2, removed: 2 },
 ];
 
 const filePaths = (node: TreeNode, path: string): Array<string> =>
@@ -268,10 +269,18 @@ const filePaths = (node: TreeNode, path: string): Array<string> =>
 		? [path]
 		: node.children.flatMap((child) => filePaths(child, `${path}/${child.name}`));
 
+/** The lines the files under `node` add and remove. */
+const lineCounts = (node: TreeNode): [added: number, removed: number] =>
+	node.kind === "file"
+		? [node.added, node.removed]
+		: node.children
+				.map(lineCounts)
+				.reduce(([a, r], [added, removed]) => [a + added, r + removed], [0, 0]);
+
 /**
  * A tree: each row steps in under its directory, with the guide that ties it there. A directory
- * folds on its chevron and says how many files it holds while folded; files under one leave out
- * their path, since the tree says it. A directory's checkbox checks every file under it, and shows
+ * folds on its chevron and, while folded, says how many files it holds and the lines they change;
+ * open, its files say it. Files under one leave out their path, since the tree says it. A directory's checkbox checks every file under it, and shows
  * indeterminate while only some are.
  */
 export const Tree = meta.story({
@@ -334,6 +343,7 @@ export const Tree = meta.story({
 			}
 			const files = filePaths(node, path);
 			const done = files.filter((file) => checked.has(file)).length;
+			const [added, removed] = lineCounts(node);
 			return (
 				<FileListItem
 					key={path}
@@ -345,7 +355,9 @@ export const Tree = meta.story({
 					guides={guides[index]}
 					folded={folded.has(path)}
 					onToggleFolded={() => setFolded((set) => toggle(set, path))}
-					count={folded.has(path) ? files.length : undefined}
+					count={files.length}
+					added={added}
+					removed={removed}
 					checkbox={
 						<Checkbox
 							aria-label={`Check ${path}`}
@@ -446,7 +458,7 @@ const found = (text: string, query: string): Array<[number, number]> => {
 /**
  * The search button turns the header into the filter field in place, so narrowing the list costs
  * no height; the cross or Escape brings the header back. Each row underlines what the query found
- * in its name or folder, so it's clear why it's listed.
+ * in its name or folder, so it's clear why it's listed, and the field's end says how many it kept.
  */
 export const Filter = meta.story({
 	parameters: {
@@ -471,7 +483,12 @@ export const Filter = meta.story({
 				filter={
 					query === null
 						? null
-						: { value: query, onChange: setQuery, onClose: () => setQuery(null) }
+						: {
+								value: query,
+								onChange: setQuery,
+								onClose: () => setQuery(null),
+								found: shown.length,
+							}
 				}
 				actions={
 					<Button variant="ghost" iconOnly aria-label="Changes menu">

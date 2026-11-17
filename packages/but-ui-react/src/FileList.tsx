@@ -33,7 +33,8 @@ const plural = (count: number, word: string) =>
  *
  * - `actions` sit at the header's end, after the search button that `onOpenFilter` adds. With
  *   `filter` given, the header is the filter field instead: typing narrows the list, Escape closes
- *   it and the down arrow hands over to the list through `onEnterList`. Opening it, the title
+ *   it and the down arrow hands over to the list through `onEnterList`. Its `found`, how many of
+ *   the `count` files it keeps, shows at the field's end as "2 of 7" once something is typed. Opening it, the title
  *   steps aside, the field widens in, and the search button slides into the actions' place to
  *   become the close button; closing plays it back.
  * - The rows scroll in a {@link ScrollArea}, a hairline under the header once they move. Give a
@@ -64,6 +65,7 @@ export const FileList: FC<
 			onClose: () => void;
 			onEnterList?: () => void;
 			inputId?: string;
+			found?: number;
 		} | null;
 		onHeaderContextMenu?: (event: MouseEvent<HTMLDivElement>) => void;
 		focused?: boolean;
@@ -96,6 +98,8 @@ export const FileList: FC<
 	// while it fades out.
 	const [shownValue, setShownValue] = useState(filter?.value ?? "");
 	if (filter && filter.value !== shownValue) setShownValue(filter.value);
+	const found =
+		filter?.found !== undefined && shownValue !== "" ? `${filter.found} of ${count}` : undefined;
 	return (
 		<div {...props} className={classes(className, styles.panel)}>
 			{header ?? (
@@ -124,6 +128,12 @@ export const FileList: FC<
 							autoFocus={filtering}
 							id={filter?.inputId}
 							className="text-13"
+							// Room for the count, which sits over the field's end.
+							style={
+								found === undefined
+									? undefined
+									: { paddingInlineEnd: `calc(${found.length}ch + 8px)` }
+							}
 							icon={<Icon name="search" />}
 							aria-label="Filter files"
 							placeholder="Filter files"
@@ -142,6 +152,9 @@ export const FileList: FC<
 								}
 							}}
 						/>
+						<span className={classes("text-13", styles.filterFound)} aria-live="polite">
+							{found}
+						</span>
 					</Field.Root>
 					<span className={styles.headerEnd}>
 						{(filter || (onOpenFilter && count > 0)) && (
@@ -211,19 +224,63 @@ const marked = (text: string, found: Ranges | undefined, offset = 0): ReactNode 
 	return parts;
 };
 
-/** A row's folder, in two halves that shrink together, so a narrow row cuts it in the middle: the
- * first half ends in the ellipsis and the second loses its start. */
+/** A row's folder, cut in the middle where the row is short of room, at the characters the GPUI
+ * client would cut it at. */
 const Directory: FC<{ text: string; found: Ranges | undefined; trail?: boolean }> = ({
 	text,
 	found,
 	trail = false,
 }) => {
-	const half = Math.ceil(text.length / 2);
+	// Where the cut starts and ends in `text`, while it doesn't fit.
+	const [cut, setCut] = useState<readonly [number, number] | null>(null);
+	const fit = (box: HTMLSpanElement | null) => {
+		const copy = box?.querySelector<HTMLElement>("[data-copy]");
+		const ellipsis = box?.querySelector<HTMLElement>("[data-ellipsis]");
+		const node = copy?.firstChild;
+		if (!box || !copy || !ellipsis || !node) return;
+		const range = document.createRange();
+		const until = (index: number) => {
+			range.setStart(node, 0);
+			range.setEnd(node, index);
+			return range.getBoundingClientRect().width;
+		};
+		const place = () => {
+			const total = until(text.length);
+			// Asks for the whole folder's width, so the room it's given doesn't shrink with the cut.
+			box.style.width = `${total}px`;
+			const room = box.getBoundingClientRect().width;
+			if (total <= room) return setCut(null);
+			// As GPUI cuts it: two thirds of the room to the start, the rest to the end, in whole
+			// characters.
+			const budget = room - ellipsis.getBoundingClientRect().width;
+			let front = 0;
+			while (front < text.length && until(front + 1) <= (budget * 2) / 3) front++;
+			const back = budget - until(front);
+			let from = text.length;
+			while (from > front && total - until(from - 1) <= back) from--;
+			setCut((was) => (was?.[0] === front && was[1] === from ? was : [front, from]));
+		};
+		place();
+		// The copy too: it widens when the web font arrives.
+		const observer = new ResizeObserver(place);
+		observer.observe(box);
+		observer.observe(copy);
+		return () => observer.disconnect();
+	};
 	return (
-		<span className={classes(styles.directory, trail && styles.directoryTrail)}>
-			<span className={styles.directoryStart}>{marked(text.slice(0, half), found)}</span>
-			<span className={styles.directoryEnd}>
-				<span dir="ltr">{marked(text.slice(half), found, half)}</span>
+		<span ref={fit} className={classes(styles.directory, trail && styles.directoryTrail)}>
+			{cut === null ? (
+				marked(text, found)
+			) : (
+				<>
+					{marked(text.slice(0, cut[0]), found)}…{marked(text.slice(cut[1]), found, cut[1])}
+				</>
+			)}
+			<span data-copy aria-hidden className={styles.directoryCopy}>
+				{text}
+			</span>
+			<span data-ellipsis aria-hidden className={styles.directoryCopy}>
+				…
 			</span>
 		</span>
 	);
@@ -252,20 +309,23 @@ const Directory: FC<{ text: string; found: Ranges | undefined; trail?: boolean }
  * - `inert` while an action on the file runs, or while it can't be acted on: the row fades and
  *   takes no clicks. It shows no spinner of its own: one snackbar says what's running, once for
  *   all the files it touches (but-ui's Toasts and snackbars note).
- * - The last cell says what happened: the conflict mark if it is `conflicted`, else a tick if it
- *   is `reviewed`, which also fades the name (a reviewed file's news is that it is done with),
- *   else the letter for its `status`, else a folded directory's `count` of files.
+ * - The last cell says what happened: the conflict mark if it is `conflicted`, else a pencil if
+ *   it is `editing`, open to edit with nothing changed yet, else a tick if it is `reviewed`, which
+ *   also fades the name (a reviewed file's news is that it is done with), else the letter for its
+ *   `status`, else a folded directory's `count` of files.
  * - Selected rows next to one another read as one block, as Finder draws a picked run: rounded
  *   only where it starts and ends, with a faint line between two of its rows.
  * - The row has no ⋯: its menu opens with a right-click, the row a `ContextMenu`'s `trigger`, so
  *   the last cell always says what happened and the letters read down the list. `marks` show
  *   before it.
  * - `added` and `removed` give the file's line counts, after its name; either side shows only
- *   when it isn't zero.
+ *   when it isn't zero. A directory's, and its `count`, show only while it's folded: open, its
+ *   files say it.
  * - `labelRender` and `statusRender` wrap the name and the status, for tooltip triggers.
  *
  * @figma `state` is the drawing's only: hover is the row under the pointer, which the code draws
  * from CSS. `line counts` shows `added` and `removed`; edit the numbers on the DiffStats inside.
+ * With `editing` on, turn `status` off: the pencil takes the letter's place.
  * @public
  * @import import { FileList, FileListItem } from "@gitbutler/but-ui-react/FileList.tsx";
  */
@@ -289,6 +349,7 @@ export const FileListItem: FC<
 		count?: number;
 		reviewed?: boolean;
 		conflicted?: boolean;
+		editing?: boolean;
 		selected?: boolean;
 		marks?: ReactNode;
 		added?: number;
@@ -312,6 +373,7 @@ export const FileListItem: FC<
 	count,
 	reviewed = false,
 	conflicted = false,
+	editing = false,
 	selected = false,
 	marks,
 	added = 0,
@@ -354,21 +416,29 @@ export const FileListItem: FC<
 		},
 	});
 
-	const hasStatus = conflicted || reviewed || status !== undefined || count !== undefined;
+	// An open directory's files say what happened to them, so its own totals wait until it folds.
+	const open = folded === false;
+	const shownCount = open ? undefined : count;
+	const hasStatus =
+		conflicted || editing || reviewed || status !== undefined || shownCount !== undefined;
 	const statusMark = useRender({
 		render: statusRender ?? <span />,
 		props: {
 			className: styles.status,
 			children: conflicted ? (
 				<ConflictIcon variant="conflict" size={14} aria-label="Conflicted" />
+			) : editing ? (
+				<span aria-label="Editing" className={styles.editing}>
+					<Icon name="edit" />
+				</span>
 			) : reviewed ? (
 				<span aria-label="Reviewed" className={styles.reviewed}>
 					<Icon size={11} name="tick" />
 				</span>
 			) : status !== undefined ? (
 				<FileStatusBadge status={status} />
-			) : count !== undefined ? (
-				<span className={classes("text-11", styles.count)}>{count}</span>
+			) : shownCount !== undefined ? (
+				<span className={classes("text-12", styles.count)}>{shownCount}</span>
 			) : null,
 		},
 	});
@@ -405,8 +475,8 @@ export const FileListItem: FC<
 					</span>
 					{label}
 					<DiffStats
-						added={added}
-						removed={removed}
+						added={open ? 0 : added}
+						removed={open ? 0 : removed}
 						className={classes("text-12", styles.lineStats, reviewed && styles.faded)}
 					/>
 					{marks !== undefined && <span className={styles.marks}>{marks}</span>}
