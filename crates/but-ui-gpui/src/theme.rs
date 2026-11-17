@@ -49,6 +49,9 @@ pub struct Theme {
     pub muted_hover: Hsla,
     pub muted_on_solid: Hsla,
     pub hover_on_solid: Hsla,
+    /// A tree's guide on a solid selection: the inverted muted foreground at 40%, as
+    /// but-ui-react's `--guide-color` there.
+    pub guide_on_solid: Hsla,
     /// `--but-neutral-soft`: the text colour as a soft tint, as a light grey badge's fill.
     pub neutral_soft: Hsla,
     pub inverse_soft: Hsla,
@@ -707,6 +710,7 @@ impl Theme {
             muted_hover: halfway(on_ground!(MUTED), on_ground!(MUTED_NESTED)),
             muted_on_solid: token(on_ground!(INVERSE_MUTED_FOREGROUND)),
             hover_on_solid: token(on_ground!(INVERSE_GHOST_HOVER)),
+            guide_on_solid: token(on_ground!(INVERSE_MUTED_FOREGROUND)).opacity(0.4),
             neutral_soft: token(on_ground!(NEUTRAL_SOFT)),
             inverse_soft: token(on_ground!(INVERSE_SOFT)),
             inverse_soft_hover: token(on_ground!(INVERSE_SOFT_HOVER)),
@@ -947,6 +951,7 @@ impl Theme {
             muted_hover: color(muted_hover),
             muted_on_solid: color(bg).opacity(0.6),
             hover_on_solid: color(bg).opacity(0.05),
+            guide_on_solid: color(bg).opacity(0.6 * 0.4),
             inverse_soft: color(bg).opacity(0.15),
             inverse_soft_hover: color(bg).opacity(0.22),
             scrollbar: veil(0.15),
