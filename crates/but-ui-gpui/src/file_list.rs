@@ -8,8 +8,8 @@
 use std::ops::Range;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Div, ElementId, Hsla, Role, SharedString, Toggled, Window, div,
-    prelude::*, relative,
+    AnyElement, App, ClickEvent, Div, ElementId, Hsla, Role, SharedString, Toggled, UniformList,
+    UniformListScrollHandle, Window, div, prelude::*, relative,
 };
 
 use crate::file_icons::{file_icon, folder_icon};
@@ -66,61 +66,307 @@ pub fn tree_guides(depths: &[usize]) -> Vec<Vec<Guide>> {
 }
 
 /// A panel of changed files: `title`, with how many there are (`count`) and the lines they add
-/// and remove, over `rows`. `actions` sit at the header's end.
+/// and remove, over the rows, its children, which scroll under the header inset from the panel's
+/// edges and a pixel apart.
+///
+/// - [`FileList::actions`] sit at the header's end, after the search button that
+///   [`FileList::on_open_filter`] adds while there are files. With [`FileList::filter`] given, the
+///   header is the filter field instead, over the title, and the search button is the button that
+///   closes it. The field holds the host's input, which takes Escape to close it, and ends on
+///   [`FileList::found`], how many of the `count` files the filter keeps, as "2 of 7".
+/// - The rows scroll, a hairline under the header once they've moved. A long list goes in
+///   [`FileList::virtualised`], whose rows take the pixel between them themselves.
+/// - A selected row is solid while the list holds the selection focus: pass `focused` to its rows.
+#[derive(IntoElement)]
+pub struct FileList {
+    base: Div,
+    id: ElementId,
+    title: SharedString,
+    count: usize,
+    added: u32,
+    removed: u32,
+    actions: Option<AnyElement>,
+    on_open_filter: Option<OnClick>,
+    filter: Option<(AnyElement, bool, OnClick)>,
+    found: Option<usize>,
+    scroll: Option<UniformListScrollHandle>,
+    virtualised: Option<UniformList>,
+    rows: Vec<AnyElement>,
+}
+
 pub fn file_list(
+    id: impl Into<ElementId>,
     title: impl Into<SharedString>,
     count: usize,
     (added, removed): (u32, u32),
-    actions: Option<AnyElement>,
-    rows: impl IntoIterator<Item = AnyElement>,
-    theme: &Theme,
-) -> Div {
-    v_flex()
-        .min_h_0()
-        .child(
-            h_flex()
-                .flex_none()
-                .gap(dp(tokens::GAP_ICON_TEXT))
-                // The title starts 16px in, as the view header's above it; the rows start 10px
-                // under the header.
-                .pl(dp(tokens::SPACE_3XL))
-                .pr(dp(tokens::PADDING_PANEL))
-                .pt(dp(tokens::PADDING_PANEL))
-                .pb(dp(tokens::SPACE_XL))
-                .child(
-                    h_flex()
-                        .min_w_0()
-                        .gap(dp(tokens::GAP_ICON_TEXT))
-                        .child(
-                            div()
-                                .min_w_0()
-                                .overflow_hidden()
-                                .whitespace_nowrap()
-                                .text_ellipsis()
-                                .text_14()
-                                .bold()
-                                .text_color(theme.text_1)
-                                .child(title.into()),
-                        )
-                        .child(
-                            h_flex()
-                                .flex_none()
-                                .gap(dp(6.))
-                                .child(count_badge(count, theme))
-                                .when(added + removed > 0, |el| {
-                                    el.child(diff_stats(added, removed, false, theme))
-                                }),
-                        ),
-                )
-                .children(actions.map(|actions| h_flex().flex_none().ml_auto().child(actions))),
-        )
-        .child(
-            v_flex()
-                .gap(fixed(1.))
+) -> FileList {
+    FileList {
+        base: v_flex().min_h_0(),
+        id: id.into(),
+        title: title.into(),
+        count,
+        added,
+        removed,
+        actions: None,
+        on_open_filter: None,
+        filter: None,
+        found: None,
+        scroll: None,
+        virtualised: None,
+        rows: Vec::new(),
+    }
+}
+
+impl FileList {
+    pub fn actions(mut self, actions: impl IntoElement) -> Self {
+        self.actions = Some(actions.into_any_element());
+        self
+    }
+
+    /// The search button, which opens the filter.
+    pub fn on_open_filter(
+        mut self,
+        on_open: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.on_open_filter = Some(Box::new(on_open));
+        self
+    }
+
+    /// The filter, open: `field` is the host's input, ringed while `focused`, and `on_close`
+    /// answers the button that closes it.
+    pub fn filter(
+        mut self,
+        field: impl IntoElement,
+        focused: bool,
+        on_close: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.filter = Some((field.into_any_element(), focused, Box::new(on_close)));
+        self
+    }
+
+    /// How many of the files the open filter keeps, while something's typed in it.
+    pub fn found(mut self, found: usize) -> Self {
+        self.found = Some(found);
+        self
+    }
+
+    /// The rows as one `uniform_list`, for a long list: each of its rows ends on the pixel
+    /// between it and the next.
+    pub fn virtualised(mut self, list: UniformList) -> Self {
+        self.virtualised = Some(list);
+        self
+    }
+
+    /// Scrolls the rows by `handle`, for a host that scrolls a row into view; otherwise the list
+    /// keeps its own.
+    pub fn track_scroll(mut self, handle: &UniformListScrollHandle) -> Self {
+        self.scroll = Some(handle.clone());
+        self
+    }
+}
+
+impl Styled for FileList {
+    fn style(&mut self) -> &mut gpui::StyleRefinement {
+        self.base.style()
+    }
+}
+
+impl ParentElement for FileList {
+    fn extend(&mut self, elements: impl IntoIterator<Item = AnyElement>) {
+        self.rows.extend(elements);
+    }
+}
+
+impl RenderOnce for FileList {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let theme = Theme::get(cx).clone();
+        let scroll = match self.scroll {
+            Some(scroll) => scroll,
+            None => (window
+                .use_keyed_state(self.id.clone(), cx, |_, _| UniformListScrollHandle::new()))
+            .read(cx)
+            .clone(),
+        };
+        let scrolled = scroll.0.borrow().base_handle.offset().y < gpui::Pixels::ZERO;
+        let filtering = self.filter.is_some();
+
+        let label = h_flex()
+            .min_w_0()
+            .gap(dp(tokens::GAP_ICON_TEXT))
+            .when(filtering, |el| el.opacity(0.))
+            .child(
+                div()
+                    .min_w_0()
+                    .overflow_hidden()
+                    .whitespace_nowrap()
+                    .text_ellipsis()
+                    .text_14()
+                    .bold()
+                    .text_color(theme.text_1)
+                    .child(self.title),
+            )
+            .child(
+                h_flex()
+                    .id("stats")
+                    .flex_none()
+                    .gap(dp(6.))
+                    .aria_label(SharedString::from(described(
+                        self.count,
+                        self.added,
+                        self.removed,
+                    )))
+                    .tooltip(Tooltip::text(plural(self.count, "file") + " changed"))
+                    .child(count_badge(self.count, &theme))
+                    .when(self.added + self.removed > 0, |el| {
+                        el.child(diff_stats(self.added, self.removed, false, &theme))
+                    }),
+            );
+
+        let (field, toggle) = match self.filter {
+            Some((field, focused, on_close)) => (
+                Some(filter_field(
+                    field,
+                    (self.found).map(|found| format!("{found} of {}", self.count)),
+                    focused,
+                    &theme,
+                )),
+                Some(
+                    icon_button("filter-toggle", Icon::Cross)
+                        .tooltip("Close files filter")
+                        .on_click(on_close),
+                ),
+            ),
+            None => (
+                None,
+                (self.on_open_filter.filter(|_| self.count > 0)).map(|on_open| {
+                    icon_button("filter-toggle", Icon::Search)
+                        .tooltip("Filter files")
+                        .on_click(on_open)
+                }),
+            ),
+        };
+        let end = h_flex()
+            .flex_none()
+            .ml_auto()
+            .children(toggle)
+            .children(self.actions.filter(|_| !filtering));
+
+        let header = h_flex()
+            .flex_none()
+            .relative()
+            .gap(dp(tokens::GAP_ICON_TEXT))
+            // The panel's 12px in from its top and end; the title starts 16px in, as the view
+            // header's above it. The rows start 10px under the buttons.
+            .pl(dp(tokens::SPACE_3XL))
+            .pr(dp(tokens::PADDING_PANEL))
+            .pt(dp(tokens::PADDING_PANEL))
+            .pb(dp(tokens::SPACE_XL))
+            .child(label)
+            .child(end)
+            .children(field);
+
+        let inset = |el: Div| {
+            el.px(dp(tokens::PADDING_PANEL))
+                .pb(dp(tokens::PADDING_PANEL))
+        };
+        let virtualised = self.virtualised.is_some();
+        let body = match self.virtualised {
+            Some(list) => list
+                .track_scroll(&scroll)
+                .size_full()
                 .px(dp(tokens::PADDING_PANEL))
                 .pb(dp(tokens::PADDING_PANEL))
-                .children(rows),
+                .into_any_element(),
+            None => v_flex()
+                .id("rows")
+                .flex_grow(1.)
+                .min_h_0()
+                .overflow_y_scroll()
+                .track_scroll(&scroll.0.borrow().base_handle)
+                .child(inset(v_flex().gap(fixed(1.))).children(self.rows))
+                .into_any_element(),
+        };
+
+        self.base.id(self.id).child(header).child(
+            v_flex()
+                // A `uniform_list` lays out only in the height it's given; plain rows give
+                // the panel theirs until it has less.
+                .map(|el| match virtualised {
+                    true => el.flex_1(),
+                    false => el.flex_grow(1.),
+                })
+                .min_h_0()
+                .relative()
+                .child(body)
+                // Rows passing under the header read as passing under it.
+                .when(scrolled, |el| {
+                    el.child(
+                        div()
+                            .absolute()
+                            .top_0()
+                            .left_0()
+                            .right_0()
+                            .h(fixed(1.))
+                            .bg(theme.border_3),
+                    )
+                }),
         )
+    }
+}
+
+/// The filter field over the header: the panel's 12px in from the start, up to 4px before the
+/// button that closes it, with the search glyph inside its start and `found` at its end.
+fn filter_field(field: AnyElement, found: Option<String>, focused: bool, theme: &Theme) -> Div {
+    let control = theme.sizes.control;
+    h_flex()
+        .absolute()
+        .top(dp(tokens::PADDING_PANEL))
+        .left(dp(tokens::PADDING_PANEL))
+        .right(dp(tokens::PADDING_PANEL + control + tokens::SPACE_SM))
+        .h(dp(control))
+        .pl(dp(32.))
+        .pr(dp(8. + theme.sizes.padding))
+        .rounded(dp(theme.shape.control))
+        .border_1()
+        .border_color(match focused {
+            true => theme.focus_border,
+            false => theme.border_2,
+        })
+        .bg(theme.bg_1)
+        .text_13()
+        .text_color(theme.text_1)
+        .child(
+            div()
+                .absolute()
+                .left(dp(8.))
+                .top_0()
+                .bottom_0()
+                .flex()
+                .items_center()
+                .child(icon(Icon::Search).text_color(theme.text_3)),
+        )
+        .gap(dp(8.))
+        .child(div().flex_1().min_w_0().child(field))
+        .children(found.map(|found| div().flex_none().text_color(theme.text_3).child(found)))
+}
+
+fn plural(count: usize, word: &str) -> String {
+    match count == 1 {
+        true => format!("{count} {word}"),
+        false => format!("{count} {word}s"),
+    }
+}
+
+/// What the header's numbers say, for a screen reader: "5 files changed, 120 lines added".
+fn described(count: usize, added: u32, removed: u32) -> String {
+    let mut parts = vec![plural(count, "file") + " changed"];
+    if added > 0 {
+        parts.push(plural(added as usize, "line") + " added");
+    }
+    if removed > 0 {
+        parts.push(plural(removed as usize, "line") + " removed");
+    }
+    parts.join(", ")
 }
 
 /// One changed file, or a directory of them, in a [`file_list`]. Start from `name` and add what
@@ -138,9 +384,11 @@ pub fn file_list(
 /// - `inert` while an action on the file runs, or while it can't be acted on: the row fades and
 ///   takes no clicks. It shows no spinner of its own: one snackbar says what's running, once for
 ///   all the files it touches (but-ui's Toasts and snackbars note).
-/// - The last cell says what happened: the conflict mark if `conflicted`, else a tick if
-///   `reviewed`, which also fades the name, else the letter for its `status`, else a folded
-///   directory's `count` of files; `marks` show before it.
+/// - The last cell says what happened: the conflict mark if `conflicted`, else a pencil if
+///   `editing`, open to edit with nothing changed yet, else a tick if `reviewed`, which also fades
+///   the name, else the letter for its `status`, else a folded directory's `count` of files;
+///   `marks` show before it. A directory's `count` and line counts show only while it's folded:
+///   open, its files say it.
 /// - The row has no ⋯: its menu opens with a right-click, which the host handles on the row, so
 ///   the last cell always says what happened and the letters read down the list.
 /// - `selected` grounds the row; `focused`, while its list holds the selection focus, makes that
@@ -163,6 +411,7 @@ pub struct FileListItem {
     count: Option<usize>,
     reviewed: bool,
     conflicted: bool,
+    editing: bool,
     selected: bool,
     joined: (bool, bool),
     focused: bool,
@@ -191,6 +440,7 @@ pub fn file_list_item(id: impl Into<ElementId>, name: impl Into<SharedString>) -
         count: None,
         reviewed: false,
         conflicted: false,
+        editing: false,
         selected: false,
         joined: (false, false),
         focused: false,
@@ -278,6 +528,11 @@ impl FileListItem {
         self
     }
 
+    pub fn editing(mut self, editing: bool) -> Self {
+        self.editing = editing;
+        self
+    }
+
     pub fn selected(mut self, selected: bool) -> Self {
         self.selected = selected;
         self
@@ -344,6 +599,14 @@ impl RenderOnce for FileListItem {
             false => theme.border_3,
         };
         let faded = |el: Div| el.when(self.reviewed, |el| el.opacity(0.5));
+        // An open directory's files say what happened to them, so its own totals wait until it
+        // folds.
+        let open = self.folded == Some(false);
+        let count = self.count.filter(|_| !open);
+        let (added, removed) = match open {
+            true => (0, 0),
+            false => (self.added, self.removed),
+        };
 
         let steps = (self.depth > 0 || self.folded.is_some()).then(|| {
             let guides = (0..self.depth).map(|level| {
@@ -453,6 +716,17 @@ impl RenderOnce for FileListItem {
                     .aria_label("Conflicted")
                     .child(conflict_icon(14., &theme, cx)),
             )
+        } else if self.editing {
+            // Quiet, as the folder is, since nothing has happened yet.
+            Some(
+                div()
+                    .id("status")
+                    .aria_label("Editing")
+                    .child(icon(Icon::Edit).text_color(match solid {
+                        true => muted,
+                        false => theme.text_3,
+                    })),
+            )
         } else if self.reviewed {
             Some(
                 div()
@@ -470,10 +744,11 @@ impl RenderOnce for FileListItem {
                     .aria_label(status.word()),
             )
         } else {
-            self.count.map(|count| {
+            count.map(|count| {
+                // The line counts' size, so a folded directory's numbers read as one line.
                 div()
                     .id("status")
-                    .text_11()
+                    .text_12()
                     .text_color(muted)
                     .child(count.to_string())
             })
@@ -543,8 +818,8 @@ impl RenderOnce for FileListItem {
                     .child(lead),
             )
             .child(label)
-            .when(self.added + self.removed > 0, |el| {
-                el.child(faded(diff_stats(self.added, self.removed, solid, &theme)))
+            .when(added + removed > 0, |el| {
+                el.child(faded(diff_stats(added, removed, solid, &theme)))
             })
             .children(
                 self.marks

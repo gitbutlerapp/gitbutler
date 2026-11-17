@@ -62,6 +62,8 @@ pub fn run() {
             }
             cx.on_action(|_: &Quit, cx| cx.quit());
             cx.bind_keys([KeyBinding::new("cmd-q", Quit, None)]);
+            // Escape and the rest of a field's keys, for the stories that take typing.
+            ui::text_input::bind_keys(cx);
             cx.set_menus([Menu::new("Pantry").items([MenuItem::action("Quit", Quit)])]);
             // Its own icon, so the Dock tells it from the app.
             #[cfg(target_os = "macos")]
