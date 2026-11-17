@@ -7,7 +7,7 @@ use crate::{
     command::legacy::workspace_target,
     legacy::workspace::HeadInfoStack,
     theme::{self, Paint},
-    utils::OutputChannel,
+    utils::{CliOutput, CliOutputHuman, WriteWithUtils},
 };
 
 #[expect(clippy::too_many_arguments)]
@@ -19,10 +19,9 @@ pub fn list(
     ahead: bool,
     review: bool,
     filter: Option<String>,
-    out: &mut OutputChannel,
     check_merge: bool,
     show_empty: bool,
-) -> Result<(), anyhow::Error> {
+) -> Result<ListOutcome, anyhow::Error> {
     let listing_filter = Some(BranchListingFilter {
         local: local.then_some(true),
         applied: Some(false),
@@ -189,59 +188,102 @@ pub fn list(
         None
     };
 
-    let allow_truncation = out.format().allows_truncation();
-    if let Some(out) = out.for_json() {
-        output_json(
-            &applied_stacks,
-            &branches_to_show,
-            has_more_branches,
-            &branch_review_map,
-            commits_ahead_map.as_ref(),
-            merge_status_map.as_ref(),
-            ctx,
-            out,
-        )?;
-    } else if let Some(out) = out.for_human() {
-        if !applied_stacks.is_empty() {
+    let head_commit_info = {
+        let repo = ctx.repo.get()?;
+        applied_stacks
+            .iter()
+            .flat_map(|stack| &stack.branches)
+            .map(|branch| (branch.tip, applied_head_commit_info(&repo, branch.tip)))
+            .collect()
+    };
+
+    Ok(ListOutcome {
+        applied_stacks,
+        branches: branches_to_show,
+        has_more_branches,
+        branch_review_map,
+        commits_ahead_map,
+        merge_status_map,
+        head_commit_info,
+    })
+}
+
+/// The time in milliseconds, author name and author email of a commit.
+type HeadCommitInfo = (u128, Option<String>, Option<String>);
+
+#[must_use]
+pub struct ListOutcome {
+    applied_stacks: Vec<HeadInfoStack>,
+    branches: Vec<gitbutler_branch_actions::BranchListing>,
+    has_more_branches: bool,
+    branch_review_map: HashMap<String, Vec<but_forge::ForgeReview>>,
+    commits_ahead_map: Option<HashMap<String, usize>>,
+    merge_status_map: Option<HashMap<String, bool>>,
+    /// Commit information for the tip of each applied branch.
+    head_commit_info: HashMap<gix::ObjectId, HeadCommitInfo>,
+}
+
+impl CliOutputHuman for ListOutcome {
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        agent: bool,
+        _theme: &'static theme::Theme,
+    ) -> anyhow::Result<()> {
+        let allow_truncation = !agent;
+        if !self.applied_stacks.is_empty() {
             writeln!(out, "Applied branches")?;
             print_applied_branches_table(
-                &applied_stacks,
-                &branch_review_map,
-                ctx,
-                commits_ahead_map.as_ref(),
-                merge_status_map.as_ref(),
+                &self.applied_stacks,
+                &self.branch_review_map,
+                &self.head_commit_info,
+                self.commits_ahead_map.as_ref(),
+                self.merge_status_map.as_ref(),
                 allow_truncation,
                 out,
             )?;
         }
 
-        if !branches_to_show.is_empty() {
-            if !applied_stacks.is_empty() {
+        if !self.branches.is_empty() {
+            if !self.applied_stacks.is_empty() {
                 writeln!(out)?;
             }
             writeln!(out, "Unapplied Branches")?;
             print_branches_table(
-                &branches_to_show,
-                &branch_review_map,
-                commits_ahead_map.as_ref(),
-                merge_status_map.as_ref(),
+                &self.branches,
+                &self.branch_review_map,
+                self.commits_ahead_map.as_ref(),
+                self.merge_status_map.as_ref(),
                 allow_truncation,
                 out,
             )?;
         }
 
-        if has_more_branches {
+        if self.has_more_branches {
             writeln!(
                 out,
                 "\n... result truncated to {} matching branches (use --all to show all that match filters)",
-                branches_to_show.len()
+                self.branches.len()
             )?;
         }
+        Ok(())
     }
-    Ok(())
 }
 
-#[expect(clippy::too_many_arguments)]
+impl CliOutput for ListOutcome {
+    fn on_json(self) -> impl serde::Serialize {
+        output_json(
+            &self.applied_stacks,
+            &self.branches,
+            self.has_more_branches,
+            &self.branch_review_map,
+            self.commits_ahead_map.as_ref(),
+            self.merge_status_map.as_ref(),
+            &self.head_commit_info,
+        )
+    }
+}
+
 fn output_json(
     applied_stacks: &[HeadInfoStack],
     branches: &[gitbutler_branch_actions::BranchListing],
@@ -249,12 +291,9 @@ fn output_json(
     branch_review_map: &HashMap<String, Vec<but_forge::ForgeReview>>,
     commits_ahead_map: Option<&HashMap<String, usize>>,
     merge_status_map: Option<&HashMap<String, bool>>,
-    ctx: &Context,
-    out: &mut OutputChannel,
-) -> Result<(), anyhow::Error> {
+    head_commit_info: &HashMap<gix::ObjectId, HeadCommitInfo>,
+) -> crate::command::legacy::branch::json::BranchListOutput {
     use crate::command::legacy::branch::json::*;
-
-    let repo = &*ctx.repo.get()?;
 
     let applied_stacks_output: Vec<StackOutput> = applied_stacks
         .iter()
@@ -269,8 +308,10 @@ fn output_json(
                     let merges_cleanly =
                         merge_status_map.and_then(|map| map.get(&branch.name).copied());
 
-                    let (last_commit_at, author_name, author_email) =
-                        applied_head_commit_info(repo, branch.tip);
+                    let (last_commit_at, author_name, author_email) = head_commit_info
+                        .get(&branch.tip)
+                        .cloned()
+                        .unwrap_or_default();
                     let last_author = AuthorOutput {
                         name: author_name,
                         email: author_email,
@@ -317,14 +358,11 @@ fn output_json(
         })
         .collect();
 
-    let output = BranchListOutput {
+    BranchListOutput {
         applied_stacks: applied_stacks_output,
         branches: branches_output,
         has_more_branches,
-    };
-
-    out.write_value(output)?;
-    Ok(())
+    }
 }
 
 fn applied_head_commit_info(
@@ -516,7 +554,7 @@ fn format_date_for_display(timestamp_ms: u128) -> String {
 fn print_applied_branches_table(
     applied_stacks: &[HeadInfoStack],
     branch_review_map: &HashMap<String, Vec<but_forge::ForgeReview>>,
-    ctx: &Context,
+    head_commit_info: &HashMap<gix::ObjectId, HeadCommitInfo>,
     commits_ahead_map: Option<&HashMap<String, usize>>,
     merge_status_map: Option<&HashMap<String, bool>>,
     allow_truncation: bool,
@@ -529,8 +567,6 @@ fn print_applied_branches_table(
     if applied_stacks.is_empty() {
         return Ok(());
     }
-
-    let repo = &*ctx.repo.get()?;
 
     // BRANCH is marked no_truncate so the name is always fully visible.
     // AUTHOR is flexible and will shrink first when space is tight.
@@ -550,8 +586,10 @@ fn print_applied_branches_table(
         for branch in &stack.branches {
             let is_single_branch = stack.branches.len() == 1;
 
-            let (timestamp_ms, author_name, author_email) =
-                applied_head_commit_info(repo, branch.tip);
+            let (timestamp_ms, author_name, author_email) = head_commit_info
+                .get(&branch.tip)
+                .cloned()
+                .unwrap_or_default();
             let author_str = author_name
                 .or(author_email)
                 .unwrap_or_else(|| "Unknown".to_string());

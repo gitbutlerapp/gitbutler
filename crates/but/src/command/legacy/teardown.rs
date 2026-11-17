@@ -6,26 +6,15 @@ use serde::Serialize;
 
 use crate::{
     CliError, CliResult, bad_input,
-    theme::{self, Paint},
-    utils::{OutputChannel, shorten_object_id},
+    theme::{self, Paint, Theme},
+    utils::{CliOutput, CliOutputHuman, OutputChannel, WriteWithUtils, shorten_object_id},
 };
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct TeardownResult {
-    snapshot_id: String,
-    checked_out_branch: String,
-    /// Hook cleanup problems; when non-empty, some GitButler hooks are still
-    /// installed and may keep affecting git operations.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    hook_warnings: Vec<String>,
-}
 
 pub(crate) fn teardown(
     ctx: &mut Context,
     checkout_to: Option<String>,
     out: &mut OutputChannel,
-) -> CliResult<()> {
+) -> CliResult<TeardownOutcome> {
     let t = theme::get();
 
     let head_name = {
@@ -236,7 +225,32 @@ pub(crate) fn teardown(
         writeln!(out)?;
     }
 
-    if let Some(out) = out.for_human() {
+    Ok(TeardownOutcome {
+        snapshot_id,
+        checked_out_branch: target_branch_name,
+        hook_warnings,
+    })
+}
+
+#[must_use]
+pub(crate) struct TeardownOutcome {
+    snapshot_id: String,
+    checked_out_branch: String,
+    hook_warnings: Vec<String>,
+}
+
+impl CliOutputHuman for TeardownOutcome {
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        t: &'static Theme,
+    ) -> anyhow::Result<()> {
+        let Self {
+            snapshot_id: _,
+            checked_out_branch,
+            hook_warnings,
+        } = self;
         if hook_warnings.is_empty() {
             writeln!(
                 out,
@@ -257,20 +271,36 @@ pub(crate) fn teardown(
             out,
             "{}",
             t.hint
-                .paint(format!("You are now on branch: {target_branch_name}"))
+                .paint(format!("You are now on branch: {checked_out_branch}"))
         )?;
         writeln!(out)?;
+        Ok(())
     }
+}
 
-    if let Some(out) = out.for_json() {
-        out.write_value(&TeardownResult {
+impl CliOutput for TeardownOutcome {
+    fn on_json(self) -> impl Serialize {
+        #[derive(Serialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Output {
+            snapshot_id: String,
+            checked_out_branch: String,
+            /// Hook cleanup problems; when non-empty, some GitButler hooks are still
+            /// installed and may keep affecting git operations.
+            #[serde(skip_serializing_if = "Vec::is_empty")]
+            hook_warnings: Vec<String>,
+        }
+        let Self {
             snapshot_id,
-            checked_out_branch: target_branch_name,
+            checked_out_branch,
             hook_warnings,
-        })?;
+        } = self;
+        Output {
+            snapshot_id,
+            checked_out_branch,
+            hook_warnings,
+        }
     }
-
-    Ok(())
 }
 
 // a call to get stacks failed, which could be because someone committed on top

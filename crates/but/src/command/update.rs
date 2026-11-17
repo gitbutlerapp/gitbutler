@@ -1,7 +1,8 @@
 use crate::{
+    CliResult,
     args::update,
-    theme::{self, Paint},
-    utils::OutputChannel,
+    theme::{Paint, Theme},
+    utils::{CliOutput, CliOutputHuman, OutputChannel, WriteWithUtils},
 };
 use anyhow::Result;
 #[cfg(all(unix, not(feature = "packaged-but-distribution")))]
@@ -13,38 +14,74 @@ pub fn handle(
     cmd: update::Subcommands,
     out: &mut OutputChannel,
     app_settings: &AppSettings,
-) -> Result<()> {
+) -> CliResult<()> {
     match cmd {
-        update::Subcommands::Check => check_for_updates(out, app_settings),
-        update::Subcommands::Suppress { days } => suppress_updates(out, days),
+        update::Subcommands::Check => out.print_cli_output(check_for_updates(app_settings)?),
+        update::Subcommands::Suppress { days } => out.print_cli_output(suppress_updates(days)?),
         #[cfg(all(unix, not(feature = "packaged-but-distribution")))]
-        update::Subcommands::Install { target } => install(out, target),
+        update::Subcommands::Install { target } => Ok(install(out, target)?),
     }
 }
 
-fn check_for_updates(out: &mut OutputChannel, app_settings: &AppSettings) -> Result<()> {
+#[must_use]
+enum UpdateOutcome {
+    /// `None` if another process is checking for updates.
+    Checked(Option<CheckUpdateStatus>),
+    Suppressed {
+        days: u32,
+        hours: u32,
+    },
+}
+
+impl CliOutputHuman for UpdateOutcome {
+    fn on_human(self, out: &mut dyn WriteWithUtils, _agent: bool, t: &'static Theme) -> Result<()> {
+        match self {
+            UpdateOutcome::Checked(Some(status)) => print_human_output(out, &status, t)?,
+            UpdateOutcome::Checked(None) => {
+                writeln!(
+                    out,
+                    "{} Another process is currently checking for updates",
+                    t.attention.paint("→")
+                )?;
+            }
+            UpdateOutcome::Suppressed { days, hours: _ } => {
+                writeln!(
+                    out,
+                    "{} Update notifications suppressed for {} {}",
+                    t.sym().success,
+                    days,
+                    if days == 1 { "day" } else { "days" }
+                )?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl CliOutput for UpdateOutcome {
+    fn on_json(self) -> impl serde::Serialize {
+        match self {
+            UpdateOutcome::Checked(status) => serde_json::json!(status),
+            UpdateOutcome::Suppressed { days, hours } => serde_json::json!({
+                "suppressed": true,
+                "days": days,
+                "hours": hours
+            }),
+        }
+    }
+}
+
+fn check_for_updates(app_settings: &AppSettings) -> Result<UpdateOutcome> {
     let mut cache = but_ctx::Context::app_cache();
     let status = check_status(AppName::Cli, app_settings, &mut cache)?;
-
-    if let Some(status) = status {
-        if let Some(writer) = out.for_human() {
-            print_human_output(writer, &status)?;
-        } else if let Some(out) = out.for_json() {
-            out.write_value(&status)?;
-        }
-    } else if let Some(writer) = out.for_human() {
-        writeln!(
-            writer,
-            "{} Another process is currently checking for updates",
-            theme::get().attention.paint("→")
-        )?;
-    }
-
-    Ok(())
+    Ok(UpdateOutcome::Checked(status))
 }
 
-fn print_human_output(writer: &mut dyn std::fmt::Write, status: &CheckUpdateStatus) -> Result<()> {
-    let t = theme::get();
+fn print_human_output(
+    writer: &mut dyn std::fmt::Write,
+    status: &CheckUpdateStatus,
+    t: &Theme,
+) -> Result<()> {
     if status.up_to_date {
         writeln!(
             writer,
@@ -101,39 +138,22 @@ fn print_human_output(writer: &mut dyn std::fmt::Write, status: &CheckUpdateStat
     Ok(())
 }
 
-fn suppress_updates(out: &mut OutputChannel, days: u32) -> Result<()> {
+fn suppress_updates(days: u32) -> Result<UpdateOutcome> {
     // Convert days to hours (the API uses hours)
     // Note: days is already validated to be 1-30 by clap, so no overflow possible
     let hours = days * 24;
-    let t = theme::get();
 
     let mut cache = but_ctx::Context::app_cache();
     but_update::suppress_update(&mut cache, hours)?;
 
-    if let Some(writer) = out.for_human() {
-        writeln!(
-            writer,
-            "{} Update notifications suppressed for {} {}",
-            t.sym().success,
-            days,
-            if days == 1 { "day" } else { "days" }
-        )?;
-    } else if let Some(out) = out.for_json() {
-        out.write_value(serde_json::json!({
-            "suppressed": true,
-            "days": days,
-            "hours": hours
-        }))?;
-    }
-
-    Ok(())
+    Ok(UpdateOutcome::Suppressed { days, hours })
 }
 
 #[cfg(all(unix, not(feature = "packaged-but-distribution")))]
 fn install(out: &mut OutputChannel, target: Option<String>) -> Result<()> {
     // Installation requires interactive output and cannot be used with JSON mode
     // because the installer writes directly to stdout/stderr
-    if out.for_json().is_some() {
+    if out.is_json() {
         anyhow::bail!(
             "JSON output is not supported for 'but update install'.\n\n\
              The installation process requires interactive output.\n\
@@ -168,7 +188,7 @@ fn install(out: &mut OutputChannel, target: Option<String>) -> Result<()> {
     but_installer::run_installation_with_version(version_request, false)?;
 
     if let Some(writer) = out.for_human() {
-        let t = theme::get();
+        let t = crate::theme::get();
         writeln!(
             writer,
             "{} {}",

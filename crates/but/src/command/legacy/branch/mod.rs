@@ -9,7 +9,7 @@ use crate::{
     args::atoms::{BranchArg, CliIdArg, Priority, Purpose, ResolvedCliIdArg},
     bad_input,
     command::legacy::discard::{self, DiscardOutcome},
-    utils::{IntermediateChannel, OutputChannel},
+    utils::IntermediateChannel,
 };
 
 pub mod new;
@@ -107,20 +107,18 @@ pub fn delete(
 
 pub fn show_branches(
     ctx: &mut but_ctx::Context,
-    out: &mut OutputChannel,
     branch_arg: CliIdArg,
     review: bool,
     files: bool,
     ai: bool,
     check: bool,
-) -> CliResult<()> {
-    show::show(ctx, branch_arg, out, review, files, ai, check)
+) -> CliResult<show::ShowOutcome> {
+    show::show(ctx, branch_arg, review, files, ai, check)
 }
 
 #[expect(clippy::too_many_arguments)]
 pub fn list_branches(
     ctx: &mut but_ctx::Context,
-    out: &mut OutputChannel,
     filter: Option<String>,
     local: bool,
     remote: bool,
@@ -129,20 +127,12 @@ pub fn list_branches(
     review: bool,
     no_check: bool,
     empty: bool,
-) -> Result<(), anyhow::Error> {
+) -> anyhow::Result<list::ListOutcome> {
     let ahead = !no_ahead;
     let check = !no_check;
-    list::list(
-        ctx, local, remote, all, ahead, review, filter, out, check, empty,
-    )?;
-    Ok(())
+    list::list(ctx, local, remote, all, ahead, review, filter, check, empty)
 }
 
-pub fn handle_no_subcommand(
-    ctx: &mut but_ctx::Context,
-    out: &mut OutputChannel,
-) -> Result<(), anyhow::Error> {
-    list_branches(
-        ctx, out, None, false, false, false, false, false, false, false,
-    )
+pub fn handle_no_subcommand(ctx: &mut but_ctx::Context) -> anyhow::Result<list::ListOutcome> {
+    list_branches(ctx, None, false, false, false, false, false, false, false)
 }

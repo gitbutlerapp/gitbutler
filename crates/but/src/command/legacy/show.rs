@@ -9,20 +9,22 @@ use crate::{
     args::atoms::CliIdArg,
     bad_input,
     id::CommitId,
-    theme::{self, Paint},
+    theme::{self, Paint, Theme},
     utils::{
-        OutputChannel, get_change_id_for_commit, shorten_object_id, time::format_relative_time,
+        CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils, get_change_id_for_commit,
+        shorten_object_id, time::format_relative_time,
     },
 };
 
 pub(crate) fn show_commit(
     ctx: &mut Context,
-    out: &mut OutputChannel,
+    out: IntermediateChannel<'_>,
     commit_id_str: &str,
     verbose: bool,
     stat: bool,
-) -> CliResult<()> {
-    let t = theme::get();
+) -> CliResult<ShowOutcome> {
+    // JSON always carries the details, so tools don't need extra flags.
+    let is_json = out.format().is_json();
     let id_map = IdMap::legacy_new_from_context(ctx)?;
     // A branch's verbose output already has the line counts.
     let verbose = verbose || stat;
@@ -34,7 +36,7 @@ pub(crate) fn show_commit(
     });
 
     if let Some(branch) = branch_match {
-        return show_branch(ctx, out, &branch.name.to_string(), verbose, &id_map);
+        return show_branch(ctx, is_json, &branch.name.to_string(), verbose, &id_map);
     }
 
     let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
@@ -45,7 +47,7 @@ pub(crate) fn show_commit(
             if head_name == commit_id_str
                 || head_name.to_lowercase() == commit_id_str.to_lowercase()
             {
-                return show_branch(ctx, out, &head_name, verbose, &id_map);
+                return show_branch(ctx, is_json, &head_name, verbose, &id_map);
             }
         }
     }
@@ -80,7 +82,7 @@ pub(crate) fn show_commit(
                 id: _,
             } => *commit_id,
             CliId::Branch(branch) => {
-                return show_branch(ctx, out, &branch.name, verbose, &id_map);
+                return show_branch(ctx, is_json, &branch.name, verbose, &id_map);
             }
             _ => {
                 return Err(bad_input(format!(
@@ -107,125 +109,225 @@ pub(crate) fn show_commit(
         .or_else(|| decoded.extra_headers().find("gitbutler-change-id"))
         .map(|v| v.to_str_lossy().to_string());
 
-    if let Some(out) = out.for_human() {
-        writeln!(
-            out,
-            "{} {}",
-            t.important.paint("Commit:   "),
-            t.commit_id.paint(commit_id.to_string()),
-        )?;
+    let author_sig = decoded.author()?;
+    let committer_sig = decoded.committer()?;
+    let commit_time = raw_commit.time()?;
+    let changes = tree_changes.into_tree_changes();
+    let line_counts = (stat || is_json)
+        .then(|| {
+            changes
+                .iter()
+                .map(|change| super::file_change_from_tree_change(&repo, change.clone()))
+                .collect::<Result<Vec<_>>>()
+        })
+        .transpose()?;
 
-        if let Some(ref change_id) = change_id {
-            writeln!(out, "{} {}", t.important.paint("Change-ID:"), change_id)?;
+    Ok(ShowOutcome::Commit(CommitDetails {
+        commit_id,
+        change_id,
+        author: (
+            author_sig.name.to_str_lossy().into_owned(),
+            author_sig.email.to_str_lossy().into_owned(),
+        ),
+        committer: (
+            committer_sig.name.to_str_lossy().into_owned(),
+            committer_sig.email.to_str_lossy().into_owned(),
+        ),
+        date: commit_time.format(CLI_DATE)?,
+        seconds: commit_time.seconds,
+        message: decoded.message.to_str_lossy().into_owned(),
+        changes,
+        line_counts,
+    }))
+}
+
+#[must_use]
+pub(crate) enum ShowOutcome {
+    Commit(CommitDetails),
+    Branch(BranchDetails),
+}
+
+pub(crate) struct CommitDetails {
+    commit_id: gix::ObjectId,
+    change_id: Option<String>,
+    /// The name and email of the author.
+    author: (String, String),
+    /// The name and email of the committer.
+    committer: (String, String),
+    date: String,
+    /// The commit time in seconds since the Unix epoch.
+    seconds: i64,
+    message: String,
+    changes: Vec<but_core::TreeChange>,
+    /// The line counts of `changes`, computed for `--stat` and JSON output.
+    line_counts: Option<Vec<FileChange>>,
+}
+
+pub(crate) struct BranchDetails {
+    branch_name: String,
+    verbose: bool,
+    commits: Vec<BranchCommitInfo>,
+    base_commit_info: Option<BranchCommitInfo>,
+    stack_chain: Vec<StackChainBranch>,
+}
+
+impl CliOutputHuman for ShowOutcome {
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        t: &'static Theme,
+    ) -> anyhow::Result<()> {
+        match self {
+            ShowOutcome::Commit(details) => show_commit_human(details, out, t),
+            ShowOutcome::Branch(details) => show_branch_human(details, out, t),
         }
+    }
+}
 
-        let author_sig = decoded.author()?;
+impl CliOutput for ShowOutcome {
+    fn on_json(self) -> impl serde::Serialize {
+        match self {
+            ShowOutcome::Commit(CommitDetails {
+                commit_id,
+                change_id,
+                author,
+                committer,
+                date,
+                seconds: _,
+                message,
+                changes: _,
+                line_counts,
+            }) => {
+                let mut json_output = serde_json::json!({
+                    "commit": commit_id.to_string(),
+                    "author": {
+                        "name": author.0,
+                        "email": author.1
+                    },
+                    "committer": {
+                        "name": committer.0,
+                        "email": committer.1
+                    },
+                    "date": date,
+                    "message": message,
+                    "files": line_counts.unwrap_or_default()
+                });
+
+                if let Some(change_id) = change_id {
+                    json_output["changeId"] = serde_json::json!(change_id);
+                }
+                json_output
+            }
+            ShowOutcome::Branch(BranchDetails {
+                branch_name,
+                verbose: _,
+                commits,
+                base_commit_info,
+                stack_chain,
+            }) => serde_json::json!({
+                "branch": branch_name,
+                "commits": commits,
+                "stackedOn": stack_chain,
+                "baseCommit": base_commit_info,
+            }),
+        }
+    }
+}
+
+fn show_commit_human(
+    details: CommitDetails,
+    out: &mut dyn WriteWithUtils,
+    t: &Theme,
+) -> anyhow::Result<()> {
+    let CommitDetails {
+        commit_id,
+        change_id,
+        author,
+        committer,
+        date,
+        seconds,
+        message,
+        changes,
+        line_counts,
+    } = details;
+    writeln!(
+        out,
+        "{} {}",
+        t.important.paint("Commit:   "),
+        t.commit_id.paint(commit_id.to_string()),
+    )?;
+
+    if let Some(ref change_id) = change_id {
+        writeln!(out, "{} {}", t.important.paint("Change-ID:"), change_id)?;
+    }
+
+    writeln!(
+        out,
+        "{} {} <{}>",
+        t.important.paint("Author:   "),
+        t.user.paint(&author.0),
+        t.user.paint(&author.1)
+    )?;
+
+    let relative = format_relative_time(std::time::SystemTime::now(), seconds);
+    writeln!(
+        out,
+        "{}  {} {}",
+        t.important.paint("Date:    "),
+        t.time.paint(date),
+        t.hint.paint(format!("({relative})"))
+    )?;
+
+    // Committer (only if different from author)
+    if committer != author {
         writeln!(
             out,
             "{} {} <{}>",
-            t.important.paint("Author:   "),
-            t.user.paint(author_sig.name.to_str_lossy()),
-            t.user.paint(author_sig.email.to_str_lossy())
+            t.important.paint("Committer:"),
+            t.user.paint(&committer.0),
+            t.user.paint(&committer.1)
         )?;
+    }
 
-        let commit_time = raw_commit.time()?;
-        let date_str = commit_time.format(CLI_DATE)?;
-        let relative = format_relative_time(std::time::SystemTime::now(), commit_time.seconds);
-        writeln!(
-            out,
-            "{}  {} {}",
-            t.important.paint("Date:    "),
-            t.time.paint(date_str),
-            t.hint.paint(format!("({relative})"))
-        )?;
+    writeln!(out)?;
 
-        // Committer (only if different from author)
-        let committer_sig = decoded.committer()?;
-        if committer_sig.name != author_sig.name || committer_sig.email != author_sig.email {
+    // Commit message - first line bold, rest normal, no indentation
+    let mut lines = message.lines();
+    if let Some(first_line) = lines.next() {
+        writeln!(out, "{}", t.important.paint(first_line))?;
+        for line in lines {
+            writeln!(out, "{line}")?;
+        }
+    }
+
+    writeln!(out)?;
+
+    if !changes.is_empty() {
+        writeln!(out, "{}", t.important.paint("Files changed:"))?;
+        for (idx, change) in changes.iter().enumerate() {
+            let (status_char, status_color) = match &change.status {
+                but_core::TreeStatus::Addition { .. } => ("A", t.addition),
+                but_core::TreeStatus::Deletion { .. } => ("D", t.deletion),
+                but_core::TreeStatus::Modification { .. } => ("M", t.modification),
+                but_core::TreeStatus::Rename { .. } => ("R", t.renaming),
+            };
+
+            let line_counts = match line_counts.as_ref().and_then(|files| files.get(idx)) {
+                Some(file) => format!(
+                    "  ({}, {})",
+                    t.addition.paint(format!("+{}", file.insertions)),
+                    t.deletion.paint(format!("-{}", file.deletions))
+                ),
+                None => String::new(),
+            };
             writeln!(
                 out,
-                "{} {} <{}>",
-                t.important.paint("Committer:"),
-                t.user.paint(committer_sig.name.to_str_lossy()),
-                t.user.paint(committer_sig.email.to_str_lossy())
+                "  {} {}{line_counts}",
+                status_color.paint(status_char),
+                change.path.to_str_lossy()
             )?;
         }
-
-        writeln!(out)?;
-
-        // Commit message - first line bold, rest normal, no indentation
-        let message = decoded.message.to_str_lossy();
-        let mut lines = message.lines();
-        if let Some(first_line) = lines.next() {
-            writeln!(out, "{}", t.important.paint(first_line))?;
-            for line in lines {
-                writeln!(out, "{line}")?;
-            }
-        }
-
-        writeln!(out)?;
-
-        let changes = tree_changes.into_tree_changes();
-        if !changes.is_empty() {
-            writeln!(out, "{}", t.important.paint("Files changed:"))?;
-            for change in &changes {
-                let (status_char, status_color) = match &change.status {
-                    but_core::TreeStatus::Addition { .. } => ("A", t.addition),
-                    but_core::TreeStatus::Deletion { .. } => ("D", t.deletion),
-                    but_core::TreeStatus::Modification { .. } => ("M", t.modification),
-                    but_core::TreeStatus::Rename { .. } => ("R", t.renaming),
-                };
-
-                let line_counts = if stat {
-                    let file = super::file_change_from_tree_change(&repo, change.clone())?;
-                    format!(
-                        "  ({}, {})",
-                        t.addition.paint(format!("+{}", file.insertions)),
-                        t.deletion.paint(format!("-{}", file.deletions))
-                    )
-                } else {
-                    String::new()
-                };
-                writeln!(
-                    out,
-                    "  {} {}{line_counts}",
-                    status_color.paint(status_char),
-                    change.path.to_str_lossy()
-                )?;
-            }
-        }
-    } else if let Some(out) = out.for_json() {
-        // Always include the line counts, as for a branch, so tools don't need an extra flag.
-        let files = tree_changes
-            .into_tree_changes()
-            .into_iter()
-            .map(|change| super::file_change_from_tree_change(&repo, change))
-            .collect::<Result<Vec<_>>>()?;
-
-        let author_sig = decoded.author()?;
-        let committer_sig = decoded.committer()?;
-        let date_str = raw_commit.time()?.format(CLI_DATE)?;
-
-        let mut json_output = serde_json::json!({
-            "commit": commit_id.to_string(),
-            "author": {
-                "name": author_sig.name.to_str_lossy(),
-                "email": author_sig.email.to_str_lossy()
-            },
-            "committer": {
-                "name": committer_sig.name.to_str_lossy(),
-                "email": committer_sig.email.to_str_lossy()
-            },
-            "date": date_str,
-            "message": decoded.message.to_str_lossy(),
-            "files": files
-        });
-
-        if let Some(ref change_id) = change_id {
-            json_output["changeId"] = serde_json::json!(change_id);
-        }
-
-        out.write_value(json_output)?;
     }
 
     Ok(())
@@ -233,187 +335,196 @@ pub(crate) fn show_commit(
 
 fn show_branch(
     ctx: &mut Context,
-    out: &mut OutputChannel,
+    is_json: bool,
     branch_name: &str,
     verbose: bool,
     id_map: &IdMap,
-) -> CliResult<()> {
-    let t = theme::get();
-
+) -> CliResult<ShowOutcome> {
     // In JSON mode, always include file info (verbose) so agents and tools
     // get complete data without needing to pass extra flags.
-    let effective_verbose = verbose || out.is_json();
+    let effective_verbose = verbose || is_json;
     let (commits, base_commit_info) =
         get_branch_commits(ctx, branch_name, effective_verbose, id_map)?;
 
     // Get the stack chain (branches this branch is stacked on)
     let stack_chain = get_stack_chain(ctx, branch_name)?;
 
-    if let Some(out) = out.for_human() {
-        writeln!(
-            out,
-            "{} {}",
-            t.important.paint("Branch:"),
-            t.local_branch.paint(branch_name)
-        )?;
-        writeln!(out)?;
+    Ok(ShowOutcome::Branch(BranchDetails {
+        branch_name: branch_name.to_owned(),
+        verbose,
+        commits,
+        base_commit_info,
+        stack_chain,
+    }))
+}
 
-        if commits.is_empty() {
-            writeln!(out, "No commits on this branch.")?;
-        } else {
-            writeln!(out, "{}", t.important.paint("Commits:"))?;
-            for (idx, commit) in commits.iter().enumerate() {
-                if verbose {
-                    let now_t = std::time::SystemTime::now();
-                    // Verbose mode: show full commit message and files with visual separators
-                    writeln!(
-                        out,
-                        "{} {} {}",
-                        t.info.paint("●"),
-                        commit.display_ref(),
-                        t.important.paint(&commit.message),
-                    )?;
-                    writeln!(
-                        out,
-                        "{} {}, {} by {}",
-                        t.border.paint("│"),
-                        t.time.paint(format_timestamp(commit.timestamp)),
-                        t.hint.paint(format_relative_time(now_t, commit.timestamp)),
-                        t.user.paint(&commit.author_name)
-                    )?;
+fn show_branch_human(
+    details: BranchDetails,
+    out: &mut dyn WriteWithUtils,
+    t: &Theme,
+) -> anyhow::Result<()> {
+    let BranchDetails {
+        branch_name,
+        verbose,
+        commits,
+        base_commit_info,
+        stack_chain,
+    } = details;
+    writeln!(
+        out,
+        "{} {}",
+        t.important.paint("Branch:"),
+        t.local_branch.paint(branch_name)
+    )?;
+    writeln!(out)?;
 
-                    if let Some(full_message) = &commit.full_message {
-                        let lines: Vec<&str> = full_message.lines().collect();
-                        if lines.len() > 1 {
-                            for line in lines.iter().skip(1) {
-                                if !line.is_empty() {
-                                    writeln!(out, "{} {}", t.border.paint("│"), line)?;
-                                } else {
-                                    writeln!(out, "{}", t.border.paint("│"))?;
-                                }
+    if commits.is_empty() {
+        writeln!(out, "No commits on this branch.")?;
+    } else {
+        writeln!(out, "{}", t.important.paint("Commits:"))?;
+        for (idx, commit) in commits.iter().enumerate() {
+            if verbose {
+                let now_t = std::time::SystemTime::now();
+                // Verbose mode: show full commit message and files with visual separators
+                writeln!(
+                    out,
+                    "{} {} {}",
+                    t.info.paint("●"),
+                    commit.display_ref(),
+                    t.important.paint(&commit.message),
+                )?;
+                writeln!(
+                    out,
+                    "{} {}, {} by {}",
+                    t.border.paint("│"),
+                    t.time.paint(format_timestamp(commit.timestamp)),
+                    t.hint.paint(format_relative_time(now_t, commit.timestamp)),
+                    t.user.paint(&commit.author_name)
+                )?;
+
+                if let Some(full_message) = &commit.full_message {
+                    let lines: Vec<&str> = full_message.lines().collect();
+                    if lines.len() > 1 {
+                        for line in lines.iter().skip(1) {
+                            if !line.is_empty() {
+                                writeln!(out, "{} {}", t.border.paint("│"), line)?;
+                            } else {
+                                writeln!(out, "{}", t.border.paint("│"))?;
                             }
                         }
                     }
-
-                    if let Some(files) = &commit.files
-                        && !files.is_empty()
-                    {
-                        writeln!(out, "{}", t.border.paint("│"))?;
-                        writeln!(
-                            out,
-                            "{} {}:",
-                            t.border.paint("│"),
-                            t.hint.paint("Files changed")
-                        )?;
-                        for file in files {
-                            let status_str = match file.status.as_str() {
-                                "added" => format!("A {}", t.addition.paint(&file.path)),
-                                "deleted" => format!("D {}", t.deletion.paint(&file.path)),
-                                "modified" => format!("M {}", t.modification.paint(&file.path)),
-                                _ => format!("  {}", file.path),
-                            };
-                            writeln!(
-                                out,
-                                "{} {}  ({}, {})",
-                                t.border.paint("│"),
-                                status_str,
-                                t.addition.paint(format!("+{}", file.insertions)),
-                                t.deletion.paint(format!("-{}", file.deletions))
-                            )?;
-                        }
-                    }
-
-                    if let (Some(files_changed), Some(insertions), Some(deletions)) =
-                        (commit.files_changed, commit.insertions, commit.deletions)
-                    {
-                        writeln!(out, "{}", t.border.paint("│"))?;
-                        writeln!(
-                            out,
-                            "{} {} file{} changed, {} insertion{}, {} deletion{}",
-                            t.border.paint("│"),
-                            files_changed,
-                            if files_changed == 1 { "" } else { "s" },
-                            insertions,
-                            if insertions == 1 { "" } else { "s" },
-                            deletions,
-                            if deletions == 1 { "" } else { "s" }
-                        )?;
-                    }
-
-                    if idx < commits.len() - 1 {
-                        writeln!(out, "{}", t.border.paint("│"))?;
-                    }
-                } else {
-                    writeln!(out, "  {} {}", commit.display_ref(), commit.message)?;
-                    writeln!(
-                        out,
-                        "    {} by {}",
-                        t.time.paint(format_timestamp(commit.timestamp)),
-                        t.user.paint(&commit.author_name)
-                    )?;
                 }
-            }
 
-            if verbose {
-                if let Some(base_commit) = &base_commit_info {
-                    let now_t = std::time::SystemTime::now();
+                if let Some(files) = &commit.files
+                    && !files.is_empty()
+                {
                     writeln!(out, "{}", t.border.paint("│"))?;
                     writeln!(
                         out,
-                        "{} {} {} {}",
-                        t.border.paint("┴"),
-                        base_commit.display_ref(),
-                        t.hint.paint(&base_commit.message),
-                        t.hint.paint("(base)")
+                        "{} {}:",
+                        t.border.paint("│"),
+                        t.hint.paint("Files changed")
                     )?;
+                    for file in files {
+                        let status_str = match file.status.as_str() {
+                            "added" => format!("A {}", t.addition.paint(&file.path)),
+                            "deleted" => format!("D {}", t.deletion.paint(&file.path)),
+                            "modified" => format!("M {}", t.modification.paint(&file.path)),
+                            _ => format!("  {}", file.path),
+                        };
+                        writeln!(
+                            out,
+                            "{} {}  ({}, {})",
+                            t.border.paint("│"),
+                            status_str,
+                            t.addition.paint(format!("+{}", file.insertions)),
+                            t.deletion.paint(format!("-{}", file.deletions))
+                        )?;
+                    }
+                }
+
+                if let (Some(files_changed), Some(insertions), Some(deletions)) =
+                    (commit.files_changed, commit.insertions, commit.deletions)
+                {
+                    writeln!(out, "{}", t.border.paint("│"))?;
                     writeln!(
                         out,
-                        "  {}, {} by {}",
-                        t.time.paint(format_timestamp(base_commit.timestamp)),
-                        t.hint
-                            .paint(format_relative_time(now_t, base_commit.timestamp)),
-                        t.user.paint(&base_commit.author_name)
+                        "{} {} file{} changed, {} insertion{}, {} deletion{}",
+                        t.border.paint("│"),
+                        files_changed,
+                        if files_changed == 1 { "" } else { "s" },
+                        insertions,
+                        if insertions == 1 { "" } else { "s" },
+                        deletions,
+                        if deletions == 1 { "" } else { "s" }
                     )?;
                 }
 
-                show_branch_summary(out, &commits)?;
-            }
-        }
-
-        if !stack_chain.is_empty() {
-            writeln!(out)?;
-            writeln!(out, "{}", t.important.paint("Stacked on:"))?;
-            for (i, chain_branch) in stack_chain.iter().enumerate() {
-                let connector = if i == stack_chain.len() - 1 {
-                    "└─"
-                } else {
-                    "├─"
-                };
+                if idx < commits.len() - 1 {
+                    writeln!(out, "{}", t.border.paint("│"))?;
+                }
+            } else {
+                writeln!(out, "  {} {}", commit.display_ref(), commit.message)?;
                 writeln!(
                     out,
-                    "  {} {} ({})",
-                    connector,
-                    t.local_branch.paint(&chain_branch.name),
-                    t.hint.paint(format!(
-                        "{} commit{}",
-                        chain_branch.commit_count,
-                        if chain_branch.commit_count == 1 {
-                            ""
-                        } else {
-                            "s"
-                        }
-                    ))
+                    "    {} by {}",
+                    t.time.paint(format_timestamp(commit.timestamp)),
+                    t.user.paint(&commit.author_name)
                 )?;
             }
         }
-    } else if let Some(out) = out.for_json() {
-        let json_output = serde_json::json!({
-            "branch": branch_name,
-            "commits": commits,
-            "stackedOn": stack_chain,
-            "baseCommit": base_commit_info,
-        });
-        out.write_value(json_output)?;
+
+        if verbose {
+            if let Some(base_commit) = &base_commit_info {
+                let now_t = std::time::SystemTime::now();
+                writeln!(out, "{}", t.border.paint("│"))?;
+                writeln!(
+                    out,
+                    "{} {} {} {}",
+                    t.border.paint("┴"),
+                    base_commit.display_ref(),
+                    t.hint.paint(&base_commit.message),
+                    t.hint.paint("(base)")
+                )?;
+                writeln!(
+                    out,
+                    "  {}, {} by {}",
+                    t.time.paint(format_timestamp(base_commit.timestamp)),
+                    t.hint
+                        .paint(format_relative_time(now_t, base_commit.timestamp)),
+                    t.user.paint(&base_commit.author_name)
+                )?;
+            }
+
+            show_branch_summary(out, &commits)?;
+        }
+    }
+
+    if !stack_chain.is_empty() {
+        writeln!(out)?;
+        writeln!(out, "{}", t.important.paint("Stacked on:"))?;
+        for (i, chain_branch) in stack_chain.iter().enumerate() {
+            let connector = if i == stack_chain.len() - 1 {
+                "└─"
+            } else {
+                "├─"
+            };
+            writeln!(
+                out,
+                "  {} {} ({})",
+                connector,
+                t.local_branch.paint(&chain_branch.name),
+                t.hint.paint(format!(
+                    "{} commit{}",
+                    chain_branch.commit_count,
+                    if chain_branch.commit_count == 1 {
+                        ""
+                    } else {
+                        "s"
+                    }
+                ))
+            )?;
+        }
     }
 
     Ok(())

@@ -323,16 +323,13 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         )?;
     }
 
-    if let Some(Subcommands::AgentLog { .. }) = &args.cmd {
-        let Some(Subcommands::AgentLog { cmd }) = args.cmd.take() else {
-            unreachable!("agentlog command was checked above")
-        };
-        return run_agentlog_command(&args.current_dir, cmd, &mut out);
-    }
-    let app_settings = app_settings()?.clone();
-
     let result = match args.cmd.take() {
+        // Runs before the app settings are loaded, which agent hooks don't need.
+        Some(Subcommands::AgentLog { cmd }) => {
+            run_agentlog_command(&args.current_dir, cmd, &mut out)
+        }
         None => {
+            let app_settings = app_settings()?.clone();
             // No arguments means run the default alias
             // The default alias expands to "status" which provides a helpful entry point
             let mut default_args: Vec<OsString> = vec!["but".into()];
@@ -360,7 +357,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
                 }
             }
         }
-        Some(cmd) => match_subcommand(cmd, args, app_settings, out).await,
+        Some(cmd) => match_subcommand(cmd, args, app_settings()?.clone(), out).await,
     };
 
     if retired_syntax::was_used() {
@@ -548,7 +545,7 @@ async fn match_subcommand(
 
     let cmd = match cmd {
         Subcommands::AgentLog { cmd } => {
-            return Ok(run_agentlog_command(&args.current_dir, cmd, out)?);
+            return run_agentlog_command(&args.current_dir, cmd, out);
         }
         cmd => cmd,
     };
@@ -687,10 +684,10 @@ async fn dispatch_subcommand(
             // Handle subcommands that don't require a repo context
             return (match &cmd {
                 Some(args::config::Subcommands::Metrics { status }) => {
-                    Ok(command::config::metrics_config(out, *status).await?)
+                    out.print_cli_output(command::config::metrics_config(*status).await?)
                 }
                 Some(args::config::Subcommands::Feature { flag, status }) => {
-                    Ok(command::config::feature_config(out, *flag, *status)?)
+                    out.print_cli_output(command::config::feature_config(*flag, *status)?)
                 }
                 Some(args::config::Subcommands::User { cmd }) => {
                     let ctx = match cmd {
@@ -700,7 +697,9 @@ async fn dispatch_subcommand(
                         ) => None,
                         _ => discover_optional_context(&args.current_dir)?,
                     };
-                    Ok(command::config::user_config(ctx.as_ref(), out, cmd.clone()).await?)
+                    out.print_cli_output(
+                        command::config::user_config(ctx.as_ref(), cmd.clone()).await?,
+                    )
                 }
                 Some(args::config::Subcommands::Forge {
                     cmd: Some(args::config::ForgeSubcommand::GithubStacks { .. }),
@@ -724,12 +723,7 @@ async fn dispatch_subcommand(
                     cmd: ai_cmd,
                     local,
                     global,
-                }) if !local => Ok(command::config::ai_config(
-                    out,
-                    ai_cmd.clone(),
-                    *local,
-                    *global,
-                )?),
+                }) if !local => command::config::ai_config(out, ai_cmd.clone(), *local, *global),
                 _ => {
                     // Other subcommands need a repo context
                     let mut ctx = setup::init_ctx(
@@ -754,19 +748,18 @@ async fn dispatch_subcommand(
                 ) => None,
                 _ => discover_optional_context(&args.current_dir)?,
             };
-            (match cmd {
-                Some(alias_args::Subcommands::List) | None => {
-                    command::alias::list(ctx.as_ref(), out)
-                }
+            let outcome = match cmd {
+                Some(alias_args::Subcommands::List) | None => command::alias::list(ctx.as_ref()),
                 Some(alias_args::Subcommands::Add {
                     name,
                     value,
                     global,
-                }) => command::alias::add(ctx.as_ref(), out, &name, &value, global.into()),
+                }) => command::alias::add(ctx.as_ref(), &name, &value, global.into()),
                 Some(alias_args::Subcommands::Remove { name, global }) => {
-                    command::alias::remove(ctx.as_ref(), out, &name, global.into())
+                    command::alias::remove(ctx.as_ref(), &name, global.into())
                 }
-            })?;
+            }?;
+            out.print_cli_output(outcome)?;
             return Ok(DispatchOutcome::Return);
         }
         Subcommands::Skill(platform) => {
@@ -1021,7 +1014,8 @@ async fn dispatch_subcommand(
         }
         Subcommands::Branch(branch::Platform { cmd }) => match cmd {
             None => {
-                command::legacy::branch::handle_no_subcommand(&mut ctx, out)?;
+                let outcome = command::legacy::branch::handle_no_subcommand(&mut ctx)?;
+                out.print_cli_output(outcome)?;
                 None
             }
             Some(branch::Subcommands::List {
@@ -1034,9 +1028,10 @@ async fn dispatch_subcommand(
                 no_check,
                 empty,
             }) => {
-                command::legacy::branch::list_branches(
-                    &mut ctx, out, filter, local, remote, all, no_ahead, review, no_check, empty,
+                let outcome = command::legacy::branch::list_branches(
+                    &mut ctx, filter, local, remote, all, no_ahead, review, no_check, empty,
                 )?;
+                out.print_cli_output(outcome)?;
                 None
             }
             Some(branch::Subcommands::Show {
@@ -1046,9 +1041,10 @@ async fn dispatch_subcommand(
                 ai,
                 check,
             }) => {
-                command::legacy::branch::show_branches(
-                    &mut ctx, out, branch, review, files, ai, check,
+                let outcome = command::legacy::branch::show_branches(
+                    &mut ctx, branch, review, files, ai, check,
                 )?;
+                out.print_cli_output(outcome)?;
                 None
             }
             Some(branch::Subcommands::New(new_args)) => {
@@ -1094,15 +1090,15 @@ async fn dispatch_subcommand(
                 let status_after = args.status_after && !dry_run && !interactive;
                 out.begin_status_after(status_after);
                 status_after_data = Some(status_after);
-                command::branch::update(
+                let outcome = command::branch::update(
                     &mut ctx,
                     &branch,
                     strategy,
                     dry_run,
                     verbose,
                     interactive,
-                    out,
                 )?;
+                out.print_cli_output(outcome)?;
                 None
             }
             Some(branch::Subcommands::Move { .. }) => {
@@ -1166,14 +1162,15 @@ async fn dispatch_subcommand(
             }
             out.begin_status_after(status_after);
             status_after_data = Some(status_after);
-            command::legacy::clean::handle(
+            let (outcome, ws) = command::legacy::clean::handle(
                 &mut ctx,
-                out,
                 command::legacy::clean::CleanOptions {
                     dry_run,
                     include_upstream,
                 },
-            )?
+            )?;
+            out.print_cli_output(outcome)?;
+            ws
         }
         Subcommands::Status {
             show_files,
@@ -1246,7 +1243,14 @@ async fn dispatch_subcommand(
             stat,
         } => {
             return Ok(DispatchOutcome::ExitWithoutDestructors(
-                command::legacy::show::show_commit(&mut ctx, out, &commit, verbose, stat),
+                command::legacy::show::show_commit(
+                    &mut ctx,
+                    crate::utils::IntermediateChannel::new(out),
+                    &commit,
+                    verbose,
+                    stat,
+                )
+                .and_then(|outcome| out.print_cli_output(outcome)),
             ));
         }
         Subcommands::Commit(commit_args) => {
@@ -1356,9 +1360,9 @@ async fn dispatch_subcommand(
             let status_after = args.status_after;
             out.begin_status_after(status_after);
             status_after_data = Some(status_after);
-            command::legacy::reword::reword_target(
+            let outcome = command::legacy::reword::reword_target(
                 &mut ctx,
-                out,
+                crate::utils::IntermediateChannel::new(out),
                 target,
                 message.as_deref(),
                 format,
@@ -1367,6 +1371,7 @@ async fn dispatch_subcommand(
                 ShowDiffInEditor::from_args(diff, no_diff).unwrap_or(ShowDiffInEditor::Unspecified),
                 allow_merged,
             )?;
+            out.print_cli_output(outcome)?;
             None
         }
         Subcommands::Oplog(args::oplog::Platform { cmd }) => match cmd {
@@ -1376,19 +1381,25 @@ async fn dispatch_subcommand(
                 } else {
                     None
                 };
-                command::legacy::oplog::show_oplog(&mut ctx, out, since.as_deref(), filter)?;
+                let outcome =
+                    command::legacy::oplog::show_oplog(&mut ctx, since.as_deref(), filter)?;
+                out.print_cli_output(outcome)?;
                 None
             }
             Some(args::oplog::Subcommands::Snapshot { message }) => {
-                command::legacy::oplog::create_snapshot(&mut ctx, out, message.as_deref())?;
+                let outcome =
+                    command::legacy::oplog::create_snapshot(&mut ctx, message.as_deref())?;
+                out.print_cli_output(outcome)?;
                 None
             }
             Some(args::oplog::Subcommands::Restore { oplog_sha }) => {
-                command::legacy::oplog::restore_to_oplog(&mut ctx, out, &oplog_sha)?;
+                let outcome = command::legacy::oplog::restore_to_oplog(&mut ctx, out, &oplog_sha)?;
+                out.print_cli_output(outcome)?;
                 None
             }
             None => {
-                command::legacy::oplog::show_oplog(&mut ctx, out, None, None)?;
+                let outcome = command::legacy::oplog::show_oplog(&mut ctx, None, None)?;
+                out.print_cli_output(outcome)?;
                 None
             }
         },
@@ -1433,14 +1444,15 @@ async fn dispatch_subcommand(
             out.begin_status_after(status_after);
             status_after_data = Some(status_after);
             newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
-            command::legacy::absorb::handle(
+            let outcome = command::legacy::absorb::handle(
                 &mut ctx,
-                out,
+                crate::utils::IntermediateChannel::new(out),
                 source.as_deref(),
                 dry_run,
                 allow_merged,
                 &InvokedFrom::discover(&args.current_dir)?,
             )?;
+            out.print_cli_output(outcome)?;
             None
         }
         Subcommands::Discard(discard_args) => {
@@ -1469,8 +1481,9 @@ async fn dispatch_subcommand(
             None
         }
         Subcommands::Teardown { checkout_to } => {
-            command::legacy::teardown::teardown(&mut ctx, checkout_to, out)
+            let outcome = command::legacy::teardown::teardown(&mut ctx, checkout_to, out)
                 .map_err(|err| err.context("Failed to teardown GitButler project."))?;
+            out.print_cli_output(outcome)?;
             None
         }
         Subcommands::Pr(forge::pr::Platform {
@@ -1520,7 +1533,7 @@ async fn dispatch_subcommand(
                             ).into());
                         }
                     }
-                    command::legacy::forge::review::create_review(
+                    let outcome = command::legacy::forge::review::create_review(
                         &mut ctx,
                         &args.current_dir,
                         branch,
@@ -1534,6 +1547,7 @@ async fn dispatch_subcommand(
                     )
                     .await
                     .map_err(|err| err.context("Failed to create forge review for branch."))?;
+                    out.print_cli_output(outcome)?;
                     None
                 }
                 Some(forge::pr::Subcommands::Template { template_path }) => {
@@ -1564,7 +1578,7 @@ async fn dispatch_subcommand(
                     None
                 }
                 None => {
-                    command::legacy::forge::review::create_review(
+                    let outcome = command::legacy::forge::review::create_review(
                         &mut ctx,
                         &args.current_dir,
                         None,
@@ -1578,6 +1592,7 @@ async fn dispatch_subcommand(
                     )
                     .await
                     .map_err(|err| err.context("Failed to create forge review for branch."))?;
+                    out.print_cli_output(outcome)?;
                     None
                 }
             }
@@ -1760,7 +1775,7 @@ fn run_agentlog_command(
     current_dir: &std::path::Path,
     mut cmd: but_agentlog::Command,
     out: &mut OutputChannel,
-) -> Result<()> {
+) -> CliResult<()> {
     let quiet = matches!(cmd, but_agentlog::Command::Hook { .. });
     match &mut cmd {
         but_agentlog::Command::Hook { agent, .. } if agent.is_none() => {
@@ -1781,12 +1796,29 @@ fn run_agentlog_command(
     if quiet {
         return Ok(());
     }
-    if let Some(writer) = out.for_human_or_shell() {
-        writeln!(writer, "{report}")?;
-    } else if let Some(json_out) = out.for_json() {
-        json_out.write_value(&report)?;
+    out.print_cli_output(AgentLogOutcome(report))
+}
+
+/// The report of an agentlog command, printed with its `Display` implementation.
+#[must_use]
+struct AgentLogOutcome<T>(T);
+
+impl<T: std::fmt::Display> utils::CliOutputHuman for AgentLogOutcome<T> {
+    fn on_human(
+        self,
+        out: &mut dyn utils::WriteWithUtils,
+        _agent: bool,
+        _theme: &'static theme::Theme,
+    ) -> Result<()> {
+        writeln!(out, "{}", self.0)?;
+        Ok(())
     }
-    Ok(())
+}
+
+impl<T: std::fmt::Display + serde::Serialize> utils::CliOutput for AgentLogOutcome<T> {
+    fn on_json(self) -> impl serde::Serialize {
+        self.0
+    }
 }
 
 pub(crate) fn is_not_in_git_repository_error(err: &anyhow::Error) -> bool {

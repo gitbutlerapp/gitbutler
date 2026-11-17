@@ -740,18 +740,6 @@ impl OutputChannel {
             .then_some(self as &mut dyn WriteWithUtils)
     }
 
-    /// Provide a write implementation for text output (human or shell), if the format setting permits.
-    pub fn for_human_or_shell(&mut self) -> Option<&mut dyn WriteWithUtils> {
-        self.format
-            .is_text()
-            .then_some(self as &mut dyn WriteWithUtils)
-    }
-
-    /// Provide a handle to receive a serde-serializable value to write to stdout.
-    pub fn for_json(&mut self) -> Option<&mut Self> {
-        self.format.is_json().then_some(self)
-    }
-
     pub fn is_agent(&mut self) -> bool {
         self.format.is_agent()
     }
@@ -936,10 +924,6 @@ mod tests {
         assert!(
             out.for_human().is_some(),
             "agent output should allow human text rendering"
-        );
-        assert!(
-            out.for_json().is_none(),
-            "agent output should not be treated as JSON"
         );
         assert!(!out.is_json(), "agent output should not be JSON mode");
     }

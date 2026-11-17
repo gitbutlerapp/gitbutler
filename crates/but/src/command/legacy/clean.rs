@@ -6,8 +6,8 @@ use nonempty::NonEmpty;
 
 use crate::{
     command::legacy::discard::{self},
-    theme::{self, Paint},
-    utils::OutputChannel,
+    theme::{Paint, Theme},
+    utils::{CliOutput, CliOutputHuman, WriteWithUtils},
 };
 
 pub struct CleanOptions {
@@ -15,74 +15,24 @@ pub struct CleanOptions {
     pub include_upstream: bool,
 }
 
-/// A branch that was deleted (or would be deleted in dry-run mode).
-#[derive(Debug, serde::Serialize)]
-struct CleanedBranch {
-    name: String,
-}
-
-/// A branch deletion that failed.
-#[derive(Debug, Clone, serde::Serialize)]
-struct FailedBranch {
-    name: String,
-    error: String,
-}
-
-/// JSON output for the clean command.
-#[derive(Debug, serde::Serialize)]
-struct CleanResult<'a> {
-    deleted: &'a [CleanedBranch],
-    #[serde(skip_serializing_if = "<[FailedBranch]>::is_empty")]
-    failed: &'a [FailedBranch],
-    dry_run: bool,
-}
-
 pub fn handle(
     ctx: &mut but_ctx::Context,
-    out: &mut OutputChannel,
     options: CleanOptions,
-) -> anyhow::Result<Option<WorkspaceState>> {
+) -> anyhow::Result<(CleanOutcome, Option<WorkspaceState>)> {
     let empty_branches = find_empty_branches(ctx, options.include_upstream)?;
 
     let Some(empty_branches) = NonEmpty::from_vec(empty_branches) else {
-        if let Some(out) = out.for_json() {
-            out.write_value(&CleanResult {
-                deleted: &[],
-                failed: &[],
+        return Ok((
+            CleanOutcome::NoEmptyBranches {
                 dry_run: options.dry_run,
-            })?;
-        } else if let Some(out) = out.for_human() {
-            writeln!(out, "No empty branches found.")?;
-        }
-        return Ok(None);
+            },
+            None,
+        ));
     };
 
     if options.dry_run {
-        let cleaned: Vec<CleanedBranch> = empty_branches
-            .iter()
-            .map(|(_, name)| CleanedBranch { name: name.clone() })
-            .collect();
-
-        if let Some(out) = out.for_json() {
-            out.write_value(&CleanResult {
-                deleted: &cleaned,
-                failed: &[],
-                dry_run: true,
-            })?;
-        } else if let Some(out) = out.for_human() {
-            for (_, name) in &empty_branches {
-                let t = theme::get();
-                writeln!(out, "Would delete branch: {}", t.attention.paint(name))?;
-            }
-            let count = empty_branches.len();
-            let t = theme::get();
-            writeln!(
-                out,
-                "Found {} empty branch(es)",
-                t.important.paint(count.to_string())
-            )?;
-        }
-        return Ok(None);
+        let names = empty_branches.into_iter().map(|(_, name)| name).collect();
+        return Ok((CleanOutcome::WouldDelete(names), None));
     }
 
     let mut guard = ctx.exclusive_worktree_access();
@@ -99,39 +49,84 @@ pub fn handle(
         gitbutler_oplog::entry::OperationKind::CleanWorkspace,
     )?;
 
-    let mut deleted = Vec::new();
-    for (_stack_id, branch_name) in &empty_branches {
-        deleted.push(CleanedBranch {
-            name: branch_name.clone(),
-        });
-    }
+    let deleted = empty_branches.into_iter().map(|(_, name)| name).collect();
+    Ok((CleanOutcome::Deleted(deleted), Some(ws)))
+}
 
-    if let Some(out) = out.for_json() {
-        out.write_value(&CleanResult {
-            deleted: &deleted,
-            failed: &[],
-            dry_run: false,
-        })?;
-    } else if let Some(out) = out.for_human() {
-        let t = theme::get();
-        for branch in &deleted {
-            writeln!(
-                out,
-                "  Deleted branch: {}",
-                t.local_branch.paint(&branch.name)
-            )?;
+#[must_use]
+pub enum CleanOutcome {
+    NoEmptyBranches {
+        dry_run: bool,
+    },
+    /// The names of the empty branches a dry run found.
+    WouldDelete(Vec<String>),
+    /// The names of the deleted empty branches.
+    Deleted(Vec<String>),
+}
+
+impl CliOutputHuman for CleanOutcome {
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        t: &'static Theme,
+    ) -> anyhow::Result<()> {
+        match self {
+            CleanOutcome::NoEmptyBranches { .. } => {
+                writeln!(out, "No empty branches found.")?;
+            }
+            CleanOutcome::WouldDelete(names) => {
+                for name in &names {
+                    writeln!(out, "Would delete branch: {}", t.attention.paint(name))?;
+                }
+                writeln!(
+                    out,
+                    "Found {} empty branch(es)",
+                    t.important.paint(names.len().to_string())
+                )?;
+            }
+            CleanOutcome::Deleted(names) => {
+                for name in &names {
+                    writeln!(out, "  Deleted branch: {}", t.local_branch.paint(name))?;
+                }
+                if !names.is_empty() {
+                    writeln!(
+                        out,
+                        "{} Deleted {} empty branch(es)",
+                        t.sym().success,
+                        t.important.paint(names.len().to_string())
+                    )?;
+                }
+            }
         }
-        if !deleted.is_empty() {
-            writeln!(
-                out,
-                "{} Deleted {} empty branch(es)",
-                t.sym().success,
-                t.important.paint(deleted.len().to_string())
-            )?;
+        Ok(())
+    }
+}
+
+impl CliOutput for CleanOutcome {
+    fn on_json(self) -> impl serde::Serialize {
+        #[derive(serde::Serialize)]
+        struct CleanedBranch {
+            name: String,
+        }
+        #[derive(serde::Serialize)]
+        struct Output {
+            deleted: Vec<CleanedBranch>,
+            dry_run: bool,
+        }
+        let (names, dry_run) = match self {
+            CleanOutcome::NoEmptyBranches { dry_run } => (Vec::new(), dry_run),
+            CleanOutcome::WouldDelete(names) => (names, true),
+            CleanOutcome::Deleted(names) => (names, false),
+        };
+        Output {
+            deleted: names
+                .into_iter()
+                .map(|name| CleanedBranch { name })
+                .collect(),
+            dry_run,
         }
     }
-
-    Ok(Some(ws))
 }
 
 /// Returns a list of `(StackId, branch_name)` pairs for branches that are empty.

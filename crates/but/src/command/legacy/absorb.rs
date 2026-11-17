@@ -1,9 +1,8 @@
 use crate::{
     id::{CommitId, CommitIdRef},
-    theme::{self, Paint},
+    theme::{self, Paint, Theme},
 };
 use bstr::{BStr, ByteSlice as _};
-use but_core::sync::RepoExclusive;
 use but_ctx::Context;
 use but_hunk_assignment::{
     AbsorptionTarget, CommitAbsorption, JsonAbsorbOutput, JsonCommitAbsorption, JsonFileAbsorption,
@@ -19,7 +18,7 @@ use crate::{
     error::BadInput,
     id::{UncommittedHunkOrFile, parser::parse_sources},
     utils::{
-        OutputChannel,
+        CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
         change_source::{ChangeSourceId, InvokedFrom},
         merged_upstream::MergedUpstream,
     },
@@ -46,12 +45,12 @@ fn worktree_changes_cannot_be_absorbed(name: &BStr) -> BadInput {
 /// If no source is provided, absorb is performed for all uncommitted changes
 pub(crate) fn handle(
     ctx: &mut Context,
-    out: &mut OutputChannel,
+    out: IntermediateChannel<'_>,
     source: Option<&str>,
     dry_run: bool,
     allow_merged: crate::args::atoms::AllowMergedArg,
     invoked_from: &InvokedFrom,
-) -> CliResult<()> {
+) -> CliResult<AbsorbOutcome> {
     let mut guard = ctx.exclusive_worktree_access();
     let id_map = IdMap::new_from_context(ctx, guard.read_permission(), Some(invoked_from))?;
     let source: Option<CliId> = source
@@ -120,87 +119,276 @@ pub(crate) fn handle(
     // already-merged commit, which conflicts on the next `but pull`. Drop such
     // plan entries and tell the user, instead of silently amending them.
     let merged = MergedUpstream::from_ctx(ctx, allow_merged)?;
-    let Some((absorption_plan, skipped_merged)) =
-        drop_landed_absorptions(absorption_plan, &merged, out)?
-    else {
-        return Ok(());
-    };
+    let (skipped, absorption_plan): (Vec<_>, Vec<_>) = absorption_plan
+        .into_iter()
+        .partition(|absorption| merged.contains_commit(absorption.commit_id));
+    let skipped: Vec<SkippedAbsorption> = skipped
+        .into_iter()
+        .map(|absorption| SkippedAbsorption {
+            commit_id: absorption.commit_id,
+            commit_summary: absorption.commit_summary,
+        })
+        .collect();
+    if !skipped.is_empty() && out.format().is_json() {
+        // JSON output is parsed, so the warning goes to stderr.
+        let ids = skipped
+            .iter()
+            .map(|skipped| skipped.commit_id.to_hex_with_len(7).to_string())
+            .join(", ");
+        eprintln!(
+            "warning: skipped absorbing into {} merged-upstream commit(s): {ids}. Run `but pull` to update the workspace, or pass --allow-merged to absorb anyway.",
+            skipped.len()
+        );
+    }
+    if !skipped.is_empty() && absorption_plan.is_empty() {
+        return Ok(AbsorbOutcome {
+            skipped,
+            result: AbsorbResult::NothingLeft,
+        });
+    }
 
-    // Display the plan (in JSON mode for non-dry-run, collect without writing — we'll
-    // combine it with the result in absorb_assignments to avoid a double-write that
-    // would overwrite the plan in the JSON buffer).
-    let plan_json = display_absorption_plan(&absorption_plan, &id_map, out, dry_run)?;
+    let plan = AbsorptionPlan::new(&absorption_plan, &id_map);
 
     if dry_run {
-        if let Some(out) = out.for_human() {
-            let t = theme::get();
-            let message = t.success.paint("Dry run complete. No changes were made.");
-            writeln!(out, "{message}")?;
-        }
-        return Ok(());
+        return Ok(AbsorbOutcome {
+            skipped,
+            result: AbsorbResult::DryRun { plan },
+        });
     }
 
     let operation = OperationKind::Absorb;
     let _snapshot = ctx
         .create_snapshot(SnapshotDetails::new(operation), guard.write_permission())
         .ok(); // Ignore errors for snapshot creation
-    absorb_assignments(
-        ctx,
-        absorption_plan,
-        guard.write_permission(),
-        out,
-        plan_json,
-        skipped_merged,
-    )?;
+    let total_rejected =
+        but_api::legacy::absorb::absorb_with_perm(ctx, absorption_plan, guard.write_permission())?;
 
-    Ok(())
+    Ok(AbsorbOutcome {
+        skipped,
+        result: AbsorbResult::Absorbed {
+            plan,
+            total_rejected,
+        },
+    })
 }
 
-fn absorb_assignments(
-    ctx: &mut Context,
-    absorption_plan: Vec<CommitAbsorption>,
-    perm: &mut RepoExclusive,
-    out: &mut OutputChannel,
-    plan_json: Option<JsonAbsorbOutput>,
-    skipped_merged: Vec<String>,
-) -> anyhow::Result<()> {
-    let total_rejected = but_api::legacy::absorb::absorb_with_perm(ctx, absorption_plan, perm)?;
+/// A plan entry that was dropped because its commit is merged upstream.
+struct SkippedAbsorption {
+    commit_id: gix::ObjectId,
+    commit_summary: String,
+}
 
-    let t = theme::get();
-    if let Some(out) = out.for_human() {
-        writeln!(out)?;
-        if total_rejected > 0 {
-            writeln!(
-                out,
-                "{}: Failed to absorb {} file{}",
-                t.attention.paint("Warning"),
-                total_rejected,
-                if total_rejected == 1 { "" } else { "s" }
-            )?;
+/// The absorption plan as JSON, with the display of each target commit.
+struct AbsorptionPlan {
+    json: JsonAbsorbOutput,
+    /// The rendered commit of each entry in `json.commits`.
+    commit_displays: Vec<String>,
+}
+
+impl AbsorptionPlan {
+    fn new(commit_absorptions: &[CommitAbsorption], id_map: &IdMap) -> Self {
+        let total_files: usize = commit_absorptions
+            .iter()
+            .flat_map(|c| c.hunks.iter().map(|h| &h.path))
+            .unique()
+            .count();
+        if total_files == 0 {
+            return AbsorptionPlan {
+                json: JsonAbsorbOutput {
+                    total_files: 0,
+                    commits: vec![],
+                },
+                commit_displays: Vec::new(),
+            };
+        }
+
+        let commits = commit_absorptions
+            .iter()
+            .map(|absorption| {
+                let files: Vec<JsonFileAbsorption> = absorption
+                    .hunks
+                    .iter()
+                    .map(|hunk| JsonFileAbsorption {
+                        path: hunk.path.to_str_lossy().into_owned(),
+                        hunks: get_hunk_ranges(hunk),
+                    })
+                    .collect();
+
+                JsonCommitAbsorption {
+                    commit_id: absorption.commit_id.to_hex().to_string(),
+                    commit_summary: absorption.commit_summary.clone(),
+                    reason: absorption.reason.clone(),
+                    reason_description: absorption.reason.description().to_string(),
+                    files,
+                }
+            })
+            .collect();
+        let commit_displays = commit_absorptions
+            .iter()
+            .map(|absorption| {
+                theme::Commit(CommitIdRef {
+                    commit_id: absorption.commit_id,
+                    change_id: id_map
+                        .change_id_ref(absorption.commit_id)
+                        .map(|change_id| &change_id.change_id),
+                })
+                .to_string()
+            })
+            .collect();
+
+        AbsorptionPlan {
+            json: JsonAbsorbOutput {
+                total_files,
+                commits,
+            },
+            commit_displays,
+        }
+    }
+
+    fn write_human(&self, out: &mut dyn WriteWithUtils, t: &Theme) -> std::fmt::Result {
+        let total_files = self.json.total_files;
+        if total_files == 0 {
+            return writeln!(out, "No files to absorb");
         }
         writeln!(
             out,
-            "{}: you can run `but undo` to undo these changes",
-            t.info.paint("Hint")
+            "Found {} changed file{} to absorb:",
+            total_files,
+            if total_files == 1 { "" } else { "s" }
         )?;
-    } else if let Some(out) = out.for_json() {
-        // Combine plan and result into a single JSON write to avoid overwriting
-        // the plan in the JSON buffer (which would lose absorption plan data).
-        let mut combined = serde_json::json!({
-            "ok": total_rejected == 0,
-            "rejected": total_rejected,
-        });
-        if let Some(plan) = plan_json {
-            combined["plan"] = serde_json::to_value(plan).unwrap_or(serde_json::Value::Null);
-        }
-        if !skipped_merged.is_empty() {
-            combined["skippedMergedUpstream"] =
-                serde_json::to_value(skipped_merged).unwrap_or(serde_json::Value::Null);
-        }
-        out.write_value(combined)?;
-    }
+        writeln!(out)?;
 
-    Ok(())
+        for (absorption, commit) in self.json.commits.iter().zip(&self.commit_displays) {
+            writeln!(
+                out,
+                "Absorbed to commit: {} {}",
+                commit, absorption.commit_summary
+            )?;
+            writeln!(out, "  ({})", t.hint.paint(&absorption.reason_description))?;
+
+            for file in &absorption.files {
+                let hunk_display = file.hunks.join(", ");
+                writeln!(out, "    {} {}", file.path, t.hint.paint(&hunk_display))?;
+            }
+            writeln!(out)?;
+        }
+        Ok(())
+    }
+}
+
+#[must_use]
+pub(crate) struct AbsorbOutcome {
+    skipped: Vec<SkippedAbsorption>,
+    result: AbsorbResult,
+}
+
+enum AbsorbResult {
+    /// Every plan entry targeted a commit that is merged upstream.
+    NothingLeft,
+    DryRun {
+        plan: AbsorptionPlan,
+    },
+    Absorbed {
+        plan: AbsorptionPlan,
+        /// The number of files that could not be absorbed.
+        total_rejected: usize,
+    },
+}
+
+impl CliOutputHuman for AbsorbOutcome {
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        t: &'static Theme,
+    ) -> anyhow::Result<()> {
+        let Self { skipped, result } = self;
+        if !skipped.is_empty() {
+            for skipped in &skipped {
+                writeln!(
+                    out,
+                    "{}: not absorbing into {} {}: commit is merged upstream",
+                    t.attention.paint("Skipped"),
+                    theme::Commit(CommitId {
+                        commit_id: skipped.commit_id,
+                        change_id: None
+                    }),
+                    skipped.commit_summary,
+                )?;
+            }
+            writeln!(
+                out,
+                "{}: most likely you want `but pull`, which removes landed work; in rare cases pass --allow-merged to absorb anyway",
+                t.info.paint("Hint")
+            )?;
+        }
+
+        match result {
+            AbsorbResult::NothingLeft => {
+                writeln!(out, "Nothing left to absorb")?;
+            }
+            AbsorbResult::DryRun { plan } => {
+                plan.write_human(out, t)?;
+                let message = t.success.paint("Dry run complete. No changes were made.");
+                writeln!(out, "{message}")?;
+            }
+            AbsorbResult::Absorbed {
+                plan,
+                total_rejected,
+            } => {
+                plan.write_human(out, t)?;
+                writeln!(out)?;
+                if total_rejected > 0 {
+                    writeln!(
+                        out,
+                        "{}: Failed to absorb {} file{}",
+                        t.attention.paint("Warning"),
+                        total_rejected,
+                        if total_rejected == 1 { "" } else { "s" }
+                    )?;
+                }
+                writeln!(
+                    out,
+                    "{}: you can run `but undo` to undo these changes",
+                    t.info.paint("Hint")
+                )?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl CliOutput for AbsorbOutcome {
+    fn on_json(self) -> impl serde::Serialize {
+        let Self { skipped, result } = self;
+        let skipped_ids: Vec<String> = skipped
+            .iter()
+            .map(|skipped| skipped.commit_id.to_string())
+            .collect();
+        match result {
+            AbsorbResult::NothingLeft => serde_json::json!({
+                "ok": false,
+                "skippedMergedUpstream": skipped_ids,
+            }),
+            AbsorbResult::DryRun { plan } => {
+                serde_json::to_value(plan.json).unwrap_or(serde_json::Value::Null)
+            }
+            AbsorbResult::Absorbed {
+                plan,
+                total_rejected,
+            } => {
+                let mut combined = serde_json::json!({
+                    "ok": total_rejected == 0,
+                    "rejected": total_rejected,
+                    "plan": plan.json,
+                });
+                if !skipped_ids.is_empty() {
+                    combined["skippedMergedUpstream"] = serde_json::json!(skipped_ids);
+                }
+                combined
+            }
+        }
+    }
 }
 
 fn format_hunk_range(hunk_header: &but_core::HunkHeader) -> String {
@@ -229,173 +417,4 @@ fn get_hunk_ranges(hunk: &but_core::SingleHunk) -> Vec<String> {
         // Binary file or file too large - no hunk information
         vec!["(binary or large file)".to_string()]
     }
-}
-
-/// Display the absorption plan to the user.
-///
-/// When `write_json` is true (dry-run), writes JSON directly. When false (non-dry-run),
-/// returns the plan data so the caller can combine it with the operation result
-/// in a single JSON write — avoiding a double-write that would overwrite the buffer.
-fn display_absorption_plan(
-    commit_absorptions: &[CommitAbsorption],
-    id_map: &IdMap,
-    out: &mut OutputChannel,
-    write_json: bool,
-) -> anyhow::Result<Option<JsonAbsorbOutput>> {
-    let total_files: usize = commit_absorptions
-        .iter()
-        .flat_map(|c| c.hunks.iter().map(|h| &h.path))
-        .unique()
-        .count();
-
-    if commit_absorptions.is_empty() || total_files == 0 {
-        let output = JsonAbsorbOutput {
-            total_files: 0,
-            commits: vec![],
-        };
-        if write_json && let Some(json_out) = out.for_json() {
-            json_out.write_value(&output)?;
-        }
-        if let Some(out) = out.for_human() {
-            writeln!(out, "No files to absorb")?;
-        }
-        return Ok(if write_json { None } else { Some(output) });
-    }
-
-    let json_commits: Vec<JsonCommitAbsorption> = commit_absorptions
-        .iter()
-        .map(|absorption| {
-            let files: Vec<JsonFileAbsorption> = absorption
-                .hunks
-                .iter()
-                .map(|hunk| JsonFileAbsorption {
-                    path: hunk.path.to_str_lossy().into_owned(),
-                    hunks: get_hunk_ranges(hunk),
-                })
-                .collect();
-
-            JsonCommitAbsorption {
-                commit_id: absorption.commit_id.to_hex().to_string(),
-                commit_summary: absorption.commit_summary.clone(),
-                reason: absorption.reason.clone(),
-                reason_description: absorption.reason.description().to_string(),
-                files,
-            }
-        })
-        .collect();
-
-    let plan_output = JsonAbsorbOutput {
-        total_files,
-        commits: json_commits,
-    };
-
-    if write_json && let Some(json_out) = out.for_json() {
-        json_out.write_value(&plan_output)?;
-    }
-
-    let t = theme::get();
-    if let Some(out) = out.for_human() {
-        writeln!(
-            out,
-            "Found {} changed file{} to absorb:",
-            total_files,
-            if total_files == 1 { "" } else { "s" }
-        )?;
-        writeln!(out)?;
-
-        for absorption in commit_absorptions {
-            writeln!(
-                out,
-                "Absorbed to commit: {} {}",
-                theme::Commit(CommitIdRef {
-                    commit_id: absorption.commit_id,
-                    change_id: id_map
-                        .change_id_ref(absorption.commit_id)
-                        .map(|change_id| &change_id.change_id),
-                }),
-                absorption.commit_summary
-            )?;
-            writeln!(out, "  ({})", t.hint.paint(absorption.reason.description()))?;
-
-            for hunk in &absorption.hunks {
-                let ranges = get_hunk_ranges(hunk);
-                let hunk_display = ranges.join(", ");
-
-                writeln!(out, "    {} {}", hunk.path, t.hint.paint(&hunk_display))?;
-            }
-            writeln!(out)?;
-        }
-    }
-
-    Ok(if write_json { None } else { Some(plan_output) })
-}
-
-/// Drop plan entries that target commits already merged upstream, reporting
-/// each skip. Returns the remaining plan and the skipped commit ids for the
-/// final JSON output, or `None` when nothing is left to absorb — the outcome
-/// has then been fully reported and the caller should stop before
-/// snapshotting.
-#[allow(clippy::type_complexity)]
-fn drop_landed_absorptions(
-    plan: Vec<CommitAbsorption>,
-    merged: &MergedUpstream,
-    out: &mut OutputChannel,
-) -> anyhow::Result<Option<(Vec<CommitAbsorption>, Vec<String>)>> {
-    let (skipped, plan): (Vec<_>, Vec<_>) = plan
-        .into_iter()
-        .partition(|absorption| merged.contains_commit(absorption.commit_id));
-    let skipped_ids = || {
-        skipped
-            .iter()
-            .map(|absorption| absorption.commit_id.to_string())
-            .collect::<Vec<_>>()
-    };
-    if skipped.is_empty() {
-        return Ok(Some((plan, Vec::new())));
-    }
-
-    if let Some(out) = out.for_human() {
-        let t = theme::get();
-        for absorption in &skipped {
-            writeln!(
-                out,
-                "{}: not absorbing into {} {}: commit is merged upstream",
-                t.attention.paint("Skipped"),
-                theme::Commit(CommitId {
-                    commit_id: absorption.commit_id,
-                    change_id: None
-                }),
-                absorption.commit_summary,
-            )?;
-        }
-        writeln!(
-            out,
-            "{}: most likely you want `but pull`, which removes landed work; in rare cases pass --allow-merged to absorb anyway",
-            t.info.paint("Hint")
-        )?;
-    } else {
-        // JSON output is parsed, so the warning goes to stderr.
-        let ids = skipped
-            .iter()
-            .map(|absorption| absorption.commit_id.to_hex_with_len(7).to_string())
-            .join(", ");
-        eprintln!(
-            "warning: skipped absorbing into {} merged-upstream commit(s): {ids}. Run `but pull` to update the workspace, or pass --allow-merged to absorb anyway.",
-            skipped.len()
-        );
-    }
-
-    if !plan.is_empty() {
-        return Ok(Some((plan, skipped_ids())));
-    }
-
-    if let Some(out) = out.for_human() {
-        writeln!(out, "Nothing left to absorb")?;
-    } else if let Some(out) = out.for_json() {
-        out.write_value(serde_json::json!({
-            "ok": false,
-            "skippedMergedUpstream": skipped_ids(),
-        }))?;
-    }
-    Ok(None)
 }

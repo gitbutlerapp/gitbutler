@@ -18,7 +18,7 @@ use crate::{
     theme::{self, Paint},
     tui::get_text,
     tui::text::strip_ansi_codes,
-    utils::OutputChannel,
+    utils::{CliOutput, CliOutputHuman, WriteWithUtils},
 };
 
 pub fn update(
@@ -28,8 +28,7 @@ pub fn update(
     dry_run: bool,
     verbose: bool,
     interactive: bool,
-    out: &mut OutputChannel,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<UpdateOutcome> {
     let branch_ref = resolve_local_branch(ctx, branch)?;
     let initial =
         branch::get_initial_branch_integration(ctx, branch_ref.as_ref(), Some(strategy.into()))?;
@@ -45,14 +44,47 @@ pub fn update(
         if dry_run { DryRun::Yes } else { DryRun::No },
     )?;
 
-    output_apply_result(
-        branch_ref.as_ref(),
-        &initial.divergence,
-        dry_run,
-        verbose,
-        result,
-        out,
-    )
+    let dry_run_summary =
+        dry_run.then(|| format_dry_run(&initial.divergence, branch_ref.as_ref(), &result, verbose));
+    Ok(UpdateOutcome {
+        branch_ref,
+        dry_run_summary,
+        result: json::IntegrateBranchResult::try_from(result)?,
+    })
+}
+
+#[must_use]
+pub struct UpdateOutcome {
+    branch_ref: FullName,
+    /// The rendered preview of the integration, set for dry runs.
+    dry_run_summary: Option<String>,
+    result: json::IntegrateBranchResult,
+}
+
+impl CliOutputHuman for UpdateOutcome {
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        t: &'static theme::Theme,
+    ) -> anyhow::Result<()> {
+        if let Some(summary) = self.dry_run_summary {
+            write!(out, "{summary}")?;
+        } else {
+            writeln!(
+                out,
+                "Updated branch {}.",
+                t.local_branch.paint(self.branch_ref.shorten().to_string())
+            )?;
+        }
+        Ok(())
+    }
+}
+
+impl CliOutput for UpdateOutcome {
+    fn on_json(self) -> impl serde::Serialize {
+        self.result
+    }
 }
 
 fn integration_from_editor(
@@ -162,35 +194,6 @@ fn normalize_local_branch_ref(branch: &str) -> anyhow::Result<FullName> {
         format!("refs/heads/{branch}")
     };
     FullName::try_from(full).map_err(|err| anyhow::anyhow!("Invalid branch name: {err}"))
-}
-
-fn output_apply_result(
-    branch_ref: &FullNameRef,
-    divergence: &but_workspace::branch::IntegrationDivergenceDisplay,
-    dry_run: bool,
-    verbose: bool,
-    result: IntegrateBranchResult,
-    out: &mut OutputChannel,
-) -> anyhow::Result<()> {
-    if let Some(out) = out.for_human() {
-        if dry_run {
-            write!(
-                out,
-                "{}",
-                format_dry_run(divergence, branch_ref, &result, verbose)
-            )?;
-        } else {
-            let t = theme::get();
-            writeln!(
-                out,
-                "Updated branch {}.",
-                t.local_branch.paint(branch_ref.shorten().to_string())
-            )?;
-        }
-    } else if let Some(out) = out.for_json() {
-        out.write_value(json::IntegrateBranchResult::try_from(result)?)?;
-    }
-    Ok(())
 }
 
 fn format_divergence(divergence: &but_workspace::branch::IntegrationDivergenceDisplay) -> String {
