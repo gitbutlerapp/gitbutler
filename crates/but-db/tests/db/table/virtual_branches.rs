@@ -350,3 +350,30 @@ fn sample_snapshot() -> VirtualBranchesSnapshot {
         }],
     }
 }
+
+#[test]
+fn replace_snapshot_ignores_heads_left_behind_by_a_deleted_stack() -> anyhow::Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let path = tmp.path().join("but.sqlite");
+    {
+        let mut conn = rusqlite::Connection::open(&path)?;
+        but_db::migration::run(&mut conn, but_db::migration::ours())?;
+        conn.execute_batch(
+            "PRAGMA foreign_keys = OFF;
+             INSERT INTO vb_stacks (id, sort_order, in_workspace) VALUES ('stack-a', 0, 1);
+             INSERT INTO vb_stack_heads (stack_id, position, name, head_sha)
+                 VALUES ('stack-a', 0, 'left-behind', '1111111111111111111111111111111111111111');
+             DELETE FROM vb_stacks WHERE id = 'stack-a';",
+        )?;
+    }
+
+    let mut db = but_db::DbHandle::new_at_path(&path)?;
+    db.virtual_branches_mut()?
+        .replace_snapshot(&sample_snapshot())?;
+    assert_eq!(
+        db.virtual_branches().get_snapshot()?,
+        Some(sample_snapshot()),
+        "a head row whose stack is gone doesn't collide with writing that stack again"
+    );
+    Ok(())
+}

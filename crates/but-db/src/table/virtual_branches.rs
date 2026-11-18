@@ -330,12 +330,12 @@ impl VirtualBranchesHandleMut<'_> {
     }
 
     /// Replace all VB tables with the provided normalized snapshot.
-    ///
-    /// Existing stacks are cleared first (dependent rows are removed via FK cascade), followed by inserts.
     pub fn replace_snapshot(mut self, snapshot: &VirtualBranchesSnapshot) -> rusqlite::Result<()> {
         self.set_state_in_place(&snapshot.state)?;
 
-        self.sp.execute("DELETE FROM vb_stacks", [])?;
+        self.sp.execute_batch(
+            "DELETE FROM vb_stack_heads; DELETE FROM vb_branch_targets; DELETE FROM vb_stacks;",
+        )?;
 
         {
             let mut insert_stack = self.sp.prepare(
