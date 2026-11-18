@@ -5516,6 +5516,18 @@ impl Render for AppView {
             });
         }
         self.follow_navigator_place(window, cx);
+        // Before anything in the navigator draws, which draws from it.
+        let keys = window.focused(cx).map(|focused| self.keys_lent(focused));
+        let on_top = self.strip_is_navigator();
+        crate::navigator::find_keys(
+            keys.as_ref(),
+            &self.navigator,
+            &self.tabs,
+            &self.terminals,
+            on_top,
+            window,
+            cx,
+        );
         let theme = Theme::get(cx).clone();
         let ligatures = self.store.read(cx).prefs.ligatures;
         let show_fps = self.store.read(cx).prefs.show_fps;

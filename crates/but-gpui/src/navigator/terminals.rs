@@ -15,6 +15,7 @@ use gpui::{
 };
 
 use super::cursor::{Step, Stops, step_to};
+use super::keys::{List, NavigatorKeys};
 use super::rename::{on_terminal_name, terminal_name_input};
 use super::rows::{CARD_PADDING, GUIDE_AT as ICON_MIDDLE, ROW_LEFT};
 use super::{CARD_BAR_HEIGHT, CARD_BAR_INSET, RowStyle, card_bar, status_mark};
@@ -24,7 +25,7 @@ use crate::app::{
 };
 use crate::backend::{self, Checkout};
 use crate::edits::{Discard, RenameTerminal};
-use crate::overlays::{MenuItem, has_keys};
+use crate::overlays::MenuItem;
 use crate::palette::StatusGroup;
 use crate::state::{Axis, NavigatorPlace, Part, ProjectId, Store, TerminalGrouping};
 use crate::terminal::TerminalId;
@@ -194,6 +195,11 @@ pub struct TerminalOverview {
     shown: Option<TerminalId>,
     renaming: Option<Renaming>,
     focus: FocusHandle,
+    /// Where the navigator's keys are, as found for this frame: see [`super::keys::find_keys`].
+    keys: NavigatorKeys,
+    /// Its card is sliding out from under its tab, which had the keys, so no row shows as
+    /// selected, as it was left, as found for this frame.
+    left_unselected: bool,
     _store: Subscription,
 }
 
@@ -246,6 +252,8 @@ impl TerminalOverview {
             shown: None,
             renaming: None,
             focus: cx.focus_handle(),
+            keys: NavigatorKeys::Away,
+            left_unselected: false,
             _store,
         }
     }
@@ -290,6 +298,29 @@ impl TerminalOverview {
         self.store.read(cx).prefs.navigator_place == NavigatorPlace::Top
     }
 
+    /// Note where the keys are for this frame, and whether its card slides out with no row
+    /// shown as selected, drawing again after it if either changed.
+    pub(super) fn set_keys(
+        &mut self,
+        keys: NavigatorKeys,
+        left_unselected: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.keys != keys || self.left_unselected != left_unselected {
+            self.keys = keys;
+            self.left_unselected = left_unselected;
+            // After this draw, as a notify during it draws nothing.
+            cx.defer_in(window, |_, _, cx| cx.notify());
+        }
+    }
+
+    /// Whether a row shows as selected: not with the keys on its tab, which heads it, or while
+    /// its card slides out as it was left so.
+    fn shows_selection(&self) -> bool {
+        !self.keys.on_head_of(&List::Terminals) && !self.left_unselected
+    }
+
     /// Whether it shows only its bar: folded to it, and not in the card under its tab.
     fn folded_away(&self, cx: &App) -> bool {
         self.shut && !self.in_tab(cx)
@@ -326,7 +357,7 @@ impl TerminalOverview {
 
     /// Sort the rows out again from the terminals open, but not while the pointer holds them,
     /// unless `now`.
-    fn sort_out(&mut self, now: bool, cx: &App) {
+    pub(super) fn sort_out(&mut self, now: bool, cx: &App) {
         let by = self.store.read(cx).prefs.terminal_grouping;
         // Picked from a menu, so the rows go under what was picked at once.
         let regrouped = by != self.grouped_by;
@@ -379,11 +410,7 @@ impl TerminalOverview {
             return;
         }
         let shown = self.store.read(cx).terminal_shown();
-        let at = (self.items.iter()).position(|item| match (item, &self.on_heading) {
-            (Item::Heading(group, _), Some(on)) => group == on,
-            (Item::Terminal(id), None) => Some(*id) == shown,
-            (Item::Heading(..), None) | (Item::Terminal(_), Some(_)) => false,
-        });
+        let at = (self.items.iter()).position(|item| self.selects(item, shown));
         let next = match step_to(
             at,
             self.items.len(),
@@ -413,6 +440,34 @@ impl TerminalOverview {
             None => return,
         }
         self.list.scroll_to_reveal_item(next);
+    }
+
+    /// Whether `item`'s row is the one selected: the heading the keys stepped onto, else the
+    /// terminal `shown`.
+    fn selects(&self, item: &Item, shown: Option<TerminalId>) -> bool {
+        match (item, &self.on_heading) {
+            (Item::Heading(group, _), Some(on)) => group == on,
+            (Item::Terminal(id), None) => Some(*id) == shown,
+            (Item::Heading(..), None) | (Item::Terminal(_), Some(_)) => false,
+        }
+    }
+
+    /// Whether `keys` are here, in its rows or a terminal's name being edited in one.
+    pub(super) fn holds(&self, keys: &FocusHandle, window: &Window) -> bool {
+        self.focus.contains(keys, window)
+    }
+
+    /// The terminal selected, while its row is listed, which is what its keys act on.
+    fn listed_terminal(&self, cx: &App) -> Option<TerminalId> {
+        let listed = self.lists_selection(cx) && self.on_heading.is_none();
+        self.store.read(cx).terminal_shown().filter(|_| listed)
+    }
+
+    /// Whether the row selected is one it lists: not with it folded to its bar, or with a
+    /// terminal folded away under a heading, which leave its keys nothing to act on.
+    pub(super) fn lists_selection(&self, cx: &App) -> bool {
+        let shown = self.store.read(cx).terminal_shown();
+        !self.folded_away(cx) && self.items.iter().any(|item| self.selects(item, shown))
     }
 
     /// Fold `group` to its heading, or unfold it, its terminals sliding shut or open under it.
@@ -535,7 +590,7 @@ impl TerminalOverview {
 
     /// Row `ix`, with the guide down from its heading's chevron beside a terminal's, drawn as
     /// far as a fold moving it is open.
-    fn render_item(&self, ix: usize, window: &Window, cx: &Context<Self>) -> AnyElement {
+    fn render_item(&self, ix: usize, cx: &Context<Self>) -> AnyElement {
         let theme = Theme::get(cx);
         let moved = self
             .folds
@@ -548,14 +603,14 @@ impl TerminalOverview {
         let (row, guided) = match self.items.get(ix) {
             Some(Item::Heading(group, count)) => (
                 Some(
-                    self.heading_row(group.clone(), *count, window, cx)
+                    self.heading_row(group.clone(), *count, cx)
                         .into_any_element(),
                 ),
                 false,
             ),
             // With no headings, there's no chevron to run a guide down from.
             Some(Item::Terminal(id)) => (
-                self.terminal_row(*id, window, cx),
+                self.terminal_row(*id, cx),
                 self.grouped_by != TerminalGrouping::Ungrouped,
             ),
             None => (None, false),
@@ -577,18 +632,12 @@ impl TerminalOverview {
 
     /// A heading, as a section's in the navigator: its chevron, which folds it, its name and
     /// how many are under it. A double-click folds it too.
-    fn heading_row(
-        &self,
-        group: Group,
-        count: usize,
-        window: &Window,
-        cx: &Context<Self>,
-    ) -> impl IntoElement {
+    fn heading_row(&self, group: Group, count: usize, cx: &Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx);
-        let selected = self.on_heading.as_ref() == Some(&group);
+        let selected = self.on_heading.as_ref() == Some(&group) && self.shows_selection();
         let style = RowStyle {
             selected,
-            solid: selected && has_keys(&self.focus, window, cx),
+            solid: selected && self.keys.on_row_of(&List::Terminals),
             ..RowStyle::plain(theme, 0.)
         };
         let open = !self.folded.contains(&group);
@@ -632,19 +681,16 @@ impl TerminalOverview {
     /// A terminal's row, set in under its heading: what it's at, its title, and the worktree
     /// it's open on, with its project while terminals are open on several and its heading
     /// doesn't name it.
-    fn terminal_row(
-        &self,
-        id: TerminalId,
-        window: &Window,
-        cx: &Context<Self>,
-    ) -> Option<AnyElement> {
+    fn terminal_row(&self, id: TerminalId, cx: &Context<Self>) -> Option<AnyElement> {
         let theme = Theme::get(cx);
         let store = self.store.read(cx);
         let terminal = store.terminals.all().find(|t| t.id == id)?;
-        let selected = store.terminal_shown() == Some(id) && self.on_heading.is_none();
+        let selected = store.terminal_shown() == Some(id)
+            && self.on_heading.is_none()
+            && self.shows_selection();
         let style = RowStyle {
             selected,
-            solid: selected && has_keys(&self.focus, window, cx),
+            solid: selected && self.keys.on_row_of(&List::Terminals),
             ..RowStyle::plain(theme, 0.)
         };
         let mark = match status_mark(terminal.status, !store.hidden(), style) {
@@ -824,7 +870,7 @@ impl Render for TerminalOverview {
         }
         let theme = Theme::get(cx);
         let outlined = self.store.read(cx).prefs.shows(Part::FocusOutline)
-            && has_keys(&self.focus, window, cx);
+            && self.keys.in_list(&List::Terminals);
         let in_tab = self.in_tab(cx);
         let rows = (!folded_away).then(|| {
             let rows = match self.items.is_empty() {
@@ -840,7 +886,7 @@ impl Render for TerminalOverview {
                     .into_any_element(),
                 false => list(
                     self.list.clone(),
-                    cx.processor(|this, ix: usize, window, cx| this.render_item(ix, window, cx)),
+                    cx.processor(|this, ix: usize, _, cx| this.render_item(ix, cx)),
                 )
                 .size_full()
                 .into_any_element(),
@@ -880,26 +926,26 @@ impl Render for TerminalOverview {
                 });
             }))
             .on_action(cx.listener(|this, _: &Confirm, window, cx| {
+                // Folded to its bar, it opens, as the drawer's bar does.
+                if this.folded_away(cx) {
+                    return this.toggle_card(cx);
+                }
                 if let Some(group) = this.on_heading.clone() {
                     return this.toggle_fold(group, cx);
                 }
-                if let Some(id) = this.store.read(cx).terminal_shown() {
+                if let Some(id) = this.listed_terminal(cx) {
                     this.show(id, true, window, cx);
                 }
             }))
             // The terminal selected's, as the navigator's keys act on its row's, but not on a
             // heading, which neither renames nor closes.
             .on_action(cx.listener(|this, _: &RenameTerminal, window, cx| {
-                if this.on_heading.is_none()
-                    && let Some(id) = this.store.read(cx).terminal_shown()
-                {
+                if let Some(id) = this.listed_terminal(cx) {
                     this.rename(id, window, cx)
                 }
             }))
             .on_action(cx.listener(|this, _: &Discard, window, cx| {
-                if this.on_heading.is_none()
-                    && let Some(id) = this.store.read(cx).terminal_shown()
-                {
+                if let Some(id) = this.listed_terminal(cx) {
                     this.close(id, window, cx)
                 }
             }))

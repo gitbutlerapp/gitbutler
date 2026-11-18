@@ -26,6 +26,7 @@ use gpui::{
 use super::cursor::{RowAction, row_actions};
 use super::drop::on_any_drag_move;
 use super::frame::{Built, RowsIn};
+use super::keys::List;
 use super::order::moving_worktree;
 use super::rows::{CARD_PADDING, Rows, listed_with};
 use super::{
@@ -35,7 +36,7 @@ use super::{
 use crate::app::{AppHandle, AppView, Cancel};
 use crate::backend::Checkout;
 use crate::clock;
-use crate::overlays::OVERLAY;
+use crate::overlays::{OVERLAY, keys_at};
 use crate::state::{NavigatorPlace, Part, ProjectId, Selection, Store, WatchedOrder};
 use crate::theme::Theme;
 use crate::transfer::{Dragged, Moving, Op, ProjectDrag, Slot};
@@ -342,6 +343,10 @@ struct Pane {
     scroll: ScrollHandle,
     /// The selection it was left with, sliding out, which it goes on showing.
     left_with: Option<Option<Selection>>,
+    /// What it showed as selected when last drawn, which it's left with as it slides out, and
+    /// whether the keys were on its tab then, so it showed no row selected.
+    showed: Option<Selection>,
+    headed: bool,
 }
 
 impl Pane {
@@ -354,6 +359,8 @@ impl Pane {
             height: Rc::default(),
             scroll: ScrollHandle::new(),
             left_with: None,
+            showed: None,
+            headed: false,
         }
     }
 
@@ -580,12 +587,40 @@ impl NavigatorTabs {
         store.prefs.shows(Part::TerminalOverview)
     }
 
-    /// Whether the terminal overview has the keys, in the card under its tab.
-    fn overview_has_keys(&self, window: &Window, cx: &App) -> bool {
-        let focus = self.terminals.focus_handle(cx);
+    /// Whether the terminals' card is going from under its tab, which had the keys when it was
+    /// last drawn, now that they're on `keys_tab`: sliding out or rolling up, which it's about
+    /// to do once they're elsewhere. Its overview, which draws itself, goes on showing no row
+    /// selected, as the navigator's rows go on showing what they were left with.
+    pub(super) fn terminals_left_unselected(&self, keys_tab: Option<&TabKey>) -> bool {
+        keys_tab != Some(&TabKey::Terminals)
+            && (self.card.as_ref()).is_some_and(|card| {
+                (card.leaving.iter().chain([&card.pane]))
+                    .any(|pane| pane.key == TabKey::Terminals && pane.headed)
+            })
+    }
+
+    /// The tab `keys` are on or under, if they're here: the terminals' while the overview has
+    /// them, else, with the tabs having them, the one they were on or the selection's.
+    pub(super) fn keys_tab(
+        &self,
+        keys: Option<&FocusHandle>,
+        window: &Window,
+        cx: &App,
+    ) -> Option<TabKey> {
+        let keys = keys?;
+        let store = self.store.read(cx);
         // Given them before it's drawn, as it comes into the card, it has them already.
-        Self::shows_terminals(self.store.read(cx))
-            && (focus.is_focused(window) || focus.contains_focused(window, cx))
+        if Self::shows_terminals(store) && self.terminals.read(cx).holds(keys, window) {
+            return Some(TabKey::Terminals);
+        }
+        if *keys != self.focus {
+            return None;
+        }
+        // One that's gone, as a project no longer watched, gives way to the selection's.
+        (self.keyed.clone())
+            .filter(|keyed| self.order.contains(keyed))
+            .or_else(|| Self::active_tab(store))
+            .or_else(|| self.order.first().cloned())
     }
 
     /// The watched projects, in the navigator's order.
@@ -839,11 +874,12 @@ impl NavigatorTabs {
         (self.marks).retain(|_, mark| mark.shown || mark.slide.openness(now).is_some());
     }
 
-    /// The line around the selected tab and the card down from it: the focused tile's while the
-    /// keys are along the tabs, else a resting tile's.
-    fn edge(&self, theme: &Theme, cx: &App) -> Hsla {
+    /// The line around `tab` and the card down from it: the focused tile's while the keys are on
+    /// it or in its card, else a resting tile's.
+    fn edge(&self, tab: Option<&TabKey>, theme: &Theme, cx: &App) -> Hsla {
         let outlined = self.store.read(cx).prefs.shows(Part::FocusOutline);
-        match outlined && self.keyed.is_some() {
+        let keys = self.navigator.read(cx).keys.tab();
+        match outlined && keys.is_some() && keys.as_ref() == tab {
             true => theme.focus_edge(),
             false => theme.border_subtle,
         }
@@ -1019,17 +1055,7 @@ impl NavigatorTabs {
     /// the navigator's rows show where they are, and goes with them. With the terminal overview,
     /// they're on its tab.
     fn follow_keys(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let strip = self.focus.is_focused(window);
-        if self.navigator.read(cx).strip_has_keys != strip {
-            (self.navigator).update(cx, |navigator, _| navigator.strip_has_keys = strip);
-        }
-        let keyed = match (strip, self.overview_has_keys(window, cx)) {
-            (_, true) => Some(TabKey::Terminals),
-            (true, false) => (self.keyed.clone())
-                .or_else(|| self.active.clone())
-                .or_else(|| self.order.first().cloned()),
-            (false, false) => None,
-        };
+        let keyed = self.keys_tab(keys_at(window, cx).as_ref(), window, cx);
         if keyed == self.keyed {
             return;
         }
@@ -1178,6 +1204,11 @@ impl NavigatorTabs {
             | RowAction::ToggleFold
             | RowAction::Confirm => false,
         };
+        // On a tab that selects nothing, there's no row for the rest to act on.
+        let on_tab = self.navigator.read(cx).keys.head_tab().as_ref() == Some(&key);
+        if on_tab && key.selection().is_none() && !going {
+            return;
+        }
         match key {
             _ if matches!(action, RowAction::Step(-1 | 1))
                 && moving_tab(self.store.read(cx)).is_some() => {}
@@ -1365,6 +1396,8 @@ impl NavigatorTabs {
                 if !card.open {
                     card.open = true;
                     card.slide.start(true, cx);
+                    card.pane.left_with = None;
+                    card.pane.headed = false;
                 }
             }
             Some(card) => {
@@ -1380,12 +1413,12 @@ impl NavigatorTabs {
                 card.width.start(width, cx);
                 card.height = Glide::lasting(TAB_MOTION);
                 card.height.start(height, cx);
-                let selection = self.store.read(cx).selection.clone();
                 let back = (card.leaving.iter()).position(|pane| pane.key == key);
                 let mut pane = match back {
                     Some(at) => {
                         let mut pane = card.leaving.remove(at);
                         pane.left_with = None;
+                        pane.headed = false;
                         pane.slide(None, 0., cx);
                         pane
                     }
@@ -1396,7 +1429,7 @@ impl NavigatorTabs {
                     }
                 };
                 std::mem::swap(&mut card.pane, &mut pane);
-                pane.left_with = Some(selection);
+                pane.left_with = Some(pane.showed.clone());
                 pane.slide(None, away, cx);
                 card.leaving.push(pane);
             }
@@ -1431,6 +1464,8 @@ impl NavigatorTabs {
         if let Some(card) = self.card.as_mut().filter(|card| card.open) {
             card.open = false;
             card.slide.start(false, cx);
+            // Rolling up as it was left, as one sliding out goes on showing what it showed.
+            card.pane.left_with = Some(card.pane.showed.clone());
         }
         self.app.update_later(window, cx, |app, window, cx| {
             app.keys_off_hidden_navigator(window, cx)
@@ -1460,6 +1495,7 @@ impl NavigatorTabs {
             self.card = None;
         }
         let terminals = self.terminals.clone();
+        let showing = self.navigator.clone();
         let pinned = (self.card.as_ref())
             .and_then(|card| self.pinned_drawn(&card.pane.key))
             .map(|drawn| drawn.get());
@@ -1540,6 +1576,13 @@ impl NavigatorTabs {
             .chain([(&mut card.pane, true)])
             .map(|(pane, live)| {
                 pane.drawn_x = pane.x.at(pane.to, now);
+                // While it's open: rolling up, it shows what it showed as it was left.
+                if live && !closing {
+                    let list = List::under(&pane.key);
+                    let showing = showing.read(cx);
+                    pane.showed = showing.selection_shown_in(&list, cx);
+                    pane.headed = showing.keys.on_head_of(&list);
+                }
                 let (height, scroll) = (pane.height.clone(), pane.scroll.clone());
                 let left_with = pane.left_with.clone();
                 (
@@ -1655,7 +1698,7 @@ impl NavigatorTabs {
             .rounded_tl(dp(left_corner))
             .rounded_tr(dp(right_corner))
             .shadow(Vec::new())
-            .border_color(self.edge(&theme, cx))
+            .border_color(self.edge(self.card.as_ref().map(|card| &card.pane.key), &theme, cx))
             .opacity(fade)
             .overflow_hidden()
             .occlude()
@@ -1809,12 +1852,13 @@ impl NavigatorTabs {
             .children(mark)
     }
 
-    /// A tab, `left` from what holds it.
+    /// A tab, `left` from what holds it, drawn `solid` as on a selection with the keys.
     fn tab(
         &self,
         tab: &Placed,
         left: f32,
         label: &SharedString,
+        solid: bool,
         now: Instant,
         cx: &mut Context<Self>,
     ) -> impl IntoElement + use<> {
@@ -1825,7 +1869,7 @@ impl NavigatorTabs {
             navigator.tab_drag(el, &key, label.clone(), cx)
         };
         // Off the drag area, as `above_drag` is, but the strip behind still scrolls.
-        self.face(tab, left, label, false, now, cx)
+        self.face(tab, left, label, solid, now, cx)
             .id(key.element_id("tab"))
             .block_mouse_except_scroll()
             .role(Role::Tab)
@@ -1860,9 +1904,7 @@ impl NavigatorTabs {
                         this.keyed = Some(right_clicked.clone());
                         this.show(right_clicked.clone(), cx);
                     }
-                    let strip = this.focus.is_focused(window);
                     (this.navigator).update(cx, |navigator, cx| {
-                        navigator.strip_has_keys = strip;
                         navigator.open_row_menu(&target, event.position, window, cx)
                     });
                     this.keep_card_for_menu(cx);
@@ -1978,7 +2020,7 @@ impl NavigatorTabs {
 
     /// The project or the worktree itself selected, rather than a row in its card, shows as a
     /// selected row does, inside its tab's ground `at` and going where that goes: solid while the
-    /// keys are on the tabs, as the rows' is while they're on the rows, the tabs it's over
+    /// keys are on its tab, as the rows' is while they're on the rows, the tabs it's over
     /// showing through as they would on it, so it can glide over them.
     fn highlight(
         &self,
@@ -1993,7 +2035,8 @@ impl NavigatorTabs {
         if self.store.read(cx).selection.as_ref() != Some(&selection) {
             return None;
         }
-        let solid = self.keyed.is_some();
+        let solid = self.navigator.read(cx).keys.head_tab() == self.active;
+        let shown = selection_box(left, width, solid, theme);
         let (top, left) = (TAB_TOP + SELECTION_INSET, left + SELECTION_INSET);
         // As the tabs are drawn: a worktree's inside what's shown of its project's, but for one
         // being moved, which is drawn over them. What's being moved covers the tabs it passes,
@@ -2033,27 +2076,31 @@ impl NavigatorTabs {
                 None => self.face(tab, tab.left + self.slid(&tab.key), label, true, now, cx),
             });
         }
-        let shown = div()
-            .absolute()
-            .top(dp(top))
-            .h(dp(TAB_HEIGHT - 2. * SELECTION_INSET))
-            .left(dp(left))
-            .w(dp((width - 2. * SELECTION_INSET).max(0.)))
-            .rounded(dp(theme.shape.control))
-            .overflow_hidden()
-            .bg(match solid {
-                true => theme.inverse,
-                false => theme.selected_inactive,
-            })
-            .child(
-                div()
-                    .absolute()
-                    .top(dp(-top))
-                    .left(dp(-left))
-                    .children(faces),
-            );
+        let shown = shown.overflow_hidden().child(
+            div()
+                .absolute()
+                .top(dp(-top))
+                .left(dp(-left))
+                .children(faces),
+        );
         Some((shown, solid))
     }
+}
+
+/// What a tab `width` wide, `left` from what holds it, draws its selection in, inset in it as a
+/// selected row is in its card: solid while the keys are on the tab, else faint.
+fn selection_box(left: f32, width: f32, solid: bool, theme: &Theme) -> Div {
+    div()
+        .absolute()
+        .top(dp(TAB_TOP + SELECTION_INSET))
+        .h(dp(TAB_HEIGHT - 2. * SELECTION_INSET))
+        .left(dp(left + SELECTION_INSET))
+        .w(dp((width - 2. * SELECTION_INSET).max(0.)))
+        .rounded(dp(theme.shape.control))
+        .bg(match solid {
+            true => theme.inverse,
+            false => theme.selected_inactive,
+        })
 }
 
 impl Render for NavigatorTabs {
@@ -2116,9 +2163,14 @@ impl Render for NavigatorTabs {
         let rest_offset = self.scroll_at_rest(&rest, cx);
 
         let placing = self.store.read(cx).moving.as_ref();
+        // On a tab that selects nothing, the keys move and fold and do nothing else, as on the
+        // drawer's bar, as what else they do would act on a row that doesn't show as selected.
+        let on_nothing =
+            (self.navigator.read(cx).keys.head_tab()).is_some_and(|tab| tab.selection().is_none());
         let keys_context = match placing.map(|moving| moving.op) {
             Some(Op::Squash(_)) => "Tabs Navigator Moving Squashing",
             Some(Op::Commit | Op::Move | Op::CherryPick) => "Tabs Navigator Moving",
+            None if on_nothing => "Tabs DrawerBar",
             None => "Tabs Navigator",
         };
 
@@ -2131,8 +2183,12 @@ impl Render for NavigatorTabs {
         // too, and the tab's reach is that ground: one thing, not two at their own pace. A click
         // on a tab the card's at already has the ground glide over to it.
         let card_key = self.card.as_ref().map(|card| &card.pane.key);
+        // The tab the keys are on or under, across the top. The selection's tab has a ground of
+        // its own only while it's that tab, or they're elsewhere: no other tab shows them.
+        let keys_tab = self.navigator.read(cx).keys.tab();
+        let grounded = keys_tab.is_none() || keys_tab == self.active;
         let under_card =
-            (card.as_ref()).filter(|_| self.keyed.is_some() && card_key == self.active.as_ref());
+            (card.as_ref()).filter(|_| keys_tab.is_some() && card_key == self.active.as_ref());
         let offset = -f32::from(self.scroll.offset().x) / theme.scale;
         // A tab at the strip's right end has its ground where it's drawn, but what glides to or
         // from it goes along the strip, past its end, where the strip cuts it off.
@@ -2160,9 +2216,9 @@ impl Render for NavigatorTabs {
             (left, width)
         });
         // One under the card is there already, as the card is.
-        let pinned_ground =
-            pinned_active.filter(|_| under_card.is_some() || !self.active_left.moving(now));
-        let ground = ground.filter(|_| pinned_ground.is_none());
+        let pinned_ground = (pinned_active.filter(|_| grounded))
+            .filter(|_| under_card.is_some() || !self.active_left.moving(now));
+        let ground = ground.filter(|_| grounded && pinned_ground.is_none());
         let highlight = ground.and_then(|at| self.highlight(at, &laid, &labels, now, &theme, cx));
         self.rest = rest;
         // A solid one shows the tabs it's over itself, so it goes over them; a faint one goes
@@ -2201,7 +2257,9 @@ impl Render for NavigatorTabs {
                 false => outlines.0.push(outline),
             }
         }
-        let edge = self.edge(&theme, cx);
+        // The selection's tab's ground, and the neck of the card down from the tab with the keys.
+        let ground_edge = self.edge(self.active.as_ref(), &theme, cx);
+        let neck_edge = self.edge(card_key, &theme, cx);
         let ground_at = |left: f32, width: f32| {
             div()
                 .absolute()
@@ -2212,7 +2270,7 @@ impl Render for NavigatorTabs {
                 .rounded(dp(theme.shape.card))
                 .bg(theme.background)
                 .border_1()
-                .border_color(edge)
+                .border_color(ground_edge)
         };
         let ground = ground.map(|(left, width)| ground_at(left, width));
         let pinned_ground = pinned_ground.map(|(left, width)| ground_at(left, width));
@@ -2228,7 +2286,7 @@ impl Render for NavigatorTabs {
                 .border_t_1()
                 .border_l_1()
                 .border_r_1()
-                .border_color(edge)
+                .border_color(neck_edge)
                 .opacity(card.fade)
         };
         // The tabs at the strip's right end aren't in the strip, so the tab reaching down into its
@@ -2275,7 +2333,7 @@ impl Render for NavigatorTabs {
             let Some(label) = labels.get(&tab.key) else {
                 continue;
             };
-            let el = self.tab(tab, left, label, now, cx);
+            let el = self.tab(tab, left, label, false, now, cx);
             match is_held(tab.key.project()) {
                 true => project_tabs.1.push(el),
                 false => project_tabs.0.push(el),
@@ -2295,11 +2353,11 @@ impl Render for NavigatorTabs {
                 };
                 if held == Some(&tab.key) {
                     let left = tab.left + self.slid(&tab.key);
-                    held_worktree = Some(self.tab(tab, left, label, now, cx));
+                    held_worktree = Some(self.tab(tab, left, label, false, now, cx));
                     continue;
                 }
                 let left = tab.left - opened.worktrees_left + self.reorder.offset(&tab.key);
-                tabs.push(self.tab(tab, left, label, now, cx));
+                tabs.push(self.tab(tab, left, label, false, now, cx));
             }
             let shown = div()
                 .absolute()
@@ -2386,20 +2444,24 @@ impl Render for NavigatorTabs {
             .update(cx, |navigator, cx| navigator.strip_controls(cx));
         // At the strip's right end, which scrolls under them.
         let scale = theme.scale;
+        let with_keys = self.navigator.read(cx).keys.head_tab();
         let mut pinned_tabs = Vec::with_capacity(pinned.len());
         for (key, label, width, drawn_at) in pinned {
+            let solid = with_keys.as_ref() == Some(&key);
             let tab = Placed {
                 key,
                 left: 0.,
                 width,
             };
+            let highlight = solid.then(|| selection_box(0., width, true, &theme));
             pinned_tabs.push(
                 div()
                     .relative()
                     .flex_none()
                     .h(dp(HEADER_HEIGHT))
                     .w(dp(width))
-                    .child(self.tab(&tab, 0., &label, now, cx))
+                    .children(highlight)
+                    .child(self.tab(&tab, 0., &label, solid, now, cx))
                     .child(
                         gpui::canvas(
                             move |bounds, window, _| {
@@ -2593,16 +2655,13 @@ impl Navigator {
         self.in_scope(scope, cx, |this, cx| {
             if *scope != TabKey::More {
                 return (0..this.built.rows.len())
-                    .map(|ix| this.row_in_card(ix, window, cx))
+                    .map(|ix| this.row_in_card(ix, cx))
                     .collect();
             }
             let theme = Theme::get(cx).clone();
             let alone = this.watched(this.store.read(cx)).is_empty();
-            let bar = this
-                .drawer_bar(alone, window, &theme, cx)
-                .into_any_element();
-            let rows =
-                (0..this.built.drawer.rows.len()).map(|ix| this.render_drawer_row(ix, window, cx));
+            let bar = this.drawer_bar(alone, &theme, cx).into_any_element();
+            let rows = (0..this.built.drawer.rows.len()).map(|ix| this.render_drawer_row(ix, cx));
             std::iter::once(bar).chain(rows).collect()
         })
     }

@@ -7,6 +7,7 @@ use std::ops::Range;
 
 use gpui::{App, ListOffset, ListState, Pixels, Window};
 
+use super::cursor::OffRow;
 use super::rows::{Drawer, Fold, Moving, Row, RowKey, Rows, row_keys, span_height};
 use super::{ABOVE_LAST_LISTED, LIST_TOP, Navigator, holder, moving, shows_where_it_lands};
 use crate::backend::Checkout;
@@ -485,7 +486,11 @@ impl Navigator {
         }
         self.built.rows = rows;
         // The bar goes with the rows that made it a stop, or once something moves.
-        self.on_drawer_bar &= self.drawer_toggles(cx) && self.store.read(cx).moving.is_none();
+        if self.off_row == Some(OffRow::DrawerBar)
+            && !(self.drawer_toggles(cx) && self.store.read(cx).moving.is_none())
+        {
+            self.off_row = None;
+        }
         if changed {
             // The clone shares the list's state.
             self.list.clone().with_uniform_item_height(row);
