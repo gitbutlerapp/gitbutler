@@ -127,6 +127,19 @@ pub(crate) fn graph(
         /// workspace commit.
         in_workspace: bool,
     }
+    // Whether the target has the commit `id`, as the target commit or in the history of the
+    // target branch or its upstream.
+    let target_tips: Vec<gix::ObjectId> = std::iter::once(target_ref)
+        .chain(target_upstream_ref)
+        .filter_map(|name| ref_to_oid.get(name).copied())
+        .collect();
+    let is_in_target = |id: gix::ObjectId| {
+        Some(id) == target_commit_id
+            || target_tips.iter().any(|&tip| {
+                repo.merge_base(id, tip)
+                    .is_ok_and(|base| base.is_some_and(|base| base.detach() == id))
+            })
+    };
     let (stacks, unstacked_workspace_branches) = {
         let live_stack = |branches: Vec<FullName>, in_workspace: bool| {
             let branches: Vec<FullName> = branches
@@ -169,7 +182,22 @@ pub(crate) fn graph(
                     .as_ref()
                     .is_some_and(|parent_ids| !parent_ids.contains(&stack.tip))
                     && Some(stack.tip) != target_commit_id;
-                if !(stack.in_workspace && is_stack_underneath_another) {
+                // Like after a traversal, a parent of the managed workspace commit is one lane
+                // however many stacks rest on it, that of the first of them, unless the target
+                // already has it, where each is an empty lane. The branches of the others then
+                // belong to that lane too.
+                let rests_on_another_stack = workspace_commit_parent_ids.is_some()
+                    && stacks
+                        .iter()
+                        .any(|other| other.in_workspace && other.tip == stack.tip)
+                    && !is_in_target(stack.tip);
+                // Seen from the workspace, a stack outside of it is no lane, so like after a
+                // traversal its branches belong to whichever lane reaches them.
+                let is_outside_seen_from_workspace =
+                    !stack.in_workspace && head_ref.is_some_and(is_workspace_ref_name);
+                if !(stack.in_workspace && (is_stack_underneath_another || rests_on_another_stack))
+                    && !is_outside_seen_from_workspace
+                {
                     stacks.push(stack);
                 } else {
                     unstacked_workspace_branches.extend(stack.branches);
@@ -409,6 +437,28 @@ pub(crate) fn graph(
             let mut new_stack_lineage = StackLineage::default();
             let mut new_map = HashMap::<StackLineage, Vec<ToRepoint>>::new();
             let node_index = nodes.len();
+            // Like after a traversal, where the branch naming the segment of a commit has it for
+            // every lane reaching it, the lanes of the workspace that reach a branch of a stack in
+            // the workspace whose own lane reaches it too run into that branch.
+            let is_workspace_lane = |stack_lineage: &StackLineage| {
+                stacks.iter().any(|stack| {
+                    stack.in_workspace
+                        && stack
+                            .branches
+                            .iter()
+                            .any(|name| stack_lineage.branches_in_lineage.contains(name))
+                })
+            };
+            let own_lane_reaches_it = workspace_commit.is_some()
+                && !is_in_target(commit_id)
+                && stacks
+                    .iter()
+                    .any(|stack| stack.in_workspace && stack.branches.contains(&full_name))
+                && unassigned_oid_map.get(&commit_id).is_some_and(|lineages| {
+                    lineages
+                        .keys()
+                        .any(|stack_lineage| stack_lineage.branches_in_lineage.contains(&full_name))
+                });
             for (stack_lineage, to_repoints) in
                 unassigned_oid_map.remove(&commit_id).unwrap_or_default()
             {
@@ -419,7 +469,8 @@ pub(crate) fn graph(
                     && (full_name.as_ref() == target_ref
                         || (stack_lineage.is_unclaimed_workspace_edge && !rests_beside)
                         || is_stackless_branch
-                        || stack_lineage.branches_in_lineage.contains(&full_name));
+                        || stack_lineage.branches_in_lineage.contains(&full_name)
+                        || (own_lane_reaches_it && is_workspace_lane(&stack_lineage)));
                 if in_lineage {
                     workspace_took_in_branch |= stack_lineage.is_unclaimed_workspace_edge
                         && category == Some(gix::refs::Category::LocalBranch)
@@ -530,25 +581,8 @@ pub(crate) fn graph(
             .is_some_and(|commit| commit.id == commit_id);
         let mut stack_edges = Vec::<(gix::ObjectId, StackLineage)>::new();
         if is_managed_workspace_commit {
-            // Like after a traversal, a parent of the workspace commit is one lane however many
-            // stacks rest on it, unless the target already has it, where each is an empty lane.
-            let target_tips: Vec<gix::ObjectId> = std::iter::once(target_ref)
-                .chain(target_upstream_ref)
-                .filter_map(|name| ref_to_oid.get(name).copied())
-                .collect();
-            let is_in_target = |id: gix::ObjectId| {
-                Some(id) == target_commit_id
-                    || target_tips.iter().any(|&tip| {
-                        repo.merge_base(id, tip)
-                            .is_ok_and(|base| base.is_some_and(|base| base.detach() == id))
-                    })
-            };
             for stack in stacks.iter().filter(|stack| stack.in_workspace) {
-                let parent_has_a_lane = stack_edges.iter().any(|(tip, _)| *tip == stack.tip)
-                    && !is_in_target(stack.tip);
-                if (parent_ids.contains(&stack.tip) || Some(stack.tip) == target_commit_id)
-                    && !parent_has_a_lane
-                {
+                if parent_ids.contains(&stack.tip) || Some(stack.tip) == target_commit_id {
                     stack_edges.push((
                         stack.tip,
                         StackLineage {
@@ -571,11 +605,21 @@ pub(crate) fn graph(
         let covered_parent_ids: Vec<gix::ObjectId> =
             stack_edges.iter().map(|(tip, _)| *tip).collect();
         let mut stack_edges = stack_edges.into_iter();
+        let mut lanes_of_parents = Vec::<(gix::ObjectId, StackLineage)>::new();
         let mut parent_edges: Vec<_> = parent_ids
             .into_iter()
             .filter_map(|parent_id| {
                 if covered_parent_ids.contains(&parent_id) {
-                    stack_edges.next()
+                    // Like after a traversal, a parent the workspace commit has more often than
+                    // stacks have a lane on it is one more lane into the same commit.
+                    let edge = stack_edges.next().or_else(|| {
+                        lanes_of_parents
+                            .iter()
+                            .find(|(tip, _)| *tip == parent_id)
+                            .cloned()
+                    });
+                    lanes_of_parents.extend(edge.clone());
+                    edge
                 } else {
                     Some((parent_id, stack_lineage.clone()))
                 }
@@ -832,21 +876,52 @@ impl WorkspaceGraph {
                         && !predecessor_segment_info.must_start_new_segment
                         && seen_from_ref != Some(full_name.as_ref())
                         && full_name.category() == Some(gix::refs::Category::LocalBranch)
+                        && project_meta.target_ref.as_ref().is_none_or(|target_ref| {
+                            target_ref.as_local_full_name_ref() != full_name
+                        })
                         && self.unclaimed_branches.contains(full_name)
                         && !worktree_by_branch.contains_key(full_name)
-                        && predecessor_segment_info.segment_indexes.iter().all(
+                        && predecessor_segment_info.segment_indexes.iter().any(
                             |(segment_index, _)| {
                                 let segment = &inner_graph[*segment_index];
                                 segment.commits.is_empty()
                                     && segment.ref_info.as_ref().is_some_and(|ref_info| {
-                                        ref_info.ref_name.category() == full_name.category()
-                                            && (self
-                                                .unclaimed_branches
-                                                .contains(&ref_info.ref_name)
-                                                || !is_workspace_ref_name(
-                                                    ref_info.ref_name.as_ref(),
-                                                ))
+                                        ref_info.ref_name.category()
+                                            == Some(gix::refs::Category::LocalBranch)
                                     })
+                            },
+                        )
+                        && predecessor_segment_info.segment_indexes.iter().all(
+                            |(segment_index, _)| {
+                                let segment = &inner_graph[*segment_index];
+                                segment.ref_info.as_ref().is_some_and(|ref_info| {
+                                    let category = ref_info.ref_name.category();
+                                    if segment.commits.is_empty() {
+                                        category == Some(gix::refs::Category::RemoteBranch)
+                                            || (category == full_name.category()
+                                                && (self
+                                                    .unclaimed_branches
+                                                    .contains(&ref_info.ref_name)
+                                                    || !is_workspace_ref_name(
+                                                        ref_info.ref_name.as_ref(),
+                                                    )))
+                                    } else {
+                                        // A branch outside the workspace and the target, and not
+                                        // checked out elsewhere, doesn't take it either.
+                                        category == Some(gix::refs::Category::LocalBranch)
+                                            && !worktree_by_branch
+                                                .get(&ref_info.ref_name)
+                                                .is_some_and(|worktrees| {
+                                                    worktrees.iter().any(|wt| !wt.owned_by_repo)
+                                                })
+                                            && !segment.commits.last().is_some_and(|commit| {
+                                                commit.flags.intersects(
+                                                    CommitFlags::InWorkspace
+                                                        | CommitFlags::Integrated,
+                                                )
+                                            })
+                                    }
+                                })
                             },
                         )))
             {
