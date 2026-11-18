@@ -848,6 +848,15 @@ impl WorkspaceGraph {
                 NodeWeight::Ref { full_name } => Some((full_name, self.commit_id_of(i))),
                 NodeWeight::Pick { .. } | NodeWeight::ShallowPoint { .. } => None,
             };
+            // Like the tip of a traversal, the commit the graph is seen from isn't only in a
+            // remote, even without a branch.
+            if let NodeWeight::Pick { oid } | NodeWeight::ShallowPoint { oid } = &node.weight
+                && seen_from_commit == Some(*oid)
+            {
+                predecessor_segment_info
+                    .commit_flags
+                    .insert(CommitFlags::NotInRemote);
+            }
             if let Some((full_name, _)) = reference {
                 if full_name.category() != Some(gix::refs::Category::RemoteBranch) {
                     predecessor_segment_info
