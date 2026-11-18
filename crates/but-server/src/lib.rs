@@ -958,7 +958,7 @@ async fn handle_command(
             legacy::settings::update_reviews(&app_settings_sync, params).map(|r| json!(r))
         }),
         // Project management (need extra or app)
-        "list_projects" => projects::list_projects(&extra).await,
+        "list_projects" => projects::list_projects(),
         "set_project_active" => {
             projects::set_project_active(&broadcaster, &extra, app_settings_sync, request.params)
                 .await

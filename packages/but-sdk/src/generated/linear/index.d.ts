@@ -27,10 +27,10 @@ export type AbsorptionTarget = {
 /** Result of adding a local repository as a project. */
 export type AddProjectOutcome = {
   type: "added";
-  subject: ProjectForFrontend;
+  subject: Project;
 } | {
   type: "alreadyExists";
-  subject: ProjectForFrontend;
+  subject: Project;
 } | {
   type: "pathNotFound";
 } | {
@@ -1965,10 +1965,8 @@ export type PadLine = "blank" | "ancestor" | "parent";
 /**
  * API-specific project type that can be enriched with computed/derived data
  * while preserving the original project structure for persistence.
- *
- * Not registered for ts types because it is only consumed while flattened
  */
-export type ProjectForFrontend = {
+export type Project = {
   id: string;
   title: string;
   description: string | null;
@@ -2000,8 +1998,6 @@ export type ProjectForFrontend = {
   gerrit_mode?: boolean;
   /** Path to the forge review template, if set in git configuration. */
   forge_review_template_path: string | null;
-  /** Tell if the project is known to be open in a Window in the frontend. */
-  is_open: boolean;
 };
 
 /**
