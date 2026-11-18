@@ -3682,7 +3682,7 @@ impl Navigator {
             "Update",
         )
         .small()
-        .style(ButtonStyle::Gray)
+        .style(ButtonStyle::Outline)
         .inverted(inverted)
         .disabled_because(updating.then_some("Updating already"))
         .tooltip_for(

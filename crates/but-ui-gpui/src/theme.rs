@@ -39,6 +39,8 @@ pub struct Theme {
     pub border_3: Hsla,
     /// The solid gray of a focused selection, which the `*_on_solid` colours read on.
     pub fill_gray: Hsla,
+    /// `fill_gray` under the pointer, as a gray button's.
+    pub fill_gray_hover: Hsla,
     pub text_inverted: Hsla,
     pub hover: Hsla,
     pub selected_unfocused: Hsla,
@@ -49,6 +51,8 @@ pub struct Theme {
     pub muted_hover: Hsla,
     pub muted_on_solid: Hsla,
     pub hover_on_solid: Hsla,
+    /// An outline's edge on a solid selection, as React's `outline-inverted`.
+    pub control_border_on_solid: Hsla,
     /// A tree's guide on a solid selection: the inverted muted foreground at 40%, as
     /// but-ui-react's `--guide-color` there.
     pub guide_on_solid: Hsla,
@@ -62,6 +66,8 @@ pub struct Theme {
     pub shadow: Hsla,
     pub pop: Hsla,
     pub pop_bg: Hsla,
+    /// A checked box or radio under the pointer: `pop_bg` with a seventh of the text in it.
+    pub pop_bg_hover: Hsla,
     pub pop_button: Hsla,
     pub pop_hover: Hsla,
     pub on_pop: Hsla,
@@ -136,8 +142,12 @@ pub struct Theme {
     pub snackbar_bg: Hsla,
     pub snackbar_border: Hsla,
     pub snackbar_text: Hsla,
-    /// For glyphs only: it reads at 3:1 on `snackbar_bg`.
+    /// An info snackbar's glyph.
+    pub snackbar_muted: Hsla,
+    /// For glyphs only, as the two after it: it reads at 3:1 on `snackbar_bg`.
     pub snackbar_warn: Hsla,
+    pub snackbar_danger: Hsla,
+    pub snackbar_safe: Hsla,
     pub snackbar_divider: Hsla,
     pub snackbar_hover: Hsla,
     pub diff_added: Hsla,
@@ -668,10 +678,11 @@ impl Theme {
             rgba(if dark { dark_value } else { light }).into()
         };
         // As CSS's `color-mix` at 50%.
-        let halfway = |a: [u32; 2], b: [u32; 2]| -> Hsla {
+        let mixed = |a: [u32; 2], b: [u32; 2], t: f32| -> Hsla {
             let pick = |[light, dark_value]: [u32; 2]| (if dark { dark_value } else { light }) >> 8;
-            color(mix(pick(a), pick(b), 0.5))
+            color(mix(pick(a), pick(b), t))
         };
+        let halfway = |a: [u32; 2], b: [u32; 2]| mixed(a, b, 0.5);
         let (code_text, code_line) = code.metrics();
         // GitHub's light and dark, which but.dev's diffs take their colours from.
         let added = pick(0x28a745, 0x34d058);
@@ -700,6 +711,7 @@ impl Theme {
             border_2: token(on_ground!(BORDER)),
             border_3: token(on_ground!(BORDER_SUBTLE)),
             fill_gray,
+            fill_gray_hover: token(on_ground!(INVERSE_HOVER)),
             text_inverted,
             hover: token(on_ground!(HOVER)),
             selected_unfocused: token(on_ground!(SELECTED_INACTIVE)),
@@ -710,6 +722,7 @@ impl Theme {
             muted_hover: halfway(on_ground!(MUTED), on_ground!(MUTED_NESTED)),
             muted_on_solid: token(on_ground!(INVERSE_MUTED_FOREGROUND)),
             hover_on_solid: token(on_ground!(INVERSE_GHOST_HOVER)),
+            control_border_on_solid: text_inverted.opacity(0.26),
             guide_on_solid: token(on_ground!(INVERSE_MUTED_FOREGROUND)).opacity(0.4),
             neutral_soft: token(on_ground!(NEUTRAL_SOFT)),
             inverse_soft: token(on_ground!(INVERSE_SOFT)),
@@ -720,6 +733,7 @@ impl Theme {
             shadow: token(on_ground!(SHADOW)),
             pop: token(on_ground!(PRIMARY_TEXT)),
             pop_bg: token(on_ground!(PRIMARY)),
+            pop_bg_hover: mixed(on_ground!(PRIMARY), on_ground!(FOREGROUND), 0.14),
             pop_button: token(on_ground!(PRIMARY)),
             pop_hover: token(on_ground!(PRIMARY_HOVER)),
             on_pop: token(on_ground!(PRIMARY_FOREGROUND)),
@@ -786,7 +800,10 @@ impl Theme {
             snackbar_bg: token(on_ground!(SNACKBAR)),
             snackbar_border: token(on_ground!(SNACKBAR_BORDER)),
             snackbar_text: token(on_ground!(SNACKBAR_FOREGROUND)),
+            snackbar_muted: token(on_ground!(SNACKBAR_MUTED_FOREGROUND)),
             snackbar_warn: token(on_ground!(WARNING)),
+            snackbar_danger: token(on_ground!(SNACKBAR_DANGER)),
+            snackbar_safe: token(on_ground!(SNACKBAR_SUCCESS)),
             snackbar_divider: token(on_ground!(SNACKBAR_DIVIDER)),
             snackbar_hover: token(on_ground!(SNACKBAR_HOVER)),
             diff_added: added,
@@ -941,6 +958,7 @@ impl Theme {
             border_2: color(mix(bg, fg, 0.3)),
             border_3: color(mix(bg, fg, 0.18)),
             fill_gray: color(fg),
+            fill_gray_hover: color(mix(bg, fg, 0.89)),
             text_inverted: color(bg),
             hover: veil(0.05),
             selected_unfocused: veil(0.1),
@@ -951,6 +969,7 @@ impl Theme {
             muted_hover: color(muted_hover),
             muted_on_solid: color(bg).opacity(0.6),
             hover_on_solid: color(bg).opacity(0.05),
+            control_border_on_solid: color(bg).opacity(0.26),
             guide_on_solid: color(bg).opacity(0.6 * 0.4),
             inverse_soft: color(bg).opacity(0.15),
             inverse_soft_hover: color(bg).opacity(0.22),
@@ -963,6 +982,7 @@ impl Theme {
             shadow: color(0x000000).opacity(if dark { 0.5 } else { 0.1 }),
             pop: color(pop_text),
             pop_bg: color(pop),
+            pop_bg_hover: color(mix(pop, fg, 0.14)),
             pop_button: color(pop),
             pop_hover: color(mix(pop, 0x000000, 0.08)),
             on_pop: color(on_pop),
@@ -1031,8 +1051,15 @@ impl Theme {
             snackbar_bg: color(fg),
             snackbar_border: gpui::transparent_black(),
             snackbar_text: color(bg),
+            snackbar_muted: color(bg).opacity(0.6),
             snackbar_warn: color(
                 reaching(ansi(3), snackbar_ink, &[fg], 3.).unwrap_or(snackbar_ink),
+            ),
+            snackbar_danger: color(
+                reaching(ansi(1), snackbar_ink, &[fg], 3.).unwrap_or(snackbar_ink),
+            ),
+            snackbar_safe: color(
+                reaching(ansi(2), snackbar_ink, &[fg], 3.).unwrap_or(snackbar_ink),
             ),
             snackbar_divider: color(mix(bg, fg, 0.18)).opacity(0.3),
             snackbar_hover: color(bg).opacity(0.05),
@@ -1082,6 +1109,13 @@ impl Theme {
     /// `selected_unfocused` made opaque on a card, for a sticky header over its content.
     pub fn selected_on_card(&self) -> Hsla {
         self.bg_1.blend(self.selected_unfocused)
+    }
+
+    /// `top` at half strength over `ground`, made solid: how a disabled control looks once
+    /// it's faded as one picture, as CSS's `opacity` on the control draws it. GPUI fades each
+    /// layer on its own instead, so a mark over a fill would let the fill show through it.
+    pub fn disabled_on(top: Hsla, ground: Hsla) -> Hsla {
+        ground.blend(top.opacity(0.5))
     }
 
     /// A passage set off from the page, not a panel.

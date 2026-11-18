@@ -757,15 +757,22 @@ impl FileListItem {
                                 el.opacity(0.).group_hover(LEAD, |s| s.opacity(1.))
                             })
                             .child(
-                                checkbox("check", check, &theme)
-                                    // Checking a file doesn't press the row under it.
-                                    .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| {
-                                        cx.stop_propagation()
-                                    })
-                                    .on_click(move |event, window, cx| {
+                                checkbox_on(
+                                    "check",
+                                    check,
+                                    if solid { theme.fill_gray } else { theme.bg_1 },
+                                    &theme,
+                                )
+                                // Checking a file doesn't press the row under it.
+                                .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| {
+                                    cx.stop_propagation()
+                                })
+                                .on_click(
+                                    move |event, window, cx| {
                                         cx.stop_propagation();
                                         on_click(event, window, cx);
-                                    }),
+                                    },
+                                ),
                             )
                     }))
             });

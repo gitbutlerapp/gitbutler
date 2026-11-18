@@ -9,7 +9,7 @@ use std::rc::Rc;
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, Div, MouseButton, Role, ScrollHandle, SharedString,
-    Stateful, Toggled, Window, div, list, prelude::*, relative,
+    Stateful, Window, div, list, prelude::*, relative,
 };
 
 use super::diff_view::pressed;
@@ -32,9 +32,9 @@ use crate::ui::review as ui_review;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{BadgeSize, BadgeVariant, badge};
 use crate::ui::{
-    ButtonStyle, Icon, TextPoint, Tooltip, ago, button, count_badge, dot, dp, dropdown_button,
-    duration, h_flex, icon, icon_at, icon_button, local_time, now, relative_time, shortcut,
-    small_icon, switch_grounds, switch_spring, tab_after, tab_stop, v_flex,
+    ButtonStyle, Icon, SwitchButton, SwitchButtonStyle, TextPoint, Tooltip, ago, button,
+    count_badge, dot, dp, dropdown_button, duration, h_flex, icon, icon_at, icon_button,
+    local_time, now, relative_time, shortcut, small_icon, switch_button, tab_after, v_flex,
 };
 
 /// How tall the tabs over the diff beside a list are.
@@ -426,7 +426,7 @@ impl Detail {
             .flex_wrap()
             .justify_end()
             .gap(dp(8.))
-            .child(auto_merge_switch(on, auto_why, theme))
+            .child(auto_merge_switch(on, auto_why))
             .child(merge_button);
         Some(side_section(
             "Merge",
@@ -1078,68 +1078,20 @@ fn headline(merge: &Mergeability) -> SharedString {
 
 /// Auto-merge as an outlined switch button: on while it merges by itself, pressable unless
 /// `why_not` says otherwise.
-fn auto_merge_switch(on: bool, why_not: Option<SharedString>, theme: &Theme) -> Stateful<Div> {
-    use gpui::AnimationExt as _;
+fn auto_merge_switch(on: bool, why_not: Option<SharedString>) -> SwitchButton {
     let offer = match on {
         true => Offer::DisableAutoMerge,
         false => Offer::EnableAutoMerge,
     };
-    let tip: SharedString = why_not.clone().unwrap_or(match on {
-        true => "Leave it to merge by hand".into(),
-        false => "Merge it by itself once its required checks and reviews pass".into(),
-    });
-    let enabled = why_not.is_none();
-    let [off_ground, on_ground] = switch_grounds(theme);
-    let knob = theme.bg_1;
-    let el = h_flex()
-        .id("auto-merge")
-        .role(Role::Switch)
-        .aria_label("Auto-merge")
-        .aria_toggled(if on { Toggled::True } else { Toggled::False })
-        .flex_none()
-        .h(dp(20.))
-        .px(dp(6.))
-        .gap(dp(6.))
-        .rounded(dp(theme.shape.control))
-        .border_1()
-        .border_color(theme.control_border)
-        .text_12()
-        .semibold()
-        .whitespace_nowrap()
-        .child(
-            h_flex()
-                .w(dp(20.))
-                .h(dp(12.))
-                .p(dp(2.))
-                .rounded_full()
-                .with_spring("track", switch_spring(on), move |el, phase| {
-                    el.bg(phase.interpolate_clamped(off_ground, on_ground))
-                        .child(
-                            div()
-                                // The track's width, less its padding and the knob.
-                                .ml(phase.interpolate_clamped(dp(0.), dp(8.)))
-                                .size(dp(8.))
-                                .rounded_full()
-                                .bg(knob),
-                        )
-                }),
-        )
-        .child("Auto-merge")
-        .tooltip(move |window, cx| {
-            let key = enabled.then(|| shortcut(offer.action(), cx)).flatten();
-            Tooltip::keyed(tip.clone(), key)(window, cx)
-        });
-    match enabled {
-        true => {
-            tab_stop(el, theme)
-                .hover(|el| el.bg(theme.hover))
-                .on_click(move |_, window, cx| {
-                    cx.stop_propagation();
-                    window.dispatch_action(offer.action().boxed_clone(), cx)
-                })
-        }
-        false => el.opacity(0.5),
-    }
+    let tip = match on {
+        true => "Leave it to merge by hand",
+        false => "Merge it by itself once its required checks and reviews pass",
+    };
+    switch_button("auto-merge", "Auto-merge", on)
+        .style(SwitchButtonStyle::Outline)
+        .tooltip_for(tip, offer.action())
+        .disabled_because(why_not)
+        .on_click(move |_, window, cx| window.dispatch_action(offer.action().boxed_clone(), cx))
 }
 
 /// Who opened it, and when it last changed when that's later, as a line under the title.

@@ -25,12 +25,14 @@ mod file_status_badge;
 mod icons;
 mod keycap;
 mod popover;
+mod radio;
 mod review;
 mod rows;
 mod segmented;
 mod select;
 mod snackbar;
 mod switch;
+mod switch_button;
 mod toggle_group;
 
 use gpui::{
@@ -199,10 +201,16 @@ impl Gallery {
             story("List rows", rows::RowsStory::default(), cx),
             story("Popover and modal", popover::PopoverStory, cx),
             story("Pull request state", review::ReviewStory, cx),
+            story("Radio", radio::RadioStory::default(), cx),
             story("Segmented", segmented::SegmentedStory::default(), cx),
             story("Select", select::SelectStory, cx),
             story("Snackbar", snackbar::SnackbarStory, cx),
             story("Switch", switch::SwitchStory::default(), cx),
+            story(
+                "Switch button",
+                switch_button::SwitchButtonStory::default(),
+                cx,
+            ),
             story(
                 "Toggle group",
                 toggle_group::ToggleGroupStory::default(),

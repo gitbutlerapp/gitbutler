@@ -954,9 +954,11 @@ impl SettingsView {
                     "Diff lines wider than the pane continue on the next row.{}",
                     keys_in_diff(&crate::detail::ToggleWrap, "turns it on and off", cx)
                 )),
-                switch("wrap", prefs.wrap, theme).on_click(cx.listener(|this, _, _, cx| {
-                    this.detail.update(cx, |detail, cx| detail.toggle_wrap(cx));
-                })),
+                switch("wrap", prefs.wrap, theme)
+                    .large()
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.detail.update(cx, |detail, cx| detail.toggle_wrap(cx));
+                    })),
             ),
             Row::new(
                 "Side by side",
@@ -964,9 +966,11 @@ impl SettingsView {
                     "Diffs show the old lines beside the new ones.{}",
                     keys_in_diff(&crate::detail::ToggleSplit, "switches", cx)
                 )),
-                switch("split", prefs.split, theme).on_click(cx.listener(|this, _, _, cx| {
-                    this.detail.update(cx, |detail, cx| detail.toggle_split(cx));
-                })),
+                switch("split", prefs.split, theme)
+                    .large()
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.detail.update(cx, |detail, cx| detail.toggle_split(cx));
+                    })),
             ),
             Row::new(
                 "Semantic context",
@@ -974,14 +978,14 @@ impl SettingsView {
                  whole around it. deltoids reads it from the code with tree-sitter, for Rust, \
                  TypeScript, JavaScript, Python, Go and 15 other languages, though not Svelte. \
                  Off, diffs skip reading it, and load a little faster.",
-                switch("semantic", !prefs.no_semantic_context, theme).on_click(cx.listener(
-                    |this, _, _, cx| {
+                switch("semantic", !prefs.no_semantic_context, theme)
+                    .large()
+                    .on_click(cx.listener(|this, _, _, cx| {
                         this.detail.update(cx, |detail, cx| {
                             detail
                                 .set_semantic_context(|prefs| prefs.no_semantic_context ^= true, cx)
                         });
-                    },
-                )),
+                    })),
             ),
         ];
         diff.splice(
@@ -1199,9 +1203,11 @@ impl SettingsView {
         flip: fn(&mut Prefs),
         cx: &Context<Self>,
     ) -> Switch {
-        switch(id, on, Theme::get(cx)).on_click(cx.listener(move |this, _, _, cx| {
-            this.store.update(cx, |store, cx| store.set_prefs(flip, cx))
-        }))
+        switch(id, on, Theme::get(cx))
+            .large()
+            .on_click(cx.listener(move |this, _, _, cx| {
+                this.store.update(cx, |store, cx| store.set_prefs(flip, cx))
+            }))
     }
 
     /// A switch's click for one of GitButler's settings, which this view holds in `value` once
@@ -1225,15 +1231,15 @@ impl SettingsView {
 
     /// Nothing until it's read.
     fn start_row(&self, cx: &Context<Self>) -> Option<Row> {
-        let start = switch("open-at-start", self.open_at_start?, Theme::get(cx)).on_click(
-            Self::toggle_saved(
+        let start = switch("open-at-start", self.open_at_start?, Theme::get(cx))
+            .large()
+            .on_click(Self::toggle_saved(
                 |this| this.open_at_start.as_mut(),
                 "Couldn't change what opens at start",
                 backend::set_opens_at_start,
                 Self::load_app_settings,
                 cx,
-            ),
-        );
+            ));
         Some(Row::new(
             "Open this app at start",
             "GitButler opens this app rather than its web app when it starts, as \
@@ -1269,7 +1275,7 @@ impl SettingsView {
             "Show the brief about a branch on a tab of its page. Every few minutes, open projects \
              ask GitButler's server about their newest branches, by the repository's address and \
              the branches' names and commits.",
-            switch("briefs", on, Theme::get(cx)).on_click(flip),
+            switch("briefs", on, Theme::get(cx)).large().on_click(flip),
         )
     }
 
@@ -1298,7 +1304,9 @@ impl SettingsView {
             "Single file diff",
             "The diff shows only the file selected in the file list, filling the pane, with \
              its changed lines marked beside the scrollbar. The file list stays beside it.",
-            switch("single-file-diff", on, Theme::get(cx)).on_click(flip),
+            switch("single-file-diff", on, Theme::get(cx))
+                .large()
+                .on_click(flip),
         )
         .with_keywords("all-in-one one file at a time per screen")
     }
