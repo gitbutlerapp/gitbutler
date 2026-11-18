@@ -879,6 +879,10 @@ impl WorkspaceGraph {
                 && !is_workspace_ref_name(full_name.as_ref())
                 && ((self.workspace_commit == Some(commit_id)
                     && seen_from_ref != Some(full_name.as_ref()))
+                    // Like after a traversal, where only local branches name segments, a tag is
+                    // recorded on its commit, unless the graph is seen from it.
+                    || (full_name.category() == Some(gix::refs::Category::Tag)
+                        && seen_from_ref != Some(full_name.as_ref()))
                     || (detached_commit == Some(commit_id)
                         && full_name.category() == Some(gix::refs::Category::LocalBranch)
                         && project_meta.target_ref.as_ref().is_none_or(|target_ref| {
@@ -965,17 +969,14 @@ impl WorkspaceGraph {
                     .insert(predecessor_segment_info.commit_flags);
                 continue;
             }
-            // A branch or tag that merely rests on the target commit, with
-            // nothing reaching it, is recorded on that commit like the branches
-            // of the segment containing it, instead of being a lane of its own,
-            // unless the graph is seen from it.
+            // A branch that merely rests on the target commit, with nothing
+            // reaching it, is recorded on that commit like the branches of the
+            // segment containing it, instead of being a lane of its own, unless
+            // the graph is seen from it.
             if let Some((full_name, commit_id)) = reference
                 && predecessor_segment_info.segment_indexes.is_empty()
                 && seen_from_ref != Some(full_name.as_ref())
-                && matches!(
-                    full_name.category(),
-                    Some(gix::refs::Category::LocalBranch | gix::refs::Category::Tag)
-                )
+                && full_name.category() == Some(gix::refs::Category::LocalBranch)
                 && project_meta
                     .target_ref
                     .as_ref()
