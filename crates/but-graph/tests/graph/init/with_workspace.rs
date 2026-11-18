@@ -9026,6 +9026,90 @@ fn extra_refs_follow_their_refs_when_the_traversal_is_redone() -> anyhow::Result
 }
 
 #[test]
+fn extra_remote_refs_on_commits_the_traversal_found_get_their_own_segments() -> anyhow::Result<()> {
+    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/deduced-remote-ahead")?;
+    add_workspace(&mut meta);
+    let on_remote_tip: gix::refs::FullName = "refs/remotes/push-remote/A".try_into()?;
+    let inside_branch: gix::refs::FullName = "refs/remotes/fork/A1".try_into()?;
+    let remote_tip = id_by_rev(&repo, "origin/A").detach();
+    let a1 = id_by_rev(&repo, "A~1").detach();
+    let mut graph_with = |extra_refs: Vec<gix::refs::FullName>| -> anyhow::Result<Graph> {
+        Graph::from_head(
+            &repo,
+            &*meta,
+            ProjectMeta {
+                push_remote: Some("origin".into()),
+                ..Default::default()
+            },
+            &mut db,
+            but_graph::init::Options {
+                extra_refs,
+                ..standard_options()
+            },
+        )?
+        .redo_traversal_with_overlay(
+            &repo,
+            &*meta,
+            Overlay::default().with_references([gix::refs::Reference {
+                name: inside_branch.clone(),
+                target: gix::refs::Target::Object(a1),
+                peeled: None,
+            }]),
+        )?
+        .validated()
+    };
+
+    let baseline = graph_with(vec![])?;
+    for name in [&on_remote_tip, &inside_branch] {
+        assert!(
+            baseline
+                .segment_and_commit_by_ref_name(name.as_ref())
+                .is_none(),
+            "commits keep no remote-tracking refs, and nothing else brings {name} in"
+        );
+    }
+
+    let graph = graph_with(vec![on_remote_tip.clone(), inside_branch.clone()])?;
+    for (name, id) in [(&on_remote_tip, remote_tip), (&inside_branch, a1)] {
+        let (_, commit) = graph
+            .segment_and_commit_by_ref_name(name.as_ref())
+            .unwrap_or_else(|| panic!("{name} exists, so it is part of the graph"));
+        assert_eq!(commit.id, id, "{name} points at the commit it rests on");
+    }
+    // Each gets an empty segment on its commit, and `A` is split so that `fork/A1` has a
+    // first commit to point at. No commit changes its flags.
+    snapbox::assert_data_eq!(
+        graph_dag(&graph),
+        snapbox::str![[r#"
+◎  👉📕gitbutler/workspace[🌳]
+●  ·8b39ce4 (⌂|🏘)
+◎  A <> origin/A
+●  ·9d34471 (⌂|🏘)
+│ ◎  fork/A1
+├─╯
+●  ·5b89c71 (⌂|🏘)
+│ ◎  push-remote/A
+│ ◎  origin/A
+│ ●  🟣3ea1a8f (0x0)
+│ ●  🟣9c50f71 (0x0)
+│ ●  🟣2cfbb79 (0x0)
+╭─┤
+│ ●  🟣e898cd0 (0x0)
+├─╯
+●  ·998eae6 (⌂|🏘)
+◎  main
+●  🏁·fafd9d0 (⌂|🏘)
+"#]]
+    );
+    assert_eq!(
+        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&baseline.into_workspace()?).to_string(),
+        "the workspace projection doesn't change"
+    );
+    Ok(())
+}
+
+#[test]
 fn workspace_traversal_with_extra_tips() -> anyhow::Result<()> {
     let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/worktree-ahead")?;
     snapbox::assert_data_eq!(

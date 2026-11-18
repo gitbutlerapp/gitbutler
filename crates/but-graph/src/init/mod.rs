@@ -433,7 +433,8 @@ pub struct Options {
     /// References to traverse once the regular traversal is done, so those it doesn't reach
     /// are part of the graph without changing what it found.
     ///
-    /// A reference the regular traversal found is skipped. Any other connects where its
+    /// A reference the regular traversal found is skipped, and stays in the graph even where
+    /// commits otherwise keep no remote-tracking references. Any other connects where its
     /// history meets the graph, and walks that stopped short go on only as far as it needs
     /// them to meet it. They are resolved on every traversal, so
     /// [redone traversals](Graph::redo_traversal_with_overlay()) see moved references and
