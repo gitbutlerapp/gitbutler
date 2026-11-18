@@ -9,8 +9,8 @@ use super::{ClickOpened, Navigator};
 use crate::app::{
     AppView, BuildAndRestartFromHere, Collapse, CopyBranchName, CopyCommitId, CopyErrorMessage,
     CopyPath, CopyPullRequestLink, CopySelection, Expand, Fetch, MarkAllRead, MoveSelection,
-    NewBranch, NewBranchOnTop, NewWorktree, OpenPullRequest, Pull, Push, SplitBelow, SplitRight,
-    SquashSelection, StartAmend, StartCommit, ToggleRead, UpdateFromTarget,
+    NewBranch, NewBranchOnTop, NewWorktreeWithName, OpenPullRequest, Pull, Push, SplitBelow,
+    SplitRight, SquashSelection, StartAmend, StartCommit, ToggleRead, UpdateFromTarget,
 };
 use crate::backend::rebuild::Rebuild;
 use crate::backend::{Checkout, CommitId};
@@ -260,11 +260,11 @@ fn read_marks<'a, C: Seeable + 'a>(
 
 /// Starting a branch from a project or its main worktree: a new one beside the others, or on
 /// top of the default branch when that's checked out on its own; or one in a new linked
-/// worktree, as `but worktree new` makes.
+/// worktree, as `but worktree new` makes, under the name its prompt takes.
 fn new_branch_items(cx: &App) -> Vec<MenuItem> {
     vec![
         MenuItem::command(&NewBranch, cx),
-        MenuItem::command(&NewWorktree, cx),
+        MenuItem::command(&NewWorktreeWithName, cx),
     ]
 }
 

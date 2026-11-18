@@ -265,6 +265,14 @@ impl Intent for CreateWorktree {
     }
 }
 
+/// The name [`CreateWorktree::New`] makes up when given none, to offer before the worktree is
+/// made. A branch made meanwhile can take it.
+pub fn made_up_name(path: &Path) -> Result<String> {
+    let ctx = open(path)?;
+    let name = but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?;
+    Ok(name.shorten().to_string())
+}
+
 /// Show an archived worktree again in place of making a new one, as
 /// [`but_api::worktrees::worktree_recycle_with_perm`] says, else make a new one.
 pub struct RecycleWorktree;
@@ -394,6 +402,27 @@ impl Intent for ArchiveWorktrees {
 #[cfg(test)]
 mod tests {
     use crate::backend::ops::tests::{agent_worktree, git, repo_with, target_origin_main};
+
+    #[test]
+    fn a_made_up_name_is_a_branch_name_git_allows_that_no_branch_has() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+
+            let first = super::made_up_name(path).unwrap();
+            assert_eq!(
+                crate::backend::branch_name(&first).as_deref(),
+                Some(first.as_str()),
+                "the prompt's field takes it as it is"
+            );
+            git(path, &["branch", &first]);
+            assert_ne!(
+                super::made_up_name(path).unwrap(),
+                first,
+                "one a branch took since is passed over"
+            );
+        });
+    }
 
     #[test]
     fn a_linked_worktrees_events_are_its_head_moves_newest_first() {
