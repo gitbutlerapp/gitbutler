@@ -302,7 +302,8 @@ where
 /// A workspace transaction that allows changing multiple operations and having them all succeed or
 /// fail together.
 ///
-/// See [`with_transaction`] for more details.
+/// See [`with_transaction`] for more details, and "Transactions compose editor operations" in
+/// `crates/WORKSPACE_MODEL.md` for where new behaviour goes.
 pub struct Transaction<'inner, 'rebase, M>
 where
     M: RefMetadata,

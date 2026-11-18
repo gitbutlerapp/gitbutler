@@ -165,6 +165,16 @@ That exclusivity is the part worth remembering. `but_ctx::Context` hands out its
 
 The same applies to the workspace and metadata borrows: an operation that wants to hand `Context` to a helper after materializing must release the editor's borrows before it does.
 
+### Transactions compose editor operations
+
+`but_transaction::Transaction` chains editor operations into one rebase and one undo step. Between steps it keeps only the rebase and commit mappings, so each of its methods should run an editor-backed `but_workspace` operation or compose other methods.
+
+- Put behaviour that callers need in the `but_workspace` operation, not in the transaction. That covers entering and leaving the workspace, where a branch goes, which removals to refuse, and which checkouts to refuse. The API, CLI and GPUI then get it from one place.
+- Decide inside the edit. If a later step of the same transaction changes the answer, that step changes the graph back, as `switch_to_branch` does with a workspace entered in the same edit. Don't keep work in the transaction to finish when the callback ends.
+- Refuse an unsafe result before materializing writes it, as switching does, instead of taking a checkpoint and restoring it after a failure.
+- Declare references outside the workspace in `TransactionOptions::extra_mutable_refs` or `extra_immutable_refs`. Every operation then sees them like workspace references, so no operation needs its own path for them.
+- Test a behaviour at the `but_workspace` operation that owns it, in `crates/but-workspace/tests/workspace/`. Test the transaction and `but-api` only for what they add: one undo step, declared references, dry runs.
+
 ## Push and upstream integration
 
 Push should be graph-based, not stack-based.
@@ -201,7 +211,7 @@ Editor-backed `but_workspace` operations put `HEAD` on the workspace reference w
 
 - **Entering** (`editor_workspace::enter_workspace`): an operation that makes a second stack beside the checked-out one, as `create_reference` without an anchor and `tear_off_branch` do. `apply_stack` enters even for one stack, as that's what it's asked for.
 - **Leaving** (`editor_workspace::leave_unnecessary_workspace`): an operation that can take a tip away from the workspace commit leaves the workspace whenever at most one tip is left when it's done, whether or not it took one away. It checks that tip's branch out, or the local target once none is left. Discarding, moving and squashing commits do this, as do moving and dropping a branch and integrating upstream.
-- **Switching** (`editor_workspace::switch_to_branch`): a checkout that was asked for is recorded in the editor too, so materializing refuses it before writing anything if it would overwrite uncommitted changes.
+- **Switching** (`editor_workspace::switch_to_branch`): a checkout that was asked for is recorded in the editor too, so materializing refuses it before writing anything if it would overwrite uncommitted changes or check out a conflicted commit.
 
 A branch without an anchor has no lane to go to without a target, or while the target's own branch is checked out with commits. It goes on top of the checked-out branch then, and `HEAD` follows it.
 
@@ -217,7 +227,7 @@ Ask this for both read/query code and mutation code:
 6. Does target ref/commit matter as traversal context, display frame, operation target, or workspace target metadata?
 7. Could this run outside managed workspace mode?
 8. Am I passing too much `but_ctx::Context` into lower layers?
-9. Does this operation need immediate materialization, or can it compose graph edits first?
+9. Does this operation need immediate materialization, or can it compose graph edits first? Does anything have to happen when a transaction ends? If so, which editor operation can decide it instead?
 
 ## Encouraged patterns
 

@@ -45,8 +45,8 @@ vendored, or fixture data unless the task is specifically about that code.
   operations for it.
 - Before changing or reviewing code that derives graph/workspace/branch/stack/commit
   relationships, reachability, dependencies, ordering, operation targets, or Git
-  graph/history/ref-placement mutations, use `crates/WORKSPACE_MODEL.md` as the
-  reference. In short: prefer commit IDs and refs at API boundaries, convert to
+  graph/history/ref-placement mutations, read all of `crates/WORKSPACE_MODEL.md`
+  first. In short: prefer commit IDs and refs at API boundaries, convert to
   operation-local selectors inside editor-backed operations, use
   `but_graph::Graph` for relationship/reachability questions, use
   `but_rebase::graph_rebase::Editor` for Git graph/history/ref rewrites where an
