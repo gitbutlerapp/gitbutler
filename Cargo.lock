@@ -7670,6 +7670,7 @@ dependencies = [
  "bitflags 2.13.0",
  "int-enum",
  "libghostty-vt-sys",
+ "png 0.18.1",
 ]
 
 [[package]]
