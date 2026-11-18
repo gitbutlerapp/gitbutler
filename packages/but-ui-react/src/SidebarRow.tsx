@@ -4,10 +4,10 @@ import { Avatar } from "./Avatar.tsx";
 import { Badge, type BadgeVariant } from "./Badge.tsx";
 import { classes } from "./classes.ts";
 import { Icon } from "./Icon.tsx";
+import { MachineStatus } from "./MachineStatus.tsx";
 import type { IconName } from "./iconNames.ts";
 import { MetaCount } from "./MetaCount.tsx";
 import styles from "./SidebarRow.module.css";
-import { StatusLed } from "./StatusLed.tsx";
 import { Tooltip } from "./Tooltip.tsx";
 import type { Guides } from "./treeGuides.ts";
 
@@ -225,7 +225,8 @@ const Row: FC<
 /**
  * A machine in the sidebar: the card's header when the sidebar is grouped by machine, a row
  * inside a repository when grouped by repository. Its `icon` is an {@link Icon} for the host, the
- * same whether it is online or not: its light says which, so the icon doesn't read as disabled.
+ * same whether it is online or not: its {@link MachineStatus} says which, so the icon doesn't read
+ * as disabled.
  *
  * Folded, its `meta` sums up what it holds (`repos`, or `worktrees` when grouped by repository)
  * and its age. Open as a card's header, it shows no age: its age is the newest of the rows under
@@ -249,7 +250,7 @@ export const MachineItem: FC<{ name: string; icon: ReactNode; online: boolean } 
 				<Name tooltip={tooltip} className={classes("text-14", "text-semibold", styles.name)}>
 					{name}
 				</Name>
-				<StatusLed variant={online ? "safe" : "gray"} aria-label={online ? "Online" : "Offline"} />
+				<MachineStatus online={online} />
 			</>
 		}
 	/>
