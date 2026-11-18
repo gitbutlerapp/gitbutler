@@ -1488,7 +1488,7 @@ impl Graph {
     // Fill in generation numbers by walking down the graph topologically.
     // This is called at the end of post-processing to ensure generations are correct
     // after all segment insertions and edge rewiring.
-    fn compute_generation_numbers(&mut self) {
+    pub(crate) fn compute_generation_numbers(&mut self) {
         let mut topo = petgraph::visit::Topo::new(&self.inner);
         while let Some(sidx) = topo.next(&self.inner) {
             let max_gen_of_incoming = self

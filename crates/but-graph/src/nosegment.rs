@@ -1114,7 +1114,14 @@ impl WorkspaceGraph {
                             // segment, unless a branch without commits of its own names it.
                             let starts_at_target = project_meta.target_commit_id == Some(*oid)
                                 && !segment.commits.is_empty();
-                            (continues && !starts_anonymous_segment(*oid) && !starts_at_target)
+                            // Like after a traversal, a merge commit below commits of a segment
+                            // starts a segment of its own.
+                            let starts_at_merge =
+                                node.parents.len() > 1 && !segment.commits.is_empty();
+                            (continues
+                                && !starts_anonymous_segment(*oid)
+                                && !starts_at_target
+                                && !starts_at_merge)
                                 .then_some(segment_index)
                         }
                     }
@@ -1478,6 +1485,8 @@ impl WorkspaceGraph {
         // A commit's parents may become segments in any order, but consumers
         // expect its outgoing edges in parent order, as after a traversal.
         graph.rebuild_edges_in_parent_order();
+        // Like after a traversal, each segment knows how far down the graph it is.
+        graph.compute_generation_numbers();
         // Like after a traversal, the lanes of a workspace are in the order of its stacks in
         // metadata, which the parents of a rewritten workspace commit follow. A lane is found by
         // its stack's top branch, which is further down the lane if the metadata lacks branches
