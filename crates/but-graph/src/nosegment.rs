@@ -1696,8 +1696,14 @@ pub fn segment_graph(
     collect_tags: bool,
     commits_limit: Option<usize>,
 ) -> Result<crate::Graph> {
-    let (overlay_repo, overlay_meta, _entrypoint) = overlay.into_parts(repo, meta);
-    let worktree_by_branch = overlay_repo.worktree_branches(None)?;
+    let (overlay_repo, overlay_meta, entrypoint) = overlay.into_parts(repo, meta);
+    // Like a traversal, the branch the overlay puts `HEAD` on is checked out in this worktree.
+    let worktree_by_branch = overlay_repo.worktree_branches(
+        entrypoint
+            .as_ref()
+            .and_then(|(_id, ref_name)| ref_name.as_ref())
+            .map(|ref_name| ref_name.as_ref()),
+    )?;
     heads.extend(worktree_tips.iter().map(|tip| tip.id));
     // Like a traversal, the branches the linked worktrees have checked out fork off, unless
     // this repository has it checked out or the graph is seen from it.
