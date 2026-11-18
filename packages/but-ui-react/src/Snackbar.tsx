@@ -8,7 +8,7 @@ import type { ComponentProps, FC } from "react";
 
 /** @public */
 export type SnackbarVariant =
-	/** Something happened worth saying, with no verdict attached. */
+	/** Something happened worth saying, with no verdict attached, so no glyph unless `icon` gives one. */
 	| "info"
 	/** An act that came off with a catch: it ran, but not quite as asked. */
 	| "warning"
@@ -17,10 +17,11 @@ export type SnackbarVariant =
 	/** An act that came off. */
 	| "safe";
 
-/** The glyph a variant leads with when the caller names none of its own. */
-const defaultIcon = (variant: SnackbarVariant): IconName =>
+/** The glyph a variant leads with when the caller names none of its own. Plain news has none, so a
+ * glyph, when it shows, says something. */
+const defaultIcon = (variant: SnackbarVariant): IconName | undefined =>
 	Match.value(variant).pipe(
-		Match.when("info", () => "info" as const),
+		Match.when("info", () => undefined),
 		Match.when("warning", () => "warning" as const),
 		Match.when("danger", () => "danger" as const),
 		Match.when("safe", () => "tick" as const),
@@ -28,9 +29,9 @@ const defaultIcon = (variant: SnackbarVariant): IconName =>
 	);
 
 /**
- * One line of consequence, floated over the surface that caused it: a glyph, a sentence, and at most
- * one button, fenced off behind a divider: Undo when what just happened can be taken back, or a close
- * button when the snackbar waits to be dismissed by hand. Never both: an undoable snackbar leaves on
+ * One line of consequence, floated over the surface that caused it: a glyph (none for plain
+ * `info`), a sentence, and at most one button, fenced off behind a divider: Undo when what just
+ * happened can be taken back, or a close button when the snackbar waits to be dismissed by hand. Never both: an undoable snackbar leaves on
  * its own, so it has nothing to close. A whole {@link Toasts} card
  * would state a title and a description; a snackbar has only the sentence, so it can sit close to
  * the thing it is about rather than in the corner of the window.
@@ -46,7 +47,7 @@ const defaultIcon = (variant: SnackbarVariant): IconName =>
 export const Snackbar: FC<
 	{
 		variant?: SnackbarVariant;
-		/** Overrides the variant's own glyph. */
+		/** Overrides the variant's own glyph, or gives `info` one. */
 		icon?: IconName;
 		dismissLabel?: string;
 		undoLabel?: string;
@@ -72,47 +73,50 @@ export const Snackbar: FC<
 	undoLabel = "Undo",
 	children,
 	...props
-}) => (
-	<div
-		// A failure interrupts; the rest are there to be read whenever the reader gets to them.
-		role={variant === "danger" ? "alert" : "status"}
-		{...props}
-		className={classes(
-			props.className,
-			styles.snackbar,
-			"text-12",
-			Match.value(variant).pipe(
-				Match.when("info", () => styles.info),
-				Match.when("warning", () => styles.warning),
-				Match.when("danger", () => styles.danger),
-				Match.when("safe", () => styles.safe),
-				Match.exhaustive,
-			),
-		)}
-	>
-		<Icon name={icon ?? defaultIcon(variant)} size={14} className={styles.icon} />
-		<span className={styles.message}>{children}</span>
-		{(onUndo !== undefined || onDismiss !== undefined) && (
-			<div aria-hidden className={styles.divider} />
-		)}
-		{onUndo !== undefined ? (
-			<Button variant="ghost-inverted" size="small" className={styles.action} onClick={onUndo}>
-				<Icon name="undo" />
-				{undoLabel}
-			</Button>
-		) : (
-			onDismiss !== undefined && (
-				<Button
-					aria-label={dismissLabel}
-					variant="ghost-inverted"
-					size="small"
-					iconOnly
-					className={styles.action}
-					onClick={onDismiss}
-				>
-					<Icon name="cross" />
+}) => {
+	const glyph = icon ?? defaultIcon(variant);
+	return (
+		<div
+			// A failure interrupts; the rest are there to be read whenever the reader gets to them.
+			role={variant === "danger" ? "alert" : "status"}
+			{...props}
+			className={classes(
+				props.className,
+				styles.snackbar,
+				"text-12",
+				Match.value(variant).pipe(
+					Match.when("info", () => styles.info),
+					Match.when("warning", () => styles.warning),
+					Match.when("danger", () => styles.danger),
+					Match.when("safe", () => styles.safe),
+					Match.exhaustive,
+				),
+			)}
+		>
+			{glyph !== undefined && <Icon name={glyph} size={14} className={styles.icon} />}
+			<span className={styles.message}>{children}</span>
+			{(onUndo !== undefined || onDismiss !== undefined) && (
+				<div aria-hidden className={styles.divider} />
+			)}
+			{onUndo !== undefined ? (
+				<Button variant="ghost-inverted" size="small" className={styles.action} onClick={onUndo}>
+					<Icon name="undo" />
+					{undoLabel}
 				</Button>
-			)
-		)}
-	</div>
-);
+			) : (
+				onDismiss !== undefined && (
+					<Button
+						aria-label={dismissLabel}
+						variant="ghost-inverted"
+						size="small"
+						iconOnly
+						className={styles.action}
+						onClick={onDismiss}
+					>
+						<Icon name="cross" />
+					</Button>
+				)
+			)}
+		</div>
+	);
+};

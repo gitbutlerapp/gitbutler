@@ -29,6 +29,11 @@
 	}
 }
 
+/* With no glyph to lead, the sentence starts as far in as it ends. */
+.snackbar:not(:has(> .icon)) {
+	padding-inline-start: calc(var(--but-padding-snackbar-end) - 1px);
+}
+
 /* A snackbar rises into place as it appears, from just below where it settles. On `translate`, so
    a host can still position it with `transform`. */
 @keyframes enter {
