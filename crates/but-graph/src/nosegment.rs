@@ -269,8 +269,11 @@ pub(crate) fn graph(
                     Some(gix::refs::Category::RemoteBranch) => 1,
                     Some(gix::refs::Category::Tag) => usize::MAX,
                     // Like the tip a traversal makes of it, a configured target branch comes before
-                    // the branches no stack claims, so it names the segment of a commit they share.
-                    _ if reference.as_ref() == target_ref => {
+                    // the branches no stack claims, so it names the segment of a commit they share,
+                    // unless it's a branch of a stack, which keeps its place in the stack.
+                    _ if reference.as_ref() == target_ref
+                        && stack_of_branch(&stacks, reference.as_ref()).is_empty() =>
+                    {
                         if target_ref_is_configured {
                             usize::MAX - 3
                         } else {
@@ -801,12 +804,12 @@ impl WorkspaceGraph {
             .then_some(seen_from_commit)
             .flatten();
         // Like the tip a traversal makes of it, the commit a linked worktree has checked out
-        // without a branch starts a segment, so its lane starts there.
-        let starts_anonymous_segment = |id: gix::ObjectId| {
-            detached_commit == Some(id)
-                || worktree_tips
-                    .iter()
-                    .any(|tip| tip.ref_name.is_none() && tip.id == id)
+        // without a branch starts a segment, so its lane starts there, unless the segment of a
+        // branch with metadata pointing at it has it.
+        let is_detached_worktree_commit = |id: gix::ObjectId| {
+            worktree_tips
+                .iter()
+                .any(|tip| tip.ref_name.is_none() && tip.id == id)
         };
 
         // Each local branch with the segment it names, to be paired with its remote-tracking branch.
@@ -833,6 +836,22 @@ impl WorkspaceGraph {
         // The branches no stack claims and no metadata names on each commit, which can't tell
         // where a segment starts when there are several of them.
         let mut ambiguous_branches_by_commit = HashMap::<gix::ObjectId, usize>::new();
+        // How many nodes lead to each node.
+        let mut leading_nodes = vec![0usize; self.nodes.len()];
+        for node in &self.nodes {
+            for &parent in &node.parents {
+                if let Some(count) = leading_nodes.get_mut(parent) {
+                    *count += 1;
+                }
+            }
+        }
+        // The node of the commit that the reference at node `i` points at.
+        let commit_node_of = |mut i: NodeIndex| {
+            while let NodeWeight::Ref { .. } = &self.nodes[i].weight {
+                i = self.nodes[i].parents[0];
+            }
+            i
+        };
         for (i, node) in self.nodes.iter().enumerate() {
             if let NodeWeight::Ref { full_name } = &node.weight
                 && full_name.category() == Some(gix::refs::Category::LocalBranch)
@@ -1070,7 +1089,11 @@ impl WorkspaceGraph {
                             let in_workspace = segment.commits.last().is_some_and(|commit| {
                                 commit.flags.contains(CommitFlags::InWorkspace)
                             });
+                            // Like after a traversal, a branch on a commit that other segments
+                            // reach too names a segment of its own, as the commit may end up in
+                            // another one than the segment it continues.
                             let continues_anonymous = segment.ref_info.is_none()
+                                && leading_nodes[commit_node_of(i)] < 2
                                 && !(in_workspace
                                     && full_name.category()
                                         == Some(gix::refs::Category::LocalBranch))
@@ -1118,8 +1141,11 @@ impl WorkspaceGraph {
                             // starts a segment of its own.
                             let starts_at_merge =
                                 node.parents.len() > 1 && !segment.commits.is_empty();
+                            let starts_at_detached_worktree = is_detached_worktree_commit(*oid)
+                                && (!segment.commits.is_empty() || segment.metadata.is_none());
                             (continues
-                                && !starts_anonymous_segment(*oid)
+                                && detached_commit != Some(*oid)
+                                && !starts_at_detached_worktree
                                 && !starts_at_target
                                 && !starts_at_merge)
                                 .then_some(segment_index)
@@ -1140,7 +1166,7 @@ impl WorkspaceGraph {
                 // its branch points at.
                 _ => match &node.weight {
                     NodeWeight::Pick { oid } | NodeWeight::ShallowPoint { oid }
-                        if !is_workspace_commit && !starts_anonymous_segment(*oid) =>
+                        if !is_workspace_commit && detached_commit != Some(*oid) =>
                     {
                         let mut local_branch_segment = None;
                         let mut others_leave_the_commit = true;
@@ -1216,7 +1242,7 @@ impl WorkspaceGraph {
                     // reference even where other lanes reach it too, like those of linked
                     // worktrees started on it.
                     NodeWeight::Pick { oid } | NodeWeight::ShallowPoint { oid }
-                        if is_workspace_commit && !starts_anonymous_segment(*oid) =>
+                        if is_workspace_commit && detached_commit != Some(*oid) =>
                     {
                         predecessor_segment_info
                             .segment_indexes
