@@ -211,13 +211,14 @@ export const Fork = meta.story({
 	),
 });
 
-/** A machine that is offline: its light goes grey and its picture dims. */
+/** A machine that is offline: its status goes grey, and says under the pointer when it was last seen. */
 export const OfflineMachine = meta.story({
 	parameters: { design: { type: "figma", url: core("2579-7658") } },
 	render: () => (
 		<MachineItem
 			name="studio-desktop"
 			online={false}
+			statusTooltip="Offline · last seen 2 days ago"
 			folded
 			icon={<Icon name="desktop" />}
 			meta={
