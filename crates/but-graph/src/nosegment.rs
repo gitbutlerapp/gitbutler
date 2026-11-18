@@ -368,6 +368,8 @@ pub(crate) fn graph(
                 .chain(target_upstream_ref)
                 .any(|name| ref_to_oid.get(name) == Some(&commit_id));
         let mut workspace_took_in_branch = false;
+        // The branches of the stack whose branch on this commit a lane ran into, if any.
+        let mut stack_run_into: Option<&[FullName]> = None;
 
         for full_name in oid_to_refs.remove(&commit_id).unwrap_or_default() {
             // 1. Calculate some flags. LEGACY this seems overly complicated
@@ -471,6 +473,21 @@ pub(crate) fn graph(
                         || is_stackless_branch
                         || stack_lineage.branches_in_lineage.contains(&full_name)
                         || (own_lane_reaches_it && is_workspace_lane(&stack_lineage)));
+                if in_lineage
+                    && own_lane_reaches_it
+                    && !stack_lineage.branches_in_lineage.contains(&full_name)
+                {
+                    stack_run_into = Some(stack_of_branch(&stacks, full_name.as_ref()));
+                }
+                // Like after a traversal, a branch of a lane that ran into the branch of another
+                // stack on this commit is recorded on that commit, like one no stack claims.
+                if in_lineage
+                    && category == Some(gix::refs::Category::LocalBranch)
+                    && stack_run_into.is_some_and(|branches| !branches.contains(&full_name))
+                    && !is_checked_out_elsewhere
+                {
+                    unclaimed_branches.insert(full_name.clone());
+                }
                 if in_lineage {
                     workspace_took_in_branch |= stack_lineage.is_unclaimed_workspace_edge
                         && category == Some(gix::refs::Category::LocalBranch)
