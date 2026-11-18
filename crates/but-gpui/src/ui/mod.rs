@@ -842,6 +842,15 @@ mod tests {
     }
 
     #[test]
+    fn the_design_system_is_linted_by_the_apps_rules() {
+        assert!(
+            include_str!("../../../but-ui-gpui/clippy.toml") == include_str!("../../clippy.toml"),
+            "crates/but-ui-gpui/clippy.toml differs from crates/but-gpui/clippy.toml, so a rule \
+             the app keeps doesn't hold in its components: copy the app's file over it"
+        );
+    }
+
+    #[test]
     fn the_next_tab_is_the_one_after() {
         assert_eq!(tab_after(3, 0, true), Some(1));
     }
