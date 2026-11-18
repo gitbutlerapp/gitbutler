@@ -1766,7 +1766,7 @@ impl Detail {
             button(id, label)
                 .small()
                 .icon(Icon::Cross)
-                .style(ButtonStyle::Gray)
+                .style(ButtonStyle::Outline)
                 .tooltip("Stop filtering by this")
         };
         let status = (STATUSES.iter())

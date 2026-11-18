@@ -190,8 +190,9 @@ impl SettingsView {
         // Whether hooks run is this app's choice, kept per project: the prefs list the projects
         // that run them.
         let hooks_project = project.to_string();
-        let hooks = switch("run-hooks", self.store.read(cx).runs_hooks(project), theme).on_click(
-            cx.listener(move |this, _: &ClickEvent, _, cx| {
+        let hooks = switch("run-hooks", self.store.read(cx).runs_hooks(project), theme)
+            .large()
+            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                 let project = hooks_project.clone();
                 this.store.update(cx, |store, cx| {
                     store.set_prefs(
@@ -203,8 +204,7 @@ impl SettingsView {
                         cx,
                     )
                 });
-            }),
-        );
+            }));
         let workspace = self.store.read(cx).workspace(project);
         let target = workspace
             .and_then(|ws| ws.target_name())
@@ -358,7 +358,7 @@ impl SettingsView {
                             .on_click(test_signing),
                     )
                 })
-                .child(switch("sign", sign, theme).on_click(toggle_sign)),
+                .child(switch("sign", sign, theme).large().on_click(toggle_sign)),
         );
         let remote = (workspace.and_then(|ws| ws.target.as_ref())).is_some_and(|t| !t.local);
         let testing = (self.credentials.iter().flatten()).any(Option::is_none);

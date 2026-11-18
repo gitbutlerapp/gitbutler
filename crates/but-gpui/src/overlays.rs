@@ -24,8 +24,9 @@ use crate::theme::{Hue, Theme};
 use crate::ui::Text;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, FocusedAt, Icon, ShowFocused, button, dp, error_summary, field, fixed, h_flex,
-    icon, keycap, list_row, muted, popover, shortcut, small_icon, snackbar_undo, v_flex,
+    ButtonStyle, FocusedAt, Icon, ShowFocused, SnackbarVariant, button, dp, error_summary, field,
+    fixed, h_flex, icon, keycap, list_row, muted, popover, shortcut, small_icon, snackbar_undo,
+    v_flex,
 };
 
 /// A right-click menu. It takes the keys while it's open, as ⌘K does, so ↑ and ↓ go through
@@ -977,7 +978,10 @@ impl AppView {
                         crate::ui::snackbar(
                             ("snackbar", id),
                             message.clone(),
-                            *warning,
+                            match warning {
+                                true => SnackbarVariant::Warning,
+                                false => SnackbarVariant::Info,
+                            },
                             undo,
                             theme,
                         )

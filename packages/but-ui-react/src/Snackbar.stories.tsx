@@ -18,10 +18,10 @@ const meta = stories({
 	},
 });
 
-/** The snackbar as the design states it: a glyph, a sentence, and a way out. */
+/** The snackbar as the design states it: a sentence and a way out. Plain news leads with no glyph. */
 export const Default = meta.story({});
 
-/** One surface, four glyphs: only the leading icon says how the news landed. */
+/** One surface for all four: only the leading icon says how the news landed, and plain `info` has none. */
 export const AllVariants = meta.story({
 	parameters: {
 		design: {
