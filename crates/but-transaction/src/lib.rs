@@ -837,15 +837,14 @@ where
         })
     }
 
-    /// Split `changes` off `source` into a new commit placed on `side` of `relative_to`,
-    /// returning the new commit.
+    /// Split `changes` off `source` into a new commit placed on `side` of `relative_to`.
     pub fn split_commit(
         &mut self,
         source: ObjectId,
         relative_to: RelativeTo,
         side: InsertSide,
         changes: Vec<but_core::DiffSpec>,
-    ) -> anyhow::Result<CommitIdentifiers> {
+    ) -> anyhow::Result<SplitCommit> {
         let context_lines = self.context_lines();
         self.rebase(|editor, commit_mappings| {
             let relative_to = match relative_to {
@@ -857,8 +856,8 @@ where
 
             let MoveChangesOutcome {
                 rebase,
+                source_selector,
                 destination_selector,
-                ..
             } = but_workspace::commit::split_commit(
                 editor,
                 commit_mappings.current(source)?,
@@ -868,11 +867,16 @@ where
                 context_lines,
             )?;
 
-            let new_commit = rebase
-                .lookup_commit(destination_selector)
-                .context("failed to find the split off commit")?;
+            let split = SplitCommit {
+                source: rebase
+                    .lookup_commit(source_selector)
+                    .context("failed to find the split commit")?,
+                split_off: rebase
+                    .lookup_commit(destination_selector)
+                    .context("failed to find the split off commit")?,
+            };
 
-            Ok((new_commit, rebase))
+            Ok((split, rebase))
         })
     }
 
@@ -947,6 +951,16 @@ where
         self.inner.rebase = Some(new_rebase);
         Ok(outcome)
     }
+}
+
+/// What [`Transaction::split_commit`] left: the commit that was split, as it is now, and
+/// the commit split off it.
+#[derive(Debug, Clone)]
+pub struct SplitCommit {
+    /// The commit the changes were taken out of.
+    pub source: CommitIdentifiers,
+    /// The new commit that holds the changes.
+    pub split_off: CommitIdentifiers,
 }
 
 mod sealed {

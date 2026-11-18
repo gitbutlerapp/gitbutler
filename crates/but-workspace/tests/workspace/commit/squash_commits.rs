@@ -41,6 +41,23 @@ fn squash_top_commit_into_parent() -> Result<()> {
     let materialized = outcome.rebase.materialize(Default::default())?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
+    // The subject and the target are both folded into the squashed commit, and nothing else
+    // is recorded.
+    snapbox::assert_data_eq!(
+        format!("{:#?}", materialized.history.rewrites()),
+        snapbox::str![[r#"
+[
+    Fold {
+        precs: [
+            Sha1(c9f444cbd4d94f5b90aaa3e6e2e388c876cdbdae),
+            Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d),
+        ],
+        succ: Sha1(38b324344688fb48822cb0865a175193e8c96f15),
+    },
+]
+"#]]
+    );
+
     let squashed_commit = repo.find_commit(squashed_id)?;
     assert_eq!(
         squashed_commit.message_raw()?,
