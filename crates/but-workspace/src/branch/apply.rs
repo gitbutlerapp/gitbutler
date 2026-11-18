@@ -963,16 +963,15 @@ pub fn apply(
         conflicting_stacks = correlate_conflicting_stacks(&ws_md, &merge_result.conflicting_stacks);
         remove_conflicting_stacks_from_workspace(&mut ws_md, &conflicting_stacks);
         let ws_md_override = Some((workspace_ref_name_to_update.clone(), (*ws_md).clone()));
-        ws = ws
-            .graph
-            .redo_traversal_with_overlay(
-                &in_memory_repo,
-                meta,
-                overlay
-                    .with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone()))
-                    .with_workspace_metadata_override(ws_md_override),
-            )?
-            .into_workspace()?;
+        ws = super::reprojected(
+            &ws,
+            &in_memory_repo,
+            meta,
+            overlay
+                .with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone()))
+                .with_workspace_metadata_override(ws_md_override),
+            Some((Some(workspace_ref_name_to_update.as_ref()), new_head_id)),
+        )?;
         let unapplied_branches = collect_unapplied_branches(&ws);
 
         if !unapplied_branches.is_empty() {
