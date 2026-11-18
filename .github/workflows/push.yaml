@@ -33,6 +33,7 @@ jobs:
       install_script: ${{ steps.filter.outputs.install_script }}
       tauri_gui: ${{ steps.filter.outputs.tauri_gui }}
       gpui: ${{ steps.filter.outputs.gpui }}
+      gpui_parity: ${{ steps.filter.outputs.gpui_parity }}
       but_ui_react: ${{ steps.filter.outputs.but_ui_react }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -94,6 +95,10 @@ jobs:
               - 'crates/but-gpui/**'
               - 'crates/but-ui-gpui/**'
               - 'crates/but-tty/**'
+            # quality.but.dev runs check-gpui-parity.mjs only when but-ui-react changes.
+            gpui_parity:
+              - *workflows
+              - 'crates/but-ui-gpui/**'
             # oxlint checks only these, and nothing else lints them before merge.
             but_ui_react:
               - 'packages/but-ui-react/**'
@@ -193,6 +198,17 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/init-env-node
       - run: pnpm check
+
+  check-gpui-parity:
+    needs: changes
+    if: ${{ needs.changes.outputs.gpui_parity == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: node packages/but-ui-react/scripts/check-gpui-parity.mjs
 
   unittest-node:
     needs: changes
