@@ -24,3 +24,10 @@ round tail into its glyph, and the rows below it drop the guide. The other rows
 leave the guide plain, with no stub toward them. A row can't see the rows after it, so a host works every
 row's guides out with `treeGuides`, from the rows it shows, never by hand; a
 file tree takes them the same way.
+
+**The row's end says where it stands.** Its counts sit there and stay; a next
+step takes their place under the pointer, and its menu opens with a
+right-click, never from a ⋯ ([Context menus](../patterns/context-menus.md)).
+A row that changed since it was last opened ends in a dot after its counts.
+Once a tree tracks that, every row keeps the dot's room, so the counts line
+up down the list.

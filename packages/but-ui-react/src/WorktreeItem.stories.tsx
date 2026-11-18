@@ -2,15 +2,7 @@ import { stories } from "../stories/stories.ts";
 import { Icon } from "./Icon.tsx";
 import { MetaCount } from "./MetaCount.tsx";
 import { BranchItem, MachineItem, RepoItem, UncommittedItem, WorktreeItem } from "./SidebarRow.tsx";
-import {
-	Card,
-	Column,
-	machine,
-	menu,
-	push,
-	Repository,
-	update,
-} from "./story-assets/workspaceTree.tsx";
+import { Card, Column, machine, push, Repository, update } from "./story-assets/workspaceTree.tsx";
 
 const core = (node: string) =>
 	`https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=${node}`;
@@ -25,7 +17,7 @@ const meta = stories({
 
 /**
  * A worktree: how far it is behind its target and its age at the row's end, and Update as its next
- * step. Under the pointer the next step and the menu take their place.
+ * step. Under the pointer the next step takes their place.
  */
 export const Default = meta.story({
 	render: (args) => (
@@ -38,7 +30,6 @@ export const Default = meta.story({
 				</>
 			}
 			actions={update}
-			menu={menu("Worktree")}
 		/>
 	),
 });
@@ -61,9 +52,8 @@ export const UncommittedChanges = meta.story({
 						<MetaCount type="age">2h</MetaCount>
 					</>
 				}
-				menu={menu("Repository")}
 			/>
-			<UncommittedItem count={12} depth={1} menu={menu("Uncommitted changes")} />
+			<UncommittedItem count={12} depth={1} />
 			<BranchItem
 				title="cursor-unique-names"
 				depth={1}
@@ -74,9 +64,8 @@ export const UncommittedChanges = meta.story({
 						<MetaCount type="age">2h</MetaCount>
 					</>
 				}
-				menu={menu("Branch")}
 			/>
-			<RepoItem name="but-dev" folded={false} menu={menu("Repository")} />
+			<RepoItem name="but-dev" folded={false} />
 			<WorktreeItem
 				name="review-ios"
 				depth={1}
@@ -87,15 +76,13 @@ export const UncommittedChanges = meta.story({
 						<MetaCount type="age">40m</MetaCount>
 					</>
 				}
-				menu={menu("Worktree")}
 			/>
-			<UncommittedItem count={17} depth={2} selected menu={menu("Uncommitted changes")} />
+			<UncommittedItem count={17} depth={2} selected />
 			<BranchItem
 				title="ios-push-handoff"
 				depth={2}
 				folded
 				meta={<MetaCount type="unpushed">4</MetaCount>}
-				menu={menu("Branch")}
 			/>
 		</Column>
 	),
@@ -103,7 +90,7 @@ export const UncommittedChanges = meta.story({
 
 /**
  * Any row at work, here a worktree updating from its target: `busy` turns a spinner in its glyph's
- * place, as on a merging branch, so what it holds and its menu stay where they were.
+ * place, as on a merging branch, so what it holds stays where it was.
  */
 export const Updating = meta.story({
 	render: () => (
@@ -134,7 +121,7 @@ export const Fork = meta.story({
 	render: () => (
 		<Card label="pavel--macbook-pro-2" header={machine}>
 			<Repository last>
-				<RepoItem name="but-dev" folded={false} menu={menu("Repository")} />
+				<RepoItem name="but-dev" folded={false} />
 				<WorktreeItem
 					main
 					name="Main worktree"
@@ -147,9 +134,8 @@ export const Fork = meta.story({
 						</>
 					}
 					actions={update}
-					menu={menu("Worktree")}
 				/>
-				<UncommittedItem count={19} depth={2} menu={menu("Uncommitted changes")} />
+				<UncommittedItem count={19} depth={2} />
 				<BranchItem
 					title="ios-push-handoff"
 					depth={2}
@@ -161,7 +147,6 @@ export const Fork = meta.story({
 						</>
 					}
 					actions={push}
-					menu={menu("Branch")}
 				/>
 				<WorktreeItem
 					main
@@ -176,9 +161,8 @@ export const Fork = meta.story({
 						</>
 					}
 					actions={update}
-					menu={menu("Worktree")}
 				/>
-				<UncommittedItem count={22} depth={2} menu={menu("Uncommitted changes")} />
+				<UncommittedItem count={22} depth={2} />
 				<BranchItem
 					title="review-cards"
 					depth={2}
@@ -190,7 +174,6 @@ export const Fork = meta.story({
 						</>
 					}
 					actions={push}
-					menu={menu("Branch")}
 				/>
 				<WorktreeItem
 					name="mesh-archive"
@@ -204,7 +187,6 @@ export const Fork = meta.story({
 							<MetaCount type="age">3d</MetaCount>
 						</>
 					}
-					menu={menu("Worktree")}
 				/>
 			</Repository>
 		</Card>
