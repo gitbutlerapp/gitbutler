@@ -2307,7 +2307,6 @@ fn field_with_save(
                     SharedString::from(format!("save-{}", input.entity_id())),
                     "Save",
                 )
-                .small()
                 .style(ButtonStyle::Gray)
                 .on_click(cx.listener(move |this, _, _, cx| save(this, &saved, cx))),
             )

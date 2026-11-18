@@ -351,7 +351,6 @@ impl Detail {
     ) -> Div {
         self.filter_field(input, window, cx).child(
             icon_button("list-filters", Icon::Filter)
-                .small()
                 .selected(narrowed)
                 .tooltip(tooltip)
                 .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
@@ -370,7 +369,6 @@ impl Detail {
         let busy = store.fetching(project);
         Some(
             icon_button("fetch", Icon::Refresh)
-                .small()
                 .tooltip_for(
                     "Fetch, and check pull requests and CI again",
                     &crate::app::Fetch,

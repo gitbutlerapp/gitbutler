@@ -505,14 +505,12 @@ fn token_field(
         .child({
             let token = token.clone();
             button("cancel-token", "Cancel")
-                .small()
                 .style(ButtonStyle::Ghost)
                 .on_click(move |_, _, cx| token.update(cx, |_, cx| cx.emit(InputEvent::Cancel)))
         })
         .child({
             let token = token.clone();
             button("add-token", submit)
-                .small()
                 .style(ButtonStyle::Gray)
                 .on_click(move |_, _, cx| token.update(cx, |_, cx| cx.emit(InputEvent::Submit)))
         });
