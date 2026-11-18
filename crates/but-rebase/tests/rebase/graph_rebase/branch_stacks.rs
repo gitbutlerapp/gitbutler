@@ -734,9 +734,9 @@ fn materializing_persists_an_order_that_moves_no_reference() -> Result<()> {
 └── 👉►:0[0]:main[🌳]
     ├── ·120e3a9 (⌂)
     └── ·a96434e (⌂)
-        └── ►:2[1]:Y
-            └── ►:3[2]:Z
-                └── ►:1[3]:X
+        └── ►:1[1]:Y
+            └── ►:2[2]:Z
+                └── ►:3[3]:X
                     ├── ·d591dfe (⌂)
                     └── 🏁·35b8235 (⌂)
 

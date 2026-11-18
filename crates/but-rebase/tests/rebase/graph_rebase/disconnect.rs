@@ -222,11 +222,11 @@ fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()
     └── ·4023659 (⌂)
         └── ►:1[1]:anon:
             └── ·01c4df0 (⌂)
-                ├── ►:2[3]:anon:
+                ├── ►:3[3]:anon:
                 │   └── 🏁·8f0d338 (⌂) ►A, ►main, ►tags/base
-                └── ►:3[2]:B
+                └── ►:2[2]:B
                     └── ·984fd1c (⌂)
-                        └── →:2:
+                        └── →:3:
 
 "#]]
     );
@@ -514,17 +514,17 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side()
     └── ·9de031b (⌂)
         ├── ►:1[1]:C1
         │   └── ·54d0b0d (⌂)
-        │       └── ►:3[2]:P1
+        │       └── ►:2[2]:P1
         │           └── ·bc0e772 (⌂)
-        │               └── ►:5[4]:main
+        │               └── ►:6[4]:main
         │                   └── 🏁·7674a5e (⌂) ►tags/base
-        └── ►:2[1]:C2
+        └── ►:3[1]:C2
             └── ·41cb528 (⌂)
                 └── ►:4[2]:M
                     └── ·9f6b11a (⌂)
-                        └── ►:6[3]:P2
+                        └── ►:5[3]:P2
                             └── ·392a8f8 (⌂)
-                                └── →:5: (main)
+                                └── →:6: (main)
 
 "#]]
     );
