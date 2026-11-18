@@ -901,6 +901,18 @@ impl WorkspaceGraph {
                     // recorded on its commit, unless the graph is seen from it.
                     || (full_name.category() == Some(gix::refs::Category::Tag)
                         && seen_from_ref != Some(full_name.as_ref()))
+                    // Like after a traversal, branches that nothing tells apart on a commit that
+                    // several segments reach are recorded on it, leaving the commit unnamed.
+                    || (predecessor_segment_info.segment_indexes.len() > 1
+                        && seen_from_ref != Some(full_name.as_ref())
+                        && project_meta.target_ref.as_ref().is_none_or(|target_ref| {
+                            target_ref.as_local_full_name_ref() != full_name
+                        })
+                        && self.unclaimed_branches.contains(full_name)
+                        && !worktree_by_branch.contains_key(full_name)
+                        && ambiguous_branches_by_commit
+                            .get(&commit_id)
+                            .is_some_and(|count| *count > 1))
                     || (detached_commit == Some(commit_id)
                         && full_name.category() == Some(gix::refs::Category::LocalBranch)
                         && project_meta.target_ref.as_ref().is_none_or(|target_ref| {
