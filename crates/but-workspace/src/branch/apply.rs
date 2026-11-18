@@ -854,11 +854,13 @@ pub fn apply(
     let overlay = overlay
         .with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone()))
         .with_workspace_metadata_override(ws_md_override);
-    let graph = ws
-        .graph
-        .redo_traversal_with_overlay(&in_memory_repo, meta, overlay.clone())?;
-
-    let mut ws = graph.into_workspace()?;
+    let mut ws = super::reprojected(
+        &ws,
+        &in_memory_repo,
+        meta,
+        overlay.clone(),
+        Some((Some(workspace_ref_name_to_update.as_ref()), new_head_id)),
+    )?;
     let collect_unapplied_branches = |ws: &but_graph::Workspace| {
         branches_to_apply
             .iter()
