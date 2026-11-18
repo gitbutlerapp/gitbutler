@@ -115,6 +115,11 @@
 		"file": "LocationBar.tsx",
 		"description": "The bar above a view's header: the window's controls, where the page sits, then the state of what it shows. Layout only; what goes in each part is the app's. The trail gives way before the state does: it folds and ellipsizes, the state keeps its size.\n\nIn Figma: The state's parts (Also in 2 places, LiveStatus, Refresh) are but.dev's, Presence, LiveStatus and RefreshButton in its `web/src/components/Bits.tsx`, drawn here so the bar reads whole.\n\nRules: https://github.com/gitbutlerapp/gitbutler/blob/master/packages/but-ui/design/components/location-bars.md\n\nCode: LocationBar in @gitbutler/but-ui-react/LocationBar.tsx"
 	},
+	"5303:109676": {
+		"component": "MachineStatus",
+		"file": "MachineStatus.tsx",
+		"description": "Whether a machine is online, beside its name: a signal on green when it is, a crossed-out signal on grey when it isn't. Say more, such as when it was last seen, in a `Tooltip` around it.\n\nIt says \"Online\" or \"Offline\" to a screen reader. Where the words beside it already say so, pass `aria-hidden` so they aren't read twice. For a light with no machine's name beside it, such as \"3 of 4 online\", use `StatusLed`.\n\nCode: MachineStatus in @gitbutler/but-ui-react/MachineStatus.tsx"
+	},
 	"4809:1328": {
 		"component": "Markdown",
 		"file": "Markdown.tsx",
