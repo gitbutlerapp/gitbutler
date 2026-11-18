@@ -30,18 +30,21 @@ type RowProps = {
 	meta?: ReactNode;
 	/** The row's next step, as small outline `Button`s: Push, Update, Create PR, View PR. They take
 	 * the state's place under the pointer and on keyboard focus; leave them out when there is none,
-	 * and the row keeps its state there. */
+	 * and the row keeps its state there. The rest of what it can do is in its menu, which opens
+	 * with a right-click, or Shift-F10 on the focused row: make the row a `ContextMenu`'s `trigger`.
+	 * It has no ⋯, so its end always says where it stands. */
 	actions?: ReactNode;
-	/** The row's menu button, a small ghost icon-only `Button`. It shows under the pointer, on
-	 * keyboard focus and on a selected row. */
-	menu?: ReactNode;
 	/** What the name stands for in full (a path, a pull request's state, a commit's author), shown
 	 * over the name alone, so the counts beside it keep their own. */
 	tooltip?: ReactNode;
 	/** An action on the row is running, whether started from its menu or its `actions`: a spinner
 	 * stands in for its glyph until it is done. Every row shows its work there, at its start, so the
-	 * state and the menu at its end keep their places. */
+	 * state at its end keeps its place. */
 	busy?: boolean;
+	/** Something on the row changed since it was last opened: a dot at the row's very end, after its
+	 * state. Give every row in the tree a value, `false` too, once the host tracks it: a row with one
+	 * keeps the dot's room whether it shows or not, so the counts line up down the list. */
+	unread?: boolean;
 } & useRender.ComponentProps<"div">;
 
 const Steps: FC<{
@@ -139,7 +142,7 @@ const measureRuns = (event: PointerEvent<HTMLElement>) => {
 };
 
 /** The one line every sidebar item is drawn on: the name takes the line and the state sits at the
- * end, where it stays; the menu follows it under the pointer, and the actions take its place.
+ * end, where it stays, and the actions take its place under the pointer.
  * `spinner` is what stands in for `icon` while it is `busy`, a plain one unless the item colours
  * its own. A row without an `icon` starts with its name, after its chevron if it folds. */
 const Row: FC<
@@ -158,6 +161,7 @@ const Row: FC<
 	spinner = <Icon name="spinner" />,
 	label,
 	busy = false,
+	unread,
 	depth = 0,
 	guides,
 	folded,
@@ -165,12 +169,11 @@ const Row: FC<
 	selected = false,
 	meta: metaSlot,
 	actions: actionsSlot,
-	menu: menuSlot,
 	rowClassName,
 	render,
 	...props
 }) => {
-	const [meta, actions, menu] = [filled(metaSlot), filled(actionsSlot), filled(menuSlot)];
+	const [meta, actions] = [filled(metaSlot), filled(actionsSlot)];
 	return useRender({
 		render: render ?? <div />,
 		state: { selected },
@@ -211,11 +214,11 @@ const Row: FC<
 							</span>
 						)
 					}
-					{menu !== undefined && (
-						<span className={styles.menu} data-menu>
-							{menu}
-						</span>
+					{unread === true && (
+						// oxlint-disable-next-line jsx_a11y/prefer-tag-over-role -- A drawn dot with a name, not a picture with a source.
+						<span role="img" aria-label="Unread" className={styles.unread} />
 					)}
+					{unread === false && <span aria-hidden className={classes(styles.unread, styles.read)} />}
 				</>
 			),
 		}),
@@ -361,9 +364,8 @@ const prBadge: Record<PullRequestState, BadgeVariant> = {
  * While an action on the branch runs, its `busy` spinner takes the glyph's colour. A merge takes `pr` state `merged` as it starts, so the row reads as where it is heading;
  * back to `open` if it is refused.
  *
- * Under the pointer, on keyboard focus and while selected, its state stays and the menu follows it
- * at once, while the name gives way. An action takes the state's place under the pointer only;
- * selected, the state stays.
+ * An action takes the state's place under the pointer and on keyboard focus; selected, the state
+ * stays.
  *
  * @figma `pr` follows the pull request: `none` shows the branch's name, the others its number and
  * title, and `none-merged` is `merged` with no request known. The counts come from BranchMeta: on
@@ -419,7 +421,7 @@ export const BranchItem: FC<
 
 /**
  * A commit under an expanded branch: the hollow glyph while it is only here, the solid one once it
- * is pushed. Its `menu` shows under the pointer, on keyboard focus and when selected.
+ * is pushed.
  *
  * A `conflicted` commit takes the warning in red in its glyph's place, pushed or not, so the
  * commits to resolve stand out of the list. Its branch counts them in `conflicts` while folded;
@@ -516,7 +518,7 @@ export type CommitAuthor = { src?: string | null; seed: string };
  * (`count`). It sits where the work does, first among the worktree's branches:
  * under the worktree, or under a repository with only one. It opens the changes themselves, as a
  * branch opens its commits; the worktree's own row opens its overview. Leave it out while the
- * worktree is clean. Its `menu` shows under the pointer, on keyboard focus and when selected.
+ * worktree is clean.
  *
  * @import import { UncommittedItem } from "@gitbutler/but-ui-react/SidebarRow.tsx";
  */
@@ -542,8 +544,8 @@ export const UncommittedItem: FC<
  * click anywhere on it, as on its chevron, hides the stack's branches. Folded, the branch at the
  * stack's top (`tip`), the one that gets pushed, follows "Stack", muted and giving way first, and
  * `meta` says what the hidden branches hold. "Stack" keeps one quiet colour either way, so the
- * caption doesn't read as one more branch. Its `menu` (push the stack, open its pull requests)
- * shows under the pointer.
+ * caption doesn't read as one more branch. Its menu (push the stack, open its pull requests)
+ * opens with a right-click, as every row's does.
  *
  * @see packages/but-ui/design/components/sidebar-trees.md
  * @import import { StackCaption } from "@gitbutler/but-ui-react/SidebarRow.tsx";
@@ -551,10 +553,10 @@ export const UncommittedItem: FC<
 export const StackCaption: FC<
 	{ count: number; tip: string } & Pick<
 		RowProps,
-		"depth" | "guides" | "folded" | "onToggleFolded" | "meta" | "menu" | "tooltip" | "busy"
+		"depth" | "guides" | "folded" | "onToggleFolded" | "meta" | "tooltip" | "busy" | "unread"
 	> &
 		ComponentProps<"div">
-> = ({ count, tip, depth = 0, folded, onToggleFolded, meta, menu, tooltip, busy, ...props }) => {
+> = ({ count, tip, depth = 0, folded, onToggleFolded, meta, tooltip, busy, unread, ...props }) => {
 	const folds = typeof folded === "boolean" && onToggleFolded !== undefined;
 	return (
 		<Row
@@ -564,20 +566,14 @@ export const StackCaption: FC<
 			folded={folded}
 			onToggleFolded={onToggleFolded}
 			meta={meta}
-			menu={menu}
 			busy={busy}
+			unread={unread}
 			onClick={(event) => {
 				props.onClick?.(event);
 				const target = event.target as Element;
-				// Not from the menu: its button sits in the row, and its items bubble here through their
-				// portal while being no part of the row on the page.
-				if (
-					!folds ||
-					event.defaultPrevented ||
-					!event.currentTarget.contains(target) ||
-					target.closest("[data-menu]")
-				)
-					return;
+				// Not from a popup's items, which bubble here through their portal while being no part of
+				// the row on the page.
+				if (!folds || event.defaultPrevented || !event.currentTarget.contains(target)) return;
 				onToggleFolded();
 			}}
 			rowClassName={classes(styles.caption, folds && styles.captionFolds)}
@@ -715,7 +711,7 @@ export const NavItem: FC<
 		/** A leading row's chevron: `true` while its card's groups are hidden. */
 		folded?: boolean;
 		onToggleFolded?: () => void;
-	} & Omit<RowProps, "folded" | "onToggleFolded" | "actions" | "menu" | "busy">
+	} & Omit<RowProps, "folded" | "onToggleFolded" | "actions" | "busy">
 > = ({
 	name,
 	icon,
@@ -771,7 +767,7 @@ export const NavItem: FC<
 export const NoticeItem: FC<
 	{ message: string; action?: { label: string; onClick: () => void } } & Omit<
 		RowProps,
-		"folded" | "onToggleFolded" | "meta" | "actions" | "menu" | "busy"
+		"folded" | "onToggleFolded" | "meta" | "actions" | "busy"
 	>
 > = ({ message, action, tooltip, ...props }) => (
 	<Row

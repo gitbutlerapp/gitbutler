@@ -43,11 +43,6 @@ export const viewPr = (
 		<Icon name="arrow-up-right" />
 	</Button>
 );
-export const menu = (what: string) => (
-	<Button variant="ghost" size="small" iconOnly aria-label={`${what} menu`}>
-		<Icon name="kebab" />
-	</Button>
-);
 
 /**
  * A sidebar card: a machine's header over its repositories, as the Workspace tree stories build them. A
@@ -136,11 +131,5 @@ export const Repository: FC<{ children: ReactNode; last?: boolean }> = ({
 );
 
 export const machine = (
-	<MachineItem
-		name="pavel--macbook-pro-2"
-		online
-		folded={false}
-		icon={<Icon name="laptop" />}
-		menu={menu("Machine")}
-	/>
+	<MachineItem name="pavel--macbook-pro-2" online folded={false} icon={<Icon name="laptop" />} />
 );

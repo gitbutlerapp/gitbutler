@@ -170,9 +170,8 @@ const branchActions = (
 );
 
 /**
- * A row's actions, from its ⋯ and from a right-click anywhere on it: the ⋯ is a `Menu` in the
- * row's `menu` slot, and the row itself is a `ContextMenu`'s trigger, both with the same rows.
- * Each menu keeps its own state, so a right-click leaves the ⋯ unpressed.
+ * A row's actions, from a right-click anywhere on it, or Shift-F10 on the focused row: the row
+ * itself is a `ContextMenu`'s trigger. A row has no ⋯, so its end keeps saying where it stands.
  */
 export const OnARow = meta.story({
 	parameters: { width: 334 },
@@ -184,18 +183,6 @@ export const OnARow = meta.story({
 					title="resume-on-laptop"
 					folded
 					meta={<MetaCount type="unpushed">9</MetaCount>}
-					menu={
-						<Menu
-							aria-label="Branch actions"
-							trigger={
-								<Button variant="ghost" size="small" iconOnly aria-label="More actions">
-									<Icon name="kebab" />
-								</Button>
-							}
-						>
-							{branchActions}
-						</Menu>
-					}
 				/>
 			}
 		>
