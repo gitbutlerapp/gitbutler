@@ -22,7 +22,7 @@
 	import { fModeEnabled } from "$lib/config/uiFeatureFlags";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { TERMINAL_SERVICE } from "$lib/settings/terminalService";
-	import { createKeybind } from "$lib/shortcuts/hotkeys";
+	import { createKeybind, isSelectAllChord } from "$lib/shortcuts/hotkeys";
 	import { SHORTCUT_SERVICE } from "$lib/shortcuts/shortcutService";
 	import { CLIENT_STATE } from "$lib/state/clientState.svelte";
 	import { initUserSettings, UI_STATE } from "$lib/state/uiState.svelte";
@@ -114,14 +114,12 @@
 	// =============================================================================
 
 	function handleKeyDown(e: KeyboardEvent) {
-		// Explicitly detect cmd/ctrl + A since Tauri gets in the way of default behavior.
+		// Explicitly detect the select-all chord since Tauri gets in the way of default behavior.
 		// To get default behavior you can add a "Select All" predefined menu item to the
 		// Edit menu, but that prevents the event from reaching the webview.
 		if (
 			(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) &&
-			(e.metaKey || e.ctrlKey) &&
-			e.key === "a" &&
-			e.target
+			isSelectAllChord(e, backend.platformName)
 		) {
 			e.target.select();
 			e.preventDefault();
