@@ -38,53 +38,32 @@ pub(crate) fn run(
 
     let mut repo = setup::repo_from_args(args)?;
     repo.objects.refresh = RefreshMode::Never;
-    let meta = EmptyRefMetadata;
-
-    let opts = but_graph::init::Options {
-        collect_tags: true,
-        hard_limit: graph_args.hard_limit,
-        commits_limit_hint: graph_args.limit.flatten(),
-        commits_limit_recharge_location: graph_args
-            .limit_extension
-            .iter()
-            .map(|short_hash| {
-                repo.objects
-                    .lookup_prefix(
-                        gix::hash::Prefix::from_hex(short_hash).expect("valid hex prefix"),
-                        None,
-                    )
-                    .unwrap()
-                    .expect("object for prefix exists")
-                    .expect("the prefix is unambiguous")
-            })
-            .collect(),
-        dangerously_skip_postprocessing_for_debugging: graph_args.no_post,
-        worktrees: false,
-    };
-
-    let graph = match graph_args.ref_name.as_deref() {
-        None => but_graph::Graph::from_head(
-            &repo,
-            &meta,
-            but_core::ref_metadata::ProjectMeta::default(),
-            &mut setup::debug_db()?,
-            opts,
-        ),
-        Some(ref_name) => {
-            let mut reference = repo.find_reference(ref_name)?;
-            let id = reference.peel_to_id()?;
-            but_graph::Graph::from_commit_traversal(
-                id,
-                reference.name().to_owned(),
-                &meta,
-                but_core::ref_metadata::ProjectMeta::default(),
-                &mut setup::debug_db()?,
-                opts,
+    let (seen_from_ref, seen_from_commit) = match graph_args.ref_name.as_deref() {
+        None => {
+            let head = repo.head()?;
+            (
+                head.referent_name().map(ToOwned::to_owned),
+                head.id().map(|id| id.detach()),
             )
         }
-    }?;
-
-    let workspace = graph.into_workspace()?;
+        Some(ref_name) => {
+            let mut reference = repo.find_reference(ref_name)?;
+            let id = reference.peel_to_id()?.detach();
+            (Some(reference.name().to_owned()), Some(id))
+        }
+    };
+    let workspace = but_graph::nosegment::workspace(
+        &repo,
+        &EmptyRefMetadata,
+        but_graph::init::Overlay::default(),
+        but_core::ref_metadata::ProjectMeta::default(),
+        seen_from_ref.as_ref().map(|name| name.as_ref()),
+        seen_from_commit,
+        [],
+        Vec::new(),
+        true,
+        graph_args.limit.flatten(),
+    )?;
     emit_workspace(&workspace, graph_args, out, err)
 }
 
@@ -143,15 +122,10 @@ fn emit_workspace(
 /// `but_ctx::Context` because nothing special is specified.
 ///
 /// Context discovery loads the same workspace graph used by the application,
-/// including metadata-backed target handling. The manual repository path below
-/// is still needed when any debug traversal knob is set, because those options
-/// must be passed directly into `but_graph::Graph::from_*`.
+/// including metadata-backed target handling. The repository is opened directly
+/// instead when a reference or another limit is given, which the context doesn't take.
 fn uses_context_discovery(graph_args: &GraphArgs) -> bool {
-    !graph_args.no_post
-        && graph_args.hard_limit.is_none()
-        && graph_args.limit == Some(Some(300))
-        && graph_args.limit_extension.is_empty()
-        && graph_args.ref_name.is_none()
+    graph_args.limit == Some(Some(300)) && graph_args.ref_name.is_none()
 }
 
 fn dot_mode(graph_args: &GraphArgs) -> Option<DotMode> {
