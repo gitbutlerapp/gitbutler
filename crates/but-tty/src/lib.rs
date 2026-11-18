@@ -28,11 +28,11 @@ pub use handoff::{hand_over, handed};
 use pty::Kept;
 pub use pty::Size;
 use pty::{Output, Pty};
-pub use vt::{Cursor, Frame, Row, Run, Status, Style};
+pub use vt::{Cursor, Frame, Image, Placement, Row, Run, Status, Style};
 
 pub use libghostty_vt::key::{Key, Mods};
 pub use libghostty_vt::mouse;
-pub use libghostty_vt::render::CursorVisualStyle;
+pub use libghostty_vt::render::{CursorVisualStyle, ImageLayer};
 pub use libghostty_vt::style::{RgbColor, Underline};
 
 /// A shell just started, with nothing emulating it yet, so it can start off the UI thread.

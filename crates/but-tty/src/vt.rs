@@ -5,21 +5,25 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::ops::Range;
 use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::{Arc, Once};
 use std::time::{Duration, Instant};
 
 use libghostty_vt::error::Error;
 use libghostty_vt::fmt::{Format, Formatter, FormatterOptions};
 use libghostty_vt::focus;
 use libghostty_vt::key::{self, Key, Mods};
+use libghostty_vt::kitty::graphics::{self, ImageFormat, RustPngDecoder};
 use libghostty_vt::mouse;
-use libghostty_vt::render::{CellIterator, CursorVisualStyle, Dirty, RowId, RowIterator};
+use libghostty_vt::render::{
+    CellIterator, CursorVisualStyle, Dirty, ImageIterator, ImageLayer, ImageProtocol, RowId,
+    RowIterator, Snapshot,
+};
 use libghostty_vt::screen::{CellWide, Screen};
 use libghostty_vt::selection::gesture::{self, Gesture};
 use libghostty_vt::style::{RgbColor, Underline};
 use libghostty_vt::terminal::{
     ClipboardWriteError, ColorScheme, Mode, Point as GridPoint, PointCoordinate, ProgramStatus,
-    ProgramStatusState, ProgressReport, ProgressState, ScrollViewport,
+    ProgramStatusState, ProgressReport, ProgressState, ScrollViewport, SizeReportSize,
 };
 use libghostty_vt::{RenderState, paste};
 
@@ -74,6 +78,39 @@ pub struct Frame {
     pub background: RgbColor,
     pub foreground: RgbColor,
     pub cursor_color: RgbColor,
+    /// The images in view. Each layer's, in the order they're listed, are drawn bottom first.
+    pub images: Vec<Placement>,
+}
+
+/// An image a program sent with the kitty graphics protocol, as pi shows a picture it read.
+#[derive(Debug)]
+pub struct Image {
+    /// Changes whenever its pixels do and is never reused, so it can key a texture.
+    pub generation: u64,
+    pub width: u32,
+    pub height: u32,
+    /// Four bytes a pixel, row by row from the top left.
+    pub rgba: Vec<u8>,
+}
+
+/// Where a frame shows an image, or a part of it, in cells, so a frame drawn before a resize
+/// still places it on the cells drawn.
+#[derive(Debug, Clone)]
+pub struct Placement {
+    pub image: Arc<Image>,
+    /// Its top left, in cells from the top left of the viewport, partway into a cell where the
+    /// program offset it. An image partly scrolled out of view starts above it, at a negative y.
+    pub x: f32,
+    pub y: f32,
+    /// The cells it's drawn over, and parts of cells.
+    pub width: f32,
+    pub height: f32,
+    /// The part of the image shown, in the image's pixels.
+    pub source_x: u32,
+    pub source_y: u32,
+    pub source_width: u32,
+    pub source_height: u32,
+    pub layer: ImageLayer,
 }
 
 /// What the program running says it's doing, by OSC 7501 or a progress report (OSC 9;4).
@@ -150,6 +187,10 @@ impl Status {
     }
 }
 
+/// The character a program prints where an image placed with Unicode placeholders shows, with
+/// marks after it saying which image and which part of it.
+const KITTY_PLACEHOLDER: char = '\u{10EEEE}';
+
 /// How long a program may hold the screen on the frame it began updating from before it's
 /// drawn as it is, as one that crashed or forgot never ends the hold. Ghostty's too.
 const HOLD_TIMEOUT: Duration = Duration::from_secs(1);
@@ -199,9 +240,19 @@ impl Vt {
             ConformanceLevel, DeviceAttributeFeature, DeviceAttributes, DeviceType,
             PrimaryDeviceAttributes, SecondaryDeviceAttributes, TertiaryDeviceAttributes,
         };
+        install_png_decoder();
         let mut term = libghostty_vt::Terminal::new(size.cols, size.rows)?;
+        // Images take their size from the cells' pixels.
+        term.resize(
+            size.cols,
+            size.rows,
+            size.cell_width.into(),
+            size.cell_height.into(),
+        )?;
         // Ghostty's default `scrollback-limit`.
         term.set_scrollback_max_bytes(Some(10_000_000))?;
+        // Ghostty's default `image-storage-limit`. Kitty graphics are off until it's set.
+        term.set_kitty_image_storage_limit(320_000_000)?;
         let replies = Rc::new(Cell::new(Vec::new()));
         let retitled = Rc::new(Cell::new(false));
         let reported = Rc::new(Cell::new(None));
@@ -223,6 +274,8 @@ impl Vt {
             cells: CellIterator::new()?,
             chosen: Colors::default(),
             drawn: HashMap::new(),
+            images: ImageIterator::new()?,
+            images_drawn: None,
             last: Arc::default(),
             redraw_all: true,
         }));
@@ -277,6 +330,18 @@ impl Vt {
                 progressed.set(Some(status));
             }
             ends.set(ending);
+        })?
+        // Asked for the cells' size in pixels (CSI 16 t), as pi does to size the images it shows
+        // in cells, and for the rest of the size (14 and 18). Unanswered, pi guesses 9x18, and
+        // its images are stretched to cells of another shape.
+        .on_size(|term| {
+            let (cell_width, cell_height) = cell_pixels(term).ok()?;
+            Some(SizeReportSize {
+                rows: term.rows().ok()?,
+                columns: term.cols().ok()?,
+                cell_width,
+                cell_height,
+            })
         })?
         // Shells and editors wait on the answer to which terminal this is.
         .on_device_attributes(|_| {
@@ -731,10 +796,26 @@ struct Drawer {
     /// rest are drawn as they were, as Ghostty's renderer does: a program rewriting a line
     /// many times a second draws that line, not the screen.
     drawn: HashMap<RowId, Arc<Row>>,
+    images: ImageIterator<'static>,
+    /// What the last frame's images were read at. Any of it changing means they're read again.
+    images_drawn: Option<ImagesRead>,
     /// The last frame drawn, again while nothing changed.
     last: Arc<Frame>,
     /// Whether every row is to be drawn again, as libghostty can't tell.
     redraw_all: bool,
+}
+
+/// What a frame's images were read at.
+#[derive(Clone, Copy, PartialEq)]
+struct ImagesRead {
+    /// The generation of the image list, which changes as images are placed or move.
+    placements: u64,
+    /// The generation of the images' storage, which changes as an image still being sent
+    /// arrives, where the list's doesn't.
+    storage: u64,
+    /// The cells' size in pixels. Images are placed in cells from their size in pixels, and
+    /// neither generation need change with it.
+    cell: (u32, u32),
 }
 
 /// The frame a program's hold on the screen began from, and when.
@@ -784,13 +865,32 @@ impl Drawer {
         // Nor does the cursor moving, or the program reshaping it.
         let cursor_changed = cursor.map(|cursor| (cursor.x, cursor.y, cursor_style))
             != (last.cursor.as_ref()).map(|cursor| (cursor.x, cursor.y, cursor.style));
+        // Nor does an image being placed or moved.
+        let images_now = ImagesRead {
+            placements: snapshot.image_placements_generation()?,
+            storage: term.kitty_graphics()?.generation()?,
+            cell: cell_pixels(term)?,
+        };
+        let images_changed = self.images_drawn != Some(images_now);
         if !full
             && !cursor_changed
+            && !images_changed
             && frame.cursor_color == last.cursor_color
             && snapshot.dirty()? == Dirty::Clean
         {
             return Ok(self.last.clone());
         }
+        frame.images = match images_changed {
+            true => placements(
+                &mut self.images,
+                &snapshot,
+                term,
+                images_now.cell,
+                &last.images,
+            )?,
+            false => last.images.clone(),
+        };
+        self.images_drawn = Some(images_now);
         let selected_bg = (self.chosen.selection_background).unwrap_or(colors.foreground);
         let selected_fg = (self.chosen.selection_foreground).unwrap_or(colors.background);
         let mut rows = self.rows.update(&snapshot)?;
@@ -828,7 +928,11 @@ impl Drawer {
                 cell_text.clear();
                 if cell.graphemes_len()? > 0 {
                     cell.graphemes_utf8(&mut cell_text)?;
-                } else {
+                }
+                // A kitty placeholder marks where an image shows, which is drawn from the
+                // frame's images, not as text.
+                if cell_text.is_empty() || cell_text.starts_with(KITTY_PLACEHOLDER) {
+                    cell_text.clear();
                     cell_text.push(' ');
                 }
                 let attributes = cell.style()?;
@@ -900,6 +1004,124 @@ impl Drawer {
         snapshot.set_dirty(Dirty::Clean)?;
         Ok(Arc::new(frame))
     }
+}
+
+/// The images `snapshot` has in view, in the order to draw them, placed on cells of `cell`
+/// pixels, with the pixels of each read from `term` only when they changed since `before`.
+fn placements(
+    images: &mut ImageIterator<'static>,
+    snapshot: &Snapshot<'static, '_>,
+    term: &libghostty_vt::Terminal<'static, '_>,
+    (cell_width, cell_height): (u32, u32),
+    before: &[Placement],
+) -> libghostty_vt::error::Result<Vec<Placement>> {
+    let graphics = term.kitty_graphics()?;
+    let (cell_width, cell_height) = (cell_width.max(1) as f32, cell_height.max(1) as f32);
+    // By z-index, and as Ghostty orders those alike, by image id.
+    let mut placements: Vec<((i32, u32), Placement)> = Vec::new();
+    let mut iteration = images.update(snapshot)?;
+    while let Some(placement) = iteration.next() {
+        // Any other protocol a later libghostty adds has its own storage.
+        if !matches!(placement.protocol(), Ok(ImageProtocol::Kitty)) {
+            continue;
+        }
+        let (id, generation) = (placement.image_id()?, placement.image_generation()?);
+        let kept = (before.iter())
+            .chain(placements.iter().map(|(_, placement)| placement))
+            .find(|shown| shown.image.generation == generation)
+            .map(|shown| shown.image.clone());
+        let image = match kept {
+            Some(image) => image,
+            // Still being sent, it shows once it's all there.
+            None => match image(&graphics, id)? {
+                Some(image) => Arc::new(image),
+                None => continue,
+            },
+        };
+        let offset_x = placement.cell_offset_x()? as f32 / cell_width;
+        let offset_y = placement.cell_offset_y()? as f32 / cell_height;
+        placements.push((
+            (placement.z()?, id),
+            Placement {
+                image,
+                x: placement.viewport_col()? as f32 + offset_x,
+                y: placement.viewport_row()? as f32 + offset_y,
+                width: placement.pixel_width()? as f32 / cell_width,
+                height: placement.pixel_height()? as f32 / cell_height,
+                source_x: placement.source_x()?,
+                source_y: placement.source_y()?,
+                source_width: placement.source_width()?,
+                source_height: placement.source_height()?,
+                layer: placement.layer()?,
+            },
+        ));
+    }
+    placements.sort_by_key(|(order, _)| *order);
+    Ok(placements
+        .into_iter()
+        .map(|(_, placement)| placement)
+        .collect())
+}
+
+/// The size of `term`'s cells in pixels, as it was last sized: what programs are told and what
+/// images are sized in.
+fn cell_pixels(
+    term: &libghostty_vt::Terminal<'static, '_>,
+) -> libghostty_vt::error::Result<(u32, u32)> {
+    let (cols, rows) = (term.cols()?.max(1), term.rows()?.max(1));
+    Ok((
+        term.width_px()? / u32::from(cols),
+        term.height_px()? / u32::from(rows),
+    ))
+}
+
+/// The pixels of the image `id` in `graphics`, in RGBA, if they've all arrived.
+fn image(
+    graphics: &graphics::Graphics<'_>,
+    id: u32,
+) -> libghostty_vt::error::Result<Option<Image>> {
+    let Some(image) = graphics.image(id) else {
+        return Ok(None);
+    };
+    let Some(data) = image.data()? else {
+        return Ok(None);
+    };
+    let (width, height) = (image.width()?, image.height()?);
+    let rgba: Vec<u8> = match image.format()? {
+        // PNGs are decoded to RGBA as they arrive.
+        ImageFormat::Rgba | ImageFormat::Png => data.to_vec(),
+        ImageFormat::Rgb => (data.as_chunks::<3>().0.iter())
+            .flat_map(|&[r, g, b]| [r, g, b, 255])
+            .collect(),
+        ImageFormat::GrayAlpha => (data.as_chunks::<2>().0.iter())
+            .flat_map(|&[gray, alpha]| [gray, gray, gray, alpha])
+            .collect(),
+        ImageFormat::Gray => data.iter().flat_map(|&g| [g, g, g, 255]).collect(),
+        _ => return Ok(None),
+    };
+    if rgba.len() as u64 != u64::from(width) * u64::from(height) * 4 {
+        return Ok(None);
+    }
+    Ok(Some(Image {
+        generation: image.generation()?,
+        width,
+        height,
+        rgba,
+    }))
+}
+
+/// Has libghostty decode the PNGs programs send with kitty graphics, once for the process.
+fn install_png_decoder() {
+    static INSTALLED: Once = Once::new();
+    INSTALLED.call_once(|| {
+        // SAFETY: libghostty is reached only through a `Vt`, and this runs before the first is
+        // made, while any other thread making one waits for it, so no thread is inside
+        // libghostty.
+        let installed = unsafe { graphics::set_png_decoder(Some(Box::new(RustPngDecoder::new()))) };
+        if let Err(err) = installed {
+            tracing::warn!("couldn't install the PNG decoder, so PNG images won't show: {err}");
+        }
+    });
 }
 
 /// What the cell at `x` and `y` on the viewport links to (OSC 8), empty if nothing, read into
@@ -1013,6 +1235,134 @@ mod tests {
             vt.text().unwrap().trim_end(),
             long,
             "a line wider than the screen is still one line"
+        );
+    }
+
+    /// A 2×1 PNG: a red pixel, then a blue one.
+    const RED_BLUE_PNG: &str = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAADklEQVR4nGP4z8AAQv8BD/kD/YURmXYAAAAASUVORK5CYII=";
+
+    #[test]
+    fn a_png_sent_as_pi_sends_it_shows_over_the_cells_it_asked_for() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        vt.write(b"before\r\n");
+        vt.write(format!("\x1b_Ga=T,f=100,q=2,c=4,r=2;{RED_BLUE_PNG}\x1b\\").as_bytes());
+        let frame = vt.frame(&Colors::default()).unwrap();
+        let [placement] = frame.images.as_slice() else {
+            panic!("one image shows: {:?}", frame.images);
+        };
+        assert_eq!(
+            (placement.x, placement.y),
+            (0., 1.),
+            "at the cursor, on the line after the text"
+        );
+        assert_eq!(
+            (placement.width, placement.height),
+            (4., 2.),
+            "stretched over the 4 columns and 2 rows asked for"
+        );
+        let image = &placement.image;
+        assert_eq!(
+            (image.width, image.height, image.rgba.as_slice()),
+            (2, 1, [255, 0, 0, 255, 0, 0, 255, 255].as_slice()),
+            "the PNG decoded to RGBA"
+        );
+        assert_eq!(
+            placement.layer,
+            ImageLayer::AboveText,
+            "z 0, the default, draws over the text"
+        );
+    }
+
+    #[test]
+    fn an_image_at_its_own_size_takes_fewer_cells_as_they_grow() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        vt.write(format!("\x1b_Ga=T,f=100,q=2;{RED_BLUE_PNG}\x1b\\").as_bytes());
+        assert_eq!(
+            vt.frame(&Colors::default()).unwrap().images[0].width,
+            2. / 8.,
+            "2 pixels wide, a quarter of an 8-pixel cell"
+        );
+        vt.resize(Size {
+            cell_width: 16,
+            cell_height: 32,
+            ..SIZE
+        });
+        assert_eq!(
+            vt.frame(&Colors::default()).unwrap().images[0].width,
+            2. / 16.,
+            "it keeps its pixels as the cells double, which changes nothing libghostty counts"
+        );
+    }
+
+    #[test]
+    fn an_image_deleted_no_longer_shows() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        vt.write(format!("\x1b_Ga=T,f=100,q=2,c=4,r=2;{RED_BLUE_PNG}\x1b\\").as_bytes());
+        assert_eq!(
+            vt.frame(&Colors::default()).unwrap().images.len(),
+            1,
+            "shown before it's deleted"
+        );
+        vt.write(b"\x1b_Ga=d,d=A,q=2\x1b\\");
+        assert!(
+            vt.frame(&Colors::default()).unwrap().images.is_empty(),
+            "pi deletes every image as it clears the screen"
+        );
+    }
+
+    #[test]
+    fn images_at_one_z_index_are_drawn_in_the_order_of_their_ids() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        // Sent in neither the order of their ids nor its reverse.
+        for id in [3, 7, 5] {
+            let at = format!("\x1b[H\x1b_Ga=T,f=100,q=2,i={id},c=4,r=2;{RED_BLUE_PNG}\x1b\\");
+            vt.write(at.as_bytes());
+        }
+        let frame = vt.frame(&Colors::default()).unwrap();
+        let generations: Vec<_> = (frame.images.iter())
+            .map(|placement| placement.image.generation)
+            .collect();
+        // Generations count up as images arrive.
+        let mut sent = generations.clone();
+        sent.sort();
+        let [three, seven, five] = sent[..] else {
+            panic!("all three show: {generations:?}");
+        };
+        assert_eq!(
+            generations,
+            [three, five, seven],
+            "drawn by id, image 3 at the bottom, as in Ghostty"
+        );
+    }
+
+    #[test]
+    fn a_kitty_placeholder_is_not_drawn_as_text() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        vt.write("a\u{10EEEE}\u{0305}\u{0305}b".as_bytes());
+        assert_eq!(
+            first_row(&mut vt),
+            "a b",
+            "the image it marks is drawn there instead"
+        );
+    }
+
+    #[test]
+    fn an_image_scrolls_with_the_text() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        vt.write(format!("\x1b_Ga=T,f=100,q=2,c=4,r=2;{RED_BLUE_PNG}\x1b\\").as_bytes());
+        assert_eq!(
+            vt.frame(&Colors::default()).unwrap().images[0].y,
+            0.,
+            "on the top row before the text scrolls"
+        );
+        for _ in 0..30 {
+            vt.write(b"\r\n");
+        }
+        let frame = vt.frame(&Colors::default()).unwrap();
+        assert!(
+            frame.images.is_empty(),
+            "scrolled off the top, it's out of view: {:?}",
+            frame.images
         );
     }
 
@@ -1235,6 +1585,17 @@ mod tests {
             String::from_utf8(vt.resize(SIZE)).unwrap(),
             "\x1b[48;24;80;384;640t",
             "nvim asks for 2048 and redraws only once it reads the new rows, columns and pixels"
+        );
+    }
+
+    #[test]
+    fn a_program_asking_for_the_cell_size_is_told_it() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        vt.write(b"\x1b[16t");
+        assert_eq!(
+            String::from_utf8(vt.take_replies()).unwrap(),
+            "\x1b[6;16;8t",
+            "pi sizes images in cells by the cells' height and width in pixels"
         );
     }
 
