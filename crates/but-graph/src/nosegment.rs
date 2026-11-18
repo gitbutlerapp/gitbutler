@@ -781,6 +781,7 @@ impl WorkspaceGraph {
         project_meta: but_core::ref_metadata::ProjectMeta,
         seen_from_ref: Option<&FullNameRef>,
         seen_from_commit: Option<gix::ObjectId>,
+        worktree_tips: &[crate::init::WorktreeTip],
     ) -> Result<crate::Graph> {
         let mut inner_graph = crate::init::PetGraph::default();
         let shallow_commits = repo.shallow_commits()?;
@@ -799,6 +800,14 @@ impl WorkspaceGraph {
             .is_none()
             .then_some(seen_from_commit)
             .flatten();
+        // Like the tip a traversal makes of it, the commit a linked worktree has checked out
+        // without a branch starts a segment, so its lane starts there.
+        let starts_anonymous_segment = |id: gix::ObjectId| {
+            detached_commit == Some(id)
+                || worktree_tips
+                    .iter()
+                    .any(|tip| tip.ref_name.is_none() && tip.id == id)
+        };
 
         // Each local branch with the segment it names, to be paired with its remote-tracking branch.
         let mut local_branches = Vec::<(crate::SegmentIndex, FullName)>::new();
@@ -1093,7 +1102,7 @@ impl WorkspaceGraph {
                             // segment, unless a branch without commits of its own names it.
                             let starts_at_target = project_meta.target_commit_id == Some(*oid)
                                 && !segment.commits.is_empty();
-                            (continues && detached_commit != Some(*oid) && !starts_at_target)
+                            (continues && !starts_anonymous_segment(*oid) && !starts_at_target)
                                 .then_some(segment_index)
                         }
                     }
@@ -1112,7 +1121,7 @@ impl WorkspaceGraph {
                 // its branch points at.
                 _ => match &node.weight {
                     NodeWeight::Pick { oid } | NodeWeight::ShallowPoint { oid }
-                        if !is_workspace_commit && detached_commit != Some(*oid) =>
+                        if !is_workspace_commit && !starts_anonymous_segment(*oid) =>
                     {
                         let mut local_branch_segment = None;
                         let mut others_leave_the_commit = true;
@@ -1188,7 +1197,7 @@ impl WorkspaceGraph {
                     // reference even where other lanes reach it too, like those of linked
                     // worktrees started on it.
                     NodeWeight::Pick { oid } | NodeWeight::ShallowPoint { oid }
-                        if is_workspace_commit && detached_commit != Some(*oid) =>
+                        if is_workspace_commit && !starts_anonymous_segment(*oid) =>
                     {
                         predecessor_segment_info
                             .segment_indexes
@@ -1767,6 +1776,7 @@ pub fn segment_graph(
         project_meta,
         seen_from_ref,
         seen_from_commit,
+        &worktree_tips,
     )?;
     graph.worktree_tips = worktree_tips;
     Ok(graph)
