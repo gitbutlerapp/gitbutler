@@ -1,9 +1,9 @@
 use but_ctx::Context;
 use gix::refs::Category;
-use ratatui::{style::Style, text::Span};
+use ratatui::style::Style;
 
 use crate::{
-    CliId,
+    ChangeSourceId, CliId,
     command::legacy::{
         branch::{
             self,
@@ -20,95 +20,53 @@ use crate::{
                     App, Modal,
                     mark::{Marks, MarksRef},
                 },
+                cursor::Cursor,
                 fuzzy_picker::{Col, FuzzyPicker, FuzzyPickerItem, SearchableToken},
                 key_bind::fuzzy_picker_key_binds,
                 mode::Mode,
-                render::{ModeRender, RenderSingleLineSpans, SpanExt as _},
+                render::ModeRender,
+                stop::{
+                    SelectedStop, Stop, StopMode, StopPosition, branch_line_of, current_position,
+                },
             },
         },
         switch::{self, SwitchBranchItem, SwitchOperation, switch_branch_items},
     },
+    id::BranchId,
     theme::Theme,
     utils::targeting::Side,
 };
 
 use super::MoveCursorDiration;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct BranchMode {
     pub marks: Marks,
-    pub side: Side,
-}
-
-impl Default for BranchMode {
-    fn default() -> Self {
-        Self {
-            marks: Default::default(),
-            side: Side::Above,
-        }
-    }
+    /// Which of the stops on the cursor line a new branch goes to, as
+    /// [`StopMode::selected_stop`] says.
+    pub stop: Option<SelectedStop>,
 }
 
 impl ModeRender for BranchMode {}
 
-impl BranchMode {
-    pub fn render_insert_branch_marker(
-        &self,
-        app: &App,
-        data: &StatusOutputLineData,
-        is_selected: bool,
-        status_line_idx: usize,
-        lines_part_of_current_branch: Option<&[bool]>,
-        line: &mut RenderSingleLineSpans<'_, '_>,
-    ) {
-        let Some(lines_part_of_current_branch) = lines_part_of_current_branch else {
-            return;
+impl StopMode for BranchMode {
+    fn stop_label(&self, stop: &Stop) -> Option<String> {
+        let label = match stop {
+            Stop::NewBranchAbove(_) => "new branch above",
+            Stop::NewBranchBelow(_) => "new branch below",
+            Stop::NewStack => "new stack",
+            Stop::BranchTip(_) | Stop::BelowCommit(_) => return None,
         };
-
-        match data {
-            StatusOutputLineData::UncommittedChanges { .. } | StatusOutputLineData::MergeBase => {
-                if is_selected {
-                    line.extend([
-                        Span::raw("<< branch >>").mode_colors(&*app.mode, app.theme),
-                        Span::raw(" "),
-                    ]);
-                }
-            }
-            _ => match self.side {
-                Side::Above => {
-                    if is_selected {
-                        line.extend([
-                            Span::raw("<< branch >>").mode_colors(&*app.mode, app.theme),
-                            Span::raw(" "),
-                        ]);
-                    }
-                }
-                Side::Below => {
-                    if line_part_of_branch(status_line_idx, lines_part_of_current_branch)
-                        && !line_part_of_branch(status_line_idx + 1, lines_part_of_current_branch)
-                    {
-                        line.extend([
-                            Span::raw("<< branch below >>").mode_colors(&*app.mode, app.theme),
-                            Span::raw(" "),
-                        ]);
-                    }
-                }
-            },
-        }
+        Some(label.to_owned())
     }
-}
 
-fn line_part_of_branch(
-    line_idx: impl Into<Option<usize>>,
-    lines_part_of_current_branch: &[bool],
-) -> bool {
-    let Some(line_idx) = line_idx.into() else {
-        return false;
-    };
-    lines_part_of_current_branch
-        .get(line_idx)
-        .copied()
-        .unwrap_or(false)
+    fn is_source(&self, _id: &CliId) -> bool {
+        false
+    }
+
+    fn selected_stop(&self) -> Option<&SelectedStop> {
+        self.stop.as_ref()
+    }
 }
 
 #[derive(Debug)]
@@ -117,7 +75,6 @@ pub enum BranchMessage {
     Switch,
     New { switch: bool },
     PickAndSwitch,
-    ToggleInsertSide,
 }
 
 impl App {
@@ -132,7 +89,6 @@ impl App {
             BranchMessage::Switch => self.handle_branch_switch(ctx, messages)?,
             BranchMessage::New { switch } => self.handle_branch_new(ctx, messages, switch)?,
             BranchMessage::PickAndSwitch => self.handle_branch_pick_and_switch(ctx)?,
-            BranchMessage::ToggleInsertSide => self.handle_branch_toggle_insert_side(),
         }
 
         Ok(())
@@ -148,7 +104,7 @@ impl App {
 
         let new_mode = Mode::Branch(BranchMode {
             marks: marks.to_owned(),
-            side: Side::Above,
+            stop: None,
         });
 
         self.mode
@@ -156,7 +112,50 @@ impl App {
                 *mode = new_mode;
             });
 
+        if let Some(cursor) = self.branch_mode_start() {
+            self.cursor = cursor;
+        }
         self.ensure_cursor_is_on_selectable_line(MoveCursorDiration::Up);
+    }
+
+    /// Where branch mode starts when it isn't on a stop already. The main checkout's
+    /// uncommitted changes aren't on any branch, so a branch made from there starts a stack of
+    /// its own, at the merge base. A commit, or a file of one, starts at the commit's branch, above
+    /// which a new branch goes.
+    fn branch_mode_start(&self) -> Option<Cursor> {
+        let idx = self.cursor.index();
+        let line = self.cursor.selected_line(&self.status_lines)?;
+        let in_main_checkout = line.data.cli_id().is_some_and(|id| match &**id {
+            CliId::UncommittedArea { source, .. } => *source == ChangeSourceId::Head,
+            CliId::UncommittedHunkOrFile(hunk) => hunk.source == ChangeSourceId::Head,
+            CliId::AnonymousSegment(..)
+            | CliId::PathPrefix { .. }
+            | CliId::CommittedFile { .. }
+            | CliId::CommittedHunk(..)
+            | CliId::Branch(..)
+            | CliId::Commit { .. }
+            | CliId::Stack { .. } => false,
+        });
+        if in_main_checkout {
+            return Cursor::select_merge_base(&self.status_lines);
+        }
+        // A committed file is listed under its commit.
+        let commit_line = match line.data {
+            StatusOutputLineData::Commit { .. } => idx,
+            StatusOutputLineData::File { .. } => (0..idx).rev().find(|line| {
+                matches!(
+                    self.status_lines[*line].data,
+                    StatusOutputLineData::Commit { .. }
+                )
+            })?,
+            _ => return None,
+        };
+        Cursor::select_at_index(
+            branch_line_of(&self.status_lines, commit_line)?,
+            &self.status_lines,
+            &self.mode,
+            self.flags.show_files,
+        )
     }
 
     fn handle_branch_switch(
@@ -194,16 +193,6 @@ impl App {
         ]);
 
         Ok(())
-    }
-
-    fn handle_branch_toggle_insert_side(&mut self) {
-        let Mode::Branch(branch_mode) = self
-            .mode
-            .get_mut_and_i_promise_not_to_switch_to_a_different_state()
-        else {
-            return;
-        };
-        branch_mode.side = branch_mode.side.toggle();
     }
 
     fn handle_branch_pick_and_switch(&mut self, ctx: &mut Context) -> anyhow::Result<()> {
@@ -271,85 +260,49 @@ impl App {
         messages: &mut Vec<Message>,
         switch: bool,
     ) -> anyhow::Result<()> {
-        let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
+        let Mode::Branch(mode) = &*self.mode else {
+            return Ok(());
+        };
+        let Some(StopPosition::At(stop)) =
+            current_position(&self.status_lines, self.cursor.index(), mode)
+        else {
             return Ok(());
         };
 
-        let side = if let Mode::Branch(branch_mode) = &*self.mode {
-            branch_mode.side
-        } else {
-            Side::Above
+        let operation = match &stop {
+            Stop::NewBranchAbove(branch) => new_stacked_branch(branch, Side::Above, switch)?,
+            Stop::NewBranchBelow(branch) => new_stacked_branch(branch, Side::Below, switch)?,
+            Stop::NewStack => {
+                NewOperation::NewUnstackedBranch(NewUnstackedBranchOperation { name: None, switch })
+            }
+            Stop::BranchTip(_) | Stop::BelowCommit(_) => return Ok(()),
         };
 
-        let new_name = match &selection.data {
-            StatusOutputLineData::Branch { cli_id, .. } => {
-                let CliId::Branch(branch) = &**cli_id else {
-                    return Ok(());
-                };
-
-                let mut guard = ctx.exclusive_worktree_access();
-                let mut meta = ctx.meta()?;
-
-                let outcome = branch::new::run(
-                    ctx,
-                    &mut meta,
-                    guard.write_permission(),
-                    NewOperation::NewStackedBranch(NewStackedBranchOperation {
-                        name: None,
-                        target: NewStackedBranchTarget::Branch(
-                            Category::LocalBranch.to_full_name(&*branch.name)?,
-                        ),
-                        side,
-                        switch,
-                    }),
-                )?;
-
-                outcome.name.shorten().to_string()
-            }
-            StatusOutputLineData::UncommittedChanges { .. }
-            | StatusOutputLineData::WorktreeUncommitted { .. }
-            | StatusOutputLineData::MergeBase
-            | StatusOutputLineData::UncommittedFile { .. } => {
-                let mut guard = ctx.exclusive_worktree_access();
-                let mut meta = ctx.meta()?;
-
-                let outcome = branch::new::run(
-                    ctx,
-                    &mut meta,
-                    guard.write_permission(),
-                    NewOperation::NewUnstackedBranch(NewUnstackedBranchOperation {
-                        name: None,
-                        switch,
-                    }),
-                )?;
-
-                outcome.name.shorten().to_string()
-            }
-            StatusOutputLineData::UpdateNotice
-            | StatusOutputLineData::Connector
-            | StatusOutputLineData::BetweenStacks
-            | StatusOutputLineData::StagedChanges { .. }
-            | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::Commit { .. }
-            | StatusOutputLineData::CommitMessage
-            | StatusOutputLineData::EmptyCommitMessage
-            | StatusOutputLineData::File { .. }
-            | StatusOutputLineData::UpstreamChanges
-            | StatusOutputLineData::Warning
-            | StatusOutputLineData::Hint
-            | StatusOutputLineData::NoAssignmentsUnstaged => return Ok(()),
-        };
+        let mut guard = ctx.exclusive_worktree_access();
+        let mut meta = ctx.meta()?;
+        let outcome = branch::new::run(ctx, &mut meta, guard.write_permission(), operation)?;
 
         messages.extend([
             Message::EnterNormalModeAfterConfirmingOperation,
             Message::Reload(
-                Some(SelectAfterReload::Branch(new_name)),
+                Some(SelectAfterReload::Branch(
+                    outcome.name.shorten().to_string(),
+                )),
                 ReloadCause::Mutation,
             ),
         ]);
 
         Ok(())
     }
+}
+
+fn new_stacked_branch(branch: &BranchId, side: Side, switch: bool) -> anyhow::Result<NewOperation> {
+    Ok(NewOperation::NewStackedBranch(NewStackedBranchOperation {
+        name: None,
+        target: NewStackedBranchTarget::Branch(Category::LocalBranch.to_full_name(&*branch.name)?),
+        side,
+        switch,
+    }))
 }
 
 impl FuzzyPickerItem for SwitchBranchItem {

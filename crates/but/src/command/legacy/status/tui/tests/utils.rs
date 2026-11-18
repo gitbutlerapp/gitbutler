@@ -13,7 +13,7 @@ use crate::{
     tui::{
         Clipboard,
         event_polling::EventPolling,
-        test_utils::{TestTui, TestTuiInputThenRenderResult, configure_test_repo},
+        test_utils::{Shift, TestTui, TestTuiInputThenRenderResult, configure_test_repo},
     },
     utils::OutputChannel,
 };
@@ -159,7 +159,8 @@ pub fn commit_with_two_hunks_in_file() -> TestTui<App> {
 
     tui.input('c');
     tui.input('e');
-    tui.input('b');
+    tui.input(Shift('g'));
+    tui.input(KeyCode::Enter);
 
     tui.env().prepend_file("file", "top");
     tui.env().append_file("file", "bottom");
@@ -168,7 +169,7 @@ pub fn commit_with_two_hunks_in_file() -> TestTui<App> {
 
     tui.input('c');
     tui.input('e');
-    tui.input('a');
+    tui.input('k');
     tui.input(KeyCode::Enter)
         .assert_current_line_eq(str!["┊●   [..] (no commit message)"]);
 

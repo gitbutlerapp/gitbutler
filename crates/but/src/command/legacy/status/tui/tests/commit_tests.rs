@@ -3,7 +3,10 @@ use crossterm::event::*;
 use snapbox::{file, str};
 use temp_env::with_var;
 
-use crate::command::legacy::status::tui::tests::utils::test_status_tui;
+use crate::{
+    command::legacy::status::tui::tests::utils::test_status_tui,
+    tui::test_utils::{Control, Shift},
+};
 
 const TEST_EDITOR_MESSAGE: &str = "commit from tui test";
 
@@ -23,7 +26,7 @@ fn commit_mode_enter_and_escape() {
         .assert_current_line_eq(str!["╭┄ << source >> << noop >> @ [uncommitted]"]);
 
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
+        .assert_current_line_eq(str!["┊╭┄ << commit to new branch above >>"]);
 
     tui.input(KeyCode::Esc)
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"])
@@ -111,7 +114,7 @@ fn commit_from_unstaged_changes_creates_commit_visible_in_tui() {
     tui.input('c')
         .assert_current_line_eq(str!["╭┄ << source >> << noop >> @ [uncommitted]"]);
 
-    tui.input(KeyCode::Down)
+    tui.input([KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
 
     with_var("GIT_EDITOR", Some(editor_command), || {
@@ -149,10 +152,10 @@ fn commit_from_unstaged_changes_to_new_branch_creates_branch_and_commit() {
         .assert_current_line_eq(str!["╭┄ << source >> << noop >> @ [uncommitted]"]);
 
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
+        .assert_current_line_eq(str!["┊╭┄ << commit to new branch above >>"]);
 
     with_var("GIT_EDITOR", Some(editor_command), || {
-        tui.input('b')
+        tui.input(KeyCode::Enter)
             .assert_current_line_eq(str!["┊●   oqn commit from tui test"]);
     });
 
@@ -176,7 +179,8 @@ fn commit_from_unstaged_changes_to_new_branch_enters_workspace_in_single_branch_
 
     tui.input('c');
     tui.input('e');
-    tui.input('b').assert_rendered_term_svg_eq(file![
+    tui.input(Shift('g'));
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
         "snapshots/commit_from_unstaged_changes_to_new_branch_enters_workspace_in_single_branch_mode_final.svg"
     ]);
 
@@ -223,7 +227,7 @@ fn commit_from_unstaged_changes_with_multiple_hunks_in_same_file_commits_all_cha
     tui.input('c')
         .assert_current_line_eq(str!["╭┄ << source >> << noop >> @ [uncommitted]"]);
 
-    tui.input(KeyCode::Down)
+    tui.input([KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
 
     with_var("GIT_EDITOR", Some(editor_command.clone()), || {
@@ -252,7 +256,7 @@ fn commit_from_unstaged_changes_with_multiple_hunks_in_same_file_commits_all_cha
     tui.input('c')
         .assert_current_line_eq(str!["╭┄ << source >> << noop >> @ [uncommitted]"]);
 
-    tui.input(KeyCode::Down)
+    tui.input([KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
 
     with_var("GIT_EDITOR", Some(editor_command), || {
@@ -282,7 +286,7 @@ fn commit_mode_shows_commit_below_on_commit_rows() {
     tui.input('c')
         .assert_current_line_eq(str!["╭┄ << source >> << noop >> @ [uncommitted]"]);
 
-    tui.input([KeyCode::Down, KeyCode::Down])
+    tui.input([KeyCode::Down, KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊●   tpm add A"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_mode_shows_commit_below_on_commit_rows_final.svg"
@@ -290,16 +294,9 @@ fn commit_mode_shows_commit_below_on_commit_rows() {
 }
 
 #[test]
-fn commit_to_commit_above_creates_commit_visible_in_tui() {
+fn commit_to_new_branch_below_stacks_it_under_the_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
-
-    env.file(
-        "editor.sh",
-        format!("printf '{TEST_EDITOR_MESSAGE}\\n' > \"$1\"\n"),
-    );
-    let editor_path = env.projects_root().join("editor.sh");
-    let editor_command = format!("sh {}", editor_path.display());
 
     let mut tui = test_status_tui(env);
 
@@ -311,26 +308,17 @@ fn commit_to_commit_above_creates_commit_visible_in_tui() {
     tui.input('c')
         .assert_current_line_eq(str!["╭┄ << source >> << noop >> @ [uncommitted]"]);
 
-    tui.input([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   tpm add A"])
+    tui.input('e');
+
+    // Past the branch tip and the stop right below A's only commit is the new branch below A.
+    tui.input(['j', 'j', 'j', 'j'])
         .assert_rendered_term_svg_eq(file![
-            "snapshots/commit_to_commit_above_creates_commit_visible_in_tui_final_001.svg"
+            "snapshots/commit_to_new_branch_below_stacks_it_under_the_branch_001.svg"
         ]);
 
-    tui.input('a')
-        .assert_current_line_eq(str!["┊│   << commit above >>"])
-        .assert_rendered_contains("┊│   << commit above >>");
-
-    with_var("GIT_EDITOR", Some(editor_command), || {
-        tui.input(KeyCode::Enter)
-            .assert_current_line_eq(str!["┊●   oqn commit from tui test"]);
-    });
-
-    tui.reload()
-        .assert_current_line_eq(str!["┊●   oqn commit from tui test"])
-        .assert_rendered_term_svg_eq(file![
-            "snapshots/commit_to_commit_above_creates_commit_visible_in_tui_final_002.svg"
-        ]);
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/commit_to_new_branch_below_stacks_it_under_the_branch_002.svg"
+    ]);
 }
 
 #[test]
@@ -355,7 +343,7 @@ fn commit_to_commit_below_creates_commit_visible_in_tui() {
     tui.input('c')
         .assert_current_line_eq(str!["╭┄ << source >> << noop >> @ [uncommitted]"]);
 
-    tui.input([KeyCode::Down, KeyCode::Down])
+    tui.input([KeyCode::Down, KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊●   tpm add A"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_to_commit_below_creates_commit_visible_in_tui_001.svg"
@@ -409,16 +397,16 @@ fn commit_mode_from_staged_changes_stays_within_current_stack() {
     ]);
 
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
+        .assert_current_line_eq(str!["┊╭┄ << commit to new branch above >>"]);
 
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊●   tpm add A"])
+        .assert_current_line_eq(str!["┊╭┄ g0 [A]"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_mode_from_staged_changes_stays_within_current_stack_001.svg"
         ]);
 
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊╭┄ h0 [B]"])
+        .assert_current_line_eq(str!["┊●   tpm add A"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_mode_from_staged_changes_stays_within_current_stack_final.svg"
         ]);
@@ -439,7 +427,7 @@ fn commit_with_inline_reword() {
     tui.input('c')
         .assert_current_line_eq(str!["╭┄ << source >> << noop >> @ [uncommitted]"]);
 
-    tui.input(KeyCode::Down)
+    tui.input([KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
 
     tui.input('e')
@@ -482,7 +470,7 @@ fn commit_moved_file_from_uncommitted_changes_line() {
     tui.env().file("test.txt", "content");
     tui.reload();
     tui.input('c');
-    tui.input(KeyCode::Down);
+    tui.input([KeyCode::Down, KeyCode::Down]);
     tui.input('i');
     tui.input(KeyCode::Enter);
     tui.input("add test.txt");
@@ -497,7 +485,7 @@ fn commit_moved_file_from_uncommitted_changes_line() {
 
     // commit the moved file
     tui.input('c');
-    tui.input(KeyCode::Down);
+    tui.input([KeyCode::Down, KeyCode::Down]);
     tui.input('i');
     tui.input(KeyCode::Enter);
     tui.input("move test.txt to moved-test.txt");
@@ -522,7 +510,7 @@ fn commit_moved_file_from_file_line() {
     tui.env().file("test.txt", "content");
     tui.reload();
     tui.input('c');
-    tui.input(KeyCode::Down);
+    tui.input([KeyCode::Down, KeyCode::Down]);
     tui.input('i');
     tui.input(KeyCode::Enter);
     tui.input("add test.txt");
@@ -539,7 +527,7 @@ fn commit_moved_file_from_file_line() {
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊   yw R moved-test.txt"]);
     tui.input('c');
-    tui.input(KeyCode::Down);
+    tui.input([KeyCode::Down, KeyCode::Down]);
     tui.input('i');
     tui.input(KeyCode::Enter);
     tui.input("move test.txt to moved-test.txt");
@@ -568,7 +556,7 @@ fn commit_moved_and_modified_file() {
 
     tui.reload();
     tui.input('c');
-    tui.input(KeyCode::Down);
+    tui.input([KeyCode::Down, KeyCode::Down]);
     tui.input('i');
     tui.input(KeyCode::Enter);
     tui.input("add test.txt");
@@ -584,7 +572,7 @@ fn commit_moved_and_modified_file() {
 
     // commit the moved file
     tui.input('c');
-    tui.input(KeyCode::Down);
+    tui.input([KeyCode::Down, KeyCode::Down]);
     tui.input('i');
     tui.input(KeyCode::Enter);
     tui.input("move test.txt to moved-test.txt");
@@ -711,7 +699,7 @@ fn mark_and_commit_multiple_uncommitted_files() {
         "snapshots/mark_and_commit_multiple_uncommitted_files_001.svg"
     ]);
 
-    tui.input('j');
+    tui.input(['j', 'j']);
     tui.input('e');
     tui.input(KeyCode::Enter);
     tui.input((KeyModifiers::SHIFT, 'F'))
@@ -721,7 +709,7 @@ fn mark_and_commit_multiple_uncommitted_files() {
 }
 
 #[test]
-fn committing_above_below() {
+fn committing_steps_through_every_stop() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
@@ -730,30 +718,88 @@ fn committing_above_below() {
     tui.env().file("test.txt", "content");
 
     tui.input('c');
-    tui.input('j')
-        .assert_rendered_term_svg_eq(file!["snapshots/committing_above_below_001.svg"]);
-    tui.input('j')
-        .assert_rendered_term_svg_eq(file!["snapshots/committing_above_below_002.svg"]);
-    tui.input('a')
-        .assert_rendered_term_svg_eq(file!["snapshots/committing_above_below_003.svg"]);
+    tui.input('j').assert_rendered_term_svg_eq(file![
+        "snapshots/committing_steps_through_every_stop_001.svg"
+    ]);
+    tui.input('j').assert_rendered_term_svg_eq(file![
+        "snapshots/committing_steps_through_every_stop_002.svg"
+    ]);
+    tui.input('j').assert_rendered_term_svg_eq(file![
+        "snapshots/committing_steps_through_every_stop_003.svg"
+    ]);
+    tui.input('j').assert_rendered_term_svg_eq(file![
+        "snapshots/committing_steps_through_every_stop_004.svg"
+    ]);
+    tui.input('j').assert_rendered_term_svg_eq(file![
+        "snapshots/committing_steps_through_every_stop_005.svg"
+    ]);
+
+    // The new stack at the merge base is the last stop.
+    tui.input('j').assert_rendered_term_svg_eq(file![
+        "snapshots/committing_steps_through_every_stop_005.svg"
+    ]);
+
+    tui.input('k').assert_rendered_term_svg_eq(file![
+        "snapshots/committing_steps_through_every_stop_004.svg"
+    ]);
 }
 
 #[test]
-fn cannot_commit_to_new_branch_from_commit_line() {
+fn committing_steps_over_merged_branches() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("upstream-integrated-with-updates");
+    env.setup_metadata(&["A", "B"]);
+    env.set_target_sha("refs/heads/base");
+
+    let mut tui = test_status_tui(env);
+
+    tui.env().file("test.txt", "content");
+    tui.reload();
+
+    // A is merged upstream, so the first stop is above B.
+    tui.input('c');
+    tui.input('j').assert_rendered_term_svg_eq(file![
+        "snapshots/committing_steps_over_merged_branches_001.svg"
+    ]);
+}
+
+#[test]
+fn a_reload_keeps_the_stop_stepped_to() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
     let mut tui = test_status_tui(env);
 
     tui.env().file("test.txt", "content");
+    tui.reload();
 
     tui.input('c');
     tui.input('j');
-    tui.input('j').assert_rendered_term_svg_eq(file![
-        "snapshots/cannot_commit_to_new_branch_from_commit_line_001.svg"
+
+    // Another changed file moves A's line down, and the new branch above A stays selected.
+    tui.env().file("other.txt", "content");
+    tui.reload().assert_rendered_term_svg_eq(file![
+        "snapshots/a_reload_keeps_the_stop_stepped_to_001.svg"
     ]);
-    tui.input('b').assert_rendered_term_svg_eq(file![
-        "snapshots/cannot_commit_to_new_branch_from_commit_line_002.svg"
+}
+
+#[test]
+fn picking_the_branch_the_cursor_is_on_commits_to_it() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.env().file("test.txt", "content");
+    tui.reload();
+
+    // Stepped to the new branch above A, picking A lands on A itself.
+    tui.input('c');
+    tui.input('j');
+    tui.input('t');
+    tui.input(Control('n'));
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/picking_the_branch_the_cursor_is_on_commits_to_it_001.svg"
     ]);
 }
 
@@ -770,7 +816,8 @@ fn commit_to_new_branch_from_uncommitted_area() {
 
     tui.input('c');
     tui.input('e');
-    tui.input('b').assert_rendered_term_svg_eq(file![
+    tui.input(Shift('g'));
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
         "snapshots/commit_to_new_branch_from_uncommitted_001.svg"
     ]);
 }

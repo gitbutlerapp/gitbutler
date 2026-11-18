@@ -1,7 +1,4 @@
-use but_rebase::graph_rebase::mutate::InsertSide;
 use ratatui::text::Span;
-
-use crate::utils::targeting::Side;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExtensionDirection {
@@ -9,24 +6,6 @@ pub enum ExtensionDirection {
     Above,
     /// Build the connector for a synthetic line rendered below the source line.
     Below,
-}
-
-impl From<InsertSide> for ExtensionDirection {
-    fn from(value: InsertSide) -> Self {
-        match value {
-            InsertSide::Above => Self::Above,
-            InsertSide::Below => Self::Below,
-        }
-    }
-}
-
-impl From<Side> for ExtensionDirection {
-    fn from(value: Side) -> Self {
-        match value {
-            Side::Above => Self::Above,
-            Side::Below => Self::Below,
-        }
-    }
 }
 
 /// The returned connector preserves the input connector width (character count),
@@ -38,11 +17,114 @@ pub fn extend_connector_spans<E>(connector: &[Span<'_>], direction: ExtensionDir
 where
     E: Extend<Span<'static>>,
 {
-    let connector_text = connector
+    out.extend([Span::raw(extend_connector_text(
+        &connector_text(connector),
+        direction,
+    ))]);
+}
+
+/// The connector for a synthetic line where a stop would create a new branch: the line's lane
+/// gets a branch head, `├┄`, or `╭┄` when nothing continues above it, as a stack's top branch
+/// has. The lanes around it continue as [`extend_connector_spans`] has them.
+pub fn new_branch_connector_spans<E>(
+    connector: &[Span<'_>],
+    direction: ExtensionDirection,
+    out: &mut E,
+) where
+    E: Extend<Span<'static>>,
+{
+    out.extend([Span::raw(new_branch_connector_text(
+        &connector_text(connector),
+        direction,
+    ))]);
+}
+
+/// The connector for the spacer row between a new branch's head and the line it's next to,
+/// as the graph draws one between a commit and the head of the branch below it.
+pub fn new_branch_spacer_spans<E>(
+    connector: &[Span<'_>],
+    direction: ExtensionDirection,
+    out: &mut E,
+) where
+    E: Extend<Span<'static>>,
+{
+    out.extend([Span::raw(new_branch_spacer_text(
+        &connector_text(connector),
+        direction,
+    ))]);
+}
+
+fn new_branch_spacer_text(connector: &str, direction: ExtensionDirection) -> String {
+    let lane = lane_column(connector);
+    extend_connector_text(connector, direction)
+        .chars()
+        .take(lane)
+        .chain(['│'])
+        .collect()
+}
+
+/// `connector` of a stack's top branch line as it is drawn below a new branch above it: the
+/// branch joins the stack instead of starting it, `╭` becoming `├`.
+pub fn stacked_under_new_branch(connector: &[Span<'_>]) -> Vec<Span<'static>> {
+    let lane = lane_depth(connector);
+    let mut column = 0;
+    connector
         .iter()
-        .map(|span| span.content.as_ref())
-        .collect::<String>();
-    out.extend([Span::raw(extend_connector_text(&connector_text, direction))]);
+        .map(|span| {
+            let content = span
+                .content
+                .chars()
+                .map(|ch| {
+                    let ch = match (column == lane, ch) {
+                        (true, '╭') => '├',
+                        (_, ch) => ch,
+                    };
+                    column += 1;
+                    ch
+                })
+                .collect::<String>();
+            Span::styled(content, span.style)
+        })
+        .collect()
+}
+
+/// How many lanes deep the line with `connector` is drawn: the graph columns before the line's
+/// own glyph.
+pub fn lane_depth(connector: &[Span<'_>]) -> usize {
+    connector
+        .iter()
+        .flat_map(|span| span.content.chars())
+        .take_while(|ch| is_lane(*ch))
+        .count()
+}
+
+/// Whether `ch` is the column of a lane that continues past a line.
+fn is_lane(ch: char) -> bool {
+    matches!(ch, '┊' | '│')
+}
+
+fn connector_text(connector: &[Span<'_>]) -> String {
+    connector.iter().map(|span| span.content.as_ref()).collect()
+}
+
+/// The column of the lane a connector's line is drawn in: past the columns of the lanes it is
+/// nested in.
+fn lane_column(connector: &str) -> usize {
+    connector.chars().take_while(|ch| is_lane(*ch)).count()
+}
+
+fn new_branch_connector_text(connector: &str, direction: ExtensionDirection) -> String {
+    let extended = extend_connector_text(connector, direction);
+    let lane = lane_column(connector);
+    let head = match extended.chars().nth(lane) {
+        Some('│') => '├',
+        Some(_) | None => '╭',
+    };
+    extended
+        .chars()
+        .take(lane)
+        .chain([head, '┄', ' '])
+        .collect()
 }
 
 /// This function preserves the number of characters in `connector`.
@@ -94,8 +176,85 @@ const fn extension_char(ch: char, direction: ExtensionDirection) -> char {
 
 #[cfg(test)]
 mod tests {
-    use super::{ExtensionDirection, extend_connector_spans, extend_connector_text};
+    use super::{
+        ExtensionDirection, extend_connector_spans, extend_connector_text,
+        new_branch_connector_text, new_branch_spacer_text, stacked_under_new_branch,
+    };
     use ratatui::text::Span;
+
+    #[test]
+    fn a_new_branch_below_a_stacks_last_commit_joins_the_stack() {
+        assert_eq!(
+            new_branch_connector_text("┊●   ", ExtensionDirection::Below),
+            "┊├┄ "
+        );
+    }
+
+    #[test]
+    fn a_new_branch_below_an_empty_branch_joins_the_stack() {
+        assert_eq!(
+            new_branch_connector_text("┊╭┄", ExtensionDirection::Below),
+            "┊├┄ "
+        );
+    }
+
+    #[test]
+    fn a_new_branch_above_a_stacks_top_branch_starts_the_stack() {
+        assert_eq!(
+            new_branch_connector_text("┊╭┄", ExtensionDirection::Above),
+            "┊╭┄ "
+        );
+    }
+
+    #[test]
+    fn a_new_branch_above_a_stacked_branch_joins_the_stack() {
+        assert_eq!(
+            new_branch_connector_text("┊├┄", ExtensionDirection::Above),
+            "┊├┄ "
+        );
+    }
+
+    #[test]
+    fn a_new_branch_in_a_nested_lane_keeps_the_outer_lanes() {
+        assert_eq!(
+            new_branch_connector_text("┊┊●   ", ExtensionDirection::Below),
+            "┊┊├┄ "
+        );
+    }
+
+    #[test]
+    fn a_new_branch_below_a_commit_is_spaced_from_it() {
+        assert_eq!(
+            new_branch_spacer_text("┊●   ", ExtensionDirection::Below),
+            "┊│"
+        );
+    }
+
+    #[test]
+    fn a_new_branch_above_a_stacks_top_branch_is_spaced_from_it() {
+        assert_eq!(
+            new_branch_spacer_text("┊╭┄", ExtensionDirection::Above),
+            "┊│"
+        );
+    }
+
+    #[test]
+    fn a_new_branch_above_a_nested_branch_keeps_the_outer_lanes_in_its_spacer() {
+        assert_eq!(
+            new_branch_spacer_text("┊┊├┄", ExtensionDirection::Above),
+            "┊┊│"
+        );
+    }
+
+    #[test]
+    fn a_stacks_top_branch_joins_the_stack_under_a_new_branch() {
+        let connector = stacked_under_new_branch(&[Span::raw("┊"), Span::raw("╭┄")]);
+        let text = connector
+            .iter()
+            .map(|span| span.content.as_ref())
+            .collect::<String>();
+        assert_eq!(text, "┊├┄");
+    }
 
     #[test]
     fn extends_every_connector_shape_emitted_by_status_output() {

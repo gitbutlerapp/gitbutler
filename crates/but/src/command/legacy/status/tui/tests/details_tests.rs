@@ -884,7 +884,8 @@ fn discard_hunk_from_detail_view_via_file() {
     tui.input(binds::SCROLL_DOWN);
     tui.input('c');
     tui.input('e');
-    tui.input('b');
+    tui.input(Shift('g'));
+    tui.input(KeyCode::Enter);
 
     tui.env().prepend_file("x-file", "new first line");
     tui.env().append_file("x-file", "new first line");
@@ -1334,7 +1335,8 @@ fn marking_file_marks_all_hunks() {
 
     tui.input('c');
     tui.input('e');
-    tui.input('b');
+    tui.input(Shift('g'));
+    tui.input(KeyCode::Enter);
 
     tui.env().prepend_file("file", "top");
     tui.env().append_file("file", "bottom");
@@ -1377,7 +1379,8 @@ fn marking_all_hunks_marks_file() {
 
     tui.input('c');
     tui.input('e');
-    tui.input('b');
+    tui.input(Shift('g'));
+    tui.input(KeyCode::Enter);
 
     tui.env().prepend_file("file", "top");
     tui.env().append_file("file", "bottom");
@@ -1415,7 +1418,8 @@ fn marking_all_hunks_marks_file_with_multiple_files_changed() {
 
     tui.input('c');
     tui.input('e');
-    tui.input('b');
+    tui.input(Shift('g'));
+    tui.input(KeyCode::Enter);
 
     tui.env().prepend_file("file", "top");
     tui.env().append_file("file", "bottom");
@@ -1459,7 +1463,8 @@ fn marking_uncommitted_area_marks_all_hunks_in_detail_view() {
 
     tui.input('c');
     tui.input('e');
-    tui.input('b');
+    tui.input(Shift('g'));
+    tui.input(KeyCode::Enter);
 
     tui.env().prepend_file("file", "top");
     tui.env().append_file("file", "bottom");
@@ -1511,7 +1516,8 @@ fn marking_and_discarding_all_hunks() {
 
     tui.input('c');
     tui.input('e');
-    tui.input('b');
+    tui.input(Shift('g'));
+    tui.input(KeyCode::Enter);
 
     tui.env().prepend_file("file", "top");
     tui.env().append_file("file", "bottom");
@@ -1669,6 +1675,8 @@ fn committing_selection_from_split_details() {
         "snapshots/committing_selection_from_split_details_001.svg"
     ]);
     tui.input('c');
+    // Past the new branch above A, to A's tip.
+    tui.input(binds::SCROLL_DOWN);
     tui.input(binds::SCROLL_DOWN)
         .assert_rendered_term_svg_eq(file![
             "snapshots/committing_selection_from_split_details_002.svg"
@@ -1694,6 +1702,8 @@ fn committing_selection_from_full_screen_details() {
         "snapshots/committing_selection_from_full_screen_details_001.svg"
     ]);
     tui.input('c');
+    // Past the new branch above A, to A's tip.
+    tui.input(binds::SCROLL_DOWN);
     tui.input(binds::SCROLL_DOWN)
         .assert_rendered_term_svg_eq(file![
             "snapshots/committing_selection_from_full_screen_details_002.svg"
@@ -1723,8 +1733,7 @@ fn committing_hunks_from_split_details() {
     tui.input('c').assert_rendered_term_svg_eq(file![
         "snapshots/committing_hunks_from_split_details_002.svg"
     ]);
-    tui.input('j');
-    tui.input('j');
+    tui.input(['j', 'j', 'j']);
     tui.input('e');
     tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
         "snapshots/committing_hunks_from_split_details_003.svg"
@@ -1748,8 +1757,7 @@ fn committing_hunks_from_full_screen_details() {
         "snapshots/committing_hunks_from_full_screen_details_001.svg"
     ]);
     tui.input('c');
-    tui.input('j');
-    tui.input('j');
+    tui.input(['j', 'j', 'j']);
     tui.input('e').assert_rendered_term_svg_eq(file![
         "snapshots/committing_hunks_from_full_screen_details_002.svg"
     ]);
@@ -1804,7 +1812,8 @@ fn commit_source_with_partial_marks_is_selectable() {
 
     tui.input('c');
     tui.input('e');
-    tui.input('b');
+    tui.input(Shift('g'));
+    tui.input(KeyCode::Enter);
 
     tui.env().prepend_file("file", "top");
     tui.env().append_file("file", "bottom");
@@ -1818,7 +1827,7 @@ fn commit_source_with_partial_marks_is_selectable() {
     tui.input('j');
     tui.input(' ');
     tui.input('c')
-        .assert_current_line_eq(str!["┊—  << source >> << noop >> qs M file             │                                                █"]);
+        .assert_current_line_eq(str!["┊—  << source >> << noop >> qs M file[..]"]);
 }
 
 #[test]
@@ -1867,7 +1876,8 @@ fn squash_source_with_partial_marks_is_selectable() {
 
     tui.input('c');
     tui.input('e');
-    tui.input('b');
+    tui.input(Shift('g'));
+    tui.input(KeyCode::Enter);
 
     tui.env().prepend_file("file", "top");
     tui.env().append_file("file", "bottom");
@@ -2094,7 +2104,8 @@ fn discarding_all_marked_hunks_of_renamed_file_keeps_the_rename() {
 
     tui.input('c');
     tui.input('e');
-    tui.input('b');
+    tui.input(Shift('g'));
+    tui.input(KeyCode::Enter);
 
     tui.env().remove_file("file.txt");
     tui.env()
@@ -2103,7 +2114,7 @@ fn discarding_all_marked_hunks_of_renamed_file_keeps_the_rename() {
 
     tui.input('c');
     tui.input('e');
-    tui.input('a');
+    tui.input('k');
     tui.input(KeyCode::Enter);
 
     tui.input('f')
@@ -2140,7 +2151,8 @@ fn discarding_marked_hunks_from_status_keeps_file_list_on_rewritten_commit() {
 
     tui.input('c');
     tui.input('e');
-    tui.input('b');
+    tui.input(Shift('g'));
+    tui.input(KeyCode::Enter);
 
     tui.env().remove_file("file.txt");
     tui.env()
@@ -2149,7 +2161,7 @@ fn discarding_marked_hunks_from_status_keeps_file_list_on_rewritten_commit() {
 
     tui.input('c');
     tui.input('e');
-    tui.input('a');
+    tui.input('k');
     tui.input(KeyCode::Enter);
 
     tui.input('f');

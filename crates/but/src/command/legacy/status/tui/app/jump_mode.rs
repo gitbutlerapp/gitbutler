@@ -39,17 +39,20 @@ impl ModeRender for JumpMode {
 }
 
 impl JumpMode {
-    /// Where the query fuzzy matches `line`, or `None` if the line can't be jumped to.
+    /// Where the query fuzzy matches line `idx` of `lines`, or `None` if the line can't be jumped
+    /// to.
     ///
     /// An empty query matches every line that can be jumped to.
     pub fn match_line(
         &self,
-        line: &StatusOutputLine,
+        lines: &[StatusOutputLine],
+        idx: usize,
         show_files: FilesStatusFlag,
     ) -> Option<JumpMatch> {
-        if !cursor::is_selectable_in_mode(line, Mode::as_ref(&self.return_mode), show_files) {
+        if !cursor::is_selectable_in_mode(lines, idx, Mode::as_ref(&self.return_mode), show_files) {
             return None;
         }
+        let line = &lines[idx];
         let (id, text) = jump_parts(&line.content)?;
         let query = self.query();
         let id_match = fuzzy_match(id, query);
@@ -260,10 +263,13 @@ impl App {
         };
 
         // Stay in jump mode when there is no match under the cursor to confirm.
-        if !self
-            .cursor
-            .selected_line(&self.status_lines)
-            .is_some_and(|line| mode.match_line(line, self.flags.show_files).is_some())
+        if mode
+            .match_line(
+                &self.status_lines,
+                self.cursor.index(),
+                self.flags.show_files,
+            )
+            .is_none()
         {
             return;
         }
@@ -275,6 +281,8 @@ impl App {
             *mode = *return_mode;
             *backstack = return_backstack;
         });
+        // Jumping picks the line it lands on.
+        self.select_line(self.cursor);
     }
 
     fn handle_jump_next(&mut self) {
@@ -312,7 +320,9 @@ fn find_jump_match(
     let query = mode.query();
     lines
         .iter()
-        .filter(|line| mode.match_line(line, show_files).is_some())
+        .enumerate()
+        .filter(|(idx, _)| mode.match_line(lines, *idx, show_files).is_some())
+        .map(|(_, line)| line)
         // Typing an ID lands on it: an exact ID beats an ID starting with the query, which beats
         // any other match. Otherwise the first match wins.
         .min_by_key(|line| {

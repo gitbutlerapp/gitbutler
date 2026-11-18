@@ -308,7 +308,7 @@ fn undo_opens_confirm_for_latest_snapshot() {
 
         tui.env().file("test.txt", "content");
         tui.input('c');
-        tui.input(KeyCode::Down);
+        tui.input([KeyCode::Down, KeyCode::Down]);
         tui.input('i');
         tui.input(KeyCode::Enter);
         tui.input("commit for undo prompt test");
@@ -1606,7 +1606,8 @@ fn jumping_to_top_and_bottom_in_file_lists() {
 
     tui.input('c');
     tui.input('e');
-    tui.input('b');
+    tui.input(Shift('g'));
+    tui.input(KeyCode::Enter);
     tui.input('f').assert_rendered_term_svg_eq(file![
         "snapshots/jumping_to_top_and_bottom_in_file_lists_001.svg"
     ]);

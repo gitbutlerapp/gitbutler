@@ -53,6 +53,13 @@ impl App {
         let Some(cli_id) = selection.data.cli_id() else {
             return Ok(());
         };
+        // Branch mode's cursor also stops on a stack's last commit, where a new branch below the
+        // stack goes, but it only discards branches.
+        if matches!(&*self.mode, Mode::Branch(..))
+            && !matches!(selection.data, StatusOutputLineData::Branch { .. })
+        {
+            return Ok(());
+        }
 
         self.modal = Some(Modal::Confirm {
             confirm: match &**cli_id {

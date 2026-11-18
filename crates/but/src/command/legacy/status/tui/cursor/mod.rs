@@ -17,10 +17,9 @@ use crate::{
             },
             mode::ModeRef,
             render::{
-                branch_operation_display, cherry_pick_operation_display, commit_operation_display,
-                move_operation_display, reorder_operation_display, stack_operation_display,
-                worktree_operation_display,
+                reorder_operation_display, stack_operation_display, worktree_operation_display,
             },
+            stop::positions_at,
         },
     },
     id::{CommitId, CommittedFileId, LaneId},
@@ -692,9 +691,10 @@ impl Cursor {
         let is_opposite = |cursor| mark_state(cursor) == Some(!current_is_marked);
 
         let (next, previous) = match current_markable {
+            // Branch mode's cursor also stops on commit lines, which branch marks skip.
             MarkableRef::Branch(..) => (
-                self.move_down(lines, mode, show_files),
-                self.move_up(lines, mode, show_files),
+                self.step_to_branch(lines, mode, show_files, Self::move_down),
+                self.step_to_branch(lines, mode, show_files, Self::move_up),
             ),
             MarkableRef::Uncommitted(..)
             | MarkableRef::Commit(..)
@@ -707,6 +707,24 @@ impl Cursor {
 
         next.filter(|next| is_opposite(*next))
             .or_else(|| previous.filter(|previous| is_opposite(*previous)))
+    }
+
+    /// The nearest selectable branch line that repeating `step` reaches.
+    fn step_to_branch(
+        self,
+        lines: &[StatusOutputLine],
+        mode: &Mode,
+        show_files: FilesStatusFlag,
+        step: fn(Self, &[StatusOutputLine], &Mode, FilesStatusFlag) -> Option<Self>,
+    ) -> Option<Self> {
+        let mut cursor = step(self, lines, mode, show_files)?;
+        while !matches!(
+            cursor.selected_line(lines).map(|line| &line.data),
+            Some(StatusOutputLineData::Branch { .. })
+        ) {
+            cursor = step(cursor, lines, mode, show_files)?;
+        }
+        Some(cursor)
     }
 
     /// Moves the cursor to the first selectable row in the next section.
@@ -776,101 +794,6 @@ impl Cursor {
 
     // TODO(david): ideally the data we get from status would contain enough information that we
     // didn't have to essentially parse the lines.
-    pub fn lines_part_of_current_branch<'a>(
-        self,
-        mode: &Mode,
-        lines: impl IntoIterator<Item = &'a StatusOutputLineData>,
-    ) -> Option<Vec<bool>> {
-        if !matches!(mode, Mode::Branch(_)) {
-            return None;
-        }
-
-        let mut out = Vec::new();
-        let mut connectors_before_section_end = 0;
-        let mut inside_current_branch = false;
-
-        let mut iter = itertools::peek_nth(lines.into_iter().enumerate());
-        while let Some((idx, line)) = iter.next() {
-            if idx == self.0 && matches!(line, StatusOutputLineData::Branch { .. }) {
-                inside_current_branch = true;
-            }
-
-            out.push(inside_current_branch);
-
-            if matches!(line, StatusOutputLineData::UpstreamChanges) {
-                // at the end of an upstream commits section is a connector that shouldn't break
-                // the section:
-                //
-                //     ┊╭┄ br [branch]
-                //     ┊┊
-                //     ┊╭┄┄ (upstream: on origin/branch)
-                //     ┊●   ceed3a00ee (no commit message)
-                //     ┊│     M a/b/c/d.rs
-                //     ┊-
-                //     ┊◐   abc (no commit message)
-                //     ├╯
-                connectors_before_section_end += 1;
-            } else if matches!(line, StatusOutputLineData::WorktreeUncommitted { .. })
-                && inside_current_branch
-            {
-                // A worktree lane opens on its uncommitted area and closes on `├╯`, so every lane
-                // nested in the selected branch adds exactly one connector to cross before the
-                // branch's own closing connector is reached:
-                //
-                //     ┊╭┄ br [branch]
-                //     ┊┊
-                //     ┊┊╭┄ wt:@ {worktree uncommitted}
-                //     ┊┊●   abc (no commit message)
-                //     ┊├╯
-                //     ┊●   abc (no commit message)
-                //     ├╯
-                connectors_before_section_end += 1;
-            }
-
-            if let Some((_, next)) = iter.peek_nth(0) {
-                match next {
-                    StatusOutputLineData::Connector | StatusOutputLineData::BetweenStacks => {
-                        if let Some((_, next2)) = iter.peek_nth(1)
-                            && matches!(
-                                next2,
-                                StatusOutputLineData::UpstreamChanges
-                                    | StatusOutputLineData::WorktreeUncommitted { .. }
-                            )
-                        {
-                            // a connector that opens a nested section rather than closing this one
-                        } else if connectors_before_section_end > 0 {
-                            // Nested sections can have separators before their own closing
-                            // connector. Consume only the connector currently being crossed.
-                            connectors_before_section_end -= 1;
-                        } else {
-                            inside_current_branch = false;
-                        }
-                    }
-
-                    StatusOutputLineData::MergeBase | StatusOutputLineData::Branch { .. } => {
-                        inside_current_branch = false;
-                    }
-
-                    StatusOutputLineData::Commit { .. }
-                    | StatusOutputLineData::UpdateNotice
-                    | StatusOutputLineData::StagedChanges { .. }
-                    | StatusOutputLineData::StagedFile { .. }
-                    | StatusOutputLineData::UncommittedChanges { .. }
-                    | StatusOutputLineData::WorktreeUncommitted { .. }
-                    | StatusOutputLineData::UncommittedFile { .. }
-                    | StatusOutputLineData::CommitMessage
-                    | StatusOutputLineData::EmptyCommitMessage
-                    | StatusOutputLineData::File { .. }
-                    | StatusOutputLineData::UpstreamChanges
-                    | StatusOutputLineData::Warning
-                    | StatusOutputLineData::Hint
-                    | StatusOutputLineData::NoAssignmentsUnstaged => {}
-                }
-            }
-        }
-
-        Some(out)
-    }
 }
 
 fn find_section_start_at_or_before(
@@ -1131,11 +1054,7 @@ fn is_cursor_selectable_at_index(
     mode: &Mode,
     show_files_flag: FilesStatusFlag,
 ) -> bool {
-    let Some(line) = lines.get(idx) else {
-        return false;
-    };
-
-    is_selectable_in_mode(line, mode.as_ref(), show_files_flag)
+    is_selectable_in_mode(lines, idx, mode.as_ref(), show_files_flag)
         && !is_noop_move_stack_target(idx, lines, mode)
 }
 
@@ -1166,11 +1085,17 @@ fn is_noop_move_stack_target(idx: usize, lines: &[StatusOutputLine], mode: &Mode
     target_index == source_index || target_index == source_index + 1
 }
 
+/// Whether line `idx` of `lines` can be selected in `mode`.
 pub fn is_selectable_in_mode(
-    line: &StatusOutputLine,
+    lines: &[StatusOutputLine],
+    idx: usize,
     mode: ModeRef<'_>,
     show_files_flag: FilesStatusFlag,
 ) -> bool {
+    let Some(line) = lines.get(idx) else {
+        return false;
+    };
+
     if !line.is_selectable() {
         if let ModeRef::MoveStack(..) = mode
             && let StatusOutputLineData::BetweenStacks = line.data
@@ -1190,20 +1115,6 @@ pub fn is_selectable_in_mode(
                 return true;
             }
         }
-        ModeRef::Commit(commit_mode) => {
-            if let Some(cli_id) = line.data.cli_id()
-                && commit_mode.source.contains(cli_id)
-            {
-                return true;
-            }
-        }
-        ModeRef::Move(move_mode) => {
-            if let Some(cli_id) = line.data.cli_id()
-                && move_mode.source.contains(cli_id)
-            {
-                return true;
-            }
-        }
         ModeRef::MoveStack(move_mode) => {
             if let Some(cli_id) = line.data.cli_id()
                 && move_mode.source.matches(cli_id)
@@ -1211,14 +1122,10 @@ pub fn is_selectable_in_mode(
                 return true;
             }
         }
-        ModeRef::CherryPick(cherry_pick_mode) => {
-            if let Some(cli_id) = line.data.cli_id()
-                && cherry_pick_mode.source.contains(cli_id)
-            {
-                return true;
-            }
-        }
         ModeRef::Command(..)
+        | ModeRef::Commit(..)
+        | ModeRef::Move(..)
+        | ModeRef::CherryPick(..)
         | ModeRef::Branch(..)
         | ModeRef::Worktree(..)
         | ModeRef::InlineReword(..)
@@ -1302,8 +1209,7 @@ pub fn is_selectable_in_mode(
             }
         }
         ModeRef::Branch(..) => {
-            // the cursor can only select branch lines in branch mode which makes it impossible to
-            // mix marks
+            // marking in branch mode only takes branches, which makes it impossible to mix marks
         }
         ModeRef::Squash(..)
         | ModeRef::InlineReword(..)
@@ -1334,9 +1240,12 @@ pub fn is_selectable_in_mode(
                 }
             }
         },
-        ModeRef::Details(details_mode) => {
-            is_selectable_in_mode(line, details_mode.return_mode.as_ref(), show_files_flag)
-        }
+        ModeRef::Details(details_mode) => is_selectable_in_mode(
+            lines,
+            idx,
+            details_mode.return_mode.as_ref(),
+            show_files_flag,
+        ),
         ModeRef::Squash(SquashMode {
             source,
             reword: _,
@@ -1345,14 +1254,12 @@ pub fn is_selectable_in_mode(
             .data
             .cli_id()
             .is_some_and(|target| source.can_target(target, uncommitted_area.as_ref())),
-        ModeRef::Commit(commit_mode) => commit_operation_display(&line.data, commit_mode).is_some(),
-        ModeRef::Move(move_mode) => move_operation_display(&line.data, move_mode).is_some(),
+        ModeRef::Commit(..) | ModeRef::Move(..) | ModeRef::CherryPick(..) | ModeRef::Branch(..) => {
+            mode.as_stop_mode()
+                .is_some_and(|stop_mode| !positions_at(lines, idx, stop_mode).is_empty())
+        }
         ModeRef::MoveStack(move_mode) => reorder_operation_display(&line.data, move_mode).is_some(),
         ModeRef::Stack(stack_mode) => stack_operation_display(&line.data, stack_mode).is_some(),
-        ModeRef::CherryPick(cherry_pick_mode) => {
-            cherry_pick_operation_display(&line.data, cherry_pick_mode).is_some()
-        }
-        ModeRef::Branch(branch_mode) => branch_operation_display(&line.data, branch_mode).is_some(),
         ModeRef::Worktree(worktree_mode) => {
             worktree_operation_display(&line.data, worktree_mode).is_some()
         }
@@ -1380,10 +1287,13 @@ pub fn is_selectable_in_mode(
                 false
             }
         }
-        ModeRef::Command(command_mode) => {
-            is_selectable_in_mode(line, command_mode.return_mode.as_ref(), show_files_flag)
-        }
+        ModeRef::Command(command_mode) => is_selectable_in_mode(
+            lines,
+            idx,
+            command_mode.return_mode.as_ref(),
+            show_files_flag,
+        ),
         ModeRef::InlineReword(..) => true,
-        ModeRef::Jump(jump_mode) => jump_mode.match_line(line, show_files_flag).is_some(),
+        ModeRef::Jump(jump_mode) => jump_mode.match_line(lines, idx, show_files_flag).is_some(),
     }
 }

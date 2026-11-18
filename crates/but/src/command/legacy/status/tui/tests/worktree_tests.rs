@@ -343,9 +343,9 @@ fn commit_all_changes_of_a_worktree() {
         .assert_current_line_eq(str!["┊┊╭┄ wt:@ [uncommitted] {wt}"]);
 
     tui.input('c');
-    // In commit mode the area's own file rows are not selectable, so one step down from the
-    // area row reaches the reference row that receives the commit.
-    tui.input(KeyCode::Down)
+    // In commit mode the area's own file rows are not selectable, so two steps down from the
+    // area row, past the new branch above it, reach the reference row that receives the commit.
+    tui.input([KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"]);
     with_var("GIT_EDITOR", Some(editor), || {
         tui.input(KeyCode::Enter);
@@ -414,9 +414,9 @@ fn commit_one_worktree_file_onto_its_own_branch() {
     tui.input('c')
         .assert_current_line_eq(str!["┊┊┊   << source >> << noop >> ok A wt-file.txt"]);
 
-    // Down onto the worktree's branch row, which offers itself as the destination via the
-    // `<< commit to branch >>` extension line.
-    tui.input(KeyCode::Down)
+    // Down past the new branch above the worktree's branch row, onto the row itself, which
+    // offers itself as the destination via the `<< commit to branch >>` extension line.
+    tui.input([KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_one_worktree_file_onto_its_own_branch_001.svg"
@@ -454,7 +454,8 @@ fn commit_a_main_worktree_change_onto_a_worktree() {
     tui.input('c')
         .assert_current_line_eq(str!["╭┄ << source >> << noop >> @ [uncommitted]"]);
 
-    tui.input([KeyCode::Down, KeyCode::Down])
+    // Past the stops above and on A, and the new branch above the worktree's branch.
+    tui.input([KeyCode::Down; 4])
         .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"]);
 
     with_var("GIT_EDITOR", Some(editor), || {
@@ -498,7 +499,7 @@ fn marks_spanning_worktrees_are_refused() {
     tui.input(' ');
 
     tui.input('c');
-    tui.input(KeyCode::Down)
+    tui.input([KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"]);
 
     // The refusal shows as an error and nothing was committed.
@@ -592,7 +593,7 @@ fn copies_short_id_and_worktree_values_from_a_detached_worktree_segment() {
 }
 
 #[test]
-fn commit_to_a_detached_worktree_reference_is_refused() {
+fn a_detached_worktree_reference_is_no_commit_target() {
     let (mut tui, _editor) = worktree_tui();
 
     but_testsupport::invoke_bash_at_dir(
@@ -609,24 +610,12 @@ fn commit_to_a_detached_worktree_reference_is_refused() {
 
     tui.input('c')
         .assert_current_line_eq(str!["┊┊╭┄ << source >> << noop >> h0:@ [uncommitted] {wt}"]);
+    // The anonymous segment names no branch to commit to, so the cursor skips it.
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊┊├┄ h0"]);
-
-    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
-        "snapshots/commit_to_a_detached_worktree_reference_is_refused.svg"
-    ]);
-    snapbox::assert_data_eq!(
-        tui.env().git_log(),
-        str![[r#"
-* edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-| * 998a235 (wt-branch) add W
-|/  
-* 9477ae7 (A) add A
-* 0dc3733 (origin/main, origin/HEAD, main) add M
-
-"#]]
-        .raw()
-    );
+        .assert_current_line_eq(str!["┊┊●   nll add W"])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/a_detached_worktree_reference_is_no_commit_target.svg"
+        ]);
 }
 
 /// `n` on a worktree's reference row inserts an empty commit at the tip of that worktree's
@@ -660,8 +649,9 @@ fn move_commit_below_a_worktree_reference() {
         .assert_current_line_eq(str!["┊●   oun (no commit message) (no changes)"]);
 
     tui.input('m');
-    // The worktree forks from the commit below, so its reference row is further down.
-    tui.input(KeyCode::Down)
+    // The worktree forks from the commit below, so its reference row is further down, past the
+    // new branch above it.
+    tui.input([KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch]"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/move_commit_below_a_worktree_reference_001.svg"
@@ -694,7 +684,9 @@ fn cherry_picking_commits_into_worktrees() {
     tui.input('n');
 
     tui.input('p');
-    tui.input('j');
+    // Past the new branch below the picked commit's branch, the stops above and on A, and the
+    // new branch above the worktree's branch.
+    tui.input(['j', 'j', 'j', 'j']);
     tui.input('j').assert_rendered_term_svg_eq(file![
         "snapshots/cherry_picking_commits_into_worktrees_001.svg"
     ]);
@@ -941,7 +933,6 @@ fn cannot_create_worktrees_on_conflicted_commits() {
     tui.input('j');
     tui.input('m');
     tui.input('j');
-    tui.input('a');
     tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
         "snapshots/cannot_create_worktrees_on_conflicted_commits_001.svg"
     ]);
@@ -1026,7 +1017,7 @@ fn commit_from_commit_in_worktree() {
     tui.input('j');
     tui.input('c')
         .assert_rendered_term_svg_eq(file!["snapshots/commit_from_commit_in_worktree_001.svg"]);
-    tui.input('a');
+    tui.input('k');
     tui.input('e');
     tui.input(KeyCode::Enter)
         .assert_rendered_term_svg_eq(file!["snapshots/commit_from_commit_in_worktree_002.svg"]);

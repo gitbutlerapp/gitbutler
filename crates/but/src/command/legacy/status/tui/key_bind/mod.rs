@@ -50,15 +50,11 @@ pub fn default_key_binds() -> KeyBinds {
                 builder.commit_confirm().register();
                 builder.commit_empty_message().register();
                 builder.commit_reword_inline().register();
-                builder.commit_toggle_insert_side().register();
-                builder.commit_to_new_branch().register();
                 builder.switch_to_squash_mode().register();
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Move => {
                 builder.move_confirm().register();
-                builder.move_toggle_insert_side().register();
-                builder.move_to_new_branch().register();
                 builder.switch_to_squash_mode().register();
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
@@ -74,8 +70,6 @@ pub fn default_key_binds() -> KeyBinds {
             }
             ModeDiscriminant::CherryPick => {
                 builder.cherry_pick_confirm().register();
-                builder.cherry_pick_toggle_insert_side().register();
-                builder.cherry_pick_to_new_branch().register();
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Branch => {
@@ -83,7 +77,6 @@ pub fn default_key_binds() -> KeyBinds {
                 builder.branch_new_and_switch().register();
                 builder.branch_pick_and_switch().register();
                 builder.branch_switch_to_selection().register();
-                builder.branch_toggle_insert_side().register();
                 builder.discard().register();
                 builder.mark().register();
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
@@ -756,22 +749,6 @@ impl KeyBindsBuilder<'_> {
         .long_description("Move selection somewhere else")
     }
 
-    fn move_toggle_insert_side(&mut self) -> KeyBindsInModesBuilder<'_> {
-        self.key_bind("above/below", press().code(KeyCode::Char('a')), || {
-            Message::Move(MoveMessage::ToggleInsertSide)
-        })
-        .long_description("Toggle moving above or below")
-    }
-
-    fn move_to_new_branch(&mut self) -> KeyBindsInModesBuilder<'_> {
-        self.key_bind(
-            "move to new branch",
-            press().code(KeyCode::Char('b')),
-            || Message::Move(MoveMessage::MoveToNewBranch),
-        )
-        .long_description("Move to a new branch above")
-    }
-
     fn branch(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind("branch", press().code(KeyCode::Char('b')), || {
             Message::Branch(BranchMessage::Start)
@@ -968,13 +945,6 @@ impl KeyBindsBuilder<'_> {
         .hide_from_help()
     }
 
-    fn commit_toggle_insert_side(&mut self) -> KeyBindsInModesBuilder<'_> {
-        self.key_bind("above/below", press().code(KeyCode::Char('a')), || {
-            Message::Commit(CommitMessage::ToggleInsertSide)
-        })
-        .long_description("Toggle committing above or below")
-    }
-
     fn commit_empty_message(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind("empty message", press().code(KeyCode::Char('e')), || {
             Message::Commit(CommitMessage::ToggleMessageComposer(
@@ -991,15 +961,6 @@ impl KeyBindsBuilder<'_> {
             ))
         })
         .long_description("When creating commit, reword it inline")
-    }
-
-    fn commit_to_new_branch(&mut self) -> KeyBindsInModesBuilder<'_> {
-        self.key_bind(
-            "commit to new branch",
-            press().code(KeyCode::Char('b')),
-            || Message::Commit(CommitMessage::CommitToNewBranch),
-        )
-        .long_description("Create a new branch, then commit to it")
     }
 
     fn move_confirm(&mut self) -> KeyBindsInModesBuilder<'_> {
@@ -1051,22 +1012,6 @@ impl KeyBindsBuilder<'_> {
         .hide_from_help()
     }
 
-    fn cherry_pick_toggle_insert_side(&mut self) -> KeyBindsInModesBuilder<'_> {
-        self.key_bind("above/below", press().code(KeyCode::Char('a')), || {
-            Message::CherryPick(CherryPickMessage::ToggleInsertSide)
-        })
-        .long_description("Toggle picking above or below")
-    }
-
-    fn cherry_pick_to_new_branch(&mut self) -> KeyBindsInModesBuilder<'_> {
-        self.key_bind(
-            "pick to new branch",
-            press().code(KeyCode::Char('b')),
-            || Message::CherryPick(CherryPickMessage::CherryPickToNewBranch),
-        )
-        .long_description("Create a new branch, then pick to it")
-    }
-
     fn branch_pick_and_switch(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind("switch", press().code(KeyCode::Char('s')), || {
             Message::Branch(BranchMessage::PickAndSwitch)
@@ -1098,13 +1043,6 @@ impl KeyBindsBuilder<'_> {
             || Message::Branch(BranchMessage::New { switch: true }),
         )
         .long_description("Create a new branch and switch to it")
-    }
-
-    fn branch_toggle_insert_side(&mut self) -> KeyBindsInModesBuilder<'_> {
-        self.key_bind("above/below", press().code(KeyCode::Char('a')), || {
-            Message::Branch(BranchMessage::ToggleInsertSide)
-        })
-        .long_description("Toggle creating branch above or below")
     }
 
     fn details_next_hunk(&mut self) -> KeyBindsInModesBuilder<'_> {

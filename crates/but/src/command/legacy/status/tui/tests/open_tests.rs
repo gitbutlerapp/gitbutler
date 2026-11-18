@@ -128,7 +128,7 @@ fn open_uncommitted_file_with_multiple_hunks_in_program_from_details_view() {
 
     let mut tui = test_status_tui(env);
     tui.input('c');
-    tui.input(KeyCode::Down);
+    tui.input([KeyCode::Down, KeyCode::Down]);
     tui.input('i');
     tui.input(KeyCode::Enter);
     tui.input("Add file");

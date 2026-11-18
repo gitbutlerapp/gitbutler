@@ -1,35 +1,28 @@
 use std::sync::Arc;
 
-use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use gix::refs::Category;
 use nonempty::NonEmpty;
-use ratatui::{backend::Backend, prelude::Span};
+use ratatui::backend::Backend;
 
 use crate::{
     CliError, CliId,
     command::legacy::{
         commit,
         reword2::CommitMessageSource,
-        status::{
-            output::StatusOutputLineData,
-            tui::{
-                App, DetailsLayoutMessage, Message, Mode, ReloadCause, RewordMessage,
-                SelectAfterReload,
-                app::{MoveCursorDiration, mark::hunk_is_child_of},
-                graph_extension::ExtensionDirection,
-                render::{
-                    ModeRender, OperationExtension, RenderSingleLineSpans,
-                    render_commit_operation_target_marker, source_span,
-                },
-            },
+        status::tui::{
+            App, DetailsLayoutMessage, Message, Mode, ReloadCause, RewordMessage,
+            SelectAfterReload,
+            app::{MoveCursorDiration, mark::hunk_is_child_of},
+            render::ModeRender,
+            stop::{SelectedStop, Stop, StopMode},
         },
     },
-    id::{LaneId, UncommittedHunkOrFile},
+    id::{BranchId, LaneId, UncommittedHunkOrFile},
     tui::TerminalGuard,
     utils::{
         change_source::{ChangeSourceId, UncommittedSelection},
-        targeting::{self, Side},
+        targeting::Side,
     },
 };
 
@@ -38,12 +31,9 @@ use super::{SquashMarks, SquashSource, mark::MarksRef};
 #[derive(Debug, Clone)]
 pub struct CommitMode {
     pub source: Arc<CommitSource>,
-    pub insert_side: Side,
-    /// If set, then the commit must be made on this stack
-    ///
-    /// Used when committing changes staged to a specific stack
-    // TODO: remove this when we no dont support assignments
-    pub scope_to_stack: Option<StackId>,
+    /// Which of the stops on the cursor line the commit goes to, as [`StopMode::selected_stop`]
+    /// says.
+    pub stop: Option<SelectedStop>,
     pub message_composer: CommitMessageComposer,
 }
 
@@ -66,52 +56,52 @@ pub enum CommitSource {
     UncommittedArea(ChangeSourceId),
 }
 
-impl ModeRender for CommitMode {
-    fn operation_extension(&self, data: &StatusOutputLineData) -> Option<OperationExtension<'_>> {
-        let direction = if matches!(data, StatusOutputLineData::Commit { .. }) {
-            self.insert_side.into()
-        } else if matches!(data, StatusOutputLineData::Branch { .. }) {
-            ExtensionDirection::Below
-        } else {
-            return None;
-        };
+impl ModeRender for CommitMode {}
 
-        Some(OperationExtension::Commit {
-            mode: self,
-            direction,
-        })
+impl StopMode for CommitMode {
+    fn stop_label(&self, stop: &Stop) -> Option<String> {
+        let label = match stop {
+            Stop::BranchTip(_) => "commit to branch",
+            Stop::BelowCommit(_) => "commit below",
+            Stop::NewBranchAbove(_) => "commit to new branch above",
+            Stop::NewBranchBelow(_) => "commit to new branch below",
+            // A new stack starts from the main checkout's changes only.
+            Stop::NewStack if self.source.is_from_linked_worktree() => return None,
+            Stop::NewStack => "commit to new stack",
+        };
+        Some(label.to_owned())
     }
 
-    fn render_operation_target_marker(
-        &self,
-        app: &App,
-        data: &StatusOutputLineData,
-        line: &mut RenderSingleLineSpans<'_, '_>,
-    ) {
-        let Some(target) = data.cli_id() else {
-            return;
-        };
-        if !self.source.contains(target) {
-            return;
+    fn stop_label_suffix(&self) -> Option<&'static str> {
+        match self.message_composer {
+            CommitMessageComposer::Editor => None,
+            CommitMessageComposer::Empty => Some(" (empty message)"),
+            CommitMessageComposer::Inline => Some(" (reword inline)"),
         }
-        render_commit_operation_target_marker(app, data, self, line);
     }
 
-    fn render_operation_source_marker(
-        &self,
-        app: &App,
-        data: &StatusOutputLineData,
-        line: &mut RenderSingleLineSpans<'_, '_>,
-    ) {
-        if let Some(cli_id) = data.cli_id()
-            && self.source.contains(cli_id)
-        {
-            line.extend([source_span(app.theme), Span::raw(" ")]);
-        }
+    fn is_source(&self, id: &CliId) -> bool {
+        self.source.contains(id)
+    }
+
+    fn selected_stop(&self) -> Option<&SelectedStop> {
+        self.stop.as_ref()
     }
 }
 
 impl CommitSource {
+    fn is_from_linked_worktree(&self) -> bool {
+        let is_worktree = |source: &ChangeSourceId| match source {
+            ChangeSourceId::Head => false,
+            ChangeSourceId::Worktree(_) => true,
+        };
+        match self {
+            CommitSource::Marks(hunks) => hunks.iter().any(|hunk| is_worktree(&hunk.source)),
+            CommitSource::UncommittedHunk(hunk) => is_worktree(&hunk.source),
+            CommitSource::UncommittedArea(source) => is_worktree(source),
+        }
+    }
+
     pub fn contains(&self, other: &CliId) -> bool {
         match self {
             CommitSource::Marks(hunks) => {
@@ -182,8 +172,6 @@ pub enum CommitMessage {
     StartWithSource(Arc<CliId>),
     ToggleMessageComposer(CommitMessageComposer),
     Confirm,
-    CommitToNewBranch,
-    ToggleInsertSide,
 }
 
 impl App {
@@ -209,12 +197,6 @@ impl App {
             CommitMessage::Confirm => self.handle_commit_confirm(ctx, terminal_guard, messages)?,
             CommitMessage::ToggleMessageComposer(composer) => {
                 self.handle_commit_toggle_message_composer(composer);
-            }
-            CommitMessage::CommitToNewBranch => {
-                self.handle_commit_to_new_branch(ctx, terminal_guard, messages)?;
-            }
-            CommitMessage::ToggleInsertSide => {
-                self.handle_commit_toggle_insert_side();
             }
         }
 
@@ -298,8 +280,7 @@ impl App {
     fn handle_commit_start_source(&mut self, source: CommitSource) {
         let commit_mode = CommitMode {
             source: Arc::new(source),
-            insert_side: Side::Below,
-            scope_to_stack: None,
+            stop: None,
             message_composer: CommitMessageComposer::default(),
         };
 
@@ -333,8 +314,7 @@ impl App {
             .update_and_push_leave_normal_mode(&mut self.backstack, |mode| {
                 *mode = Mode::Commit(CommitMode {
                     source,
-                    insert_side: Side::Below,
-                    scope_to_stack: None,
+                    stop: None,
                     message_composer: CommitMessageComposer::default(),
                 });
             });
@@ -352,120 +332,23 @@ impl App {
         T: TerminalGuard,
         anyhow::Error: From<<T::Backend as Backend>::Error>,
     {
-        let Mode::Commit(
-            mode @ CommitMode {
-                source,
-                insert_side,
-                scope_to_stack: _,
-                message_composer: _,
-            },
-        ) = &*self.mode
-        else {
-            return Ok(());
-        };
-
-        let Some(data) = self
-            .cursor
-            .selected_line(&self.status_lines)
-            .and_then(|s| s.data.cli_id())
-        else {
-            return Ok(());
-        };
-
-        if source.contains(data) {
-            messages.push(Message::EnterNormalModeAfterConfirmingOperation);
-            return Ok(());
-        }
-
-        let target = match &**data {
-            CliId::Branch(branch) => commit::CommitRelativeToTarget::BranchTip {
-                name: Category::LocalBranch.to_full_name(&*branch.name)?,
-                switch: false,
-            },
-            CliId::Commit { commit, id: _ } => commit::CommitRelativeToTarget::Commit {
-                commit: commit.clone(),
-                side: *insert_side,
-            },
-            CliId::AnonymousSegment(..)
-            | CliId::UncommittedHunkOrFile(..)
-            | CliId::UncommittedArea { .. }
-            | CliId::PathPrefix { .. }
-            | CliId::CommittedFile { .. }
-            | CliId::CommittedHunk { .. }
-            | CliId::Stack { .. } => return Ok(()),
-        };
-        let commit_op = commit::CommitOperation::CommitAt(commit::CommitAtOperation { target });
-
-        commit_with(ctx, terminal_guard, messages, mode, commit_op)?;
-
-        Ok(())
-    }
-
-    fn handle_commit_to_new_branch<T>(
-        &mut self,
-        ctx: &mut Context,
-        terminal_guard: &mut T,
-        messages: &mut Vec<Message>,
-    ) -> anyhow::Result<()>
-    where
-        T: TerminalGuard,
-        anyhow::Error: From<<T::Backend as Backend>::Error>,
-    {
         let Mode::Commit(mode) = &*self.mode else {
             return Ok(());
         };
 
-        let Some(data) = self
-            .cursor
-            .selected_line(&self.status_lines)
-            .and_then(|s| s.data.cli_id())
-        else {
+        let Some(stop) = self.stop_to_confirm(mode, messages) else {
             return Ok(());
         };
 
-        let commit_op = match &**data {
-            CliId::UncommittedHunkOrFile(..)
-            | CliId::UncommittedArea {
-                source: ChangeSourceId::Head,
-                ..
-            } => commit::CommitOperation::CommitToNewBranch(commit::CommitToNewBranchOperation {
-                branch_name: None,
-                switch: false,
-            }),
-            CliId::Branch(branch) => commit::CommitOperation::CommitAt(commit::CommitAtOperation {
-                target: commit::CommitRelativeToTarget::BranchBucket {
-                    name: Category::LocalBranch.to_full_name(&*branch.name)?,
-                    side: targeting::Side::Above,
-                    new_branch_name: None,
-                    switch: false,
-                },
-            }),
-
-            CliId::AnonymousSegment(..)
-            | CliId::PathPrefix { .. }
-            | CliId::CommittedFile { .. }
-            | CliId::CommittedHunk { .. }
-            | CliId::Commit { .. }
-            | CliId::UncommittedArea {
-                source: ChangeSourceId::Worktree(_),
-                ..
-            }
-            | CliId::Stack { .. } => return Ok(()),
-        };
-
-        commit_with(ctx, terminal_guard, messages, mode, commit_op)?;
+        commit_with(
+            ctx,
+            terminal_guard,
+            messages,
+            mode,
+            commit_operation_at(&stop)?,
+        )?;
 
         Ok(())
-    }
-
-    fn handle_commit_toggle_insert_side(&mut self) {
-        let Mode::Commit(commit_mode) = self
-            .mode
-            .get_mut_and_i_promise_not_to_switch_to_a_different_state()
-        else {
-            return;
-        };
-        commit_mode.insert_side = commit_mode.insert_side.toggle();
     }
 
     fn handle_commit_toggle_message_composer(&mut self, composer: CommitMessageComposer) {
@@ -512,14 +395,8 @@ where
     let CommitMode {
         source,
         message_composer,
-        insert_side: _,
-        scope_to_stack,
+        stop: _,
     } = mode;
-
-    anyhow::ensure!(
-        scope_to_stack.is_none(),
-        "committing stack assignments is not supported. Use `but commit`"
-    );
 
     let commit_selection = match &**source {
         // Marks can span checkouts, so this is where that gets rejected.
@@ -577,4 +454,43 @@ where
     );
 
     Ok(())
+}
+
+/// The commit operation that puts a new commit at `stop`.
+pub(super) fn commit_operation_at(stop: &Stop) -> anyhow::Result<commit::CommitOperation> {
+    let target = match stop {
+        Stop::BranchTip(branch) => commit::CommitRelativeToTarget::BranchTip {
+            name: Category::LocalBranch.to_full_name(&*branch.name)?,
+            switch: false,
+        },
+        Stop::BelowCommit(commit) => commit::CommitRelativeToTarget::Commit {
+            commit: commit.clone(),
+            side: Side::Below,
+        },
+        Stop::NewBranchAbove(branch) => new_branch_beside(branch, Side::Above)?,
+        Stop::NewBranchBelow(branch) => new_branch_beside(branch, Side::Below)?,
+        Stop::NewStack => {
+            return Ok(commit::CommitOperation::CommitToNewBranch(
+                commit::CommitToNewBranchOperation {
+                    branch_name: None,
+                    switch: false,
+                },
+            ));
+        }
+    };
+    Ok(commit::CommitOperation::CommitAt(
+        commit::CommitAtOperation { target },
+    ))
+}
+
+fn new_branch_beside(
+    branch: &BranchId,
+    side: Side,
+) -> anyhow::Result<commit::CommitRelativeToTarget> {
+    Ok(commit::CommitRelativeToTarget::BranchBucket {
+        name: Category::LocalBranch.to_full_name(&*branch.name)?,
+        new_branch_name: None,
+        side,
+        switch: false,
+    })
 }

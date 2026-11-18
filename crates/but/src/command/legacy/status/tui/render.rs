@@ -3,8 +3,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use but_rebase::graph_rebase::mutate::InsertSide;
-use nonempty::NonEmpty;
 use ratatui::{
     Frame,
     prelude::*,
@@ -21,25 +19,23 @@ use crate::{
             BranchLineContent, MergeBaseLineContent, StatusOutputContent, StatusOutputLineData,
             UncommittedLineContent,
         },
-        tui::app::{
-            BranchMode, CherryPickMode, CommitMessageComposer, CommitMode, JumpPart, MoveMarks,
-            MoveMode, MoveSource, MoveStackMode, StackMode, WorktreeMode,
-            lines_part_of_current_stack,
-            mark::{CommittedMark, committed_changes_to_act_on},
-        },
+        tui::app::{JumpPart, MoveStackMode, StackMode, WorktreeMode, lines_part_of_current_stack},
     },
     id::{CommitId, LaneId},
     theme::Theme,
-    utils::targeting::Side,
 };
 
 use super::{
     App, CURSOR_CONTEXT_ROWS, InlineRewordMode, Modal, NOOP,
     cursor::is_selectable_in_mode,
-    graph_extension::{ExtensionDirection, extend_connector_spans},
+    graph_extension::{
+        ExtensionDirection, extend_connector_spans, new_branch_connector_spans,
+        new_branch_spacer_spans, stacked_under_new_branch,
+    },
     highlight::with_highlight,
     key_bind::KeyBind,
     mode::{Mode, ModeDiscriminant},
+    stop::{Stop, StopPosition},
     toast,
 };
 
@@ -327,9 +323,6 @@ fn render_status(app: &App, area: Rect, frame: &mut Frame) {
     update_status_scroll(app, area);
 
     let lines_part_of_current_stack = lines_part_of_current_stack(app);
-    let lines_part_of_current_branch = app
-        .cursor
-        .lines_part_of_current_branch(&app.mode, app.status_lines.iter().map(|line| &line.data));
 
     let mut areas = available_lines_in_area(area);
 
@@ -339,15 +332,9 @@ fn render_status(app: &App, area: Rect, frame: &mut Frame) {
         .enumerate()
         .skip(app.status_scroll.top())
     {
-        let stack_highlight = lines_part_of_current_stack
+        let mode_highlight = lines_part_of_current_stack
             .as_ref()
             .is_some_and(|rows| rows.get(idx).copied().unwrap_or_default());
-
-        let branch_highlight = lines_part_of_current_branch
-            .as_ref()
-            .is_some_and(|rows| rows.get(idx).copied().unwrap_or_default());
-
-        let mode_highlight = stack_highlight || branch_highlight;
 
         if !render_status_list_item(
             app,
@@ -355,7 +342,6 @@ fn render_status(app: &App, area: Rect, frame: &mut Frame) {
             app.cursor.index() == idx,
             mode_highlight,
             idx,
-            lines_part_of_current_branch.as_deref(),
             &mut areas,
             frame,
         ) {
@@ -382,16 +368,12 @@ fn update_status_scroll(app: &App, area: Rect) {
     // preview must fit. Reserve the extra row with only the minimum scroll needed
     // to show both (when both rows can fit).
     if viewport_height > 1
-        && app
-            .cursor
-            .selected_line(&app.status_lines)
-            .and_then(|line| app.mode.as_mode_render().operation_extension(&line.data))
-            .is_some()
+        && let Some(stop) = app.cursor_stop()
     {
         scroll_top = scroll_top.max(
             app.cursor
                 .index()
-                .saturating_add(2)
+                .saturating_add(1 + stop_row_count(&stop))
                 .saturating_sub(viewport_height),
         );
     }
@@ -406,7 +388,6 @@ fn render_status_list_item(
     is_selected: bool,
     mode_highlight: bool,
     status_line_idx: usize,
-    lines_part_of_current_branch: Option<&[bool]>,
     areas: &mut dyn Iterator<Item = Rect>,
     frame: &mut Frame,
 ) -> bool {
@@ -422,35 +403,45 @@ fn render_status_list_item(
         data,
     } = status_line;
 
-    let operation_extension = if is_selected {
-        app.mode.as_mode_render().operation_extension(data)
-    } else {
-        None
+    // ┊│ << commit below >>
+    // ^^^^^^^^^^^^^^^^^^^^^^ the stop the cursor is at gets a line of its own, above or below
+    let stop = if is_selected { app.cursor_stop() } else { None };
+
+    // A new branch above a stack's top branch takes over the top, so that branch joins the stack
+    // below it.
+    let stacked_connector = match &stop {
+        Some(Stop::NewBranchAbove(_)) => connector.as_deref().map(stacked_under_new_branch),
+        Some(
+            Stop::BranchTip(_) | Stop::BelowCommit(_) | Stop::NewBranchBelow(_) | Stop::NewStack,
+        )
+        | None => None,
     };
 
-    let (area, operation_extension_area) = match operation_extension {
-        Some(extension) => match extension.direction() {
-            ExtensionDirection::Above => {
-                let Some(next_area) = areas.next() else {
-                    render_operation_extension_line(
-                        app,
-                        data,
-                        connector.as_deref(),
-                        area,
-                        extension,
-                        frame,
-                    );
-                    return true;
-                };
-                (next_area, Some((area, extension)))
+    let (area, stop_areas) = match &stop {
+        Some(stop) => {
+            let rows = stop_row_count(stop);
+            match stop.direction() {
+                ExtensionDirection::Above => {
+                    let mut stop_areas = Vec::new();
+                    let mut area = area;
+                    for _ in 0..rows {
+                        stop_areas.push(area);
+                        let Some(next_area) = areas.next() else {
+                            render_stop_rows(app, connector.as_deref(), &stop_areas, stop, frame);
+                            return true;
+                        };
+                        area = next_area;
+                    }
+                    (area, stop_areas)
+                }
+                ExtensionDirection::Below => (area, (&mut *areas).take(rows).collect()),
             }
-            ExtensionDirection::Below => (area, areas.next().map(|area| (area, extension))),
-        },
-        None => (area, None),
+        }
+        None => (area, Vec::new()),
     };
 
-    if let Some((area, extension)) = operation_extension_area {
-        render_operation_extension_line(app, data, connector.as_deref(), area, extension, frame);
+    if let Some(stop) = &stop {
+        render_stop_rows(app, connector.as_deref(), &stop_areas, stop, frame);
     }
     app.status_line_areas
         .borrow_mut()
@@ -466,7 +457,7 @@ fn render_status_list_item(
 
     // ┊╭┄dp [dp-branch-1]
     // ^^^ render the connector, optionally with mark symbol
-    if let Some(connector) = connector {
+    if let Some(connector) = stacked_connector.as_ref().or(connector.as_ref()) {
         let mark_symbol = data.cli_id().and_then(|id| {
             let marks = app.marks_ref();
             if marks.contains_cli_id(id) {
@@ -523,15 +514,13 @@ fn render_status_list_item(
     //      ^^^^^^^^^^^^ render target/source labels
     if line_is_to_be_discarded {
         line.extend([Span::raw("<< discard >>").black().on_red(), Span::raw(" ")]);
-    } else if let Mode::Branch(branch_mode) = &*app.mode {
-        branch_mode.render_insert_branch_marker(
-            app,
-            data,
-            is_selected,
-            status_line_idx,
-            lines_part_of_current_branch,
-            &mut line,
-        );
+    } else if let Some(stop_mode) = app.mode.as_stop_mode() {
+        if data.cli_id().is_some_and(|id| stop_mode.is_source(id)) {
+            line.extend([source_span(app.theme), Span::raw(" ")]);
+            if is_selected && app.cursor_position() == Some(StopPosition::Source) {
+                render_operation_marker(app, NOOP, stop_mode.stop_label_suffix(), &mut line);
+            }
+        }
     } else if is_selected {
         app.mode
             .as_mode_render()
@@ -543,7 +532,7 @@ fn render_status_list_item(
     }
 
     let jump_match = if let Mode::Jump(mode) = &*app.mode {
-        mode.match_line(status_line, app.flags.show_files)
+        mode.match_line(&app.status_lines, status_line_idx, app.flags.show_files)
     } else {
         None
     };
@@ -737,7 +726,12 @@ fn render_status_list_item(
             .set_style(area_used_by_main_content, Style::default().crossed_out());
     }
 
-    if !is_selectable_in_mode(status_line, app.mode.as_ref(), app.flags.show_files) {
+    if !is_selectable_in_mode(
+        &app.status_lines,
+        status_line_idx,
+        app.mode.as_ref(),
+        app.flags.show_files,
+    ) {
         line.frame
             .buffer_mut()
             .set_style(area_used_by_main_content, app.theme.hint);
@@ -754,174 +748,81 @@ fn render_status_list_item(
     true
 }
 
-#[derive(Clone, Copy)]
-pub(crate) enum OperationExtension<'a> {
-    Commit {
-        mode: &'a CommitMode,
-        direction: ExtensionDirection,
-    },
-    CherryPick {
-        mode: &'a CherryPickMode,
-        direction: ExtensionDirection,
-    },
-    Move {
-        mode: &'a MoveMode,
-        direction: ExtensionDirection,
-    },
+/// How many rows the stop the cursor is at takes: its own, and for a new branch in a stack, the
+/// spacer row the graph draws between a branch's head and the line next to it.
+fn stop_row_count(stop: &Stop) -> usize {
+    if stop.creates_stacked_branch() { 2 } else { 1 }
 }
 
-impl OperationExtension<'_> {
-    const fn direction(self) -> ExtensionDirection {
-        match self {
-            Self::Commit { direction, .. }
-            | Self::Move { direction, .. }
-            | Self::CherryPick { direction, .. } => direction,
-        }
-    }
-}
-
-fn render_operation_extension_line(
+/// Draws the rows of the stop the cursor is at into `areas`, top to bottom, their connectors
+/// continuing the graph of the line the stop belongs to.
+///
+/// ```text
+/// ┊●   commit                ┊╭┄ << new branch above >>
+/// ┊│                         ┊│
+/// ┊├┄ << new branch below >> ┊├┄ branch
+/// ```
+fn render_stop_rows(
     app: &App,
-    data: &StatusOutputLineData,
     connector: Option<&[Span<'_>]>,
-    area: Rect,
-    extension: OperationExtension<'_>,
+    areas: &[Rect],
+    stop: &Stop,
     frame: &mut Frame,
 ) {
-    if app.has_focus {
-        frame
-            .buffer_mut()
-            .set_style(area, app.selection_highlight_color());
-    }
-
-    let mut line = RenderSingleLineSpans::new(frame, area);
-    extend_connector_spans(
-        connector.unwrap_or_default(),
-        extension.direction(),
-        &mut line,
-    );
-
-    match extension {
-        OperationExtension::Commit { mode, .. } => {
-            render_commit_operation_target_marker(app, data, mode, &mut line);
-        }
-        OperationExtension::CherryPick { mode, .. } => {
-            render_cherry_pick_operation_target_marker(app, data, mode, &mut line);
-        }
-        OperationExtension::Move { mode, .. } => {
-            render_move_operation_target_marker(app, data, mode, &mut line);
-        }
-    }
-}
-
-pub(crate) fn render_commit_operation_target_marker(
-    app: &App,
-    data: &StatusOutputLineData,
-    mode: &CommitMode,
-    line: &mut RenderSingleLineSpans<'_, '_>,
-) {
-    let Some(target) = data.cli_id() else {
+    let Some(mode) = app.mode.as_stop_mode() else {
         return;
     };
+    let Some(label) = mode.stop_label(stop) else {
+        return;
+    };
+    let connector = connector.unwrap_or_default();
+    let direction = stop.direction();
 
-    if mode.source.contains(target) {
-        line.extend([source_span(app.theme), Span::raw(" ")]);
-        line.extend(
-            [
-                Span::raw("<< ").mode_colors(&*app.mode, app.theme),
-                Span::raw(NOOP).mode_colors(&*app.mode, app.theme),
-            ]
-            .into_iter()
-            .chain(match mode.message_composer {
-                CommitMessageComposer::Editor => None,
-                CommitMessageComposer::Empty => {
-                    Some(Span::raw(" (empty message)").mode_colors(&*app.mode, app.theme))
-                }
-                CommitMessageComposer::Inline => {
-                    Some(Span::raw(" (reword inline)").mode_colors(&*app.mode, app.theme))
-                }
-            })
-            .chain([
-                Span::raw(" >>").mode_colors(&*app.mode, app.theme),
-                Span::raw(" "),
-            ]),
-        );
-    } else if let Some(display) = commit_operation_display(data, mode) {
-        line.extend(
-            [
-                Span::raw("<< ").mode_colors(&*app.mode, app.theme),
-                Span::raw(display).mode_colors(&*app.mode, app.theme),
-            ]
-            .into_iter()
-            .chain(match mode.message_composer {
-                CommitMessageComposer::Editor => None,
-                CommitMessageComposer::Empty => {
-                    Some(Span::raw(" (empty message)").mode_colors(&*app.mode, app.theme))
-                }
-                CommitMessageComposer::Inline => {
-                    Some(Span::raw(" (reword inline)").mode_colors(&*app.mode, app.theme))
-                }
-            })
-            .chain([
-                Span::raw(" >>").mode_colors(&*app.mode, app.theme),
-                Span::raw(" "),
-            ]),
-        );
+    for (row, area) in areas.iter().copied().enumerate() {
+        if app.has_focus {
+            frame
+                .buffer_mut()
+                .set_style(area, app.selection_highlight_color());
+        }
+        let mut line = RenderSingleLineSpans::new(frame, area);
+        if !stop.creates_stacked_branch() {
+            extend_connector_spans(connector, direction, &mut line);
+            render_operation_marker(app, &label, mode.stop_label_suffix(), &mut line);
+            continue;
+        }
+        // The head is drawn away from the line, the spacer next to it.
+        let is_head = match direction {
+            ExtensionDirection::Above => row == 0,
+            ExtensionDirection::Below => row == 1,
+        };
+        if is_head {
+            new_branch_connector_spans(connector, direction, &mut line);
+            render_operation_marker(app, &label, mode.stop_label_suffix(), &mut line);
+        } else {
+            new_branch_spacer_spans(connector, direction, &mut line);
+        }
     }
 }
 
-pub(crate) fn render_move_operation_target_marker(
+/// Renders `<< label >>` in the mode's colors, with `suffix` after the label.
+fn render_operation_marker(
     app: &App,
-    data: &StatusOutputLineData,
-    mode: &MoveMode,
+    label: &str,
+    suffix: Option<&'static str>,
     line: &mut RenderSingleLineSpans<'_, '_>,
 ) {
-    if data
-        .cli_id()
-        .is_some_and(|target| mode.source.contains(target))
-    {
-        line.extend([source_span(app.theme), Span::raw(" ")]);
-        line.extend([
+    line.extend(
+        [
             Span::raw("<< ").mode_colors(&*app.mode, app.theme),
-            Span::raw(NOOP).mode_colors(&*app.mode, app.theme),
+            Span::raw(label.to_owned()).mode_colors(&*app.mode, app.theme),
+        ]
+        .into_iter()
+        .chain(suffix.map(|suffix| Span::raw(suffix).mode_colors(&*app.mode, app.theme)))
+        .chain([
             Span::raw(" >>").mode_colors(&*app.mode, app.theme),
             Span::raw(" "),
-        ]);
-    } else if let Some(display) = move_operation_display(data, mode) {
-        line.extend([
-            Span::raw("<< ").mode_colors(&*app.mode, app.theme),
-            Span::raw(display).mode_colors(&*app.mode, app.theme),
-            Span::raw(" >>").mode_colors(&*app.mode, app.theme),
-            Span::raw(" "),
-        ]);
-    }
-}
-
-pub(crate) fn render_cherry_pick_operation_target_marker(
-    app: &App,
-    data: &StatusOutputLineData,
-    mode: &CherryPickMode,
-    line: &mut RenderSingleLineSpans<'_, '_>,
-) {
-    if data
-        .cli_id()
-        .is_some_and(|target| mode.source.contains(target))
-    {
-        line.extend([source_span(app.theme), Span::raw(" ")]);
-        line.extend([
-            Span::raw("<< ").mode_colors(&*app.mode, app.theme),
-            Span::raw(NOOP).mode_colors(&*app.mode, app.theme),
-            Span::raw(" >>").mode_colors(&*app.mode, app.theme),
-            Span::raw(" "),
-        ]);
-    } else if let Some(display) = cherry_pick_operation_display(data, mode) {
-        line.extend([
-            Span::raw("<< ").mode_colors(&*app.mode, app.theme),
-            Span::raw(display).mode_colors(&*app.mode, app.theme),
-            Span::raw(" >>").mode_colors(&*app.mode, app.theme),
-            Span::raw(" "),
-        ]);
-    }
+        ]),
+    );
 }
 
 pub(crate) fn render_move_stack_operation_target_marker(
@@ -1113,222 +1014,6 @@ fn render_debug(app: &App, area: Rect, frame: &mut Frame) {
     }
 }
 
-pub fn commit_operation_display(
-    data: &StatusOutputLineData,
-    mode: &CommitMode,
-) -> Option<&'static str> {
-    let CommitMode {
-        insert_side,
-        scope_to_stack,
-        source: _,
-        message_composer: _,
-    } = mode;
-
-    match data {
-        StatusOutputLineData::Branch { cli_id, .. } => {
-            let outside_scope = match (scope_to_stack, cli_id.lane()) {
-                (Some(_), Some(LaneId::Worktree(_))) => true,
-                (Some(stack_scope), Some(LaneId::Stack(Some(stack_id)))) => stack_scope != stack_id,
-                _ => false,
-            };
-            if outside_scope {
-                None
-            } else {
-                Some("commit to branch")
-            }
-        }
-        StatusOutputLineData::Commit { stack_id, .. } => {
-            if let Some(stack_scope) = scope_to_stack
-                && Some(*stack_scope) != *stack_id
-            {
-                // don't allow selecting commits outside the scoped stack
-                None
-            } else {
-                match insert_side {
-                    Side::Above => Some("commit above"),
-                    Side::Below => Some("commit below"),
-                }
-            }
-        }
-        StatusOutputLineData::WorktreeUncommitted { .. } => None,
-        StatusOutputLineData::StagedChanges { .. }
-        | StatusOutputLineData::StagedFile { .. }
-        | StatusOutputLineData::UncommittedChanges { .. }
-        | StatusOutputLineData::UncommittedFile { .. }
-        | StatusOutputLineData::UpdateNotice
-        | StatusOutputLineData::Connector
-        | StatusOutputLineData::BetweenStacks
-        | StatusOutputLineData::CommitMessage
-        | StatusOutputLineData::EmptyCommitMessage
-        | StatusOutputLineData::File { .. }
-        | StatusOutputLineData::MergeBase
-        | StatusOutputLineData::UpstreamChanges
-        | StatusOutputLineData::Warning
-        | StatusOutputLineData::Hint
-        | StatusOutputLineData::NoAssignmentsUnstaged => None,
-    }
-}
-
-pub fn move_operation_display(
-    data: &StatusOutputLineData,
-    mode: &MoveMode,
-) -> Option<&'static str> {
-    let MoveMode {
-        source,
-        insert_side,
-    } = mode;
-    match source {
-        MoveSource::Commit { .. } => match data {
-            StatusOutputLineData::Commit { .. } => match insert_side {
-                InsertSide::Above => Some("move commit above"),
-                InsertSide::Below => Some("move commit below"),
-            },
-            StatusOutputLineData::Branch { .. } => Some("move commit to branch"),
-            StatusOutputLineData::WorktreeUncommitted { .. } => None,
-            StatusOutputLineData::MergeBase => Some("move commit to new branch"),
-            StatusOutputLineData::UpdateNotice
-            | StatusOutputLineData::Connector
-            | StatusOutputLineData::BetweenStacks
-            | StatusOutputLineData::StagedChanges { .. }
-            | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UncommittedChanges { .. }
-            | StatusOutputLineData::UncommittedFile { .. }
-            | StatusOutputLineData::CommitMessage
-            | StatusOutputLineData::EmptyCommitMessage
-            | StatusOutputLineData::File { .. }
-            | StatusOutputLineData::UpstreamChanges
-            | StatusOutputLineData::Warning
-            | StatusOutputLineData::Hint
-            | StatusOutputLineData::NoAssignmentsUnstaged => None,
-        },
-        MoveSource::CommittedChange(change) => {
-            move_committed_changes_display(data, *insert_side, &NonEmpty::new(change))
-        }
-        MoveSource::Marks(MoveMarks::Commits(commits)) => match data {
-            StatusOutputLineData::Commit { .. } => match (insert_side, commits.len() == 1) {
-                (InsertSide::Above, true) => Some("move commit above"),
-                (InsertSide::Above, false) => Some("move commits above"),
-                (InsertSide::Below, true) => Some("move commit below"),
-                (InsertSide::Below, false) => Some("move commits below"),
-            },
-            StatusOutputLineData::Branch { .. } => match commits.len() == 1 {
-                true => Some("move commit to branch"),
-                false => Some("move commits to branch"),
-            },
-            StatusOutputLineData::WorktreeUncommitted { .. } => None,
-            StatusOutputLineData::MergeBase => match commits.len() == 1 {
-                true => Some("move commit to new branch"),
-                false => Some("move commits to new branch"),
-            },
-            StatusOutputLineData::UpdateNotice
-            | StatusOutputLineData::Connector
-            | StatusOutputLineData::BetweenStacks
-            | StatusOutputLineData::StagedChanges { .. }
-            | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UncommittedChanges { .. }
-            | StatusOutputLineData::UncommittedFile { .. }
-            | StatusOutputLineData::CommitMessage
-            | StatusOutputLineData::EmptyCommitMessage
-            | StatusOutputLineData::File { .. }
-            | StatusOutputLineData::UpstreamChanges
-            | StatusOutputLineData::Warning
-            | StatusOutputLineData::Hint
-            | StatusOutputLineData::NoAssignmentsUnstaged => None,
-        },
-        MoveSource::Marks(MoveMarks::Committed(marks)) => {
-            move_committed_changes_display(data, *insert_side, &committed_changes_to_act_on(marks))
-        }
-        MoveSource::Branch(..) => match data {
-            StatusOutputLineData::Branch { .. } => Some("stack branch"),
-            StatusOutputLineData::MergeBase => Some("unstack branch"),
-            StatusOutputLineData::UpdateNotice
-            | StatusOutputLineData::Commit { .. }
-            | StatusOutputLineData::Connector
-            | StatusOutputLineData::BetweenStacks
-            | StatusOutputLineData::StagedChanges { .. }
-            | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UncommittedChanges { .. }
-            | StatusOutputLineData::WorktreeUncommitted { .. }
-            | StatusOutputLineData::UncommittedFile { .. }
-            | StatusOutputLineData::CommitMessage
-            | StatusOutputLineData::EmptyCommitMessage
-            | StatusOutputLineData::File { .. }
-            | StatusOutputLineData::UpstreamChanges
-            | StatusOutputLineData::Warning
-            | StatusOutputLineData::Hint
-            | StatusOutputLineData::NoAssignmentsUnstaged => None,
-        },
-    }
-}
-
-/// The move target marker for committed `changes`, named after whether they're files, hunks or
-/// both.
-fn move_committed_changes_display(
-    data: &StatusOutputLineData,
-    insert_side: InsertSide,
-    changes: &NonEmpty<&CommittedMark>,
-) -> Option<&'static str> {
-    let file_count = changes
-        .iter()
-        .filter(|change| matches!(change, CommittedMark::File(..)))
-        .count();
-    let [above, below, to_branch, to_new_branch] = match (file_count, changes.len()) {
-        (1, 1) => [
-            "move file above",
-            "move file below",
-            "move file to branch",
-            "move file to new branch",
-        ],
-        (0, 1) => [
-            "move hunk above",
-            "move hunk below",
-            "move hunk to branch",
-            "move hunk to new branch",
-        ],
-        (file_count, change_count) if file_count == change_count => [
-            "move files above",
-            "move files below",
-            "move files to branch",
-            "move files to new branch",
-        ],
-        (0, _) => [
-            "move hunks above",
-            "move hunks below",
-            "move hunks to branch",
-            "move hunks to new branch",
-        ],
-        _ => [
-            "move changes above",
-            "move changes below",
-            "move changes to branch",
-            "move changes to new branch",
-        ],
-    };
-    match data {
-        StatusOutputLineData::Commit { .. } => match insert_side {
-            InsertSide::Above => Some(above),
-            InsertSide::Below => Some(below),
-        },
-        StatusOutputLineData::Branch { .. } => Some(to_branch),
-        StatusOutputLineData::WorktreeUncommitted { .. } => None,
-        StatusOutputLineData::MergeBase => Some(to_new_branch),
-        StatusOutputLineData::UpdateNotice
-        | StatusOutputLineData::Connector
-        | StatusOutputLineData::BetweenStacks
-        | StatusOutputLineData::StagedChanges { .. }
-        | StatusOutputLineData::StagedFile { .. }
-        | StatusOutputLineData::UncommittedChanges { .. }
-        | StatusOutputLineData::UncommittedFile { .. }
-        | StatusOutputLineData::CommitMessage
-        | StatusOutputLineData::EmptyCommitMessage
-        | StatusOutputLineData::File { .. }
-        | StatusOutputLineData::UpstreamChanges
-        | StatusOutputLineData::Warning
-        | StatusOutputLineData::Hint
-        | StatusOutputLineData::NoAssignmentsUnstaged => None,
-    }
-}
-
 pub fn reorder_operation_display(
     data: &StatusOutputLineData,
     _mode: &MoveStackMode,
@@ -1384,62 +1069,6 @@ pub fn stack_operation_display(
         | StatusOutputLineData::EmptyCommitMessage
         | StatusOutputLineData::File { .. }
         | StatusOutputLineData::MergeBase
-        | StatusOutputLineData::UpstreamChanges
-        | StatusOutputLineData::Warning
-        | StatusOutputLineData::Hint
-        | StatusOutputLineData::NoAssignmentsUnstaged => None,
-    }
-}
-
-pub fn cherry_pick_operation_display(
-    data: &StatusOutputLineData,
-    mode: &CherryPickMode,
-) -> Option<&'static str> {
-    let CherryPickMode { insert_side, .. } = mode;
-    match data {
-        StatusOutputLineData::Branch { .. } => Some("pick to branch"),
-        StatusOutputLineData::Commit { .. } => match insert_side {
-            InsertSide::Above => Some("pick above"),
-            InsertSide::Below => Some("pick below"),
-        },
-        StatusOutputLineData::MergeBase => Some("pick to new unstacked branch"),
-        StatusOutputLineData::WorktreeUncommitted { .. } => None,
-        StatusOutputLineData::UpdateNotice
-        | StatusOutputLineData::UncommittedChanges { .. }
-        | StatusOutputLineData::Connector
-        | StatusOutputLineData::BetweenStacks
-        | StatusOutputLineData::StagedChanges { .. }
-        | StatusOutputLineData::StagedFile { .. }
-        | StatusOutputLineData::UncommittedFile { .. }
-        | StatusOutputLineData::CommitMessage
-        | StatusOutputLineData::EmptyCommitMessage
-        | StatusOutputLineData::File { .. }
-        | StatusOutputLineData::UpstreamChanges
-        | StatusOutputLineData::Warning
-        | StatusOutputLineData::Hint
-        | StatusOutputLineData::NoAssignmentsUnstaged => None,
-    }
-}
-
-pub fn branch_operation_display(
-    data: &StatusOutputLineData,
-    _mode: &BranchMode,
-) -> Option<&'static str> {
-    match data {
-        StatusOutputLineData::UncommittedChanges { .. }
-        | StatusOutputLineData::Branch { .. }
-        | StatusOutputLineData::MergeBase => Some("branch"),
-        StatusOutputLineData::UpdateNotice
-        | StatusOutputLineData::WorktreeUncommitted { .. }
-        | StatusOutputLineData::Connector
-        | StatusOutputLineData::BetweenStacks
-        | StatusOutputLineData::StagedChanges { .. }
-        | StatusOutputLineData::StagedFile { .. }
-        | StatusOutputLineData::UncommittedFile { .. }
-        | StatusOutputLineData::Commit { .. }
-        | StatusOutputLineData::CommitMessage
-        | StatusOutputLineData::EmptyCommitMessage
-        | StatusOutputLineData::File { .. }
         | StatusOutputLineData::UpstreamChanges
         | StatusOutputLineData::Warning
         | StatusOutputLineData::Hint
@@ -1561,14 +1190,6 @@ impl Mode {
 }
 
 pub(crate) trait ModeRender {
-    // ┊│   << target >>
-    // ┊●   982b7d85c5 my commit
-    // ^^^^^^^^^^^^^^^^^^^^^^^^^ configure an operation extension line above or below the selected row
-    #[allow(unused_variables)]
-    fn operation_extension(&self, data: &StatusOutputLineData) -> Option<OperationExtension<'_>> {
-        None
-    }
-
     // ┊●   << source >> 982b7d85c5 my commit
     //      ^^^^^^^^^^^^ render source labels
     #[allow(unused_variables)]

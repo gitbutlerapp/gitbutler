@@ -348,7 +348,8 @@ fn discard_individual_committed_files_from_local_file_list() {
 
     tui.input('c');
     tui.input('e');
-    tui.input('b');
+    tui.input(Shift('g'));
+    tui.input(KeyCode::Enter);
 
     tui.input('f').assert_rendered_term_svg_eq(file![
         "snapshots/discard_individual_committed_files_from_local_file_list_001.svg"
@@ -398,7 +399,8 @@ fn discard_individual_committed_files_from_global_file_list() {
 
     tui.input('c');
     tui.input('e');
-    tui.input('b');
+    tui.input(Shift('g'));
+    tui.input(KeyCode::Enter);
     tui.input((KeyModifiers::SHIFT, 'F'))
         .assert_rendered_term_svg_eq(file![
             "snapshots/discard_individual_committed_files_from_global_file_list_001.svg"
@@ -439,7 +441,8 @@ fn discard_marked_committed_files_from_local_file_list() {
 
     tui.input('c');
     tui.input('e');
-    tui.input('b');
+    tui.input(Shift('g'));
+    tui.input(KeyCode::Enter);
     tui.input('f').assert_rendered_term_svg_eq(file![
         "snapshots/discard_marked_committed_files_from_local_file_list_001.svg"
     ]);
@@ -486,7 +489,8 @@ fn discard_marked_committed_files_from_global_file_list() {
 
     tui.input('c');
     tui.input('e');
-    tui.input('b');
+    tui.input(Shift('g'));
+    tui.input(KeyCode::Enter);
     tui.input((KeyModifiers::SHIFT, 'F'))
         .assert_rendered_term_svg_eq(file![
             "snapshots/discard_marked_committed_files_from_global_file_list_001.svg"
@@ -610,14 +614,16 @@ fn marking_and_discarding_multiple_branches_fails_with_dependencies() {
     // create a stack of two branches where the top has a dependency on the bottom
     tui.input('c');
     tui.input('e');
-    tui.input('b');
+    tui.input(Shift('g'));
+    tui.input(KeyCode::Enter);
     tui.env().append_file("file", "new line");
     tui.reload();
     tui.input('g');
     tui.input('c');
     tui.input('e');
+    // The new branch above c-branch-1.
     tui.input('j');
-    tui.input('b');
+    tui.input(KeyCode::Enter);
 
     // create a new branch without any dependencies
     tui.input('g');

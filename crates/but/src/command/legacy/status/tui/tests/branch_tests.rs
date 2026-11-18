@@ -286,10 +286,9 @@ fn switch_branch() {
     let mut tui = test_status_tui(env);
 
     // switch to a branch
+    tui.input('j');
     tui.input('b')
         .assert_rendered_term_svg_eq(file!["snapshots/switch_branch_001.svg"]);
-    tui.input('j')
-        .assert_rendered_term_svg_eq(file!["snapshots/switch_branch_002.svg"]);
     tui.input(Shift('s'))
         .assert_rendered_term_svg_eq(file!["snapshots/switch_branch_003.svg"]);
 
@@ -353,13 +352,10 @@ fn discard_marked_branches_from_branch_mode() {
 
     let mut tui = test_status_tui(env);
 
-    // we can enter branch mode on `@ [uncommitted]` so ensure it isn't markable
-    tui.input('b');
-    tui.input(' ').assert_rendered_term_svg_eq(file![
-        "snapshots/discard_marked_branches_from_branch_mode_001.svg"
-    ]);
-
+    // marking a branch moves the cursor to the next branch, past the commit line where a new
+    // branch below the stack would go
     tui.input('j');
+    tui.input('b');
     tui.input(' ');
     tui.input(' ').assert_rendered_term_svg_eq(file![
         "snapshots/discard_marked_branches_from_branch_mode_002.svg"
@@ -424,8 +420,8 @@ fn clearing_marks_from_branch_mode() {
 
     let mut tui = test_status_tui(env);
 
-    tui.input('b');
     tui.input('j');
+    tui.input('b');
     tui.input(' ');
     tui.input(' ')
         .assert_backstack_eq([BackstackEntry::Mark, BackstackEntry::LeaveNormalMode])
@@ -446,6 +442,7 @@ fn create_and_switch_to_branch() {
     let mut tui = test_status_tui(env);
 
     tui.input('b');
+    tui.input(Shift('g'));
     tui.input(Shift('n'))
         .assert_rendered_term_svg_eq(file!["snapshots/create_and_switch_to_branch_001.svg"]);
 
@@ -509,8 +506,8 @@ fn pick_and_switch_prioritizes_cursor_branch() {
     env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_status_tui(env);
+    tui.input([KeyCode::Down, KeyCode::Down, KeyCode::Down]);
     tui.input('b');
-    tui.input([KeyCode::Down, KeyCode::Down]);
     tui.input('s').assert_rendered_term_svg_eq(file![
         "snapshots/pick_and_switch_prioritizes_cursor_branch_001.svg"
     ]);
@@ -578,7 +575,7 @@ fn creating_branch_below_other_branch() {
     tui.input('b').assert_rendered_term_svg_eq(file![
         "snapshots/creating_branch_below_other_branch_001.svg"
     ]);
-    tui.input('a').assert_rendered_term_svg_eq(file![
+    tui.input('j').assert_rendered_term_svg_eq(file![
         "snapshots/creating_branch_below_other_branch_002.svg"
     ]);
     tui.input('n').assert_rendered_term_svg_eq(file![
@@ -588,7 +585,7 @@ fn creating_branch_below_other_branch() {
     tui.input('b').assert_rendered_term_svg_eq(file![
         "snapshots/creating_branch_below_other_branch_004.svg"
     ]);
-    tui.input('a').assert_rendered_term_svg_eq(file![
+    tui.input('j').assert_rendered_term_svg_eq(file![
         "snapshots/creating_branch_below_other_branch_005.svg"
     ]);
     tui.input('n').assert_rendered_term_svg_eq(file![
@@ -597,22 +594,85 @@ fn creating_branch_below_other_branch() {
 }
 
 #[test]
-fn creating_branch_above_below_uncommitted_and_merge_base() {
+fn branch_mode_without_branches_offers_a_new_stack() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
 
     let mut tui = test_status_tui(env);
 
     tui.input('b').assert_rendered_term_svg_eq(file![
-        "snapshots/creating_branch_above_below_uncommitted_and_merge_base_001.svg"
+        "snapshots/branch_mode_without_branches_offers_a_new_stack_001.svg"
     ]);
-    tui.input('a').assert_rendered_term_svg_eq(file![
-        "snapshots/creating_branch_above_below_uncommitted_and_merge_base_002.svg"
+    tui.input('n').assert_rendered_term_svg_eq(file![
+        "snapshots/branch_mode_without_branches_offers_a_new_stack_002.svg"
+    ]);
+}
+
+#[test]
+fn branch_mode_steps_through_new_branch_stops() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-dependent-branches");
+    env.setup_metadata(&["A", "B"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('j');
+    tui.input('b').assert_rendered_term_svg_eq(file![
+        "snapshots/branch_mode_steps_through_new_branch_stops_001.svg"
     ]);
     tui.input('j').assert_rendered_term_svg_eq(file![
-        "snapshots/creating_branch_above_below_uncommitted_and_merge_base_003.svg"
+        "snapshots/branch_mode_steps_through_new_branch_stops_002.svg"
     ]);
-    tui.input('a').assert_rendered_term_svg_eq(file![
-        "snapshots/creating_branch_above_below_uncommitted_and_merge_base_004.svg"
+    tui.input('j').assert_rendered_term_svg_eq(file![
+        "snapshots/branch_mode_steps_through_new_branch_stops_003.svg"
+    ]);
+    tui.input('j').assert_rendered_term_svg_eq(file![
+        "snapshots/branch_mode_steps_through_new_branch_stops_004.svg"
+    ]);
+}
+
+#[test]
+fn branch_key_from_an_uncommitted_file_starts_a_new_stack() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.file("file.txt", "content");
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('j');
+    tui.input('b').assert_rendered_term_svg_eq(file![
+        "snapshots/branch_key_from_an_uncommitted_file_starts_a_new_stack_001.svg"
+    ]);
+    tui.input('n').assert_rendered_term_svg_eq(file![
+        "snapshots/branch_key_from_an_uncommitted_file_starts_a_new_stack_002.svg"
+    ]);
+}
+
+#[test]
+fn branch_key_from_a_committed_file_starts_above_its_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input(['j', 'j', 'f']);
+    tui.input('b').assert_rendered_term_svg_eq(file![
+        "snapshots/branch_key_from_a_committed_file_starts_above_its_branch_001.svg"
+    ]);
+}
+
+#[test]
+fn branch_mode_only_discards_branches() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_status_tui(env);
+
+    // The cursor is on A's commit, where a new branch below A goes.
+    tui.input('j');
+    tui.input('b');
+    tui.input('j');
+    tui.input('x').assert_rendered_term_svg_eq(file![
+        "snapshots/branch_mode_only_discards_branches_001.svg"
     ]);
 }
 

@@ -68,6 +68,7 @@ mod operations;
 mod popup;
 mod remember_selection;
 mod render;
+mod stop;
 mod toast;
 
 #[cfg(test)]
@@ -662,13 +663,10 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
                 ConfirmMessage::Left | ConfirmMessage::Right | ConfirmMessage::Close => false,
             },
             Message::Commit(message) => match message {
-                CommitMessage::CreateEmpty
-                | CommitMessage::Confirm
-                | CommitMessage::CommitToNewBranch => true,
+                CommitMessage::CreateEmpty | CommitMessage::Confirm => true,
                 CommitMessage::Start
                 | CommitMessage::StartWithSource(..)
-                | CommitMessage::ToggleMessageComposer(_)
-                | CommitMessage::ToggleInsertSide => false,
+                | CommitMessage::ToggleMessageComposer(_) => false,
             },
             Message::Squash(message) => match message {
                 SquashMessage::Confirm => true,
@@ -692,20 +690,18 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
                 | FilesMessage::ToggleFilesForSelectedCommit => false,
             },
             Message::Move(message) => match message {
-                MoveMessage::Confirm | MoveMessage::MoveToNewBranch => true,
-                MoveMessage::Start | MoveMessage::StartWith(..) | MoveMessage::ToggleInsertSide => {
-                    false
-                }
+                MoveMessage::Confirm => true,
+                MoveMessage::Start | MoveMessage::StartWith(..) => false,
             },
             Message::CherryPick(message) => match message {
-                CherryPickMessage::Confirm | CherryPickMessage::CherryPickToNewBranch => true,
-                CherryPickMessage::Start | CherryPickMessage::ToggleInsertSide => false,
+                CherryPickMessage::Confirm => true,
+                CherryPickMessage::Start => false,
             },
             Message::Branch(message) => match message {
                 BranchMessage::Switch
                 | BranchMessage::PickAndSwitch
                 | BranchMessage::New { .. } => true,
-                BranchMessage::ToggleInsertSide | BranchMessage::Start => false,
+                BranchMessage::Start => false,
             },
             Message::Stack(message) => match message {
                 StackMessage::Unapply | StackMessage::MoveConfirm => true,

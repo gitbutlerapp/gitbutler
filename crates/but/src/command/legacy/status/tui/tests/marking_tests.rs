@@ -205,13 +205,13 @@ fn can_only_mark_files_from_one_commit() {
 
     tui.input('c');
     tui.input('e');
-    tui.input('b');
+    tui.input(Shift('g'));
+    tui.input(KeyCode::Enter);
     tui.input('g');
     tui.input(' ');
     tui.input('c');
     tui.input('e');
-    tui.input('j');
-    tui.input('j');
+    tui.input(['j', 'j', 'j']);
     tui.input(KeyCode::Enter);
 
     tui.input((KeyModifiers::SHIFT, 'F'))
@@ -281,7 +281,8 @@ fn marking_and_squashing_branches() {
         tui.input('j');
         tui.input('c');
         tui.input('e');
-        tui.input('b');
+        tui.input(Shift('g'));
+        tui.input(KeyCode::Enter);
     }
     tui.input('g');
     tui.input(Shift('f'));

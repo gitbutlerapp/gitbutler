@@ -63,6 +63,7 @@ use super::{
     },
     mode::{DetailsMode, DetailsReturnMode, Mode},
     operations,
+    stop::{self, SelectedStop, StepDirection, Stop, StopMode, StopPosition},
     toast::{ToastKind, Toasts},
 };
 
@@ -492,6 +493,7 @@ impl App {
         if let Err(err) = self.try_handle_message(ctx, out, terminal_guard, messages, msg) {
             messages.push(Message::ShowError(err));
         }
+        self.forget_stop_off_cursor();
         tracing::debug!("try_handle_message ({}): {:?}", m, start.elapsed());
     }
 
@@ -531,24 +533,14 @@ impl App {
             Message::DebugScrollDown(count) => self.debug_scroll.down(count),
             Message::MoveCursorUp(count) => {
                 for _ in 0..count {
-                    if let Some(new_cursor) =
-                        self.cursor
-                            .move_up(&self.status_lines, &self.mode, self.flags.show_files)
-                    {
-                        self.cursor = new_cursor;
-                    } else {
+                    if !self.step_cursor(StepDirection::Up) {
                         break;
                     }
                 }
             }
             Message::MoveCursorDown(count) => {
                 for _ in 0..count {
-                    if let Some(new_cursor) =
-                        self.cursor
-                            .move_down(&self.status_lines, &self.mode, self.flags.show_files)
-                    {
-                        self.cursor = new_cursor;
-                    } else {
+                    if !self.step_cursor(StepDirection::Down) {
                         break;
                     }
                 }
@@ -575,25 +567,24 @@ impl App {
                 if let Some(new_cursor) =
                     Cursor::select_branch(&branch_name.shorten().to_str_lossy(), &self.status_lines)
                 {
-                    self.cursor = new_cursor;
+                    self.select_line(new_cursor);
                 }
             }
             Message::SelectWorktree(name) => {
                 if let Some(new_cursor) = Cursor::select_worktree(name.as_ref(), &self.status_lines)
                 {
-                    self.cursor = new_cursor;
+                    self.select_line(new_cursor);
                 }
             }
             Message::GotoTop => match self.flags.show_files {
                 FilesStatusFlag::None | FilesStatusFlag::All => {
                     let new_cursor = Cursor::new(&self.status_lines);
-                    if let Some(uncommitted_line) = new_cursor.selected_line(&self.status_lines)
-                        && cursor::is_selectable_in_mode(
-                            uncommitted_line,
-                            self.mode.as_ref(),
-                            self.flags.show_files,
-                        )
-                    {
+                    if cursor::is_selectable_in_mode(
+                        &self.status_lines,
+                        new_cursor.index(),
+                        self.mode.as_ref(),
+                        self.flags.show_files,
+                    ) {
                         self.cursor = new_cursor;
                     }
                 }
@@ -610,13 +601,12 @@ impl App {
                     let Some(new_cursor) = Cursor::select_merge_base(&self.status_lines) else {
                         return Ok(());
                     };
-                    if let Some(merge_base_line) = new_cursor.selected_line(&self.status_lines)
-                        && cursor::is_selectable_in_mode(
-                            merge_base_line,
-                            self.mode.as_ref(),
-                            self.flags.show_files,
-                        )
-                    {
+                    if cursor::is_selectable_in_mode(
+                        &self.status_lines,
+                        new_cursor.index(),
+                        self.mode.as_ref(),
+                        self.flags.show_files,
+                    ) {
                         self.cursor = new_cursor;
                     }
                 }
@@ -885,7 +875,7 @@ impl App {
         if let Some(cursor) =
             Cursor::select_at_index(index, &self.status_lines, &self.mode, self.flags.show_files)
         {
-            self.cursor = cursor;
+            self.select_line(cursor);
             // Clicking a visible row must not pull it away from the mouse to restore context.
             self.status_scroll.take_pending_cursor();
         }
@@ -1146,12 +1136,114 @@ impl App {
         }
     }
 
-    fn ensure_cursor_is_on_selectable_line(&mut self, direction: MoveCursorDiration) {
-        let Some(line) = self.cursor.selected_line(&self.status_lines) else {
-            return;
-        };
+    /// Moves the cursor one position up or down: to the next stop in a mode that lands at stops,
+    /// else to the next selectable line. Returns whether it moved.
+    fn step_cursor(&mut self, direction: StepDirection) -> bool {
+        if let Some(mode) = self.mode.as_stop_mode() {
+            let Some((line, position)) =
+                stop::step(&self.status_lines, self.cursor.index(), mode, direction)
+            else {
+                return false;
+            };
+            let Some(cursor) = Cursor::select_at_index(
+                line,
+                &self.status_lines,
+                &self.mode,
+                self.flags.show_files,
+            ) else {
+                return false;
+            };
+            self.cursor = cursor;
+            let selected = match position {
+                StopPosition::At(stop) => Some(SelectedStop { line, stop }),
+                StopPosition::Source => None,
+            };
+            self.mode
+                .get_mut_and_i_promise_not_to_switch_to_a_different_state()
+                .select_stop(selected);
+            return true;
+        }
 
-        if !is_selectable_in_mode(line, self.mode.as_ref(), self.flags.show_files) {
+        let new_cursor = match direction {
+            StepDirection::Up => {
+                self.cursor
+                    .move_up(&self.status_lines, &self.mode, self.flags.show_files)
+            }
+            StepDirection::Down => {
+                self.cursor
+                    .move_down(&self.status_lines, &self.mode, self.flags.show_files)
+            }
+        };
+        match new_cursor {
+            Some(new_cursor) => {
+                self.cursor = new_cursor;
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Selects a line the user picked, such as by clicking it. In a mode that lands at stops, that
+    /// lands on the line itself, even the line a stop stepped to with `j` and `k` is drawn next to.
+    pub(super) fn select_line(&mut self, cursor: Cursor) {
+        self.cursor = cursor;
+        self.mode
+            .get_mut_and_i_promise_not_to_switch_to_a_different_state()
+            .select_stop(None);
+    }
+
+    /// Forgets the stop selected with `j` and `k` once the cursor is off its line, so moving the
+    /// cursor any other way, such as by clicking, lands on the line it moves to.
+    fn forget_stop_off_cursor(&mut self) {
+        let off_cursor = self
+            .mode
+            .as_stop_mode()
+            .and_then(StopMode::selected_stop)
+            .is_some_and(|selected| selected.line != self.cursor.index());
+        if off_cursor {
+            self.mode
+                .get_mut_and_i_promise_not_to_switch_to_a_different_state()
+                .select_stop(None);
+        }
+    }
+
+    /// The stop to land at when confirming, or `None` when there's nothing to do. On what's being
+    /// landed itself, confirming does nothing and leaves the mode.
+    fn stop_to_confirm(&self, mode: &dyn StopMode, messages: &mut Vec<Message>) -> Option<Stop> {
+        match stop::current_position(&self.status_lines, self.cursor.index(), mode)? {
+            StopPosition::At(stop) => Some(stop),
+            StopPosition::Source => {
+                messages.push(Message::EnterNormalModeAfterConfirmingOperation);
+                None
+            }
+        }
+    }
+
+    /// Where the cursor is, in a mode that lands at stops.
+    pub fn cursor_position(&self) -> Option<StopPosition> {
+        let mode = self.mode.as_stop_mode()?;
+        stop::current_position(&self.status_lines, self.cursor.index(), mode)
+    }
+
+    /// The stop the cursor is at, in a mode that lands at stops.
+    pub fn cursor_stop(&self) -> Option<Stop> {
+        match self.cursor_position()? {
+            StopPosition::At(stop) => Some(stop),
+            StopPosition::Source => None,
+        }
+    }
+
+    fn ensure_cursor_is_on_selectable_line(&mut self, direction: MoveCursorDiration) {
+        if self.cursor.selected_line(&self.status_lines).is_none() {
+            return;
+        }
+
+        if !is_selectable_in_mode(
+            &self.status_lines,
+            self.cursor.index(),
+            self.mode.as_ref(),
+            self.flags.show_files,
+        ) {
             let directions = match direction {
                 MoveCursorDiration::Up => [MoveCursorDiration::Up, MoveCursorDiration::Down],
                 MoveCursorDiration::Down => [MoveCursorDiration::Down, MoveCursorDiration::Up],
@@ -1523,6 +1615,14 @@ impl App {
             }
         }
 
+        // The selected stop is on the cursor's line, as `forget_stop_off_cursor` keeps it, and stays
+        // on that line wherever the reload moves it.
+        let stop_on_cursor = self
+            .mode
+            .as_stop_mode()
+            .and_then(StopMode::selected_stop)
+            .map(|selected| selected.stop.clone());
+
         let new_lines =
             operations::reload_legacy(ctx, out, self.flags, self.launch_options.clone())?;
         self.head_sha = operations::head_sha(ctx)?;
@@ -1585,6 +1685,13 @@ impl App {
             Some(SelectAfterReload::CliId(cli_id)) => Cursor::restore(&cli_id, &new_lines),
         }
         .unwrap_or_else(|| Cursor::new(&new_lines));
+
+        if let Some(stop) = stop_on_cursor {
+            let line = self.cursor.index();
+            self.mode
+                .get_mut_and_i_promise_not_to_switch_to_a_different_state()
+                .select_stop(Some(SelectedStop { line, stop }));
+        }
 
         // Cancelling jump returns to where it started, so that line has to be found again too.
         if let Mode::Jump(jump_mode) = self
@@ -2070,7 +2177,7 @@ impl App {
                 // changes assigned to a stack then we cannot select branches outside the stack
                 self.status_lines
                     .iter()
-                    .find(|line| {
+                    .position(|line| {
                         if let Some(id) = line.data.cli_id()
                             && let CliId::Branch(branch) = &**id
                             && branch.name == name.shorten()
@@ -2080,8 +2187,13 @@ impl App {
                             false
                         }
                     })
-                    .is_none_or(|line| {
-                        is_selectable_in_mode(line, self.mode.as_ref(), self.flags.show_files)
+                    .is_none_or(|idx| {
+                        is_selectable_in_mode(
+                            &self.status_lines,
+                            idx,
+                            self.mode.as_ref(),
+                            self.flags.show_files,
+                        )
                     })
             })
             .map(|name| GotoBranchItem::Branch(name.to_owned()))
@@ -2089,9 +2201,13 @@ impl App {
 
         for worktree in head_info.worktrees {
             let selectable = Cursor::select_worktree(worktree.name.as_ref(), &self.status_lines)
-                .and_then(|cursor| cursor.selected_line(&self.status_lines))
-                .is_some_and(|line| {
-                    is_selectable_in_mode(line, self.mode.as_ref(), self.flags.show_files)
+                .is_some_and(|cursor| {
+                    is_selectable_in_mode(
+                        &self.status_lines,
+                        cursor.index(),
+                        self.mode.as_ref(),
+                        self.flags.show_files,
+                    )
                 });
             if selectable {
                 picker_items.push(GotoBranchItem::Worktree {
@@ -2102,10 +2218,14 @@ impl App {
         }
 
         if let Some(picker_items) = NonEmpty::from_vec(picker_items) {
-            let include_uncommitted = Cursor::select_uncommitted(&self.status_lines)
-                .and_then(|cursor| cursor.selected_line(&self.status_lines))
-                .is_some_and(|uncommitted| {
-                    is_selectable_in_mode(uncommitted, self.mode.as_ref(), self.flags.show_files)
+            let include_uncommitted =
+                Cursor::select_uncommitted(&self.status_lines).is_some_and(|cursor| {
+                    is_selectable_in_mode(
+                        &self.status_lines,
+                        cursor.index(),
+                        self.mode.as_ref(),
+                        self.flags.show_files,
+                    )
                 });
 
             let picker_items = if include_uncommitted {

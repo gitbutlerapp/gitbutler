@@ -10,6 +10,7 @@ use crate::{
             mark::{Marks, MarksRef},
         },
         render::ModeRender,
+        stop::{SelectedStop, StopMode},
     },
     theme::Theme,
 };
@@ -64,6 +65,32 @@ impl Mode {
             Mode::Branch(inner) => ModeRef::Branch(inner),
             Mode::Worktree(inner) => ModeRef::Worktree(inner),
         }
+    }
+
+    /// The mode as one that lands at stops, if it is one.
+    pub fn as_stop_mode(&self) -> Option<&dyn StopMode> {
+        self.as_ref().as_stop_mode()
+    }
+
+    /// Selects `stop` among the stops of its line, in a mode that lands at stops.
+    pub fn select_stop(&mut self, stop: Option<SelectedStop>) {
+        let selected = match self {
+            Mode::Commit(mode) => &mut mode.stop,
+            Mode::Move(mode) => &mut mode.stop,
+            Mode::CherryPick(mode) => &mut mode.stop,
+            Mode::Branch(mode) => &mut mode.stop,
+            Mode::Normal(..)
+            | Mode::Squash(..)
+            | Mode::InlineReword(..)
+            | Mode::Command(..)
+            | Mode::Details(..)
+            | Mode::Stack(..)
+            | Mode::MoveStack(..)
+            | Mode::PickChanges(..)
+            | Mode::Jump(..)
+            | Mode::Worktree(..) => return,
+        };
+        *selected = stop;
     }
 }
 
@@ -143,6 +170,26 @@ pub enum ModeRef<'a> {
 }
 
 impl<'a> ModeRef<'a> {
+    /// The mode as one that lands at stops, if it is one.
+    pub fn as_stop_mode(self) -> Option<&'a dyn StopMode> {
+        match self {
+            ModeRef::Commit(mode) => Some(mode),
+            ModeRef::Move(mode) => Some(mode),
+            ModeRef::CherryPick(mode) => Some(mode),
+            ModeRef::Branch(mode) => Some(mode),
+            ModeRef::Normal(..)
+            | ModeRef::Squash(..)
+            | ModeRef::InlineReword(..)
+            | ModeRef::Command(..)
+            | ModeRef::Details(..)
+            | ModeRef::Stack(..)
+            | ModeRef::MoveStack(..)
+            | ModeRef::PickChanges(..)
+            | ModeRef::Jump(..)
+            | ModeRef::Worktree(..) => None,
+        }
+    }
+
     pub fn marks_ref(self) -> MarksRef<'a> {
         match self {
             ModeRef::Normal(normal_mode) => normal_mode.marks.as_ref(),

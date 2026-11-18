@@ -1,28 +1,16 @@
 use but_ctx::Context;
-use but_rebase::graph_rebase::mutate::InsertSide;
-use gix::{ObjectId, refs::Category};
 use nonempty::NonEmpty;
-use ratatui::text::Span;
 
 use crate::{
     CliId,
     command::legacy::{
-        commit::{
-            CommitAtOperation, CommitOperation, CommitRelativeToTarget, CommitToNewBranchOperation,
-        },
         pick::{self, PickOperation, PickOutcome},
-        status::{
-            output::StatusOutputLineData,
-            tui::{
-                Message, ReloadCause, SelectAfterReload,
-                app::{App, mark::MarksRef},
-                graph_extension::ExtensionDirection,
-                mode::Mode,
-                render::{
-                    ModeRender, OperationExtension, RenderSingleLineSpans,
-                    render_cherry_pick_operation_target_marker, source_span,
-                },
-            },
+        status::tui::{
+            Message, ReloadCause, SelectAfterReload,
+            app::{App, commit_mode::commit_operation_at, mark::MarksRef},
+            mode::Mode,
+            render::ModeRender,
+            stop::{SelectedStop, Stop, StopMode},
         },
     },
     id::CommitId,
@@ -33,56 +21,31 @@ use super::mark::Marks;
 #[derive(Debug, Clone)]
 pub struct CherryPickMode {
     pub source: CherryPickSource,
-    pub insert_side: InsertSide,
+    /// Which of the stops on the cursor line the picked commits go to, as
+    /// [`StopMode::selected_stop`] says.
+    pub stop: Option<SelectedStop>,
 }
 
-impl CherryPickMode {}
+impl ModeRender for CherryPickMode {}
 
-impl ModeRender for CherryPickMode {
-    fn operation_extension(&self, data: &StatusOutputLineData) -> Option<OperationExtension<'_>> {
-        let direction = if let StatusOutputLineData::Commit { cli_id: target, .. } = data
-            && !self.source.contains(target)
-        {
-            self.insert_side.into()
-        } else if matches!(data, StatusOutputLineData::Branch { .. }) {
-            ExtensionDirection::Below
-        } else if matches!(data, StatusOutputLineData::MergeBase) {
-            ExtensionDirection::Above
-        } else {
-            return None;
+impl StopMode for CherryPickMode {
+    fn stop_label(&self, stop: &Stop) -> Option<String> {
+        let label = match stop {
+            Stop::BranchTip(_) => "pick to branch",
+            Stop::BelowCommit(_) => "pick below",
+            Stop::NewBranchAbove(_) => "pick to new branch above",
+            Stop::NewBranchBelow(_) => "pick to new branch below",
+            Stop::NewStack => "pick to new stack",
         };
-
-        Some(OperationExtension::CherryPick {
-            mode: self,
-            direction,
-        })
+        Some(label.to_owned())
     }
 
-    fn render_operation_target_marker(
-        &self,
-        app: &App,
-        data: &StatusOutputLineData,
-        line: &mut RenderSingleLineSpans<'_, '_>,
-    ) {
-        if data
-            .cli_id()
-            .is_some_and(|target| self.source.contains(target))
-        {
-            render_cherry_pick_operation_target_marker(app, data, self, line);
-        }
+    fn is_source(&self, id: &CliId) -> bool {
+        self.source.contains(id)
     }
 
-    fn render_operation_source_marker(
-        &self,
-        app: &App,
-        data: &StatusOutputLineData,
-        line: &mut RenderSingleLineSpans<'_, '_>,
-    ) {
-        if let Some(cli_id) = data.cli_id()
-            && self.source.contains(cli_id)
-        {
-            line.extend([source_span(app.theme), Span::raw(" ")]);
-        }
+    fn selected_stop(&self) -> Option<&SelectedStop> {
+        self.stop.as_ref()
     }
 }
 
@@ -118,8 +81,6 @@ impl CherryPickMarks {
 #[derive(Debug)]
 pub enum CherryPickMessage {
     Start,
-    ToggleInsertSide,
-    CherryPickToNewBranch,
     Confirm,
 }
 
@@ -132,10 +93,6 @@ impl App {
     ) -> anyhow::Result<()> {
         match cherry_pick_message {
             CherryPickMessage::Start => self.handle_cherry_pick_start(),
-            CherryPickMessage::ToggleInsertSide => self.handle_cherry_pick_toggle_insert_side(),
-            CherryPickMessage::CherryPickToNewBranch => {
-                self.handle_cherry_pick_to_new_branch(ctx, messages)?
-            }
             CherryPickMessage::Confirm => self.handle_cherry_pick_confirm(ctx, messages)?,
         }
 
@@ -183,24 +140,8 @@ impl App {
     fn cherry_pick_start_with_source(&mut self, source: CherryPickSource) {
         self.mode
             .update_and_push_leave_normal_mode(&mut self.backstack, |mode| {
-                *mode = Mode::CherryPick(CherryPickMode {
-                    source,
-                    insert_side: InsertSide::Below,
-                });
+                *mode = Mode::CherryPick(CherryPickMode { source, stop: None });
             });
-    }
-
-    fn handle_cherry_pick_toggle_insert_side(&mut self) {
-        let Mode::CherryPick(cherry_pick_mode) = self
-            .mode
-            .get_mut_and_i_promise_not_to_switch_to_a_different_state()
-        else {
-            return;
-        };
-        cherry_pick_mode.insert_side = match cherry_pick_mode.insert_side {
-            InsertSide::Above => InsertSide::Below,
-            InsertSide::Below => InsertSide::Above,
-        };
     }
 
     fn handle_cherry_pick_confirm(
@@ -208,135 +149,24 @@ impl App {
         ctx: &mut Context,
         messages: &mut Vec<Message>,
     ) -> anyhow::Result<()> {
-        self.cherry_pick_confirm_with(ctx, messages, |commits, data, insert_side| {
-            if matches!(data, StatusOutputLineData::MergeBase) {
-                return Ok(Some(PickOperation {
-                    sources: commits,
-                    commit_op: CommitOperation::CommitToNewBranch(CommitToNewBranchOperation {
-                        branch_name: None,
-                        switch: false,
-                    }),
-                    order_commits_by_parentage: true,
-                }));
-            }
-            let Some(target) = data.cli_id() else {
-                return Ok(None);
-            };
-            match &**target {
-                CliId::Branch(branch_id) => {
-                    let name = Category::LocalBranch.to_full_name(&*branch_id.name)?;
-                    Ok(Some(PickOperation {
-                        sources: commits,
-                        commit_op: CommitOperation::CommitAt(CommitAtOperation {
-                            target: CommitRelativeToTarget::BranchTip {
-                                name,
-                                switch: false,
-                            },
-                        }),
-                        order_commits_by_parentage: true,
-                    }))
-                }
-                CliId::Commit { commit: target, .. } => Ok(Some(PickOperation {
-                    sources: commits,
-                    commit_op: CommitOperation::CommitAt(CommitAtOperation {
-                        target: CommitRelativeToTarget::Commit {
-                            commit: target.clone(),
-                            side: insert_side.into(),
-                        },
-                    }),
-                    order_commits_by_parentage: true,
-                })),
-                CliId::AnonymousSegment(..)
-                | CliId::UncommittedHunkOrFile(..)
-                | CliId::PathPrefix { .. }
-                | CliId::CommittedFile { .. }
-                | CliId::CommittedHunk(..)
-                | CliId::UncommittedArea { .. }
-                | CliId::Stack { .. } => Ok(None),
-            }
-        })
-    }
-
-    fn handle_cherry_pick_to_new_branch(
-        &mut self,
-        ctx: &mut Context,
-        messages: &mut Vec<Message>,
-    ) -> anyhow::Result<()> {
-        self.cherry_pick_confirm_with(ctx, messages, |commits, data, _| {
-            let Some(target) = data.cli_id() else {
-                return Ok(None);
-            };
-            match &**target {
-                CliId::Branch(branch_id) => {
-                    let name = Category::LocalBranch.to_full_name(&*branch_id.name)?;
-                    Ok(Some(PickOperation {
-                        sources: commits,
-                        commit_op: CommitOperation::CommitAt(CommitAtOperation {
-                            target: CommitRelativeToTarget::BranchBucket {
-                                name,
-                                side: InsertSide::Above.into(),
-                                new_branch_name: None,
-                                switch: false,
-                            },
-                        }),
-                        order_commits_by_parentage: true,
-                    }))
-                }
-                CliId::AnonymousSegment(..)
-                | CliId::Commit { .. }
-                | CliId::UncommittedHunkOrFile(..)
-                | CliId::PathPrefix { .. }
-                | CliId::CommittedFile { .. }
-                | CliId::CommittedHunk { .. }
-                | CliId::UncommittedArea { .. }
-                | CliId::Stack { .. } => Ok(None),
-            }
-        })
-    }
-
-    fn cherry_pick_confirm_with<F>(
-        &mut self,
-        ctx: &mut Context,
-        messages: &mut Vec<Message>,
-        make_pick_operation: F,
-    ) -> anyhow::Result<()>
-    where
-        F: FnOnce(
-            Vec<ObjectId>,
-            &StatusOutputLineData,
-            InsertSide,
-        ) -> anyhow::Result<Option<PickOperation>>,
-    {
-        let Mode::CherryPick(CherryPickMode {
-            source,
-            insert_side,
-        }) = &*self.mode
-        else {
+        let Mode::CherryPick(mode) = &*self.mode else {
             return Ok(());
         };
 
-        let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
+        let Some(stop) = self.stop_to_confirm(mode, messages) else {
             return Ok(());
         };
-        let target = &selection.data;
 
-        if target
-            .cli_id()
-            .is_some_and(|target| source.contains(target))
-        {
-            messages.push(Message::EnterNormalModeAfterConfirmingOperation);
-            return Ok(());
-        }
-
-        let commits = match source {
+        let sources = match &mode.source {
             CherryPickSource::Marks(CherryPickMarks::Commits(commits)) => {
                 commits.iter().map(|c| c.commit_id).collect()
             }
             CherryPickSource::Commit(commit) => Vec::from([commit.commit_id]),
         };
-
-        let Some(pick_operation) = make_pick_operation(commits, target, *insert_side)? else {
-            return Ok(());
+        let pick_operation = PickOperation {
+            sources,
+            commit_op: commit_operation_at(&stop)?,
+            order_commits_by_parentage: true,
         };
 
         let mut guard = ctx.exclusive_worktree_access();

@@ -2,7 +2,10 @@ use but_testsupport::Sandbox;
 use crossterm::event::{KeyCode, KeyModifiers};
 use snapbox::{file, str};
 
-use crate::command::legacy::status::tui::{BackstackEntry, tests::test_status_tui};
+use crate::{
+    command::legacy::status::tui::{BackstackEntry, tests::test_status_tui},
+    tui::test_utils::Shift,
+};
 
 #[test]
 fn jumping_around() {
@@ -470,7 +473,8 @@ fn jumping_in_file_lists() {
 
     tui.input('c');
     tui.input('e');
-    tui.input('b');
+    tui.input(Shift('g'));
+    tui.input(KeyCode::Enter);
     tui.input('f');
     tui.input('/').assert_backstack_eq([
         BackstackEntry::LeaveNormalMode,

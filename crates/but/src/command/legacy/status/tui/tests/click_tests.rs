@@ -168,17 +168,15 @@ fn clicking_status_accounts_for_operation_preview_rows() {
     tui.input(click(15, 8)).assert_rendered_term_svg_eq(file![
         "snapshots/clicking_status_accounts_for_operation_preview_rows_001.svg"
     ]);
-    tui.input('a').assert_rendered_term_svg_eq(file![
+    // The new branch above B puts its two preview rows, its head and a spacer, above B's row.
+    tui.input(['k', 'k']).assert_rendered_term_svg_eq(file![
         "snapshots/clicking_status_accounts_for_operation_preview_rows_003.svg"
     ]);
-    tui.input(click(15, 8)).assert_rendered_term_svg_eq(file![
-        "snapshots/clicking_status_accounts_for_operation_preview_rows_003.svg"
-    ]);
-    let result = tui.input(click(15, 11));
+    let result = tui.input(click(15, 12));
     assert_eq!(
         result.app().cursor.index(),
         10,
-        "the merge base is shifted by the preview row"
+        "the merge base is shifted by the preview rows"
     );
     result.assert_rendered_term_svg_eq(file![
         "snapshots/clicking_status_accounts_for_operation_preview_rows_004.svg"
@@ -222,4 +220,23 @@ fn clicking_status_is_blocked_by_help() {
         .assert_rendered_term_svg_eq(file![
             "snapshots/clicking_status_is_blocked_by_help_001.svg"
         ]);
+}
+
+#[test]
+fn clicking_a_line_lands_on_it_even_after_stepping_to_another_stop_there() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    let mut tui = test_status_tui(env);
+    tui.env().file("test.txt", "content");
+    tui.reload();
+
+    tui.input('c');
+    tui.input('j').assert_rendered_term_svg_eq(file![
+        "snapshots/clicking_a_line_lands_on_it_even_after_stepping_to_another_stop_there_001.svg"
+    ]);
+    // A's row, below its two preview rows: the click commits to A rather than to the new branch
+    // stepped to. The preview rows go, so A's row moves up under the pointer.
+    tui.input(click(15, 5)).assert_rendered_term_svg_eq(file![
+        "snapshots/clicking_a_line_lands_on_it_even_after_stepping_to_another_stop_there_002.svg"
+    ]);
 }

@@ -2,8 +2,12 @@ use but_testsupport::Sandbox;
 use crossterm::event::*;
 use snapbox::{file, str};
 
-use crate::command::legacy::status::tui::tests::utils::{
-    TestTuiOptions, commit_with_two_hunks_in_file, test_status_tui, test_status_tui_with_options,
+use crate::{
+    command::legacy::status::tui::tests::utils::{
+        TestTuiOptions, commit_with_two_hunks_in_file, test_status_tui,
+        test_status_tui_with_options,
+    },
+    tui::test_utils::Shift,
 };
 
 #[test]
@@ -60,9 +64,9 @@ fn move_mode_keeps_selected_commit_and_extension_visible_when_scrolled() {
         .assert_current_line_eq(str!["┊●   << source >> << noop >> tpm add A"]);
 
     tui.input(KeyCode::Up)
-        .assert_rendered_contains("<< move commit above >>")
+        .assert_rendered_contains("<< move commit below >>")
         .assert_rendered_contains("(no commit message) (no changes)")
-        .assert_current_line_eq(str!["┊│   << move commit above >>"]);
+        .assert_current_line_eq(str!["┊●   oun (no commit message) (no changes)"]);
 }
 
 #[test]
@@ -90,11 +94,9 @@ fn move_commit_above_other_commit_reorders_tui() {
     tui.input('m')
         .assert_current_line_eq(str!["┊●   << source >> << noop >> tpm add A"]);
 
-    tui.input(KeyCode::Up)
-        .assert_current_line_eq(str!["┊│   << move commit above >>"]);
-
-    tui.input(KeyCode::Up)
-        .assert_current_line_eq(str!["┊│   << move commit above >>"]);
+    // Below the commit above, below the top commit, then the branch tip.
+    tui.input([KeyCode::Up, KeyCode::Up, KeyCode::Up])
+        .assert_current_line_eq(str!["┊╭┄ g0 [A]"]);
 
     tui.input(KeyCode::Enter)
         .assert_current_line_eq(str!["┊●   tpm add A"]);
@@ -129,7 +131,7 @@ fn move_commit_down_from_source_selects_next_commit() {
     ]);
 
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊│   << move commit above >>"]);
+        .assert_current_line_eq(str!["┊●   tpm add A"]);
 }
 
 #[test]
@@ -174,7 +176,7 @@ fn move_branch_onto_other_branch_reorders_stacks() {
         .assert_current_line_eq(str!["┊╭┄ << source >> << noop >> g0 [A]"]);
 
     tui.input([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊│  << stack branch >>"]);
+        .assert_current_line_eq(str!["┊├┄ << stack branch >>"]);
 
     tui.input(KeyCode::Enter)
         .assert_current_line_eq(str!["┊├┄ h0 [A]"]);
@@ -222,7 +224,8 @@ fn move_commit_to_merge_base_creates_new_branch() {
     tui.input('m')
         .assert_current_line_eq(str!["┊●   << source >> << noop >> ywx add second"]);
 
-    tui.input([KeyCode::Down, KeyCode::Down])
+    // Below the other commit, then a new branch below A, then a new stack.
+    tui.input([KeyCode::Down, KeyCode::Down, KeyCode::Down])
         .assert_rendered_term_svg_eq(file![
             "snapshots/move_commit_to_merge_base_creates_new_branch_001.svg"
         ]);
@@ -245,9 +248,11 @@ fn move_marked_commits_to_merge_base_creates_new_branch() {
     tui.input(' ');
     tui.input('m');
 
-    tui.input(KeyCode::Down).assert_rendered_term_svg_eq(file![
-        "snapshots/move_marked_commits_to_merge_base_creates_new_branch_001.svg"
-    ]);
+    // Past the new branch below A, which the marked bottom commit can still go to.
+    tui.input([KeyCode::Down, KeyCode::Down])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/move_marked_commits_to_merge_base_creates_new_branch_001.svg"
+        ]);
 
     tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
         "snapshots/move_marked_commits_to_merge_base_creates_new_branch_final.svg"
@@ -278,8 +283,8 @@ fn moving_multiple_commits() {
 
     tui.input('k');
     tui.input('m');
-    tui.input('k');
-    tui.input('k')
+    // Up past the new branch above A and the new branch below c-branch-1, to c-branch-1's tip.
+    tui.input(['k', 'k', 'k', 'k'])
         .assert_rendered_term_svg_eq(file!["snapshots/moving_multiple_commits_004.svg"]);
     tui.input(KeyCode::Enter)
         .assert_rendered_term_svg_eq(file!["snapshots/moving_multiple_commits_005.svg"]);
@@ -296,9 +301,10 @@ fn move_commit_to_new_branch() {
     tui.input('j');
     tui.input('m')
         .assert_rendered_term_svg_eq(file!["snapshots/move_commit_to_new_branch_001.svg"]);
-    tui.input('k');
-    tui.input('b')
+    tui.input(['k', 'k'])
         .assert_rendered_term_svg_eq(file!["snapshots/move_commit_to_new_branch_002.svg"]);
+    tui.input(KeyCode::Enter)
+        .assert_rendered_term_svg_eq(file!["snapshots/move_commit_to_new_branch_003.svg"]);
 }
 
 #[test]
@@ -316,12 +322,11 @@ fn move_multiple_commits_to_new_branch() {
         "snapshots/move_multiple_commits_to_new_branch_001.svg"
     ]);
     tui.input('m');
-    tui.input('k');
-    tui.input('k');
-    tui.input('k').assert_rendered_term_svg_eq(file![
-        "snapshots/move_multiple_commits_to_new_branch_002.svg"
-    ]);
-    tui.input('b').assert_rendered_term_svg_eq(file![
+    tui.input(['k', 'k', 'k', 'k', 'k', 'k'])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/move_multiple_commits_to_new_branch_002.svg"
+        ]);
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
         "snapshots/move_multiple_commits_to_new_branch_003.svg"
     ]);
 }
@@ -344,8 +349,8 @@ fn committed_file_roundtrips_through_squash_mode() {
         "snapshots/committed_file_roundtrips_through_squash_mode_002.svg"
     ]);
     tui.input('m');
-    tui.input('k')
-        .assert_current_line_eq(str!["┊│   << move file above >>[..]"])
+    tui.input(['k', 'k', 'k'])
+        .assert_current_line_eq(str!["┊╭┄ g0 [A][..]"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/committed_file_roundtrips_through_squash_mode_003.svg"
         ]);
@@ -374,9 +379,8 @@ fn marked_committed_files_roundtrip_through_squash_mode() {
         "snapshots/marked_committed_files_roundtrip_through_squash_mode_002.svg"
     ]);
     tui.input('m');
-    tui.input('k');
-    tui.input('k')
-        .assert_current_line_eq(str!["┊│   << move files above >>[..]"])
+    tui.input(['k', 'k', 'k', 'k'])
+        .assert_current_line_eq(str!["┊╭┄ g0 [A][..]"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/marked_committed_files_roundtrip_through_squash_mode_003.svg"
         ]);
@@ -397,7 +401,7 @@ fn move_committed_files_to_commit() {
     tui.input('f');
     tui.input('m')
         .assert_rendered_term_svg_eq(file!["snapshots/move_committed_files_to_commit_001.svg"]);
-    tui.input('k')
+    tui.input(['k', 'k'])
         .assert_rendered_term_svg_eq(file!["snapshots/move_committed_files_to_commit_002.svg"]);
     tui.input(KeyCode::Enter)
         .assert_rendered_term_svg_eq(file!["snapshots/move_committed_files_to_commit_003.svg"]);
@@ -415,8 +419,7 @@ fn move_committed_files_to_branch() {
     tui.input('f');
     tui.input('m')
         .assert_rendered_term_svg_eq(file!["snapshots/move_committed_files_to_branch_001.svg"]);
-    tui.input('k');
-    tui.input('k')
+    tui.input(['k', 'k', 'k'])
         .assert_rendered_term_svg_eq(file!["snapshots/move_committed_files_to_branch_002.svg"]);
     tui.input(KeyCode::Enter)
         .assert_rendered_term_svg_eq(file!["snapshots/move_committed_files_to_branch_003.svg"]);
@@ -435,11 +438,11 @@ fn move_committed_files_to_new_branch() {
     tui.input('m').assert_rendered_term_svg_eq(file![
         "snapshots/move_committed_files_to_new_branch_001.svg"
     ]);
-    tui.input('k');
-    tui.input('k').assert_rendered_term_svg_eq(file![
-        "snapshots/move_committed_files_to_new_branch_002.svg"
-    ]);
-    tui.input('b').assert_rendered_term_svg_eq(file![
+    tui.input(['k', 'k', 'k', 'k'])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/move_committed_files_to_new_branch_002.svg"
+        ]);
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
         "snapshots/move_committed_files_to_new_branch_003.svg"
     ]);
 }
@@ -480,8 +483,7 @@ fn move_two_files_to_commit() {
     tui.input(' ');
     tui.input('m')
         .assert_rendered_term_svg_eq(file!["snapshots/move_two_files_to_commit_001.svg"]);
-    tui.input('k');
-    tui.input('k')
+    tui.input(['k', 'k', 'k'])
         .assert_rendered_term_svg_eq(file!["snapshots/move_two_files_to_commit_002.svg"]);
     tui.input(KeyCode::Enter)
         .assert_rendered_term_svg_eq(file!["snapshots/move_two_files_to_commit_003.svg"]);
@@ -502,9 +504,7 @@ fn move_two_files_to_branch() {
     tui.input(' ');
     tui.input('m')
         .assert_rendered_term_svg_eq(file!["snapshots/move_two_files_to_branch_001.svg"]);
-    tui.input('k');
-    tui.input('k');
-    tui.input('k')
+    tui.input(['k', 'k', 'k', 'k'])
         .assert_rendered_term_svg_eq(file!["snapshots/move_two_files_to_branch_002.svg"]);
     tui.input(KeyCode::Enter)
         .assert_rendered_term_svg_eq(file!["snapshots/move_two_files_to_branch_003.svg"]);
@@ -525,11 +525,9 @@ fn move_two_files_to_new_branch() {
     tui.input(' ');
     tui.input('m')
         .assert_rendered_term_svg_eq(file!["snapshots/move_two_files_to_new_branch_001.svg"]);
-    tui.input('k');
-    tui.input('k');
-    tui.input('k')
+    tui.input(['k', 'k', 'k', 'k', 'k'])
         .assert_rendered_term_svg_eq(file!["snapshots/move_two_files_to_new_branch_002.svg"]);
-    tui.input('b')
+    tui.input(KeyCode::Enter)
         .assert_rendered_term_svg_eq(file!["snapshots/move_two_files_to_new_branch_003.svg"]);
 }
 
@@ -572,11 +570,6 @@ fn move_marked_committed_hunks_above_commit() {
     tui.input('m').assert_rendered_term_svg_eq(file![
         "snapshots/move_marked_committed_hunks_above_commit_001.svg"
     ]);
-    tui.input('j')
-        .assert_current_line_eq(str!["┊│   << move hunks above >>[..]"])
-        .assert_rendered_term_svg_eq(file![
-            "snapshots/move_marked_committed_hunks_above_commit_002.svg"
-        ]);
 
     // the marked hunks move to a new commit between the two commits
     tui.input(KeyCode::Enter)
@@ -605,10 +598,11 @@ fn move_marked_committed_hunks_above_their_commit() {
 
     // moving the hunks above their own commit splits them off into a new commit
     tui.input('m')
-        .assert_current_line_eq(str!["┊│   << move hunks above >>[..]"])
+        .assert_current_line_eq(str!["┊—   qxn (no commit message)[..]"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/move_marked_committed_hunks_above_their_commit_001.svg"
         ]);
+    tui.input('k');
     tui.input(KeyCode::Enter)
         .assert_marks_count_eq(0)
         .assert_rendered_term_svg_eq(file![
@@ -633,7 +627,8 @@ fn move_marked_committed_hunks_to_branch() {
     tui.input('g');
     tui.input('c');
     tui.input('e');
-    tui.input('j')
+    // Past the new branch above c-branch-2, to its tip.
+    tui.input(['j', 'j'])
         .assert_current_line_eq(str!["┊╭┄ br [c-branch-2] (no commits)"]);
     tui.input(KeyCode::Enter)
         .assert_current_line_eq(str!["┊●   uxx (no commit message)"]);
@@ -650,9 +645,8 @@ fn move_marked_committed_hunks_to_branch() {
     tui.input(' ');
 
     tui.input('m');
-    tui.input('k');
-    tui.input('k');
-    tui.input('k')
+    // Up past c-branch-1's stops and the commit between, to the tip of c-branch-2.
+    tui.input(['k', 'k', 'k', 'k'])
         .assert_current_line_eq(str!["┊╭┄ br [c-branch-2][..]"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/move_marked_committed_hunks_to_branch_001.svg"
@@ -679,14 +673,14 @@ fn move_marked_committed_hunks_to_new_branch_above_branch() {
     tui.input(' ');
 
     tui.input('m');
-    tui.input('k')
-        .assert_current_line_eq(str!["┊╭┄ br [c-branch-1][..]"])
+    tui.input(['k', 'k'])
+        .assert_current_line_eq(str!["┊╭┄ << move hunks to new branch above >>          │────────╮                                       █"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/move_marked_committed_hunks_to_new_branch_above_branch_001.svg"
         ]);
 
     // the marked hunks move to a new commit on a new branch stacked on top
-    tui.input('b')
+    tui.input(KeyCode::Enter)
         .assert_marks_count_eq(0)
         .assert_rendered_term_svg_eq(file![
             "snapshots/move_marked_committed_hunks_to_new_branch_above_branch_002.svg"
@@ -706,7 +700,8 @@ fn move_marked_committed_hunk_to_new_branch() {
     // commit both files, then mark the hunk that adds `other`
     tui.input('c');
     tui.input('e');
-    tui.input('b')
+    tui.input(Shift('g'));
+    tui.input(KeyCode::Enter)
         .assert_current_line_eq(str!["┊●   pwz (no commit message)"]);
     tui.input('d');
     tui.input('l');
@@ -717,7 +712,7 @@ fn move_marked_committed_hunk_to_new_branch() {
     tui.input('m');
     tui.input('j');
     tui.input('j')
-        .assert_current_line_eq(str!["│ << move hunk to new branch >>[..]"])
+        .assert_current_line_eq(str!["│ << move hunk to new stack >>[..]"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/move_marked_committed_hunk_to_new_branch_001.svg"
         ]);
@@ -741,11 +736,6 @@ fn move_committed_hunk_under_cursor_from_details() {
     tui.input('j');
 
     tui.input('m');
-    tui.input('j')
-        .assert_current_line_eq(str!["┊│   << move hunk above >>[..]"])
-        .assert_rendered_term_svg_eq(file![
-            "snapshots/move_committed_hunk_under_cursor_from_details_001.svg"
-        ]);
 
     // only the selected hunk moves to a new commit between the two commits
     tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
@@ -773,11 +763,6 @@ fn marked_committed_hunks_roundtrip_through_squash_mode() {
         "snapshots/marked_committed_hunks_roundtrip_through_squash_mode_001.svg"
     ]);
     tui.input('m');
-    tui.input('j')
-        .assert_current_line_eq(str!["┊│   << move hunks above >>[..]"])
-        .assert_rendered_term_svg_eq(file![
-            "snapshots/marked_committed_hunks_roundtrip_through_squash_mode_002.svg"
-        ]);
     tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
         "snapshots/marked_committed_hunks_roundtrip_through_squash_mode_003.svg"
     ]);

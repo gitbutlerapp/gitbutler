@@ -358,7 +358,7 @@ fn squash_marked_commits_to_commit() {
         tui.input('j');
         tui.input('c');
         tui.input('e');
-        tui.input('j');
+        tui.input(['j', 'j']);
         tui.input(KeyCode::Enter);
     }
 
@@ -386,7 +386,7 @@ fn squash_marked_committed_files_to_commit_via_global_file_list() {
     tui.input(Shift('f'));
     tui.input('c');
     tui.input('e');
-    tui.input('j');
+    tui.input(['j', 'j']);
     tui.input(KeyCode::Enter);
     tui.input('j');
     tui.input(' ');
@@ -417,7 +417,7 @@ fn squash_marked_committed_files_to_commit_via_local_file_list() {
 
     tui.input('c');
     tui.input('e');
-    tui.input('j');
+    tui.input(['j', 'j']);
     tui.input(KeyCode::Enter);
     tui.input('f');
     tui.input(' ');
@@ -719,7 +719,8 @@ fn squash_marked_committed_hunks_to_branch() {
     tui.input('g');
     tui.input('c');
     tui.input('e');
-    tui.input('j')
+    // Past the new branch above c-branch-2, to its tip.
+    tui.input(['j', 'j'])
         .assert_current_line_eq(str!["┊╭┄ br [c-branch-2] (no commits)"]);
     tui.input(KeyCode::Enter)
         .assert_current_line_eq(str!["┊●   uxx (no commit message)"]);
