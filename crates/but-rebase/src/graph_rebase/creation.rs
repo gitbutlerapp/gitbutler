@@ -153,6 +153,10 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                         .any(|tip| tip.ref_name.as_ref() == Some(&ref_info.ref_name))
             })
         };
+        let worktrees_were_discovered = workspace.graph.options.worktrees;
+        let is_checked_out_in_an_archived_worktree = |ref_info: &RefInfo| {
+            worktrees_were_discovered && !is_checked_out_only_where_the_editor_moves_heads(ref_info)
+        };
 
         for sid in segments_to_add {
             let segment = &workspace.graph[sid];
@@ -161,8 +165,9 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
 
             if let Some(ref_info) = &segment.ref_info {
                 let refname = ref_info.ref_name.clone();
-                let reference_mutable =
-                    segment_mutable && refname.category() == Some(gix::refs::Category::LocalBranch);
+                let reference_mutable = segment_mutable
+                    && refname.category() == Some(gix::refs::Category::LocalBranch)
+                    && !is_checked_out_in_an_archived_worktree(ref_info);
                 // Only mutable references are tracked for potential deletion.
                 if reference_mutable && is_checked_out_only_where_the_editor_moves_heads(ref_info) {
                     references.push(refname.clone());
@@ -181,7 +186,8 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                 for ref_info in &commit.refs {
                     let refname = ref_info.ref_name.clone();
                     let reference_mutable = segment_mutable
-                        && refname.category() == Some(gix::refs::Category::LocalBranch);
+                        && refname.category() == Some(gix::refs::Category::LocalBranch)
+                        && !is_checked_out_in_an_archived_worktree(ref_info);
                     if reference_mutable
                         && is_checked_out_only_where_the_editor_moves_heads(ref_info)
                     {
