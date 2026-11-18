@@ -61,6 +61,26 @@ pub fn resolve_tracking_branch_ref_name<'a>(
     bail!("Branch '{ref_name}' has no tracking branch")
 }
 
+/// Return `true` if `identity` is a GitButler-internal branch name that must not
+/// be shown or treated as a user branch.
+pub fn is_technical_branch_name(identity: &bstr::BStr) -> bool {
+    const TECHNICAL_IDENTITIES: &[&[u8]] = &[
+        b"HEAD",
+        b"gitbutler/edit",
+        b"gitbutler/integration",
+        b"gitbutler/oplog",
+        b"gitbutler/target",
+        b"gitbutler/workspace",
+    ];
+    debug_assert!(
+        TECHNICAL_IDENTITIES.is_sorted(),
+        "binary search requires sorted technical identities"
+    );
+    let identity: &[u8] = identity;
+    TECHNICAL_IDENTITIES.binary_search(&identity).is_ok()
+        || identity.starts_with(b"gitbutler/rename-backup/")
+}
+
 /// A way to safely delete branches, which is only the case it's checked out nowhere.
 pub mod safe_delete;
 

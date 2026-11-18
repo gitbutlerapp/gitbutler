@@ -335,7 +335,6 @@ fn main() -> anyhow::Result<()> {
                 legacy::repo::tauri_pre_commit_hook_diffspecs::pre_commit_hook_diffspecs,
                 legacy::repo::tauri_post_commit_hook::post_commit_hook,
                 legacy::repo::tauri_message_hook::message_hook,
-                legacy::virtual_branches::tauri_delete_local_branch::delete_local_branch,
                 legacy::virtual_branches::tauri_get_base_branch_data::get_base_branch_data,
                 legacy::virtual_branches::tauri_switch_back_to_workspace::switch_back_to_workspace,
                 legacy::virtual_branches::tauri_update_stack_order::update_stack_order,

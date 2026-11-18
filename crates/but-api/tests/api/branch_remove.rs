@@ -245,28 +245,86 @@ fn branch_remove_checked_out_empty_tip_on_the_target_moves_head_to_the_target() 
 }
 
 #[test]
-fn branch_remove_rejects_checked_out_branch_with_commits() -> anyhow::Result<()> {
+fn branch_remove_checked_out_branch_gives_its_commits_to_the_branch_below() -> anyhow::Result<()> {
     let (repo, _tmp) = repo_with_feature_branch()?;
+    let main_tip = repo.rev_parse_single("main")?.detach();
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
     let main = gix::refs::FullName::try_from("refs/heads/main")?;
+    let feature = gix::refs::FullName::try_from("refs/heads/feature")?;
 
-    let err = but_api::branch::branch_remove(&mut ctx, main.clone())
-        .expect_err("cannot delete the checked-out branch that owns commits");
-    assert!(
-        err.to_string().contains("contains commits"),
-        "unexpected error: {err}"
-    );
+    let result = but_api::branch::branch_remove(&mut ctx, main.clone())?;
 
-    // Nothing was removed.
     let repo = ctx.repo.get()?;
-    assert!(repo.try_find_reference(main.as_ref())?.is_some());
-    assert_eq!(repo.head_name()?.expect("HEAD is symbolic"), main);
+    assert!(repo.try_find_reference(main.as_ref())?.is_none());
+    assert_eq!(
+        repo.head_name()?.expect("HEAD is symbolic"),
+        feature,
+        "HEAD follows the commits to the branch below"
+    );
+    assert_eq!(
+        repo.rev_parse_single("feature")?.detach(),
+        main_tip,
+        "the branch below took the removed branch's commit"
+    );
+    assert_workspace_ref(&result.workspace, "refs/heads/feature");
 
     Ok(())
 }
 
 #[test]
-fn branch_remove_refuses_when_checked_out_in_another_worktree() -> anyhow::Result<()> {
+fn branch_remove_without_a_branch_below_keeps_its_commits_unnamed() -> anyhow::Result<()> {
+    let (repo, tmp) = repo_with_feature_branch()?;
+    git_at_dir(tmp.path())
+        .args(["branch", "-D", "feature"])
+        .run();
+    let main_tip = repo.rev_parse_single("main")?.detach();
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let main = gix::refs::FullName::try_from("refs/heads/main")?;
+
+    but_api::branch::branch_remove(&mut ctx, main.clone())?;
+
+    let repo = ctx.repo.get()?;
+    assert!(repo.try_find_reference(main.as_ref())?.is_none());
+    assert_eq!(
+        repo.head_name()?,
+        None,
+        "without a target or a branch below, HEAD stays on the commits without a name"
+    );
+    assert_eq!(repo.head_id()?.detach(), main_tip, "no commit is lost");
+
+    Ok(())
+}
+
+#[test]
+fn branch_remove_deletes_the_branch_configuration() -> anyhow::Result<()> {
+    let (repo, tmp) = repo_with_feature_branch()?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let main = gix::refs::FullName::try_from("refs/heads/main")?;
+    let middle = gix::refs::FullName::try_from("refs/heads/middle")?;
+    let tip = gix::refs::FullName::try_from("refs/heads/tip")?;
+    create_empty_branch_above(&mut ctx, &middle, &main)?;
+    create_empty_branch_above(&mut ctx, &tip, &middle)?;
+    git_at_dir(tmp.path())
+        .args(["config", "branch.middle.description", "stale"])
+        .run();
+
+    but_api::branch::branch_remove(&mut ctx, middle.clone())?;
+
+    let config = std::fs::read_to_string(tmp.path().join(".git/config"))?;
+    assert!(
+        !config.contains(r#"[branch "middle"]"#),
+        "a branch made later under the name doesn't take on the old configuration:\n{config}"
+    );
+    assert!(
+        config.contains(r#"[branch "main"]"#),
+        "other branches keep theirs:\n{config}"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn branch_remove_detaches_a_linked_worktree_that_has_it_checked_out() -> anyhow::Result<()> {
     let (repo, tmp) = repo_with_feature_branch()?;
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
     let main = gix::refs::FullName::try_from("refs/heads/main")?;
@@ -277,21 +335,24 @@ fn branch_remove_refuses_when_checked_out_in_another_worktree() -> anyhow::Resul
     // worktree: [tip, middle, main], with the primary worktree on `tip`.
     create_empty_branch_above(&mut ctx, &middle, &main)?;
     create_empty_branch_above(&mut ctx, &tip, &middle)?;
-    let _worktree = checkout_branch_in_linked_worktree(tmp.path(), "middle")?;
+    let worktree = checkout_branch_in_linked_worktree(tmp.path(), "middle")?;
+    let middle_id = ctx.repo.get()?.rev_parse_single("middle")?.detach();
 
-    let err = but_api::branch::branch_remove(&mut ctx, middle.clone())
-        .expect_err("cannot remove a branch checked out in another worktree");
-    assert!(
-        err.to_string().contains("checked out"),
-        "unexpected error: {err}"
-    );
+    but_api::branch::branch_remove(&mut ctx, middle.clone())?;
 
     let repo = ctx.repo.get()?;
     assert!(
-        repo.try_find_reference(middle.as_ref())?.is_some(),
-        "the checked-out branch must remain"
+        repo.try_find_reference(middle.as_ref())?.is_none(),
+        "the branch is gone"
     );
     assert_eq!(repo.head_name()?.expect("HEAD is symbolic"), tip);
+    let linked = gix::open(worktree.path().join("wt"))?;
+    assert_eq!(
+        linked.head_name()?,
+        None,
+        "the worktree has no branch of its own below, so it's detached"
+    );
+    assert_eq!(linked.head_id()?, middle_id, "where its branch was");
 
     Ok(())
 }

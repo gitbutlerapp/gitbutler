@@ -483,7 +483,7 @@ pub fn run(
     let source_repo = ChangeSourceRepo::open(ctx, &source)?;
     let executable = match operation {
         DiscardOperation::Branches(branches) => {
-            // The rebase keeps a reference any worktree has checked out, even if that is gone.
+            // A worktree that is gone still has its branch checked out, which removing it refuses.
             for branch in &branches {
                 but_workspace::worktrees::prune_gone(&*ctx.repo.get()?, branch.as_ref())?;
             }

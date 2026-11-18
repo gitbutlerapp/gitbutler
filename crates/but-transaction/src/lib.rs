@@ -503,6 +503,10 @@ where
         })
     }
 
+    /// Remove the local branch `ref_name` as [`but_workspace::branch::drop_reference()`] does.
+    /// The branch, its metadata and its `branch.<name>` Git configuration are deleted when the
+    /// transaction commits. A branch outside the workspace needs to be one of the transaction's
+    /// [extra mutable refs](TransactionOptions::extra_mutable_refs).
     pub fn remove_reference(&mut self, ref_name: &FullNameRef) -> anyhow::Result<()> {
         self.rebase(|editor, _| {
             let rebase = but_workspace::branch::drop_reference(editor, ref_name)?;
