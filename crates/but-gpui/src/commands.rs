@@ -176,7 +176,10 @@ commands! {
     NewBranch => "New branch",
     NewBranchOnTop => "New branch above",
     crate::app::NewWorktree => "New worktree" { listed: has_target },
-    crate::app::NewWorktreeWithName => "New worktree with name" { listed: has_target },
+    crate::app::NewWorktreeWithName => "New worktree with name" {
+        listed: has_target,
+        phrase: |_, _| Some("New worktree…".to_owned()),
+    },
     crate::app::RecycleWorktree => "Recycle worktree" {
         listed: has_target,
         aliases: &["Reuse worktree"],

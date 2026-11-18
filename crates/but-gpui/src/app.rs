@@ -1048,20 +1048,39 @@ impl AppView {
         let Some(project) = self.project_to_start_in(cx) else {
             return;
         };
-        let selected = project.clone();
-        self.prompt_branch(
-            Selection::Project(project),
-            "New worktree",
-            window,
-            cx,
-            |name| backend::worktrees::CreateWorktree::New(Some(name)),
-            move |store, name, cx| {
-                store.select(
-                    Some(Selection::Checkout(selected, Checkout::Linked(name))),
+        let Some(path) = self.store.read(cx).path(&project) else {
+            return;
+        };
+        cx.spawn_in(window, async move |this, cx| {
+            let made_up = backend::run(move || backend::worktrees::made_up_name(&path)).await;
+            this.update_in(cx, |this, window, cx| {
+                let suggested = match made_up {
+                    Ok(name) => name,
+                    Err(err) => {
+                        return this.store.update(cx, |store, cx| {
+                            store.failed("Couldn't name a new worktree", &err, cx)
+                        });
+                    }
+                };
+                let selected = project.clone();
+                this.prompt_branch(
+                    Selection::Project(project),
+                    "New worktree",
+                    &suggested,
+                    window,
                     cx,
+                    |name| backend::worktrees::CreateWorktree::New(Some(name)),
+                    move |store, name, cx| {
+                        store.select(
+                            Some(Selection::Checkout(selected, Checkout::Linked(name))),
+                            cx,
+                        )
+                    },
                 )
-            },
-        )
+            })
+            .ok();
+        })
+        .detach();
     }
 
     /// Ask the desktop app's update feed now: show the update card for the newer version it
