@@ -370,10 +370,11 @@ button.toggle {
 }
 
 /* A conflicted commit's warning, in its glyph's place. Flex, so the wrapper that names it takes
-   no line box of its own, which would sit the icon on a text baseline above the row's centre. */
+   no line box of its own, which would sit the icon on a text baseline above the row's centre.
+   Amber: a conflict waits on the user, it hasn't failed (but-ui's Conflicts note). */
 .conflicted {
 	display: flex;
-	color: var(--but-danger-mark);
+	color: var(--but-warning-mark);
 }
 
 .badge {

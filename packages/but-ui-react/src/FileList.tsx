@@ -308,7 +308,7 @@ const Directory: FC<{ text: string; found: Ranges | undefined; trail?: boolean }
  * - `inert` while an action on the file runs, or while it can't be acted on: the row fades and
  *   takes no clicks. It shows no spinner of its own: one snackbar says what's running, once for
  *   all the files it touches (but-ui's Toasts and snackbars note).
- * - The last cell says what happened: the warning in red if it is `conflicted`, as on a
+ * - The last cell says what happened: the warning in amber if it is `conflicted`, as on a
  *   conflicted commit, else a pencil if
  *   it is `editing`, open to edit with nothing changed yet, else a tick if it is `reviewed`, which
  *   also fades the name (a reviewed file's news is that it is done with), else the letter for its

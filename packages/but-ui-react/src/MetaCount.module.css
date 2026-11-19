@@ -209,6 +209,7 @@
 
 .behind,
 .uncommitted,
+.conflicts,
 .agent-waiting,
 .working {
 	color: var(--but-warning-text);
@@ -229,7 +230,6 @@
 	color: var(--but-success-text);
 }
 
-.conflicts,
 .cpu-danger,
 .failed {
 	color: var(--but-danger-text);
