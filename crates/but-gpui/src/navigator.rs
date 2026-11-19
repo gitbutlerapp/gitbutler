@@ -23,7 +23,7 @@ use crate::backend::{
     Branch, Checkout, Commit, CommitId, CommitState, FileChange, FullName, PushState, Review,
     ReviewState, Target, Workspace,
 };
-use crate::detail::{ChecksChanged, Detail, PageTab, oldest_conflict};
+use crate::detail::{ChecksChanged, Detail, oldest_conflict};
 use crate::overlays::MenuItem;
 use crate::state::{
     Part, Prefs, ProjectId, Section, Selection, Store, StoreEvent, Tile, WatchedOrder,
@@ -38,7 +38,7 @@ use crate::ui::fold::{self, Folds, Reorder, clipped, curtain, inert, on_top, reo
 use crate::ui::scrollbar::{Scroll, scrollbar, scrolled_in_gap};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    BLINK, ButtonStyle, HEADER_HEIGHT, Icon, Tooltip, WINDOW_CONTROLS_WIDTH, above_drag,
+    BLINK, Button, ButtonStyle, HEADER_HEIGHT, Icon, Tooltip, WINDOW_CONTROLS_WIDTH, above_drag,
     blink_once, button, commit_title, count_badge, dp, faint, field, fixed, fold_button, fold_row,
     glow_once, guide, h_flex, icon, icon_at, icon_button, list_row, meta_count, plural, pulsing,
     review, section_label, small_icon, spinning, unread_line, v_flex,
@@ -80,10 +80,6 @@ use rows::{
     CARD_EDGE, CARD_PADDING, COMMIT_INDENT, Drawer, Fold, HEADING_HEIGHT, ROW_LEFT, Row, RowKey,
     caption, card_ends, checkout_holds, in_checkout, in_inactive, inactive_open, span_height,
 };
-
-/// The room a pressable mark has around it for its tint under the pointer. A negative margin
-/// to keep it in place would wrap it off a project's summary.
-const MARK_PAD: f32 = 3.;
 
 /// How far apart the cards are, as the detail's are: but-ui's `gap/stack`, the one gap between
 /// cards stacked in a column on every surface.
@@ -393,7 +389,7 @@ impl<'a> RowStyle<'a> {
     }
 
     /// How many of a row's commits aren't pushed, when any aren't, quiet: only a branch's own
-    /// count pushes, in blue (see `Navigator::push_count`).
+    /// count is blue, where Push takes its place (see `Navigator::push_step`).
     fn unpushed(&self, n: usize) -> Option<Stateful<Div>> {
         meta_count(Icon::ArrowUp, n, self.muted(), plural(n, "unpushed commit"))
     }
@@ -402,14 +398,6 @@ impl<'a> RowStyle<'a> {
     fn files(&self, n: usize) -> Option<Stateful<Div>> {
         let color = self.meta(self.theme.warning_text);
         meta_count(Icon::File, n, color, plural(n, "uncommitted file"))
-    }
-
-    /// What a mark on the row that can be pressed draws under the pointer.
-    fn press_hover(&self) -> Hsla {
-        match self.solid {
-            true => self.theme.inverse_ghost_hover,
-            false => self.theme.hover,
-        }
     }
 
     /// Meaningful colours wash out on the dark selection ground; keep them legible.
@@ -3177,7 +3165,6 @@ impl Navigator {
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let store = self.store.read(cx);
-        let moving = store.moving.is_some();
         let row_id = ref_name.map(ToString::to_string).unwrap_or_default();
         let theme = style.theme;
         let branch = store.branch_for(item)?;
@@ -3257,38 +3244,25 @@ impl Navigator {
                         .flex_1()
                         .into_any_element(),
                 })
-                // CI only while it runs or after it failed: passing is the usual state. Pressed,
-                // the branch's pull request shows, its checks asked for again.
+                // CI only while it runs or after it failed: passing is the usual state. A mark,
+                // not a button: the branch's page shows the checks.
                 .when_some(
                     checks.filter(|c| c.running > 0 || c.failed > 0),
                     |el, checks| {
                         let (glyph, color, text) = review::checks_summary(checks, theme);
                         let color = style.meta(color);
-                        let shown = Selection::Branch(id.clone(), ref_name.cloned());
-                        let tip = SharedString::from(format!("{text}, click to see the checks"));
-                        let mark = div()
-                            .id(ElementId::Name(format!("checks-{row_id}").into()))
-                            .child(small_icon(glyph).text_color(color))
-                            .aria_label(tip.clone())
-                            .tooltip(Tooltip::text(tip));
-                        el.child(pressable(
-                            theme.shape,
-                            mark,
-                            style.press_hover(),
-                            moving,
-                            cx.listener(move |this, _, window, cx| {
-                                this.select(shown.clone(), window, cx);
-                                (this.detail).update(cx, |detail, cx| {
-                                    detail.follow_selection(window, cx);
-                                    detail.set_page_tab(PageTab::Review, window, cx)
-                                });
-                                (this.store)
-                                    .update(cx, |store, _| store.refresh_forge(shown.project()))
-                            }),
-                        ))
+                        let tip = SharedString::from(text);
+                        el.child(
+                            div()
+                                .id(ElementId::Name(format!("checks-{row_id}").into()))
+                                .flex_none()
+                                .child(small_icon(glyph).text_color(color))
+                                .aria_label(tip.clone())
+                                .tooltip(Tooltip::text(tip)),
+                        )
                     },
                 )
-                // That someone wrote a brief for it, quietly. Pressed, it's up to read.
+                // That someone wrote a brief for it, quietly; its page has it to read.
                 .when(
                     store.briefs
                         && store
@@ -3296,47 +3270,23 @@ impl Navigator {
                             .is_some_and(|known| known.found.is_some()),
                     |el| {
                         let color = style.meta(style.muted());
-                        let shown = Selection::Branch(id.clone(), ref_name.cloned());
-                        let mark = div()
-                            .id(ElementId::Name(format!("brief-{row_id}").into()))
-                            .child(small_icon(Icon::Docs).text_color(color))
-                            .aria_label("Read the brief")
-                            .tooltip(Tooltip::text("Read the brief"));
-                        el.child(pressable(
-                            theme.shape,
-                            mark,
-                            style.press_hover(),
-                            moving,
-                            cx.listener(move |this, _, window, cx| {
-                                this.select(shown.clone(), window, cx);
-                                (this.detail).update(cx, |detail, cx| {
-                                    detail.follow_selection(window, cx);
-                                    detail.set_page_tab(PageTab::Brief, window, cx)
-                                });
-                            }),
-                        ))
+                        el.child(
+                            div()
+                                .id(ElementId::Name(format!("brief-{row_id}").into()))
+                                .flex_none()
+                                .child(small_icon(Icon::Docs).text_color(color))
+                                .aria_label("Has a brief")
+                                .tooltip(Tooltip::text("Has a brief")),
+                        )
                     },
                 )
-                // So conflicts show while the commits are hidden too. Pressed, the first to
-                // resolve is up, unless a linked worktree resolves it.
-                .children({
-                    let warn = style.meta(theme.warning_text);
-                    let tip = plural(conflicted, "conflicted commit");
-                    let count = |tip| meta_count(Icon::Warning, conflicted, warn, tip);
-                    match conflict {
-                        None => count(tip),
-                        Some(commit) => count(tip + ", click to resolve").map(|count| {
-                            let project = id.clone();
-                            let resolve = cx.listener(move |this, _, window, cx| {
-                                let project = project.clone();
-                                this.app.update_later(window, cx, move |app, window, cx| {
-                                    app.resolve_commit(project, commit, window, cx)
-                                })
-                            });
-                            pressable(theme.shape, count, style.press_hover(), moving, resolve)
-                        }),
-                    }
-                })
+                // So conflicts show while the commits are hidden too.
+                .children(meta_count(
+                    Icon::Warning,
+                    conflicted,
+                    style.meta(theme.warning_text),
+                    plural(conflicted, "conflicted commit"),
+                ))
                 // Folded, who and how many only its remote has; open, its New on origin row says.
                 .when(!open, |el| {
                     let n = branch.incoming.len();
@@ -3347,9 +3297,27 @@ impl Navigator {
                         .iter()
                         .map(|c| (c.author.as_str(), c.email.as_str()));
                     el.children(authors_stack(people, theme))
-                        .children(self.pull_count(id, ref_name, n, tip, style, cx))
+                        .children(self.update_step(id, ref_name, n, tip, style, cx))
                 })
-                .children(self.push_count(id, ref_name, unpushed_n, style, cx))
+                .children(self.push_step(id, ref_name, unpushed_n, style, cx))
+                // Its step, after the counts: the first conflict to resolve, unless a linked
+                // worktree resolves it. Conflicts block Push, so it's the only one.
+                .children(conflict.map(|commit| {
+                    let project = id.clone();
+                    let resolve = button(
+                        ElementId::Name(format!("resolve-{id}-{row_id}").into()),
+                        "Resolve",
+                    )
+                    .small()
+                    .inverted(style.solid)
+                    .tooltip("Resolve the first conflicted commit");
+                    self.row_step(resolve, cx, move |this, window, cx| {
+                        let project = project.clone();
+                        this.app.update_later(window, cx, move |app, window, cx| {
+                            app.resolve_commit(project, commit, window, cx)
+                        })
+                    })
+                }))
                 .map(|el| self.selectable(el, item, cx))
                 // A click looks inside, opening its commits; the chevron, a double-click, ⇧←
                 // and ⇧→ fold them.
@@ -3373,9 +3341,10 @@ impl Navigator {
         )
     }
 
-    /// How many of the branch's `n` commits aren't pushed, pressed to push them without
-    /// selecting the branch. It pulses while they go; while they can't, its tooltip says why.
-    fn push_count(
+    /// Push, in place of the ↑ count of the branch's `n` unpushed commits: the number and its
+    /// glyph in a blue button, which pushes them without selecting the branch and pulses while
+    /// they go. While they can't go, as with conflicts, it's the plain count, saying why.
+    fn push_step(
         &self,
         project: &ProjectId,
         ref_name: Option<&FullName>,
@@ -3385,39 +3354,43 @@ impl Navigator {
     ) -> Option<AnyElement> {
         let store = self.store.read(cx);
         let ws = store.workspace(project)?;
-        let pushing = ref_name.is_some_and(|r| store.pushing(project, r));
-        let blocked = ws.push_blocked(ref_name);
-        let tip = match blocked {
-            _ if pushing => "Pushing".to_owned(),
-            Some(why) => why.to_owned(),
-            None => ws.push_tooltip(ref_name?),
-        };
-        let color = style.meta(style.theme.info_text);
-        // Padded as pressing it pads it, so it holds still while it pushes.
-        let count = meta_count(Icon::ArrowUp, n, color, tip)?.px(dp(MARK_PAD));
-        if pushing {
-            return Some(pulsing(count).into_any_element());
+        if let Some(why) = ws.push_blocked(ref_name) {
+            let color = style.meta(style.theme.info_text);
+            return meta_count(Icon::ArrowUp, n, color, why.to_owned())
+                .map(IntoElement::into_any_element);
         }
-        if blocked.is_some() {
-            return Some(count.into_any_element());
+        let ref_name = ref_name?;
+        if n == 0 {
+            return None;
         }
-        let pushed = (project.clone(), ref_name.cloned());
-        let push = cx.listener(move |this, _, window, cx| {
+        let pushing = store.pushing(project, ref_name);
+        let push = button(
+            ElementId::Name(format!("push-{project}-{}", ref_name.as_bstr()).into()),
+            n.to_string(),
+        )
+        .icon_end(Icon::ArrowUp)
+        .style(ButtonStyle::Info)
+        .small()
+        .inverted(style.solid)
+        .tooltip(ws.push_tooltip(ref_name))
+        .disabled_because(pushing.then_some("Pushing"));
+        let pushed = (project.clone(), ref_name.clone());
+        let step = self.row_step(push, cx, move |this, window, cx| {
             let (project, ref_name) = pushed.clone();
             this.app.update_later(window, cx, move |app, window, cx| {
-                app.push_branch(project, ref_name, window, cx)
+                app.push_branch(project, Some(ref_name), window, cx)
             });
         });
-        let moving = self.store.read(cx).moving.is_some();
-        Some(
-            pressable(style.theme.shape, count, style.press_hover(), moving, push)
-                .into_any_element(),
-        )
+        Some(match pushing {
+            true => pulsing(step).into_any_element(),
+            false => step.into_any_element(),
+        })
     }
 
-    /// How many of `n` commits only `ref_name`'s remote has, pressed to pull them when it can,
-    /// which leaves the selection where it is. When it can't, it says `tip`.
-    fn pull_count(
+    /// Update, in place of the ↓ count of the `n` commits only `ref_name`'s remote has: the
+    /// number and its glyph in an amber button, which brings them in and leaves the selection
+    /// where it is. When they can't come in, it's the plain count, saying `tip`.
+    fn update_step(
         &self,
         project: &ProjectId,
         ref_name: Option<&FullName>,
@@ -3425,33 +3398,58 @@ impl Navigator {
         tip: String,
         style: RowStyle,
         cx: &Context<Self>,
-    ) -> Option<Stateful<Div>> {
+    ) -> Option<AnyElement> {
         let warn = style.meta(style.theme.warning_text);
         let ws = self.store.read(cx).workspace(project);
         let Some(ref_name) = ref_name.filter(|r| ws.is_some_and(|ws| ws.can_pull(r))) else {
-            return meta_count(Icon::ArrowDown, n, warn, tip);
+            return meta_count(Icon::ArrowDown, n, warn, tip).map(IntoElement::into_any_element);
         };
-        let count = meta_count(
-            Icon::ArrowDown,
-            n,
-            warn,
-            format!("Pull {}", plural(n, "commit")),
-        )?;
+        if n == 0 {
+            return None;
+        }
+        let remote = (ws.and_then(|ws| ws.find_branch(Some(ref_name))))
+            .and_then(|branch| branch.remote.clone())
+            .unwrap_or_else(|| "the remote".to_owned());
+        let update = button(
+            ElementId::Name(format!("update-{project}-{}", ref_name.as_bstr()).into()),
+            n.to_string(),
+        )
+        .icon_end(Icon::ArrowDown)
+        .style(ButtonStyle::Warning)
+        .small()
+        .inverted(style.solid)
+        .tooltip(format!("Update with {} from {remote}", plural(n, "commit")));
         let (project, ref_name) = (project.clone(), ref_name.clone());
-        let pull = cx.listener(move |this, _, _, cx| {
+        let step = self.row_step(update, cx, move |this, _, cx| {
             let ref_name = ref_name.clone();
             (this.store).update(cx, |store, cx| {
                 store.pull_remote(&project, ref_name, None, cx)
             })
         });
+        Some(step.into_any_element())
+    }
+
+    /// `step` as a row's next step: pressing it does `press` and leaves its row as it was,
+    /// unselected and unfolded. While something is being moved it's only part of its row, which
+    /// a press puts the move at, so it does nothing of its own then.
+    fn row_step(
+        &self,
+        step: Button,
+        cx: &Context<Self>,
+        press: impl Fn(&mut Self, &mut Window, &mut Context<Self>) + 'static,
+    ) -> Div {
         let moving = self.store.read(cx).moving.is_some();
-        Some(pressable(
-            style.theme.shape,
-            count,
-            style.press_hover(),
-            moving,
-            pull,
-        ))
+        div()
+            .flex_none()
+            .child(match moving {
+                true => step,
+                false => {
+                    step.on_click(cx.listener(move |this, _, window, cx| press(this, window, cx)))
+                }
+            })
+            .when(!moving, |el| {
+                el.on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            })
     }
 
     fn commit_row(
@@ -3767,33 +3765,23 @@ impl Navigator {
         .tooltip_for(
             "Rebase your branches and worktrees onto the target's new commits",
             &UpdateFromTarget,
-        )
-        .on_click(cx.listener(move |this, _, window, cx| {
-            // Only part of its row while something is being moved, which the press put there.
-            if this.store.read(cx).moving.is_some() {
-                return;
-            }
+        );
+        let step = self.row_step(update, cx, move |this, window, cx| {
             let project = project.clone();
             this.app.update_later(window, cx, move |app, _, cx| {
                 app.update_from_target(project, UpdateScope::All, cx)
             });
-        }));
-        let moving = self.store.read(cx).moving.is_some();
-        div()
-            .when(!moving, |el| {
-                el.on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-            })
-            // Pulsing while it updates, rather than a longer label moving what's beside it.
-            .child(match updating {
-                true => pulsing(div().child(update)).into_any_element(),
-                false => update.into_any_element(),
-            })
+        });
+        // Pulsing while it updates, rather than a longer label moving what's beside it.
+        div().child(match updating {
+            true => pulsing(step).into_any_element(),
+            false => step.into_any_element(),
+        })
     }
 
     /// Over the commits only branch `ref_name`'s remote has, as but-ui-react's UpstreamItem:
     /// "New on origin", the whole ref on hover, who they're from and how many while folded, and
-    /// Pull. The branch's own row
-    /// says when any is unread.
+    /// Update. The branch's own row says when any is unread.
     fn upstream_heading(
         &self,
         ix: usize,
@@ -3828,7 +3816,7 @@ impl Navigator {
             .pr(dp(8.))
             // Folded, how many. While they can be pulled it shows open too, as what pulls them.
             .when(!open || can_pull, |el| {
-                el.children(self.pull_count(project, Some(ref_name), count, tip, style, cx))
+                el.children(self.update_step(project, Some(ref_name), count, tip, style, cx))
             });
         Some(row.into_any_element())
     }
@@ -4068,30 +4056,6 @@ pub(crate) fn status_mark(status: &Status, seen: bool, style: RowStyle) -> Optio
         .child(drawn)
         .tooltip(Tooltip::text(tip));
     Some(mark)
-}
-
-/// `mark` as a button, its tooltip read as its name: padded with `MARK_PAD` and `hover`
-/// under the pointer. Pressing it does `press` and leaves its row as it was, unselected and
-/// unfolded. While something is `moving` it's only part of its row, which a press puts the move
-/// at, so it does nothing of its own then.
-fn pressable(
-    shape: crate::theme::Shape,
-    mark: Stateful<Div>,
-    hover: Hsla,
-    moving: bool,
-    press: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
-) -> Stateful<Div> {
-    let mark = mark.px(dp(MARK_PAD)).rounded(dp(shape.control));
-    if moving {
-        return mark;
-    }
-    mark.role(Role::Button)
-        .hover(move |el| el.bg(hover))
-        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-        .on_click(move |event, window, cx| {
-            cx.stop_propagation();
-            press(event, window, cx)
-        })
 }
 
 /// What a checkout's uncommitted files count: what a merge left conflicted, as an update can,
