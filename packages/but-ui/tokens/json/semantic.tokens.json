@@ -1245,45 +1245,45 @@
     "commit": {
       "local": {
         "$type": "color",
-        "$value": "{ramps.gray.9}",
-        "$description": "A commit that's only local.",
+        "$value": "{semantic.info.mark}",
+        "$description": "A commit that's only here, not pushed: its glyph, blue as info/mark, work to send as the ↑ count.",
         "$extensions": {
           "mode": {
-            "light": "{ramps.gray.9}",
-            "dark": "{ramps.gray.9}"
+            "light": "{semantic.info.mark}",
+            "dark": "{semantic.info.mark}"
           }
         }
       },
       "remote": {
         "$type": "color",
-        "$value": "{ramps.teal.9}",
-        "$description": "A commit that's on the remote.",
+        "$value": "{semantic.muted.foreground}",
+        "$description": "A commit that's pushed: its glyph, the row's muted/foreground.",
         "$extensions": {
           "mode": {
-            "light": "{ramps.teal.9}",
-            "dark": "{ramps.teal.9}"
+            "light": "{semantic.muted.foreground}",
+            "dark": "{semantic.muted.foreground}"
           }
         }
       },
       "upstream": {
         "$type": "color",
-        "$value": "{ramps.amber.11}",
-        "$description": "A commit that's upstream and not yet here.",
+        "$value": "{semantic.warning.mark}",
+        "$description": "A commit that's on the target and not here yet: its glyph, amber as warning/mark, as the ↓ count.",
         "$extensions": {
           "mode": {
-            "light": "{ramps.amber.11}",
-            "dark": "{ramps.amber.11}"
+            "light": "{semantic.warning.mark}",
+            "dark": "{semantic.warning.mark}"
           }
         }
       },
       "integrated": {
         "$type": "color",
-        "$value": "{ramps.purple.9}",
-        "$description": "A commit that's integrated into the target.",
+        "$value": "{ramps.purple.mark}",
+        "$description": "A commit that's integrated into the target: its glyph, purple, as a merged pull request.",
         "$extensions": {
           "mode": {
-            "light": "{ramps.purple.9}",
-            "dark": "{ramps.purple.9}"
+            "light": "{ramps.purple.mark}",
+            "dark": "{ramps.purple.mark}"
           }
         }
       }
@@ -1962,7 +1962,7 @@
           "semantic",
           "ramps"
         ],
-        "createdAt": "2026-11-17T13:57:51.420Z"
+        "createdAt": "2026-11-19T12:32:30.235Z"
       }
     }
   }

@@ -134,14 +134,14 @@
   --but-change-status-modification: var(--but-blue-9);
   /* The mark of a renamed file. */
   --but-change-status-rename: var(--but-purple-9);
-  /* A commit that's integrated into the target. */
-  --but-commit-integrated: var(--but-purple-9);
-  /* A commit that's only local. */
-  --but-commit-local: var(--but-gray-9);
-  /* A commit that's on the remote. */
-  --but-commit-remote: var(--but-teal-9);
-  /* A commit that's upstream and not yet here. */
-  --but-commit-upstream: var(--but-amber-11);
+  /* A commit that's integrated into the target: its glyph, purple, as a merged pull request. */
+  --but-commit-integrated: var(--but-purple-mark);
+  /* A commit that's only here, not pushed: its glyph, blue as info/mark, work to send as the ↑ count. */
+  --but-commit-local: var(--but-info-mark);
+  /* A commit that's pushed: its glyph, the row's muted/foreground. */
+  --but-commit-remote: var(--but-muted-foreground);
+  /* A commit that's on the target and not here yet: its glyph, amber as warning/mark, as the ↓ count. */
+  --but-commit-upstream: var(--but-warning-mark);
   --but-danger: var(--but-red-9);
   /* Text and icons on danger. */
   --but-danger-foreground: hsl(0 0.0% 100.0%);
