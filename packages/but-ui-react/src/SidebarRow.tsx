@@ -426,9 +426,9 @@ export const BranchItem: FC<
  *
  * Under a {@link TargetItem}, a `merge` takes the merge glyph and, with `folded`, opens to the
  * commits it brought in, one level deeper. There each commit comes from someone else, so give its
- * `author`: their {@link Avatar} takes the glyph's place. A merge keeps its glyph, which is what
- * says the row opens to commits; its own commits carry the faces. Name the author in the
- * `tooltip`; the picture is decorative.
+ * `author`: their {@link Avatar} sits at the row's end, after any `meta`, where a count would, so
+ * the glyphs down the list keep saying what each row is. A merge has no author of its own; its
+ * commits carry the faces. Name the author in the `tooltip`; the picture is decorative.
  *
  * @import import { CommitItem } from "@gitbutler/but-ui-react/SidebarRow.tsx";
  */
@@ -440,18 +440,37 @@ export const CommitItem: FC<
 		conflicted?: boolean;
 		author?: CommitAuthor;
 	} & RowProps
-> = ({ message, pushed = true, merge = false, conflicted = false, author, tooltip, ...props }) => (
+> = ({
+	message,
+	pushed = true,
+	merge = false,
+	conflicted = false,
+	author,
+	tooltip,
+	meta,
+	...props
+}) => (
 	<Row
 		{...props}
 		name={message}
+		meta={
+			author && !merge ? (
+				<>
+					{meta}
+					<span className={styles.author}>
+						<Avatar src={author.src} seed={author.seed} size={14} />
+					</span>
+				</>
+			) : (
+				meta
+			)
+		}
 		icon={
 			conflicted ? (
 				// oxlint-disable-next-line jsx_a11y/prefer-tag-over-role -- A glyph with a name, not a picture with a source.
 				<span role="img" aria-label="Conflicted" className={styles.conflicted}>
 					<Icon name="warning" />
 				</span>
-			) : author && !merge ? (
-				<Avatar src={author.src} seed={author.seed} size={14} />
 			) : (
 				<Icon name={merge ? "branch-merge" : pushed ? "commit-fill" : "commit"} />
 			)
