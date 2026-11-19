@@ -1086,6 +1086,7 @@ fn terminal_choice(
         if this.store.read(cx).terminals.get(id).is_none() {
             return snack(&this.store, gone, cx);
         }
+        crate::backend::metrics::terminal_shown(crate::backend::metrics::TerminalFrom::Picker);
         this.select(selection, window, cx);
         this.enter_terminal(window, cx);
     });
@@ -1151,6 +1152,9 @@ fn tiled_terminal_choices(store: &Store, entry: &ProjectEntry, several: bool) ->
                 if this.store.read(cx).terminals.get(id).is_none() {
                     return snack(&this.store, gone, cx);
                 }
+                crate::backend::metrics::terminal_shown(
+                    crate::backend::metrics::TerminalFrom::Picker,
+                );
                 this.show_terminal(id, true, window, cx);
             });
             let details = std::iter::once(worktree.as_str()).chain(project);
