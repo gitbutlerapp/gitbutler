@@ -816,7 +816,7 @@ impl FileListItem {
                 div()
                     .id("status")
                     .aria_label("Conflicted")
-                    .child(conflict_icon(14., &theme, cx)),
+                    .child(icon(Icon::Warning).text_color(theme.warn_mark)),
             )
         } else if self.editing {
             // Quiet, as the folder is, since nothing has happened yet.
