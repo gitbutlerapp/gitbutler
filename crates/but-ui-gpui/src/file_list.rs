@@ -817,7 +817,7 @@ impl FileListItem {
                     .id("status")
                     .aria_label("Conflicted")
                     // The size every other conflict mark takes: a count's, the banner's, the status bar's.
-                    .child(small_icon(Icon::Warning).text_color(theme.warn_mark)),
+                    .child(icon_at(Icon::Warning, 14.).text_color(theme.warn_mark)),
             )
         } else if self.editing {
             // Quiet, as the folder is, since nothing has happened yet.

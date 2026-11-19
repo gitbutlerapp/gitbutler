@@ -13,7 +13,7 @@ pub fn meta_count(glyph: Icon, n: usize, color: Hsla, tip: String) -> Option<Sta
             .gap(dp(3.))
             .text_11()
             .text_color(color)
-            .child(small_icon(glyph).text_color(color))
+            .child(icon_at(glyph, 14.).text_color(color))
             .child(n.to_string())
             .aria_label(tip.clone())
             .tooltip(Tooltip::text(tip))

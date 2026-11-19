@@ -22,7 +22,7 @@ use crate::theme::{Hue, Theme};
 use crate::transfer::{Op, Transfer};
 use crate::ui::Text;
 use crate::ui::{
-    Icon, STATUS_BAR_HEIGHT, Tooltip, ago, dot, dp, duration, h_flex, plural, shortcut,
+    Icon, STATUS_BAR_HEIGHT, Tooltip, ago, dot, dp, duration, h_flex, icon_at, plural, shortcut,
     shortcut_here, small_icon,
 };
 
@@ -452,7 +452,7 @@ impl AppView {
                         };
                         Note {
                             id,
-                            mark: small_icon(glyph)
+                            mark: icon_at(glyph, 14.)
                                 .text_color(theme.on_soft(tone))
                                 .into_any_element(),
                             tone: Some(tone),
