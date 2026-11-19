@@ -29,8 +29,17 @@ use bstr::ByteSlice as _;
 use but_core::worktree::safe_checkout_from_head;
 use but_testsupport::{invoke_bash_at_dir, open_repo};
 
+/// Since Git 2.55, `git checkout -m` stashes local changes and applies them after switching,
+/// where it used to refuse with staged changes. The snapshots record what it does now.
+fn git_is_older_than_the_snapshots() -> bool {
+    but_testsupport::gix_testtools::should_skip_as_git_version_is_smaller_than(2, 55, 0)
+}
+
 #[test]
 fn checkout_differs_from_git_only_where_listed() -> anyhow::Result<()> {
+    if git_is_older_than_the_snapshots() {
+        return Ok(());
+    }
     let cases = in_parallel(&Pair::all(), compare_with_git)?;
     snapbox::assert_data_eq!(
         report(cases.into_iter().flatten().collect()),
@@ -42,7 +51,9 @@ fn checkout_differs_from_git_only_where_listed() -> anyhow::Result<()> {
 #[test]
 fn checkout_of_paths_differing_in_case_differs_from_git_only_where_listed() -> anyhow::Result<()> {
     let probe = but_testsupport::gix_testtools::tempfile::TempDir::new()?;
-    if !gix::fs::Capabilities::probe_dir(probe.path()).ignore_case {
+    if !gix::fs::Capabilities::probe_dir(probe.path()).ignore_case
+        || git_is_older_than_the_snapshots()
+    {
         return Ok(());
     }
     let cases = in_parallel(&Pair::differing_in_case(), compare_with_git)?;
