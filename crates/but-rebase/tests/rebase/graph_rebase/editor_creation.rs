@@ -191,7 +191,7 @@ fn many_references() -> Result<()> {
         graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
+└── 👉►[0]:main[🌳]
     ├── ·120e3a9 (⌂)
     ├── ·a96434e (⌂)
     ├── ·d591dfe (⌂) ►X, ►Y, ►Z
@@ -254,19 +254,19 @@ fn first_parent_leg_long() -> Result<()> {
         graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 
-└── 👉►:0[0]:with-inner-merge[🌳]
+└── 👉►[0]:with-inner-merge[🌳]
     └── ·6ac5745 (⌂)
-        └── ►:1[1]:anon:
+        └── ►[1]:anon:
             └── ·d20f547 (⌂)
-                ├── ►:2[2]:A
+                ├── ►[2]:A
                 │   ├── ·198d2e4 (⌂)
                 │   ├── ·7325853 (⌂)
                 │   └── ·add59d2 (⌂)
-                │       └── ►:4[3]:main
+                │       └── ►[3]:main
                 │           └── 🏁·8f0d338 (⌂) ►tags/base
-                └── ►:3[2]:B
+                └── ►[2]:B
                     └── ·984fd1c (⌂)
-                        └── →:4: (main)
+                        └── → segment main
 
 "#]]
     );
@@ -331,19 +331,19 @@ fn second_parent_leg_long() -> Result<()> {
         graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 
-└── 👉►:0[0]:with-inner-merge[🌳]
+└── 👉►[0]:with-inner-merge[🌳]
     └── ·a6775ea (⌂)
-        └── ►:1[1]:anon:
+        └── ►[1]:anon:
             └── ·b85214b (⌂)
-                ├── ►:2[2]:A
+                ├── ►[2]:A
                 │   └── ·add59d2 (⌂)
-                │       └── ►:4[3]:main
+                │       └── ►[3]:main
                 │           └── 🏁·8f0d338 (⌂) ►tags/base
-                └── ►:3[2]:B
+                └── ►[2]:B
                     ├── ·f87f875 (⌂)
                     ├── ·cb181a0 (⌂)
                     └── ·984fd1c (⌂)
-                        └── →:4: (main)
+                        └── → segment main
 
 "#]]
     );
@@ -412,21 +412,21 @@ fn workspace_with_empty_stack() -> Result<()> {
         graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 
-├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
+├── 👉📕►►►[0]:gitbutler/workspace[🌳]
 │   └── ·74bcc92 (⌂|🏘)
-│       ├── 📙►:3[1]:stack-1
+│       ├── 📙►[1]:stack-1
 │       │   ├── ·2169646 (⌂|🏘)
 │       │   └── ·46ef828 (⌂|🏘)
-│       │       └── ►:4[2]:anon:
+│       │       └── ►[2]:anon:
 │       │           ├── ·f555940 (⌂|🏘|✓)
 │       │           ├── ·d664be0 (⌂|🏘|✓)
 │       │           └── 🏁·fafd9d0 (⌂|🏘|✓)
-│       └── 📙►:5[1]:stack-2
-│           └── →:4:
-└── ►:1[0]:origin/main
-    └── ►:2[1]:main <> origin/main
+│       └── 📙►[1]:stack-2
+│           └── → segment ·f555940
+└── ►[0]:origin/main
+    └── ►[1]:main <> origin/main
         └── ·a0f2ac5 (⌂|✓)
-            └── →:4:
+            └── → segment ·f555940
 
 "#]]
     );
@@ -490,19 +490,19 @@ fn workspace_with_three_empty_stacks() -> Result<()> {
         graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 
-├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
+├── 👉📕►►►[0]:gitbutler/workspace[🌳]
 │   └── ·a26ae77 (⌂|🏘)
-│       ├── 📙►:4[1]:stack-1
-│       │   └── ►:3[2]:anon:
+│       ├── 📙►[1]:stack-1
+│       │   └── ►[2]:anon:
 │       │       └── 🏁·fafd9d0 (⌂|🏘|✓)
-│       ├── 📙►:5[1]:stack-2
-│       │   └── →:3:
-│       └── 📙►:6[1]:stack-3
-│           └── →:3:
-└── ►:1[0]:origin/main
-    └── ►:2[1]:main <> origin/main
+│       ├── 📙►[1]:stack-2
+│       │   └── → segment ·fafd9d0
+│       └── 📙►[1]:stack-3
+│           └── → segment ·fafd9d0
+└── ►[0]:origin/main
+    └── ►[1]:main <> origin/main
         └── ·1cf9cf4 (⌂|✓)
-            └── →:3:
+            └── → segment ·fafd9d0
 
 "#]]
     );
@@ -564,11 +564,11 @@ fn commit_with_two_parents() -> Result<()> {
         graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
+└── 👉►[0]:main[🌳]
     └── ·d70d863 (⌂)
-        ├── ►:1[1]:anon:
+        ├── ►[1]:anon:
         │   └── 🏁·35b8235 (⌂)
-        └── →:1:
+        └── → segment ·35b8235
 
 "#]]
     );
@@ -714,19 +714,19 @@ fn merge_first_parent_older_than_second() -> Result<()> {
         graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 
-└── 👉►:0[0]:first-parent[🌳]
+└── 👉►[0]:first-parent[🌳]
     └── ·738ea18 (⌂)
-        └── ►:1[1]:anon:
+        └── ►[1]:anon:
             └── ·408ca26 (⌂)
-                ├── ►:3[2]:anon:
+                ├── ►[2]:anon:
                 │   └── ·2854fa2 (⌂)
-                │       └── ►:4[3]:main
+                │       └── ►[3]:main
                 │           └── 🏁·793a434 (⌂) ►tags/base
-                └── ►:2[2]:second-parent
+                └── ►[2]:second-parent
                     ├── ·75369b0 (⌂)
                     ├── ·553bbf7 (⌂)
                     └── ·72614bb (⌂)
-                        └── →:4: (main)
+                        └── → segment main
 
 "#]]
     );
@@ -801,22 +801,22 @@ fn immutable_entrypoints_propogate_until_mutable_entrypoints() -> Result<()> {
         graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 
-├── ►:0[0]:explicit-const
+├── ►[0]:explicit-const
 │   └── ·be4ae80 (⌂) ►main
-│       └── ►:3[1]:implicit-const
+│       └── ►[1]:implicit-const
 │           └── ·120e3a9 (⌂)
-│               └── ►:6[2]:explicit-mut
+│               └── ►[2]:explicit-mut
 │                   └── ·a96434e (⌂)
-│                       └── ►:5[3]:foo
+│                       └── ►[3]:foo
 │                           ├── ·d591dfe (⌂)
 │                           └── 🏁·35b8235 (⌂)
-└── ►:1[0]:explicit-const-2
+└── ►[0]:explicit-const-2
     └── ·d9fa122 (⌂)
-        └── ►:4[1]:implicit-const-2
+        └── ►[1]:implicit-const-2
             └── ·85bccf0 (⌂)
-                └── 👉►:2[2]:implicit-mut
+                └── 👉►[2]:implicit-mut
                     └── ·c8dd361 (⌂)
-                        └── →:5: (foo)
+                        └── → segment foo
 
 "#]]
     );

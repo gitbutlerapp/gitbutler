@@ -106,7 +106,7 @@ fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
+└── 👉►[0]:main[🌳]
     ├── ·a96434e (⌂)
     ├── ·d591dfe (⌂)
     └── 🏁·35b8235 (⌂)
@@ -182,7 +182,7 @@ fn materialize_checkout_allows_current_head_to_be_replaced_with_none() -> Result
         &overlayed,
         snapbox::str![[r#"
 
-└── ►:0[0]:anon:
+└── ►[0]:anon:
     ├── 👉·a96434e (⌂)
     ├── ·d591dfe (⌂)
     └── 🏁·35b8235 (⌂)
@@ -256,7 +256,7 @@ fn materialize_without_checkout_preserves_dropped_commit_changes_in_worktree() -
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
+└── 👉►[0]:main[🌳]
     ├── ·a96434e (⌂)
     ├── ·d591dfe (⌂)
     └── 🏁·35b8235 (⌂)
@@ -354,7 +354,7 @@ fn both_methods_update_references_identically() -> Result<()> {
         &overlayed_materialize,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
+└── 👉►[0]:main[🌳]
     ├── ·a96434e (⌂)
     ├── ·d591dfe (⌂)
     └── 🏁·35b8235 (⌂)
@@ -405,7 +405,7 @@ fn materialize_repoints_head_when_checkout_reference_is_replaced() -> Result<()>
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:replacement[🌳]
+└── 👉►[0]:replacement[🌳]
     ├── ·120e3a9 (⌂)
     ├── ·a96434e (⌂)
     ├── ·d591dfe (⌂)

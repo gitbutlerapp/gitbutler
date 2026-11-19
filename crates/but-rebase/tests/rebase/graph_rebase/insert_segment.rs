@@ -82,22 +82,22 @@ fn insert_single_node_segment_above() -> Result<()> {
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
+└── 👉►[0]:main[🌳]
     └── ·8e61669 (⌂)
-        ├── ►:1[1]:A
+        ├── ►[1]:A
         │   └── ·69221b4 (⌂)
-        │       ├── ►:3[2]:B
+        │       ├── ►[2]:B
         │       │   ├── ·a748762 (⌂)
         │       │   └── ·62e05ba (⌂)
-        │       │       └── ►:4[3]:anon:
+        │       │       └── ►[3]:anon:
         │       │           └── 🏁·8f0d338 (⌂) ►tags/base
-        │       └── →:4:
-        ├── →:1: (A)
-        └── ►:2[1]:C
+        │       └── → segment ·8f0d338
+        ├── → segment A
+        └── ►[1]:C
             ├── ·930563a (⌂)
             ├── ·68a2fc3 (⌂)
             └── ·984fd1c (⌂)
-                └── →:4:
+                └── → segment ·8f0d338
 
 "#]]
     );
@@ -182,23 +182,23 @@ fn insert_single_node_segment_below() -> Result<()> {
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
+└── 👉►[0]:main[🌳]
     └── ·b005f3c (⌂)
-        ├── ►:1[2]:A
+        ├── ►[2]:A
         │   └── ·7f0cc55 (⌂)
-        │       ├── ►:4[3]:anon:
+        │       ├── ►[3]:anon:
         │       │   └── ·62e05ba (⌂)
-        │       │       └── ►:5[4]:anon:
+        │       │       └── ►[4]:anon:
         │       │           └── 🏁·8f0d338 (⌂) ►tags/base
-        │       └── →:5:
-        ├── ►:2[1]:B
+        │       └── → segment ·8f0d338
+        ├── ►[1]:B
         │   └── ·a3301fe (⌂)
-        │       └── →:1: (A)
-        └── ►:3[1]:C
+        │       └── → segment A
+        └── ►[1]:C
             ├── ·930563a (⌂)
             ├── ·68a2fc3 (⌂)
             └── ·984fd1c (⌂)
-                └── →:5:
+                └── → segment ·8f0d338
 
 "#]]
     );
@@ -288,23 +288,23 @@ fn insert_multi_node_segment_above() -> Result<()> {
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
+└── 👉►[0]:main[🌳]
     └── ·4411c89 (⌂)
-        ├── ►:1[1]:anon:
+        ├── ►[1]:anon:
         │   └── ·758c8a3 (⌂) ►A, ►B
-        │       └── ►:3[2]:anon:
+        │       └── ►[2]:anon:
         │           └── ·db40ffc (⌂)
-        │               ├── ►:4[3]:anon:
+        │               ├── ►[3]:anon:
         │               │   └── ·add59d2 (⌂)
-        │               │       └── ►:5[4]:anon:
+        │               │       └── ►[4]:anon:
         │               │           └── 🏁·8f0d338 (⌂) ►tags/base
-        │               └── →:5:
-        ├── →:1:
-        └── ►:2[1]:C
+        │               └── → segment ·8f0d338
+        ├── → segment ·758c8a3
+        └── ►[1]:C
             ├── ·930563a (⌂)
             ├── ·68a2fc3 (⌂)
             └── ·984fd1c (⌂)
-                └── →:5:
+                └── → segment ·8f0d338
 
 "#]]
     );
@@ -394,23 +394,23 @@ fn insert_multi_node_segment_below() -> Result<()> {
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
+└── 👉►[0]:main[🌳]
     └── ·59ce15a (⌂)
-        ├── ►:1[1]:A
+        ├── ►[1]:A
         │   └── ·ba79e5f (⌂)
-        │       └── ►:2[2]:B
+        │       └── ►[2]:B
         │           └── ·9fc31cd (⌂)
-        │               └── ►:4[3]:anon:
+        │               └── ►[3]:anon:
         │                   └── ·d21ad66 (⌂)
-        │                       ├── ►:5[4]:anon:
+        │                       ├── ►[4]:anon:
         │                       │   └── 🏁·8f0d338 (⌂) ►tags/base
-        │                       └── →:5:
-        ├── →:2: (B)
-        └── ►:3[1]:C
+        │                       └── → segment ·8f0d338
+        ├── → segment B
+        └── ►[1]:C
             ├── ·930563a (⌂)
             ├── ·68a2fc3 (⌂)
             └── ·984fd1c (⌂)
-                └── →:5:
+                └── → segment ·8f0d338
 
 "#]]
     );
@@ -507,24 +507,24 @@ fn insert_single_node_segment_above_with_explicit_children() -> Result<()> {
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
+└── 👉►[0]:main[🌳]
     └── ·cca953f (⌂)
-        ├── ►:1[2]:A
+        ├── ►[2]:A
         │   └── ·69221b4 (⌂)
-        │       ├── ►:2[3]:B
+        │       ├── ►[3]:B
         │       │   ├── ·a748762 (⌂)
         │       │   └── ·62e05ba (⌂)
-        │       │       └── ►:4[4]:anon:
+        │       │       └── ►[4]:anon:
         │       │           └── 🏁·8f0d338 (⌂) ►tags/base
-        │       └── →:4:
-        ├── →:2: (B)
-        └── ►:3[1]:C
+        │       └── → segment ·8f0d338
+        ├── → segment B
+        └── ►[1]:C
             └── ·76e2160 (⌂)
-                ├── ►:5[2]:anon:
+                ├── ►[2]:anon:
                 │   ├── ·68a2fc3 (⌂)
                 │   └── ·984fd1c (⌂)
-                │       └── →:4:
-                └── →:1: (A)
+                │       └── → segment ·8f0d338
+                └── → segment A
 
 "#]]
     );
@@ -626,24 +626,24 @@ fn insert_single_node_segment_below_with_explicit_parents() -> Result<()> {
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
+└── 👉►[0]:main[🌳]
     └── ·54f9cab (⌂)
-        ├── ►:1[1]:A
+        ├── ►[1]:A
         │   └── ·9501727 (⌂)
-        │       ├── ►:4[4]:anon:
+        │       ├── ►[4]:anon:
         │       │   └── 🏁·8f0d338 (⌂) ►tags/base
-        │       └── ►:2[2]:B
+        │       └── ►[2]:B
         │           └── ·347772f (⌂)
-        │               ├── ►:3[3]:C
+        │               ├── ►[3]:C
         │               │   ├── ·930563a (⌂)
         │               │   ├── ·68a2fc3 (⌂)
         │               │   └── ·984fd1c (⌂)
-        │               │       └── →:4:
-        │               └── ►:5[3]:anon:
+        │               │       └── → segment ·8f0d338
+        │               └── ►[3]:anon:
         │                   └── ·62e05ba (⌂)
-        │                       └── →:4:
-        ├── →:2: (B)
-        └── →:3: (C)
+        │                       └── → segment ·8f0d338
+        ├── → segment B
+        └── → segment C
 
 "#]]
     );

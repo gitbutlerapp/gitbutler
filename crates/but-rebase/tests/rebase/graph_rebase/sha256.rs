@@ -63,18 +63,18 @@ Sha256
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:with-inner-merge[🌳]
+└── 👉►[0]:with-inner-merge[🌳]
     ├── ·d165592 (⌂)
     └── ·526ed5b (⌂)
-        └── ►:1[1]:anon:
+        └── ►[1]:anon:
             └── ·d261f8f (⌂)
-                ├── ►:2[2]:A
+                ├── ►[2]:A
                 │   └── ·2ff29ff (⌂)
-                │       └── ►:4[3]:main
+                │       └── ►[3]:main
                 │           └── 🏁·8dcf66f (⌂) ►tags/base
-                └── ►:3[2]:B
+                └── ►[2]:B
                     └── ·8f04e4a (⌂)
-                        └── →:4: (main)
+                        └── → segment main
 
 "#]]
     );
@@ -163,17 +163,17 @@ Sha256
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:with-inner-merge[🌳]
+└── 👉►[0]:with-inner-merge[🌳]
     └── ·d050214 (⌂)
-        └── ►:1[1]:anon:
+        └── ►[1]:anon:
             └── ·8b1722f (⌂)
-                ├── ►:2[2]:A
+                ├── ►[2]:A
                 │   └── ·546b14b (⌂)
-                │       └── ►:4[3]:main
+                │       └── ►[3]:main
                 │           └── 🏁·8dcf66f (⌂) ►tags/base
-                └── ►:3[2]:B
+                └── ►[2]:B
                     └── ·8f04e4a (⌂)
-                        └── →:4: (main)
+                        └── → segment main
 
 "#]]
     );
@@ -273,16 +273,16 @@ Sha256
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:with-inner-merge[🌳]
+└── 👉►[0]:with-inner-merge[🌳]
     ├── ·636f2bd (⌂)
     └── ·93b14a1 (⌂)
-        └── ►:1[1]:A
+        └── ►[1]:A
             └── ·9d083f9 (⌂)
-                ├── ►:2[3]:main
+                ├── ►[3]:main
                 │   └── 🏁·8dcf66f (⌂) ►tags/base
-                └── ►:3[2]:B
+                └── ►[2]:B
                     └── ·8f04e4a (⌂)
-                        └── →:2: (main)
+                        └── → segment main
 
 "#]]
     );

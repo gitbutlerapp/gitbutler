@@ -49,10 +49,10 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
+└── 👉►[0]:main[🌳]
     ├── ·04d1892 (⌂) ►c
     └── ·5e0ba46 (⌂) ►a, ►b
-        └── ►:1[1]:base
+        └── ►[1]:base
             └── 🏁·6155f21 (⌂)
 
 "#]]
@@ -63,12 +63,12 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
         graph_tree(&outcome.workspace.graph).to_string(),
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
+└── 👉►[0]:main[🌳]
     └── ·45942da (⌂)
-        └── ►:1[1]:c
+        └── ►[1]:c
             ├── ·04d1892 (⌂)
             └── ·5e0ba46 (⌂) ►a, ►b
-                └── ►:2[2]:base
+                └── ►[2]:base
                     └── 🏁·6155f21 (⌂)
 
 "#]]
@@ -246,14 +246,14 @@ fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_
         &overlayed,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
+└── 👉►[0]:main[🌳]
     └── ·df438f2 (⌂) ►c
-        └── ►:1[1]:b
+        └── ►[1]:b
             ├── ·0c6475b (⌂)
             └── ·3b3bd41 (⌂)
-                └── ►:2[2]:a
+                └── ►[2]:a
                     └── ·5e0ba46 (⌂)
-                        └── ►:3[3]:base
+                        └── ►[3]:base
                             └── 🏁·6155f21 (⌂)
 
 "#]]

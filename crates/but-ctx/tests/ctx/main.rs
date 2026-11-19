@@ -838,7 +838,7 @@ fn workspace_from_head_seeds_active_worktree_tips() -> anyhow::Result<()> {
         workspace_graph(&ctx)?,
         snapbox::str![[r#"
 
-└── 👉►:0[0]:main[🌳]
+└── 👉►[0]:main[🌳]
     └── 🏁·85efbe4 (⌂)
 
 "#]]
@@ -877,13 +877,13 @@ fn workspace_from_head_seeds_active_worktree_tips() -> anyhow::Result<()> {
         workspace_graph(&ctx)?,
         snapbox::str![[r#"
 
-├── 👉►:0[0]:main[🌳@repo]
-│   └── ►:3[2]:anon:
+├── 👉►[0]:main[🌳@repo]
+│   └── ►[2]:anon:
 │       └── 🏁·85efbe4 (⌂)
-└── ►:2[0]:feat-b[📁wt-b]
-    └── ►:1[1]:anon:
+└── ►[0]:feat-b[📁wt-b]
+    └── ►[1]:anon:
         └── ·7d7d38f (⌂)
-            └── →:3:
+            └── → segment ·85efbe4
 
 "#]]
     );

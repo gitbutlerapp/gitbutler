@@ -123,6 +123,22 @@ fn tree_for_commit(
         )
         .into()
 }
+
+/// Name the segment at `sidx` for a reference to it: by its reference, or by its first commit
+/// if it has none, so references don't depend on how the graph numbered its segments.
+/// Only an empty segment without a reference falls back to its index.
+fn segment_label(graph: &Graph, sidx: SegmentIndex) -> String {
+    let segment = &graph[sidx];
+    match (segment.ref_info.as_ref(), segment.commits.first()) {
+        (Some(ri), _) => format!(
+            "segment {}",
+            graph.ref_debug_string_with_graph_context(ri.ref_name.as_ref(), ri.worktree.as_ref())
+        ),
+        (None, Some(commit)) => format!("segment ·{}", commit.id.to_hex_with_len(7)),
+        (None, None) => format!("segment :{}", sidx.index()),
+    }
+}
+
 fn recurse_segment(
     graph: &but_graph::Graph,
     sidx: SegmentIndex,
@@ -131,23 +147,20 @@ fn recurse_segment(
     let segment = &graph[sidx];
     if seen.contains(&sidx) {
         return format!(
-            "→:{sidx}:{name}",
-            sidx = sidx.index(),
-            name = graph[sidx]
+            "→ {label}{maybe_sibling}",
+            label = segment_label(graph, sidx),
+            maybe_sibling = segment
                 .ref_info
                 .as_ref()
-                .map(|ri| format!(
-                    " ({}{maybe_sibling})",
-                    graph.ref_debug_string_with_graph_context(
-                        ri.ref_name.as_ref(),
-                        ri.worktree.as_ref(),
-                    ),
-                    maybe_sibling = segment
+                .and(
+                    segment
                         .remote_tracking_branch_segment_id
                         .or(segment.sibling_segment_id)
-                        .map_or_else(String::new, |sid| format!(" →:{}:", sid.index()))
+                )
+                .map_or_else(String::new, |sid| format!(
+                    " (→ {})",
+                    segment_label(graph, sid)
                 ))
-                .unwrap_or_default()
         )
         .into();
     }
@@ -177,7 +190,7 @@ fn recurse_segment(
     };
 
     let mut root = Tree::new(format!(
-        "{entrypoint}{meta}{arrow}:{id}[{generation}]:{ref_name_and_remote}",
+        "{entrypoint}{meta}{arrow}{id}[{generation}]:{ref_name_and_remote}",
         meta = match segment.metadata {
             None => {
                 ""
@@ -189,7 +202,12 @@ fn recurse_segment(
                 "📙"
             }
         },
-        id = segment.id.index(),
+        // Only a segment that `segment_label()` can't name otherwise shows its index.
+        id = if segment.ref_info.is_none() && segment.commits.is_empty() {
+            format!(":{}", sidx.index())
+        } else {
+            String::new()
+        },
         generation = segment.generation,
         arrow = if segment.workspace_metadata().is_some() {
             "►►►"
