@@ -6,6 +6,62 @@ use termtree::Tree;
 
 type StringTree = Tree<String>;
 
+/// Like [`Graph::from_head()`], but from the [nosegment graph](but_graph::nosegment::workspace()):
+/// seen from `HEAD`, with the linked worktrees if `options.worktrees` is set.
+pub fn graph_from_head(
+    repo: &gix::Repository,
+    meta: &impl but_core::RefMetadata,
+    project_meta: but_core::ref_metadata::ProjectMeta,
+    db: &mut but_db::DbHandle,
+    options: but_graph::init::Options,
+) -> anyhow::Result<Graph> {
+    let head = repo.head()?;
+    let mut graph = but_graph::nosegment::workspace(
+        repo,
+        meta,
+        but_graph::init::Overlay::default(),
+        project_meta,
+        head.referent_name(),
+        head.id().map(|id| id.detach()),
+        [],
+        but_graph::init::discover_worktree_tips(repo, db, options.worktrees)?,
+        options.collect_tags,
+        options.commits_limit_hint,
+    )?
+    .graph;
+    graph.options = options;
+    Ok(graph)
+}
+
+/// Like [`Graph::from_commit_traversal()`], but from the
+/// [nosegment graph](but_graph::nosegment::workspace()): seen from `ref_name` at `tip`, with the
+/// linked worktrees if `options.worktrees` is set.
+pub fn graph_from_commit_traversal(
+    tip: gix::Id<'_>,
+    ref_name: impl Into<Option<gix::refs::FullName>>,
+    meta: &impl but_core::RefMetadata,
+    project_meta: but_core::ref_metadata::ProjectMeta,
+    db: &mut but_db::DbHandle,
+    options: but_graph::init::Options,
+) -> anyhow::Result<Graph> {
+    let ref_name = ref_name.into();
+    let mut graph = but_graph::nosegment::workspace(
+        tip.repo(),
+        meta,
+        but_graph::init::Overlay::default(),
+        project_meta,
+        ref_name.as_ref().map(|name| name.as_ref()),
+        Some(tip.detach()),
+        [],
+        but_graph::init::discover_worktree_tips(tip.repo(), db, options.worktrees)?,
+        options.collect_tags,
+        options.commits_limit_hint,
+    )?
+    .graph;
+    graph.options = options;
+    Ok(graph)
+}
+
 pub fn graph_workspace(workspace: &but_graph::Workspace) -> StringTree {
     graph_workspace_inner(workspace, None)
 }

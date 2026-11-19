@@ -1,6 +1,5 @@
 //! These tests exercise the replace operation.
 use anyhow::{Context, Result};
-use but_graph::Graph;
 use but_rebase::graph_rebase::Editor;
 use but_testsupport::{git_status, graph_tree, visualize_commit_graph_all, visualize_tree};
 use snapbox::prelude::*;
@@ -29,7 +28,7 @@ fn reword_a_commit() -> Result<()> {
 
     let head_tree = repo.head_tree()?.id;
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -141,7 +140,7 @@ f766d1f
 
 "#]].raw());
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),

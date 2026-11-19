@@ -54,7 +54,14 @@ fn tear_off_top_most_branch() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize(Default::default())?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws = but_testsupport::graph_from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut db,
+        ws.graph.options.clone(),
+    )?
+    .into_workspace()?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -110,7 +117,14 @@ fn tear_off_branch_into_the_first_stack() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize(Default::default())?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws = but_testsupport::graph_from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut db,
+        ws.graph.options.clone(),
+    )?
+    .into_workspace()?;
 
     // C is the workspace commit's first parent now, and so the first stack.
     snapbox::assert_data_eq!(
@@ -166,7 +180,14 @@ fn tear_off_branch_alone_in_its_stack_moves_it_among_the_stacks() -> anyhow::Res
 
     rebase.materialize(Default::default())?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws = but_testsupport::graph_from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut db,
+        ws.graph.options.clone(),
+    )?
+    .into_workspace()?;
 
     // Nothing is rebased, only the workspace commit's parents swap places.
     snapbox::assert_data_eq!(
@@ -251,7 +272,14 @@ fn tear_off_bottom_most_branch() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize(Default::default())?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws = but_testsupport::graph_from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut db,
+        ws.graph.options.clone(),
+    )?
+    .into_workspace()?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -337,7 +365,14 @@ fn tear_off_only_branch_in_stack() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize(Default::default())?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws = but_testsupport::graph_from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut db,
+        ws.graph.options.clone(),
+    )?
+    .into_workspace()?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -411,7 +446,14 @@ fn tear_off_from_single_stack_in_ws_top() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize(Default::default())?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws = but_testsupport::graph_from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut db,
+        ws.graph.options.clone(),
+    )?
+    .into_workspace()?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -482,7 +524,14 @@ fn tear_off_from_single_stack_in_ws_bottom() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize(Default::default())?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws = but_testsupport::graph_from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut db,
+        ws.graph.options.clone(),
+    )?
+    .into_workspace()?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -553,7 +602,14 @@ fn tear_off_empty_branch() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize(Default::default())?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws = but_testsupport::graph_from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut db,
+        ws.graph.options.clone(),
+    )?
+    .into_workspace()?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -622,7 +678,14 @@ fn tear_off_non_empty_branch() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize(Default::default())?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws = but_testsupport::graph_from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut db,
+        ws.graph.options.clone(),
+    )?
+    .into_workspace()?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -666,7 +729,7 @@ fn tear_off_from_a_plain_checkout_enters_the_workspace() -> anyhow::Result<()> {
     but_testsupport::git(&repo)
         .args(["update-ref", "-d", "refs/heads/gitbutler/workspace"])
         .run();
-    let mut ws = but_graph::Graph::from_head(
+    let mut ws = but_testsupport::graph_from_head(
         &repo,
         &meta,
         crate::ref_info::with_workspace_commit::utils::project_meta(&repo)?,

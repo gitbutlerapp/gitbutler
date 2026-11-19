@@ -258,7 +258,13 @@ fn integration_graph_for_branch(
             Options::limited(),
         )
     } else {
-        but_graph::Graph::from_head(repo, meta, Default::default(), &mut db, Options::limited())
+        but_testsupport::graph_from_head(
+            repo,
+            meta,
+            Default::default(),
+            &mut db,
+            Options::limited(),
+        )
     }
 }
 
@@ -2159,7 +2165,7 @@ impl IntegratedBranchA {
     }
 
     fn next_plan_step_count(&mut self) -> Result<usize> {
-        let mut workspace = but_graph::Graph::from_head(
+        let mut workspace = but_testsupport::graph_from_head(
             &self.repo,
             &self.meta,
             Default::default(),
@@ -2616,7 +2622,7 @@ fn integrate_upstream_merge_of_another_stack_that_is_behind_locally() -> Result<
     );
 
     configure_tracking_for_branch(&mut out.repo, "C")?;
-    let mut workspace = but_graph::Graph::from_head(
+    let mut workspace = but_testsupport::graph_from_head(
         &out.repo,
         &out.meta,
         Default::default(),

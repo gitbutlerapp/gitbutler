@@ -2,7 +2,6 @@
 //! graphs are returned.
 
 use anyhow::Result;
-use but_graph::Graph;
 use but_rebase::graph_rebase::Editor;
 use but_testsupport::{graph_tree, graph_workspace, visualize_commit_graph_all};
 use snapbox::prelude::*;
@@ -25,7 +24,7 @@ fn four_commits() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -82,7 +81,7 @@ fn four_commits_with_short_traversal() -> Result<()> {
     );
 
     let options = standard_options().with_hard_limit(4);
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -155,7 +154,7 @@ fn merge_in_the_middle() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -225,7 +224,7 @@ fn three_branches_merged() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),

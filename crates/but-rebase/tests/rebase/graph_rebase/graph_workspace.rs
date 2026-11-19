@@ -15,7 +15,6 @@ use but_core::{
     ref_metadata::{LocalRefName, ProjectMeta},
     ui::{CommitState, PushStatus},
 };
-use but_graph::Graph;
 use but_rebase::graph_rebase::Editor;
 use but_testsupport::visualize_commit_graph_all;
 use snapbox::IntoData;
@@ -28,7 +27,7 @@ use crate::utils::{fixture_writable, standard_options};
 fn render(fixture: &str, target: Option<&str>) -> Result<String> {
     let (repo, _tmp, mut meta, mut db) = fixture_writable(fixture)?;
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         ProjectMeta::default(),
@@ -78,7 +77,7 @@ fn configure_main_upstream(repo: &mut gix::Repository, tip: &str) -> Result<()> 
 fn local_target_ahead_of_upstream_is_not_integrated() -> Result<()> {
     let (mut repo, _tmp, mut meta, mut db) = fixture_writable("workspace-signed")?;
     configure_main_upstream(&mut repo, "b")?;
-    let mut ws = Graph::from_head(
+    let mut ws = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         local_main_target(&repo)?,
@@ -120,7 +119,7 @@ fn diverged_target_distinguishes_local_work_from_landed_work() -> Result<()> {
         merge_base, upstream_tip,
         "upstream has commits absent from main"
     );
-    let mut ws = Graph::from_head(
+    let mut ws = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         local_main_target(&repo)?,
@@ -172,7 +171,7 @@ fn upstream_ahead_of_local_target_is_integrated() -> Result<()> {
         gix::refs::transaction::PreviousValue::Any,
         "local target lags upstream",
     )?;
-    let mut ws = Graph::from_head(
+    let mut ws = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         local_main_target(&repo)?,
@@ -210,7 +209,7 @@ fn upstream_tip_is_integrated_without_its_reference_step() -> Result<()> {
         gix::refs::transaction::PreviousValue::Any,
         "local target lags upstream",
     )?;
-    let mut ws = Graph::from_head(
+    let mut ws = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         local_main_target(&repo)?,
@@ -254,9 +253,10 @@ fn local_target_without_upstream_does_not_mark_work_integrated() -> Result<()> {
         project_meta.remote_target_ref(&repo)?.is_none(),
         "fixture has no upstream"
     );
-    let mut ws = Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
-        .validated()?
-        .into_workspace()?;
+    let mut ws =
+        but_testsupport::graph_from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
+            .validated()?
+            .into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
     let branch = editor.select_reference("refs/heads/c".try_into()?)?;
     let projection = editor.graph_workspace()?;
@@ -298,9 +298,10 @@ fn pushed_feature_is_local_and_remote_without_a_target_upstream() -> Result<()> 
         project_meta.remote_target_ref(&repo)?.is_none(),
         "main has no upstream, but c does"
     );
-    let mut ws = Graph::from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
-        .validated()?
-        .into_workspace()?;
+    let mut ws =
+        but_testsupport::graph_from_head(&repo, &*meta, project_meta, &mut db, standard_options())?
+            .validated()?
+            .into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
     let commit = editor.select_commit(tip)?;
     let branch = editor.select_reference("refs/heads/c".try_into()?)?;

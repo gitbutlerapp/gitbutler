@@ -710,7 +710,10 @@ pub fn debug_str(input: &dyn std::fmt::Debug) -> String {
 }
 
 mod graph;
-pub use graph::{graph_tree, graph_workspace, graph_workspace_determinisitcally};
+pub use graph::{
+    graph_from_commit_traversal, graph_from_head, graph_tree, graph_workspace,
+    graph_workspace_determinisitcally,
+};
 
 mod prepare_cmd_env;
 pub use prepare_cmd_env::{isolate_env_std_cmd, isolate_env_std_cmd_with_additional_removals};
