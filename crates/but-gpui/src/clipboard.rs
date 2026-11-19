@@ -79,15 +79,9 @@ fn write(item: ClipboardItem, cx: &mut App) {
 
 /// What the snackbar says after copying `text`: the text itself, or how many lines it has.
 pub fn copied(text: &str) -> String {
-    took("Copied", text)
-}
-
-/// What the snackbar says after `verb`, as "Copied" or "Cut", took `text`: the text itself,
-/// its middle left out when it's long, or how many lines it has.
-pub fn took(verb: &str, text: &str) -> String {
     match text.lines().count() {
-        0 | 1 => format!("{verb} {}", shortened(text)),
-        lines => format!("{verb} {lines} lines"),
+        0 | 1 => format!("Copied {}", shortened(text)),
+        lines => format!("Copied {lines} lines"),
     }
 }
 
@@ -107,7 +101,7 @@ fn shortened(text: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{NAMED, copied, took};
+    use super::{NAMED, copied};
 
     #[test]
     fn a_copy_says_what_it_took() {
@@ -135,6 +129,5 @@ mod tests {
             "Copied 3 lines",
             "several lines are counted"
         );
-        assert_eq!(took("Cut", "word"), "Cut word", "as cutting says it");
     }
 }

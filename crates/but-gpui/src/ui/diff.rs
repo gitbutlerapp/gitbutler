@@ -395,8 +395,6 @@ pub struct HeaderDecor {
     /// Its file fills the pane alone with the diff's controls hidden, and its header titles the pane as the file
     /// list's heading does beside it: as tall, its name as large, on the pane's ground.
     pub titled: bool,
-    /// Its file has edits not saved yet: a dot after its name, as an editor's tab has.
-    pub unsaved: bool,
 }
 
 /// What the diff's owner adds to a line.
@@ -413,8 +411,6 @@ pub struct LineDecor {
     pub found: Vec<(Range<usize>, bool)>,
     /// What a changed line's numbers offer outside the composer.
     pub gutter: Option<Gutter>,
-    /// The field the line is being typed in, in place of its text.
-    pub editor: Option<AnyElement>,
 }
 
 /// What a changed line's numbers offer outside the composer: picking the line, and a grip
@@ -607,9 +603,6 @@ pub fn file_header(
                         })
                         .child(name.to_owned()),
                 )
-                .when(decor.unsaved, |el| {
-                    el.child(unsaved_dot(soft(theme.text_2)))
-                })
                 // Cut in the middle, as the folder's end tells two files of one name apart.
                 .child(
                     div()
@@ -1095,11 +1088,6 @@ pub(super) fn line_card(
         .overflow_hidden()
 }
 
-/// The dot after the name of a file with edits not saved yet, as an editor's tab has.
-pub fn unsaved_dot(color: Hsla) -> gpui::Div {
-    div().flex_none().size(dp(7.)).rounded_full().bg(color)
-}
-
 /// A few lines of a diff quoted where they're talked about, as a pull request's thread quotes
 /// them: numbered and tinted as the diff draws them, long ones wrapping.
 pub fn excerpt(lines: &[DiffLine], theme: &Theme) -> gpui::Div {
@@ -1179,7 +1167,6 @@ pub fn line_row(
         selected,
         found,
         gutter,
-        editor,
     } = decor;
     let outline = gutter.as_ref().and_then(|gutter| gutter.outline);
     let id = row_id(place);
@@ -1211,34 +1198,13 @@ pub fn line_row(
             last,
             theme,
         ))
-        .map(|el| match editor {
-            // Lined up with the text it stands in for, scrolling sideways with the other lines
-            // as theirs does: the field doesn't slide on its own.
-            Some(editor) => {
-                let cell = div().flex_1().min_w_0().pl(dp(8.)).text_color(theme.text_1);
-                let sideways = &layout.sideways[1];
-                // The line's text laid out unseen under the field, which draws it alike, so a
-                // press finds its place in it as on any other line.
-                let unseen = div().absolute().top_0().left_0().opacity(0.).child(text);
-                let field = div().relative().child(editor).child(unseen);
-                el.child(match layout.wrap {
-                    true => cell.child(field).into_any_element(),
-                    false => (cell.id(("line-text", id)))
-                        .overflow_x_scroll()
-                        .restrict_scroll_to_axis()
-                        .track_scroll(&sideways.scroll)
-                        .child(field.min_w(dp((sideways.columns + 1) as f32 * digit_width(theme))))
-                        .into_any_element(),
-                })
-            }
-            None => el.child(text_cell(
-                ("line-text", id).into(),
-                text,
-                layout.wrap,
-                &layout.sideways[1],
-                theme,
-            )),
-        })
+        .child(text_cell(
+            ("line-text", id).into(),
+            text,
+            layout.wrap,
+            &layout.sideways[1],
+            theme,
+        ))
         .when_some(outline, |el, edges| {
             el.relative().child(outline_box(edges, theme))
         })
