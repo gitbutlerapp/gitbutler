@@ -52,11 +52,18 @@ places that draw it.
 | Integrated into the target  | `commit-fill` | `--but-commit-integrated` | `--but-purple-mark`, as a merged request                         |
 | Conflicted, pushed or not   | `warning`     | `--but-warning-mark`      | amber, a conflict's mark ([Conflicts](../patterns/conflicts.md)) |
 
-A branch's commits on its remote that aren't here yet list under the branch, and
-the heading over them takes `--but-commit-upstream` too, so the heading and its
-commits change together. A merge among them takes `branch-merge` in
-`--but-commit-upstream`, and a commit from someone else shows their picture at
-the row's end, never in the glyph's place.
+**What a branch's remote has comes in under a heading.** "New on origin" sits one
+level under the branch, over its own commits, with the incoming commits under
+it: the remote alone in its name, the whole ref in its tooltip. Its glyph takes
+`--but-commit-upstream` too, so the heading and its commits change together, and
+Update takes its count's place. A merge among them takes `branch-merge` in
+`--but-commit-upstream`.
+
+**Who sends them shows once, on the row that hides them.** A commit from someone
+else shows their picture at the row's end, never in the glyph's place. A folded
+row stacks the pictures of what it hides, after its counts: a folded branch, a
+folded heading, a folded merge. Open, it leaves them to the rows under it, so a
+face never shows twice.
 
 **The target's new commits aren't rows.** The repository's ↓ says how many, with
 Update in its place, and a page lists them. The tree lists the work in the

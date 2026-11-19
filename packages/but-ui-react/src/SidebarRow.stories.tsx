@@ -13,6 +13,7 @@ import {
 	RepoItem,
 	StackCaption,
 	UncommittedItem,
+	UpstreamItem,
 	WorktreeItem,
 } from "./SidebarRow.tsx";
 import { Card, machine, push, Repository, update } from "./story-assets/workspaceTree.tsx";
@@ -841,56 +842,80 @@ export const Unread = meta.story({
 const pavel = { seed: "pavel@gitbutler.com" };
 const kiril = { seed: "kiril@gitbutler.com" };
 
-/** {@link Upstream}'s rows, a merge folding as the sidebar's do. */
+/** {@link Upstream}'s rows, the heading and a merge folding as the sidebar's do. */
 const UpstreamTree: FC = () => {
+	const [branch, setBranch] = useState(true);
+	const [open, setOpen] = useState(true);
 	const [merge, setMerge] = useState(true);
 	return (
 		<Repository last>
 			<RepoItem name="but-dev" folded={false} />
 			<BranchItem
-				title="fix: retry stalled transfers"
-				pr={{ number: 377, state: "open" }}
+				title="perf: cheaper status polling"
 				depth={1}
-				folded={false}
-				meta={<MetaCount type="unpushed">2</MetaCount>}
+				folded={!branch}
+				onToggleFolded={() => setBranch(!branch)}
+				meta={<CiStatus status="working" />}
+				authors={[pavel, kiril]}
+				actions={!branch && update(3, "origin")}
 			/>
-			<CommitItem
-				message="Merge #12: retry on timeout"
-				upstream
-				merge
-				tooltip="Kiril Videlov · 1h ago"
-				depth={2}
-				folded={!merge}
-				onToggleFolded={() => setMerge(!merge)}
-			/>
-			{merge && (
-				<CommitItem
-					message="fix: retry on timeout"
-					upstream
-					author={kiril}
-					tooltip="Kiril Videlov · 1h ago"
-					depth={3}
-				/>
+			{branch && (
+				<>
+					<UpstreamItem
+						remote="origin"
+						count={3}
+						authors={[pavel, kiril]}
+						tooltip="3 new commits on origin/perf-cheaper-status-polling, from Pavel Laptev and Kiril Videlov"
+						depth={2}
+						folded={!open}
+						onToggleFolded={() => setOpen(!open)}
+						actions={update(3, "origin")}
+					/>
+					{open && (
+						<>
+							<CommitItem
+								message="Merge #12: retry on timeout"
+								upstream
+								merge
+								authors={[kiril]}
+								tooltip="Kiril Videlov · 1h ago"
+								depth={3}
+								folded={!merge}
+								onToggleFolded={() => setMerge(!merge)}
+							/>
+							{merge && (
+								<CommitItem
+									message="fix: retry on timeout"
+									upstream
+									author={kiril}
+									tooltip="Kiril Videlov · 1h ago"
+									depth={4}
+								/>
+							)}
+							<CommitItem
+								message="test: cover a stalled transfer"
+								upstream
+								author={pavel}
+								tooltip="Pavel Laptev · 2h ago"
+								depth={3}
+							/>
+						</>
+					)}
+					<CommitItem message="docs: handoff notes" depth={2} />
+					<CommitItem message="feat: 28px hunk separator" pushed={false} depth={2} />
+					<CommitItem message="chore: separator tokens" pushed={false} depth={2} />
+				</>
 			)}
-			<CommitItem
-				message="test: cover a stalled transfer"
-				upstream
-				author={pavel}
-				tooltip="Pavel Laptev · 2h ago"
-				depth={2}
-			/>
-			<CommitItem message="feat: elapsed time for agents" pushed={false} depth={2} />
-			<CommitItem message="chore: separator tokens" pushed={false} depth={2} />
-			<CommitItem message="feat: 28px hunk separator" depth={2} />
 		</Repository>
 	);
 };
 
 /**
- * Commits on a branch's remote the workspace doesn't have yet, as GPUI lists them under the branch:
- * `upstream`, amber, each with its author's picture at its end, a merge folding to the commits it
- * brought in. The target's new commits aren't listed in the tree: the repository's ↓ says how many,
- * with Update in its place, and a page lists them.
+ * What a branch's remote has that the branch doesn't, as GPUI shows it: a "New on origin" heading
+ * one level under the branch, over its own commits, with who the commits come from and Update in
+ * place of the count. Open, the commits sit under it, `upstream` and amber, each with its author's
+ * picture at its end, a merge folding to the commits it brought in. Fold the heading and its
+ * pictures say who; fold the branch and it says both, the pictures and Update in place of its ↓.
  */
 export const Upstream = meta.story({
 	render: () => (
@@ -901,28 +926,30 @@ export const Upstream = meta.story({
 });
 
 /**
- * A branch whose commits on its remote couldn't load: a NoticeItem says so in their place, with
- * the reason over it and Try again after it.
+ * A remote whose commits couldn't load: a NoticeItem says so in their place, with the reason over
+ * it and Try again after it.
  */
 export const UpstreamFailed = meta.story({
 	render: () => (
 		<Card label="pavel--macbook-pro-2" header={machine}>
 			<Repository last>
 				<RepoItem name="but-dev" folded={false} />
-				<BranchItem
-					title="fix: retry stalled transfers"
-					pr={{ number: 377, state: "open" }}
-					depth={1}
+				<BranchItem title="perf: cheaper status polling" depth={1} folded={false} />
+				<UpstreamItem
+					remote="origin"
+					count={2}
+					tooltip="2 new commits on origin/perf-cheaper-status-polling"
+					depth={2}
 					folded={false}
-					meta={<MetaCount type="unpushed">2</MetaCount>}
+					actions={update(2, "origin")}
 				/>
 				<NoticeItem
 					message="Can’t show the commits."
 					tooltip="The machine didn’t answer"
 					action={{ label: "Try again", onClick: () => {} }}
-					depth={2}
+					depth={3}
 				/>
-				<CommitItem message="feat: elapsed time for agents" pushed={false} depth={2} />
+				<CommitItem message="feat: 28px hunk separator" pushed={false} depth={2} />
 			</Repository>
 		</Card>
 	),

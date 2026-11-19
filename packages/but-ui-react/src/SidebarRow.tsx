@@ -341,6 +341,20 @@ const prBadge: Record<PullRequestState, BadgeVariant> = {
 	merged: "purple",
 };
 
+/** Who a commit is from: their picture's `src` if the host has one, and `seed`, their email, which
+ * finds their Gravatar and picks their colour without one. */
+export type CommitAuthor = { src?: string | null; seed: string };
+
+/** Who new commits come from, each once, as overlapping pictures: the first three. */
+const Authors: FC<{ authors: ReadonlyArray<CommitAuthor> }> = ({ authors }) =>
+	authors.length > 0 && (
+		<span className={styles.authors}>
+			{authors.slice(0, 3).map((a) => (
+				<Avatar key={a.seed} src={a.src} seed={a.seed} size={14} />
+			))}
+		</span>
+	);
+
 /**
  * A branch in the sidebar. With a pull request (`pr`), the row is the request: its state in the
  * glyph and the badge, its number, and its title as `title`; without one, `title` is the branch's
@@ -377,8 +391,11 @@ export const BranchItem: FC<
 		pr?: { number: number; state: PullRequestState };
 		/** Merged into the target with no pull request known. Ignored with `pr`. */
 		merged?: boolean;
+		/** Who the commits on its remote that it doesn't have yet come from, shown while it's folded
+		 * after its counts, as its {@link UpstreamItem} shows them while that is. */
+		authors?: ReadonlyArray<CommitAuthor>;
 	} & RowProps
-> = ({ title, pr, merged = false, tooltip, ...props }) => {
+> = ({ title, pr, merged = false, authors = [], tooltip, meta, ...props }) => {
 	const state = pr?.state ?? (merged ? "merged" : undefined);
 	const glyph = (name: IconName) => (
 		<Icon
@@ -401,6 +418,16 @@ export const BranchItem: FC<
 			rowClassName={classes(state === "merged" && styles.merged)}
 			icon={icon}
 			spinner={spinner}
+			meta={
+				props.folded === true && authors.length > 0 ? (
+					<>
+						{meta}
+						<Authors authors={authors} />
+					</>
+				) : (
+					meta
+				)
+			}
 			label={
 				<>
 					{badge}
@@ -430,8 +457,8 @@ export const BranchItem: FC<
  * Among `upstream` commits a `merge` takes the merge glyph and, with `folded`, opens to the commits
  * it brought in, one level deeper. Someone else pushed them, so give each its
  * `author`: their {@link Avatar} sits at the row's end, after any `meta`, where a count would, so
- * the glyphs down the list keep saying what each row is. A merge has no author of its own; its
- * commits carry the faces. Name the author in the `tooltip`; the picture is decorative.
+ * the glyphs down the list keep saying what each row is. A merge has no author of its own: folded,
+ * it shows its commits' `authors` stacked, and open, its commits carry the faces. Name the author in the `tooltip`; the picture is decorative.
  *
  * @import import { CommitItem } from "@gitbutler/but-ui-react/SidebarRow.tsx";
  */
@@ -443,6 +470,8 @@ export const CommitItem: FC<
 		merge?: boolean;
 		conflicted?: boolean;
 		author?: CommitAuthor;
+		/** A merge's: who the commits it brought in come from, shown while it's folded. */
+		authors?: ReadonlyArray<CommitAuthor>;
 	} & RowProps
 > = ({
 	message,
@@ -451,6 +480,7 @@ export const CommitItem: FC<
 	merge = false,
 	conflicted = false,
 	author,
+	authors = [],
 	tooltip,
 	meta,
 	...props
@@ -459,7 +489,16 @@ export const CommitItem: FC<
 		{...props}
 		name={message}
 		meta={
-			author && !merge ? (
+			merge ? (
+				props.folded === true && authors.length > 0 ? (
+					<>
+						{meta}
+						<Authors authors={authors} />
+					</>
+				) : (
+					meta
+				)
+			) : author ? (
 				<>
 					{meta}
 					<span className={styles.author}>
@@ -493,9 +532,43 @@ export const CommitItem: FC<
 	/>
 );
 
-/** Who a commit is from: their picture's `src` if the host has one, and `seed`, their email, which
- * finds their Gravatar and picks their colour without one. */
-export type CommitAuthor = { src?: string | null; seed: string };
+/**
+ * What a branch's remote (`remote`, such as `origin`) has that the branch doesn't: a heading one
+ * level under the branch, right over the branch's own commits. Folded, it says who the new
+ * commits come from (`authors`, each once, as overlapping pictures; it draws the first three, so
+ * name them all in the `tooltip`); open, it leaves that to the commits, each with its own `author`,
+ * as a folded row sums up what it hides. It always says how many (`count`), and Update (`actions`)
+ * takes that count's place, as on every row. Its glyph takes `--but-commit-upstream`, as the commits under it do, so the two change
+ * together. Open, the commits sit under it one level deeper as `upstream` {@link CommitItem}s.
+ * Leave it out while there are none.
+ *
+ * Name the remote alone, `origin`, and the whole ref, `origin/perf-cheaper-status-polling`, in
+ * the `tooltip`: the row reads "New on origin" in a narrow sidebar.
+ *
+ * @import import { UpstreamItem } from "@gitbutler/but-ui-react/SidebarRow.tsx";
+ */
+export const UpstreamItem: FC<
+	{ remote: string; count: number; authors?: ReadonlyArray<CommitAuthor> } & Omit<RowProps, "meta">
+> = ({ remote, count, authors = [], actions, tooltip, folded, ...props }) => (
+	<Row
+		{...props}
+		folded={folded}
+		name={`New on ${remote}`}
+		icon={<Icon name="arrow-in-box" className={styles.upstream} />}
+		label={
+			<Name tooltip={tooltip} className={classes("text-14", "text-semibold", styles.name)}>
+				New on {remote}
+			</Name>
+		}
+		meta={
+			<>
+				{folded !== false && <Authors authors={authors} />}
+				{filled(actions) === undefined && <MetaCount type="behind">{count}</MetaCount>}
+			</>
+		}
+		actions={actions}
+	/>
+);
 
 /**
  * A worktree's uncommitted changes, as a row of its own, with how many files it has changed
