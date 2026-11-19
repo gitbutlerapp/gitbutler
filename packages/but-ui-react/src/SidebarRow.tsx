@@ -497,7 +497,8 @@ export const CommitItem: FC<
 /**
  * What the repository's target (`target`, such as `master`) has that its workspace doesn't: the
  * first row under the repository, right over its worktrees. It says how many
- * commits (`count`), and Update (`actions`) takes that count's place, as on every row. Open, the commits sit under it one level
+ * commits (`count`), and Update (`actions`) takes that count's place, as on every row. Its glyph
+ * takes `--but-commit-upstream`, as the commits under it do, so the two change together. Open, the commits sit under it one level
  * deeper as {@link CommitItem}s, a merge's own one more. Leave it out while there are none.
  *
  * `authors`, the people the commits come from, each once, show as overlapping pictures before the
@@ -512,7 +513,7 @@ export const TargetItem: FC<
 	<Row
 		{...props}
 		name={`New on ${target}`}
-		icon={<Icon name="arrow-in-box" />}
+		icon={<Icon name="arrow-in-box" className={styles.upstream} />}
 		label={
 			<Name tooltip={tooltip} className={classes("text-14", "text-semibold", styles.name)}>
 				New on {target}
