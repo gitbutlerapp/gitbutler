@@ -16,7 +16,7 @@ const meta = stories({
 
 /** What the target has that the workspace doesn't: how many commits, with Update beside them. */
 export const Default = meta.story({
-	render: (args) => <TargetItem {...args} actions={update} />,
+	render: (args) => <TargetItem {...args} actions={update(args.count)} />,
 });
 
 /**
@@ -37,7 +37,7 @@ export const NewOnTargetFailed = meta.story({
 	parameters: { design: { type: "figma", url: core("4318-12241") } },
 	render: () => (
 		<Column>
-			<TargetItem target="master" count={2} depth={1} folded={false} actions={update} />
+			<TargetItem target="master" count={2} depth={1} folded={false} actions={update(2)} />
 			<NoticeItem
 				message="Can’t show the commits."
 				tooltip="The machine didn’t answer"
@@ -66,7 +66,7 @@ const NewOnTargetTree: FC = () => {
 				depth={1}
 				folded={!open}
 				onToggleFolded={() => setOpen(!open)}
-				actions={update}
+				actions={update(74)}
 			/>
 			{open && (
 				<>
