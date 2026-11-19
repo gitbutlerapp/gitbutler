@@ -355,6 +355,9 @@ pub enum Notice {
         detail: SharedString,
         retry: Option<Retry>,
         source: Option<(ProjectId, SharedString)>,
+        /// Not a failure: it waits on something, as a pull request on its checks. A clock leads
+        /// it, its Dismiss says Not now, and the log doesn't count it as an error.
+        waits: bool,
     },
 }
 
@@ -1427,6 +1430,7 @@ impl Store {
                 detail: detail.into(),
                 retry: None,
                 source: None,
+                waits: false,
             },
             cx,
         );
@@ -1494,6 +1498,29 @@ impl Store {
                 detail: detail.into(),
                 retry: Some((retry_label.into(), std::rc::Rc::new(retry))),
                 source: None,
+                waits: false,
+            },
+            cx,
+        );
+    }
+
+    /// A card saying what's waiting on something, rather than failed, whose button runs `then`,
+    /// as to turn auto-merge on while a pull request's checks run.
+    pub fn waiting(
+        &mut self,
+        title: impl Into<SharedString>,
+        detail: impl Into<SharedString>,
+        then_label: impl Into<SharedString>,
+        then: impl Fn(&mut Store, &mut Context<Store>) + 'static,
+        cx: &mut Context<Self>,
+    ) {
+        self.notify_user(
+            Notice::Error {
+                title: title.into(),
+                detail: detail.into(),
+                retry: Some((then_label.into(), std::rc::Rc::new(then))),
+                source: None,
+                waits: true,
             },
             cx,
         );
@@ -1501,7 +1528,13 @@ impl Store {
 
     fn notify_user(&mut self, notice: Notice, cx: &mut Context<Self>) {
         // Every error card shown, for the log to say what went wrong for the user and when.
-        if let Notice::Error { title, detail, .. } = &notice {
+        if let Notice::Error {
+            title,
+            detail,
+            waits: false,
+            ..
+        } = &notice
+        {
             tracing::error!("{title}: {detail}");
         }
         let id = self.next_toast;

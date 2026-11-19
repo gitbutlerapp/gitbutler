@@ -8,7 +8,7 @@ use gpui::{
 
 use crate::app::AppView;
 use crate::backend::ai;
-use crate::backend::reviews::{self, MergeMethod, MergeStatus};
+use crate::backend::reviews::{self, MergeMethod, MergeOutcome, MergeStatus};
 use crate::backend::{self, Forge, FullName, Review, ReviewState, short_ref};
 use crate::overlays::branch_went;
 use crate::state::{Overlay, ProjectId, Selection, Store, StoreEvent, snack};
@@ -507,6 +507,7 @@ impl AppView {
             return snack(&self.store, why, cx);
         }
         let method = merge_method(self.store.read(cx), &project).unwrap_or(MergeMethod::Merge);
+        let refused = project.clone();
         self.store.update(cx, |store, cx| {
             store.apply(
                 &project,
@@ -516,12 +517,36 @@ impl AppView {
                     ..Overlay::default()
                 },
                 reviews::Merge { number, method },
-                |store, merged, cx| {
-                    let said = match merged {
-                        true => "Merged, Update brings it into your workspace",
-                        false => "In the merge queue, it merges when the queue gets to it",
-                    };
-                    store.snack(said, cx)
+                move |store, merged, cx| match merged {
+                    MergeOutcome::Merged => {
+                        store.snack("Merged, Update brings it into your workspace", cx)
+                    }
+                    MergeOutcome::Queued => store.snack(
+                        "In the merge queue, it merges when the queue gets to it",
+                        cx,
+                    ),
+                    // Not a failure: it waits on something, as its checks. Asking again where it
+                    // stands has the menu and merge box offer auto-merge in place of Merge.
+                    MergeOutcome::NotYet => {
+                        let review = (store.workspace(&refused))
+                            .and_then(|ws| ws.find_branch(Some(&branch)))
+                            .and_then(|branch| branch.review.clone());
+                        if let Some(review) = review {
+                            store.reread_merge_status(&refused, &review, cx);
+                        }
+                        let title = store.card_title(&refused, "Not ready to merge yet".into());
+                        let enable = move |store: &mut Store, cx: &mut Context<Store>| {
+                            turn_auto_merge(store, &refused, number, true, cx)
+                        };
+                        store.waiting(
+                            title,
+                            "It's waiting on required checks or reviews. Turn on auto-merge \
+                             and it merges once they pass.",
+                            "Enable auto-merge",
+                            enable,
+                            cx,
+                        )
+                    }
                 },
                 cx,
             )
@@ -563,26 +588,8 @@ impl AppView {
         if let Some(why) = push_first(self.store.read(cx), &project, &branch).filter(|_| on) {
             return snack(&self.store, why, cx);
         }
-        let (label, done) = match on {
-            true => (
-                "Enable auto-merge",
-                "Auto-merge is on: it merges once its required checks and reviews pass",
-            ),
-            false => ("Disable auto-merge", "Auto-merge is off"),
-        };
-        let method = self.store.read(cx).picked_merge_method(&project);
         self.store.update(cx, |store, cx| {
-            store.apply(
-                &project,
-                label,
-                Overlay {
-                    auto_merges: Some((number, on)),
-                    ..Overlay::default()
-                },
-                reviews::SetAutoMerge { number, on, method },
-                move |store, (), cx| store.snack(done, cx),
-                cx,
-            )
+            turn_auto_merge(store, &project, number, on, cx)
         });
     }
 
@@ -629,6 +636,36 @@ impl AppView {
             )
         });
     }
+}
+
+/// Turn auto-merge of pull request `number` of `project` on or off, merging the way the project
+/// last picked. It's shown at once as it'll be.
+fn turn_auto_merge(
+    store: &mut Store,
+    project: &ProjectId,
+    number: u64,
+    on: bool,
+    cx: &mut Context<Store>,
+) {
+    let (label, done) = match on {
+        true => (
+            "Enable auto-merge",
+            "Auto-merge is on: it merges once its required checks and reviews pass",
+        ),
+        false => ("Disable auto-merge", "Auto-merge is off"),
+    };
+    let method = store.picked_merge_method(project);
+    store.apply(
+        project,
+        label,
+        Overlay {
+            auto_merges: Some((number, on)),
+            ..Overlay::default()
+        },
+        reviews::SetAutoMerge { number, on, method },
+        move |store, (), cx| store.snack(done, cx),
+        cx,
+    )
 }
 
 /// Why `branch` (a full ref) can't merge, nor auto-merge, yet: the forge merges what it has,
