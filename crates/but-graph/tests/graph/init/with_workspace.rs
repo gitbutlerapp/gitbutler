@@ -1555,18 +1555,18 @@ fn segment_on_each_incoming_connection() -> anyhow::Result<()> {
         graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 
-├── 👉►:0[0]:entrypoint
+├── 👉►[0]:entrypoint
 │   ├── ·98c5aba (⌂)
 │   ├── ·807b6ce (⌂)
 │   └── ·6d05486 (⌂)
-│       └── ►:3[2]:anon:
+│       └── ►[2]:anon:
 │           ├── ·b688f2d (⌂|🏘)
 │           └── 🏁·fafd9d0 (⌂|🏘)
-└── 📕►►►:1[0]:gitbutler/workspace[🌳]
+└── 📕►►►[0]:gitbutler/workspace[🌳]
     └── ·b6917c7 (⌂|🏘)
-        └── ►:2[1]:main
+        └── ►[1]:main
             └── ·f7fe830 (⌂|🏘)
-                └── →:3:
+                └── → segment ·b688f2d
 
 "#]]
     );
@@ -7402,23 +7402,23 @@ fn special_branch_do_not_allow_overly_long_segments() -> anyhow::Result<()> {
         graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 
-├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
+├── 👉📕►►►[0]:gitbutler/workspace[🌳]
 │   └── ·270738b (⌂|🏘)
-│       └── ►:5[1]:A
+│       └── ►[1]:A
 │           └── ·c59457b (⌂|🏘)
-│               └── ►:6[2]:gitbutler/edit
+│               └── ►[2]:gitbutler/edit
 │                   └── ·e146f13 (⌂|🏘)
-│                       └── ►:3[3]:main <> origin/main
+│                       └── ►[3]:main <> origin/main
 │                           └── ·971953d (⌂|🏘|✓)
-│                               └── ►:2[4]:anon:
+│                               └── ►[4]:anon:
 │                                   ├── ·ce09734 (⌂|🏘|✓)
 │                                   └── 🏁·fafd9d0 (⌂|🏘|✓)
-├── ►:1[0]:origin/gitbutler/target
-│   └── →:2:
-├── ►:4[0]:origin/main
-│   └── →:3: (main →:4:)
-└── ►:7[0]:gitbutler/target <> origin/gitbutler/target
-    └── →:2:
+├── ►[0]:origin/gitbutler/target
+│   └── → segment ·ce09734
+├── ►[0]:origin/main
+│   └── → segment main (→ segment origin/main)
+└── ►[0]:gitbutler/target <> origin/gitbutler/target
+    └── → segment ·ce09734
 
 "#]]
     );
