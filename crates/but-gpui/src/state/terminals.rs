@@ -37,6 +37,40 @@ pub struct ListedTerminal<'a> {
     pub tiled: bool,
 }
 
+/// For the metrics: how many terminals are open, how many in each of the card's statuses, and
+/// how many projects they're open on.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct TerminalCounts {
+    pub open: usize,
+    pub blocked: usize,
+    pub failed: usize,
+    pub done: usize,
+    pub idle: usize,
+    pub working: usize,
+    pub projects: usize,
+}
+
+impl TerminalCounts {
+    fn of<'a>(terminals: impl IntoIterator<Item = (&'a ProjectId, &'a Status)>) -> Self {
+        use crate::palette::StatusGroup;
+        let mut counts = TerminalCounts::default();
+        let mut projects = HashSet::new();
+        for (project, status) in terminals {
+            counts.open += 1;
+            projects.insert(project);
+            *match StatusGroup::of(status) {
+                StatusGroup::Blocked => &mut counts.blocked,
+                StatusGroup::Failed => &mut counts.failed,
+                StatusGroup::Done => &mut counts.done,
+                StatusGroup::Idle => &mut counts.idle,
+                StatusGroup::Working => &mut counts.working,
+            } += 1;
+        }
+        counts.projects = projects.len();
+        counts
+    }
+}
+
 #[derive(Default)]
 pub struct Terminals {
     opened: u64,
@@ -192,6 +226,10 @@ impl Terminals {
 }
 
 impl Store {
+    pub fn terminal_counts(&self) -> TerminalCounts {
+        TerminalCounts::of((self.terminals.open.iter()).map(|open| (&open.project, &open.status)))
+    }
+
     /// Where terminal `id` shows: its own row, in the home tile, or the row whose tiling it
     /// lives in a tile of, in that tile.
     pub fn terminal_tile(&self, id: TerminalId) -> Option<(Selection, Tile)> {
@@ -821,10 +859,46 @@ fn row_open(row: &RowKey, open: &impl Fn(TerminalId) -> bool) -> bool {
 mod tests {
     use std::collections::HashMap;
 
-    use super::{Handed, HandedTilings, leave_other_tilings, surviving};
+    use but_tty::Status;
+    use gpui::SharedString;
+
+    use super::{Handed, HandedTilings, TerminalCounts, leave_other_tilings, surviving};
     use crate::backend::Checkout;
     use crate::state::{Axis, MeshPick, ProjectTab, RowKey, Section, Selection, Tile, Tiling};
     use crate::terminal::TerminalId;
+
+    #[test]
+    fn terminal_counts_go_by_the_cards_statuses_and_count_each_project_once() {
+        let (alpha, beta) = (SharedString::from("alpha"), SharedString::from("beta"));
+        let blocked = Status::Blocked("needs a password".into());
+        let failed = Status::Failed(String::new());
+        let open = [
+            (&alpha, &blocked),
+            (&alpha, &Status::Working),
+            (&beta, &Status::Working),
+            (&beta, &Status::Idle),
+            (&alpha, &Status::Done),
+            (&beta, &failed),
+        ];
+        assert_eq!(
+            TerminalCounts::of(open),
+            TerminalCounts {
+                open: 6,
+                blocked: 1,
+                failed: 1,
+                done: 1,
+                idle: 1,
+                working: 2,
+                projects: 2,
+            },
+            "a status's reason doesn't matter, and two projects hold all six"
+        );
+        assert_eq!(
+            TerminalCounts::of([]),
+            TerminalCounts::default(),
+            "with none open, everything is 0"
+        );
+    }
 
     fn handed(named: Option<&str>) -> Handed {
         Handed {

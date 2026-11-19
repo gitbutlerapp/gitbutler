@@ -46,7 +46,7 @@ pub use saved::{
 use saved::{Restored, Saved};
 use seen::Seen;
 pub use seen::{GLOW, Seeable};
-pub use terminals::{ProjectCheckout, Terminals};
+pub use terminals::{ProjectCheckout, TerminalCounts, Terminals};
 pub use tiling::{
     Area, Axis, Divider, DividerDrag, Drawn, Junction, Landing, Opened, RowKey, Side, Tile,
     TileCounts, TileDragFeel, TileIds, Tiling, Zones, along_edge, junctions, nearest_beside,
@@ -1194,6 +1194,7 @@ impl Store {
             projects: self.projects.len(),
             workspace,
             tiles: self.tile_counts(),
+            terminals: self.terminal_counts(),
             navigator_width: self.width(Pane::Navigator),
         });
     }

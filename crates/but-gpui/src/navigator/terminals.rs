@@ -22,7 +22,7 @@ use crate::app::{
     AppHandle, AppView, Cancel, Confirm, FocusNavigator, SelectNext, SelectPrevious, SplitBelow,
     SplitRight,
 };
-use crate::backend::Checkout;
+use crate::backend::{self, Checkout};
 use crate::edits::{Discard, RenameTerminal};
 use crate::overlays::{MenuItem, has_keys};
 use crate::palette::StatusGroup;
@@ -150,6 +150,9 @@ fn items_of(
 /// The menu item grouping the rows `by` what, ticked if it's what's `picked`.
 fn group_by(label: &'static str, by: TerminalGrouping, picked: TerminalGrouping) -> MenuItem {
     MenuItem::new(label, move |app: &mut AppView, _, cx| {
+        if by != picked {
+            backend::metrics::terminal_grouping_changed(by);
+        }
         (app.store).update(cx, |store, cx| {
             store.set_prefs(|prefs| prefs.terminal_grouping = by, cx)
         })
@@ -220,10 +223,12 @@ impl TerminalOverview {
             if empty != this.was_empty {
                 this.was_empty = empty;
                 this.shut = empty;
+                backend::metrics::terminal_card_folded(empty);
             }
             cx.notify()
         });
         let empty = store.read(cx).terminals.count() == 0;
+        backend::metrics::terminal_card_folded(empty);
         let grouped_by = store.read(cx).prefs.terminal_grouping;
         Self {
             app,
@@ -424,6 +429,7 @@ impl TerminalOverview {
 
     fn toggle_card(&mut self, cx: &mut Context<Self>) {
         self.shut ^= true;
+        backend::metrics::terminal_card_folded(self.shut);
         cx.notify();
     }
 
@@ -521,6 +527,7 @@ impl TerminalOverview {
 
     /// Show terminal `id` where it is, and with `enter` give it the keys.
     fn show(&self, id: TerminalId, enter: bool, window: &mut Window, cx: &mut App) {
+        backend::metrics::terminal_shown(backend::metrics::TerminalFrom::Card);
         (self.app).update_later(window, cx, move |app, window, cx| {
             app.show_terminal(id, enter, window, cx)
         });
