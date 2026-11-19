@@ -21,8 +21,8 @@ export const Default = meta.story({
 
 /**
  * What the target has that the workspace doesn't, over the repository's worktrees: how many
- * commits, with Update beside them and who they come from before it. Open, its commits sit under
- * it, each with its author's picture; a merge opens to the commits it brought in.
+ * commits, as the number on Update, and who they come from before it. Open, its commits sit under
+ * it, each with its author's picture at its end; a merge opens to the commits it brought in.
  */
 export const NewOnTarget = meta.story({
 	parameters: { design: { type: "figma", url: core("4664-11729") } },

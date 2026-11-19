@@ -300,6 +300,13 @@ button.toggle {
 	align-items: center;
 }
 
+/* A commit's author at the row's end, set in like a count's glyph, so the picture lines up with
+   the counts above it. */
+.author {
+	display: flex;
+	padding-inline: 3px;
+}
+
 /* Each picture tucks under the one before it, cut where that one sits with a sliver of gap, rather
    than ringed in a ground colour: the row's ground changes under the pointer and on selection. */
 .authors {
