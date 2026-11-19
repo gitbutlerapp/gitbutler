@@ -140,6 +140,16 @@ pub(crate) fn graph(
                     .is_ok_and(|base| base.is_some_and(|base| base.detach() == id))
             })
     };
+    // Whether the workspace's lanes meet the target at the commit `id`: it's the target commit,
+    // or the target and the managed workspace commit both have it.
+    let is_workspace_base = |id: gix::ObjectId| {
+        Some(id) == target_commit_id
+            || (is_in_target(id)
+                && workspace_commit.as_ref().is_some_and(|workspace_commit| {
+                    repo.merge_base(id, workspace_commit.id)
+                        .is_ok_and(|base| base.is_some_and(|base| base.detach() == id))
+                }))
+    };
     let (stacks, unstacked_workspace_branches) = {
         let live_stack = |branches: Vec<FullName>, in_workspace: bool| {
             let branches: Vec<FullName> = branches
@@ -174,14 +184,14 @@ pub(crate) fn graph(
                     continue;
                 };
                 // A stack whose tip isn't a parent of the managed workspace commit
-                // has had another one stacked onto it in Git, unless it rests on the
-                // target commit as an empty lane of its own. Its branches then belong
-                // to whichever stack reaches them.
+                // has had another one stacked onto it in Git, unless it rests where the
+                // workspace's lanes meet the target as an empty lane of its own. Its
+                // branches then belong to whichever stack reaches them.
                 // LEGACY
                 let is_stack_underneath_another = workspace_commit_parent_ids
                     .as_ref()
                     .is_some_and(|parent_ids| !parent_ids.contains(&stack.tip))
-                    && Some(stack.tip) != target_commit_id;
+                    && !is_workspace_base(stack.tip);
                 // Like after a traversal, a parent of the managed workspace commit is one lane
                 // however many stacks rest on it, that of the first of them, unless the target
                 // already has it, where each is an empty lane. The branches of the others then
@@ -235,6 +245,14 @@ pub(crate) fn graph(
     // Sort the values of oid_to_refs for consistency and compatibility with the old implementation.
     let head_stack = head_ref.map_or(&[][..], |head_ref| stack_of_branch(&stacks, head_ref));
     for refs in oid_to_refs.values_mut() {
+        // Like after a traversal, of the branches no stack claims on a commit, one with metadata
+        // names its segment, unless another branch does anyway.
+        let metadata_names_segment = !refs.iter().any(|reference| {
+            is_workspace_ref_name(reference.as_ref())
+                || Some(reference.as_ref()) == head_ref
+                || reference.as_ref() == target_ref
+                || !stack_of_branch(&stacks, reference.as_ref()).is_empty()
+        });
         refs.sort_by_cached_key(|reference| {
             if is_workspace_ref_name(reference.as_ref()) {
                 return (0, 0);
@@ -285,7 +303,18 @@ pub(crate) fn graph(
                         .position(|r| r == reference)
                         .map_or(usize::MAX - 2, |position| position + 2),
                 },
-                0,
+                usize::from(
+                    metadata_names_segment
+                        && reference.category() == Some(gix::refs::Category::LocalBranch)
+                        && stack_of_branch(&stacks, reference.as_ref()).is_empty()
+                        && crate::init::walk::extract_local_branch_metadata(
+                            reference.as_ref(),
+                            overlay_meta,
+                        )
+                        .ok()
+                        .flatten()
+                        .is_none(),
+                ),
             )
         });
     }
@@ -602,7 +631,7 @@ pub(crate) fn graph(
         let mut stack_edges = Vec::<(gix::ObjectId, StackLineage)>::new();
         if is_managed_workspace_commit {
             for stack in stacks.iter().filter(|stack| stack.in_workspace) {
-                if parent_ids.contains(&stack.tip) || Some(stack.tip) == target_commit_id {
+                if parent_ids.contains(&stack.tip) || is_workspace_base(stack.tip) {
                     stack_edges.push((
                         stack.tip,
                         StackLineage {
@@ -1092,8 +1121,14 @@ impl WorkspaceGraph {
                             // Like after a traversal, a branch on a commit that other segments
                             // reach too names a segment of its own, as the commit may end up in
                             // another one than the segment it continues.
+                            // Like the tip a traversal makes of it, the target branch names a
+                            // segment of its own there too.
                             let continues_anonymous = segment.ref_info.is_none()
+                                && segment.commits.is_empty()
                                 && leading_nodes[commit_node_of(i)] < 2
+                                && project_meta.target_ref.as_ref().is_none_or(|target_ref| {
+                                    target_ref.as_local_full_name_ref() != full_name
+                                })
                                 && !(in_workspace
                                     && full_name.category()
                                         == Some(gix::refs::Category::LocalBranch))
@@ -1134,9 +1169,19 @@ impl WorkspaceGraph {
                                     })
                             };
                             // Like the tip a traversal makes of it, the target commit starts a
-                            // segment, unless a branch without commits of its own names it.
+                            // segment, unless the target branch or the branch the graph is seen
+                            // from, both tips of their own, names it without commits of its own.
                             let starts_at_target = project_meta.target_commit_id == Some(*oid)
-                                && !segment.commits.is_empty();
+                                && !(segment.commits.is_empty()
+                                    && segment.ref_info.as_ref().is_some_and(|ref_info| {
+                                        seen_from_ref == Some(ref_info.ref_name.as_ref())
+                                            || project_meta.target_ref.as_ref().is_some_and(
+                                                |target_ref| {
+                                                    target_ref.as_local_full_name_ref()
+                                                        == ref_info.ref_name.as_ref()
+                                                },
+                                            )
+                                    }));
                             // Like after a traversal, a merge commit below commits of a segment
                             // starts a segment of its own.
                             let starts_at_merge =
