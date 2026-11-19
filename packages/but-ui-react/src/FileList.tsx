@@ -13,7 +13,6 @@ import { Button } from "./Button.tsx";
 import { classes } from "./classes.ts";
 import { DiffStats } from "./DiffStats.tsx";
 import { FieldControlWithIcon, FieldRootStyles } from "./Field.tsx";
-import { ConflictIcon } from "./ConflictIcon.tsx";
 import { FileIcon } from "./FileIcon.tsx";
 import { FileStatusBadge, type FileStatusType } from "./FileStatusBadge.tsx";
 import { FolderIcon } from "./FolderIcon.tsx";
@@ -309,7 +308,8 @@ const Directory: FC<{ text: string; found: Ranges | undefined; trail?: boolean }
  * - `inert` while an action on the file runs, or while it can't be acted on: the row fades and
  *   takes no clicks. It shows no spinner of its own: one snackbar says what's running, once for
  *   all the files it touches (but-ui's Toasts and snackbars note).
- * - The last cell says what happened: the conflict mark if it is `conflicted`, else a pencil if
+ * - The last cell says what happened: the warning in red if it is `conflicted`, as on a
+ *   conflicted commit, else a pencil if
  *   it is `editing`, open to edit with nothing changed yet, else a tick if it is `reviewed`, which
  *   also fades the name (a reviewed file's news is that it is done with), else the letter for its
  *   `status`, else a folded directory's `count` of files.
@@ -426,7 +426,10 @@ export const FileListItem: FC<
 		props: {
 			className: styles.status,
 			children: conflicted ? (
-				<ConflictIcon variant="conflict" size={14} aria-label="Conflicted" />
+				// oxlint-disable-next-line jsx_a11y/prefer-tag-over-role -- A glyph with a name, not a picture with a source.
+				<span role="img" aria-label="Conflicted" className={styles.conflicted}>
+					<Icon name="warning" />
+				</span>
 			) : editing ? (
 				<span aria-label="Editing" className={styles.editing}>
 					<Icon name="edit" />

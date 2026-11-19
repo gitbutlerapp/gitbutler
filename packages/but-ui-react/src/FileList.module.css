@@ -483,6 +483,13 @@
 	}
 }
 
+/* Conflicted: the warning in red, as a conflicted commit's glyph is, since nothing can go on until
+   it is resolved. */
+.conflicted {
+	display: flex;
+	color: var(--but-danger-mark);
+}
+
 /* Open to edit with nothing changed yet: quiet, as the folder is, since nothing has happened. */
 .editing {
 	display: flex;
