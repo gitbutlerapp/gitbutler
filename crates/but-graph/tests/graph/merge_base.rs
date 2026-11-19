@@ -12,7 +12,7 @@ use crate::support::graph_dag;
 #[test]
 fn find_git_merge_base_handles_duplicate_queue_entries_and_redundant_bases() -> anyhow::Result<()> {
     let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -69,7 +69,7 @@ fn find_git_merge_base_handles_duplicate_queue_entries_and_redundant_bases() -> 
 #[test]
 fn relation_between_matches_merge_base_in_redundant_ancestor_case() -> anyhow::Result<()> {
     let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -142,7 +142,7 @@ fn reachable_difference_returns_commits_in_traversal_order() -> anyhow::Result<(
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -189,21 +189,26 @@ fn reachable_difference_returns_commits_in_traversal_order() -> anyhow::Result<(
 
 #[test]
 fn extra_tips_include_unnamed_revisions() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
+    let (repo, meta, _db) = read_only_in_memory_scenario("four-diamond")?;
     let merged_id = repo.rev_parse_single("merged")?.detach();
     let a_id = repo.rev_parse_single("A")?.detach();
     let c_id = repo.rev_parse_single("C")?.detach();
     let main_id = repo.rev_parse_single("main")?.detach();
 
-    let graph = Graph::from_commit_traversal_with_extra_tips(
-        merged_id.attach(&repo),
-        None,
-        [Tip::reachable(a_id, None), Tip::reachable(c_id, None)],
+    let options = standard_options();
+    let graph = but_graph::nosegment::workspace(
+        &repo,
         &*meta,
+        but_graph::init::Overlay::default(),
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
-        standard_options(),
+        None,
+        Some(merged_id),
+        [a_id, c_id],
+        Vec::new(),
+        options.collect_tags,
+        options.commits_limit_hint,
     )?
+    .graph
     .validated()?;
 
     snapbox::assert_data_eq!(
@@ -307,7 +312,7 @@ fn extra_tips_prioritize_integrated_tips_independent_of_input_order() -> anyhow:
 #[test]
 fn relation_between_handles_identity_and_disjoint_segments() -> anyhow::Result<()> {
     let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
-    let mut graph = Graph::from_head(
+    let mut graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -340,7 +345,7 @@ fn relation_between_handles_identity_and_disjoint_segments() -> anyhow::Result<(
 #[test]
 fn merge_base_apis_can_resolve_segments_by_first_commit_id() -> anyhow::Result<()> {
     let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
