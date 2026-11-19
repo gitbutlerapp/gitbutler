@@ -443,6 +443,39 @@ impl Area {
     }
 }
 
+/// How many rows divide the detail into tiles, the most tiles one shows, how many of their
+/// tiles are terminals, and whether any row divides it side by side or one above the other. A
+/// row whose page is its only tile isn't divided.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct TileCounts {
+    pub divided_rows: usize,
+    pub most_tiles: usize,
+    pub terminals: usize,
+    pub across: bool,
+    pub down: bool,
+}
+
+impl TileCounts {
+    fn of<'a>(tilings: impl IntoIterator<Item = &'a Tiling>) -> Self {
+        let mut counts = TileCounts {
+            most_tiles: 1,
+            ..TileCounts::default()
+        };
+        for tiling in tilings {
+            let tiles = tiling.areas().len();
+            if tiles < 2 {
+                continue;
+            }
+            counts.divided_rows += 1;
+            counts.most_tiles = counts.most_tiles.max(tiles);
+            counts.terminals += tiling.pinned_terminals().count();
+            counts.across |= tiling.divides(Axis::Across);
+            counts.down |= tiling.divides(Axis::Down);
+        }
+        counts
+    }
+}
+
 impl Default for Tiling {
     fn default() -> Self {
         Tiling::Tile(Tile::Home)
@@ -450,6 +483,15 @@ impl Default for Tiling {
 }
 
 impl Tiling {
+    fn divides(&self, axis: Axis) -> bool {
+        match self {
+            Tiling::Tile(_) => false,
+            Tiling::Divided { axis: own, parts } => {
+                *own == axis || parts.iter().any(|(_, part)| part.divides(axis))
+            }
+        }
+    }
+
     /// Whether it's the home tile alone, as a row is until something is pinned beside it.
     pub fn is_home_only(&self) -> bool {
         *self == Tiling::Tile(Tile::Home)
@@ -1892,6 +1934,11 @@ impl Store {
         Status::most_urgent(own.into_iter().chain(statuses))
     }
 
+    /// How the rows divide the detail, for the metrics.
+    pub fn tile_counts(&self) -> TileCounts {
+        TileCounts::of(self.tilings.values())
+    }
+
     /// What's pinned in the selected row's tiling.
     pub fn pinned(&self) -> Vec<RowKey> {
         (self.tiling().iter().flat_map(|tiling| tiling.areas()))
@@ -2248,6 +2295,48 @@ mod tests {
             width,
             height,
         }
+    }
+
+    #[test]
+    fn tile_counts_take_only_divided_rows() {
+        let page = Tiling::default();
+        let mut beside_terminal = Tiling::default();
+        beside_terminal.pin(&Tile::Home, Axis::Across, terminal(1));
+        let mut three = beside_terminal.clone();
+        three.pin(
+            &Tile::Home,
+            Axis::Down,
+            RowKey::Row(Selection::Project("project".into())),
+        );
+        let promoted = Tiling::Tile(Tile::Pinned(terminal(2)));
+        assert_eq!(
+            TileCounts::of([&page, &beside_terminal, &three, &promoted]),
+            TileCounts {
+                divided_rows: 2,
+                most_tiles: 3,
+                terminals: 2,
+                across: true,
+                down: true,
+            },
+            "a row alone in the detail isn't divided, even when a terminal took its page's place"
+        );
+        assert_eq!(
+            TileCounts::of([]),
+            TileCounts {
+                divided_rows: 0,
+                most_tiles: 1,
+                terminals: 0,
+                across: false,
+                down: false,
+            },
+            "with nothing divided, the detail shows one tile"
+        );
+        let mut stacked = Tiling::default();
+        stacked.pin(&Tile::Home, Axis::Down, terminal(3));
+        assert!(
+            !TileCounts::of([&stacked]).across,
+            "a row divided only one above the other isn't divided side by side"
+        );
     }
 
     #[test]

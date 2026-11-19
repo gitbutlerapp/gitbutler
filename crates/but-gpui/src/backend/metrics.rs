@@ -76,7 +76,7 @@ static LIMITS: Mutex<Option<HashMap<String, (Instant, u64)>>> = Mutex::new(None)
 static ACTIVE: Mutex<active::Active> = Mutex::new(active::Active::new());
 
 /// What `app_active` says about the app as it is: its settings, how many projects there are,
-/// and the workspace being looked at.
+/// the workspace being looked at and how the rows divide the detail into tiles.
 pub struct State<'a> {
     pub prefs: &'a crate::state::Prefs,
     /// Whether the project's commits run its hooks.
@@ -85,6 +85,7 @@ pub struct State<'a> {
     pub briefs: bool,
     pub projects: usize,
     pub workspace: &'a Workspace,
+    pub tiles: crate::state::TileCounts,
 }
 
 /// Start in the background, before the window opens: read the settings, report how the last
@@ -387,6 +388,18 @@ fn settings(state: &State) -> Props {
         ("commitHooks", json!(state.hooks)),
         ("singleFileDiff", json!(state.single_file_diff)),
         ("briefs", json!(state.briefs)),
+        ("dividedRows", json!(state.tiles.divided_rows)),
+        ("mostTiles", json!(state.tiles.most_tiles)),
+        ("terminalTiles", json!(state.tiles.terminals)),
+        (
+            "splitDirection",
+            json!(match (state.tiles.across, state.tiles.down) {
+                (true, true) => Some("both"),
+                (true, false) => Some("across"),
+                (false, true) => Some("down"),
+                (false, false) => None,
+            }),
+        ),
     ]
     .into_iter()
     .map(|(name, value)| (name.to_owned(), value))
