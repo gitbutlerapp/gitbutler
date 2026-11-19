@@ -57,7 +57,9 @@
 	   light-dark() colours resolve to their inverted values, as Badge and MetaCount do. */
 	.branchGlyph,
 	.conflicted,
-	.unpushed,
+	.local,
+	.remote,
+	.upstream,
 	.title {
 		color-scheme: dark;
 
@@ -378,9 +380,18 @@ button.toggle {
 	color: var(--but-warning-mark);
 }
 
-/* A commit only here: blue, work to send, as the ↑ count is. */
-.unpushed {
-	color: var(--but-info-mark);
+/* A commit's glyph by where it stands, from its state's token and never a colour of its own, so a
+   state's colour changes in one place for every client (but-ui's Sidebar trees note). */
+.local {
+	color: var(--but-commit-local);
+}
+
+.remote {
+	color: var(--but-commit-remote);
+}
+
+.upstream {
+	color: var(--but-commit-upstream);
 }
 
 .badge {

@@ -287,6 +287,9 @@ and tests it.
 
 - Match the rules in `packages/but-ui/design/`. Adapt Tauri and but.dev rather than copy
   them, and leave out what GPUI has no data for.
+- A commit's glyph takes `theme.commit_local`, `commit_remote`, `commit_upstream` or
+  `commit_integrated` by its state, never a hue, so its colour changes in but-ui's token for
+  every client (the Sidebar trees note).
 - Conflicts are `warning`, never danger red. One accent button per surface. Controls keep the
   arrow cursor, as the desktop does, and a focused field rings in gray (`ring`), not
   the primary. A disabled control says why in its tooltip. Tooltips are a few words, with the shortcut

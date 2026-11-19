@@ -71,6 +71,7 @@ const NewOnTargetTree: FC = () => {
 			{open && (
 				<>
 					<CommitItem
+						upstream
 						message="chore: separator tokens"
 						merge
 						tooltip="Pavel Laptev · 2h ago"
@@ -81,12 +82,14 @@ const NewOnTargetTree: FC = () => {
 					{merge && (
 						<>
 							<CommitItem
+								upstream
 								message="chore: separator tokens"
 								author={pavel}
 								tooltip="Pavel Laptev · 2h ago"
 								depth={3}
 							/>
 							<CommitItem
+								upstream
 								message="feature: user authentication"
 								author={pavel}
 								tooltip="Pavel Laptev · 3h ago"
@@ -95,6 +98,7 @@ const NewOnTargetTree: FC = () => {
 						</>
 					)}
 					<CommitItem
+						upstream
 						message="fix: retry stalled transfers"
 						author={kiril}
 						tooltip="Kiril Videlov · 5h ago"

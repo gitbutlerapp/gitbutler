@@ -2048,12 +2048,12 @@ impl Detail {
                             let selected = upstream.selected == Some(Picked::Commit(merge))
                                 && upstream.merged_pick == merged;
                             let on = selected && solid;
-                            // Merged, as everything here has, in purple, as the app marks what
-                            // merged; amber while the workspace doesn't have it yet.
+                            // Integrated, as everything here is, once the workspace has it;
+                            // upstream while it doesn't yet.
                             let glyph = match (on, incoming) {
                                 (true, _) => theme.inverse_foreground,
-                                (false, true) => theme.warning_text,
-                                (false, false) => theme.done_text,
+                                (false, true) => theme.commit_upstream,
+                                (false, false) => theme.commit_integrated,
                             };
                             // One that merged a pull request by the request,
                             // its number, merge commit and ID on hover.

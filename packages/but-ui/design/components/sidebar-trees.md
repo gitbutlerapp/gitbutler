@@ -35,17 +35,23 @@ A row that changed since it was last opened ends in a dot after its counts.
 Once a tree tracks that, every row keeps the dot's room, so the counts line
 up down the list.
 
-**A commit's glyph says where it stands, by colour role.** Each state takes the
-role that says what it means, the same role its count takes, so a commit and the
-count above it agree. No token of its own: the states follow their roles.
+**A commit's glyph takes its state's token, in every client, always.** React,
+GPUI and 🍑 But UI draw a commit's glyph from its commit token in the table
+(GPUI's `theme.commit_local` and its kin, Figma's `commit/local` and its kin),
+never from a role, a ramp or a hex, even
+when the token resolves to the same colour today. Each token aliases the role
+its count takes, so a commit and the count above it agree, and a state's colour
+changes in that one token, for every client at once, with no search for the
+places that draw it.
 
-| Commit                          | Glyph         | Colour                                                       |
-| ------------------------------- | ------------- | ------------------------------------------------------------ |
-| Only here, not pushed           | `commit`      | `--but-info-mark`, blue: work to send, as ↑                  |
-| Pushed                          | `commit-fill` | `--but-muted-foreground`, the row's glyph                    |
-| Integrated into the target      | `commit-fill` | `--but-purple-mark`, as a merged request                     |
-| Conflicted, pushed or not       | `warning`     | `--but-warning-mark` ([Conflicts](../patterns/conflicts.md)) |
-| New on the target, not here yet | `commit-fill` | `--but-muted-foreground`; its ↓ count is amber               |
+| Commit                          | Glyph         | Token                     | Resolves to                                                      |
+| ------------------------------- | ------------- | ------------------------- | ---------------------------------------------------------------- |
+| Only here, not pushed           | `commit`      | `--but-commit-local`      | `--but-info-mark`, blue: work to send, as ↑                      |
+| Pushed                          | `commit-fill` | `--but-commit-remote`     | `--but-muted-foreground`, the row's glyph                        |
+| New on the target, not here yet | `commit-fill` | `--but-commit-upstream`   | `--but-warning-mark`, amber, as ↓                                |
+| Integrated into the target      | `commit-fill` | `--but-commit-integrated` | `--but-purple-mark`, as a merged request                         |
+| Conflicted, pushed or not       | `warning`     | `--but-warning-mark`      | amber, a conflict's mark ([Conflicts](../patterns/conflicts.md)) |
 
-A merge commit takes `branch-merge` in the row's colour, and a commit from
-someone else shows their picture at the row's end, never in the glyph's place.
+A merge commit on the target takes `branch-merge` in `--but-commit-upstream`,
+and a commit from someone else shows their picture at the row's end, never in
+the glyph's place.
