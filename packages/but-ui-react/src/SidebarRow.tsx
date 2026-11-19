@@ -41,9 +41,8 @@ type RowProps = {
 	 * stands in for its glyph until it is done. Every row shows its work there, at its start, so the
 	 * state at its end keeps its place. */
 	busy?: boolean;
-	/** Something on the row changed since it was last opened: a dot at the row's very end, after its
-	 * state. Give every row in the tree a value, `false` too, once the host tracks it: a row with one
-	 * keeps the dot's room whether it shows or not, so the counts line up down the list. */
+	/** Something on the row changed since it was last opened: a dot in the row's start padding,
+	 * before its guides, where it moves nothing, so the counts line up down the list either way. */
 	unread?: boolean;
 } & useRender.ComponentProps<"div">;
 
@@ -213,7 +212,6 @@ const Row: FC<
 						// oxlint-disable-next-line jsx_a11y/prefer-tag-over-role -- A drawn dot with a name, not a picture with a source.
 						<span role="img" aria-label="Unread" className={styles.unread} />
 					)}
-					{unread === false && <span aria-hidden className={classes(styles.unread, styles.read)} />}
 				</>
 			),
 		}),
@@ -380,9 +378,10 @@ const Authors: FC<{ authors: ReadonlyArray<CommitAuthor> }> = ({ authors }) =>
  * an expanded branch turn off commits (⟜), and turn on conflicts only while it's folded. For a
  * branch with no commits yet, turn on commits alone and set its text to empty. For Push, turn on
  * BranchMeta's action and turn unpushed off. `unread` draws the
- * dot after the counts, and `read` keeps its room, as `unread={false}` does, so the counts line up
- * down the list; every tree row has both.
+ * dot in the row's start padding, before its guides, where it moves nothing; every tree row has
+ * it.
  * @see packages/but-ui/design/components/sidebar-trees.md
+ * @see packages/but-ui/design/components/sidebar-rows.md
  * @import import { BranchItem } from "@gitbutler/but-ui-react/SidebarRow.tsx";
  */
 export const BranchItem: FC<

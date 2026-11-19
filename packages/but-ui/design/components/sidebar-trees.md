@@ -3,6 +3,9 @@
 The sidebar's tree: a machine, its repositories, their worktrees, and the
 branches, stacks and commits in them, one row a line.
 
+What each row shows at its end, and what overrides what, is in one table:
+[What a sidebar row shows](sidebar-rows.md).
+
 **Levels group the rows, never lines between them.** A repository's worktrees
 sit one after another with nothing between them: each worktree's glyph starts
 its group, and its rows hang one level under it. A stack's branches sit one
