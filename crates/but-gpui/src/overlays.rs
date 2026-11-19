@@ -40,9 +40,6 @@ pub struct ContextMenu {
     highlighted: Option<usize>,
     /// What had the keys before it took them, which its items run from.
     restore_focus: Option<FocusHandle>,
-    /// What gets the keys instead when it closes without running an item: the line being
-    /// typed in, for a file's menu opened from the diff.
-    dismissed_to: Option<FocusHandle>,
 }
 
 /// What a list draws as having the keys: what has the focus, or what the open context menu
@@ -394,7 +391,6 @@ impl AppView {
             acting_on: self.store.read(cx).acting_on(),
             highlighted: None,
             restore_focus: None,
-            dismissed_to: None,
         });
         cx.notify();
     }
@@ -402,7 +398,6 @@ impl AppView {
     /// Open the menu waiting on the frame drawn since, with only the commands offered now,
     /// and give it the keys.
     pub(crate) fn open_pending_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let returns_to = self.menu_returns_to.take();
         let Some(mut menu) = self.pending_menu.take() else {
             return;
         };
@@ -415,7 +410,6 @@ impl AppView {
             true => self.menu.take().and_then(|open| open.restore_focus),
             false => window.focused(cx),
         };
-        menu.dismissed_to = returns_to;
         window.focus(&self.menu_focus, cx);
         self.menu = Some(menu);
         cx.notify();
@@ -427,7 +421,7 @@ impl AppView {
             return;
         };
         if self.menu_focus.is_focused(window) {
-            self.give_back_focus(menu.dismissed_to.or(menu.restore_focus), window, cx);
+            self.give_back_focus(menu.restore_focus, window, cx);
         }
         cx.notify();
     }
@@ -438,10 +432,6 @@ impl AppView {
         let handler = (self.menu.as_ref())
             .and_then(|menu| menu.items.get(ix))
             .map(|item| item.handler.clone());
-        // From where the keys were, as its command needs.
-        if let Some(menu) = &mut self.menu {
-            menu.dismissed_to = None;
-        }
         self.close_menu(window, cx);
         if let Some(handler) = handler {
             Self::once_drawn(window, cx, move |this, window, cx| {
@@ -996,6 +986,7 @@ impl AppView {
                     title,
                     detail,
                     retry,
+                    waits,
                     ..
                 } => {
                     let copied = detail.to_string();
@@ -1003,15 +994,17 @@ impl AppView {
                         clipboard::copy_error(&this.store, copied.clone(), cx)
                     });
                     let retry = retry.clone().map(|(label, run)| {
-                        button(("retry", id), label).small().on_click(cx.listener(
-                            move |this, _: &ClickEvent, _, cx| {
+                        button(("retry", id), label)
+                            .small()
+                            // What a waiting card is for, so its one primary action.
+                            .when(*waits, |b| b.style(ButtonStyle::Pop))
+                            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                                 this.store.update(cx, |store, cx| {
                                     if store.take_toast(id, cx) {
                                         run(store, cx)
                                     }
                                 })
-                            },
-                        ))
+                            }))
                     });
                     errors.push(
                         popover(theme)
@@ -1027,7 +1020,14 @@ impl AppView {
                                 h_flex()
                                     .items_start()
                                     .gap(dp(8.))
-                                    .child(icon(Icon::Warning).text_color(theme.danger).mt(dp(2.)))
+                                    .child(match waits {
+                                        // A round glyph centred on the line looks low beside
+                                        // the letters, so it sits on their middle instead.
+                                        true => icon(Icon::Clock).text_color(theme.text_3),
+                                        false => {
+                                            icon(Icon::Warning).text_color(theme.danger).mt(dp(2.))
+                                        }
+                                    })
                                     .child(
                                         // A long title wraps rather than running off the card.
                                         div().flex_1().min_w_0().semibold().child(title.clone()),
@@ -1054,9 +1054,12 @@ impl AppView {
                                         )
                                     })
                                     .child(
-                                        button(("dismiss", id), "Dismiss")
-                                            .small()
-                                            .on_click(dismiss),
+                                        button(
+                                            ("dismiss", id),
+                                            if *waits { "Not now" } else { "Dismiss" },
+                                        )
+                                        .small()
+                                        .on_click(dismiss),
                                     )
                                     .children(retry),
                             ),

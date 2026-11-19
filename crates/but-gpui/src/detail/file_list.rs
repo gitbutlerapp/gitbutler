@@ -240,9 +240,7 @@ impl Detail {
             cx,
         );
         // A clean checkout is good news, as but.dev greets it, here as its overview is beside.
-        let clean = !self.filtering
-            && !files.iter().any(|file| shown(&file.path))
-            && self.opened_file(project, checkout, files).is_none();
+        let clean = !self.filtering && !files.iter().any(|file| shown(&file.path));
         let rows = match clean {
             true => empty_state(
                 Some(Illustration::Waving),
@@ -257,33 +255,8 @@ impl Detail {
             .flex_1()
             .min_h_0()
             .child(header)
-            .children(self.find_in_all_files(theme, cx))
             .child(v_flex().flex_1().min_h_0().child(rows))
             .into_any_element()
-    }
-
-    /// Above the files the filter keeps, a way to look for what's typed among all the files
-    /// the checkout tracks, to edit one with no changes.
-    fn find_in_all_files(&self, theme: &Theme, cx: &Context<Self>) -> Option<Stateful<Div>> {
-        let query = self.file_filter.read(cx).text().trim().to_owned();
-        if !self.filtering || query.is_empty() || self.openable_checkout().is_none() {
-            return None;
-        }
-        let label = format!("Find \"{query}\" in all files");
-        let row = file_row("find-in-all-files", false, false, theme)
-            .flex_none()
-            .mb(dp(2.))
-            .text_color(theme.text_2)
-            .aria_label(label.clone())
-            .child(small_icon(Icon::Search).text_color(theme.text_3))
-            .child(div().min_w_0().truncate().child(label))
-            .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
-                let query = query.clone();
-                (this.app).update_later(window, cx, move |app, window, cx| {
-                    app.open_file_picker(query, window, cx)
-                });
-            }));
-        Some(row)
     }
 
     /// The files of the loaded diff, each a jump target, and draggable when the diff has an
@@ -428,11 +401,6 @@ impl Detail {
                 let mut kept: Vec<(usize, &FileChange)> = (files.iter().enumerate())
                     .filter(|(_, f)| !store.hides_file(project, worktree, &f.path))
                     .collect();
-                // A file opened to edit with no changes, just past them.
-                kept.extend(
-                    (self.opened_file(project, worktree, files))
-                        .map(|opened| (files.len(), opened)),
-                );
                 // In the order picked, as the diff beside it has them.
                 let sort = store.prefs.file_sort;
                 kept.sort_by(|(_, a), (_, b)| match tree {
@@ -653,20 +621,7 @@ impl Detail {
             FileSource::Uncommitted(project, worktree) => {
                 let store = self.store.read(cx);
                 let workspace = store.workspace(project)?;
-                let files = workspace.uncommitted_in(worktree)?;
-                let Some(file) = files.get(pos) else {
-                    // Opened to edit, with no changes to check, move or take.
-                    let opened = self.opened_file(project, worktree, files)?;
-                    let extras = FileRow {
-                        diff_ix: (self.worktree_diff()).and_then(|diff| {
-                            diff.files.iter().position(|f| f.file.path == opened.path)
-                        }),
-                        checkbox: None,
-                        menu: None,
-                        ..row
-                    };
-                    return Some(self.render_file_row(pos, opened, extras, solid, theme, cx));
-                };
+                let file = workspace.uncommitted_in(worktree)?.get(pos)?;
                 let whole = Selected::whole(file);
                 let extras = FileRow {
                     diff_ix: (self.worktree_diff())
@@ -1479,24 +1434,13 @@ impl Detail {
             })
             .ticked(sort == by)
         };
-        // Files with no changes, to edit, as Go to anything finds them too.
-        let open = (self.openable_checkout()).map(|_| {
-            MenuItem::keyed(
-                "Open a file…",
-                &crate::palette::GoTo,
-                cx,
-                |this, window, cx| this.open_file_picker(String::new(), window, cx),
-            )
-        });
-        (open.into_iter())
-            .chain([
-                show("As list", FileView::List).under("View"),
-                show("As tree", FileView::Tree),
-                by("Name", FileSort::Name).separated().under("Sort by"),
-                by("Docs first", FileSort::DocsFirst),
-                by("Last modified", FileSort::Modified),
-            ])
-            .collect()
+        vec![
+            show("As list", FileView::List).under("View"),
+            show("As tree", FileView::Tree),
+            by("Name", FileSort::Name).separated().under("Sort by"),
+            by("Docs first", FileSort::DocsFirst),
+            by("Last modified", FileSort::Modified),
+        ]
     }
 
     fn render_file_row(
@@ -1514,49 +1458,13 @@ impl Detail {
         let dir_found = found_in(&extras.found, 0..dir.len());
         let path = file.path.clone();
         let diff_ix = extras.diff_ix;
-        let file_diff = diff_ix.and_then(|ix| self.diff.as_ref()?.files.get(ix));
-        let stats = file_diff.map(FileDiff::stats);
-        // Edited in the diff, which the row marks quietly.
-        let editing = file_diff.is_some_and(|f| self.edits_file(f));
-        // Opened to edit with nothing changed yet: the pencil in the change letter's place, and
-        // no counts.
-        let opened = editing && self.opened_unchanged(file) && stats == Some((0, 0));
-        let unsaved = file_diff.is_some_and(|f| self.unsaved(f));
-        let stats = stats.filter(|_| !opened);
+        let stats = (diff_ix.and_then(|ix| self.diff.as_ref()?.files.get(ix))).map(FileDiff::stats);
         let current = diff_ix.is_some_and(|ix| Some(ix) == self.current_file());
         let picked = extras.picked;
         let solid = (current || picked) && solid;
         // Not while the keys are on a folder, whose summary hides the diff's cursor.
         let on_folder = self.cursor_folder(cx).is_some();
         let (current, solid) = (current && !on_folder, solid && (picked || !on_folder));
-        // On the solid ground, as but-ui-react's FileList inverts a selected row's contents.
-        let muted = match solid {
-            true => theme.muted_on_solid,
-            false => theme.text_2,
-        };
-        // Being edited in the diff: a quiet pencil; typed in and not saved yet, a dot, as the
-        // diff's header marks it.
-        let being_edited = editing && !opened;
-        let marks = (being_edited || unsaved).then(|| {
-            h_flex()
-                .gap(dp(6.))
-                .when(being_edited, |el| {
-                    el.child(
-                        div()
-                            .id(("editing", ix))
-                            .child(small_icon(Icon::Edit).text_color(muted))
-                            .tooltip(Tooltip::text("Being edited")),
-                    )
-                })
-                .when(unsaved, |el| {
-                    el.child(
-                        div()
-                            .id(("unsaved", ix))
-                            .child(diff::unsaved_dot(muted))
-                            .tooltip(Tooltip::keyed("Not saved", shortcut(&super::SaveEdits, cx))),
-                    )
-                })
-        });
         let (depth, guides) = extras.depth.unzip();
         // In a tree a file sits under its directory, which names its path.
         let dir = (depth.is_none() && !dir.is_empty()).then(|| dir.to_owned());
@@ -1564,9 +1472,6 @@ impl Detail {
             .matches(name_found, dir_found)
             .status(file.kind.into())
             .conflicted(file.conflicted)
-            // Opened to edit with nothing changed yet: the pencil in the change letter's place,
-            // and no counts.
-            .editing(opened)
             .selected(current || picked)
             .focused(solid)
             .joined(extras.joined.0, extras.joined.1)
@@ -1576,10 +1481,6 @@ impl Detail {
             })
             .when_some(stats, |item, (added, removed)| {
                 item.line_counts(added, removed)
-            })
-            .when_some(marks, |item, marks| item.marks(marks))
-            .when(opened, |item| {
-                item.status_tooltip("Opened to edit, nothing changed yet")
             })
             .when_some(extras.checkbox, |item, check| {
                 item.checkbox(
@@ -1916,67 +1817,6 @@ impl Detail {
         items
     }
 
-    /// Typing in the file at `path` where the diff shows it, as a double click on a line does,
-    /// or once it's typed in, putting the caret away and saving.
-    fn edit_items(&self, path: &str, cx: &App) -> Vec<MenuItem> {
-        let Some((file, file_diff)) = (self.diff.as_ref()).and_then(|diff| {
-            diff.files
-                .iter()
-                .enumerate()
-                .find(|(_, f)| f.file.path == path)
-        }) else {
-            return Vec::new();
-        };
-        let edited = self.edits_file(file_diff);
-        let mut items = Vec::new();
-        // On the page with the keys, which the menu gives back once it closes.
-        let on_page = |f: fn(&mut Detail, &mut Window, &mut Context<Detail>)| {
-            move |app: &mut crate::app::AppView,
-                  window: &mut Window,
-                  cx: &mut Context<crate::app::AppView>| {
-                if let Some(detail) = app.detail_with_keys(window, cx).cloned() {
-                    detail.update(cx, |detail, cx| f(detail, window, cx));
-                }
-            }
-        };
-        if edited && self.has_caret() {
-            items.push(MenuItem::keyed(
-                "Stop editing",
-                &super::FinishEdit,
-                cx,
-                on_page(Detail::leave_edit),
-            ));
-        } else if edited || self.editable(file, cx).is_ok() {
-            let path = path.to_owned();
-            items.push(MenuItem::keyed(
-                "Edit file",
-                &super::EditLines,
-                cx,
-                move |app, window, cx| {
-                    if let Some(detail) = app.detail_with_keys(window, cx).cloned() {
-                        let path = path.clone();
-                        detail.update(cx, |detail, cx| detail.open_file(path, window, cx));
-                    }
-                },
-            ));
-        }
-        if self.unsaved(file_diff) {
-            items.push(MenuItem::keyed(
-                "Save",
-                &super::SaveEdits,
-                cx,
-                // Back to typing, where the keys were.
-                on_page(|detail, window, cx| {
-                    detail.save_now(cx);
-                    if let Some(caret) = detail.caret_focus(cx) {
-                        window.focus(&caret, cx);
-                    }
-                }),
-            ));
-        }
-        items
-    }
-
     /// Opening, copying or revealing the path `at` of `project`'s `checkout`, and copying the
     /// hunk or file's diff the cursor is on there: the file's whole diff `in_list`, as the file
     /// list has the keys. What isn't on disk, as a deleted file or one only a branch outside
@@ -2006,9 +1846,6 @@ impl Detail {
         )]
         let on_disk = absolute.exists();
         let mut items = Vec::new();
-        if line.is_some() {
-            items.extend(self.edit_items(&relative, cx));
-        }
         // The file under the cursor, where a right-click put it.
         if line.is_some() && on_disk {
             items.push(MenuItem::command(&crate::open_in::OpenInEditor, cx));

@@ -74,9 +74,13 @@ static STARTED: Mutex<Option<mpsc::Receiver<()>>> = Mutex::new(None);
 static LIMITS: Mutex<Option<HashMap<String, (Instant, u64)>>> = Mutex::new(None);
 /// What was looked at since `app_active` last went out.
 static ACTIVE: Mutex<active::Active> = Mutex::new(active::Active::new());
+/// The window's width in points, as the desktop app's `$viewport_width` is.
+static WINDOW_WIDTH: Mutex<Option<f32>> = Mutex::new(None);
+/// Whether the Terminals card is folded to its bar.
+static TERMINAL_CARD_FOLDED: AtomicBool = AtomicBool::new(false);
 
 /// What `app_active` says about the app as it is: its settings, how many projects there are,
-/// and the workspace being looked at.
+/// the workspace being looked at and how the rows divide the detail into tiles.
 pub struct State<'a> {
     pub prefs: &'a crate::state::Prefs,
     /// Whether the project's commits run its hooks.
@@ -85,6 +89,10 @@ pub struct State<'a> {
     pub briefs: bool,
     pub projects: usize,
     pub workspace: &'a Workspace,
+    pub tiles: crate::state::TileCounts,
+    pub terminals: crate::state::TerminalCounts,
+    /// The navigator's width as set, in design pixels.
+    pub navigator_width: f32,
 }
 
 /// Start in the background, before the window opens: read the settings, report how the last
@@ -194,6 +202,44 @@ pub fn in_front(front: bool) {
         return;
     }
     ACTIVE.lock().in_front(front, Instant::now());
+}
+
+/// The window is `width` points wide now, for `app_active` to say.
+pub fn window_width(width: f32) {
+    *WINDOW_WIDTH.lock() = Some(width);
+}
+
+/// The Terminals card is `folded` to its bar now, or open, for `app_active` to say.
+pub fn terminal_card_folded(folded: bool) {
+    TERMINAL_CARD_FOLDED.store(folded, Ordering::Relaxed);
+}
+
+/// Where the user brought a terminal up from, which `app_active` counts.
+#[derive(Clone, Copy)]
+pub enum TerminalFrom {
+    /// A row of the Terminals card, clicked or stepped onto with the keys.
+    Card,
+    /// The terminal picker or Go to anything.
+    Picker,
+}
+
+/// The user brought a terminal up `from` the card or a picker, counted as
+/// `terminalFromCardViews` or `terminalFromPickerViews`.
+pub fn terminal_shown(from: TerminalFrom) {
+    if matches!(METRICS.get(), Some(None)) {
+        return;
+    }
+    ACTIVE.lock().opened(match from {
+        TerminalFrom::Card => "terminalFromCard",
+        TerminalFrom::Picker => "terminalFromPicker",
+    });
+}
+
+/// The user grouped the Terminals card's rows `by` another heading, from its bar's menu.
+pub fn terminal_grouping_changed(by: crate::state::TerminalGrouping) {
+    let mut props = Props::new();
+    props.insert("terminalGrouping".into(), json!(by));
+    queue(Kind::Usage, "terminal_grouping_changed", props);
 }
 
 /// `view`, as `commit` or `history`, is on screen now, opened by the user or by the app, as at
@@ -316,7 +362,15 @@ pub fn viewed<'a>(view: &'static str, state: impl FnOnce() -> State<'a>) {
     let state = state();
     let mut props = settings(&state);
     props.insert("projectCount".into(), state.projects.into());
+    props.insert(
+        "navigatorWidth".into(),
+        json!(state.navigator_width.round()),
+    );
+    if let Some(width) = *WINDOW_WIDTH.lock() {
+        props.insert("$viewport_width".into(), json!(width.round()));
+    }
     shape(state.workspace, &mut props);
+    terminals(&state, &mut props);
     props.extend(looked);
     queue(Kind::Usage, "app_active", props);
 }
@@ -387,10 +441,46 @@ fn settings(state: &State) -> Props {
         ("commitHooks", json!(state.hooks)),
         ("singleFileDiff", json!(state.single_file_diff)),
         ("briefs", json!(state.briefs)),
+        ("dividedRows", json!(state.tiles.divided_rows)),
+        ("mostTiles", json!(state.tiles.most_tiles)),
+        ("terminalTiles", json!(state.tiles.terminals)),
+        (
+            "splitDirection",
+            json!(match (state.tiles.across, state.tiles.down) {
+                (true, true) => Some("both"),
+                (true, false) => Some("across"),
+                (false, true) => Some("down"),
+                (false, false) => None,
+            }),
+        ),
     ]
     .into_iter()
     .map(|(name, value)| (name.to_owned(), value))
     .collect()
+}
+
+/// The terminals open and how the Terminals card shows them. Whether it's folded is null
+/// while it doesn't show, is under its tab, which can't fold, or has nothing to fold.
+fn terminals(state: &State, props: &mut Props) {
+    use crate::state::{NavigatorPlace, Part};
+    let counts = &state.terminals;
+    let card = state.prefs.shows(Part::TerminalOverview);
+    let folds = card && state.prefs.navigator_place != NavigatorPlace::Top && counts.open > 0;
+    let folded = folds.then(|| TERMINAL_CARD_FOLDED.load(Ordering::Relaxed));
+    props.extend(
+        [
+            ("terminalCard", json!(card)),
+            ("terminalCardFolded", json!(folded)),
+            ("terminalsOpen", json!(counts.open)),
+            ("terminalsBlocked", json!(counts.blocked)),
+            ("terminalsFailed", json!(counts.failed)),
+            ("terminalsDone", json!(counts.done)),
+            ("terminalsIdle", json!(counts.idle)),
+            ("terminalsWorking", json!(counts.working)),
+            ("terminalProjects", json!(counts.projects)),
+        ]
+        .map(|(name, value)| (name.to_owned(), value)),
+    );
 }
 
 /// A project that read can't be read any more, as after an agent's `git merge` onto the

@@ -285,6 +285,18 @@ impl Store {
         .detach();
     }
 
+    /// Ask the forge again whether `review` of `project` can merge, though nothing it was asked
+    /// for has changed, as after it turned down a merge it was offered for.
+    pub fn reread_merge_status(
+        &mut self,
+        project: &ProjectId,
+        review: &Review,
+        cx: &mut Context<Self>,
+    ) {
+        self.merge_reads.remove(&(project.clone(), review.number));
+        self.read_merge_status(project, review, cx);
+    }
+
     /// What the forge last said about whether pull request `number` of `project` can merge.
     pub fn merge_status(
         &self,

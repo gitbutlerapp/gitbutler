@@ -46,10 +46,11 @@ pub use saved::{
 use saved::{Restored, Saved};
 use seen::Seen;
 pub use seen::{GLOW, Seeable};
-pub use terminals::{ProjectCheckout, Terminals};
+pub use terminals::{ProjectCheckout, TerminalCounts, Terminals};
 pub use tiling::{
     Area, Axis, Divider, DividerDrag, Drawn, Junction, Landing, Opened, RowKey, Side, Tile,
-    TileDragFeel, TileIds, Tiling, Zones, along_edge, junctions, nearest_beside, tile_beside,
+    TileCounts, TileDragFeel, TileIds, Tiling, Zones, along_edge, junctions, nearest_beside,
+    tile_beside,
 };
 
 pub type ProjectId = SharedString;
@@ -354,6 +355,9 @@ pub enum Notice {
         detail: SharedString,
         retry: Option<Retry>,
         source: Option<(ProjectId, SharedString)>,
+        /// Not a failure: it waits on something, as a pull request on its checks. A clock leads
+        /// it, its Dismiss says Not now, and the log doesn't count it as an error.
+        waits: bool,
     },
 }
 
@@ -457,9 +461,6 @@ pub struct Store {
     /// Commits being moved with the keys, followed as agents rewrite them, until they land or
     /// the selection goes elsewhere.
     pub moving: Option<crate::transfer::Move>,
-    /// The checkout a file with no changes is opened to edit in: its changes are listed and
-    /// shown while it is, though there may be none.
-    opened: Option<(ProjectId, Checkout)>,
     /// Pane widths the user dragged away from their defaults.
     widths: HashMap<Pane, f32>,
     /// The pane sliding back to its default width after a double-click on its line, while it
@@ -663,7 +664,6 @@ impl Store {
             move_dragged: false,
             dragged_patch: None,
             moving: None,
-            opened: None,
             toasts: Vec::new(),
             account: account::Account::default(),
             cli: None,
@@ -973,24 +973,6 @@ impl Store {
             .collect()
     }
 
-    /// Whether a file with no changes is opened to edit in `project`'s `checkout`.
-    pub fn opened_in(&self, project: &ProjectId, checkout: &Checkout) -> bool {
-        (self.opened.as_ref()).is_some_and(|(p, c)| p == project && c == checkout)
-    }
-
-    /// Say a file with no changes is opened to edit in `at`, or none is. Once none is, the
-    /// changes it kept listed go if there are none, and the selection with them.
-    pub fn set_opened(&mut self, at: Option<(ProjectId, Checkout)>, cx: &mut Context<Self>) {
-        if self.opened == at {
-            return;
-        }
-        let was = std::mem::replace(&mut self.opened, at);
-        if let Some((project, _)) = was {
-            self.validate_selection(&project, cx);
-        }
-        cx.notify();
-    }
-
     /// Keep the selection pointing at something that still exists after `id` reloaded.
     /// Another project's selection waits for its own reload: it may be what an operation
     /// there just made.
@@ -1047,11 +1029,9 @@ impl Store {
             Selection::Checkout(_, Checkout::Linked(name)) => {
                 workspace.worktrees.iter().any(|w| w.name == *name)
             }
-            // Listed only with something uncommitted, or as a commit being edited's files, or
-            // while a file's opened to edit there.
-            Selection::Uncommitted(project, checkout) => {
-                self.opened_in(project, checkout)
-                    || (workspace.editing.is_some() && *checkout == Checkout::Main)
+            // Listed only with something uncommitted, or as a commit being edited's files.
+            Selection::Uncommitted(_, checkout) => {
+                (workspace.editing.is_some() && *checkout == Checkout::Main)
                     || workspace
                         .uncommitted_in(checkout)
                         .is_some_and(|f| !f.is_empty())
@@ -1213,6 +1193,9 @@ impl Store {
             briefs: self.briefs,
             projects: self.projects.len(),
             workspace,
+            tiles: self.tile_counts(),
+            terminals: self.terminal_counts(),
+            navigator_width: self.width(Pane::Navigator),
         });
     }
 
@@ -1448,6 +1431,7 @@ impl Store {
                 detail: detail.into(),
                 retry: None,
                 source: None,
+                waits: false,
             },
             cx,
         );
@@ -1515,6 +1499,29 @@ impl Store {
                 detail: detail.into(),
                 retry: Some((retry_label.into(), std::rc::Rc::new(retry))),
                 source: None,
+                waits: false,
+            },
+            cx,
+        );
+    }
+
+    /// A card saying what's waiting on something, rather than failed, whose button runs `then`,
+    /// as to turn auto-merge on while a pull request's checks run.
+    pub fn waiting(
+        &mut self,
+        title: impl Into<SharedString>,
+        detail: impl Into<SharedString>,
+        then_label: impl Into<SharedString>,
+        then: impl Fn(&mut Store, &mut Context<Store>) + 'static,
+        cx: &mut Context<Self>,
+    ) {
+        self.notify_user(
+            Notice::Error {
+                title: title.into(),
+                detail: detail.into(),
+                retry: Some((then_label.into(), std::rc::Rc::new(then))),
+                source: None,
+                waits: true,
             },
             cx,
         );
@@ -1522,7 +1529,13 @@ impl Store {
 
     fn notify_user(&mut self, notice: Notice, cx: &mut Context<Self>) {
         // Every error card shown, for the log to say what went wrong for the user and when.
-        if let Notice::Error { title, detail, .. } = &notice {
+        if let Notice::Error {
+            title,
+            detail,
+            waits: false,
+            ..
+        } = &notice
+        {
             tracing::error!("{title}: {detail}");
         }
         let id = self.next_toast;

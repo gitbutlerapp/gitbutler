@@ -423,20 +423,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
     }
 
     fn branch(&self, ref_name: &FullNameRef) -> anyhow::Result<Self::Handle<Branch>> {
-        let Some((stack, branch)) = self
-            .data()
-            .branches
-            .values()
-            // There shouldn't be duplication, but let's be sure it's deterministic if it is.
-            .sorted_by(order_then_name)
-            .find_map(|stack| {
-                stack.heads.iter().find_map(|branch| {
-                    full_branch_name(branch.name.as_str()).and_then(|full_name| {
-                        (full_name.as_ref() == ref_name).then_some((stack, branch))
-                    })
-                })
-            })
-        else {
+        let Some((stack, branch_idx)) = find_head(self.data(), ref_name) else {
             return Ok(VBTomlMetadataHandle {
                 is_default: true,
                 ref_name: ref_name.to_owned(),
@@ -444,6 +431,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                 value: Branch::default(),
             });
         };
+        let branch = &stack.heads[branch_idx];
 
         let ref_info = RefInfo {
             // keep None, as otherwise it means we created it, which allows us to delete the ref.
@@ -520,7 +508,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                     // via the workspace data.
                     // Make sure we move it in the underlying data structure to here.
                     let to_move =
-                        self.remove_branch(branch.ref_name.as_ref())?
+                        self.remove_branch(branch.ref_name.as_ref())
                             .with_context(|| {
                                 format!(
                                     "BUG: couldn't remove branch {branch} from its original stack",
@@ -694,7 +682,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
             self.snapshot.set_changed_to_necessitate_write();
             Ok(existed_as_non_default)
         } else {
-            Ok(self.remove_branch(ref_name)?.is_some())
+            Ok(self.remove_branch(ref_name).is_some())
         }
     }
 
@@ -709,22 +697,8 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
         // Rename the branch in place within its stack, preserving its position and all its other
         // metadata (pr number, archived, review id). This avoids the generic trait default, which
         // would copy the branch into a brand-new standalone stack and tear it out of this one.
-        let Some((stack_id, branch_idx)) = self
-            .data()
-            .branches
-            .values()
-            .sorted_by(order_then_name)
-            .find_map(|stack| {
-                stack
-                    .heads
-                    .iter()
-                    .enumerate()
-                    .find_map(|(branch_idx, branch)| {
-                        full_branch_name(branch.name.as_str()).and_then(|full_name| {
-                            (full_name.as_ref() == old_ref_name).then_some((stack.id, branch_idx))
-                        })
-                    })
-            })
+        let Some((stack_id, branch_idx)) =
+            find_head(self.data(), old_ref_name).map(|(stack, branch_idx)| (stack.id, branch_idx))
         else {
             // No managed metadata for this ref (e.g. an ad-hoc branch); nothing to rename here.
             return Ok(());
@@ -732,14 +706,8 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
 
         // Refuse to rename onto a name that already exists in managed metadata: it would create
         // duplicate `refs/heads/<name>` heads, which the rest of the code treats as an invariant
-        // violation (see the "There shouldn't be duplication" note in `branch()`).
-        let new_exists = self.data().branches.values().any(|stack| {
-            stack.heads.iter().any(|branch| {
-                full_branch_name(branch.name.as_str())
-                    .is_some_and(|full_name| full_name.as_ref() == new_ref_name)
-            })
-        });
-        if new_exists {
+        // violation (see the "There shouldn't be duplication" note in `find_head()`).
+        if find_head(self.data(), new_ref_name).is_some() {
             bail!(
                 "Cannot rename to '{}': a branch with that name already exists",
                 new_ref_name.shorten()
@@ -1003,32 +971,9 @@ impl VirtualBranchesTomlMetadata {
         }
     }
 
-    fn remove_branch(&mut self, ref_name: &FullNameRef) -> anyhow::Result<Option<StackBranch>> {
-        let branch = self.branch(ref_name)?;
-        if branch.is_default() {
-            return Ok(None);
-        }
-
-        let Some((stack_id, branch_idx)) = self
-            .data()
-            .branches
-            .values()
-            .sorted_by(order_then_name)
-            .find_map(|stack| {
-                stack
-                    .heads
-                    .iter()
-                    .enumerate()
-                    .find_map(|(branch_idx, branch)| {
-                        full_branch_name(branch.name.as_str()).and_then(|full_name| {
-                            (full_name.as_ref() == ref_name).then_some((stack.id, branch_idx))
-                        })
-                    })
-            })
-        else {
-            return Ok(None);
-        };
-
+    fn remove_branch(&mut self, ref_name: &FullNameRef) -> Option<StackBranch> {
+        let (stack_id, branch_idx) =
+            find_head(self.data(), ref_name).map(|(stack, branch_idx)| (stack.id, branch_idx))?;
         let stack = self
             .data_mut()
             .branches
@@ -1039,7 +984,7 @@ impl VirtualBranchesTomlMetadata {
             self.data_mut().branches.remove(&stack_id);
         }
         self.snapshot.set_changed_to_necessitate_write();
-        Ok(Some(removed))
+        Some(removed)
     }
 }
 
@@ -1101,6 +1046,19 @@ fn default_workspace() -> Workspace {
 
 fn full_branch_name(name: &str) -> Option<gix::refs::FullName> {
     gix::refs::FullName::try_from(format!("refs/heads/{name}")).ok()
+}
+
+fn find_head<'a>(data: &'a VirtualBranches, ref_name: &FullNameRef) -> Option<(&'a Stack, usize)> {
+    data.branches
+        .values()
+        // There shouldn't be duplication, but let's be sure it's deterministic if it is.
+        .sorted_by(order_then_name)
+        .find_map(|stack| {
+            let branch_idx = stack.heads.iter().position(|head| {
+                full_branch_name(&head.name).is_some_and(|name| name.as_ref() == ref_name)
+            })?;
+            Some((stack, branch_idx))
+        })
 }
 
 fn stack_has_head(
