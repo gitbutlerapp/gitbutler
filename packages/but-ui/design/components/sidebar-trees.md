@@ -34,3 +34,18 @@ is in its menu, which opens with a right-click, never from a ⋯
 A row that changed since it was last opened ends in a dot after its counts.
 Once a tree tracks that, every row keeps the dot's room, so the counts line
 up down the list.
+
+**A commit's glyph says where it stands, by colour role.** Each state takes the
+role that says what it means, the same role its count takes, so a commit and the
+count above it agree. No token of its own: the states follow their roles.
+
+| Commit                          | Glyph         | Colour                                                       |
+| ------------------------------- | ------------- | ------------------------------------------------------------ |
+| Only here, not pushed           | `commit`      | `--but-info-mark`, blue: work to send, as ↑                  |
+| Pushed                          | `commit-fill` | `--but-muted-foreground`, the row's glyph                    |
+| Integrated into the target      | `commit-fill` | `--but-purple-mark`, as a merged request                     |
+| Conflicted, pushed or not       | `warning`     | `--but-warning-mark` ([Conflicts](../patterns/conflicts.md)) |
+| New on the target, not here yet | `commit-fill` | `--but-muted-foreground`; its ↓ count is amber               |
+
+A merge commit takes `branch-merge` in the row's colour, and a commit from
+someone else shows their picture at the row's end, never in the glyph's place.
