@@ -13,7 +13,7 @@ import {
 import { pageLink } from "./site.ts";
 import type { FC } from "react";
 
-type Usage = { files: number; uses: number; names: Array<string> };
+type Usage = { files: number; uses: number };
 
 const components = pages.filter((page) => !isDesignPage(page) && !isAdoptionPage(page));
 
@@ -30,18 +30,18 @@ const pagesByModule = new Map(
 function usage(page: Page, snapshot: Adoption): Usage | undefined {
 	const module = page.module === undefined ? undefined : snapshot.modules[page.module];
 	if (module === undefined) return undefined;
-	if ((pagesByModule.get(page.module ?? "") ?? 0) > 1) {
-		const named = page.component === undefined ? undefined : module.names[page.component];
-		return named === undefined
-			? undefined
-			: { files: named.files, uses: named.uses, names: [page.component ?? ""] };
-	}
+	if ((pagesByModule.get(page.module ?? "") ?? 0) > 1)
+		return page.component === undefined ? undefined : module.names[page.component];
 	return {
 		files: module.files,
 		uses: Object.values(module.names).reduce((sum, { uses }) => sum + uses, 0),
-		names: Object.keys(module.names),
 	};
 }
+
+const group = (page: Page) => page.title.split("/").slice(-2, -1)[0] ?? "";
+
+/** What a place doesn't have, the same in every column. */
+const NONE = <span className="docs-adoption-none">—</span>;
 
 const ComponentRow: FC<{ page: Page; used: Usage | undefined }> = ({ page, used }) => (
 	<TableRow>
@@ -50,72 +50,36 @@ const ComponentRow: FC<{ page: Page; used: Usage | undefined }> = ({ page, used 
 				{pageName(page)}
 			</a>
 		</TableCell>
-		<TableCell align="end">{used?.files ?? 0}</TableCell>
-		<TableCell align="end">{used?.uses ?? 0}</TableCell>
+		<TableCell>{group(page)}</TableCell>
+		<TableCell align="end">{page.stories ?? NONE}</TableCell>
 		<TableCell>
-			{used !== undefined && (
-				<span className="docs-adoption-names">
-					{used.names.map((name) => (
-						<Code key={name}>{name}</Code>
-					))}
-				</span>
-			)}
-		</TableCell>
-		<TableCell align="end">{page.stories ?? 0}</TableCell>
-		<TableCell>
-			{page.figma !== undefined && (
+			{page.figma === undefined ? (
+				NONE
+			) : (
 				<TextLink href={page.figma} target="_blank" rel="noreferrer" className="docs-adoption-link">
 					Frame
 				</TextLink>
 			)}
 		</TableCell>
-		<TableCell>{page.gpui === true && "Yes"}</TableCell>
+		<TableCell>{page.gpui === true ? "Yes" : NONE}</TableCell>
+		<TableCell align="end">{used?.files ?? NONE}</TableCell>
+		<TableCell align="end">{used?.uses ?? NONE}</TableCell>
 	</TableRow>
-);
-
-const ComponentTable: FC<{ rows: Array<[Page, Usage | undefined]> }> = ({ rows }) => (
-	<Table
-		header={
-			<TableRow>
-				<TableCell header>Component</TableCell>
-				<TableCell header align="end">
-					Files
-				</TableCell>
-				<TableCell header align="end">
-					Uses
-				</TableCell>
-				<TableCell header>Imports</TableCell>
-				<TableCell header align="end">
-					Stories
-				</TableCell>
-				<TableCell header>Figma</TableCell>
-				<TableCell header>GPUI</TableCell>
-			</TableRow>
-		}
-	>
-		{rows.map(([page, used]) => (
-			<ComponentRow key={page.id} page={page} used={used} />
-		))}
-	</Table>
 );
 
 const short = (commit: string) => commit.slice(0, 7);
 
 /**
- * What but.dev uses of the library: every component's page with how many of but.dev's files
- * import it and how many times they name it, its stories, its frame in Figma and whether the GPUI
- * client draws it, the used ones first, the most used first. `snapshot` is `adoption.json`, which
+ * Where each component is: the library's stories, its drawing in Figma, the GPUI client, and
+ * but.dev, how many of its files import it and how many times they name it, all in one table in
+ * the sidebar's order so the places read side by side. `snapshot` is `adoption.json`, which
  * `scripts/adoption.mjs` reads off a but-dev commit.
  */
 export const AdoptionPage: FC<{ snapshot: Adoption }> = ({ snapshot }) => {
 	const rows = components.map((page): [Page, Usage | undefined] => [page, usage(page, snapshot)]);
-	const used = rows
-		.filter(([, use]) => use !== undefined)
-		.sort(([a, x], [b, y]) =>
-			x?.files === y?.files ? a.title.localeCompare(b.title) : (y?.files ?? 0) - (x?.files ?? 0),
-		);
-	const unused = rows.filter(([, use]) => use === undefined);
-	const drawn = new Set(components.flatMap((page) => page.module ?? []));
+	const count = (has: (page: Page, used: Usage | undefined) => boolean) =>
+		`${rows.filter(([page, used]) => has(page, used)).length} of ${components.length}`;
+	const drawn = new Set(modules);
 	const others = Object.entries(snapshot.modules).filter(([module]) => !drawn.has(module));
 
 	return (
@@ -124,19 +88,23 @@ export const AdoptionPage: FC<{ snapshot: Adoption }> = ({ snapshot }) => {
 				<h1 className="docs-page-title text-h1">Adoption</h1>
 			</header>
 			<p className="docs-page-prose text-13 text-body">
-				What but.dev uses of the library, read off its main branch. Files is how many of but.dev’s
-				files import the component, Uses how many times they name it there. Run{" "}
-				<Code>pnpm -F @gitbutler/but-ui-pantry adoption &lt;but-dev checkout&gt;</Code> to read it
-				again.
+				Where each of the library’s components is: its drawing in Figma, the GPUI client, and
+				but.dev, read off its main branch. Files is how many of but.dev’s files import the
+				component, Uses how many times they name it there. Run{" "}
+				<Code>pnpm -F @gitbutler/but-ui-pantry adoption &lt;but-dev checkout&gt;</Code> to read
+				but.dev again.
 			</p>
 			<DescriptionList>
-				<DescriptionListItem label="Components in but.dev">
-					{used.length} of {components.length}
+				<DescriptionListItem label="Figma">
+					{count((page) => page.figma !== undefined)}
 				</DescriptionListItem>
-				<DescriptionListItem label="but.dev files using the library">
-					{snapshot.files}
+				<DescriptionListItem label="GPUI">
+					{count((page) => page.gpui === true)}
 				</DescriptionListItem>
-				<DescriptionListItem label="Read from">
+				<DescriptionListItem label="but.dev">
+					{count((_, used) => used !== undefined)}, in {snapshot.files} files
+				</DescriptionListItem>
+				<DescriptionListItem label="but.dev read from">
 					<Code>{short(snapshot.commit)}</Code>, {new Date(snapshot.date).toLocaleDateString()}
 				</DescriptionListItem>
 				{snapshot.pin !== null && (
@@ -149,19 +117,32 @@ export const AdoptionPage: FC<{ snapshot: Adoption }> = ({ snapshot }) => {
 					</DescriptionListItem>
 				)}
 			</DescriptionList>
-			<section className="docs-adoption-section">
-				<h2 className="docs-page-prose text-h2">In but.dev</h2>
-				<ComponentTable rows={used} />
-			</section>
-			{unused.length > 0 && (
-				<section className="docs-adoption-section">
-					<h2 className="docs-page-prose text-h2">Not in but.dev yet</h2>
-					<ComponentTable rows={unused} />
-				</section>
-			)}
+			<Table
+				header={
+					<TableRow>
+						<TableCell header>Component</TableCell>
+						<TableCell header>Group</TableCell>
+						<TableCell header align="end">
+							Stories
+						</TableCell>
+						<TableCell header>Figma</TableCell>
+						<TableCell header>GPUI</TableCell>
+						<TableCell header align="end">
+							but.dev files
+						</TableCell>
+						<TableCell header align="end">
+							Uses
+						</TableCell>
+					</TableRow>
+				}
+			>
+				{rows.map(([page, used]) => (
+					<ComponentRow key={page.id} page={page} used={used} />
+				))}
+			</Table>
 			{others.length > 0 && (
 				<section className="docs-adoption-section">
-					<h2 className="docs-page-prose text-h2">Other files it imports</h2>
+					<h2 className="docs-page-prose text-h2">Other files but.dev imports</h2>
 					<p className="docs-page-prose text-13 text-body">
 						The library’s files without a page of their own: helpers, types and icons.
 					</p>
@@ -170,7 +151,7 @@ export const AdoptionPage: FC<{ snapshot: Adoption }> = ({ snapshot }) => {
 							<TableRow>
 								<TableCell header>File</TableCell>
 								<TableCell header align="end">
-									Files
+									but.dev files
 								</TableCell>
 								<TableCell header>Imports</TableCell>
 							</TableRow>

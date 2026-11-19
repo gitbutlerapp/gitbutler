@@ -61,6 +61,15 @@ const gpuiComponents = (read: (file: string) => string) =>
 			}),
 	);
 
+/** 🍑 But UI, where every component's drawing is. */
+const FIGMA_FILE = "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI";
+
+/**
+ * The first node a stories file links, as `scripts/figma-descriptions.mjs` finds it: in a link,
+ * `node-id=217-317`, or handed to a helper that makes one, `figma("217-317")`.
+ */
+const FIGMA_NODE = /(?:node-id=|\w\(")(\d+-\d+)/;
+
 const capitalise = (words: string) =>
 	words.charAt(0).toUpperCase() + words.slice(1).replaceAll("-", " ");
 
@@ -120,7 +129,8 @@ const docsPages = (): Plugin => ({
 								String.raw`(\/\*\*(?:(?!\*\/)[\s\S])*\*\/)\s*export (?:const|function|class) ${component}\b`,
 							).exec(read(`../../packages/but-ui-react/src/${from}`))?.[1] ?? "");
 				const title = /\btitle: "([^"]+)"/.exec(source)?.[1] ?? file;
-				const figma = /\burl: "(https:\/\/www\.figma\.com\/[^"]+)"/.exec(source)?.[1];
+				const node = FIGMA_NODE.exec(stories)?.[1];
+				const figma = node === undefined ? undefined : `${FIGMA_FILE}?node-id=${node}`;
 				// Stories with no `component` draw the file named for their title: `Icon.tsx`.
 				const name = component ?? title.split("/").at(-1) ?? "";
 				const module =

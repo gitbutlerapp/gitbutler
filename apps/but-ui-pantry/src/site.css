@@ -519,3 +519,8 @@ body[data-layout="centered"] {
 .docs-adoption-link {
 	white-space: nowrap;
 }
+
+/* A place that doesn't have the component yet, faint so the ones that do stand out. */
+.docs-adoption-none {
+	color: var(--but-subtle-foreground);
+}
