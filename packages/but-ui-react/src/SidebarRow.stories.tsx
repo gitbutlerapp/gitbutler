@@ -9,6 +9,7 @@ import {
 	CommitItem,
 	MachineItem,
 	MoreItem,
+	NoticeItem,
 	RepoItem,
 	StackCaption,
 	UncommittedItem,
@@ -832,6 +833,96 @@ export const Unread = meta.story({
 					unread={false}
 					meta={<MetaCount type="commits">7</MetaCount>}
 				/>
+			</Repository>
+		</Card>
+	),
+});
+
+const pavel = { seed: "pavel@gitbutler.com" };
+const kiril = { seed: "kiril@gitbutler.com" };
+
+/** {@link Upstream}'s rows, a merge folding as the sidebar's do. */
+const UpstreamTree: FC = () => {
+	const [merge, setMerge] = useState(true);
+	return (
+		<Repository last>
+			<RepoItem name="but-dev" folded={false} />
+			<BranchItem
+				title="fix: retry stalled transfers"
+				pr={{ number: 377, state: "open" }}
+				depth={1}
+				folded={false}
+				meta={<MetaCount type="unpushed">2</MetaCount>}
+			/>
+			<CommitItem
+				message="Merge #12: retry on timeout"
+				upstream
+				merge
+				tooltip="Kiril Videlov · 1h ago"
+				depth={2}
+				folded={!merge}
+				onToggleFolded={() => setMerge(!merge)}
+			/>
+			{merge && (
+				<CommitItem
+					message="fix: retry on timeout"
+					upstream
+					author={kiril}
+					tooltip="Kiril Videlov · 1h ago"
+					depth={3}
+				/>
+			)}
+			<CommitItem
+				message="test: cover a stalled transfer"
+				upstream
+				author={pavel}
+				tooltip="Pavel Laptev · 2h ago"
+				depth={2}
+			/>
+			<CommitItem message="feat: elapsed time for agents" pushed={false} depth={2} />
+			<CommitItem message="chore: separator tokens" pushed={false} depth={2} />
+			<CommitItem message="feat: 28px hunk separator" depth={2} />
+		</Repository>
+	);
+};
+
+/**
+ * Commits on a branch's remote the workspace doesn't have yet, as GPUI lists them under the branch:
+ * `upstream`, amber, each with its author's picture at its end, a merge folding to the commits it
+ * brought in. The target's new commits aren't listed in the tree: the repository's ↓ says how many,
+ * with Update in its place, and a page lists them.
+ */
+export const Upstream = meta.story({
+	render: () => (
+		<Card label="pavel--macbook-pro-2" header={machine}>
+			<UpstreamTree />
+		</Card>
+	),
+});
+
+/**
+ * A branch whose commits on its remote couldn't load: a NoticeItem says so in their place, with
+ * the reason over it and Try again after it.
+ */
+export const UpstreamFailed = meta.story({
+	render: () => (
+		<Card label="pavel--macbook-pro-2" header={machine}>
+			<Repository last>
+				<RepoItem name="but-dev" folded={false} />
+				<BranchItem
+					title="fix: retry stalled transfers"
+					pr={{ number: 377, state: "open" }}
+					depth={1}
+					folded={false}
+					meta={<MetaCount type="unpushed">2</MetaCount>}
+				/>
+				<NoticeItem
+					message="Can’t show the commits."
+					tooltip="The machine didn’t answer"
+					action={{ label: "Try again", onClick: () => {} }}
+					depth={2}
+				/>
+				<CommitItem message="feat: elapsed time for agents" pushed={false} depth={2} />
 			</Repository>
 		</Card>
 	),

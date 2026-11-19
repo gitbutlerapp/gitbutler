@@ -420,16 +420,15 @@ export const BranchItem: FC<
  * A commit under an expanded branch: the hollow glyph while it is only here, the solid one once it
  * is pushed. The glyph takes its state's `--but-commit-*` token, never a colour of its own: blue
  * `commit-local` while only here, muted `commit-remote` once pushed, and amber `commit-upstream`
- * for an `upstream` commit, one on the target the workspace doesn't have yet. A state's colour
- * changes in that token, for every client at once (but-ui's Sidebar trees note).
+ * for an `upstream` commit, one on its branch's remote the workspace doesn't have yet. A state's
+ * colour changes in that token, for every client at once (but-ui's Sidebar trees note).
  *
  * A `conflicted` commit takes the warning in amber in its glyph's place, pushed or not, so the
  * commits to resolve stand out of the list. Its branch counts them in `conflicts` while folded;
  * open, the marks on its commits say it.
  *
- * Under a {@link TargetItem} every commit is `upstream`, and a `merge` takes the merge glyph and,
- * with `folded`, opens to the
- * commits it brought in, one level deeper. There each commit comes from someone else, so give its
+ * Among `upstream` commits a `merge` takes the merge glyph and, with `folded`, opens to the commits
+ * it brought in, one level deeper. Someone else pushed them, so give each its
  * `author`: their {@link Avatar} sits at the row's end, after any `meta`, where a count would, so
  * the glyphs down the list keep saying what each row is. A merge has no author of its own; its
  * commits carry the faces. Name the author in the `tooltip`; the picture is decorative.
@@ -491,47 +490,6 @@ export const CommitItem: FC<
 				{message}
 			</Name>
 		}
-	/>
-);
-
-/**
- * What the repository's target (`target`, such as `master`) has that its workspace doesn't: the
- * first row under the repository, right over its worktrees. It says how many
- * commits (`count`), and Update (`actions`) takes that count's place, as on every row. Its glyph
- * takes `--but-commit-upstream`, as the commits under it do, so the two change together. Open, the commits sit under it one level
- * deeper as {@link CommitItem}s, a merge's own one more. Leave it out while there are none.
- *
- * `authors`, the people the commits come from, each once, show as overlapping pictures before the
- * count, so who is coming in reads with the list folded. It draws the first three; name them all
- * in the `tooltip`.
- *
- * @import import { TargetItem } from "@gitbutler/but-ui-react/SidebarRow.tsx";
- */
-export const TargetItem: FC<
-	{ target: string; count: number; authors?: ReadonlyArray<CommitAuthor> } & Omit<RowProps, "meta">
-> = ({ target, count, authors = [], actions, tooltip, ...props }) => (
-	<Row
-		{...props}
-		name={`New on ${target}`}
-		icon={<Icon name="arrow-in-box" className={styles.upstream} />}
-		label={
-			<Name tooltip={tooltip} className={classes("text-14", "text-semibold", styles.name)}>
-				New on {target}
-			</Name>
-		}
-		meta={
-			<>
-				{authors.length > 0 && (
-					<span className={styles.authors}>
-						{authors.slice(0, 3).map((a) => (
-							<Avatar key={a.seed} src={a.src} seed={a.seed} size={14} />
-						))}
-					</span>
-				)}
-				{filled(actions) === undefined && <MetaCount type="behind">{count}</MetaCount>}
-			</>
-		}
-		actions={actions}
 	/>
 );
 
@@ -813,8 +771,8 @@ export const NavItem: FC<
  * Where rows should be and can't show, in their place: what failed (`message`, one sentence) under
  * the warning glyph, in grey, and the way out (`action`, such as Try again) as a link after it. The
  * reason, when there is one beyond the message, goes in `tooltip`. Rows that load from somewhere
- * the card's own data doesn't, such as a {@link TargetItem}'s commits, use it rather than open onto
- * nothing.
+ * the card's own data doesn't, such as a branch's commits on its remote, use it rather than open
+ * onto nothing.
  *
  * @import import { NoticeItem } from "@gitbutler/but-ui-react/SidebarRow.tsx";
  */

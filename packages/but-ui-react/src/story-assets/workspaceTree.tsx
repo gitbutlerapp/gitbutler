@@ -17,7 +17,6 @@ import {
 	NoticeItem,
 	RepoItem,
 	StackCaption,
-	TargetItem,
 	UncommittedItem,
 	WorktreeItem,
 } from "../SidebarRow.tsx";
@@ -84,7 +83,6 @@ export const Card: FC<{
 const rowTypes = new Set<unknown>([
 	MachineItem,
 	RepoItem,
-	TargetItem,
 	WorktreeItem,
 	UncommittedItem,
 	StackCaption,
