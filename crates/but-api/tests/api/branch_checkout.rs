@@ -227,21 +227,13 @@ fn checkout_returns_head_info_matching_fresh_head_info() -> anyhow::Result<()> {
     {
         let returned_head_info = format!("{:#?}", result.workspace.head_info);
         let fresh_head_info = format!("{:#?}", crate::support::fresh_head_info(&ctx)?);
-        let without_segment_indices = |value: &str| {
-            value
-                .lines()
-                .filter(|line| !line.contains("NodeIndex("))
-                .collect::<Vec<_>>()
-                .join("\n")
-        };
         assert_eq!(
-            without_segment_indices(&returned_head_info),
-            without_segment_indices(&fresh_head_info),
+            returned_head_info, fresh_head_info,
             "checkout API should return the same head info a fresh post-checkout read sees"
         );
 
         snapbox::assert_data_eq!(
-            without_segment_indices(&returned_head_info),
+            returned_head_info,
             snapbox::str![[r#"
 RefInfo {
     symbolic_remote_names: {
@@ -296,6 +288,7 @@ RefInfo {
     ),
     can_fast_forward_local_target: false,
     lower_bound: Some(
+        Sha1(5374caf21933aee76b72bad8d6e30949c7a30e04),
     ),
     ancestor_workspace_commit: None,
 }

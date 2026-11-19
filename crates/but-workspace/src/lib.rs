@@ -113,7 +113,7 @@ pub struct RefInfo {
     /// Updating only some lanes advances the stored target past the others, so `true` means an
     /// update has work to do even when the stored cutoff matches the upstream tip.
     pub has_lanes_behind_target: bool,
-    /// The bound can be imagined as the segment from which all other commits in the workspace originate.
+    /// The bound can be imagined as the commit from which all other commits in the workspace originate.
     /// It can also be imagined to be the delimiter at the bottom beyond which nothing belongs to the workspace,
     /// as antagonist to the first commit in tip of the segment with `id`, serving as first commit that is
     /// inside the workspace.
@@ -124,7 +124,7 @@ pub struct RefInfo {
     /// following all incoming connections and stopping at the tip of the workspace.
     ///
     /// It is `None` there is only a single stack and no target, so nothing was integrated.
-    pub lower_bound: Option<SegmentIndex>,
+    pub lower_bound: Option<gix::ObjectId>,
     /// The workspace commit as it exists in the past of `workspace_ref_name`.
     ///
     /// **Warning**: If `Some()`, only fixing this issue should be allowed.

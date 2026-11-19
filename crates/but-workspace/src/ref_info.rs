@@ -391,9 +391,11 @@ impl<'a> Lane<'a> {
 
 impl std::fmt::Debug for Segment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // `id` is left out: `ref_name` and `commits` identify the segment, and its index
+        // only says how the graph numbered its segments.
         let Segment {
             ref_info,
-            id,
+            id: _,
             commits,
             commits_on_remote,
             remote_tracking_ref_name,
@@ -403,7 +405,6 @@ impl std::fmt::Debug for Segment {
             base,
         } = self;
         f.debug_struct("ref_info::ui::Segment")
-            .field("id", &id)
             .field(
                 "ref_name",
                 &match ref_info.as_ref() {
@@ -617,7 +618,7 @@ pub fn graph_to_ref_info(
         target_ref,
         target_commit,
         metadata: _,
-        lower_bound: _,
+        lower_bound,
         lower_bound_segment_id,
         worktrees,
     } = workspace;
@@ -660,7 +661,7 @@ pub fn graph_to_ref_info(
     };
     let mut info = RefInfo {
         symbolic_remote_names: repo.remote_names().into_iter().collect(),
-        lower_bound: *lower_bound_segment_id,
+        lower_bound: *lower_bound,
         stacks: stacks
             .iter()
             .map(|stack| branch::Stack::try_from_graph_stack(stack, repo))
@@ -691,7 +692,12 @@ pub fn graph_to_ref_info(
         }
         .into());
     }
-    info.compute_similarity(graph, repo, opts.expensive_commit_info)?;
+    info.compute_similarity(
+        graph,
+        repo,
+        *lower_bound_segment_id,
+        opts.expensive_commit_info,
+    )?;
     if let GerritMode::Enabled(metadata) = opts.gerrit_mode {
         info.apply_gerrit_metadata(metadata)?;
     }
