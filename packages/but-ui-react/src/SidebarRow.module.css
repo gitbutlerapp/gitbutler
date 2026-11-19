@@ -169,6 +169,12 @@
 button.toggle {
 	isolation: isolate;
 
+	/* Out of the tab order, as the tree moves with the arrow keys, so it never needs a ring of its
+	   own: the row rings. A click focuses it, and the browser would draw its default ring. */
+	&:focus-visible {
+		outline: none;
+	}
+
 	&::before {
 		z-index: -1;
 		position: absolute;
@@ -308,6 +314,19 @@ button.toggle {
 .author {
 	display: flex;
 	padding-inline: 3px;
+}
+
+/* Each picture tucks under the one before it, cut where that one sits with a sliver of gap, rather
+   than ringed in a ground colour: the row's ground changes under the pointer and on selection. Set
+   in like a single author's picture, so the stacks and the pictures line up down the list. */
+.authors {
+	display: flex;
+	padding-inline: 3px;
+
+	& > * + * {
+		margin-left: -4px;
+		mask-image: radial-gradient(circle at -3px 50%, transparent 8.5px, #000 8.5px);
+	}
 }
 
 /* compact: the name takes the line, and the state and then the next step sit at the end, where

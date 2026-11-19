@@ -18,6 +18,7 @@ import {
 	RepoItem,
 	StackCaption,
 	UncommittedItem,
+	UpstreamItem,
 	WorktreeItem,
 } from "../SidebarRow.tsx";
 import { treeGuides, type Guides } from "../treeGuides.ts";
@@ -50,8 +51,8 @@ const commits = (n: number) => `${n} commit${n === 1 ? "" : "s"}`;
 export const push = (n: number) => step("push", "info", "arrow-up", `Push ${commits(n)}`, n);
 
 /** Update, in place of ↓ `behind`. */
-export const update = (n: number) =>
-	step("update", "warning", "arrow-down", `Update with ${commits(n)} from the target`, n);
+export const update = (n: number, from = "the target") =>
+	step("update", "warning", "arrow-down", `Update with ${commits(n)} from ${from}`, n);
 
 /**
  * A sidebar card: a machine's header over its repositories, as the Workspace tree stories build them. A
@@ -88,6 +89,7 @@ const rowTypes = new Set<unknown>([
 	StackCaption,
 	BranchItem,
 	CommitItem,
+	UpstreamItem,
 	MoreItem,
 	NoticeItem,
 ]);
