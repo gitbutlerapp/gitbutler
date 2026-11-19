@@ -310,17 +310,6 @@ button.toggle {
 	padding-inline: 3px;
 }
 
-/* Each picture tucks under the one before it, cut where that one sits with a sliver of gap, rather
-   than ringed in a ground colour: the row's ground changes under the pointer and on selection. */
-.authors {
-	display: flex;
-
-	& > * + * {
-		margin-left: -4px;
-		mask-image: radial-gradient(circle at -3px 50%, transparent 8.5px, #000 8.5px);
-	}
-}
-
 /* compact: the name takes the line, and the state and then the next step sit at the end, where
    they stay: nothing on the row shows or gives way under the pointer. There is no ⋯: the row's
    menu opens with a right-click. */

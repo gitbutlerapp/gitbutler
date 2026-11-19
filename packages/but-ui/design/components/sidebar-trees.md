@@ -44,16 +44,20 @@ its count takes, so a commit and the count above it agree, and a state's colour
 changes in that one token, for every client at once, with no search for the
 places that draw it.
 
-| Commit                          | Glyph         | Token                     | Resolves to                                                      |
-| ------------------------------- | ------------- | ------------------------- | ---------------------------------------------------------------- |
-| Only here, not pushed           | `commit`      | `--but-commit-local`      | `--but-info-mark`, blue: work to send, as ↑                      |
-| Pushed                          | `commit-fill` | `--but-commit-remote`     | `--but-muted-foreground`, the row's glyph                        |
-| New on the target, not here yet | `commit-fill` | `--but-commit-upstream`   | `--but-warning-mark`, amber, as ↓                                |
-| Integrated into the target      | `commit-fill` | `--but-commit-integrated` | `--but-purple-mark`, as a merged request                         |
-| Conflicted, pushed or not       | `warning`     | `--but-warning-mark`      | amber, a conflict's mark ([Conflicts](../patterns/conflicts.md)) |
+| Commit                      | Glyph         | Token                     | Resolves to                                                      |
+| --------------------------- | ------------- | ------------------------- | ---------------------------------------------------------------- |
+| Only here, not pushed       | `commit`      | `--but-commit-local`      | `--but-info-mark`, blue: work to send, as ↑                      |
+| Pushed                      | `commit-fill` | `--but-commit-remote`     | `--but-muted-foreground`, the row's glyph                        |
+| On its remote, not here yet | `commit-fill` | `--but-commit-upstream`   | `--but-warning-mark`, amber, as ↓                                |
+| Integrated into the target  | `commit-fill` | `--but-commit-integrated` | `--but-purple-mark`, as a merged request                         |
+| Conflicted, pushed or not   | `warning`     | `--but-warning-mark`      | amber, a conflict's mark ([Conflicts](../patterns/conflicts.md)) |
 
-The row that heads the upstream commits (New on master in React, the upstream
-heading in GPUI) takes `--but-commit-upstream` too, so the heading and its
-commits change together. A merge commit on the target takes `branch-merge` in
+A branch's commits on its remote that aren't here yet list under the branch, and
+the heading over them takes `--but-commit-upstream` too, so the heading and its
+commits change together. A merge among them takes `branch-merge` in
 `--but-commit-upstream`, and a commit from someone else shows their picture at
 the row's end, never in the glyph's place.
+
+**The target's new commits aren't rows.** The repository's ↓ says how many, with
+Update in its place, and a page lists them. The tree lists the work in the
+workspace, not the target's.
