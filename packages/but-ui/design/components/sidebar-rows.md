@@ -32,6 +32,13 @@ age's place.
 
 ## The next step
 
+**What acts looks like a button; what doesn't, never does.** A row's end mixes
+information and actions, so the difference has to show before the pointer gets
+there: every action is a `Button` with its edge, and every count, glyph, age,
+CI mark and badge is plain, with no edge, no hover and no press
+([Meta lines](meta-lines.md), [Badges](badges.md)). A count that has a next step
+doesn't become pressable; a button takes its place.
+
 At most one step per row, after the counts, always shown. A step that acts on a
 count takes that count's place, as the number and its glyph in a button of the
 count's colour.
@@ -89,6 +96,7 @@ Check a drawing or a story against these:
 - Update on an open branch (its heading has it)
 - a step that shows only under the pointer
 - a ⋯ on a row (its menu opens with a right-click)
+- a count, badge or glyph that does something when pressed
 
 ## Open questions
 
