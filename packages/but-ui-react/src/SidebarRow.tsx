@@ -417,14 +417,18 @@ export const BranchItem: FC<
 };
 
 /**
- * A commit under an expanded branch: the hollow glyph in blue while it is only here, work to send
- * as ↑ `unpushed` is, and the solid one, muted, once it is pushed.
+ * A commit under an expanded branch: the hollow glyph while it is only here, the solid one once it
+ * is pushed. The glyph takes its state's `--but-commit-*` token, never a colour of its own: blue
+ * `commit-local` while only here, muted `commit-remote` once pushed, and amber `commit-upstream`
+ * for an `upstream` commit, one on the target the workspace doesn't have yet. A state's colour
+ * changes in that token, for every client at once (but-ui's Sidebar trees note).
  *
  * A `conflicted` commit takes the warning in amber in its glyph's place, pushed or not, so the
  * commits to resolve stand out of the list. Its branch counts them in `conflicts` while folded;
  * open, the marks on its commits say it.
  *
- * Under a {@link TargetItem}, a `merge` takes the merge glyph and, with `folded`, opens to the
+ * Under a {@link TargetItem} every commit is `upstream`, and a `merge` takes the merge glyph and,
+ * with `folded`, opens to the
  * commits it brought in, one level deeper. There each commit comes from someone else, so give its
  * `author`: their {@link Avatar} sits at the row's end, after any `meta`, where a count would, so
  * the glyphs down the list keep saying what each row is. A merge has no author of its own; its
@@ -436,6 +440,7 @@ export const CommitItem: FC<
 	{
 		message: string;
 		pushed?: boolean;
+		upstream?: boolean;
 		merge?: boolean;
 		conflicted?: boolean;
 		author?: CommitAuthor;
@@ -443,6 +448,7 @@ export const CommitItem: FC<
 > = ({
 	message,
 	pushed = true,
+	upstream = false,
 	merge = false,
 	conflicted = false,
 	author,
@@ -473,8 +479,10 @@ export const CommitItem: FC<
 				</span>
 			) : (
 				<Icon
-					name={merge ? "branch-merge" : pushed ? "commit-fill" : "commit"}
-					className={classes(!merge && !pushed && styles.unpushed)}
+					name={merge ? "branch-merge" : pushed || upstream ? "commit-fill" : "commit"}
+					className={
+						upstream ? styles.upstream : merge ? undefined : pushed ? styles.remote : styles.local
+					}
 				/>
 			)
 		}

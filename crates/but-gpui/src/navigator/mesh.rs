@@ -152,8 +152,8 @@ impl Navigator {
         let row = match (pick, branch, commit) {
             (MeshPick::Commit(..), _, Some(commit)) => {
                 let (glyph, color) = match commit.pushed {
-                    true => (Icon::CommitFill, style.muted()),
-                    false => (Icon::Commit, theme.blue_mark),
+                    true => (Icon::CommitFill, theme.commit_remote),
+                    false => (Icon::Commit, theme.commit_local),
                 };
                 let id = format!("mesh-commit-{project}-{key}-{:?}", commit.id);
                 let glyph = small_icon(glyph).text_color(style.meta(color));

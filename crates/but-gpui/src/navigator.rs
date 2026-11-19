@@ -473,9 +473,9 @@ impl<'a> RowStyle<'a> {
             (Icon::Warning, theme.warn_mark)
         } else {
             match commit.state {
-                CommitState::Local => (Icon::Commit, theme.blue_mark),
-                CommitState::Pushed => (Icon::CommitFill, self.muted()),
-                CommitState::Integrated => (Icon::CommitFill, theme.purple_mark),
+                CommitState::Local => (Icon::Commit, theme.commit_local),
+                CommitState::Pushed => (Icon::CommitFill, theme.commit_remote),
+                CommitState::Integrated => (Icon::CommitFill, theme.commit_integrated),
             }
         };
         let glyph = small_icon(glyph).text_color(self.meta(color));
@@ -494,7 +494,7 @@ impl<'a> RowStyle<'a> {
     /// The copy of a commit titled `title` from outside the workspace a cherry-pick would
     /// make, `id` the row's: a local commit.
     fn copy(&self, id: String, title: SharedString) -> Stateful<Div> {
-        let glyph = small_icon(Icon::Commit).text_color(self.meta(self.theme.blue_mark));
+        let glyph = small_icon(Icon::Commit).text_color(self.meta(self.theme.commit_local));
         self.commit_line(id, COMMIT_INDENT, glyph, title, false, None)
     }
 }
@@ -1652,7 +1652,7 @@ impl Navigator {
                 .pr(dp(12.))
                 .gap(dp(10.))
                 .when(*slow, |el| el.opacity(0.5))
-                .child(small_icon(Icon::Commit).text_color(theme.blue_mark))
+                .child(small_icon(Icon::Commit).text_color(theme.commit_local))
                 .child(
                     div()
                         .flex_1()
@@ -3480,7 +3480,7 @@ impl Navigator {
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let (title, slow) = self.store.read(cx).pending_commit(project, op)?;
-        let glyph = small_icon(Icon::Commit).text_color(style.meta(style.theme.blue_mark));
+        let glyph = small_icon(Icon::Commit).text_color(style.meta(style.theme.commit_local));
         let ellipsis = div().text_11().text_color(style.muted()).child("…");
         Some(
             style
