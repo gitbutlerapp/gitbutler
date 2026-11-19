@@ -428,7 +428,7 @@ export const FileListItem: FC<
 			children: conflicted ? (
 				// oxlint-disable-next-line jsx_a11y/prefer-tag-over-role -- A glyph with a name, not a picture with a source.
 				<span role="img" aria-label="Conflicted" className={styles.conflicted}>
-					<Icon name="warning" />
+					<Icon name="warning" size={14} />
 				</span>
 			) : editing ? (
 				<span aria-label="Editing" className={styles.editing}>
