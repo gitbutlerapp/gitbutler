@@ -211,14 +211,11 @@ fn integration_graph_for_branch(
             .find_reference(upstream_ref_name.as_ref())?
             .id()
             .detach();
-        but_graph::Graph::from_commit_traversal_with_extra_tips(
-            head_id.attach(repo),
-            head_ref_name,
-            [
-                but_graph::init::Tip::reachable(upstream_id, Some(upstream_ref_name.into_owned())),
-                but_graph::init::Tip::integrated(target_id, Some(target_ref_name.to_owned())),
-            ],
+        let options = Options::limited();
+        Ok(but_graph::nosegment::workspace(
+            repo,
             meta,
+            but_graph::init::Overlay::default(),
             but_core::ref_metadata::ProjectMeta {
                 target_ref: Some(but_core::ref_metadata::resolve_local_target(
                     target_ref_name,
@@ -227,9 +224,14 @@ fn integration_graph_for_branch(
                 target_commit_id: Some(target_id),
                 ..Default::default()
             },
-            &mut db,
-            Options::limited(),
-        )
+            head_ref_name.as_ref().map(|name| name.as_ref()),
+            Some(head_id),
+            [upstream_id, target_id],
+            Vec::new(),
+            options.collect_tags,
+            options.commits_limit_hint,
+        )?
+        .graph)
     } else if let Ok(upstream_ref_name) = resolve_tracking_branch_ref_name(ref_name, repo) {
         let head = repo.head()?;
         let (head_id, head_ref_name) = match head.kind {
@@ -245,18 +247,20 @@ fn integration_graph_for_branch(
             .find_reference(upstream_ref_name.as_ref())?
             .id()
             .detach();
-        but_graph::Graph::from_commit_traversal_with_extra_tips(
-            head_id.attach(repo),
-            head_ref_name,
-            [but_graph::init::Tip::reachable(
-                upstream_id,
-                Some(upstream_ref_name.into_owned()),
-            )],
+        let options = Options::limited();
+        Ok(but_graph::nosegment::workspace(
+            repo,
             meta,
+            but_graph::init::Overlay::default(),
             Default::default(),
-            &mut db,
-            Options::limited(),
-        )
+            head_ref_name.as_ref().map(|name| name.as_ref()),
+            Some(head_id),
+            [upstream_id],
+            Vec::new(),
+            options.collect_tags,
+            options.commits_limit_hint,
+        )?
+        .graph)
     } else {
         but_testsupport::graph_from_head(
             repo,

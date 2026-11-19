@@ -118,7 +118,14 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 
 "#]]
     );
-    let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
+    let ws = but_testsupport::graph_from_head(
+        &repo,
+        &meta,
+        ws.graph.project_meta.clone(),
+        &mut db,
+        ws.graph.options.clone(),
+    )?
+    .into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -132,7 +139,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 
 #[test]
 fn journey_single_branch_no_ws_commit_no_target() -> anyhow::Result<()> {
-    let (_tmp, graph, mut repo, mut meta, desc, _db) =
+    let (_tmp, graph, mut repo, mut meta, desc, mut db) =
         named_writable_scenario_with_description_and_graph(
             "single-branch-3-commits-no-ws-commit-more-branches",
             |meta| {
@@ -187,7 +194,14 @@ Single commit, target, no ws commit, but ws-reference and a named segment, and b
         .expect("we deleted something");
     }
 
-    let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
+    let ws = but_testsupport::graph_from_head(
+        &repo,
+        &meta,
+        ws.graph.project_meta.clone(),
+        &mut db,
+        ws.graph.options.clone(),
+    )?
+    .into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -421,7 +435,14 @@ Single commit, no main remote/target, no ws commit, but ws-reference
         "recreate ref to show metadata is present and unchanged",
     )?;
 
-    let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
+    let ws = but_testsupport::graph_from_head(
+        &repo,
+        &meta,
+        ws.graph.project_meta.clone(),
+        &mut db,
+        ws.graph.options,
+    )?
+    .into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -507,7 +528,14 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 
 "#]]
     );
-    let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
+    let ws = but_testsupport::graph_from_head(
+        &repo,
+        &meta,
+        ws.graph.project_meta.clone(),
+        &mut db,
+        ws.graph.options.clone(),
+    )?
+    .into_workspace()?;
     // The workspace is completely empty.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
