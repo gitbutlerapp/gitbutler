@@ -69,6 +69,26 @@ const capitalise = (words: string) =>
  */
 const docsPages = (): Plugin => ({
 	name: "docs-pages",
+	// The list is read once, so a note or stories file added or removed while the server runs needs
+	// the list read again: the folders it comes from are watched, and a file coming or going there
+	// throws the list away and reloads the site.
+	configureServer(server) {
+		const folders = [
+			...designFolders.map(([dir, folder]) => `${dir}/${folder}`),
+			"../../packages/but-ui/design/components",
+			"../../packages/but-ui-react/src",
+			gpuiSource,
+		].map((folder) => resolve(folder));
+		server.watcher.add(folders);
+		const relist = (file: string) => {
+			if (!folders.some((folder) => file.startsWith(`${folder}/`))) return;
+			for (const page of server.moduleGraph.getModulesByFile(resolve("src/page-list.ts")) ?? [])
+				server.moduleGraph.invalidateModule(page);
+			server.ws.send({ type: "full-reload" });
+		};
+		server.watcher.on("add", relist);
+		server.watcher.on("unlink", relist);
+	},
 	load(id) {
 		if (!id.endsWith("/but-ui-pantry/src/page-list.ts")) return undefined;
 		const read = (file: string) => {
