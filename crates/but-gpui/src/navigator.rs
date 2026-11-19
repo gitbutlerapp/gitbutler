@@ -3522,7 +3522,7 @@ impl Navigator {
         };
         let title: SharedString = title.into();
         let unread = listed.is_some_and(|commit| store.is_unread(id, commit));
-        let warn = style.meta(style.theme.warn);
+        let warn = style.meta(style.theme.commit_upstream);
         // A merge folds the commits it brought in on a double-click, or by the chevron its ↓
         // turns into.
         let toggle = merge.then(|| {
@@ -3767,8 +3767,13 @@ impl Navigator {
             }
         };
         let quiet = style.quiet();
+        // The upstream heading's glyph takes its commits' colour, so the two change together.
+        let ink = match section {
+            Section::Upstream(_) => style.meta(style.theme.commit_upstream),
+            Section::Inactive | Section::Mesh => quiet,
+        };
         let glyph =
-            (div().w(dp(16.)).flex().justify_center()).child(small_icon(glyph).text_color(quiet));
+            (div().w(dp(16.)).flex().justify_center()).child(small_icon(glyph).text_color(ink));
         (style.row(format!("section-heading-{ix}"), indent))
             .pr(dp(12.))
             .aria_label(label.clone())

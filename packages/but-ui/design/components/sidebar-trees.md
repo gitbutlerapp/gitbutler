@@ -52,6 +52,8 @@ places that draw it.
 | Integrated into the target      | `commit-fill` | `--but-commit-integrated` | `--but-purple-mark`, as a merged request                         |
 | Conflicted, pushed or not       | `warning`     | `--but-warning-mark`      | amber, a conflict's mark ([Conflicts](../patterns/conflicts.md)) |
 
-A merge commit on the target takes `branch-merge` in `--but-commit-upstream`,
-and a commit from someone else shows their picture at the row's end, never in
-the glyph's place.
+The row that heads the upstream commits (New on master in React, the upstream
+heading in GPUI) takes `--but-commit-upstream` too, so the heading and its
+commits change together. A merge commit on the target takes `branch-merge` in
+`--but-commit-upstream`, and a commit from someone else shows their picture at
+the row's end, never in the glyph's place.
