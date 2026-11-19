@@ -4,18 +4,20 @@ use super::{Example, example, page, section, variant};
 use crate::theme::Theme;
 use crate::ui::{Button, ButtonStyle, Icon, button, dp, h_flex, icon_button};
 
-const STYLES: [(&str, ButtonStyle); 5] = [
+const STYLES: [(&str, ButtonStyle); 8] = [
     ("Ghost", ButtonStyle::Ghost),
     ("Outline", ButtonStyle::Outline),
     ("Gray", ButtonStyle::Gray),
     ("Pop", ButtonStyle::Pop),
     ("Danger", ButtonStyle::Danger),
+    ("Info", ButtonStyle::Info),
+    ("Warning", ButtonStyle::Warning),
+    ("Success", ButtonStyle::Success),
 ];
 
-/// The stories of `Button.stories.tsx` this client can draw. It has no coloured outlines, no
-/// solid danger, no medium size, no icon after the label and no keys in a button, so `Colours`,
-/// `Danger`, `WithIconStartAndEnd`, `WithKbd` and `DenseHeader` aren't here.
-pub(super) const EXAMPLES: [Example; 3] = [
+/// The stories of `Button.stories.tsx` this client can draw. It has no solid danger, no medium
+/// size and no keys in a button, so `Danger`, `WithKbd` and `DenseHeader` aren't here.
+pub(super) const EXAMPLES: [Example; 5] = [
     Example {
         id: "components-button--default",
         name: "Default",
@@ -35,6 +37,37 @@ pub(super) const EXAMPLES: [Example; 3] = [
         },
     },
     Example {
+        id: "components-button--colours",
+        name: "Colours",
+        draw: |_| {
+            h_flex()
+                .gap(dp(12.))
+                .items_center()
+                .children(
+                    [
+                        button("colour-push", "8")
+                            .icon_end(Icon::ArrowUp)
+                            .style(ButtonStyle::Info)
+                            .small()
+                            .tooltip("Push 8 commits"),
+                        button("colour-update", "3")
+                            .icon_end(Icon::ArrowDown)
+                            .style(ButtonStyle::Warning)
+                            .small()
+                            .tooltip("Update 3 commits"),
+                        button("colour-merge-small", "Merge")
+                            .style(ButtonStyle::Success)
+                            .small(),
+                        button("colour-push-regular", "Push").style(ButtonStyle::Info),
+                        button("colour-update-regular", "Update").style(ButtonStyle::Warning),
+                        button("colour-merge-regular", "Merge").style(ButtonStyle::Success),
+                    ]
+                    .map(pressable),
+                )
+                .into_any_element()
+        },
+    },
+    Example {
         id: "components-button--icon-only",
         name: "Icon Only",
         draw: |theme| {
@@ -47,6 +80,21 @@ pub(super) const EXAMPLES: [Example; 3] = [
                 )
                 .tooltip(tooltip)
             })
+        },
+    },
+    Example {
+        id: "components-button--with-icon-start-and-end",
+        name: "With Icon Start And End",
+        draw: |_| {
+            h_flex()
+                .gap(dp(12.))
+                .child(pressable(
+                    button("icon-start", "New Branch").icon(Icon::Branch),
+                ))
+                .child(pressable(
+                    button("icon-end", "New Branch").icon_end(Icon::Branch),
+                ))
+                .into_any_element()
         },
     },
 ];

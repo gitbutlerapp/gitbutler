@@ -840,6 +840,22 @@ impl Theme {
         }
     }
 
+    /// A coloured outline button's edge: its hue's text at 30%.
+    pub fn outline_edge(&self, hue: Hue) -> Hsla {
+        self.hue(hue).opacity(0.3)
+    }
+
+    /// Under the pointer, a coloured outline button's ground: its hue's faintest see-through
+    /// tint, as Radix's outline buttons hover. Only info, success and warning draw one.
+    pub fn outline_hover(&self, hue: Hue) -> Hsla {
+        match hue {
+            Hue::Blue => self.info_outline_hover,
+            Hue::Safe => self.success_outline_hover,
+            Hue::Warn => self.warning_outline_hover,
+            _ => self.hover,
+        }
+    }
+
     pub fn surface(&self, hue: Hue) -> Hsla {
         match hue {
             Hue::Pop => self.primary_surface,
