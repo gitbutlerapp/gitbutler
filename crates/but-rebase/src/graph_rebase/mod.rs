@@ -599,7 +599,7 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
         let mut overlay = Overlay::default()
             .with_references(updated_refs)
             .with_dropped_references(dropped_refs)
-            .with_entrypoint(entrypoint_id, entrypoint_refname)
+            .with_entrypoint(entrypoint_id, entrypoint_refname.clone())
             .with_branch_metadata_override(branch_metadata)
             .with_workspace_metadata_override(
                 workspace_metadata
@@ -613,10 +613,27 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
                 overlay = overlay.with_branch_stack_order_override(stack);
             }
         }
-        let mut graph = self.workspace.graph.clone();
-        graph.worktree_tips = self.worktree_tips_after_rebase()?;
-        graph.options.extra_refs = self.extra_refs_after_rebase()?;
-        graph.redo_traversal_with_overlay(&self.repo, self.meta, overlay)
+        let graph = &self.workspace.graph;
+        // The graph's extra refs bring in what the entrypoint doesn't reach, under the names
+        // they have after the rebase.
+        let extra_heads = self
+            .extra_refs_after_rebase()?
+            .iter()
+            .map(|ref_name| self.reference_target(ref_name.as_ref()))
+            .collect::<Result<Vec<_>>>()?;
+        Ok(but_graph::nosegment::workspace(
+            &self.repo,
+            self.meta,
+            overlay,
+            graph.project_meta.clone(),
+            entrypoint_refname.as_ref().map(|name| name.as_ref()),
+            Some(entrypoint_id),
+            extra_heads,
+            self.worktree_tips_after_rebase()?,
+            graph.options.collect_tags,
+            graph.options.commits_limit_hint,
+        )?
+        .graph)
     }
 
     /// Resolve `selector` to the identifiers of its commit pick including the change id.

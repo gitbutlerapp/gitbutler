@@ -303,8 +303,32 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
     fn refresh_workspace(&mut self, repo: &gix::Repository) -> Result<()> {
         self.workspace.graph.options.extra_refs = self.extra_refs_after_rebase()?;
         let project_meta = self.workspace.graph.project_meta.clone();
-        self.workspace
-            .refresh_from_head(repo, &*self.meta, project_meta, &mut *self.db)
+        let options = self.workspace.graph.options.clone();
+        let head = repo.head()?;
+        // Like a traversal, the graph's extra refs join it, leaving out those that are gone.
+        let mut extra_heads = Vec::new();
+        for ref_name in &options.extra_refs {
+            if let Some(mut reference) = repo.try_find_reference(ref_name)? {
+                extra_heads.push(reference.peel_to_commit()?.id);
+            }
+        }
+        let mut workspace = but_graph::nosegment::workspace(
+            repo,
+            &*self.meta,
+            but_graph::init::Overlay::default(),
+            project_meta,
+            head.referent_name(),
+            head.id().map(|id| id.detach()),
+            extra_heads,
+            but_graph::init::discover_worktree_tips(repo, &mut *self.db, options.worktrees)?,
+            options.collect_tags,
+            options.commits_limit_hint,
+        )?;
+        // Workspaces made from this one use the options it was made with, linked worktrees
+        // included.
+        workspace.graph.options = options;
+        *self.workspace = workspace;
+        Ok(())
     }
 
     /// Materializes a history rewrite, and records how its branches stack in the metadata.
