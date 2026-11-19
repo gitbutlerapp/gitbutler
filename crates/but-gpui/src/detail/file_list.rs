@@ -112,6 +112,8 @@ struct FileRow {
     joined: (bool, bool),
     /// The byte ranges of its path the filter found, to underline.
     found: Vec<Range<usize>>,
+    /// The commits its uncommitted changes build on, which pointing at its lock marks.
+    locks: Vec<CommitId>,
 }
 
 /// Scroll file list `scroll` to show row `row`, as near as it is, with the room the rows have
@@ -668,7 +670,16 @@ impl Detail {
                     return Some(self.render_file_row(pos, opened, extras, solid, theme, cx));
                 };
                 let whole = Selected::whole(file);
+                let locks = (store.locks.get(project))
+                    .filter(|_| !worktree.is_linked())
+                    .map_or_else(Vec::new, |locks| {
+                        let mut commits: Vec<_> = locks.of(&whole).collect();
+                        commits.sort();
+                        commits.dedup();
+                        commits
+                    });
                 let extras = FileRow {
+                    locks,
                     diff_ix: (self.worktree_diff())
                         .and_then(|diff| diff.files.iter().position(|f| f.file.path == file.path)),
                     checkbox: self.composing.then(|| self.checks.file_check(&file.path)),
@@ -1499,6 +1510,36 @@ impl Detail {
             .collect()
     }
 
+    /// The lock of a file whose changes build on `commits` of the project `menu` is in, if
+    /// any. Pointing at it marks them in the navigator.
+    fn lock(
+        &self,
+        ix: usize,
+        menu: Option<&(ProjectId, Changes)>,
+        commits: Vec<CommitId>,
+        theme: &Theme,
+    ) -> Option<Stateful<Div>> {
+        let project = menu.filter(|_| !commits.is_empty())?.0.clone();
+        let tip = match commits.len() {
+            1 => "Depends on 1 commit".to_owned(),
+            n => format!("Depends on {n} commits"),
+        };
+        let store = self.store.clone();
+        Some(
+            div()
+                .id(("lock", ix))
+                .flex_none()
+                .role(gpui::Role::Image)
+                .aria_label("Depends on commits")
+                .child(small_icon(Icon::Lock).text_color(theme.warn))
+                .tooltip(Tooltip::text(tip))
+                .on_hover(move |hovered, _, cx| {
+                    let hovered = hovered.then(|| (project.clone(), commits.clone()));
+                    store.update(cx, |store, cx| store.hover_lock(hovered, cx));
+                }),
+        )
+    }
+
     fn render_file_row(
         &self,
         ix: usize,
@@ -1537,7 +1578,8 @@ impl Detail {
         // Being edited in the diff: a quiet pencil; typed in and not saved yet, a dot, as the
         // diff's header marks it.
         let being_edited = editing && !opened;
-        let marks = (being_edited || unsaved).then(|| {
+        let lock = self.lock(ix, extras.menu.as_ref(), extras.locks, theme);
+        let marks = (being_edited || unsaved || lock.is_some()).then(|| {
             h_flex()
                 .gap(dp(6.))
                 .when(being_edited, |el| {
@@ -1556,6 +1598,7 @@ impl Detail {
                             .tooltip(Tooltip::keyed("Not saved", shortcut(&super::SaveEdits, cx))),
                     )
                 })
+                .children(lock)
         });
         let (depth, guides) = extras.depth.unzip();
         // In a tree a file sits under its directory, which names its path.
