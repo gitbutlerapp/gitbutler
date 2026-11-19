@@ -153,9 +153,6 @@ pub fn standard_options() -> but_graph::init::Options {
     but_graph::init::Options {
         collect_tags: true,
         commits_limit_hint: None,
-        commits_limit_recharge_location: vec![],
-        hard_limit: None,
-        dangerously_skip_postprocessing_for_debugging: false,
         worktrees: false,
     }
 }

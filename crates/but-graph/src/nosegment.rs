@@ -1,5 +1,4 @@
-//! Segment graphs built from a topological walk of commits and references, rather than from
-//! the traversal of [`Graph::from_head()`](crate::Graph::from_head()).
+//! Segment graphs built from a topological walk of commits and references.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
@@ -1543,7 +1542,6 @@ impl WorkspaceGraph {
             inner: inner_graph,
             entrypoint,
             entrypoint_ref: None,
-            traversal_tips: Vec::new(),
             ad_hoc_branch_stack_orders,
             worktree_branch_stack_orders,
             hard_limit_hit: false,
@@ -1632,8 +1630,8 @@ impl WorkspaceGraph {
     }
 }
 
-/// Produce the [segment graph](segment_graph()) of `workspace`: walked from `heads` and everything
-/// the workspace's graph was traversed from, and ending below its target commit.
+/// Produce the [segment graph](segment_graph()) of `workspace`: walked from `heads` and ending
+/// below its target commit.
 ///
 /// It uses the workspace's project metadata and its own workspace metadata, which may not be
 /// persisted in `meta` yet.
@@ -1644,7 +1642,7 @@ pub fn workspace_segment_graph(
     workspace: &crate::Workspace,
     repo: &gix::Repository,
     meta: &impl RefMetadata,
-    mut heads: Vec<gix::ObjectId>,
+    heads: Vec<gix::ObjectId>,
 ) -> Result<crate::Graph> {
     let entrypoint = workspace.graph.entrypoint()?;
     let overlay = Overlay::default().with_workspace_metadata_override(
@@ -1653,9 +1651,6 @@ pub fn workspace_segment_graph(
             .map(ToOwned::to_owned)
             .zip(workspace.metadata.clone()),
     );
-    // Everything the workspace's graph was traversed from is part of it,
-    // even what lies above the entrypoint.
-    heads.extend(workspace.graph.traversal_tips.iter().map(|tip| tip.id));
     segment_graph(
         repo,
         meta,

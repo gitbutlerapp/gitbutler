@@ -1,11 +1,10 @@
 use anyhow::Context;
 use bstr::BStr;
 use but_core::{
-    RefMetadata, extract_remote_name_and_short_name,
+    extract_remote_name_and_short_name,
     ref_metadata::{ProjectedWorkspaceStack, StackId},
 };
 use petgraph::Direction;
-use tracing::instrument;
 
 use crate::{
     CommitFlags, CommitIndex, Graph, Segment, SegmentIndex, Workspace,
@@ -19,35 +18,6 @@ use crate::{
 pub type CommitOwnerIndexes = (usize, usize, CommitIndex);
 
 mod queries;
-
-impl Workspace {
-    /// Redo the graph traversal with the same settings as before, but use the latest
-    /// data from `repo`, `meta`, `project_meta` and `db` to do it.
-    /// This is useful to make this instance represent changes to `repo` or `meta`.
-    /// Worktree tips are [discovered](crate::init::Options::worktrees) afresh from
-    /// `db` rather than reusing the previous traversal's, as they may have changed.
-    ///
-    /// Pass a freshly read `project_meta` to pick up target changes as well, or
-    /// `self.graph.project_meta.clone()` to deliberately keep the current one,
-    /// e.g. in the middle of an operation.
-    #[instrument(
-        name = "Workspace::refresh_from_head",
-        level = "debug",
-        skip_all,
-        err(Debug)
-    )]
-    pub fn refresh_from_head(
-        &mut self,
-        repo: &gix::Repository,
-        meta: &impl RefMetadata,
-        project_meta: but_core::ref_metadata::ProjectMeta,
-        db: &mut but_db::DbHandle,
-    ) -> anyhow::Result<()> {
-        let graph = Graph::from_head(repo, meta, project_meta, db, self.graph.options.clone())?;
-        *self = graph.into_workspace()?;
-        Ok(())
-    }
-}
 
 impl Workspace {
     pub fn has_metadata(&self) -> bool {
