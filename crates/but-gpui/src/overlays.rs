@@ -996,6 +996,7 @@ impl AppView {
                     title,
                     detail,
                     retry,
+                    waits,
                     ..
                 } => {
                     let copied = detail.to_string();
@@ -1003,15 +1004,17 @@ impl AppView {
                         clipboard::copy_error(&this.store, copied.clone(), cx)
                     });
                     let retry = retry.clone().map(|(label, run)| {
-                        button(("retry", id), label).small().on_click(cx.listener(
-                            move |this, _: &ClickEvent, _, cx| {
+                        button(("retry", id), label)
+                            .small()
+                            // What a waiting card is for, so its one primary action.
+                            .when(*waits, |b| b.style(ButtonStyle::Pop))
+                            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                                 this.store.update(cx, |store, cx| {
                                     if store.take_toast(id, cx) {
                                         run(store, cx)
                                     }
                                 })
-                            },
-                        ))
+                            }))
                     });
                     errors.push(
                         popover(theme)
@@ -1027,7 +1030,14 @@ impl AppView {
                                 h_flex()
                                     .items_start()
                                     .gap(dp(8.))
-                                    .child(icon(Icon::Warning).text_color(theme.danger).mt(dp(2.)))
+                                    .child(match waits {
+                                        // A round glyph centred on the line looks low beside
+                                        // the letters, so it sits on their middle instead.
+                                        true => icon(Icon::Clock).text_color(theme.text_3),
+                                        false => {
+                                            icon(Icon::Warning).text_color(theme.danger).mt(dp(2.))
+                                        }
+                                    })
                                     .child(
                                         // A long title wraps rather than running off the card.
                                         div().flex_1().min_w_0().semibold().child(title.clone()),
@@ -1054,9 +1064,12 @@ impl AppView {
                                         )
                                     })
                                     .child(
-                                        button(("dismiss", id), "Dismiss")
-                                            .small()
-                                            .on_click(dismiss),
+                                        button(
+                                            ("dismiss", id),
+                                            if *waits { "Not now" } else { "Dismiss" },
+                                        )
+                                        .small()
+                                        .on_click(dismiss),
                                     )
                                     .children(retry),
                             ),

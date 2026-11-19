@@ -424,24 +424,43 @@ pub use but_forge::ReviewMergeMethod as MergeMethod;
 
 /// Merge pull request `number`, then fetch so the target has the merge and the workspace can
 /// update from it. Asking for the request again records it merged in the cache, so the
-/// reload after shows it merged without waiting for the next listing. Done says whether it
-/// merged, as GitHub can put a stacked one in its merge queue instead.
+/// reload after shows it merged without waiting for the next listing.
 pub struct Merge {
     pub number: u64,
     pub method: MergeMethod,
 }
 
-impl Intent for Merge {
-    type Done = bool;
+/// How a [`Merge`] went.
+pub enum MergeOutcome {
+    Merged,
+    /// In GitHub's merge queue, where it can put a stacked one instead.
+    Queued,
+    /// The forge won't merge it yet, as while its required checks are still running.
+    /// Auto-merge can wait for it.
+    NotYet,
+}
 
-    fn apply(self, run: &mut Run) -> Result<bool> {
+impl Intent for Merge {
+    type Done = MergeOutcome;
+
+    fn apply(self, run: &mut Run) -> Result<MergeOutcome> {
         let Self { number, method } = self;
         let ctx = run.ctx();
-        (runtime().handle()).block_on(forge::merge_review(
+        let merging = (runtime().handle()).block_on(forge::merge_review(
             ctx.to_sync(),
             number as usize,
             Some(method),
-        ))?;
+        ));
+        match merging {
+            Err(err)
+                if (err.custom_context())
+                    .is_some_and(|said| said.code == but_error::Code::PreconditionFailed) =>
+            {
+                tracing::info!(?err, "the forge won't merge it yet");
+                return Ok(MergeOutcome::NotYet);
+            }
+            merging => merging?,
+        }
         let merged = match forge::get_review(ctx, number as usize) {
             Ok(review) => review.merged_at.is_some(),
             Err(err) => {
@@ -452,7 +471,10 @@ impl Intent for Merge {
         if let Err(err) = super::fetch(run.path()) {
             tracing::warn!(?err, "merged, but couldn't fetch");
         }
-        Ok(merged)
+        Ok(match merged {
+            true => MergeOutcome::Merged,
+            false => MergeOutcome::Queued,
+        })
     }
 
     fn kind(&self) -> OpKind {
