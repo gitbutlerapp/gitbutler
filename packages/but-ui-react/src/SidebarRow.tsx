@@ -420,7 +420,7 @@ export const BranchItem: FC<
  * A commit under an expanded branch: the hollow glyph while it is only here, the solid one once it
  * is pushed.
  *
- * A `conflicted` commit takes the warning in red in its glyph's place, pushed or not, so the
+ * A `conflicted` commit takes the warning in amber in its glyph's place, pushed or not, so the
  * commits to resolve stand out of the list. Its branch counts them in `conflicts` while folded;
  * open, the marks on its commits say it.
  *

@@ -90,8 +90,8 @@
 	height: var(--but-size-control-sm);
 	padding-inline: 4px;
 	border-radius: var(--but-radius-control);
-	background-color: var(--but-danger);
-	color: var(--but-danger-foreground);
+	background-color: var(--but-warning);
+	color: var(--but-warning-foreground);
 }
 
 .location {

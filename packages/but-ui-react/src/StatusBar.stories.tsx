@@ -33,10 +33,10 @@ const pane: Decorator = (Story) => (
 
 const Conflicts = () => (
 	<StatusAlert>
-		<StatusNote tone="danger" icon="commit">
+		<StatusNote tone="warning" icon="commit">
 			3 commits
 		</StatusNote>
-		<StatusNote tone="danger" icon="diff">
+		<StatusNote tone="warning" icon="diff">
 			2 uncommitted files
 		</StatusNote>
 	</StatusAlert>
@@ -89,7 +89,7 @@ export const ConflictedCommits = meta.story({
 				<>
 					<FetchedJustNow />
 					<StatusAlert>
-						<StatusNote tone="danger" icon="commit">
+						<StatusNote tone="warning" icon="commit">
 							2 commits
 						</StatusNote>
 					</StatusAlert>
@@ -115,7 +115,7 @@ export const FilesInLinkedWorktree = meta.story({
 				<>
 					<StatusNote iconEnd="refresh">Fetched 2m ago</StatusNote>
 					<StatusAlert>
-						<StatusNote tone="danger" icon="diff">
+						<StatusNote tone="warning" icon="diff">
 							3 uncommitted files
 						</StatusNote>
 					</StatusAlert>
@@ -127,7 +127,7 @@ export const FilesInLinkedWorktree = meta.story({
 	),
 });
 
-/** A note at rest is quiet text/2; `warning` is for what an action would leave conflicted, and `danger` for something broken and the conflicts' counts. */
+/** A note at rest is quiet text/2; `warning` is for conflicts, what an action would leave conflicted and the conflicts' counts, and `danger` for something broken. */
 export const Notes = meta.story({
 	parameters: { ...core("4852-2344"), layout: undefined },
 	decorators: [pane],

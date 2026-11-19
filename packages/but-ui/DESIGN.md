@@ -66,5 +66,6 @@ Rules for one component that its docs don't carry yet.
 | [Context menus](design/patterns/context-menus.md)               | A row's actions, or a right-click menu           |
 | [Empty states](design/patterns/empty-states.md)                 | Nothing to show yet, or a filter matched nothing |
 | [Blocked states](design/patterns/blocked-states.md)             | Something the user can't do yet                  |
+| [Conflicts](design/patterns/conflicts.md)                       | A conflicted commit, file or branch              |
 | [Toasts and snackbars](design/patterns/toasts-and-snackbars.md) | Telling the user something happened              |
 | [Markdown](design/patterns/markdown.md)                         | Rendering a description or a comment             |
