@@ -159,5 +159,3 @@ pub fn standard_options() -> but_graph::init::Options {
         extra_refs: vec![],
     }
 }
-
-pub use but_testsupport::{id_at, id_by_rev};

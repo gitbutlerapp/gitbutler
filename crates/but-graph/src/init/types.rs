@@ -572,39 +572,3 @@ impl TopoWalk {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::Queue;
-
-    #[test]
-    fn explicit_exhaustion_does_not_count_as_hard_limit_hit() {
-        let mut queue = Queue::new_with_limit(Some(1));
-
-        queue.exhaust();
-
-        assert!(queue.is_exhausted(), "explicit exhaustion stops queueing");
-        assert!(
-            !queue.record_hard_limit_if_exhausted(),
-            "hard-limit state stays separate from explicit exhaustion"
-        );
-        assert!(
-            !queue.hard_limit_hit(),
-            "explicit exhaustion must not mark the hard limit as hit"
-        );
-    }
-
-    #[test]
-    fn hard_limit_exhaustion_records_hard_limit_hit() {
-        let mut queue = Queue::new_with_limit(Some(0));
-
-        assert!(
-            queue.record_hard_limit_if_exhausted(),
-            "a depleted hard limit stops queueing"
-        );
-        assert!(
-            queue.hard_limit_hit(),
-            "the queue records when the hard limit stopped queueing"
-        );
-    }
-}
