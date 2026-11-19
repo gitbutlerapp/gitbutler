@@ -1127,17 +1127,15 @@ pub(super) fn in_checkout(
 }
 
 /// Whether `project`'s `checkout`'s uncommitted changes are listed, first under its heading:
-/// only while there are some, as with none there's nothing to show or commit, or while a file
-/// is opened to edit there.
+/// only while there are some, as with none there's nothing to show or commit.
 pub(crate) fn lists_changes(
     store: &Store,
     workspace: &Workspace,
     project: &ProjectId,
     checkout: &Checkout,
 ) -> bool {
-    store.opened_in(project, checkout)
-        || (workspace.uncommitted_in(checkout))
-            .is_some_and(|files| !store.uncommitted_shown(project, checkout, files).is_empty())
+    (workspace.uncommitted_in(checkout))
+        .is_some_and(|files| !store.uncommitted_shown(project, checkout, files).is_empty())
 }
 
 /// Whether anything is listed under `project`'s `checkout`'s heading while it's open: its

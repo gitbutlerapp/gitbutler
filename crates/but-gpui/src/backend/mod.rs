@@ -13,7 +13,6 @@ pub mod conflicts;
 pub mod control;
 mod diff;
 pub mod edit;
-pub mod edit_lines;
 pub mod graph;
 mod highlight;
 pub mod history;

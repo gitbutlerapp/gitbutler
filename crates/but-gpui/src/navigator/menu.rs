@@ -380,7 +380,6 @@ impl Navigator {
                     if !store.main_headed(project) {
                         items
                             .extend([command(&NewTerminal).separated(), command(&NewTerminalWith)]);
-                        items.push(open_file_item(project, Checkout::Main, cx));
                         items.extend(store.path(project).and_then(|path| build_item(&path, cx)));
                     }
                     items.extend([command(&Fetch).separated(), command(&Pull)]);
@@ -404,7 +403,6 @@ impl Navigator {
             Selection::Checkout(project, Checkout::Main) => {
                 let mut items = new_branch_items(cx);
                 items.extend([command(&NewTerminal).separated(), command(&NewTerminalWith)]);
-                items.push(open_file_item(project, Checkout::Main, cx));
                 items.extend(store.path(project).and_then(|path| build_item(&path, cx)));
                 items
             }
@@ -518,7 +516,6 @@ impl Navigator {
                     command(&CopyPath).keys(&CopySelection, cx),
                     command(&NewTerminal).separated(),
                     command(&NewTerminalWith),
-                    open_file_item(project, Checkout::Linked(name.clone()), cx),
                     command(&MoveSelection).separated(),
                     command(&ArchiveWorktree),
                     MenuItem::discard_row(target, cx),
@@ -537,19 +534,6 @@ impl Navigator {
             Selection::Section(..) | Selection::Pending(..) => Vec::new(),
         }
     }
-}
-
-/// Pick a file `project`'s `checkout` tracks to edit, as Go to anything finds them too.
-fn open_file_item(project: &ProjectId, checkout: Checkout, cx: &App) -> MenuItem {
-    let project = project.clone();
-    MenuItem::keyed(
-        "Open a file…",
-        &crate::palette::GoTo,
-        cx,
-        move |app, window, cx| {
-            app.open_checkout_file(project.clone(), checkout.clone(), window, cx)
-        },
-    )
 }
 
 /// Commit, amend and discarding the changes of the selected checkout, which has some.
