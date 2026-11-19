@@ -436,7 +436,8 @@ body[data-layout="centered"] {
 
 /* The Colours page. */
 
-.docs-colours-section {
+.docs-colours-section,
+.docs-adoption-section {
 	display: flex;
 	flex-direction: column;
 	gap: 16px;
@@ -505,4 +506,16 @@ body[data-layout="centered"] {
 
 .docs-colours-description {
 	color: var(--but-muted-foreground);
+}
+
+/* The Adoption page: the names a component's file is imported by, side by side. */
+.docs-adoption-names {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+
+/* A component's frame in Figma: one word and its arrow, kept on one line. */
+.docs-adoption-link {
+	white-space: nowrap;
 }

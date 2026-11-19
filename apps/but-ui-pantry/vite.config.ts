@@ -1,15 +1,17 @@
 import react from "@vitejs/plugin-react";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { defineConfig, type Plugin } from "vite";
 
-/** The order of the sidebar's headings: the design notes, then 🍑 But UI's component pages. */
+/** The order of the sidebar's headings: the design notes, the Adoption page, then 🍑 But UI's
+ * component pages. */
 const groups = [
 	"Design",
 	"Getting started",
 	"Foundations",
 	"Content",
 	"Patterns",
+	"Components",
 	"Actions",
 	"Inputs",
 	"Overlays",
@@ -64,7 +66,8 @@ const capitalise = (words: string) =>
 
 /**
  * Fills in `src/page-list.ts`, every page the site lists: a design note per Markdown file, the
- * Colours page, and a component per stories file with the notes its component's `@see` tags name.
+ * Colours page, the Adoption page, and a component per stories file with the notes its component's
+ * `@see` tags name, the file it comes from, its stories and its frame in Figma.
  * Read off the files here, so the sidebar knows the pages without loading every component.
  */
 const docsPages = (): Plugin => ({
@@ -117,16 +120,32 @@ const docsPages = (): Plugin => ({
 								String.raw`(\/\*\*(?:(?!\*\/)[\s\S])*\*\/)\s*export (?:const|function|class) ${component}\b`,
 							).exec(read(`../../packages/but-ui-react/src/${from}`))?.[1] ?? "");
 				const title = /\btitle: "([^"]+)"/.exec(source)?.[1] ?? file;
+				const figma = /\burl: "(https:\/\/www\.figma\.com\/[^"]+)"/.exec(source)?.[1];
+				// Stories with no `component` draw the file named for their title: `Icon.tsx`.
+				const name = component ?? title.split("/").at(-1) ?? "";
+				const module =
+					from ??
+					(existsSync(`../../packages/but-ui-react/src/${name}.tsx`) ? `${name}.tsx` : undefined);
 				return {
 					id: /\bid: "([^"]+)"/.exec(source)?.[1] ?? file,
 					title,
 					file,
 					notes: componentNotes(jsdoc),
+					component: name,
+					...(module === undefined ? {} : { module }),
+					stories: stories.match(/\bmeta\.story\(/g)?.length ?? 0,
+					...(figma === undefined ? {} : { figma }),
 					...(gpui.has(title.split("/").at(-1) ?? "") ? { gpui: true } : {}),
 				};
 			});
 		const group = (title: string) => groups.indexOf(title.split("/").slice(-2, -1)[0] ?? "");
-		const pages = [...design, ...components].sort((a, b) =>
+		// What but.dev uses of every component, which the Components card opens.
+		const adoption = {
+			id: "components-adoption",
+			title: "Components/Adoption",
+			file: "adoption.json",
+		};
+		const pages = [...design, adoption, ...components].sort((a, b) =>
 			group(a.title) === group(b.title)
 				? a.title.localeCompare(b.title)
 				: group(a.title) - group(b.title),
