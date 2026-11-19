@@ -74,9 +74,11 @@ static STARTED: Mutex<Option<mpsc::Receiver<()>>> = Mutex::new(None);
 static LIMITS: Mutex<Option<HashMap<String, (Instant, u64)>>> = Mutex::new(None);
 /// What was looked at since `app_active` last went out.
 static ACTIVE: Mutex<active::Active> = Mutex::new(active::Active::new());
+/// The window's width in points, as the desktop app's `$viewport_width` is.
+static WINDOW_WIDTH: Mutex<Option<f32>> = Mutex::new(None);
 
 /// What `app_active` says about the app as it is: its settings, how many projects there are,
-/// and the workspace being looked at.
+/// the workspace being looked at and how the rows divide the detail into tiles.
 pub struct State<'a> {
     pub prefs: &'a crate::state::Prefs,
     /// Whether the project's commits run its hooks.
@@ -85,6 +87,9 @@ pub struct State<'a> {
     pub briefs: bool,
     pub projects: usize,
     pub workspace: &'a Workspace,
+    pub tiles: crate::state::TileCounts,
+    /// The navigator's width as set, in design pixels.
+    pub navigator_width: f32,
 }
 
 /// Start in the background, before the window opens: read the settings, report how the last
@@ -194,6 +199,11 @@ pub fn in_front(front: bool) {
         return;
     }
     ACTIVE.lock().in_front(front, Instant::now());
+}
+
+/// The window is `width` points wide now, for `app_active` to say.
+pub fn window_width(width: f32) {
+    *WINDOW_WIDTH.lock() = Some(width);
 }
 
 /// `view`, as `commit` or `history`, is on screen now, opened by the user or by the app, as at
@@ -316,6 +326,13 @@ pub fn viewed<'a>(view: &'static str, state: impl FnOnce() -> State<'a>) {
     let state = state();
     let mut props = settings(&state);
     props.insert("projectCount".into(), state.projects.into());
+    props.insert(
+        "navigatorWidth".into(),
+        json!(state.navigator_width.round()),
+    );
+    if let Some(width) = *WINDOW_WIDTH.lock() {
+        props.insert("$viewport_width".into(), json!(width.round()));
+    }
     shape(state.workspace, &mut props);
     props.extend(looked);
     queue(Kind::Usage, "app_active", props);
@@ -387,6 +404,18 @@ fn settings(state: &State) -> Props {
         ("commitHooks", json!(state.hooks)),
         ("singleFileDiff", json!(state.single_file_diff)),
         ("briefs", json!(state.briefs)),
+        ("dividedRows", json!(state.tiles.divided_rows)),
+        ("mostTiles", json!(state.tiles.most_tiles)),
+        ("terminalTiles", json!(state.tiles.terminals)),
+        (
+            "splitDirection",
+            json!(match (state.tiles.across, state.tiles.down) {
+                (true, true) => Some("both"),
+                (true, false) => Some("across"),
+                (false, true) => Some("down"),
+                (false, false) => None,
+            }),
+        ),
     ]
     .into_iter()
     .map(|(name, value)| (name.to_owned(), value))
