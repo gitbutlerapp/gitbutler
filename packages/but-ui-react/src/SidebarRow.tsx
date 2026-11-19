@@ -370,7 +370,9 @@ const prBadge: Record<PullRequestState, BadgeVariant> = {
  * @figma `pr` follows the pull request: `none` shows the branch's name, the others its number and
  * title, and `none-merged` is `merged` with no request known. The counts come from BranchMeta: on
  * an expanded branch turn off commits (⟜), and turn on conflicts only while it's folded. For a
- * branch with no commits yet, turn on commits alone and set its text to empty.
+ * branch with no commits yet, turn on commits alone and set its text to empty. `unread` draws the
+ * dot after the counts, and `read` keeps its room, as `unread={false}` does, so the counts line up
+ * down the list; every tree row has both.
  * @see packages/but-ui/design/components/sidebar-trees.md
  * @import import { BranchItem } from "@gitbutler/but-ui-react/SidebarRow.tsx";
  */
