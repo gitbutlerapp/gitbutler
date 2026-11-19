@@ -417,8 +417,8 @@ export const BranchItem: FC<
 };
 
 /**
- * A commit under an expanded branch: the hollow glyph while it is only here, the solid one once it
- * is pushed.
+ * A commit under an expanded branch: the hollow glyph in blue while it is only here, work to send
+ * as ↑ `unpushed` is, and the solid one, muted, once it is pushed.
  *
  * A `conflicted` commit takes the warning in amber in its glyph's place, pushed or not, so the
  * commits to resolve stand out of the list. Its branch counts them in `conflicts` while folded;
@@ -472,7 +472,10 @@ export const CommitItem: FC<
 					<Icon name="warning" />
 				</span>
 			) : (
-				<Icon name={merge ? "branch-merge" : pushed ? "commit-fill" : "commit"} />
+				<Icon
+					name={merge ? "branch-merge" : pushed ? "commit-fill" : "commit"}
+					className={classes(!merge && !pushed && styles.unpushed)}
+				/>
 			)
 		}
 		label={

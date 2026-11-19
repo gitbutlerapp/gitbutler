@@ -57,6 +57,7 @@
 	   light-dark() colours resolve to their inverted values, as Badge and MetaCount do. */
 	.branchGlyph,
 	.conflicted,
+	.unpushed,
 	.title {
 		color-scheme: dark;
 
@@ -375,6 +376,11 @@ button.toggle {
 .conflicted {
 	display: flex;
 	color: var(--but-warning-mark);
+}
+
+/* A commit only here: blue, work to send, as the ↑ count is. */
+.unpushed {
+	color: var(--but-info-mark);
 }
 
 .badge {
