@@ -53,7 +53,7 @@
 	"2134:5924": {
 		"component": "ConflictIcon",
 		"file": "ConflictIcon.tsx",
-		"description": "Marks a conflict: `conflict` is the warning triangle for a conflicted commit or file, filled in the warning amber, as a conflict waits to be resolved rather than having failed; `plus` and `minus` are the paired marks on the two sides of a conflicted hunk.\n\nCode: ConflictIcon in @gitbutler/but-ui-react/ConflictIcon.tsx"
+		"description": "The paired marks on the two sides of a conflicted hunk: `plus` and `minus`. A conflicted commit or file is marked with the `warning` icon in amber instead (but-ui's Conflicts note).\n\nCode: ConflictIcon in @gitbutler/but-ui-react/ConflictIcon.tsx"
 	},
 	"4629:806": {
 		"component": "DescriptionList",
