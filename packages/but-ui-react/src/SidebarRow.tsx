@@ -28,11 +28,11 @@ type RowProps = {
 	selected?: boolean;
 	/** `MetaCount`s and a `CiStatus`, in the order the row should read them. */
 	meta?: ReactNode;
-	/** The row's next step, as small outline `Button`s: Push, Update, Create PR, View PR. They take
-	 * the state's place under the pointer and on keyboard focus; leave them out when there is none,
-	 * and the row keeps its state there. The rest of what it can do is in its menu, which opens
-	 * with a right-click, or Shift-F10 on the focused row: make the row a `ContextMenu`'s `trigger`.
-	 * It has no ⋯, so its end always says where it stands. */
+	/** The row's next step, a small outline `Button`, after its state and always shown. A step that
+	 * acts on a count takes that count's place: leave the count out of `meta` and give the button its
+	 * number, then its glyph, in its colour (`info` Push for ↑ `unpushed`, `warning` Update for ↓
+	 * `behind`). The rest of what the row can do is in its menu, which opens with a right-click, or
+	 * Shift-F10 on the focused row: make the row a `ContextMenu`'s `trigger`. It has no ⋯. */
 	actions?: ReactNode;
 	/** What the name stands for in full (a path, a pull request's state, a commit's author), shown
 	 * over the name alone, so the counts beside it keep their own. */
@@ -141,8 +141,8 @@ const measureRuns = (event: PointerEvent<HTMLElement>) => {
 	}
 };
 
-/** The one line every sidebar item is drawn on: the name takes the line and the state sits at the
- * end, where it stays, and the actions take its place under the pointer.
+/** The one line every sidebar item is drawn on: the name takes the line, and the state and then the
+ * next step sit at the end, where they stay.
  * `spinner` is what stands in for `icon` while it is `busy`, a plain one unless the item colours
  * its own. A row without an `icon` starts with its name, after its chevron if it folds. */
 const Row: FC<
@@ -199,21 +199,16 @@ const Row: FC<
 						icon !== undefined && <span className={styles.icon}>{icon}</span>
 					)}
 					<span className={styles.label}>{label}</span>
-					{
-						// The state and the actions share the row's end, so neither moves when one gives way
-						// to the other.
-						(meta !== undefined || actions !== undefined) && (
-							<span
-								className={classes(
-									styles.end,
-									actions !== undefined && (meta === undefined ? styles.endBare : styles.endSwaps),
-								)}
-							>
-								{meta !== undefined && <span className={styles.meta}>{meta}</span>}
-								{actions !== undefined && <span className={styles.hover}>{actions}</span>}
-							</span>
-						)
-					}
+					{(meta !== undefined || actions !== undefined) && (
+						<span className={styles.end}>
+							{meta !== undefined && <span className={styles.meta}>{meta}</span>}
+							{actions !== undefined && (
+								<span className={styles.actions} data-actions>
+									{actions}
+								</span>
+							)}
+						</span>
+					)}
 					{unread === true && (
 						// oxlint-disable-next-line jsx_a11y/prefer-tag-over-role -- A drawn dot with a name, not a picture with a source.
 						<span role="img" aria-label="Unread" className={styles.unread} />
@@ -356,7 +351,8 @@ const prBadge: Record<PullRequestState, BadgeVariant> = {
  * expanded branch drop it, since each {@link CommitItem} marks its own. Show ↑ or ⟜, never both; on an expanded branch drop ⟜, since its commits are listed
  * under it. A branch with no commits yet leads with `empty` saying "empty", and takes
  * `folded="empty"`, so its row isn't bare and lines up with the branches that fold. `actions` hold the one next step (Resolve, Update, Push, Create PR or Merge),
- * then View PR on a branch with a request.
+ * always shown after the counts: Update and Push take the place of ↓ and ↑, as their number and
+ * arrow in a `warning` or `info` button. Opening the pull request is in the row's menu.
  *
  * A merged request is done with: its title recedes. A branch merged into its target with no request
  * known takes `merged`: the same muted title, its branch glyph and a Merged badge.
@@ -364,13 +360,12 @@ const prBadge: Record<PullRequestState, BadgeVariant> = {
  * While an action on the branch runs, its `busy` spinner takes the glyph's colour. A merge takes `pr` state `merged` as it starts, so the row reads as where it is heading;
  * back to `open` if it is refused.
  *
- * An action takes the state's place under the pointer and on keyboard focus; selected, the state
- * stays.
  *
  * @figma `pr` follows the pull request: `none` shows the branch's name, the others its number and
  * title, and `none-merged` is `merged` with no request known. The counts come from BranchMeta: on
  * an expanded branch turn off commits (⟜), and turn on conflicts only while it's folded. For a
- * branch with no commits yet, turn on commits alone and set its text to empty. `unread` draws the
+ * branch with no commits yet, turn on commits alone and set its text to empty. For Push, turn on
+ * BranchMeta's action and turn unpushed off. `unread` draws the
  * dot after the counts, and `read` keeps its room, as `unread={false}` does, so the counts line up
  * down the list; every tree row has both.
  * @see packages/but-ui/design/components/sidebar-trees.md
@@ -472,8 +467,7 @@ export const CommitItem: FC<
 /**
  * What the repository's target (`target`, such as `master`) has that its workspace doesn't: the
  * first row under the repository, right over its worktrees. It says how many
- * commits (`count`) and keeps Update (`actions`) beside them rather than in their place under the
- * pointer, since taking them in is what the row is for. Open, the commits sit under it one level
+ * commits (`count`), and Update (`actions`) takes that count's place, as on every row. Open, the commits sit under it one level
  * deeper as {@link CommitItem}s, a merge's own one more. Leave it out while there are none.
  *
  * `authors`, the people the commits come from, each once, show as overlapping pictures before the
@@ -488,7 +482,6 @@ export const TargetItem: FC<
 	<Row
 		{...props}
 		name={`New on ${target}`}
-		rowClassName={styles.target}
 		icon={<Icon name="arrow-in-box" />}
 		label={
 			<Name tooltip={tooltip} className={classes("text-14", "text-semibold", styles.name)}>
@@ -504,10 +497,10 @@ export const TargetItem: FC<
 						))}
 					</span>
 				)}
-				<MetaCount type="behind">{count}</MetaCount>
-				{filled(actions)}
+				{filled(actions) === undefined && <MetaCount type="behind">{count}</MetaCount>}
 			</>
 		}
+		actions={actions}
 	/>
 );
 
@@ -546,8 +539,9 @@ export const UncommittedItem: FC<
  * click anywhere on it, as on its chevron, hides the stack's branches. Folded, the branch at the
  * stack's top (`tip`), the one that gets pushed, follows "Stack", muted and giving way first, and
  * `meta` says what the hidden branches hold. "Stack" keeps one quiet colour either way, so the
- * caption doesn't read as one more branch. Its menu (push the stack, open its pull requests)
- * opens with a right-click, as every row's does.
+ * caption doesn't read as one more branch. `actions` is the stack's next step, as on any row: a
+ * Push for the whole stack in place of its ↑. The rest (open its pull requests) is in its menu,
+ * which opens with a right-click, as every row's does.
  *
  * @see packages/but-ui/design/components/sidebar-trees.md
  * @import import { StackCaption } from "@gitbutler/but-ui-react/SidebarRow.tsx";
@@ -555,10 +549,30 @@ export const UncommittedItem: FC<
 export const StackCaption: FC<
 	{ count: number; tip: string } & Pick<
 		RowProps,
-		"depth" | "guides" | "folded" | "onToggleFolded" | "meta" | "tooltip" | "busy" | "unread"
+		| "depth"
+		| "guides"
+		| "folded"
+		| "onToggleFolded"
+		| "meta"
+		| "actions"
+		| "tooltip"
+		| "busy"
+		| "unread"
 	> &
 		ComponentProps<"div">
-> = ({ count, tip, depth = 0, folded, onToggleFolded, meta, tooltip, busy, unread, ...props }) => {
+> = ({
+	count,
+	tip,
+	depth = 0,
+	folded,
+	onToggleFolded,
+	meta,
+	actions,
+	tooltip,
+	busy,
+	unread,
+	...props
+}) => {
 	const folds = typeof folded === "boolean" && onToggleFolded !== undefined;
 	return (
 		<Row
@@ -568,14 +582,21 @@ export const StackCaption: FC<
 			folded={folded}
 			onToggleFolded={onToggleFolded}
 			meta={meta}
+			actions={actions}
 			busy={busy}
 			unread={unread}
 			onClick={(event) => {
 				props.onClick?.(event);
 				const target = event.target as Element;
 				// Not from a popup's items, which bubble here through their portal while being no part of
-				// the row on the page.
-				if (!folds || event.defaultPrevented || !event.currentTarget.contains(target)) return;
+				// the row on the page, nor from its next step, which does its own thing.
+				if (
+					!folds ||
+					event.defaultPrevented ||
+					!event.currentTarget.contains(target) ||
+					target.closest("[data-actions]") !== null
+				)
+					return;
 				onToggleFolded();
 			}}
 			rowClassName={classes(styles.caption, folds && styles.captionFolds)}

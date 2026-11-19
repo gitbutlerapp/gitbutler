@@ -300,12 +300,6 @@ button.toggle {
 	align-items: center;
 }
 
-/* A TargetItem keeps Update beside its count rather than in its place: a gap on top of the count's
-   own padding tells the button from the count. */
-.target .meta {
-	column-gap: var(--but-space-sm);
-}
-
 /* Each picture tucks under the one before it, cut where that one sits with a sliver of gap, rather
    than ringed in a ground colour: the row's ground changes under the pointer and on selection. */
 .authors {
@@ -317,64 +311,27 @@ button.toggle {
 	}
 }
 
-/* compact: the name takes the line and the state sits at the end, where it stays. There is no ⋯:
-   the row's menu opens with a right-click, so the end always says where the row stands. The
-   actions, a next step for what the state counts (Update for ↓, Push for ↑), take the state's
-   place under the pointer and on keyboard focus only, so a selected row still says where it stands.
-   Keyboard focus only: a click focuses what it lands on (the chevron too), and the actions would
-   stay up after it. Also while an action's own popup is open: it takes the pointer and the focus
-   away from the row, and its button must stay put. */
+/* compact: the name takes the line, and the state and then the next step sit at the end, where
+   they stay: nothing on the row shows or gives way under the pointer. There is no ⋯: the row's
+   menu opens with a right-click. */
 .compact {
 	.label {
 		flex-grow: 1;
 	}
 }
 
+/* The next step sits 4px after the counts, so a button in a count's place reads as one more. */
 .end {
-	display: grid;
+	display: flex;
+	column-gap: var(--but-space-sm);
 	flex-shrink: 0;
-	justify-items: end;
-
-	& > * {
-		grid-area: 1 / 1;
-	}
+	align-items: center;
 }
 
-.hover {
+.actions {
 	display: flex;
-	visibility: hidden;
 	column-gap: var(--but-space-sm);
 	align-items: center;
-
-	.row:is(:hover, :focus-visible, :has(:focus-visible), :has([aria-haspopup][aria-expanded="true"]))
-		& {
-		visibility: visible;
-	}
-}
-
-/* The hidden state gives up its width too, so the name runs on up to the actions rather than
-   stopping where the wider state began. The actions stay put at the end. */
-.endSwaps .meta {
-	.row:is(:hover, :focus-visible, :has(:focus-visible), :has([aria-haspopup][aria-expanded="true"]))
-		& {
-		visibility: hidden;
-		max-width: 0;
-		overflow: hidden;
-	}
-}
-
-/* With no state to swap with, the actions keep no room while hidden: the name takes the line, and
-   gives the end back only while they show. */
-.endBare {
-	.row:not(
-			:hover,
-			:focus-visible,
-			:has(:focus-visible),
-			:has([aria-haspopup][aria-expanded="true"])
-		)
-		& {
-		display: none;
-	}
 }
 
 /* Something changed since the row was last opened, after its state. A row that tracks it keeps the

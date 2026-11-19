@@ -25,9 +25,12 @@ leave the guide plain, with no stub toward them. A row can't see the rows after 
 row's guides out with `treeGuides`, from the rows it shows, never by hand; a
 file tree takes them the same way.
 
-**The row's end says where it stands.** Its counts sit there and stay; a next
-step takes their place under the pointer, and its menu opens with a
-right-click, never from a ⋯ ([Context menus](../patterns/context-menus.md)).
+**The row's end says where it stands.** Its counts sit there and stay, and its
+next step follows them, always shown, never only under the pointer. A step that
+acts on a count takes that count's place, as its number and glyph in a small
+button of its colour: Push for ↑, Update for ↓. The rest of what the row can do
+is in its menu, which opens with a right-click, never from a ⋯
+([Context menus](../patterns/context-menus.md)).
 A row that changed since it was last opened ends in a dot after its counts.
 Once a tree tracks that, every row keeps the dot's room, so the counts line
 up down the list.

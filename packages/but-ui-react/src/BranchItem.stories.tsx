@@ -28,9 +28,7 @@ const meta = stories({
  * Under the pointer the next step takes their place.
  */
 export const Default = meta.story({
-	render: (args) => (
-		<BranchItem {...args} meta={<MetaCount type="unpushed">7</MetaCount>} actions={push} />
-	),
+	render: (args) => <BranchItem {...args} actions={push(7)} />,
 });
 
 /** A stack's caption over its branches, which it hides while folded and sums up instead. */
@@ -71,13 +69,8 @@ const Stacks: FC<{ folded: [boolean, boolean] }> = ({ folded: initiallyFolded })
 				title="mesh-archive"
 				depth={1}
 				folded
-				meta={
-					<>
-						<MetaCount type="unpushed">2</MetaCount>
-						<MetaCount type="age">1d</MetaCount>
-					</>
-				}
-				actions={push}
+				meta={<MetaCount type="age">1d</MetaCount>}
+				actions={push(2)}
 			/>
 			{stack({
 				tip: "feat: archive UI",
@@ -99,24 +92,18 @@ const Stacks: FC<{ folded: [boolean, boolean] }> = ({ folded: initiallyFolded })
 						meta={
 							<>
 								<CiStatus status="working" />
-								<MetaCount type="unpushed">2</MetaCount>
 								<MetaCount type="age">12m</MetaCount>
 							</>
 						}
-						actions={push}
+						actions={push(2)}
 					/>,
 					<BranchItem
 						key="api"
 						title="archive-api"
 						depth={2}
 						folded
-						meta={
-							<>
-								<MetaCount type="unpushed">3</MetaCount>
-								<MetaCount type="age">1h</MetaCount>
-							</>
-						}
-						actions={push}
+						meta={<MetaCount type="age">1h</MetaCount>}
+						actions={push(3)}
 					/>,
 					<BranchItem
 						key="schema"
@@ -141,11 +128,10 @@ const Stacks: FC<{ folded: [boolean, boolean] }> = ({ folded: initiallyFolded })
 				meta={
 					<>
 						<CiStatus status="working" />
-						<MetaCount type="unpushed">3</MetaCount>
 						<MetaCount type="age">8m</MetaCount>
 					</>
 				}
-				actions={push}
+				actions={push(3)}
 			/>
 			{stack({
 				tip: "feat: unique cursor names",
@@ -167,11 +153,10 @@ const Stacks: FC<{ folded: [boolean, boolean] }> = ({ folded: initiallyFolded })
 						meta={
 							<>
 								<CiStatus status="working" />
-								<MetaCount type="unpushed">1</MetaCount>
 								<MetaCount type="age">35m</MetaCount>
 							</>
 						}
-						actions={push}
+						actions={push(1)}
 					/>,
 					<BranchItem
 						key="api"
@@ -329,7 +314,7 @@ export const Merging = meta.story({
 /**
  * Merged work reads as merged whether or not its pull request is known: a request shows its number,
  * and a branch with none known says Merged beside its name. A worktree whose only branch merged is
- * done with: it shows its age, and Delete under the pointer.
+ * done with: it shows its age, and Delete.
  */
 export const Merged = meta.story({
 	parameters: { design: { type: "figma", url: core("2572-3458") } },

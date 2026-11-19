@@ -21,16 +21,7 @@ const meta = stories({
  */
 export const Default = meta.story({
 	render: (args) => (
-		<WorktreeItem
-			{...args}
-			meta={
-				<>
-					<MetaCount type="behind">2</MetaCount>
-					<MetaCount type="age">5h</MetaCount>
-				</>
-			}
-			actions={update}
-		/>
+		<WorktreeItem {...args} meta={<MetaCount type="age">5h</MetaCount>} actions={update(2)} />
 	),
 });
 
@@ -100,13 +91,8 @@ export const Updating = meta.story({
 			busy
 			depth={1}
 			folded={false}
-			meta={
-				<>
-					<MetaCount type="behind">3</MetaCount>
-					<MetaCount type="age">12m</MetaCount>
-				</>
-			}
-			actions={update}
+			meta={<MetaCount type="age">12m</MetaCount>}
+			actions={update(3)}
 		/>
 	),
 });
@@ -127,26 +113,16 @@ export const Fork = meta.story({
 					name="Main worktree"
 					depth={1}
 					folded={false}
-					meta={
-						<>
-							<MetaCount type="behind">4</MetaCount>
-							<MetaCount type="age">3d</MetaCount>
-						</>
-					}
-					actions={update}
+					meta={<MetaCount type="age">3d</MetaCount>}
+					actions={update(4)}
 				/>
 				<UncommittedItem count={19} depth={2} />
 				<BranchItem
 					title="ios-push-handoff"
 					depth={2}
 					folded
-					meta={
-						<>
-							<MetaCount type="unpushed">7</MetaCount>
-							<MetaCount type="age">1d</MetaCount>
-						</>
-					}
-					actions={push}
+					meta={<MetaCount type="age">1d</MetaCount>}
+					actions={push(7)}
 				/>
 				<WorktreeItem
 					main
@@ -154,26 +130,16 @@ export const Fork = meta.story({
 					name="pavellaptev"
 					depth={1}
 					folded={false}
-					meta={
-						<>
-							<MetaCount type="behind">1</MetaCount>
-							<MetaCount type="age">3d</MetaCount>
-						</>
-					}
-					actions={update}
+					meta={<MetaCount type="age">3d</MetaCount>}
+					actions={update(1)}
 				/>
 				<UncommittedItem count={22} depth={2} />
 				<BranchItem
 					title="review-cards"
 					depth={2}
 					folded
-					meta={
-						<>
-							<MetaCount type="unpushed">8</MetaCount>
-							<MetaCount type="age">12m</MetaCount>
-						</>
-					}
-					actions={push}
+					meta={<MetaCount type="age">12m</MetaCount>}
+					actions={push(8)}
 				/>
 				<WorktreeItem
 					name="mesh-archive"
