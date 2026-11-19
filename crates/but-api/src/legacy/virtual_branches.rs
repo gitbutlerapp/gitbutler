@@ -5,11 +5,10 @@ use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_core::{
     DiffSpec, RefMetadata,
-    ref_metadata::{StackId, StackKind, UnresolvedLegacyTargetRefError, WorkspaceStack},
+    ref_metadata::{StackId, UnresolvedLegacyTargetRefError, WorkspaceStack},
     sync::{RepoExclusive, RepoShared},
 };
 use but_ctx::Context;
-use but_error::bail_precondition;
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
 use but_rebase::graph_rebase::{
     Editor,
@@ -23,8 +22,6 @@ use gitbutler_git::GitContextExt as _;
 use gitbutler_operating_modes::ensure_open_workspace_mode;
 use gitbutler_oplog::OplogExt;
 use gitbutler_project::FetchResult;
-use gitbutler_reference::Refname;
-use gix::reference::Category;
 use serde::Deserialize;
 use tracing::instrument;
 
@@ -38,68 +35,6 @@ pub struct BranchUpdateRequest {
 #[instrument(err(Debug))]
 pub fn normalize_branch_name(name: String) -> Result<String> {
     Ok(but_core::branch::normalize_short_name(name.as_str())?.to_string())
-}
-
-#[but_api]
-#[instrument(err(Debug))]
-pub fn delete_local_branch(
-    ctx: &mut but_ctx::Context,
-    refname: Refname,
-    given_name: String,
-) -> Result<()> {
-    let branch_refname = local_branch_refname(refname, &given_name)?;
-    let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.legacy_meta_mut(guard.write_permission())?;
-    let (mut repo, mut ws, _) = ctx.workspace_mut_and_db_mut_with_perm(guard.write_permission())?;
-
-    if ws
-        .metadata
-        .as_ref()
-        .and_then(|metadata| {
-            metadata.find_stack_with_branch(branch_refname.as_ref(), StackKind::AppliedAndUnapplied)
-        })
-        .is_some_and(|stack| stack.is_in_workspace())
-    {
-        bail_precondition!("Cannot delete a branch that is applied in workspace");
-    }
-
-    if let Some(new_ws) = but_workspace::branch::remove_reference(
-        branch_refname.as_ref(),
-        &mut repo,
-        &ws,
-        &mut meta,
-        but_workspace::branch::remove_reference::Options {
-            avoid_anonymous_stacks: false,
-            keep_metadata: false,
-        },
-    )? {
-        drop(repo);
-        drop(ws);
-        ctx.update_workspace_cache(new_ws);
-    } else {
-        but_workspace::branch::remove_reference::delete_local_branch(
-            &mut repo,
-            branch_refname.as_ref(),
-        )?;
-        meta.remove(branch_refname.as_ref())?;
-        if let Some(metadata) = &mut ws.metadata {
-            metadata.remove_segment(branch_refname.as_ref());
-        }
-    }
-
-    Ok(())
-}
-
-fn local_branch_refname(refname: Refname, given_name: &str) -> Result<gix::refs::FullName> {
-    if let Ok(refname) = gix::refs::FullName::try_from(refname.to_string())
-        && refname.as_ref().category() == Some(Category::LocalBranch)
-    {
-        return Ok(refname);
-    }
-
-    Category::LocalBranch
-        .to_full_name(given_name)
-        .map_err(anyhow::Error::from)
 }
 
 /// Switch back to the workspace through the shared permission-taking operation.

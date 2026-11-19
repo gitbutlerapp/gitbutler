@@ -1845,7 +1845,6 @@ dependencies = [
  "schemars 1.2.1",
  "serde",
  "serde_json",
- "strum 0.27.2",
  "tokio",
  "tracing",
  "url",
@@ -7671,6 +7670,7 @@ dependencies = [
  "bitflags 2.13.0",
  "int-enum",
  "libghostty-vt-sys",
+ "png 0.18.1",
 ]
 
 [[package]]

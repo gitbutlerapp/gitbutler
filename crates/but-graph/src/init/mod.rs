@@ -300,6 +300,7 @@ type WorkspaceTargetTip = (
 /// needed by traversal and post-processing.
 ///
 /// This means that each of these tip *will get its own possibly empty* graph segment.
+#[derive(Default)]
 struct InitialTips {
     /// Ordered traversal roots to turn into segments and queue items.
     tips: Vec<Tip>,
@@ -429,6 +430,16 @@ pub struct Options {
     /// Discovery may run the one-time worktree adoption and thus write to the
     /// database.
     pub worktrees: bool,
+    /// References to traverse once the regular traversal is done, so those it doesn't reach
+    /// are part of the graph without changing what it found.
+    ///
+    /// A reference the regular traversal found is skipped, and stays in the graph even where
+    /// commits otherwise keep no remote-tracking references. Any other connects where its
+    /// history meets the graph, and walks that stopped short go on only as far as it needs
+    /// them to meet it. They are resolved on every traversal, so
+    /// [redone traversals](Graph::redo_traversal_with_overlay()) see moved references and
+    /// leave out those that are gone.
+    pub extra_refs: Vec<gix::refs::FullName>,
 }
 
 /// A linked-worktree `HEAD` seeded as an extra traversal tip, see
@@ -843,7 +854,9 @@ impl Graph {
             hard_limit,
             dangerously_skip_postprocessing_for_debugging,
             worktrees: _,
+            extra_refs,
         } = options;
+        let mut extra_ref_tips = tips_of_extra_refs(repo, extra_refs)?;
         let max_limit = Limit::new(limit);
         if ref_name
             .as_ref()
@@ -927,7 +940,60 @@ impl Graph {
         )?;
         max_commits_recharge_location.sort();
         let mut points_of_interest_to_traverse_first = next.iter().count();
-        while let Some((info, mut propagated_flags, instruction, mut limit)) = next.pop_front() {
+        loop {
+            let Some((info, mut propagated_flags, instruction, mut limit)) = next.pop_front()
+            else {
+                let has_ref = |name: &gix::refs::FullNameRef| {
+                    graph.inner.node_weights().any(|segment| {
+                        segment.ref_name() == Some(name)
+                            || segment.commits.iter().any(|commit| {
+                                commit
+                                    .refs
+                                    .iter()
+                                    .any(|info| info.ref_name.as_ref() == name)
+                            })
+                    })
+                };
+                let missing_extra_ref_tips: Vec<_> = extra_ref_tips
+                    .drain(..)
+                    .filter(|tip| {
+                        tip.ref_name
+                            .as_ref()
+                            .is_some_and(|name| !has_ref(name.as_ref()))
+                    })
+                    .collect();
+                if missing_extra_ref_tips.is_empty() {
+                    break;
+                }
+                next.resume();
+                let proxy_segments = queue_initial_tips(
+                    &mut graph,
+                    &mut next,
+                    &InitialTips {
+                        tips: missing_extra_ref_tips,
+                        ..Default::default()
+                    },
+                    tip,
+                    tip_flags,
+                    max_limit,
+                    target_limit,
+                    &mut goals,
+                    commit_graph.as_ref(),
+                    repo,
+                    meta,
+                    &ctx,
+                    &mut buf,
+                )?;
+                ctx.inserted_proxy_segments.extend(proxy_segments);
+                resume_stopped_walks(
+                    &graph,
+                    &mut next,
+                    commit_graph.as_ref(),
+                    repo.for_find_only(),
+                    &mut buf,
+                )?;
+                continue;
+            };
             points_of_interest_to_traverse_first =
                 points_of_interest_to_traverse_first.saturating_sub(1);
 
@@ -1331,6 +1397,26 @@ fn initial_tips_from_tips(
         frontload_workspace_related_tips,
         target_local_links,
     })
+}
+
+/// Resolve each of `extra_refs` through the overlay to a reachable tip, leaving out those that
+/// are gone and repeated names.
+fn tips_of_extra_refs(
+    repo: &OverlayRepo<'_>,
+    extra_refs: Vec<gix::refs::FullName>,
+) -> anyhow::Result<Vec<Tip>> {
+    let mut seen = BTreeSet::new();
+    let mut tips = Vec::with_capacity(extra_refs.len());
+    for name in extra_refs {
+        if !seen.insert(name.clone()) {
+            continue;
+        }
+        let Some(mut reference) = repo.try_find_reference(name.as_ref())? else {
+            continue;
+        };
+        tips.push(Tip::reachable(reference.peel_to_id()?.detach(), Some(name)));
+    }
+    Ok(tips)
 }
 
 /// Append the discovered linked-worktree `HEAD` tips as plain reachable seeds.

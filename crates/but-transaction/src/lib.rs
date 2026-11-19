@@ -9,7 +9,7 @@ use but_core::{
 use but_ctx::Context;
 use but_oplog::legacy::SnapshotDetails;
 use but_rebase::graph_rebase::{
-    CommitMappings, Editor, Step, SuccessfulRebase,
+    CommitMappings, Editor, GraphEditorOptions, Step, SuccessfulRebase,
     mutate::{InsertSide, RelativeTo},
 };
 #[cfg(not(feature = "graph-workspace"))]
@@ -105,15 +105,21 @@ where
 {
     let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
-    with_transaction_with_perm(ctx, meta, perm, snapshot_details, &[], dry_run, f)
+    with_transaction_options(
+        ctx,
+        meta,
+        perm,
+        TransactionOptions {
+            snapshot_details: Some(snapshot_details),
+            dry_run,
+            ..Default::default()
+        },
+        f,
+    )
 }
 
-/// Like [`with_transaction`] but allows the caller to provide the lock.
-///
-/// The snapshot also preserves `snapshot_refs`, so undo restores each or, if it did not exist
-/// yet, deletes it. See [`but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm`].
-/// Recording it is best-effort: a transaction that landed succeeds even when its oplog entry
-/// can't be written, so it can't be undone.
+/// Like [`with_transaction`] but allows the caller to provide the lock, and records
+/// `snapshot_refs` as [`TransactionOptions::snapshot_refs`] does.
 pub fn with_transaction_with_perm<M, F, T>(
     ctx: &mut Context,
     meta: &mut M,
@@ -128,15 +134,85 @@ where
     M: RefMetadata,
     T: TransactionOutcome,
 {
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
+    with_transaction_options(
         ctx,
+        meta,
+        perm,
+        TransactionOptions {
+            snapshot_details: Some(snapshot_details),
+            snapshot_refs,
+            dry_run,
+            ..Default::default()
+        },
+        f,
+    )
+}
+
+/// How [`with_transaction_options()`] runs a transaction.
+#[derive(Default)]
+pub struct TransactionOptions<'a> {
+    /// The oplog entry a committed transaction records, or `None` to record none.
+    ///
+    /// Recording it is best-effort: a transaction that landed succeeds even when its oplog entry
+    /// can't be written, so it can't be undone.
+    pub snapshot_details: Option<SnapshotDetails>,
+    /// References the snapshot also preserves, so undo restores each or, if it did not exist
+    /// yet, deletes it. See [`but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm`].
+    pub snapshot_refs: &'a [&'a FullNameRef],
+    pub dry_run: DryRun,
+    /// References outside the workspace that the transaction may rewrite, along with what they
+    /// reach, as it may what `HEAD` reaches. The snapshot preserves them as it does
+    /// [`Self::snapshot_refs`].
+    pub extra_mutable_refs: Vec<FullName>,
+    /// References outside the workspace that the transaction sees but leaves as they are.
+    pub extra_immutable_refs: Vec<FullName>,
+}
+
+/// Run a transaction as [`with_transaction`] does, under the caller's lock, as `options` say.
+///
+/// Operations only see the workspace and what `options` add to it. See
+/// [`but_graph::init::Options::extra_refs`] for how those references join it.
+pub fn with_transaction_options<M, F, T>(
+    ctx: &mut Context,
+    meta: &mut M,
+    perm: &mut RepoExclusive,
+    options: TransactionOptions<'_>,
+    f: F,
+) -> anyhow::Result<T::Outcome>
+where
+    F: FnOnce(Transaction<'_, '_, M>) -> anyhow::Result<T>,
+    M: RefMetadata,
+    T: TransactionOutcome,
+{
+    let TransactionOptions {
         snapshot_details,
         snapshot_refs,
-        perm.read_permission(),
         dry_run,
-    );
+        extra_mutable_refs,
+        extra_immutable_refs,
+    } = options;
+    let maybe_oplog_entry = snapshot_details.and_then(|snapshot_details| {
+        let snapshot_refs: Vec<_> = (snapshot_refs.iter().copied())
+            .chain(extra_mutable_refs.iter().map(|name| name.as_ref()))
+            .collect();
+        but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
+            ctx,
+            snapshot_details,
+            &snapshot_refs,
+            perm.read_permission(),
+            dry_run,
+        )
+    });
 
-    let (should_rollback, outcome) = with_transaction_with_perm_only(ctx, meta, perm, dry_run, f)?;
+    let (should_rollback, outcome) = run_transaction(
+        ctx,
+        meta,
+        perm,
+        dry_run,
+        extra_mutable_refs,
+        extra_immutable_refs,
+        f,
+    )?;
 
     if !should_rollback
         && let Some(snapshot) = maybe_oplog_entry
@@ -160,11 +236,45 @@ where
     M: RefMetadata,
     T: TransactionOutcome,
 {
+    run_transaction(ctx, meta, perm, dry_run, Vec::new(), Vec::new(), f)
+}
+
+fn run_transaction<M, F, T>(
+    ctx: &mut Context,
+    meta: &mut M,
+    perm: &mut RepoExclusive,
+    dry_run: DryRun,
+    extra_mutable_refs: Vec<FullName>,
+    extra_immutable_refs: Vec<FullName>,
+    f: F,
+) -> anyhow::Result<(bool, T::Outcome)>
+where
+    F: FnOnce(Transaction<'_, '_, M>) -> anyhow::Result<T>,
+    M: RefMetadata,
+    T: TransactionOutcome,
+{
     let (should_rollback, outcome) = {
         let context_lines = ctx.settings.context_lines;
         let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
 
-        let editor = Editor::create(&mut ws, meta, &repo, &mut db)?;
+        if !extra_mutable_refs.is_empty() || !extra_immutable_refs.is_empty() {
+            ws.graph.options.extra_refs = (extra_mutable_refs.iter())
+                .chain(&extra_immutable_refs)
+                .cloned()
+                .collect();
+            let project_meta = ws.graph.project_meta.clone();
+            ws.refresh_from_head(&repo, &*meta, project_meta, &mut db)?;
+        }
+        let editor = Editor::create_with_opts(
+            &mut ws,
+            meta,
+            &repo,
+            &mut db,
+            &GraphEditorOptions {
+                extra_mutable_refs,
+                ..Default::default()
+            },
+        )?;
         let rebase = editor.rebase()?;
 
         let mut inner = Inner {
@@ -397,6 +507,10 @@ where
         })
     }
 
+    /// Remove the local branch `ref_name` as [`but_workspace::branch::drop_reference()`] does.
+    /// The branch, its metadata and its `branch.<name>` Git configuration are deleted when the
+    /// transaction commits. A branch outside the workspace needs to be one of the transaction's
+    /// [extra mutable refs](TransactionOptions::extra_mutable_refs).
     pub fn remove_reference(&mut self, ref_name: &FullNameRef) -> anyhow::Result<()> {
         self.rebase(|editor, _| {
             let rebase = but_workspace::branch::drop_reference(editor, ref_name)?;

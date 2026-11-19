@@ -331,7 +331,6 @@ impl SettingsView {
             (_, Some(input)) => token_field(input, None, "Sign in", window, theme, cx),
             (Some(_), None) => button("log-out", "Sign out")
                 .small()
-                .style(ButtonStyle::Ghost)
                 .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
                     this.forget_ai();
                     this.store.update(cx, |store, cx| store.sign_out(cx))
@@ -506,14 +505,12 @@ fn token_field(
         .child({
             let token = token.clone();
             button("cancel-token", "Cancel")
-                .small()
                 .style(ButtonStyle::Ghost)
                 .on_click(move |_, _, cx| token.update(cx, |_, cx| cx.emit(InputEvent::Cancel)))
         })
         .child({
             let token = token.clone();
             button("add-token", submit)
-                .small()
                 .style(ButtonStyle::Gray)
                 .on_click(move |_, _, cx| token.update(cx, |_, cx| cx.emit(InputEvent::Submit)))
         });

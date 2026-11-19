@@ -128,10 +128,10 @@ const PARITY = [
 		type: "SnackbarVariant",
 		gpui: "snackbar.rs",
 		values: {
-			info: ["fn snackbar"],
-			warning: ["fn snackbar", "warning: bool"],
-			danger: null,
-			safe: null,
+			info: ["SnackbarVariant::Info"],
+			warning: ["SnackbarVariant::Warning"],
+			danger: ["SnackbarVariant::Danger"],
+			safe: ["SnackbarVariant::Safe"],
 		},
 	},
 	{
@@ -139,8 +139,17 @@ const PARITY = [
 		react: "Switch.tsx",
 		type: "SwitchSize",
 		gpui: "switch.rs",
-		// GPUI's one switch is 30×18, the size of neither.
-		values: { default: null, large: null },
+		values: { default: ["default"], large: ["fn large"] },
+	},
+	{
+		component: "SwitchButton",
+		react: "SwitchButton.tsx",
+		type: "SwitchButtonVariant",
+		gpui: "switch_button.rs",
+		values: {
+			ghost: ["SwitchButtonStyle::Ghost"],
+			outline: ["SwitchButtonStyle::Outline"],
+		},
 	},
 	{
 		component: "Modal",

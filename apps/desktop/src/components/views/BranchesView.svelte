@@ -52,6 +52,7 @@
 		| { type: "target"; commitId?: string };
 
 	const stackService = inject(STACK_SERVICE);
+	const [removeBranch] = stackService.branchRemove;
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const forgeInfoService = inject(FORGE_INFO_SERVICE);
 	const forgeInfoQuery = $derived(forgeInfoService.get(projectId));
@@ -139,10 +140,9 @@
 			await tick();
 		}
 		try {
-			await stackService.deleteLocalBranch({
+			await removeBranch({
 				projectId,
-				refname: `refs/heads/${branchName}`,
-				givenName: branchName,
+				refName: [...new TextEncoder().encode(`refs/heads/${branchName}`)],
 			});
 		} catch (error) {
 			if (selectionToRestore && selection === temporarySelection) selection = selectionToRestore;

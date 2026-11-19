@@ -14,12 +14,9 @@ use tracing::instrument;
 use crate::{WindowState, window, window::state::ProjectAccessMode};
 
 #[tauri::command(async)]
-#[instrument(skip(window_state), err(Debug))]
-pub fn list_projects(
-    window_state: State<'_, WindowState>,
-) -> Result<Vec<but_api::legacy::projects::ProjectForFrontend>, json::Error> {
-    let open_projects = window_state.open_projects();
-    but_api::legacy::projects::list_projects(open_projects).map_err(Into::into)
+#[instrument(err(Debug))]
+pub fn list_projects() -> Result<Vec<gitbutler_project::api::Project>, json::Error> {
+    but_api::legacy::projects::list_projects().map_err(Into::into)
 }
 
 /// Reports capabilities that vary by how the backend was launched.

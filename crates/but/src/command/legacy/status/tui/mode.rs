@@ -43,16 +43,6 @@ impl Default for Mode {
 }
 
 impl Mode {
-    #[expect(dead_code)]
-    pub fn bg(&self, theme: &'static Theme) -> Color {
-        ModeDiscriminant::from(self).bg(theme)
-    }
-
-    #[expect(dead_code)]
-    pub fn fg(&self, theme: &'static Theme) -> Color {
-        ModeDiscriminant::from(self).fg(theme)
-    }
-
     pub fn marks_ref(&self) -> MarksRef<'_> {
         self.as_ref().marks_ref()
     }

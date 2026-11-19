@@ -1,4 +1,4 @@
-use anyhow::{Context as _, Result};
+use anyhow::Result;
 use async_openai::{Client, config::OpenAIConfig};
 use but_secret::{Sensitive, secret};
 use reqwest::header::{HeaderMap, HeaderValue};
@@ -17,9 +17,8 @@ use crate::{
 
 pub const GB_OPENAI_API_BASE: &str = "https://app.gitbutler.com/api/proxy/openai";
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, strum::Display)]
+#[derive(Debug, Clone)]
 pub enum CredentialsKind {
-    EnvVarOpenAiKey,
     OwnOpenAiKey,
     GitButlerProxied,
 }
@@ -35,21 +34,13 @@ pub struct OpenAiProvider {
 
 impl OpenAiProvider {
     pub fn with(
-        preferred_creds: Option<CredentialsKind>,
+        kind: CredentialsKind,
         model: Option<String>,
         custom_endpoint: Option<String>,
     ) -> Option<Self> {
-        let credentials = if let Some(kind) = preferred_creds {
-            match kind {
-                CredentialsKind::EnvVarOpenAiKey => OpenAiProvider::openai_env_var_creds(),
-                CredentialsKind::OwnOpenAiKey => OpenAiProvider::openai_own_key_creds(),
-                CredentialsKind::GitButlerProxied => OpenAiProvider::gitbutler_proxied_creds(),
-            }
-        } else {
-            OpenAiProvider::gitbutler_proxied_creds()
-                .or_else(|_| OpenAiProvider::openai_own_key_creds())
-                .or_else(|_| OpenAiProvider::openai_env_var_creds())
-                .context("No OpenAI credentials found. This can be configured in the app or read from a OPENAI_API_KEY environment variable")
+        let credentials = match kind {
+            CredentialsKind::OwnOpenAiKey => OpenAiProvider::openai_own_key_creds(),
+            CredentialsKind::GitButlerProxied => OpenAiProvider::gitbutler_proxied_creds(),
         };
 
         match credentials {
@@ -73,10 +64,6 @@ impl OpenAiProvider {
         }
     }
 
-    pub fn credentials_kind(&self) -> CredentialsKind {
-        self.credentials.0.clone()
-    }
-
     fn gitbutler_proxied_creds() -> Result<(CredentialsKind, Sensitive<String>)> {
         let creds = secret::retrieve(GITBUTLER_ACCESS_TOKEN_HANDLE, secret::Namespace::BuildKind)?
             .ok_or(anyhow::anyhow!(
@@ -93,27 +80,11 @@ impl OpenAiProvider {
         )?;
         Ok((CredentialsKind::OwnOpenAiKey, creds))
     }
-
-    fn openai_env_var_creds() -> Result<(CredentialsKind, Sensitive<String>)> {
-        let creds = Sensitive(
-            std::env::var_os("OPENAI_API_KEY")
-                .ok_or(anyhow::anyhow!(
-                    "Environment variable OPENAI_API_KEY is not set"
-                ))?
-                .into_string()
-                .map_err(|_| anyhow::anyhow!("Invalid UTF-8 in OPENAI_API_KEY"))?,
-        );
-        Ok((CredentialsKind::EnvVarOpenAiKey, creds))
-    }
 }
 
 impl OpenAIClientProvider for OpenAiProvider {
     fn client(&self) -> Result<Client<OpenAIConfig>> {
         match &self.credentials {
-            (CredentialsKind::EnvVarOpenAiKey, _) => {
-                let config = self.configure_custom_endpoint(OpenAIConfig::new());
-                Ok(Client::with_config(config))
-            }
             (CredentialsKind::OwnOpenAiKey, key) => {
                 let config =
                     self.configure_custom_endpoint(OpenAIConfig::new().with_api_key(key.0.clone()));

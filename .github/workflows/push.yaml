@@ -122,19 +122,29 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Prepare image publication tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y skopeo
+          docker buildx create --driver docker-container --use
       - name: Build ARM64 frontend image
         run: |
-          docker build --platform linux/arm64 -f apps/web/Dockerfile \
-            -t "$REGISTRY/$ENVIRONMENT-apps/$SERVICE:$GITHUB_SHA" .
+          docker buildx build --platform linux/arm64 --provenance=false -f apps/web/Dockerfile \
+            --output "type=oci,dest=$RUNNER_TEMP/frontend-image.tar" .
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: arn:aws:iam::221886364861:role/${{ env.ENVIRONMENT }}-github-deploy
           aws-region: us-east-1
           role-session-name: frontend-${{ github.run_id }}
+      - name: Download image publication tooling
+        run: |
+          aws s3 cp "s3://$TOOLING_BUCKET/scripts/publish-image.sh" \
+            "$RUNNER_TEMP/publish-image.sh" --only-show-errors
       - name: Publish frontend image
         run: |
           aws ecr get-login-password | docker login --username AWS --password-stdin "$REGISTRY"
-          docker push "$REGISTRY/$ENVIRONMENT-apps/$SERVICE:$GITHUB_SHA"
+          bash "$RUNNER_TEMP/publish-image.sh" "$RUNNER_TEMP/frontend-image.tar" \
+            "$REGISTRY/$ENVIRONMENT-apps/$SERVICE:$GITHUB_SHA"
       - name: Check no newer frontend inputs are on master
         id: current
         run: |

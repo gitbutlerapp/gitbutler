@@ -18,8 +18,6 @@ use crate::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConfirmDefault {
     Yes,
-    #[expect(dead_code)]
-    No,
 }
 
 /// Response from a confirmation prompt with a default.
@@ -427,7 +425,6 @@ impl InputOutputChannel<'_> {
     ) -> anyhow::Result<Confirm> {
         let suffix = match default {
             ConfirmDefault::Yes => "[Y/n]",
-            ConfirmDefault::No => "[y/N]",
         };
         match self.readline(
             &format!("{} {}: ", prompt.as_ref(), suffix),
@@ -442,7 +439,6 @@ impl InputOutputChannel<'_> {
             }
             ReadlineInput::Empty => Ok(match default {
                 ConfirmDefault::Yes => Confirm::Yes,
-                ConfirmDefault::No => Confirm::No,
             }),
             // Ctrl-D/Ctrl-C should not auto-accept a default action.
             ReadlineInput::EndOfInput => Ok(Confirm::No),

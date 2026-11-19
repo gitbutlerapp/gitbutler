@@ -37,12 +37,6 @@ impl From<ChatMessage> for ChatCompletionRequestMessage {
     fn from(msg: ChatMessage) -> Self {
         match msg {
             ChatMessage::User(content) => ChatCompletionRequestMessage::User(content.into()),
-            ChatMessage::Assistant(content) => ChatCompletionRequestMessage::Assistant(
-                async_openai::types::chat::ChatCompletionRequestAssistantMessage {
-                    content: Some(content.into()),
-                    ..Default::default()
-                },
-            ),
         }
     }
 }

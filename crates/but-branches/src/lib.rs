@@ -9,7 +9,7 @@ mod walk;
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use bstr::{BStr, BString, ByteSlice};
+use bstr::{BString, ByteSlice};
 use but_core::{RefMetadata, WORKSPACE_REF_NAME, ref_metadata::LocalRefName};
 use but_graph::{Graph, SegmentIndex, Workspace};
 use gix::{
@@ -327,7 +327,7 @@ impl<'a> ListingContext<'a> {
             let display_name = display_identity(ref_name.as_ref(), &self.remote_names);
             // An ad-hoc workspace has the workspace ref itself as a stack segment,
             // which isn't a user branch.
-            if is_technical_branch_name(display_name.as_ref()) {
+            if but_core::branch::is_technical_branch_name(display_name.as_ref()) {
                 continue;
             }
             consumed.insert(display_name.clone());
@@ -583,27 +583,6 @@ fn listed_stack(status: ListedStackStatus, branches: Vec<ListedBranch>) -> Liste
     }
 }
 
-/// Return `true` if `identity` is a GitButler-internal branch name that must not
-/// be shown or treated as a user branch.
-pub fn is_technical_branch_name(identity: &BStr) -> bool {
-    const TECHNICAL_IDENTITIES: &[&[u8]] = &[
-        b"HEAD",
-        b"gitbutler/edit",
-        b"gitbutler/integration",
-        b"gitbutler/oplog",
-        b"gitbutler/target",
-        b"gitbutler/workspace",
-    ];
-    debug_assert!(
-        TECHNICAL_IDENTITIES.is_sorted(),
-        "binary search requires sorted technical identities"
-    );
-    TECHNICAL_IDENTITIES
-        .binary_search(&identity.as_bytes())
-        .is_ok()
-        || identity.starts_with(b"gitbutler/rename-backup/")
-}
-
 /// Enumerate all local and remote branch refs once, peeled to their tips and
 /// grouped by branch name, preserving enumeration order within each name.
 fn enumerate_branch_refs(
@@ -626,7 +605,7 @@ fn enumerate_branch_refs(
             }
             _ => continue,
         };
-        if is_technical_branch_name(identity.as_bstr()) {
+        if but_core::branch::is_technical_branch_name(identity.as_bstr()) {
             continue;
         }
         let Ok(tip) = reference.peel_to_commit() else {

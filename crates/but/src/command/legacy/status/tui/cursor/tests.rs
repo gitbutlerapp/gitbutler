@@ -293,14 +293,6 @@ fn move_commit_mode(hex: &str) -> Mode {
     })
 }
 
-#[expect(dead_code)]
-fn stack_cli_id(id: &str, stack_id: StackId) -> Arc<CliId> {
-    Arc::new(CliId::Stack {
-        id: id.into(),
-        stack_id,
-    })
-}
-
 #[test]
 fn new_selects_first_selectable_line() {
     let lines = vec![

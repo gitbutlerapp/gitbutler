@@ -99,57 +99,17 @@ pub fn get_project(
     }
 }
 
+/// List all stored projects, skipping those that fail to migrate.
 #[but_api]
 #[instrument(err(Debug))]
-pub fn list_projects_stateless() -> Result<Vec<ProjectForFrontend>> {
-    list_projects(vec![])
-}
-
-/// List all stored projects for the frontend.
-///
-/// `opened_projects` identifies projects the frontend currently considers open so the returned
-/// entries can be annotated with `is_open`. Stale opened-project handles are ignored because the
-/// frontend may still hold them briefly after project deletion.
-///
-/// This front-end specific behaviour needs review when this comes out of legacy.
-#[but_api]
-#[instrument(err(Debug))]
-pub fn list_projects(
-    opened_projects: Vec<ProjectHandleOrLegacyProjectId>,
-) -> Result<Vec<ProjectForFrontend>> {
-    // Skip handles that can no longer be resolved — e.g. the project was just deleted
-    // from storage but the frontend's `opened_projects` set hasn't caught up yet.
-    // Failing the whole listing on a stale entry would break the post-deletion refresh
-    // flow. Mirrors the warn-and-skip pattern used below for migration failures.
-    let opened_projects: std::collections::HashSet<_> = opened_projects
-        .into_iter()
-        .filter_map(
-            |project_id| match gitbutler_project::get_raw(project_id.clone()) {
-                Ok(project) => Some(project.id),
-                Err(err) => {
-                    tracing::warn!(
-                        ?err,
-                        ?project_id,
-                        "Skipping over opened project as its handle could not be resolved"
-                    );
-                    None
-                }
-            },
-        )
-        .collect();
-
+pub fn list_projects() -> Result<Vec<gitbutler_project::api::Project>> {
     gitbutler_project::assure_app_can_startup_or_fix_it(
         gitbutler_project::dangerously_list_projects_without_migration(),
     )
     .map(|projects| {
         projects
             .into_iter()
-            .map(|project| {
-                anyhow::Ok(ProjectForFrontend {
-                    is_open: opened_projects.contains(&project.id),
-                    inner: project.migrated().map(Into::into)?,
-                })
-            })
+            .map(|project| project.migrated().map(Into::into))
             .filter_map(|res| match res {
                 Ok(p) => Some(p),
                 Err(err) => {
@@ -210,29 +170,16 @@ pub fn is_gerrit(ctx: &but_ctx::Context) -> Result<bool> {
     )
 }
 
-#[derive(serde::Serialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-pub struct ProjectForFrontend {
-    #[serde(flatten)]
-    pub inner: gitbutler_project::api::Project,
-    /// Tell if the project is known to be open in a Window in the frontend.
-    pub is_open: bool,
-}
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(ProjectForFrontend);
-
 pub mod json {
-    use super::ProjectForFrontend;
-
     /// Result of adding a local repository as a project.
     #[derive(serde::Serialize)]
     #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
     #[serde(rename_all = "camelCase", tag = "type", content = "subject")]
     pub enum AddProjectOutcome {
         /// The repository was added.
-        Added(ProjectForFrontend),
+        Added(gitbutler_project::api::Project),
         /// The repository was already configured.
-        AlreadyExists(ProjectForFrontend),
+        AlreadyExists(gitbutler_project::api::Project),
         /// The selected path does not exist.
         PathNotFound,
         /// The selected path is not a directory.
@@ -258,14 +205,8 @@ pub mod json {
             use gitbutler_project::AddProjectOutcome as Domain;
 
             match value {
-                Domain::Added(project) => Self::Added(ProjectForFrontend {
-                    inner: project.into(),
-                    is_open: false,
-                }),
-                Domain::AlreadyExists(project) => Self::AlreadyExists(ProjectForFrontend {
-                    inner: project.into(),
-                    is_open: false,
-                }),
+                Domain::Added(project) => Self::Added(project.into()),
+                Domain::AlreadyExists(project) => Self::AlreadyExists(project.into()),
                 Domain::PathNotFound => Self::PathNotFound,
                 Domain::NotADirectory => Self::NotADirectory,
                 Domain::BareRepository => Self::BareRepository,

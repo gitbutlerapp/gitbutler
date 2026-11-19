@@ -25,6 +25,8 @@ pub struct Button {
     icon: Option<Icon>,
     picture: Option<AnyElement>,
     style: ButtonStyle,
+    /// Held down, as a toggle that's on: React's `data-pressed`.
+    pressed: bool,
     /// Why it can't be pressed, shown in place of its tooltip.
     disabled: Option<SharedString>,
     small: bool,
@@ -40,6 +42,9 @@ pub struct Button {
     /// Which half of a [`dropdown_button`] it is.
     half: Option<Half>,
     shrinks: bool,
+    /// Colours a host restates for its own ground, text and hover, as React's `--button-fg`
+    /// and `--button-hover-bg`.
+    ink: Option<(Hsla, Hsla)>,
 }
 
 #[derive(Clone, Copy)]
@@ -57,6 +62,7 @@ pub fn button(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Butto
         icon: None,
         picture: None,
         style: ButtonStyle::Outline,
+        pressed: false,
         disabled: None,
         small: false,
         min_width: None,
@@ -68,6 +74,7 @@ pub fn button(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Butto
         tooltip_action: None,
         half: None,
         shrinks: false,
+        ink: None,
     }
 }
 
@@ -102,12 +109,10 @@ impl Button {
         self
     }
 
-    pub fn selected(self, selected: bool) -> Self {
-        self.style(if selected {
-            ButtonStyle::Gray
-        } else {
-            ButtonStyle::Ghost
-        })
+    /// A ghost toggle, on while `selected`.
+    pub fn selected(mut self, selected: bool) -> Self {
+        self.pressed = selected;
+        self.style(ButtonStyle::Ghost)
     }
 
     /// Unpressable, with `why` as its tooltip; `None` keeps an earlier reason.
@@ -131,6 +136,12 @@ impl Button {
     /// At least `width` wide, so buttons that stand in for each other cover the same place.
     pub fn min_width(mut self, width: Rems) -> Self {
         self.min_width = Some(width);
+        self
+    }
+
+    /// A ghost's text and hover restated for a ground it can't know, as the snackbar's.
+    pub(crate) fn ink(mut self, text: Hsla, hover: Hsla) -> Self {
+        self.ink = Some((text, hover));
         self
     }
 
@@ -186,9 +197,17 @@ impl RenderOnce for Button {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = Theme::get(cx);
         let (fg, bg, border, hover): (Hsla, Option<Hsla>, Option<Hsla>, Hsla) = match self.style {
+            ButtonStyle::Ghost if self.pressed => {
+                (theme.text_1, Some(theme.muted), None, theme.muted_hover)
+            }
             ButtonStyle::Ghost => (theme.text_1, None, None, theme.hover),
             ButtonStyle::Outline => (theme.text_1, None, Some(theme.control_border), theme.hover),
-            ButtonStyle::Gray => (theme.text_1, Some(theme.muted), None, theme.muted_hover),
+            ButtonStyle::Gray => (
+                theme.text_inverted,
+                Some(theme.fill_gray),
+                None,
+                theme.fill_gray_hover,
+            ),
             ButtonStyle::Pop => (theme.on_pop, Some(theme.pop_button), None, theme.pop_hover),
             ButtonStyle::Danger => (
                 theme.danger_on_soft,
@@ -219,6 +238,25 @@ impl RenderOnce for Button {
             ),
             None => (fg, bg, hover),
         };
+        let (fg, hover) = self.ink.unwrap_or((fg, hover));
+        let border = match self.inverted && self.tint.is_none() {
+            true => border.map(|_| theme.control_border_on_solid),
+            false => border,
+        };
+        // Disabled, it fades as one picture, as React's `opacity: 0.5` does, in solid colours
+        // over what it sits on: GPUI's opacity fades each layer on its own, which would let the
+        // fill show through the label. A picture can't be recoloured, so it keeps the opacity.
+        let pictured = self.picture.is_some();
+        let faded = self.disabled.is_some() && !pictured;
+        let ground = match self.inverted {
+            true => theme.fill_gray,
+            false => theme.bg_1,
+        };
+        let fade = |color: Hsla| match faded {
+            true => Theme::disabled_on(color, ground),
+            false => color,
+        };
+        let (fg, bg, border) = (fade(fg), bg.map(fade), border.map(fade));
         // but-ui's button tokens (`packages/but-ui/components/button.tokens.json`); the heights
         // are `size-control(-sm)`, which `theme.sizes` moves with density.
         let sizes = theme.sizes;
@@ -239,7 +277,6 @@ impl RenderOnce for Button {
             ),
         };
         let has_label = self.label.is_some();
-        let pictured = self.picture.is_some();
         let shrinks = self.shrinks;
         let name = self.label.clone().or_else(|| self.tooltip.clone());
         h_flex()
@@ -273,13 +310,35 @@ impl RenderOnce for Button {
             .text_color(fg)
             .when_some(bg, |el, bg| el.bg(bg))
             .when_some(border, |el, border| el.border_1().border_color(border))
-            // Across a fill, the seam between the halves is a rule in the ground's colour.
             .map(|el| match self.half {
                 None if pictured => el.rounded_full(),
                 None => el.rounded(dp(theme.shape.control)),
                 Some(Half::Action) => el.rounded_l(dp(theme.shape.control)).border_r_0(),
-                Some(Half::Menu) => (el.rounded_r(dp(theme.shape.control)).border_l_1())
-                    .border_color(border.unwrap_or(theme.bg_1)),
+                Some(Half::Menu) => el.rounded_r(dp(theme.shape.control)).border_l_0(),
+            })
+            // The seam, a rule inset from top and bottom: the button's own ink over its fill,
+            // or a lighter border on an outline. A hovered half's fill marks the seam, so it
+            // steps aside then.
+            .when(matches!(self.half, Some(Half::Menu)), |el| {
+                let (rule, strength) = match (bg, border) {
+                    (Some(_), _) => (fg, 0.2),
+                    (None, Some(border)) => (border, 0.6),
+                    (None, None) => (theme.control_border, 0.6),
+                };
+                let enabled = self.disabled.is_none();
+                el.relative().child(
+                    div()
+                        .absolute()
+                        .left_0()
+                        .top(dp(5.))
+                        .bottom(dp(5.))
+                        .w(fixed(1.))
+                        .bg(rule)
+                        .opacity(strength)
+                        .when(enabled, |el| {
+                            el.group_hover(DROPDOWN_GROUP, |el| el.opacity(0.))
+                        }),
+                )
             })
             .when(self.disabled.is_none(), |el| {
                 el.map(|el| match pictured {
@@ -288,7 +347,7 @@ impl RenderOnce for Button {
                 })
                 .active(|el| el.opacity(0.8))
             })
-            .when(self.disabled.is_some(), |el| el.opacity(0.5))
+            .when(self.disabled.is_some() && pictured, |el| el.opacity(0.5))
             .when_some(self.icon, |el, kind| {
                 let opacity = if has_label { 0.7 } else { 0.8 };
                 el.child((icon_at(kind, icon_size).text_color(fg)).opacity(opacity))
@@ -319,8 +378,10 @@ impl RenderOnce for Button {
     }
 }
 
-/// `action` joined to a chevron that opens its menu. The chevron, named `menu_label`, is
-/// disabled with the action.
+const DROPDOWN_GROUP: &str = "dropdown-button";
+
+/// `action` joined to a chevron that opens its menu, at the regular size, the only one it has.
+/// The chevron, named `menu_label`, is disabled with the action.
 pub fn dropdown_button(
     action: Button,
     menu_label: impl Into<SharedString>,
@@ -331,7 +392,6 @@ pub fn dropdown_button(
         icon: Some(Icon::ChevronDown),
         style: action.style,
         disabled: action.disabled.clone(),
-        small: action.small,
         tooltip: Some(menu_label.into()),
         half: Some(Half::Menu),
         ..button(
@@ -341,9 +401,11 @@ pub fn dropdown_button(
     };
     let action = Button {
         half: Some(Half::Action),
+        small: false,
         ..action
     };
     h_flex()
+        .group(DROPDOWN_GROUP)
         .flex_none()
         .child(action)
         .child(menu.on_click(on_menu))

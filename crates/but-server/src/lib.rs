@@ -579,10 +579,6 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             but_post(legacy::virtual_branches::normalize_branch_name_cmd),
         )
         .route(
-            "/delete_local_branch",
-            but_post(legacy::virtual_branches::delete_local_branch_cmd),
-        )
-        .route(
             "/get_base_branch_data",
             but_post(legacy::virtual_branches::get_base_branch_data_cmd),
         )
@@ -958,7 +954,7 @@ async fn handle_command(
             legacy::settings::update_reviews(&app_settings_sync, params).map(|r| json!(r))
         }),
         // Project management (need extra or app)
-        "list_projects" => projects::list_projects(&extra).await,
+        "list_projects" => projects::list_projects(),
         "set_project_active" => {
             projects::set_project_active(&broadcaster, &extra, app_settings_sync, request.params)
                 .await

@@ -115,6 +115,11 @@
 		"file": "LocationBar.tsx",
 		"description": "The bar above a view's header: the window's controls, where the page sits, then the state of what it shows. Layout only; what goes in each part is the app's. The trail gives way before the state does: it folds and ellipsizes, the state keeps its size.\n\nIn Figma: The state's parts (Also in 2 places, LiveStatus, Refresh) are but.dev's, Presence, LiveStatus and RefreshButton in its `web/src/components/Bits.tsx`, drawn here so the bar reads whole.\n\nRules: https://github.com/gitbutlerapp/gitbutler/blob/master/packages/but-ui/design/components/location-bars.md\n\nCode: LocationBar in @gitbutler/but-ui-react/LocationBar.tsx"
 	},
+	"5303:109676": {
+		"component": "MachineStatus",
+		"file": "MachineStatus.tsx",
+		"description": "Whether a machine is online, beside its name: a signal on green when it is, a crossed-out signal on grey when it isn't. Say more, such as when it was last seen, in a `Tooltip` around it.\n\nIt says \"Online\" or \"Offline\" to a screen reader. Where the words beside it already say so, pass `aria-hidden` so they aren't read twice. For a light with no machine's name beside it, such as \"3 of 4 online\", use `StatusLed`.\n\nCode: MachineStatus in @gitbutler/but-ui-react/MachineStatus.tsx"
+	},
 	"4809:1328": {
 		"component": "Markdown",
 		"file": "Markdown.tsx",
@@ -203,7 +208,7 @@
 	"2210:1708": {
 		"component": "Snackbar",
 		"file": "Snackbar.tsx",
-		"description": "One line of consequence, floated over the surface that caused it: a glyph, a sentence, and at most one button, fenced off behind a divider: Undo when what just happened can be taken back, or a close button when the snackbar waits to be dismissed by hand. Never both: an undoable snackbar leaves on its own, so it has nothing to close. A whole Toasts card would state a title and a description; a snackbar has only the sentence, so it can sit close to the thing it is about rather than in the corner of the window.\n\nEvery variant wears the same surface: the verdict is carried by the glyph alone, so a run of snackbars reads as one row of statements rather than a traffic light.\n\nvariant:\n- info: Something happened worth saying, with no verdict attached.\n- warning: An act that came off with a catch: it ran, but not quite as asked.\n- danger: An act that failed, or refused to run.\n- safe: An act that came off.\n\nIn Figma: `action` is `undo` when the code is given `onUndo`, `dismiss` when it's given `onDismiss`.\n\nRules: https://github.com/gitbutlerapp/gitbutler/blob/master/packages/but-ui/design/patterns/toasts-and-snackbars.md\n\nCode: Snackbar in @gitbutler/but-ui-react/Snackbar.tsx"
+		"description": "One line of consequence, floated over the surface that caused it: a glyph (none for plain `info`), a sentence, and at most one button, fenced off behind a divider: Undo when what just happened can be taken back, or a close button when the snackbar waits to be dismissed by hand. Never both: an undoable snackbar leaves on its own, so it has nothing to close. A whole Toasts card would state a title and a description; a snackbar has only the sentence, so it can sit close to the thing it is about rather than in the corner of the window.\n\nEvery variant wears the same surface: the verdict is carried by the glyph alone, so a run of snackbars reads as one row of statements rather than a traffic light.\n\nvariant:\n- info: Something happened worth saying, with no verdict attached, so no glyph unless `icon` gives one.\n- warning: An act that came off with a catch: it ran, but not quite as asked.\n- danger: An act that failed, or refused to run.\n- safe: An act that came off.\n\nIn Figma: `action` is `undo` when the code is given `onUndo`, `dismiss` when it's given `onDismiss`.\n\nRules: https://github.com/gitbutlerapp/gitbutler/blob/master/packages/but-ui/design/patterns/toasts-and-snackbars.md\n\nCode: Snackbar in @gitbutler/but-ui-react/Snackbar.tsx"
 	},
 	"4852:2389": {
 		"component": "StatusBar",

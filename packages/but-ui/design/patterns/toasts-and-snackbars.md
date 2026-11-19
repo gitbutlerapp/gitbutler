@@ -3,8 +3,8 @@
 Two ways of saying what just happened; choose by **where the news belongs**,
 not how bad it is.
 
-**A snackbar is a sentence next to the thing it is about.** One glyph, one line,
-no title, floated over the surface that caused it — `Snackbar.tsx`, 🍑 But UI
+**A snackbar is a sentence next to the thing it is about.** One line, led by a
+glyph when it carries a verdict, no title, floated over the surface that caused it — `Snackbar.tsx`, 🍑 But UI
 node `2210-1708`. News that won't fit in a line read without stopping isn't a
 snackbar.
 
@@ -67,7 +67,9 @@ updating from its target, keeps its spinner (`WorktreeItem`'s `busy`).
 
 **The verdict is carried by the glyph, not the surface.** The four snackbar
 variants share ground and border; `info`, `warning`, `danger` and `safe` differ
-only in the leading icon. `warning` is for an act that ran with a catch — it
+only in the leading icon, and plain `info` has none, so a glyph that shows says
+something. `icon` gives one to an `info` that needs it, as a spinner for work
+under way. `warning` is for an act that ran with a catch — it
 went through, but not quite as asked. No colored fill: news that needs more
 weight is a toast. Toasts follow the same rule through `add({ type })`: `info`,
 `warning` (an act that came off only in part), `error` and `success`, the names

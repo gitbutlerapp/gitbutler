@@ -533,9 +533,6 @@ fn show_branch_human(
 #[derive(Debug, serde::Serialize)]
 struct BranchCommitInfo {
     #[serde(skip)]
-    #[expect(dead_code)]
-    object_id: gix::ObjectId,
-    #[serde(skip)]
     change_id: but_core::ChangeId,
     sha: String,
     short_sha: String,
@@ -661,7 +658,6 @@ fn get_branch_commits(
         };
 
         commits.push(BranchCommitInfo {
-            object_id: info.id,
             change_id: match id_map.change_id_ref(info.id).map(|c| c.change_id.clone()) {
                 Some(id) => id,
                 None => get_change_id_for_commit(&repo, info.id)?,
@@ -688,7 +684,6 @@ fn get_branch_commits(
         let base_message = super::commit_summary(&base_commit);
 
         Some(BranchCommitInfo {
-            object_id: merge_base,
             change_id: crate::utils::get_change_id_for_commit(&repo, merge_base)?,
             sha: merge_base.to_string(),
             short_sha: shorten_object_id(&repo, merge_base),

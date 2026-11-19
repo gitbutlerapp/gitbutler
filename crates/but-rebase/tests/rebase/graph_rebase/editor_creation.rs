@@ -855,6 +855,55 @@ fn immutable_entrypoints_propogate_until_mutable_entrypoints() -> Result<()> {
 }
 
 #[test]
+fn extra_refs_keep_their_new_names_in_the_overlayed_graph() -> Result<()> {
+    let (repo, mut meta, mut db) = fixture("extra-refs-to-include")?;
+    let extra_ref: gix::refs::FullName = "refs/heads/explicit-const-2".try_into()?;
+    let extra_ref_commit = repo.rev_parse_single(extra_ref.as_bstr())?.detach();
+    let graph = Graph::from_commit_traversal(
+        repo.rev_parse_single("refs/heads/implicit-mut")?,
+        Some("refs/heads/implicit-mut".try_into()?),
+        &*meta,
+        Default::default(),
+        &mut db,
+        but_graph::init::Options {
+            extra_refs: vec![extra_ref.clone()],
+            ..standard_options()
+        },
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create_with_opts(
+        &mut ws,
+        &mut *meta,
+        &repo,
+        &mut db,
+        &GraphEditorOptions {
+            extra_mutable_refs: vec![extra_ref.clone()],
+            ..Default::default()
+        },
+    )?;
+
+    let renamed: gix::refs::FullName = "refs/heads/renamed".try_into()?;
+    editor.replace_reference(
+        editor.select_reference(extra_ref.as_ref())?,
+        renamed.clone(),
+    )?;
+    let overlayed = editor.rebase()?.overlayed_graph()?;
+
+    assert!(
+        overlayed
+            .segment_and_commit_by_ref_name(extra_ref.as_ref())
+            .is_none(),
+        "the old name is gone"
+    );
+    let (_, commit) = overlayed
+        .segment_and_commit_by_ref_name(renamed.as_ref())
+        .expect("HEAD doesn't reach it, so only the extra ref under its new name brings it in");
+    assert_eq!(commit.id, extra_ref_commit, "the rename didn't move it");
+    Ok(())
+}
+
+#[test]
 fn a_padding_commit_is_left_out() -> Result<()> {
     let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits-one-file")?;
     let (_c, padding) = pad_conflicted_main(&repo, &mut *meta, &mut db)?;

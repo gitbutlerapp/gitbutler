@@ -499,15 +499,17 @@ impl MenuBarEditor {
         };
         let removed = item.clone();
         let remove = div()
-            .id("remove")
-            .role(Role::Button)
-            .aria_label(format!("Remove {}", dragged.title))
             .flex_none()
             .invisible()
             .group_hover("item", |el| el.visible())
-            .tooltip(Tooltip::text("Remove from the menu"))
-            .on_click(cx.listener(move |this, _, _, cx| this.remove_item(spot, &removed, cx)))
-            .child(icon_at(Icon::Cross, 12.).text_color(theme.text_1));
+            .child(
+                icon_button("remove", Icon::Cross)
+                    .small()
+                    .tooltip("Remove from the menu")
+                    .on_click(
+                        cx.listener(move |this, _, _, cx| this.remove_item(spot, &removed, cx)),
+                    ),
+            );
         let pop = theme.pop;
         let row = h_flex()
             .id(("item", spot.ix))

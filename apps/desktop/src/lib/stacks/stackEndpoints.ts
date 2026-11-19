@@ -509,11 +509,15 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				actionName: "Remove Branch",
 			},
 			query: (args) => args,
-			invalidatesTags: [
+			invalidatesTags: (_result, _error, { refName }) => [
 				invalidatesList(ReduxTag.HeadSha),
 				invalidatesList(ReduxTag.Stacks), // Removing a branch can remove a stack
 				invalidatesList(ReduxTag.StackDetails),
 				invalidatesList(ReduxTag.BranchListing),
+				invalidatesItem(
+					ReduxTag.BranchDetails,
+					new TextDecoder().decode(new Uint8Array(refName)).replace(/^refs\/heads\//, ""),
+				),
 			],
 		}),
 		branchRename: build.mutation<
@@ -929,20 +933,6 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				invalidatesList(ReduxTag.StackDetails),
 				invalidatesList(ReduxTag.BranchListing),
 				invalidatesList(ReduxTag.PullRequests),
-			],
-		}),
-		deleteLocalBranch: build.mutation<
-			void,
-			{ projectId: string; refname: string; givenName: string }
-		>({
-			extraOptions: {
-				command: "delete_local_branch",
-				actionName: "Delete Local Branch",
-			},
-			query: (args) => args,
-			invalidatesTags: (_result, _error, { givenName: branchName }) => [
-				invalidatesItem(ReduxTag.BranchDetails, branchName),
-				providesList(ReduxTag.BranchListing),
 			],
 		}),
 		squashCommits: build.mutation<

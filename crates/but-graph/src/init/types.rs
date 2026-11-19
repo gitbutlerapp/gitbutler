@@ -60,6 +60,15 @@ impl Limit {
         }
     }
 
+    /// A limit whose goals are reached and that has no allowance left, so a walk with it only
+    /// goes on while a queued tip still seeks a goal in the history the walk carries.
+    pub fn spent() -> Self {
+        Limit {
+            inner: Some(0),
+            goal: CommitFlags::Integrated,
+        }
+    }
+
     /// Assure this limit won't perform any traversal after reaching its goals.
     pub fn without_allowance(mut self) -> Self {
         self.set_but_keep_goal(Limit::new(Some(0)));
@@ -267,6 +276,11 @@ impl Queue {
     /// Stop accepting new items while leaving already queued items to drain.
     pub(crate) fn exhaust(&mut self) {
         self.exhausted = true;
+    }
+
+    /// Accept new items again after [`Self::exhaust()`]. The hard limit still applies.
+    pub(crate) fn resume(&mut self) {
+        self.exhausted = false;
     }
 
     /// Add `goal` as additional goal to `id` or panic if `id` was not found.

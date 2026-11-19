@@ -9,7 +9,10 @@ use but_workspace::{
 };
 use gix::{ObjectId, refs::FullName};
 
-use crate::{Commit, DynamicOutcome, WorkspaceState, with_transaction, with_transaction_with_perm};
+use crate::{
+    Commit, DynamicOutcome, TransactionOptions, WorkspaceState, with_transaction,
+    with_transaction_options, with_transaction_with_perm,
+};
 
 #[track_caller]
 fn ref_target(env: &Sandbox, ref_name: &gix::refs::FullNameRef) -> Option<ObjectId> {
@@ -901,6 +904,114 @@ fn cherry_pick_then_reword_copied_commit() {
         "returned identifier should refer to the reworded copy"
     );
     assert_num_snapshots(&ctx, 1);
+}
+
+#[test]
+fn extra_mutable_refs_outside_the_workspace_can_be_rewritten() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["branch"]);
+    let [one] = find_commits(&env, ["dbdbcea"]);
+    let outside_commit = env.invoke_git(&format!("commit-tree -p {one} -m outside {one}^{{tree}}"));
+    env.invoke_git(&format!("branch outside {outside_commit}"));
+    let outside_commit = ObjectId::from_hex(outside_commit.as_bytes()).unwrap();
+    let outside = FullName::try_from("refs/heads/outside").unwrap();
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let mut meta = ctx.meta().unwrap();
+    let mut guard = ctx.exclusive_worktree_access();
+
+    let undeclared = with_transaction_with_perm(
+        &mut ctx,
+        &mut meta,
+        guard.write_permission(),
+        SnapshotDetails::new(OperationKind::UpdateCommitMessage),
+        &[],
+        DryRun::No,
+        |mut tx| {
+            tx.reword_commit(outside_commit, "reworded".into())?;
+            Ok(())
+        },
+    );
+    assert!(
+        undeclared.is_err(),
+        "operations only see the workspace and the references the transaction declares"
+    );
+
+    let (reworded, _workspace) = with_transaction_options(
+        &mut ctx,
+        &mut meta,
+        guard.write_permission(),
+        TransactionOptions {
+            snapshot_details: Some(SnapshotDetails::new(OperationKind::UpdateCommitMessage)),
+            extra_mutable_refs: vec![outside.clone()],
+            ..Default::default()
+        },
+        |mut tx| Ok(Commit(tx.reword_commit(outside_commit, "reworded".into())?)),
+    )
+    .unwrap();
+
+    assert_ne!(reworded.id, outside_commit, "rewording made a new commit");
+    assert_eq!(
+        ref_target(&env, outside.as_ref()),
+        Some(reworded.id),
+        "the declared branch follows its reworded commit"
+    );
+    assert_num_snapshots(&ctx, 1);
+}
+
+#[test]
+fn undo_restores_an_extra_mutable_ref_the_transaction_rewrote() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["branch"]);
+    let [one] = find_commits(&env, ["dbdbcea"]);
+    let outside_commit = env.invoke_git(&format!("commit-tree -p {one} -m outside {one}^{{tree}}"));
+    env.invoke_git(&format!("branch outside {outside_commit}"));
+    let outside_commit = ObjectId::from_hex(outside_commit.as_bytes()).unwrap();
+    let outside = FullName::try_from("refs/heads/outside").unwrap();
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let mut meta = ctx.meta().unwrap();
+    let mut guard = ctx.exclusive_worktree_access();
+    let (reworded, _workspace) = with_transaction_options(
+        &mut ctx,
+        &mut meta,
+        guard.write_permission(),
+        TransactionOptions {
+            snapshot_details: Some(SnapshotDetails::new(OperationKind::UpdateCommitMessage)),
+            extra_mutable_refs: vec![outside.clone()],
+            ..Default::default()
+        },
+        |mut tx| Ok(Commit(tx.reword_commit(outside_commit, "reworded".into())?)),
+    )
+    .unwrap();
+    drop(guard);
+    assert_eq!(
+        ref_target(&env, outside.as_ref()),
+        Some(reworded.id),
+        "the transaction rewrites the branch"
+    );
+
+    let snapshot = but_api::legacy::oplog::get_undo_target_snapshot(&ctx)
+        .unwrap()
+        .expect("the transaction records an undo target");
+    but_api::legacy::oplog::restore_snapshot_with_kind(
+        &mut ctx,
+        but_api::legacy::oplog::RestoreKind::RestoreFromSnapshotViaUndo,
+        snapshot.commit_id,
+    )
+    .unwrap();
+
+    assert_eq!(
+        ref_target(&env, outside.as_ref()),
+        Some(outside_commit),
+        "the transaction may rewrite the branch, so its snapshot preserves it for undo"
+    );
 }
 
 #[test]

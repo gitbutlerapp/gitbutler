@@ -2,6 +2,7 @@
 //! libghostty-vt and drawn where the detail goes. They end with the app.
 
 use std::cell::Cell;
+use std::collections::HashMap;
 use std::ops::Range;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -10,16 +11,17 @@ use std::time::Duration;
 #[cfg(unix)]
 use but_tty::Detached;
 use but_tty::{
-    Colors, Cursor, CursorVisualStyle, Ghostty, Key, Mods, RgbColor, Row, Run, Shell, Size, Status,
-    Terminal as Tty, Underline, Updates, mouse,
+    Colors, Cursor, CursorVisualStyle, Frame, Ghostty, Image, ImageLayer, Key, Mods, Placement,
+    RgbColor, Row, Run, Shell, Size, Status, Terminal as Tty, Underline, Updates, mouse,
 };
 use futures::StreamExt;
 use gpui::{
     App, AvailableSpace, Bounds, Context, CursorStyle, DispatchPhase, Entity, EventEmitter,
     ExternalPaths, FocusHandle, Focusable, Font, FontWeight, HitboxBehavior, Hsla, KeyDownEvent,
     Keystroke, Modifiers, ModifiersChangedEvent, MouseButton, MouseDownEvent, MouseMoveEvent,
-    MouseUpEvent, Pixels, Point, Rgba, ScrollWheelEvent, SharedString, StrikethroughStyle, Task,
-    TextAlign, TextRun, UnderlineStyle, WeakEntity, Window, actions, canvas, div, prelude::*,
+    MouseUpEvent, Pixels, Point, RenderImage, Rgba, ScrollWheelEvent, SharedString,
+    StrikethroughStyle, Task, TextAlign, TextRun, UnderlineStyle, WeakEntity, Window, actions,
+    canvas, div, prelude::*,
 };
 
 use crate::clipboard;
@@ -71,6 +73,9 @@ pub struct Terminal {
     wanted: Size,
     /// Waiting out `RESIZE_EVERY` since the shell was last resized.
     resizing: Option<Task<()>>,
+    /// The textures of the images the last frame drawn showed (kitty graphics), by their
+    /// generation, which changes with their pixels.
+    textures: HashMap<u64, Arc<RenderImage>>,
     focus: FocusHandle,
     store: WeakEntity<Store>,
     _updates: Task<()>,
@@ -153,7 +158,7 @@ impl Terminal {
         cx: &mut App,
     ) -> Entity<Self> {
         let size = tty.size();
-        cx.new(|cx: &mut Context<Self>| Self {
+        let terminal = cx.new(|cx: &mut Context<Self>| Self {
             tty,
             ghostty,
             colors,
@@ -165,6 +170,7 @@ impl Terminal {
             hold_timeout: None,
             wanted: size,
             resizing: None,
+            textures: HashMap::new(),
             focus: cx.focus_handle(),
             store,
             // The emulator reads the shell on a thread of its own, as Ghostty does, so a program
@@ -177,7 +183,12 @@ impl Terminal {
                 }
                 this.update(cx, |_, cx| cx.emit(TerminalEvent::Exited)).ok();
             }),
-        })
+        });
+        (cx.observe_release(&terminal, |this, cx| {
+            release_textures(std::mem::take(&mut this.textures), cx);
+        }))
+        .detach();
+        terminal
     }
 
     pub fn title(&self) -> SharedString {
@@ -254,6 +265,26 @@ impl Terminal {
             }))
             .ok();
         }));
+    }
+
+    /// The images `frame` shows, each with its texture, made for those it newly shows. Those
+    /// of images it no longer shows are released.
+    fn textured(&mut self, frame: &Frame, cx: &mut App) -> Vec<(Placement, Arc<RenderImage>)> {
+        let mut kept = HashMap::with_capacity(frame.images.len());
+        let mut shown = Vec::with_capacity(frame.images.len());
+        for placement in &frame.images {
+            let generation = placement.image.generation;
+            let texture = (kept.get(&generation).cloned())
+                .or_else(|| self.textures.remove(&generation))
+                .or_else(|| texture(&placement.image));
+            let Some(texture) = texture else {
+                continue;
+            };
+            kept.insert(generation, texture.clone());
+            shown.push((placement.clone(), texture));
+        }
+        release_textures(std::mem::replace(&mut self.textures, kept), cx);
+        shown
     }
 
     fn typed(&mut self, cx: &mut Context<Self>) {
@@ -566,7 +597,7 @@ impl Terminal {
     }
 
     fn scroll(&mut self, event: &ScrollWheelEvent, _: &mut Window, cx: &mut Context<Self>) {
-        let line = fixed(f32::from(self.tty.size().cell_height.max(1)));
+        let line = self.grid.get().cell.height;
         self.scrolled += event.delta.pixel_delta(line).y;
         let lines = (self.scrolled / line).trunc();
         if lines != 0. {
@@ -608,6 +639,7 @@ impl Render for Terminal {
         };
         let link = self.link.clone();
         let frame = self.tty.frame();
+        let images = self.textured(&frame, cx);
         let rows = frame.clone();
         let this = cx.entity().downgrade();
         let measured = Rc::new(Cell::new(self.wanted));
@@ -645,11 +677,14 @@ impl Render for Terminal {
         let mut cursor = div().size_full().children(cursor).into_any_element();
         let grid = canvas(
             move |bounds, window, cx| {
+                // Cells in device pixels, as Ghostty tells programs. Programs that show images,
+                // as pi, shape them by the cells' pixels, and whole logical pixels are too coarse
+                // for that: a cell 6.5 wide told as 7 squeezes an image by 7%.
                 let size = Size {
                     cols: ((bounds.size.width / cell_width).floor() as u16).max(2),
                     rows: ((bounds.size.height / cell_height).floor() as u16).max(1),
-                    cell_width: f32::from(cell_width).round() as u16,
-                    cell_height: f32::from(cell_height).round() as u16,
+                    cell_width: (f32::from(cell_width) * scale).round() as u16,
+                    cell_height: (f32::from(cell_height) * scale).round() as u16,
                 };
                 let cell = gpui::size(cell_width, cell_height);
                 let placed = Grid::at(bounds, cell, scale);
@@ -667,8 +702,14 @@ impl Render for Terminal {
             },
             move |_, (hitbox, grid, mut cursor), window, cx| {
                 let link = link.as_deref();
-                paint_rows(&rows.rows, grid.origin, grid.cell, bold, link, window, cx);
+                // In layers, as Ghostty draws them.
+                paint_images(&images, ImageLayer::BelowBackground, grid, window);
+                paint_backgrounds(&rows.rows, grid.origin, grid.cell, window);
+                paint_images(&images, ImageLayer::BelowText, grid, window);
+                paint_text(&rows.rows, grid.origin, grid.cell, bold, link, window, cx);
+                // The cursor goes with the text, as in Ghostty, so an image over its cell hides it.
                 cursor.paint(window, cx);
+                paint_images(&images, ImageLayer::AboveText, grid, window);
                 window.on_mouse_event({
                     let this = pointer.clone();
                     move |event: &MouseMoveEvent, phase, window, cx| {
@@ -734,7 +775,8 @@ impl Grid {
         }
     }
 
-    /// Until it's drawn, cells are the size the shell was told.
+    /// Until it's drawn, cells are as many points as the shell was told they're pixels, a
+    /// stand-in the first draw replaces.
     fn opening(size: Size) -> Self {
         Self {
             origin: Point::default(),
@@ -818,13 +860,95 @@ fn shown_title(title: &str) -> SharedString {
     }
 }
 
-/// Paints `rows` on the grid from `origin`, bold text at `bold` and what links to `link`
-/// underlined, every background before any text so no cell's covers a glyph reaching into it.
-/// Each run's text is shaped on its own and placed at its column, as Ghostty does. GPUI keeps a
-/// shaped line while it's drawn frame after frame, so a run is shaped again only when it
-/// changes, not whenever anything on its row does, as a relative line number does at every
-/// move.
-fn paint_rows(
+/// A texture of `image`, or none if its pixels don't fill its size.
+fn texture(image: &Image) -> Option<Arc<RenderImage>> {
+    // gpui draws BGRA.
+    let bgra: Vec<u8> = (image.rgba.as_chunks::<4>().0.iter())
+        .flat_map(|&[r, g, b, a]| [b, g, r, a])
+        .collect();
+    let pixels = image::RgbaImage::from_raw(image.width, image.height, bgra)?;
+    Some(Arc::new(RenderImage::new([image::Frame::new(pixels)])))
+}
+
+/// Frees `textures` from every window, once no window is being updated, as `drop_image` skips
+/// one that is.
+fn release_textures(textures: HashMap<u64, Arc<RenderImage>>, cx: &mut App) {
+    if textures.is_empty() {
+        return;
+    }
+    cx.defer(move |cx| {
+        for texture in textures.into_values() {
+            cx.drop_image(texture, None);
+        }
+    });
+}
+
+/// Paints the images in `layer` on `grid`, each the part of its image it shows over its
+/// cells. The terminal's bounds clip those partly out of view.
+fn paint_images(
+    images: &[(Placement, Arc<RenderImage>)],
+    layer: ImageLayer,
+    grid: Grid,
+    window: &mut Window,
+) {
+    let cell = grid.cell;
+    for (placement, texture) in images
+        .iter()
+        .filter(|(placement, _)| placement.layer == layer)
+    {
+        if placement.source_width == 0 || placement.source_height == 0 {
+            continue;
+        }
+        let shown = Bounds::new(
+            grid.origin + gpui::point(cell.width * placement.x, cell.height * placement.y),
+            gpui::size(cell.width * placement.width, cell.height * placement.height),
+        );
+        // The whole image, scaled and placed so the part shown lands on its cells, for GPUI to
+        // draw only that part.
+        let scale_x = shown.size.width / placement.source_width as f32;
+        let scale_y = shown.size.height / placement.source_height as f32;
+        let image = &placement.image;
+        let whole = Bounds::new(
+            shown.origin
+                - gpui::point(
+                    scale_x * placement.source_x as f32,
+                    scale_y * placement.source_y as f32,
+                ),
+            gpui::size(scale_x * image.width as f32, scale_y * image.height as f32),
+        );
+        (window.paint_image(shown, whole, Default::default(), texture.clone(), 0, false)).ok();
+    }
+}
+
+/// Paints the backgrounds of `rows` on the grid from `origin`, all before any text so no cell's
+/// covers a glyph reaching into it.
+fn paint_backgrounds(
+    rows: &[Arc<Row>],
+    origin: Point<Pixels>,
+    cell: gpui::Size<Pixels>,
+    window: &mut Window,
+) {
+    for (y, row) in rows.iter().enumerate() {
+        for (columns, color) in backgrounds(row) {
+            let size = gpui::size(
+                cell.width * f32::from(columns.end - columns.start),
+                cell.height,
+            );
+            let at = gpui::point(
+                origin.x + cell.width * f32::from(columns.start),
+                origin.y + cell.height * y as f32,
+            );
+            window.paint_quad(gpui::fill(Bounds::new(at, size), hsla(color)));
+        }
+    }
+}
+
+/// Paints the text of `rows` on the grid from `origin`, bold text at `bold` and what links to
+/// `link` underlined. Each run's text is shaped on its own and placed at its column, as Ghostty
+/// does. GPUI keeps a shaped line while it's drawn frame after frame, so a run is shaped again
+/// only when it changes, not whenever anything on its row does, as a relative line number does
+/// at every move.
+fn paint_text(
     rows: &[Arc<Row>],
     origin: Point<Pixels>,
     cell: gpui::Size<Pixels>,
@@ -839,16 +963,6 @@ fn paint_rows(
             origin.y + cell.height * row as f32,
         )
     };
-    for (y, row) in rows.iter().enumerate() {
-        for (columns, color) in backgrounds(row) {
-            let size = gpui::size(
-                cell.width * f32::from(columns.end - columns.start),
-                cell.height,
-            );
-            let bounds = Bounds::new(at(columns.start, y), size);
-            window.paint_quad(gpui::fill(bounds, hsla(color)));
-        }
-    }
     let text_style = window.text_style();
     let font_size = text_style.font_size.to_pixels(window.rem_size());
     let regular = text_style.font();

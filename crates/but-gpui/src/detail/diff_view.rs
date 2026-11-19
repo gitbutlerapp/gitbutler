@@ -1429,6 +1429,11 @@ impl Detail {
                         current,
                         solid,
                         folded: ends,
+                        fold: Some(std::rc::Rc::new(move |_, cx| {
+                            toggle
+                                .update(cx, |detail, cx| detail.toggle_fold(file, cx))
+                                .ok();
+                        })),
                         flat,
                         uncounted: !controls,
                         titled: self.titled_header(cx),
@@ -1445,14 +1450,12 @@ impl Detail {
                 padded
                     .id(("file-header", ix))
                     .child(header)
-                    .on_mouse_down(MouseButton::Left, press_off(entity, None))
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        press_off(entity, Some(Cursor::on_file(file))),
+                    )
                     .on_mouse_down(MouseButton::Right, move |event, window, cx| {
                         open(event.position, window, cx)
-                    })
-                    .on_click(move |_, _, cx| {
-                        toggle
-                            .update(cx, |detail, cx| detail.toggle_fold(file, cx))
-                            .ok();
                     })
                     .when_some(carried, |el, carried| {
                         let label: SharedString = carried.1.describe().into();

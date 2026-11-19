@@ -21,6 +21,11 @@
 
   <launchable type="desktop-id">com.gitbutler.gitbutler.desktop</launchable>
 
+  <branding>
+    <color type="primary" scheme_preference="light">#b0e8e7</color>
+    <color type="primary" scheme_preference="dark">#1d6868</color>
+  </branding>
+
   <content_rating type="oars-1.1">
     <content_attribute id="social-info">mild</content_attribute>
   </content_rating>
@@ -37,6 +42,9 @@
   </screenshots>
 
   <releases>
+    <release version="0.23.5" date="2026-11-19">
+      <url>https://github.com/gitbutlerapp/gitbutler/releases/tag/release%2F0.23.5</url>
+    </release>
     <release version="0.23.4" date="2026-11-11">
       <url>https://github.com/gitbutlerapp/gitbutler/releases/tag/release%2F0.23.4</url>
     </release>

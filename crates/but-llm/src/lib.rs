@@ -68,15 +68,6 @@ impl From<LLMProviderKind> for String {
     }
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub enum LLMProviderConfig {
-    OpenAi(Option<openai::CredentialsKind>),
-    Anthropic(Option<anthropic::CredentialsKind>),
-    Ollama(Option<ollama::OllamaConfig>),
-    LMStudio(Option<lmstudio::LMStudioConfig>),
-    OpenRouter(Option<openrouter::OpenRouterConfig>),
-}
-
 #[derive(Debug, Clone)]
 pub enum LLMClientType {
     OpenAi(Arc<openai::OpenAiProvider>),
@@ -92,27 +83,6 @@ pub struct LLMProvider {
 }
 
 impl LLMProvider {
-    /// Returns `None` if the provider can't be initialized, e.g. for missing credentials.
-    pub fn new(kind: LLMProviderConfig) -> Option<Self> {
-        let client = match kind {
-            LLMProviderConfig::OpenAi(creds) => openai::OpenAiProvider::with(creds, None, None)
-                .map(|p| LLMClientType::OpenAi(Arc::new(p)))?,
-            LLMProviderConfig::Anthropic(creds) => anthropic::AnthropicProvider::with(creds, None)
-                .map(|p| LLMClientType::Anthropic(Arc::new(p)))?,
-            LLMProviderConfig::Ollama(config) => {
-                let config = config.unwrap_or_default();
-                LLMClientType::Ollama(Arc::new(ollama::OllamaProvider::new(config, None)))
-            }
-            LLMProviderConfig::LMStudio(config) => lmstudio::LMStudioProvider::with(config, None)
-                .map(|p| LLMClientType::LMStudio(Arc::new(p)))?,
-            LLMProviderConfig::OpenRouter(config) => {
-                openrouter::OpenRouterProvider::with(config, None)
-                    .map(|p| LLMClientType::OpenRouter(Arc::new(p)))?
-            }
-        };
-        Some(Self { client })
-    }
-
     /// Returns `None` if no provider is configured, its settings don't validate, or it can't be
     /// initialized, e.g. for missing credentials.
     pub fn from_git_config(config: &gix::config::File) -> Option<Self> {
@@ -125,7 +95,7 @@ impl LLMProvider {
                     CredentialsKeyOption::ButlerApi => openai::CredentialsKind::GitButlerProxied,
                 };
                 let client = openai::OpenAiProvider::with(
-                    Some(credentials),
+                    credentials,
                     Some(configuration.openai.model),
                     configuration.openai.custom_endpoint,
                 )?;
@@ -141,7 +111,7 @@ impl LLMProvider {
                     CredentialsKeyOption::ButlerApi => anthropic::CredentialsKind::GitButlerProxied,
                 };
                 let client = anthropic::AnthropicProvider::with(
-                    Some(credentials),
+                    credentials,
                     Some(configuration.anthropic.model),
                 )?;
                 Some(Self {
@@ -150,23 +120,19 @@ impl LLMProvider {
             }
             LLMProviderKind::Ollama => {
                 let host_config = ollama::OllamaHostConfig::from(configuration.ollama.endpoint);
-                let client = ollama::OllamaProvider::new(
-                    ollama::OllamaConfig {
-                        host_config: Some(host_config),
-                    },
-                    Some(configuration.ollama.model),
-                );
+                let client =
+                    ollama::OllamaProvider::new(host_config, Some(configuration.ollama.model));
                 Some(Self {
                     client: LLMClientType::Ollama(Arc::new(client)),
                 })
             }
             LLMProviderKind::LMStudio => {
-                let client = lmstudio::LMStudioProvider::with(
-                    Some(lmstudio::LMStudioConfig {
+                let client = lmstudio::LMStudioProvider::new(
+                    lmstudio::LMStudioConfig {
                         api_base: configuration.lmstudio.endpoint,
-                    }),
+                    },
                     Some(configuration.lmstudio.model),
-                )?;
+                );
                 Some(Self {
                     client: LLMClientType::LMStudio(Arc::new(client)),
                 })

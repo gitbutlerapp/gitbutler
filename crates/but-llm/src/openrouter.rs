@@ -15,7 +15,7 @@ use crate::{
 
 const OPENROUTER_API_BASE_DEFAULT: &str = "https://openrouter.ai/api/v1";
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone)]
 pub struct OpenRouterConfig {
     pub api_base: String,
 }

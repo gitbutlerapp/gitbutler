@@ -120,6 +120,12 @@
 								? (latestReleaseBuilds.linux_rpm_x86_64?.url ?? "")
 								: (latestReleaseBuilds.linux_rpm_aarch64?.url ?? "")}>.RPM</a
 						>
+						<a
+							class="download-card-title download-card-link"
+							href="https://flathub.org/en/apps/com.gitbutler.gitbutler"
+							target="_blank"
+							rel="noopener">Flatpak</a
+						>
 					</div>
 
 					<span class="download-card-small-subtile"

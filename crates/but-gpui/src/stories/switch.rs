@@ -37,6 +37,21 @@ impl Render for SwitchStory {
                 ],
             ),
             section(
+                "Large, for a settings row",
+                theme,
+                [
+                    variant("Off", theme, switch("large-off", false, theme).large()),
+                    variant("On", theme, switch("large-on", true, theme).large()),
+                    variant(
+                        "Disabled, on",
+                        theme,
+                        switch("large-disabled", true, theme)
+                            .large()
+                            .disabled_because(why),
+                    ),
+                ],
+            ),
+            section(
                 "Try it",
                 theme,
                 [variant(if self.on { "On" } else { "Off" }, theme, live)],

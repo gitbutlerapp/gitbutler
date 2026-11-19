@@ -381,6 +381,9 @@ pub struct HeaderDecor {
     /// while they're elsewhere, as a list's selection is.
     pub solid: bool,
     pub folded: bool,
+    /// Clicking the file's chevron folds or unfolds it. The rest of the header only selects, as
+    /// folding moves everything under it.
+    pub fold: Option<OnToggle>,
     /// The file is folding, its lines going up into its header.
     pub closing: bool,
     /// The current one was just copied, by which blink it is: see [`super::blink_once`].
@@ -563,11 +566,28 @@ pub fn file_header(
                 .child(blink_once(("blink", n), shape, copy_wash(theme)))
         })
         .when(!titled, |el| {
-            el.child(fold::chevron(
-                "fold",
-                !(decor.folded || decor.closing),
-                soft(theme.text_2),
-            ))
+            let open = !(decor.folded || decor.closing);
+            // As tall as the header and out to the card's edge, so it's easy to hit.
+            let chevron = h_flex()
+                .id(("fold", ix))
+                .flex_none()
+                .h_full()
+                .ml(dp(-10.))
+                .pl(dp(10.))
+                .pr(dp(4.))
+                .mr(dp(-4.))
+                .child(fold::chevron("fold", open, soft(theme.text_2)));
+            el.child(match decor.fold {
+                Some(fold) => chevron
+                    .role(Role::Button)
+                    .aria_label(if open { "Fold" } else { "Unfold" })
+                    .on_click(move |_, window, cx| {
+                        cx.stop_propagation();
+                        fold(window, cx)
+                    })
+                    .into_any_element(),
+                None => chevron.into_any_element(),
+            })
         })
         .child(
             h_flex()

@@ -2,7 +2,7 @@ use gpui::{Context, Toggled, Window, prelude::*};
 
 use super::{page, section, variant};
 use crate::theme::Theme;
-use crate::ui::{checkbox, dp, h_flex, v_flex};
+use crate::ui::{checkbox, checkbox_disabled, dp, h_flex, v_flex};
 
 const FILES: [&str; 3] = ["src/app.rs", "src/theme.rs", "Cargo.toml"];
 
@@ -15,6 +15,7 @@ pub struct CheckboxStory {
 impl Render for CheckboxStory {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx);
+        let why = "Nothing to commit";
         let all = match self.picked.iter().filter(|picked| **picked).count() {
             0 => Toggled::False,
             n if n == FILES.len() => Toggled::True,
@@ -59,6 +60,27 @@ impl Render for CheckboxStory {
                         "Some of a group",
                         theme,
                         checkbox("mixed", Toggled::Mixed, theme),
+                    ),
+                ],
+            ),
+            section(
+                "Disabled, saying why in the tooltip",
+                theme,
+                [
+                    variant(
+                        "Empty",
+                        theme,
+                        checkbox_disabled("disabled-empty", Toggled::False, why, theme),
+                    ),
+                    variant(
+                        "Ticked",
+                        theme,
+                        checkbox_disabled("disabled-ticked", Toggled::True, why, theme),
+                    ),
+                    variant(
+                        "Some of a group",
+                        theme,
+                        checkbox_disabled("disabled-mixed", Toggled::Mixed, why, theme),
                     ),
                 ],
             ),

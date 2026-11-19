@@ -310,6 +310,11 @@ impl Graph {
     /// by checking incoming connections, instead they are expected to be either
     /// inline, i.e. virutal branch segments in a workspace, or they are
     /// named segments.
+    ///
+    /// Remote-tracking references among the [extra refs](crate::init::Options::extra_refs)
+    /// are kept wherever they rest, as named empty virtual segments pointing to their
+    /// commit. If it isn't the first of its segment, the segment is split there, and the
+    /// new segment stays anonymous as its commits aren't the remote's.
     fn fixup_remote_tracking_refs_and_maybe_split_segments<T: RefMetadata>(
         &mut self,
         meta: &OverlayMetadata<'_, T>,
@@ -318,12 +323,14 @@ impl Graph {
         struct SplitInfo {
             segment: SegmentIndex,
             commit: CommitIndex,
-            owner_ref: gix::refs::FullName,
+            /// Names the segment split off at `commit`, which is anonymous without it.
+            owner_ref: Option<gix::refs::FullName>,
             /// Additional remote-tracking refs at `commit` that should become
-            /// named empty virtual segments pointing to `owner_ref`.
+            /// named empty virtual segments pointing to the segment `commit` starts.
             virtual_refs: Vec<gix::refs::FullName>,
         }
 
+        let extra_refs = self.options.extra_refs.clone();
         let mut split_info = Vec::<SplitInfo>::new();
         for node in self.node_weights_mut() {
             let node_has_commits = node.commits.len() > 1;
@@ -339,18 +346,25 @@ impl Graph {
                     ri.ref_name.category().is_none_or(|c| {
                         if matches!(c, Category::RemoteBranch) {
                             // Always remove the ref, but keep info to create a split if possible.
-                            if is_splittable {
+                            if is_splittable || extra_refs.contains(&ri.ref_name) {
                                 if let Some(info) = split_info
                                     .iter_mut()
                                     .find(|info| info.segment == node.id && info.commit == cidx)
                                 {
                                     info.virtual_refs.push(ri.ref_name.clone());
+                                } else if is_splittable {
+                                    split_info.push(SplitInfo {
+                                        segment: node.id,
+                                        commit: cidx,
+                                        owner_ref: Some(ri.ref_name.clone()),
+                                        virtual_refs: Vec::new(),
+                                    });
                                 } else {
                                     split_info.push(SplitInfo {
                                         segment: node.id,
                                         commit: cidx,
-                                        owner_ref: ri.ref_name.clone(),
-                                        virtual_refs: Vec::new(),
+                                        owner_ref: None,
+                                        virtual_refs: vec![ri.ref_name.clone()],
                                     });
                                 }
                             }
@@ -364,14 +378,18 @@ impl Graph {
         }
 
         for info in split_info.into_iter().rev() {
-            let owner_sidx = self.split_segment(
-                info.segment,
-                info.commit,
-                Some(info.owner_ref),
-                None,
-                meta,
-                worktree_by_branch,
-            )?;
+            let owner_sidx = if info.commit == 0 {
+                info.segment
+            } else {
+                self.split_segment(
+                    info.segment,
+                    info.commit,
+                    info.owner_ref,
+                    None,
+                    meta,
+                    worktree_by_branch,
+                )?
+            };
             let owner_tip = self[owner_sidx]
                 .commits
                 .first()

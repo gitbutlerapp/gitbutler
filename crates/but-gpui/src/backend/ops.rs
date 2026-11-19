@@ -1422,13 +1422,6 @@ impl Intent for DeleteBranchAndCommits {
                     Ok(())
                 },
             )?;
-            let (mut repo, _, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-            // The transaction leaves Git's `branch.<name>` section, as its upstream and
-            // description, which a branch made later under its name would take on.
-            but_workspace::branch::remove_reference::delete_local_branch(
-                &mut repo,
-                branch.as_ref(),
-            )?;
             Ok(())
         })
     }

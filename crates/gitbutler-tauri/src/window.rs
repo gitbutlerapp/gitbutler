@@ -210,14 +210,6 @@ pub(crate) mod state {
             let mut state_by_label = self.state.lock();
             state_by_label.remove(window);
         }
-
-        pub fn open_projects(&self) -> Vec<ProjectHandleOrLegacyProjectId> {
-            let state_by_label = self.state.lock();
-            state_by_label
-                .values()
-                .map(|state| state.project_id.clone())
-                .collect()
-        }
     }
 }
 

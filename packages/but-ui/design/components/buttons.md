@@ -56,7 +56,10 @@ dense header, a card's or a pane's, and for buttons beside a small
 `SegmentedControl` or a medium `ToggleGroup`, which share its height. `small`
 is for a row denser than that, such as a list row or a file card's header, and
 every button in that row is small. Fields stay `regular` whatever their
-neighbours: a field shorter than a regular button is too small to type in.
+neighbours: a field shorter than a regular button is too small to type in. So a
+button on a field's line is `regular` too, the field's height, never `small`:
+Save beside a name, Cancel and Add beside a token, the filter menu beside a
+list's filter. One inside the field, as its clear ×, is `small`, within it.
 
 **The inverted pair.** `ghost-inverted` and `outline-inverted` are for a
 button on an inverted ground — a selected row, where the text turns to

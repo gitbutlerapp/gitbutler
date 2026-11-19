@@ -5,7 +5,7 @@ use but_core::{
     RefMetadata,
     commit::{SignCommit, padding},
 };
-use but_graph::{Commit, CommitFlags, RefInfo, SegmentIndex};
+use but_graph::{Commit, CommitFlags, SegmentIndex};
 use petgraph::{Direction, visit::EdgeRef as _};
 
 use crate::graph_rebase::{
@@ -145,14 +145,6 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
         }
 
         let mut segments = HashMap::<SegmentIndex, NodeSegment>::new();
-        let is_checked_out_only_where_the_editor_moves_heads = |ref_info: &RefInfo| {
-            ref_info.worktree.as_ref().is_none_or(|worktree| {
-                worktree.owned_by_repo
-                    || worktree_tips
-                        .iter()
-                        .any(|tip| tip.ref_name.as_ref() == Some(&ref_info.ref_name))
-            })
-        };
 
         for sid in segments_to_add {
             let segment = &workspace.graph[sid];
@@ -164,7 +156,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                 let reference_mutable =
                     segment_mutable && refname.category() == Some(gix::refs::Category::LocalBranch);
                 // Only mutable references are tracked for potential deletion.
-                if reference_mutable && is_checked_out_only_where_the_editor_moves_heads(ref_info) {
+                if reference_mutable {
                     references.push(refname.clone());
                 }
                 let ix = graph.add_node(Step::Reference {
@@ -182,9 +174,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                     let refname = ref_info.ref_name.clone();
                     let reference_mutable = segment_mutable
                         && refname.category() == Some(gix::refs::Category::LocalBranch);
-                    if reference_mutable
-                        && is_checked_out_only_where_the_editor_moves_heads(ref_info)
-                    {
+                    if reference_mutable {
                         references.push(refname.clone());
                     }
                     let ix = graph.add_node(Step::Reference {
@@ -415,9 +405,14 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                 placement: Default::default(),
             }))
             .collect();
+        let extra_refs = (workspace.graph.options.extra_refs.iter())
+            .filter_map(|ref_name| reference_to_ix.get(ref_name))
+            .map(|&id| Selector { id, revision: 0 })
+            .collect();
 
         Ok(Self {
             graph,
+            extra_refs,
             initial_references: references,
             checkouts,
             repo: repo.clone().with_object_memory(),
@@ -443,6 +438,7 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
             checkouts: self.checkouts,
             repo: self.repo,
             history: self.history,
+            extra_refs: self.extra_refs,
             workspace: self.workspace,
             meta: self.meta,
             db: self.db,

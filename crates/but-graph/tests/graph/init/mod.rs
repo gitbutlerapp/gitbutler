@@ -66,6 +66,7 @@ Graph {
         hard_limit: None,
         dangerously_skip_postprocessing_for_debugging: false,
         worktrees: false,
+        extra_refs: [],
     },
     worktree_tips: [],
     project_meta: ProjectMeta {
@@ -215,6 +216,7 @@ Graph {
         hard_limit: None,
         dangerously_skip_postprocessing_for_debugging: false,
         worktrees: false,
+        extra_refs: [],
     },
     worktree_tips: [],
     project_meta: ProjectMeta {

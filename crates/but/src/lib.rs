@@ -633,10 +633,7 @@ async fn dispatch_subcommand(
             let mut event = utils::metrics::Event::new(command_name.into());
             props.update_event(&mut event);
             utils::metrics::add_checkout_context(&mut event, &args.current_dir);
-            if matches!(
-                command_name,
-                args::metrics::CommandName::Commit | args::metrics::CommandName::CommitEmpty
-            ) {
+            if matches!(command_name, args::metrics::CommandName::Commit) {
                 utils::metrics::add_workspace_shape(&mut event, &args.current_dir);
             }
             utils::metrics::capture_event_blocking(&app_settings, event).await;

@@ -441,21 +441,6 @@ impl Cursor {
         Some(Self(idx))
     }
 
-    /// Select the first uncommitted file line that points to the given path.
-    pub fn select_uncommitted_file(path: &BStr, lines: &[StatusOutputLine]) -> Option<Self> {
-        let idx = lines.iter().position(|line| {
-            if let Some(CliId::UncommittedHunkOrFile(uncommitted)) =
-                line.data.cli_id().map(|id| &**id)
-            {
-                let hunk = uncommitted.hunks.first();
-                hunk.hunk.path == path
-            } else {
-                false
-            }
-        })?;
-        Some(Self(idx))
-    }
-
     /// Select the first line that points to the uncommitted section.
     pub fn select_uncommitted(lines: &[StatusOutputLine]) -> Option<Self> {
         let idx = lines.iter().position(|line| {
