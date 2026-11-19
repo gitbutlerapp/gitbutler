@@ -142,9 +142,6 @@ bitflags! {
     #[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
     pub struct StopCondition: u8 {
         /// Traversal stopped before following parents due to configured traversal limits.
-        ///
-        /// If this was a *hard* limit, the graph may not contain all the *interesting* portions of the commit-graph,
-        /// see [`hard_limit`](crate::init::Options::hard_limit)
         const Limit = 1 << 0;
         /// Traversal reached the first commit in history, which has no parents, and is an orphan.
         /// There can be more than one in one graph if unrelated histories were merged.

@@ -646,12 +646,6 @@ pub fn graph_to_ref_info(
     repo: &gix::Repository,
     opts: Options<'_>,
 ) -> anyhow::Result<RefInfo> {
-    if workspace.graph.hard_limit_hit() {
-        tracing::warn!(hard_limit=?opts.traversal.hard_limit,
-            "Commit-graph traversal might be incorrect as it was stopped too early due to hard limit",
-        );
-    }
-
     let but_graph::Workspace {
         graph,
         id,
