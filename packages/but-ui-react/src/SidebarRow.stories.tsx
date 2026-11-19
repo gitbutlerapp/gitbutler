@@ -102,12 +102,7 @@ const Tree: FC<{ selected?: string }> = ({ selected }) => {
 					depth={2}
 					folded
 					selected={selected === "ios-push-handoff"}
-					meta={
-						<>
-							<MetaCount type="unpushed">7</MetaCount>
-							{age("1d")}
-						</>
-					}
+					meta={<MetaCount type="unpushed">7</MetaCount>}
 					actions={push}
 				/>
 				<StackCaption
@@ -203,12 +198,7 @@ const Tree: FC<{ selected?: string }> = ({ selected }) => {
 					title="resume-on-laptop"
 					depth={2}
 					folded
-					meta={
-						<>
-							<MetaCount type="unpushed">9</MetaCount>
-							{age("5h")}
-						</>
-					}
+					meta={<MetaCount type="unpushed">9</MetaCount>}
 					actions={push}
 				/>
 				<BranchItem
@@ -249,7 +239,8 @@ const Tree: FC<{ selected?: string }> = ({ selected }) => {
 
 /**
  * Grouped by machine: one line a row, its state at the end. Under the pointer and on focus, the
- * actions take the state's place.
+ * actions take the state's place. The time is optional: a branch as fresh as its worktree leaves it
+ * out.
  */
 export const ByMachine = meta.story({
 	parameters: { design: { type: "figma", url: core("2594-15724") } },
@@ -364,12 +355,7 @@ const ByRepositoryTree: FC<{ open: boolean }> = ({ open }) => {
 						title="resume-on-laptop"
 						depth={1}
 						folded
-						meta={
-							<>
-								<MetaCount type="unpushed">4</MetaCount>
-								{age("2d")}
-							</>
-						}
+						meta={<MetaCount type="unpushed">4</MetaCount>}
 						actions={push}
 					/>
 					<BranchItem
