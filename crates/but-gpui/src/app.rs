@@ -616,6 +616,7 @@ impl AppView {
             // A scripted window opens off screen, which isn't where the user left theirs, and
             // one narrowed to the navigator opens again with the detail.
             cx.observe_window_bounds(window, |this, window, cx| {
+                backend::metrics::window_width(window.viewport_size().width.into());
                 if !scripted() && this.narrowing.is_none() {
                     this.store
                         .update(cx, |store, cx| store.save_window_place(window, cx));
@@ -671,6 +672,7 @@ impl AppView {
         let visible = scripted() || window.is_visible();
         store.update(cx, |store, cx| store.set_visible(window_id, visible, cx));
         backend::metrics::in_front(window.is_window_active());
+        backend::metrics::window_width(window.viewport_size().width.into());
         Self {
             store,
             detail,

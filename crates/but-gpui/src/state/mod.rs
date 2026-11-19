@@ -1215,6 +1215,7 @@ impl Store {
             projects: self.projects.len(),
             workspace,
             tiles: self.tile_counts(),
+            navigator_width: self.width(Pane::Navigator),
         });
     }
 
