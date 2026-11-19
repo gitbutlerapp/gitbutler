@@ -314,8 +314,9 @@ fn workspace_for_stack(
     meta: &but_meta::VirtualBranchesTomlMetadata,
     db: &mut but_db::DbHandle,
 ) -> Result<but_graph::Workspace> {
-    let ws = but_graph::Graph::from_head(repo, meta, project_meta(repo)?, db, Options::limited())?
-        .into_workspace()?;
+    let ws =
+        but_testsupport::graph_from_head(repo, meta, project_meta(repo)?, db, Options::limited())?
+            .into_workspace()?;
     Ok(ws)
 }
 

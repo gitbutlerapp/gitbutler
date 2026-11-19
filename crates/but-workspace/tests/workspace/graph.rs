@@ -12,7 +12,7 @@
 
 use anyhow::Result;
 use but_core::ref_metadata::ProjectMeta;
-use but_graph::{Graph, init::Options};
+use but_graph::init::Options;
 use but_meta::VirtualBranchesTomlMetadata;
 use but_testsupport::{gix_testtools::tempfile::TempDir, visualize_commit_graph_all};
 use but_workspace::workspace::{
@@ -52,7 +52,8 @@ fn detailed(
     };
     // The fixture is shared and read-only, so the database stands alone.
     let mut db = but_testsupport::in_memory_db();
-    let graph = Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
+    let graph =
+        but_testsupport::graph_from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let mut ws = graph.into_workspace()?;
     let detailed = detailed_graph_workspace(&mut ws, &mut meta, &repo, &mut db)?;
     Ok((repo, detailed))
@@ -78,7 +79,8 @@ fn detailed_writable(
         target_commit_id: Some(target_sha),
         push_remote: None,
     };
-    let graph = Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
+    let graph =
+        but_testsupport::graph_from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let mut ws = graph.into_workspace()?;
     let detailed = detailed_graph_workspace(&mut ws, &mut meta, &repo, &mut db)?;
     Ok((tmp, detailed))
@@ -1124,7 +1126,7 @@ fn commit_state_uses_similarity_for_local_and_remote() -> Result<()> {
     let (repo, mut meta, mut db) = read_only_in_memory_scenario("target-ahead-remote-rewritten")?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         project_meta(&repo)?,

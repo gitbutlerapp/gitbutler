@@ -22,7 +22,7 @@ fn name_segment(
         worktrees: true,
         ..Options::limited()
     };
-    let graph = but_graph::Graph::from_head(repo, &*meta, project_meta(repo)?, db, options)?;
+    let graph = but_testsupport::graph_from_head(repo, &*meta, project_meta(repo)?, db, options)?;
     let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, meta, repo, db)?;
     let top = repo.rev_parse_single(top)?.detach();

@@ -88,9 +88,14 @@ mod changes_in_branch {
             target_commit_id: Some(cutoff),
             ..Default::default()
         };
-        let ws =
-            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?
-                .into_workspace()?;
+        let ws = but_testsupport::graph_from_head(
+            &repo,
+            &meta,
+            project_meta,
+            &mut db,
+            Options::limited(),
+        )?
+        .into_workspace()?;
         let branch = r("refs/heads/inactive");
         assert!(
             ws.find_segment_by_refname(branch).is_none(),
@@ -131,7 +136,7 @@ mod changes_in_branch {
 "#]]
         );
 
-        let graph = but_graph::Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &*meta,
             project_meta(&repo)?,
@@ -462,7 +467,7 @@ TreeChanges {
         )?;
         let mut db = but_testsupport::in_memory_db();
         db.worktree_meta_mut().mark_adopted()?;
-        let graph = but_graph::Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &meta,
             project_meta(&repo)?,
