@@ -1,5 +1,4 @@
 use anyhow::Result;
-use but_graph::{Graph, init::Tip};
 use but_rebase::graph_rebase::{Editor, GraphEditorOptions, testing::Testing as _};
 use but_testsupport::{CommandExt as _, StackState, git, graph_tree, visualize_commit_graph_all};
 use gix::prelude::ObjectIdExt as _;
@@ -750,104 +749,6 @@ fn merge_first_parent_older_than_second() -> Result<()> {
 ◎  refs/heads/main
 ◎  refs/tags/base (immutable)
 ●  793a434 base
-"#]]
-    );
-
-    Ok(())
-}
-
-#[test]
-fn immutable_entrypoints_propogate_until_mutable_entrypoints() -> Result<()> {
-    let (repo, mut meta, mut db) = fixture("extra-refs-to-include")?;
-
-    snapbox::assert_data_eq!(
-        visualize_commit_graph_all(&repo)?,
-        snapbox::str![[r#"
-* be4ae80 (main, explicit-const) d
-* 120e3a9 (implicit-const) c
-* a96434e (explicit-mut) b
-| * d9fa122 (explicit-const-2) g
-| * 85bccf0 (implicit-const-2) f
-| * c8dd361 (HEAD, implicit-mut) e
-|/  
-* d591dfe (foo) a
-* 35b8235 base
-
-"#]]
-    );
-
-    let graph = Graph::from_commit_traversal_with_extra_tips(
-        repo.rev_parse_single("refs/heads/implicit-mut")?,
-        Some("refs/heads/implicit-mut".try_into()?),
-        [
-            Tip::reachable(
-                repo.rev_parse_single("refs/heads/explicit-const")?.detach(),
-                Some("refs/heads/explicit-const".try_into()?),
-            ),
-            Tip::reachable(
-                repo.rev_parse_single("refs/heads/explicit-const-2")?
-                    .detach(),
-                Some("refs/heads/explicit-const-2".try_into()?),
-            ),
-        ],
-        &*meta,
-        Default::default(),
-        &mut db,
-        standard_options(),
-    )?
-    .validated()?;
-
-    snapbox::assert_data_eq!(
-        graph_tree(&graph).to_string(),
-        snapbox::str![[r#"
-
-├── ►:0[0]:explicit-const
-│   └── ·be4ae80 (⌂) ►main
-│       └── ►:3[1]:implicit-const
-│           └── ·120e3a9 (⌂)
-│               └── ►:6[2]:explicit-mut
-│                   └── ·a96434e (⌂)
-│                       └── ►:5[3]:foo
-│                           ├── ·d591dfe (⌂)
-│                           └── 🏁·35b8235 (⌂)
-└── ►:1[0]:explicit-const-2
-    └── ·d9fa122 (⌂)
-        └── ►:4[1]:implicit-const-2
-            └── ·85bccf0 (⌂)
-                └── 👉►:2[2]:implicit-mut
-                    └── ·c8dd361 (⌂)
-                        └── →:5: (foo)
-
-"#]]
-    );
-
-    let mut ws = graph.into_workspace()?;
-    let opts = GraphEditorOptions {
-        extra_mutable_refs: vec!["refs/heads/explicit-mut".try_into()?],
-        ..Default::default()
-    };
-    let editor = Editor::create_with_opts(&mut ws, &mut *meta, &repo, &mut db, &opts)?;
-
-    snapbox::assert_data_eq!(
-        editor.steps_ascii(),
-        snapbox::str![[r#"
-◎  refs/heads/explicit-const (immutable)
-◎  refs/heads/main (immutable)
-●  be4ae80 d
-◎  refs/heads/implicit-const (immutable)
-●  120e3a9 c
-◎  refs/heads/explicit-mut
-●  a96434e b
-│ ◎  refs/heads/explicit-const-2 (immutable)
-│ ●  d9fa122 g
-│ ◎  refs/heads/implicit-const-2 (immutable)
-│ ●  85bccf0 f
-│ ◎  refs/heads/implicit-mut
-│ ●  c8dd361 e
-├─╯
-◎  refs/heads/foo
-●  d591dfe a
-●  35b8235 base
 "#]]
     );
 

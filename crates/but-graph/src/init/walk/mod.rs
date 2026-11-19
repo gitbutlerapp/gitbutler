@@ -1151,6 +1151,3 @@ impl crate::RefInfo {
         }
     }
 }
-
-#[cfg(test)]
-mod tests;

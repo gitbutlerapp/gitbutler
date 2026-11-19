@@ -1,5 +1,5 @@
 use super::target_meta;
-use crate::init::utils::{add_workspace, read_only_in_memory_scenario, standard_options};
+use crate::utils::{add_workspace, read_only_in_memory_scenario, standard_options};
 
 #[test]
 fn child_most_stack_base_wins_over_the_target() -> anyhow::Result<()> {
