@@ -791,50 +791,126 @@ const PagedRepos: FC = () => {
 	);
 };
 
+/** A branch in {@link Unread}: its commits, newest first, and which of them are new to the reader. */
+type UnreadBranch = {
+	id: string;
+	title: string;
+	pr?: { number: number; state: "open" | "merged" };
+	pushed: boolean;
+	commits: ReadonlyArray<{ message: string; unread?: boolean }>;
+	push?: number;
+};
+
+const unreadBranches: ReadonlyArray<UnreadBranch> = [
+	{
+		id: "review-cards",
+		title: "review-cards",
+		pushed: false,
+		push: 3,
+		commits: [
+			{ message: "feat: review card layout", unread: true },
+			{ message: "fix: card hover ground", unread: true },
+			{ message: "chore: card tokens" },
+		],
+	},
+	{
+		id: "454",
+		title: "fix: unique cursor names",
+		pr: { number: 454, state: "open" },
+		pushed: false,
+		push: 2,
+		commits: [{ message: "fix: unique cursor names" }, { message: "test: cursor names" }],
+	},
+	{
+		id: "cursor-api",
+		title: "cursor-api",
+		pushed: true,
+		commits: [
+			{ message: "feat: cursor endpoint", unread: true },
+			{ message: "feat: cursor paging" },
+			{ message: "docs: cursor api" },
+		],
+	},
+	{
+		id: "132",
+		title: "feat: archive old worktrees",
+		pr: { number: 132, state: "merged" },
+		pushed: true,
+		commits: [{ message: "feat: archive old worktrees" }, { message: "test: archive" }],
+	},
+];
+
 /**
- * Rows that changed since they were last opened end in a dot (`unread`). Every row passes a value,
- * so the dot's room is kept on all of them and the counts line up.
+ * {@link Unread}'s rows. A folded branch carries the dot for any commit inside it that's new;
+ * open, the dot moves to those commits. Selecting a commit reads it, and once none inside is new,
+ * the branch has no dot, folded or not.
+ */
+const UnreadTree: FC = () => {
+	const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
+	const [read, setRead] = useState<ReadonlySet<string>>(new Set());
+	const [selected, setSelected] = useState<string | undefined>();
+	const isNew = (branch: UnreadBranch, message: string) =>
+		branch.commits.some((c) => c.message === message && c.unread) && !read.has(message);
+	const anyNew = (branch: UnreadBranch) => branch.commits.some((c) => isNew(branch, c.message));
+	const toggle = (id: string) => () => {
+		const next = new Set(open);
+		if (next.has(id)) next.delete(id);
+		else next.add(id);
+		setOpen(next);
+	};
+	return (
+		<Repository last>
+			<RepoItem name="but-dev" folded={false} />
+			<UncommittedItem count={10} depth={1} />
+			{unreadBranches.map((branch) => {
+				const isOpen = open.has(branch.id);
+				return (
+					<Fragment key={branch.id}>
+						<BranchItem
+							title={branch.title}
+							pr={branch.pr}
+							depth={1}
+							folded={!isOpen}
+							onToggleFolded={toggle(branch.id)}
+							unread={!isOpen && anyNew(branch)}
+							meta={
+								branch.pushed &&
+								!isOpen && <MetaCount type="commits">{branch.commits.length}</MetaCount>
+							}
+							actions={branch.push !== undefined && push(branch.push)}
+						/>
+						{isOpen &&
+							branch.commits.map((commit) => (
+								<CommitItem
+									key={commit.message}
+									message={commit.message}
+									pushed={branch.pushed}
+									depth={2}
+									unread={isNew(branch, commit.message)}
+									selected={selected === commit.message}
+									onClick={() => {
+										setSelected(commit.message);
+										setRead(new Set(read).add(commit.message));
+									}}
+								/>
+							))}
+					</Fragment>
+				);
+			})}
+		</Repository>
+	);
+};
+
+/**
+ * Rows that changed since they were last opened take a dot (`unread`) in their start padding,
+ * before the guides, where it moves nothing, so the counts line up whether a row has one or not.
+ * A folded branch carries the dot for its new commits; open it and the dot moves to them. Select a
+ * commit to read it: once a branch has none new, its dot goes.
  */
 export const Unread = meta.story({
 	render: () => (
 		<Card label="pavel--macbook-pro-2" header={machine}>
-			<Repository last>
-				<RepoItem name="but-dev" folded={false} unread={false} />
-				<UncommittedItem count={10} depth={1} unread={false} />
-				<BranchItem title="review-cards" depth={1} folded="empty" unread actions={push(8)} />
-				<StackCaption
-					count={3}
-					tip="feat: archive old worktrees"
-					depth={1}
-					folded
-					onToggleFolded={() => {}}
-					unread
-					actions={push(5)}
-				/>
-				<BranchItem
-					title="fix: unique cursor names"
-					pr={{ number: 454, state: "open" }}
-					depth={1}
-					folded
-					unread={false}
-					actions={push(5)}
-				/>
-				<BranchItem
-					title="cursor-api"
-					depth={1}
-					folded
-					unread
-					meta={<MetaCount type="commits">5</MetaCount>}
-				/>
-				<BranchItem
-					title="feat: archive old worktrees"
-					pr={{ number: 132, state: "merged" }}
-					depth={1}
-					folded
-					unread={false}
-					meta={<MetaCount type="commits">7</MetaCount>}
-				/>
-			</Repository>
+			<UnreadTree />
 		</Card>
 	),
 });

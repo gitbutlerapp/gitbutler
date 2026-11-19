@@ -57,6 +57,7 @@
 	   light-dark() colours resolve to their inverted values, as Badge and MetaCount do. */
 	.branchGlyph,
 	.conflicted,
+	.unread,
 	.local,
 	.remote,
 	.upstream,
@@ -352,19 +353,19 @@ button.toggle {
 	align-items: center;
 }
 
-/* Something changed since the row was last opened, after its state. A row that tracks it keeps the
-   dot's room when there is none (`.read`), so the counts line up down the list. */
+/* Something changed since the row was last opened: a dot in the row's start padding, before its
+   guides, where it moves nothing, so the counts line up down the list whether a row has one or not.
+   In quiet neutral ink, never a state's colour: unread says something changed, not what it is,
+   and a list can hold many. Gray 8, between the border and subtle text, which no role names. */
 .unread {
-	flex-shrink: 0;
-	width: 6px;
-	height: 6px;
-	margin-inline-start: auto;
+	position: absolute;
+	width: 5px;
+	height: 5px;
+	inset-block-start: calc(50% - 2.5px);
+	/* 3px in from the row's edge, so it clears the edge of the row's fill. */
+	inset-inline-start: 3px;
 	border-radius: var(--but-radius-full);
-	background-color: var(--but-border);
-}
-
-.read {
-	visibility: hidden;
+	background-color: var(--but-gray-8);
 }
 
 /* A pull request's state in its glyph, a mark with no words of its own. */
