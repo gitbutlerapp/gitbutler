@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use anyhow::Result;
 use bstr::{BStr, ByteSlice};
 use but_core::RefMetadata as _;
-use but_graph::Graph;
 use but_workspace::branch::create_reference::{Anchor, Position::*};
 use but_workspace::ref_info::LocalCommitRelation;
 use but_workspace::ui::PushStatus;
@@ -42,7 +41,7 @@ fn workspace_with_worktree_tips(
     let mut db = but_testsupport::in_memory_db();
     // Adoption already ran, so the fixture worktrees count as active.
     db.worktree_meta_mut().mark_adopted()?;
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         repo,
         meta,
         project_meta,
@@ -438,7 +437,7 @@ fn worktrees_are_empty_without_seeded_tips() -> Result<()> {
     let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
         repo.path().join("should-never-be-written.toml"),
     )?;
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &meta,
         Default::default(),

@@ -25,7 +25,7 @@ fn four_commits() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -70,7 +70,7 @@ fn merge_in_the_middle() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -126,7 +126,7 @@ fn three_branches_merged() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -178,7 +178,7 @@ fn many_references() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -241,7 +241,7 @@ fn first_parent_leg_long() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -318,7 +318,7 @@ fn second_parent_leg_long() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -399,7 +399,7 @@ fn workspace_with_empty_stack() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         target_meta(&repo),
@@ -417,16 +417,16 @@ fn workspace_with_empty_stack() -> Result<()> {
 │       ├── 📙►:3[1]:stack-1
 │       │   ├── ·2169646 (⌂|🏘)
 │       │   └── ·46ef828 (⌂|🏘)
-│       │       └── ►:4[2]:anon:
+│       │       └── ►:5[2]:anon:
 │       │           ├── ·f555940 (⌂|🏘|✓)
 │       │           ├── ·d664be0 (⌂|🏘|✓)
 │       │           └── 🏁·fafd9d0 (⌂|🏘|✓)
-│       └── 📙►:5[1]:stack-2
-│           └── →:4:
+│       └── 📙►:4[1]:stack-2
+│           └── →:5:
 └── ►:1[0]:origin/main
     └── ►:2[1]:main <> origin/main
         └── ·a0f2ac5 (⌂|✓)
-            └── →:4:
+            └── →:5:
 
 "#]]
     );
@@ -477,7 +477,7 @@ fn workspace_with_three_empty_stacks() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         target_meta(&repo),
@@ -492,17 +492,17 @@ fn workspace_with_three_empty_stacks() -> Result<()> {
 
 ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
 │   └── ·a26ae77 (⌂|🏘)
-│       ├── 📙►:4[1]:stack-1
-│       │   └── ►:3[2]:anon:
+│       ├── 📙►:3[1]:stack-1
+│       │   └── ►:6[2]:anon:
 │       │       └── 🏁·fafd9d0 (⌂|🏘|✓)
-│       ├── 📙►:5[1]:stack-2
-│       │   └── →:3:
-│       └── 📙►:6[1]:stack-3
-│           └── →:3:
+│       ├── 📙►:4[1]:stack-2
+│       │   └── →:6:
+│       └── 📙►:5[1]:stack-3
+│           └── →:6:
 └── ►:1[0]:origin/main
     └── ►:2[1]:main <> origin/main
         └── ·1cf9cf4 (⌂|✓)
-            └── →:3:
+            └── →:6:
 
 "#]]
     );
@@ -551,7 +551,7 @@ fn commit_with_two_parents() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -597,7 +597,7 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
     let main_ref = gix::refs::FullName::try_from("refs/heads/main")?;
 
     {
-        let graph = Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &*meta,
             target_meta(&repo),
@@ -631,7 +631,7 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
     }
 
     {
-        let graph = Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &*meta,
             target_meta(&repo),
@@ -701,7 +701,7 @@ fn merge_first_parent_older_than_second() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -718,11 +718,11 @@ fn merge_first_parent_older_than_second() -> Result<()> {
     └── ·738ea18 (⌂)
         └── ►:1[1]:anon:
             └── ·408ca26 (⌂)
-                ├── ►:3[2]:anon:
+                ├── ►:2[2]:anon:
                 │   └── ·2854fa2 (⌂)
                 │       └── ►:4[3]:main
                 │           └── 🏁·793a434 (⌂) ►tags/base
-                └── ►:2[2]:second-parent
+                └── ►:3[2]:second-parent
                     ├── ·75369b0 (⌂)
                     ├── ·553bbf7 (⌂)
                     └── ·72614bb (⌂)
@@ -871,7 +871,7 @@ fn a_padding_commit_is_left_out() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -919,7 +919,7 @@ fn a_commit_on_a_padding_commit_is_rebased_onto_the_conflicted_commit() -> Resul
         "commit d on padding",
     )?;
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -986,7 +986,7 @@ fn detached_checkouts_on_a_padding_commit_check_out_the_conflicted_commit() -> R
         .run();
     db.worktree_meta_mut().mark_adopted()?;
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -1034,7 +1034,8 @@ fn pad_conflicted_main(
     db: &mut but_db::DbHandle,
 ) -> Result<(gix::ObjectId, gix::ObjectId)> {
     let graph =
-        Graph::from_head(repo, &*meta, Default::default(), db, standard_options())?.validated()?;
+        but_testsupport::graph_from_head(repo, &*meta, Default::default(), db, standard_options())?
+            .validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, meta, repo, db)?;
     let b = editor.select_commit(repo.rev_parse_single("b")?.detach())?;

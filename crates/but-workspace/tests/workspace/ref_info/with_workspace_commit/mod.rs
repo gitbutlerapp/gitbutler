@@ -2486,7 +2486,7 @@ fn target_current_follows_the_recording_not_workspace_content() -> anyhow::Resul
         "incoming commits are checked against the configured upstream"
     );
     let mut entrypoint = repo.find_reference("A")?;
-    let graph = but_graph::Graph::from_commit_traversal(
+    let graph = but_testsupport::graph_from_commit_traversal(
         entrypoint.peel_to_id()?,
         entrypoint.inner.name,
         &*meta,
@@ -4181,7 +4181,7 @@ pub(crate) mod utils {
         db: &mut but_db::DbHandle,
     ) -> anyhow::Result<but_graph::Graph> {
         let project_meta = project_meta(repo)?;
-        but_graph::Graph::from_head(repo, meta, project_meta, db, Options::limited())
+        but_testsupport::graph_from_head(repo, meta, project_meta, db, Options::limited())
     }
 
     /// Retain the fixture's stored cutoff without configuring a target branch.
@@ -4194,7 +4194,7 @@ pub(crate) mod utils {
             target_ref: None,
             ..project_meta(repo)?
         };
-        but_graph::Graph::from_head(repo, meta, project_meta, db, Options::limited())
+        but_testsupport::graph_from_head(repo, meta, project_meta, db, Options::limited())
     }
 
     pub fn blank_project_meta_graph(
@@ -4202,7 +4202,7 @@ pub(crate) mod utils {
         meta: &impl but_core::RefMetadata,
         db: &mut but_db::DbHandle,
     ) -> anyhow::Result<but_graph::Graph> {
-        but_graph::Graph::from_head(repo, meta, ProjectMeta::default(), db, Options::limited())
+        but_testsupport::graph_from_head(repo, meta, ProjectMeta::default(), db, Options::limited())
     }
 
     pub fn named_writable_scenario_with_description(

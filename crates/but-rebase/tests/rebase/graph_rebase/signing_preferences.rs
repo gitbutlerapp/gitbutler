@@ -2,7 +2,6 @@
 
 use anyhow::Result;
 use but_core::commit::SignCommit;
-use but_graph::Graph;
 use but_rebase::graph_rebase::{Editor, GraphEditorOptions, cherry_pick::PickMode};
 use but_testsupport::{cat_commit, graph_tree, visualize_commit_graph_all};
 
@@ -24,7 +23,7 @@ fn commits_maintain_state_if_not_cherry_picked() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -84,7 +83,7 @@ fn commits_are_signed_by_default() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -175,7 +174,7 @@ fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -263,7 +262,7 @@ fn force_picked_commit_with_sign_yes_is_signed_when_otherwise_unchanged() -> Res
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -351,7 +350,7 @@ fn force_picked_ancestor_does_not_sign_descendants_picked_with_sign_commit_no() 
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -458,7 +457,7 @@ fn force_picked_ancestor_triggers_cascading_signatures_on_descendants_picked_wit
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -562,7 +561,7 @@ fn commit_picked_with_sign_if_enabled_is_not_signed_when_signing_config_is_disab
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -648,7 +647,7 @@ fn parentless_commit_force_picked_with_sign_yes_is_signed() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),

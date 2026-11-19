@@ -1,7 +1,6 @@
 //! Tests key graph rebase operations against a SHA-256 repository.
 
 use anyhow::{Context, Result};
-use but_graph::Graph;
 use but_rebase::{
     commit::DateMode,
     graph_rebase::{Editor, Step, mutate::InsertSide},
@@ -38,7 +37,7 @@ Sha256
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -137,7 +136,7 @@ Sha256
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -235,7 +234,7 @@ Sha256
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),

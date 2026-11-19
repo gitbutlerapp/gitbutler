@@ -1,7 +1,6 @@
 //! These tests exercise the insert segment operation.
 use anyhow::{Context, Result};
 use bstr::ByteSlice;
-use but_graph::Graph;
 use but_rebase::graph_rebase::{Editor, mutate};
 use but_testsupport::{git_status, graph_tree, visualize_commit_graph, visualize_commit_graph_all};
 use snapbox::IntoData;
@@ -49,7 +48,7 @@ fn insert_single_node_segment_above() -> Result<()> {
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -149,7 +148,7 @@ fn insert_single_node_segment_below() -> Result<()> {
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -251,7 +250,7 @@ fn insert_multi_node_segment_above() -> Result<()> {
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -357,7 +356,7 @@ fn insert_multi_node_segment_below() -> Result<()> {
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -464,7 +463,7 @@ fn insert_single_node_segment_above_with_explicit_children() -> Result<()> {
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -583,7 +582,7 @@ fn insert_single_node_segment_below_with_explicit_parents() -> Result<()> {
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -688,7 +687,7 @@ fn insert_single_node_segment_below_with_explicit_parents() -> Result<()> {
 #[test]
 fn insert_single_node_segment_below_can_append_reparented_parent() -> Result<()> {
     let (repo, _tmp, mut meta, mut db) = fixture_writable("three-branches-merged")?;
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),

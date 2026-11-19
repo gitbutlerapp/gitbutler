@@ -43,7 +43,7 @@ fn graph_with_worktrees(
         worktrees: true,
         ..standard_options()
     };
-    Graph::from_head(repo, meta, Default::default(), db, options)
+    but_testsupport::graph_from_head(repo, meta, Default::default(), db, options)
 }
 
 fn linked_repo(repo: &gix::Repository, name: &str) -> Result<gix::Repository> {
@@ -84,7 +84,7 @@ fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -158,7 +158,7 @@ fn materialize_checkout_allows_current_head_to_be_replaced_with_none() -> Result
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -234,7 +234,7 @@ fn materialize_without_checkout_preserves_dropped_commit_changes_in_worktree() -
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -300,7 +300,7 @@ fn both_methods_update_references_identically() -> Result<()> {
     let (ref_after_materialize, overlayed_materialize) = {
         let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
 
-        let graph = Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &*meta,
             Default::default(),
@@ -327,7 +327,7 @@ fn both_methods_update_references_identically() -> Result<()> {
     let (ref_after_materialize_without_checkout, overlayed_without_checkout) = {
         let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
 
-        let graph = Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &*meta,
             Default::default(),
@@ -383,7 +383,7 @@ fn materialize_repoints_head_when_checkout_reference_is_replaced() -> Result<()>
     let replacement_ref = gix::refs::FullName::try_from("refs/heads/replacement")?;
     let head_before = repo.rev_parse_single("HEAD")?.detach();
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -445,7 +445,7 @@ fn materialize_without_checkout_does_not_repoint_head_when_checkout_reference_is
     let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
     let replacement_ref = gix::refs::FullName::try_from("refs/heads/replacement")?;
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -506,7 +506,7 @@ fn materialize_keeps_immutable_refs_unchanged_while_updating_local_refs() -> Res
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -555,7 +555,7 @@ fn materialize_does_not_delete_immutable_refs_removed_from_graph() -> Result<()>
     let main_ref = gix::refs::FullName::try_from("refs/heads/main")?;
     let main_before = repo.rev_parse_single("main")?.detach();
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         target_meta(&repo),
@@ -679,7 +679,7 @@ fn references_checked_out_in_linked_worktrees_are_not_deleted() -> Result<()> {
         "test setup",
     )?;
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -1201,7 +1201,7 @@ fn materialize_checks_out_what_head_checkout_is_set_to() -> Result<()> {
     let other = gix::refs::FullName::try_from("refs/heads/other")?;
     let parent = repo.rev_parse_single("HEAD~")?.detach();
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -1236,7 +1236,7 @@ fn materialize_refuses_a_switch_that_overwrites_uncommitted_changes() -> Result<
         "changed\n",
     )?;
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -1281,7 +1281,7 @@ fn materialize_checks_out_another_branch_on_the_same_commit() -> Result<()> {
         "other branch on HEAD",
     )?;
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -1312,7 +1312,7 @@ fn materialize_moves_a_detached_head_along_with_its_rewritten_commit() -> Result
         "detach at b",
     )?;
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
