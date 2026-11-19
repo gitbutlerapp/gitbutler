@@ -479,8 +479,8 @@ use crate::{AncestorWorkspaceCommit, RefInfo, WorkspaceCommit, branch, ui::PushS
 /// Gather information about the current `HEAD` and the workspace that might be associated with it,
 /// based on data in `repo` and `meta`. Use `options` to further configure the call.
 ///
-/// `db` lets graph construction discover and seed linked-worktree tips, see
-/// [`Graph::from_commit_traversal()`].
+/// `db` lets the walk discover the linked worktrees, whose `HEAD`s it also walks if
+/// `opts.traversal.worktrees` is set.
 ///
 /// For details, see [`ref_info()`].
 pub fn head_info(
@@ -502,14 +502,14 @@ pub fn head_info_and_workspace(
     db: &mut but_db::DbHandle,
     opts: Options<'_>,
 ) -> anyhow::Result<(RefInfo, but_graph::Workspace)> {
-    let graph = Graph::from_head(
+    let ws = workspace(
         repo,
         meta,
-        opts.project_meta.clone(),
         db,
-        opts.traversal.clone(),
+        opts.project_meta.clone(),
+        &opts.traversal,
+        None,
     )?;
-    let ws = graph.into_workspace()?;
     Ok((graph_to_ref_info(&ws, repo, opts)?, ws))
 }
 
@@ -523,22 +523,64 @@ pub fn head_info_and_workspace(
 /// Make sure the `repo` is initialized with a decently sized Object cache so querying the same commit multiple times will be cheap(er).
 #[instrument(level = "debug", skip(meta), err(Debug))]
 pub fn ref_info(
-    mut existing_ref: gix::Reference<'_>,
+    existing_ref: gix::Reference<'_>,
     meta: &impl but_core::RefMetadata,
     db: &mut but_db::DbHandle,
     opts: Options<'_>,
 ) -> anyhow::Result<RefInfo> {
-    let id = existing_ref.peel_to_id()?;
-    let repo = id.repo;
-    let graph = Graph::from_commit_traversal(
-        id,
-        existing_ref.inner.name,
+    let repo = existing_ref.repo;
+    let ws = workspace(
+        repo,
         meta,
-        opts.project_meta.clone(),
         db,
-        opts.traversal.clone(),
+        opts.project_meta.clone(),
+        &opts.traversal,
+        Some(existing_ref),
     )?;
-    graph_to_ref_info(&graph.into_workspace()?, repo, opts)
+    graph_to_ref_info(&ws, repo, opts)
+}
+
+/// Project the workspace that [`head_info()`] and [`ref_info()`] describe, seen from `HEAD`, or
+/// from `seen_from` if given, for callers that turn it into a [`RefInfo`] themselves.
+///
+/// It's projected from the [nosegment graph](but_graph::nosegment::workspace()), which is also
+/// walked from the workspaces known to `meta` and, if `traversal` asks for
+/// [worktrees](but_graph::init::Options::worktrees), from the linked worktrees discovered through
+/// `db`. Of `traversal`, only that, the collection of tags and the commit limit apply.
+pub fn workspace(
+    repo: &gix::Repository,
+    meta: &impl but_core::RefMetadata,
+    db: &mut but_db::DbHandle,
+    project_meta: but_core::ref_metadata::ProjectMeta,
+    traversal: &but_graph::init::Options,
+    seen_from: Option<gix::Reference<'_>>,
+) -> anyhow::Result<but_graph::Workspace> {
+    let worktree_tips = but_graph::init::discover_worktree_tips(repo, db, traversal.worktrees)?;
+    let (seen_from_ref, seen_from_commit) = match seen_from {
+        Some(mut reference) => {
+            let id = reference.peel_to_id()?.detach();
+            (Some(reference.inner.name), Some(id))
+        }
+        None => {
+            let head = repo.head()?;
+            (
+                head.referent_name().map(ToOwned::to_owned),
+                head.id().map(|id| id.detach()),
+            )
+        }
+    };
+    but_graph::nosegment::workspace(
+        repo,
+        meta,
+        but_graph::init::Overlay::default(),
+        project_meta,
+        seen_from_ref.as_ref().map(|name| name.as_ref()),
+        seen_from_commit,
+        [],
+        worktree_tips,
+        traversal.collect_tags,
+        traversal.commits_limit_hint,
+    )
 }
 
 pub(crate) fn find_ancestor_workspace_commit(
