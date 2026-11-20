@@ -1421,13 +1421,7 @@ pub fn branch_list_with_perm(
     };
     let listing = {
         let repo = ctx.repo.get()?;
-        let mut db = ctx.db.get_cache_mut()?;
-        but_branches::list(
-            &repo,
-            &meta,
-            &mut db,
-            but_branches::Options { project_meta },
-        )?
+        but_branches::list(&repo, &meta, but_branches::Options { project_meta })?
     };
 
     let db = ctx.db.get_cache()?;

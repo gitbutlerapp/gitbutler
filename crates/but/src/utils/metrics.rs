@@ -633,9 +633,6 @@ pub fn add_workspace_shape(event: &mut Event, current_dir: &Path) {
 
 /// The workspace as seen from `HEAD`, built without rewriting `virtual_branches.toml`,
 /// unlike the `Context::workspace_and_db()` family.
-///
-/// The caller guarantees the project database already exists, so borrowing it here
-/// cannot be what initializes a project.
 fn read_only_workspace(ctx: &but_ctx::Context) -> Option<but_graph::Workspace> {
     let repo = ctx.repo.get().ok()?;
     let meta = but_meta::BranchOrderMetadata::from_paths_read_only(
@@ -643,19 +640,21 @@ fn read_only_workspace(ctx: &but_ctx::Context) -> Option<but_graph::Workspace> {
         ctx.project_data_dir(),
     )
     .ok()?;
-    let mut db = ctx.db.get_cache_mut().ok()?;
-    let graph = but_graph::Graph::from_head(
+    let head_ref = repo.head_name().ok()?;
+    let head_id = repo.head_id().ok()?.detach();
+    but_graph::nosegment::workspace(
         &repo,
         &meta,
+        but_graph::init::Overlay::default(),
         ctx.project_meta().ok()?,
-        &mut db,
-        but_graph::init::Options {
-            worktrees: true,
-            ..but_graph::init::Options::limited()
-        },
+        head_ref.as_ref().map(|name| name.as_ref()),
+        Some(head_id),
+        [],
+        Vec::new(),
+        false,
+        but_graph::init::Options::limited().commits_limit_hint,
     )
-    .ok()?;
-    graph.into_workspace().ok()
+    .ok()
 }
 
 #[derive(Debug, Clone)]

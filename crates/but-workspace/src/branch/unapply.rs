@@ -136,7 +136,10 @@ pub(crate) mod function {
     use crate::{
         WorkspaceCommit, branch::try_find_validated_ref, editor_workspace::dissolve_workspace,
     };
-    use crate::{branch::anon_stacks, ref_info::WorkspaceExt};
+    use crate::{
+        branch::{anon_stacks, reprojected},
+        ref_info::WorkspaceExt,
+    };
     use but_rebase::graph_rebase::{Editor, LookupStep as _, Step, SuccessfulRebase};
 
     /// Ensure that `branch` is not a parent of the workspace commit.
@@ -346,12 +349,13 @@ pub(crate) mod function {
                 PreviousValue::Any,
                 "GitButler unapply last branch",
             ))?;
-            let overlay = Overlay::default()
-                .with_entrypoint(destination.commit_id, Some(destination.ref_name.clone()));
-            let workspace = ws
-                .graph
-                .redo_traversal_with_overlay(repo, meta, overlay)?
-                .into_workspace()?;
+            let workspace = reprojected(
+                ws,
+                repo,
+                meta,
+                Overlay::default(),
+                Some((Some(destination.ref_name.as_ref()), destination.commit_id)),
+            )?;
             return Ok(Outcome {
                 workspace: Cow::Owned(workspace),
                 checked_out: Some(destination.ref_name),
@@ -396,10 +400,7 @@ pub(crate) mod function {
             // TODO: this will actually be observable even if it doens't work, unless it's run in a transaction, which right now it's not!
             //       Should be able to redo the traversal with an overlay that hides branch metadata, but I'd say it's not important enough.
             meta.remove(branch)?;
-            let graph = ws
-                .graph
-                .redo_traversal_with_overlay(repo, meta, Overlay::default())?;
-            let workspace = graph.into_workspace()?;
+            let workspace = reprojected(ws, repo, meta, Overlay::default(), None)?;
             if workspace.refname_is_segment(branch) {
                 bail!(
                     "Cannot unapply branch '{branch}' from an ad-hoc workspace because non-tip branches can only disappear if their now removed metadata disambiguated them",
@@ -412,19 +413,18 @@ pub(crate) mod function {
         // Everything past this point is stricly in non-dry-run mode and we may totally end up in intermediate states
         // if something fails.
         // Redo the traversal with the changed workspace metadata so code below can rely on the reconciled version.
-        let ws = ws
-            .graph
-            .redo_traversal_with_overlay(
-                repo,
-                meta,
-                Overlay::default()
-                    .with_dropped_references([branch.to_owned()])
-                    .with_workspace_metadata_override(Some((
-                        workspace_ref_name.to_owned(),
-                        ws_md.clone(),
-                    ))),
-            )?
-            .into_workspace()?;
+        let ws = reprojected(
+            ws,
+            repo,
+            meta,
+            Overlay::default()
+                .with_dropped_references([branch.to_owned()])
+                .with_workspace_metadata_override(Some((
+                    workspace_ref_name.to_owned(),
+                    ws_md.clone(),
+                ))),
+            None,
+        )?;
         // Normal unapply first:
         // - re-merge or collapse the workspace commit
         // - point workspace to it
@@ -442,10 +442,7 @@ pub(crate) mod function {
         let overlay = Overlay::default()
             .with_dropped_references([branch.to_owned()])
             .with_workspace_metadata_override(Some((workspace_ref_name, ws_md.clone())));
-        let ws = ws
-            .graph
-            .redo_traversal_with_overlay(repo, meta, overlay)?
-            .into_workspace()?;
+        let ws = reprojected(&ws, repo, meta, overlay, None)?;
         if ws_md.stacks.iter().any(|stack| {
             stack.workspacecommit_relation.is_in_workspace()
                 && stack
@@ -596,14 +593,16 @@ pub(crate) mod function {
         // Fully remove the workspace metadata. Project metadata remains independent in Git config.
         meta.remove(workspace_ref_name)?;
 
-        let overlay = Overlay::default().with_entrypoint(
-            ref_to_checkout.commit_id,
-            Some(ref_to_checkout.ref_name.clone()),
-        );
-        let ws = ws
-            .graph
-            .redo_traversal_with_overlay(repo, meta, overlay)?
-            .into_workspace()?;
+        let ws = reprojected(
+            ws,
+            repo,
+            meta,
+            Overlay::default(),
+            Some((
+                Some(ref_to_checkout.ref_name.as_ref()),
+                ref_to_checkout.commit_id,
+            )),
+        )?;
         Ok(Outcome {
             workspace: Cow::Owned(ws),
             checked_out: Some(ref_to_checkout.ref_name),
@@ -859,14 +858,16 @@ pub(crate) mod function {
         )?;
         meta.remove(workspace_ref_name)?;
 
-        let overlay = overlay.with_entrypoint(
-            ref_to_switch_to.commit_id,
-            Some(ref_to_switch_to.ref_name.clone()),
-        );
-        let ws = ws
-            .graph
-            .redo_traversal_with_overlay(repo, meta, overlay)?
-            .into_workspace()?;
+        let ws = reprojected(
+            ws,
+            repo,
+            meta,
+            overlay,
+            Some((
+                Some(ref_to_switch_to.ref_name.as_ref()),
+                ref_to_switch_to.commit_id,
+            )),
+        )?;
         Ok(Some((ws, ref_to_switch_to.ref_name)))
     }
 

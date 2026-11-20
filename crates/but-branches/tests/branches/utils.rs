@@ -12,7 +12,6 @@ pub fn named_read_only_in_memory_scenario(
 ) -> anyhow::Result<(
     gix::Repository,
     std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
-    but_db::DbHandle,
 )> {
     let repo = but_testsupport::read_only_in_memory_scenario_named(name, dirname)?;
     let meta = VirtualBranchesTomlMetadata::from_path(
@@ -20,9 +19,7 @@ pub fn named_read_only_in_memory_scenario(
             .join(".git")
             .join("should-never-be-written.toml"),
     )?;
-    // The fixture is shared and read-only, so its database cannot live on disk.
-    let db = but_testsupport::in_memory_db();
-    Ok((repo, std::mem::ManuallyDrop::new(meta), db))
+    Ok((repo, std::mem::ManuallyDrop::new(meta)))
 }
 
 /// Project metadata whose target is `refs/remotes/origin/main`, pinned to the

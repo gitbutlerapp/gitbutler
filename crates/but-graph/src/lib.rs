@@ -197,7 +197,9 @@
 //! Thus, it's useful create projects with links back to the segments that the information was extracted from.
 #![forbid(unsafe_code)]
 
+pub mod nosegment;
 mod segment;
+mod topowalk;
 pub use petgraph;
 pub use segment::{
     Commit, CommitFlags, RefInfo, Segment, SegmentFlags, SegmentMetadata, StopCondition, Worktree,

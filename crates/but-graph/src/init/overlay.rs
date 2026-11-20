@@ -190,6 +190,37 @@ impl<'repo> OverlayRepo<'repo> {
         }
     }
 
+    /// The references whose names start with `prefix`, sorted by name, as the overlay sees them:
+    /// without those it drops, with those it overrides in place of the repository's, and with
+    /// those it adds where the repository has none of that name.
+    pub fn references_with_prefix(
+        &self,
+        prefix: &str,
+    ) -> anyhow::Result<Vec<gix::Reference<'repo>>> {
+        let mut by_name = BTreeMap::new();
+        for reference in self.inner.references()?.prefixed(prefix)? {
+            let reference = reference.map_err(|err| anyhow::anyhow!(err))?;
+            by_name.insert(reference.name().to_owned(), reference);
+        }
+        let has_prefix = |name: &gix::refs::FullName| name.as_bstr().starts_with(prefix.as_bytes());
+        for (name, reference) in &self.nonoverriding_references {
+            if has_prefix(name) {
+                by_name
+                    .entry(name.clone())
+                    .or_insert_with(|| reference.clone().attach(self.inner));
+            }
+        }
+        for (name, reference) in &self.overriding_references {
+            if has_prefix(name) {
+                by_name.insert(name.clone(), reference.clone().attach(self.inner));
+            }
+        }
+        for name in &self.dropped_references {
+            by_name.remove(name);
+        }
+        Ok(by_name.into_values().collect())
+    }
+
     pub fn find_reference(
         &self,
         ref_name: &gix::refs::FullNameRef,

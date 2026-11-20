@@ -254,7 +254,8 @@ impl Sandbox {
             .unwrap()
     }
 
-    /// Return the graph at `HEAD`, along with the `(graph, repo, meta)` repository and metadata used to create it.
+    /// Return the graph of the workspace seen from `HEAD`, along with the `(graph, repo, meta)`
+    /// repository and metadata used to create it.
     pub fn graph_at_head(
         &self,
     ) -> (
@@ -264,14 +265,27 @@ impl Sandbox {
     ) {
         let repo = self.open_repo();
         let meta = self.meta();
-        let graph = but_graph::Graph::from_head(
+        let (head_ref, head_id) = {
+            let head = repo.head().expect("sandbox HEAD can be read");
+            (
+                head.referent_name().map(ToOwned::to_owned),
+                head.id().map(|id| id.detach()),
+            )
+        };
+        let graph = but_graph::nosegment::workspace(
             &repo,
             &meta,
+            but_graph::init::Overlay::default(),
             self.project_meta(),
-            &mut crate::project_db(&repo).expect("sandbox project database always opens"),
-            but_graph::init::Options::default(),
+            head_ref.as_ref().map(|name| name.as_ref()),
+            head_id,
+            [],
+            Vec::new(),
+            false,
+            None,
         )
-        .unwrap();
+        .unwrap()
+        .graph;
         (graph, repo, meta)
     }
 

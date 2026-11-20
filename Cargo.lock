@@ -1390,7 +1390,6 @@ dependencies = [
  "anyhow",
  "bstr",
  "but-core",
- "but-db",
  "but-graph",
  "but-meta",
  "but-testsupport",
@@ -1520,7 +1519,6 @@ dependencies = [
  "but-api",
  "but-core",
  "but-ctx",
- "but-db",
  "but-graph",
  "but-rebase",
  "but-testsupport",
@@ -1569,6 +1567,7 @@ name = "but-feedback"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-core",
  "but-ctx",
  "but-graph",
  "chrono",
@@ -1765,6 +1764,7 @@ dependencies = [
  "itertools",
  "petgraph",
  "sapling-renderdag",
+ "smallvec",
  "snapbox",
  "tracing",
 ]

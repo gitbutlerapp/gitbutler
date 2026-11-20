@@ -113,7 +113,6 @@ pub struct ListedBranch {
 pub fn list(
     repo: &gix::Repository,
     meta: &impl RefMetadata,
-    db: &mut but_db::DbHandle,
     options: Options,
 ) -> anyhow::Result<BranchListing> {
     let remote_names = repo.remote_names();
@@ -160,12 +159,12 @@ pub fn list(
     });
 
     let ws = walk::build_workspace(
-        head_id,
+        repo,
+        head_id.detach(),
         head_ref,
         extra_tips,
         meta,
         options.project_meta.clone(),
-        db,
     )?;
 
     let mut tips: BTreeSet<gix::ObjectId> =

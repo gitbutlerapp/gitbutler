@@ -214,16 +214,19 @@ fn workspace_from_workspace_ref(ctx: &Context) -> Result<but_graph::Workspace> {
     let repo = ctx.repo.get()?;
     let meta = ctx.meta()?;
     let mut workspace_ref = open_workspace_ref(&repo)?;
-    let mut db = ctx.db.get_cache_mut()?;
-    let graph = but_graph::Graph::from_commit_traversal(
-        workspace_ref.peel_to_id()?,
-        Some(workspace_ref.inner.name.clone()),
+    let workspace_commit_id = workspace_ref.peel_to_id()?.detach();
+    but_graph::nosegment::workspace(
+        &repo,
         &meta,
+        but_graph::init::Overlay::default(),
         ctx.project_meta()?,
-        &mut db,
-        but_graph::init::Options::limited(),
-    )?;
-    graph.into_workspace()
+        Some(workspace_ref.name()),
+        Some(workspace_commit_id),
+        [],
+        Vec::new(),
+        false,
+        but_graph::init::Options::limited().commits_limit_hint,
+    )
 }
 
 fn ensure_stack_in_workspace(ctx: &Context, stack_id: StackId) -> Result<()> {
@@ -344,20 +347,25 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     };
 
     {
-        let workspace_commit = repo
+        let workspace_commit_id = repo
             .find_reference(WORKSPACE_BRANCH_REF)?
-            .peel_to_commit()?;
+            .peel_to_commit()?
+            .id;
+        let workspace_ref = gix::refs::FullName::try_from(WORKSPACE_BRANCH_REF)?;
         let mut meta = ctx.meta()?;
         let mut db = ctx.db.get_cache_mut()?;
-        let mut workspace = but_graph::Graph::from_commit_traversal(
-            workspace_commit.id(),
-            Some(gix::refs::FullName::try_from(WORKSPACE_BRANCH_REF)?),
+        let mut workspace = but_graph::nosegment::workspace(
+            repo,
             &meta,
+            but_graph::init::Overlay::default(),
             ctx.project_meta()?,
-            &mut db,
-            but_graph::init::Options::limited(),
-        )?
-        .into_workspace()?;
+            Some(workspace_ref.as_ref()),
+            Some(workspace_commit_id),
+            [],
+            Vec::new(),
+            false,
+            but_graph::init::Options::limited().commits_limit_hint,
+        )?;
         let mut editor = Editor::create(&mut workspace, &mut meta, repo, &mut db)?;
         let (target_selector, _commit) =
             editor.find_selectable_commit(edit_mode_metadata.commit_oid)?;

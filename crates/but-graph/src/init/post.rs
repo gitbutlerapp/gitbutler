@@ -132,7 +132,7 @@ impl Graph {
     /// Rebuild outgoing edges so petgraph traversal follows the source commit's
     /// `parent_order`. Petgraph traverses edges in reverse creation order, so
     /// edges are re-added from last parent to first parent.
-    fn rebuild_edges_in_parent_order(&mut self) {
+    pub(crate) fn rebuild_edges_in_parent_order(&mut self) {
         for sidx in self.segments().collect::<Vec<_>>() {
             self.rebuild_outgoing_edges_in_parent_order(sidx);
         }
@@ -1506,7 +1506,7 @@ impl Graph {
     // Fill in generation numbers by walking down the graph topologically.
     // This is called at the end of post-processing to ensure generations are correct
     // after all segment insertions and edge rewiring.
-    fn compute_generation_numbers(&mut self) {
+    pub(crate) fn compute_generation_numbers(&mut self) {
         let mut topo = petgraph::visit::Topo::new(&self.inner);
         while let Some(sidx) = topo.next(&self.inner) {
             let max_gen_of_incoming = self
@@ -1863,7 +1863,7 @@ impl Graph {
     /// branches are extracted: routing through a remote reference is harmless
     /// as the editor never rewrites remotes, and workspace segments must
     /// survive as the workspace's own head.
-    fn land_worktree_lanes_on_commits<T: RefMetadata>(
+    pub(crate) fn land_worktree_lanes_on_commits<T: RefMetadata>(
         &mut self,
         meta: &OverlayMetadata<'_, T>,
         worktree_by_branch: &WorktreeByBranch,

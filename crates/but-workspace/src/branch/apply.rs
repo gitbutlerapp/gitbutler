@@ -539,14 +539,16 @@ pub fn apply(
             add_branch_as_stack_forcefully(&mut ws_md, branch.as_ref(), new_stack_id);
             persist_metadata_and_gitconfig(meta, &applied_branches, &ws_md, None)?;
         }
-        let ws = ws
-            .graph
-            .redo_traversal_with_overlay(
-                repo,
-                meta,
-                Overlay::default().with_entrypoint(commit_to_checkout, ws_ref_name.clone()),
-            )?
-            .into_workspace()?;
+        let ws = super::reprojected(
+            &ws,
+            repo,
+            meta,
+            Overlay::default(),
+            Some((
+                ws_ref_name.as_ref().map(|name| name.as_ref()),
+                commit_to_checkout,
+            )),
+        )?;
         set_head_to_reference(
             repo,
             commit_to_checkout,
@@ -721,10 +723,13 @@ pub fn apply(
         }))
         .with_branch_metadata_override(branch_mds)
         .with_workspace_metadata_override(ws_md_override);
-    let ws = ws
-        .graph
-        .redo_traversal_with_overlay(repo, meta, overlay.clone())?
-        .into_workspace()?;
+    let ws = super::reprojected(
+        &ws,
+        repo,
+        meta,
+        overlay.clone(),
+        Some((Some(workspace_ref_name_to_update.as_ref()), ws_ref_id)),
+    )?;
 
     let all_applied_branches_are_already_visible = branches_to_apply
         .iter()
@@ -763,21 +768,26 @@ pub fn apply(
             head_id.object()?.peel_to_tree()?.id,
         )?;
         let ws_commit_with_new_message = ws_commit_with_new_message.id.detach();
-        let (graph, new_head_id) = if (ws_commit_with_new_message != head_id
+        let (workspace, new_head_id) = if (ws_commit_with_new_message != head_id
             && ws.kind.has_managed_commit())
             || needs_workspace_commit_without_remerge(&ws)
         {
-            let graph = ws.graph.redo_traversal_with_overlay(
+            let workspace = super::reprojected(
+                &ws,
                 repo,
                 meta,
                 overlay.with_entrypoint(
                     ws_commit_with_new_message,
                     Some(workspace_ref_name_to_update.clone()),
                 ),
+                Some((
+                    Some(workspace_ref_name_to_update.as_ref()),
+                    ws_commit_with_new_message,
+                )),
             )?;
-            (graph, ws_commit_with_new_message)
+            (workspace, ws_commit_with_new_message)
         } else {
-            (ws.graph, ws_ref_id)
+            (ws, ws_ref_id)
         };
 
         set_head_to_reference(
@@ -788,7 +798,7 @@ pub fn apply(
             (!head_on_workspace_ref).then_some(workspace_ref_name_to_update.as_ref()),
         )?;
         return Ok(Outcome {
-            workspace: graph.into_workspace()?,
+            workspace,
             status: OutcomeStatus::Applied,
             conflicting_stacks: Vec::new(),
             applied_branches,
@@ -844,11 +854,13 @@ pub fn apply(
     let overlay = overlay
         .with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone()))
         .with_workspace_metadata_override(ws_md_override);
-    let graph = ws
-        .graph
-        .redo_traversal_with_overlay(&in_memory_repo, meta, overlay.clone())?;
-
-    let mut ws = graph.into_workspace()?;
+    let mut ws = super::reprojected(
+        &ws,
+        &in_memory_repo,
+        meta,
+        overlay.clone(),
+        Some((Some(workspace_ref_name_to_update.as_ref()), new_head_id)),
+    )?;
     let collect_unapplied_branches = |ws: &but_graph::Workspace| {
         branches_to_apply
             .iter()
@@ -951,16 +963,15 @@ pub fn apply(
         conflicting_stacks = correlate_conflicting_stacks(&ws_md, &merge_result.conflicting_stacks);
         remove_conflicting_stacks_from_workspace(&mut ws_md, &conflicting_stacks);
         let ws_md_override = Some((workspace_ref_name_to_update.clone(), (*ws_md).clone()));
-        ws = ws
-            .graph
-            .redo_traversal_with_overlay(
-                &in_memory_repo,
-                meta,
-                overlay
-                    .with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone()))
-                    .with_workspace_metadata_override(ws_md_override),
-            )?
-            .into_workspace()?;
+        ws = super::reprojected(
+            &ws,
+            &in_memory_repo,
+            meta,
+            overlay
+                .with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone()))
+                .with_workspace_metadata_override(ws_md_override),
+            Some((Some(workspace_ref_name_to_update.as_ref()), new_head_id)),
+        )?;
         let unapplied_branches = collect_unapplied_branches(&ws);
 
         if !unapplied_branches.is_empty() {

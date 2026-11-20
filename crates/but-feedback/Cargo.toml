@@ -12,6 +12,7 @@ doctest = false
 
 [dependencies]
 but-graph.workspace = true
+but-core.workspace = true
 but-ctx = { workspace = true, features = ["legacy"] }
 
 anyhow.workspace = true
