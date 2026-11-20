@@ -4,12 +4,14 @@
 body line, and an actions slot. Its Figma description carries the same rules;
 change one and change the other.
 
-**Two variants: `default` for a panel, `tidy` for a popup.** Where the block
-stands in for a popup's rows — a picker or the command palette whose search
-found nothing — it takes `tidy`: 20 under the illustration, 6 between the
-lines, 12 above the actions, centred plainly, and `small` buttons. Its height
-follows the popup's width at 5:2, so a popup keeps its proportions however wide
-it opens instead of holding one fixed height. Usually it
+**Two variants: `default` for a panel, `tidy` for a few rows.** Where the
+block stands in for a popup's rows — a picker or the command palette whose
+search found nothing — or for a card's in a sidebar, it takes `tidy`: 20 under
+the illustration, 6 between the lines, 12 above the actions, centred plainly,
+and `small` buttons. It is as tall as its content, up to 320 wide, with no inset
+of its own: the card's padding is the room around it. In a popup, `PopupEmpty`
+makes it as wide as the list and 5:2 as tall, so a popup keeps its proportions
+however wide it opens instead of holding one fixed height. Usually it
 is just the line reporting the miss and an outline "Clear search", which is
 what `PopupEmpty` draws; the illustration, when there is room for one, still
 renders at 1:1.
