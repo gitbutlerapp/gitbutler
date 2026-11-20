@@ -787,6 +787,7 @@ export const GroupLabel: FC<
  * the status off for an idle terminal; its instance is a MetaCount robot with `value` off, swapped
  * for `running` for another program's progress, or a MetaStatus glyph once it ends.
  * @see packages/but-ui/design/components/sidebar-rows.md
+ * @see packages/but-ui/design/patterns/work-under-way.md
  * @import import { TerminalItem } from "@gitbutler/but-ui-react/SidebarRow.tsx";
  */
 export const TerminalItem: FC<{ name: string; place?: string } & RowProps> = ({

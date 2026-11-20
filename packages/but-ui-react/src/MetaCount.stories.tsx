@@ -1,5 +1,8 @@
+import type { FC, ReactNode } from "react";
 import { stories } from "../stories/stories.ts";
 import { Button } from "./Button.tsx";
+import { Code } from "./Code.tsx";
+import { DescriptionList, DescriptionListItem } from "./DescriptionList.tsx";
 import { Icon } from "./Icon.tsx";
 import { MetaCount, type MetaCountType, MetaStatus } from "./MetaCount.tsx";
 import { Tooltip } from "./Tooltip.tsx";
@@ -74,6 +77,54 @@ export const Kinds = meta.story({
 				</MetaCount>
 			))}
 		</div>
+	),
+});
+
+/** A mark that says something is running, and the code that draws it. */
+const Mark: FC<{ children: ReactNode; code: string }> = ({ children, code }) => (
+	<span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+		{children}
+		<Code>{code}</Code>
+	</span>
+);
+
+/**
+ * Every mark that says something is running, side by side, picked by who is at work: the ring for
+ * your own action, in the row's glyph or a loading snackbar; the amber ring for a check or a deploy,
+ * a result you'll look at; the robot for an agent; the dots for any other program in a terminal.
+ * Only the amber one asks anything of you. The Work under way note has the rules.
+ */
+export const WorkUnderWay = meta.story({
+	render: () => (
+		<DescriptionList>
+			<DescriptionListItem label="Your action">
+				<Mark code="busy">
+					<Icon name="spinner" aria-label="Working" />
+				</Mark>
+			</DescriptionListItem>
+			<DescriptionListItem label="Out of sight">
+				<Mark code={'type: "loading"'}>
+					<Icon name="spinner" aria-label="Working" />
+				</Mark>
+			</DescriptionListItem>
+			<DescriptionListItem label="A check">
+				<Mark code={'<MetaStatus variant="working">'}>
+					<MetaStatus variant="working" aria-label="Checks running" />
+				</Mark>
+			</DescriptionListItem>
+			<DescriptionListItem label="An agent">
+				<Mark code={'<MetaCount type="agent-working">'}>
+					{/* oxlint-disable-next-line jsx_a11y/prefer-tag-over-role -- A drawn glyph with a name, as MetaStatus alone is. */}
+					<MetaCount type="agent-working" role="img" aria-label="Agent working" />
+				</Mark>
+			</DescriptionListItem>
+			<DescriptionListItem label="A program">
+				<Mark code={'<MetaCount type="running">'}>
+					{/* oxlint-disable-next-line jsx_a11y/prefer-tag-over-role -- A drawn glyph with a name, as MetaStatus alone is. */}
+					<MetaCount type="running" role="img" aria-label="Working" />
+				</Mark>
+			</DescriptionListItem>
+		</DescriptionList>
 	),
 });
 

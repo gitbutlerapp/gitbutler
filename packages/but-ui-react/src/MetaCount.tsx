@@ -80,6 +80,7 @@ type MetaCountProps = { type: MetaCountType } & ComponentProps<"span">;
  * @figma `value` turns the value off, as children left out do, for a robot or the running dots alone.
  * `running` draws the dots' first step.
  * @see packages/but-ui/design/components/meta-lines.md
+ * @see packages/but-ui/design/patterns/work-under-way.md
  * @import import { MetaCount } from "@gitbutler/but-ui-react/MetaCount.tsx";
  */
 export const MetaCount: FC<MetaCountProps> = ({ type, children, ...props }) => (
@@ -208,6 +209,7 @@ const statusWord: Record<MetaStatusVariant, string> = {
  *
  * @figma `label` turns the label off; `label text` is its words.
  *
+ * @see packages/but-ui/design/patterns/work-under-way.md
  * @import import { MetaStatus } from "@gitbutler/but-ui-react/MetaCount.tsx";
  */
 export const MetaStatus: FC<
