@@ -20,8 +20,8 @@ check the compiler's output before adding one. Ask for consent before adding a
 
 ### Changing a component
 
-**A change to a component here needs the designer's okay.** Every app draws
-with these components, so a fix made for one surface changes all of them.
+**A change to a component here needs the designer's okay.** Every app built on
+this library draws with it, so a fix made for one surface changes all of them.
 When an app's bug seems to need a change here (a style, a prop, a default, a
 wrapper), try fixing it in the app first. If the library really is at fault,
 ask before changing it. When you can't ask, make the change its own
@@ -214,6 +214,8 @@ Place a story with the `layout` parameter and size it with `width` and
 - `bar`: edge to edge in a bordered card, for a bar that spans a window or pane
   (`StatusBar`, `LocationBar`, `ViewHeader`).
 - `fullscreen`: its own frame, for a whole window or view and every overlay.
+- `centered`: the `fullscreen` frame with the story centred in it, for a part that
+  floats over a pane (`Toolbox`), so its border and shadow aren't clipped.
 
 Give a size only when the size is the point (a narrow pane, a window), and pick
 content that fits about 570px (770px when `wide`).

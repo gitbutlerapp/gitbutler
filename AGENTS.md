@@ -10,6 +10,9 @@ GitButler is a Rust/Svelte/React/TypeScript monorepo.
 - `apps/web/` - Svelte web app.
 - `apps/but-ui-pantry/` - the pantry, the design system's site.
 - `packages/` - shared TypeScript packages, including the SDK.
+- `packages/ui-svelte/` - the components the desktop and web apps use.
+- `packages/but-ui/`, `packages/but-ui-react/`, `crates/but-ui-gpui/` - the design system:
+  tokens, React components, and their GPUI counterparts.
 - `e2e/` - Playwright, WebdriverIO, and blackbox end-to-end tests.
 
 ## The Pantries

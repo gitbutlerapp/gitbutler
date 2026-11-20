@@ -6,7 +6,7 @@
   code, and fix them in place rather than migrating.
 - Minimize new `VirtualBranchesHandle` usage. At API boundaries, prefer
   `but_ctx::Context` workspace helpers and newer `but-*` APIs.
-- `but-api` is the API surface for Tauri, CLI, and TUI callers.
+- `but-api` is the API surface for the Tauri app, the GPUI client, the CLI and the TUI.
   Outer callers should prefer existing `but-api` functions when they fit, but
   lower-level crates should not depend on `but-api`.
 - Keep transport DTOs at the API boundary, commonly in a local `json` module,

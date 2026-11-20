@@ -5,10 +5,11 @@ description: "Use when pulling design tokens from Figma into `packages/but-ui`, 
 
 # Design tokens
 
-Figma variables are the source. `packages/but-ui/tokens/json/*.tokens.json` is
-their export and `tokens/tokens.css` is built from it, with the same as data: `tokens/tokens.json`,
-the tokens, and `tokens/settings.json`, the settings a person can pick. None is edited by hand. The
-package README has the pipeline in full. Run everything below from `packages/but-ui`.
+Figma variables are the source. `packages/but-ui/tokens/json/*.tokens.json` is their export.
+The build makes `tokens/tokens.css` from it, and writes the same values as data to
+`tokens/tokens.json` (the tokens) and `tokens/settings.json` (the choices a person can make).
+None is edited by hand. The package README has the pipeline in full. Run everything below from
+`packages/but-ui`.
 
 ## 1. Export from Figma
 

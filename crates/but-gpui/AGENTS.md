@@ -33,10 +33,10 @@ To use a component:
 
 - Use only the font families the app embeds (`../but-ui-gpui/assets/fonts`, `theme.ui_font` and
   `theme.mono_font`). Any other resolves to whatever the machine has installed, and an
-  installed variable font with an optical size axis (`opsz`) lays out many times slower. Only
-  fonts the user picks leave them: `theme.diff_font` and `theme.terminal_font`, checked with
-  `ui::digit_advance` first. Never load a user's font with `add_fonts`, which keeps a variable
-  font at its default instance.
+  installed variable font with an optical size axis (`opsz`) lays out many times slower. The
+  exceptions are the fonts the user picks, `theme.diff_font` and `theme.terminal_font`, which
+  are checked with `ui::digit_advance` first. Never load a user's font with `add_fonts`, which
+  keeps a variable font at its default instance.
 - A character the embedded Inter lacks is drawn from another font, heavier and off the
   baseline. Before writing a new symbol into the UI, check it's in `../but-ui-gpui/assets/fonts`
   and add it from the full Inter if not. That folder's `README.md` has the recipe.
@@ -50,14 +50,14 @@ To use a component:
 - A cached view that misses its cache renders all its descendants with caching off, so a
   cached child inside a view that notifies often saves nothing.
 - Reading an entity in `render` has the window draw on its every notify, even if it's never
-  mounted. Keep what a row shows of something that notifies often where the row already looks,
-  as `Terminals::title` does.
+  mounted. A row showing something from an entity that notifies often reads a copy kept in state
+  the row already reads, as `Terminals::title` keeps a terminal's title.
 - Text shaping dominates frames with new content, and each text run is shaped on its own, so
   fewer text elements per row is the lever. GPUI keeps a shaped line only while the same text
   is drawn the frame after, so text that changes a little every frame is shaped in pieces that
   keep, as the terminal shapes each run of a row.
 - Layout costs per element, and a flex row of many small ones costs most: place them with
-  `absolute` insets. Word tooltips in the tooltip's builder, not in render.
+  `absolute` insets. Build a tooltip's text in its builder, not in render.
 - Put any list that can grow in `uniform_list` or `list`, and don't derive per-row state for
   every row each frame.
 
@@ -113,9 +113,9 @@ unseen is what a laptop's battery pays for.
 - `AppView` draws `DiffPane` absolutely over the detail pane, below
   `Detail::view_header_height`. Anything that changes the height above the file list, like tabs
   or a banner, must be counted there, or the diff covers it and takes its clicks.
-- A `Detail` draws and loads what it `shows`, not `Store::selection`: a pinned page shows its own
-  row, and the home tile's takes the selection as the update making it ends, so its page, diff
-  and checks change together. What acts on a page it just selected calls
+- A `Detail` draws and loads what it `shows`, not `Store::selection`. A pinned page shows its own
+  row. The home tile's `Detail` takes up the selection when the update that changed it ends, so
+  its page, diff and checks change together. Code that acts on a page it has just selected calls
   `Detail::follow_selection` first.
 - How a page is being looked at goes in its `PageState` variant (`detail/page.rs`), not on
   `Detail`, so it stays with that item in that tile. A position in the loaded diff is kept by what
@@ -200,9 +200,11 @@ go, so it stays separate.
 - Its code stays in `crates/but-briefs`, `backend/briefs/`, `state/briefs.rs` and
   `detail/brief/`. Everything else reaches it through `Store::brief_at`, `Detail::has_brief`
   and `PageTab::Brief`, with at most a dispatch arm.
-- What Briefs sent and unsent comments are kept in a file of their own under the app's data
-  folder, never in `but-db`, with no migrations: anything unreadable is dropped and asked for
-  again. Signing out deletes it.
+- What Briefs sent, and comments not yet sent, are kept in a SQLite file of their own under the
+  app's data folder, never in `but-db`. What Briefs sent is a cache with no migrations: anything
+  unreadable is dropped and asked for again. Unsent comments are the user's words and kept
+  nowhere else, so they outlive a schema change, and changing their `note` table takes a
+  migration. Signing out deletes the file.
 - Nothing goes out, to Briefs or a terminal, without a key press or a click on what names
   where it goes.
 - Background failures log at debug and keep what's known.
@@ -304,8 +306,9 @@ and tests it.
   reacting, resolving), editing a commit in the app (the resolver and `but resolve` cover it),
   editing a file in the diff, moving a commit one step, updating one stack, Locate for a moved
   project, diff zoom and the palette's theme toggle.
-- Format a file on its own with `rustfmt --edition 2024 <file>`: given `lib.rs` or a `mod.rs`,
-  rustfmt formats every module under it too, which matters when others edit the crate at once.
+- Format a file on its own with `rustfmt --edition 2024 <file>`. rustfmt also formats every
+  module the file declares with `mod x;`, so given `lib.rs` it formats the whole crate, which
+  matters when others edit the crate at once.
 
 ## Motion
 
