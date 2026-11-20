@@ -41,7 +41,8 @@
 
 	.icon,
 	.toggle,
-	.empty {
+	.empty,
+	.place {
 		color: var(--but-inverse-muted-foreground);
 	}
 
@@ -443,6 +444,12 @@ button.toggle {
 	&:where(:hover) {
 		background-color: var(--but-hover);
 	}
+}
+
+/* Where a terminal is open reads under its name and gives way before it does. */
+.place {
+	flex-shrink: 100;
+	color: var(--but-muted-foreground);
 }
 
 /* "Stack" keeps its width, a step above the muted tip after it, which gives way. */

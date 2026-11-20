@@ -17,6 +17,7 @@ import {
 	NoticeItem,
 	RepoItem,
 	StackCaption,
+	TerminalItem,
 	UncommittedItem,
 	UpstreamItem,
 	WorktreeItem,
@@ -92,6 +93,7 @@ const rowTypes = new Set<unknown>([
 	UpstreamItem,
 	MoreItem,
 	NoticeItem,
+	TerminalItem,
 ]);
 
 /** Gives the rows in `children` their guides, worked out with `treeGuides` from the rows in the

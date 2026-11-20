@@ -57,6 +57,327 @@
 	animation-name: robot-smile;
 }
 
+/* The terminal's dots spinner, ⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏: ten frames a second, each dot on or off in turn as
+   braille's dots are, stepping rather than turning, as the GPUI client draws it. Under reduced
+   motion it holds its first frame. */
+.spin-dot {
+	animation-duration: 1s;
+	animation-timing-function: step-end;
+	animation-iteration-count: infinite;
+}
+
+.spin-dot-0 {
+	animation-name: spin-dot-0;
+	opacity: 1;
+}
+
+.spin-dot-1 {
+	animation-name: spin-dot-1;
+	opacity: 1;
+}
+
+.spin-dot-2 {
+	animation-name: spin-dot-2;
+	opacity: 0;
+}
+
+.spin-dot-3 {
+	animation-name: spin-dot-3;
+	opacity: 1;
+}
+
+.spin-dot-4 {
+	animation-name: spin-dot-4;
+	opacity: 0;
+}
+
+.spin-dot-5 {
+	animation-name: spin-dot-5;
+	opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.spin-dot {
+		animation: none;
+	}
+}
+
+@keyframes spin-dot-0 {
+	0% {
+		opacity: 1;
+	}
+
+	10% {
+		opacity: 1;
+	}
+
+	20% {
+		opacity: 1;
+	}
+
+	30% {
+		opacity: 0;
+	}
+
+	40% {
+		opacity: 0;
+	}
+
+	50% {
+		opacity: 0;
+	}
+
+	60% {
+		opacity: 0;
+	}
+
+	70% {
+		opacity: 1;
+	}
+
+	80% {
+		opacity: 1;
+	}
+
+	90% {
+		opacity: 1;
+	}
+
+	100% {
+		opacity: 1;
+	}
+}
+
+@keyframes spin-dot-1 {
+	0% {
+		opacity: 1;
+	}
+
+	10% {
+		opacity: 0;
+	}
+
+	20% {
+		opacity: 0;
+	}
+
+	30% {
+		opacity: 0;
+	}
+
+	40% {
+		opacity: 0;
+	}
+
+	50% {
+		opacity: 0;
+	}
+
+	60% {
+		opacity: 1;
+	}
+
+	70% {
+		opacity: 1;
+	}
+
+	80% {
+		opacity: 1;
+	}
+
+	90% {
+		opacity: 1;
+	}
+
+	100% {
+		opacity: 1;
+	}
+}
+
+@keyframes spin-dot-2 {
+	0% {
+		opacity: 0;
+	}
+
+	10% {
+		opacity: 0;
+	}
+
+	20% {
+		opacity: 0;
+	}
+
+	30% {
+		opacity: 0;
+	}
+
+	40% {
+		opacity: 1;
+	}
+
+	50% {
+		opacity: 1;
+	}
+
+	60% {
+		opacity: 1;
+	}
+
+	70% {
+		opacity: 1;
+	}
+
+	80% {
+		opacity: 1;
+	}
+
+	90% {
+		opacity: 1;
+	}
+
+	100% {
+		opacity: 0;
+	}
+}
+
+@keyframes spin-dot-3 {
+	0% {
+		opacity: 1;
+	}
+
+	10% {
+		opacity: 1;
+	}
+
+	20% {
+		opacity: 1;
+	}
+
+	30% {
+		opacity: 1;
+	}
+
+	40% {
+		opacity: 1;
+	}
+
+	50% {
+		opacity: 0;
+	}
+
+	60% {
+		opacity: 0;
+	}
+
+	70% {
+		opacity: 0;
+	}
+
+	80% {
+		opacity: 0;
+	}
+
+	90% {
+		opacity: 1;
+	}
+
+	100% {
+		opacity: 1;
+	}
+}
+
+@keyframes spin-dot-4 {
+	0% {
+		opacity: 0;
+	}
+
+	10% {
+		opacity: 1;
+	}
+
+	20% {
+		opacity: 1;
+	}
+
+	30% {
+		opacity: 1;
+	}
+
+	40% {
+		opacity: 1;
+	}
+
+	50% {
+		opacity: 1;
+	}
+
+	60% {
+		opacity: 0;
+	}
+
+	70% {
+		opacity: 0;
+	}
+
+	80% {
+		opacity: 0;
+	}
+
+	90% {
+		opacity: 0;
+	}
+
+	100% {
+		opacity: 0;
+	}
+}
+
+@keyframes spin-dot-5 {
+	0% {
+		opacity: 0;
+	}
+
+	10% {
+		opacity: 0;
+	}
+
+	20% {
+		opacity: 1;
+	}
+
+	30% {
+		opacity: 1;
+	}
+
+	40% {
+		opacity: 1;
+	}
+
+	50% {
+		opacity: 1;
+	}
+
+	60% {
+		opacity: 1;
+	}
+
+	70% {
+		opacity: 1;
+	}
+
+	80% {
+		opacity: 0;
+	}
+
+	90% {
+		opacity: 0;
+	}
+
+	100% {
+		opacity: 0;
+	}
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.robot-eye,
 	.robot-smile {
