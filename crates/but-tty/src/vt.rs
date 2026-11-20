@@ -13,7 +13,7 @@ use libghostty_vt::effect::{
     ClipboardWriteError, ProgramStatus, ProgramStatusState, ProgressReport, ProgressState,
 };
 use libghostty_vt::error::Error;
-use libghostty_vt::fmt::{Extras, Format, Formatter};
+use libghostty_vt::fmt::{Format, Formatter};
 use libghostty_vt::focus;
 use libghostty_vt::key::{self, Key, Mods};
 use libghostty_vt::kitty::graphics::{self, ImageFormat, RustPngDecoder};
@@ -720,6 +720,8 @@ impl Vt {
     /// An alternate screen comes without the one behind it.
     #[cfg(unix)]
     pub(crate) fn screen(&self) -> libghostty_vt::error::Result<Vec<u8>> {
+        use libghostty_vt::fmt::Extras;
+
         let mut formatter = Formatter::new(&self.term)?;
         formatter
             .set_format(Format::Vt)?
