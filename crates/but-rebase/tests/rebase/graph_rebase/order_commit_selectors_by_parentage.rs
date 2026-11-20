@@ -1,5 +1,4 @@
 use anyhow::Result;
-use but_graph::Graph;
 use but_rebase::graph_rebase::{Editor, LookupStep, mutate, testing::Testing as _};
 use but_testsupport::visualize_commit_graph_all;
 use snapbox::prelude::*;
@@ -35,7 +34,7 @@ fn trim_trailing_whitespace(input: &str) -> String {
 fn handles_zero_nodes() -> Result<()> {
     let (repo, mut meta, mut db) = fixture("four-commits")?;
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -74,7 +73,7 @@ fn handles_zero_nodes() -> Result<()> {
 fn handles_one_node() -> Result<()> {
     let (repo, mut meta, mut db) = fixture("single-commit")?;
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -113,7 +112,7 @@ fn handles_one_node() -> Result<()> {
 fn orders_linear_commits_parent_first_for_n_nodes() -> Result<()> {
     let (repo, mut meta, mut db) = fixture("four-commits")?;
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -151,7 +150,7 @@ fn orders_linear_commits_parent_first_for_n_nodes() -> Result<()> {
 fn orders_disjoint_commits_by_editor_graph_traversal_1() -> Result<()> {
     let (repo, mut meta, mut db) = fixture("three-branches-merged")?;
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -204,7 +203,7 @@ fn orders_disjoint_commits_by_editor_graph_traversal_1() -> Result<()> {
 fn orders_disjoint_commits_by_editor_graph_traversal_2() -> Result<()> {
     let (repo, mut meta, mut db) = fixture("three-branches-merged")?;
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -266,7 +265,7 @@ fn orders_disjoint_commits_by_editor_graph_traversal_2() -> Result<()> {
 fn orders_disjoint_commits_by_editor_graph_traversal_3() -> Result<()> {
     let (repo, mut meta, mut db) = fixture("three-branches-merged")?;
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -343,7 +342,7 @@ fn errors_when_selected_commit_is_absent_from_editor_graph() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -390,7 +389,7 @@ fn errors_when_selected_commit_is_absent_from_editor_graph() -> Result<()> {
 fn deduplicates_duplicate_selectors_by_commit_id() -> Result<()> {
     let (repo, mut meta, mut db) = fixture("four-commits")?;
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -426,7 +425,7 @@ fn deduplicates_duplicate_selectors_by_commit_id() -> Result<()> {
 fn orders_commit_present_in_editor_graph_even_if_workspace_projection_stale() -> Result<()> {
     let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -465,7 +464,7 @@ fn orders_commit_present_in_editor_graph_even_if_workspace_projection_stale() ->
 fn orders_commit_disconnected_from_checkout_roots_if_still_in_editor_graph() -> Result<()> {
     let (repo, mut meta, mut db) = fixture("four-commits")?;
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -524,7 +523,7 @@ fn orders_all_commits_in_y_shaped_two_branch_fixture() -> Result<()> {
     );
     let right_ref: gix::refs::FullName = "refs/heads/right".try_into()?;
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),

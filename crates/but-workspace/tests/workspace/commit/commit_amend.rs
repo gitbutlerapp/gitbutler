@@ -255,7 +255,7 @@ mod from_worktree {
         db: &mut but_db::DbHandle,
     ) -> Result<Graph> {
         db.worktree_meta_mut().mark_adopted()?;
-        Graph::from_head(
+        but_testsupport::graph_from_head(
             repo,
             meta,
             Default::default(),

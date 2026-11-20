@@ -9,8 +9,13 @@ fn switch_to_workspace(
     meta: &mut impl RefMetadata,
     db: &mut but_db::DbHandle,
 ) -> anyhow::Result<but_graph::Workspace> {
-    let graph =
-        but_graph::Graph::from_head(repo, &*meta, project_meta(repo)?, db, Options::limited())?;
+    let graph = but_testsupport::graph_from_head(
+        repo,
+        &*meta,
+        project_meta(repo)?,
+        db,
+        Options::limited(),
+    )?;
     let mut ws = graph.into_workspace()?;
     let editor = but_rebase::graph_rebase::Editor::create(&mut ws, meta, repo, db)?;
     but_workspace::editor_workspace::switch_to_workspace(editor)?
@@ -82,7 +87,7 @@ fn switch_from_branch_replaces_existing_workspace_reference() -> anyhow::Result<
 fn switch_from_removed_head_reference() -> anyhow::Result<()> {
     let (_tmp, repo, mut meta, mut db) = named_writable_scenario("ws-ref-ws-commit-one-stack")?;
     but_testsupport::git(&repo).args(["checkout", "A"]).run();
-    let graph = but_graph::Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &meta,
         project_meta(&repo)?,
@@ -134,7 +139,7 @@ fn switching_to_a_branch_drops_a_workspace_entered_in_the_same_edit() -> anyhow:
     but_testsupport::git(&repo)
         .args(["update-ref", "-d", "refs/heads/gitbutler/workspace"])
         .run();
-    let graph = but_graph::Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &meta,
         project_meta(&repo)?,

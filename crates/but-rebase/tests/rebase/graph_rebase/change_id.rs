@@ -1,7 +1,6 @@
 //! Change id tests
 
 use anyhow::Result;
-use but_graph::Graph;
 use but_rebase::graph_rebase::{Editor, LookupStep, ToSelector};
 use gix::prelude::ObjectIdExt;
 use snapbox::prelude::*;
@@ -27,7 +26,7 @@ fn temporary_change_id_persisted() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -76,7 +75,7 @@ fn temporary_change_id_persisted() -> Result<()> {
 fn empty_commit_uses_content_hash_placeholder_until_materialization() -> Result<()> {
     let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits")?;
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),

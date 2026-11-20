@@ -25,7 +25,7 @@ fn four_commits() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -70,7 +70,7 @@ fn merge_in_the_middle() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -126,7 +126,7 @@ fn three_branches_merged() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -178,7 +178,7 @@ fn many_references() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -241,7 +241,7 @@ fn first_parent_leg_long() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -318,7 +318,7 @@ fn second_parent_leg_long() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -399,7 +399,7 @@ fn workspace_with_empty_stack() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         target_meta(&repo),
@@ -477,7 +477,7 @@ fn workspace_with_three_empty_stacks() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         target_meta(&repo),
@@ -551,7 +551,7 @@ fn commit_with_two_parents() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -597,7 +597,7 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
     let main_ref = gix::refs::FullName::try_from("refs/heads/main")?;
 
     {
-        let graph = Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &*meta,
             target_meta(&repo),
@@ -631,7 +631,7 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
     }
 
     {
-        let graph = Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &*meta,
             target_meta(&repo),
@@ -701,7 +701,7 @@ fn merge_first_parent_older_than_second() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -920,7 +920,7 @@ fn a_padding_commit_is_left_out() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -968,7 +968,7 @@ fn a_commit_on_a_padding_commit_is_rebased_onto_the_conflicted_commit() -> Resul
         "commit d on padding",
     )?;
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -1035,7 +1035,7 @@ fn detached_checkouts_on_a_padding_commit_check_out_the_conflicted_commit() -> R
         .run();
     db.worktree_meta_mut().mark_adopted()?;
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         Default::default(),
@@ -1083,7 +1083,8 @@ fn pad_conflicted_main(
     db: &mut but_db::DbHandle,
 ) -> Result<(gix::ObjectId, gix::ObjectId)> {
     let graph =
-        Graph::from_head(repo, &*meta, Default::default(), db, standard_options())?.validated()?;
+        but_testsupport::graph_from_head(repo, &*meta, Default::default(), db, standard_options())?
+            .validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, meta, repo, db)?;
     let b = editor.select_commit(repo.rev_parse_single("b")?.detach())?;

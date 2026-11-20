@@ -11,7 +11,7 @@ use but_core::{
     RefMetadata, WORKSPACE_REF_NAME, ref_metadata,
     ref_metadata::{StackId, StackKind, WorkspaceCommitRelation::Outside},
 };
-use but_graph::{Graph, workspace::WorkspaceKind};
+use but_graph::workspace::WorkspaceKind;
 use but_testsupport::{
     CommandExt, InMemoryRefMetadata, git, graph_workspace, graph_workspace_determinisitcally,
     id_at, id_by_rev, sanitize_uuids_and_timestamps, visualize_commit_graph_all,
@@ -258,7 +258,7 @@ fn unapply_workspace_checks_out_diverged_local_target_not_upstream_or_cutoff() -
         Some(cutoff),
         "local and upstream tips diverge above the stored cutoff"
     );
-    let ws = Graph::from_head(
+    let ws = but_testsupport::graph_from_head(
         &repo,
         &meta,
         project_meta,
@@ -400,7 +400,7 @@ fn unapply_branch_from_named_ad_hoc_workspace_affects_metadata() -> anyhow::Resu
 
     let a2_ref = r("refs/heads/A2");
     let a2_tip = repo.rev_parse_single("A2")?;
-    let ws = but_graph::Graph::from_commit_traversal(
+    let ws = but_testsupport::graph_from_commit_traversal(
         a2_tip,
         a2_ref.to_owned(),
         &meta,
@@ -436,7 +436,7 @@ fn unapply_branch_from_named_ad_hoc_workspace_affects_metadata() -> anyhow::Resu
     let mut branch_md = meta.branch(branch.as_ref())?;
     branch_md.update_times(true);
     meta.set_branch(&branch_md)?;
-    let ws = but_graph::Graph::from_commit_traversal(
+    let ws = but_testsupport::graph_from_commit_traversal(
         a2_tip,
         a2_ref.to_owned(),
         &meta,
@@ -2391,7 +2391,7 @@ fn new_workspace_exists_elsewhere_and_to_be_applied_branch_exists_there() -> any
 
     // Pretend "B" is checked out (it's at the right state independently of that)
     let (b_id, b_ref) = id_at(&repo, "B");
-    let ws = but_graph::Graph::from_commit_traversal(
+    let ws = but_testsupport::graph_from_commit_traversal(
         b_id,
         b_ref,
         &meta,
@@ -3459,7 +3459,7 @@ fn unapply_branch_from_detached_ad_hoc_workspace_is_an_error() -> anyhow::Result
     );
 
     git(&repo).args(["checkout", "--detach", "A2"]).run();
-    let ws = Graph::from_head(
+    let ws = but_testsupport::graph_from_head(
         &repo,
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -4533,7 +4533,7 @@ Outcome {
     );
 
     let (b_id, b_ref) = id_at(&repo, "B");
-    let ws = but_graph::Graph::from_commit_traversal(
+    let ws = but_testsupport::graph_from_commit_traversal(
         b_id,
         b_ref.clone(),
         &meta,
@@ -4675,7 +4675,7 @@ Outcome {
     );
 
     let (b_id, b_ref) = id_at(&repo, "B");
-    let ws = but_graph::Graph::from_commit_traversal(
+    let ws = but_testsupport::graph_from_commit_traversal(
         b_id,
         b_ref.clone(),
         &meta,

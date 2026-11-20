@@ -183,7 +183,7 @@ fn target_state(
         ..Default::default()
     };
     let mut db = but_testsupport::project_db(repo)?;
-    let workspace = but_graph::Graph::from_head(
+    let workspace = but_testsupport::graph_from_head(
         repo,
         &meta,
         project_meta,
@@ -229,7 +229,7 @@ fn integration_applies_a_local_target_without_an_upstream() -> Result<()> {
         ..Default::default()
     };
     let mut db = but_testsupport::project_db(&repo)?;
-    let mut workspace = but_graph::Graph::from_head(
+    let mut workspace = but_testsupport::graph_from_head(
         &repo,
         &meta,
         project_meta.clone(),
@@ -283,7 +283,7 @@ fn integration_applies_upstream_when_local_target_lags() -> Result<()> {
         ..Default::default()
     };
     let mut db = but_testsupport::project_db(&repo)?;
-    let mut workspace = but_graph::Graph::from_head(
+    let mut workspace = but_testsupport::graph_from_head(
         &repo,
         &meta,
         project_meta.clone(),

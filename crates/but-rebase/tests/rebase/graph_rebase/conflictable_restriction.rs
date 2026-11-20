@@ -1,7 +1,6 @@
 //! Exercises the step option for whether a step should be allowed to enter a conflicted state.
 
 use anyhow::Result;
-use but_graph::Graph;
 use but_rebase::{
     commit::DateMode,
     graph_rebase::{Editor, Step, mutate::InsertSide},
@@ -26,7 +25,7 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -157,7 +156,7 @@ fn if_a_commit_has_been_configured_not_to_conflict_but_ends_up_conflicted_an_err
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -212,7 +211,7 @@ fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -349,7 +348,7 @@ fn workspace(
     meta: &impl but_core::RefMetadata,
     db: &mut but_db::DbHandle,
 ) -> Result<but_graph::Workspace> {
-    Graph::from_head(
+    but_testsupport::graph_from_head(
         repo,
         meta,
         but_core::ref_metadata::ProjectMeta::default(),
