@@ -814,6 +814,117 @@ export const TerminalItem: FC<{ name: string; place?: string } & RowProps> = ({
 );
 
 /**
+ * A drawer at the foot of the sidebar, such as the other projects or the terminals: its name, how
+ * many it holds (`count`, shown at zero too) and a chevron after them. A press anywhere on it opens
+ * or closes it (`folded`, `onToggleFolded`), and what it holds opens under it.
+ *
+ * Its buttons sit at its end and take their own clicks: `actions` always show, `hoverActions` only
+ * while the pointer is on the drawer or the keys are in it, before the ones that always show, so
+ * those keep their place. A ghost medium icon-only `Button` each, such as Add project or Sort and
+ * show.
+ *
+ * Unlike the other sidebar rows it sits on the panel's ground, under the cards rather than in
+ * one, and its name stays muted so the cards above read first. It is the row of a {@link Drawer},
+ * which rules it off and opens what it holds under it.
+ *
+ * @figma `state=hover` is the drawer under the pointer: its chevron comes up and `hoverActions`
+ * shows. Hide a slot the drawer doesn't need, as an empty one still keeps a button's width.
+ * @import import { DrawerItem } from "@gitbutler/but-ui-react/SidebarRow.tsx";
+ */
+export const DrawerItem: FC<
+	{
+		name: string;
+		count?: number;
+		/** `true` while what it holds is hidden. */
+		folded: boolean;
+		onToggleFolded?: () => void;
+		actions?: ReactNode;
+		hoverActions?: ReactNode;
+	} & useRender.ComponentProps<"button">
+> = ({ name, count, folded, onToggleFolded, actions, hoverActions, render, ...props }) => {
+	const [shown, onHover] = [filled(actions), filled(hoverActions)];
+	const toggle = useRender({
+		// oxlint-disable-next-line jsx_a11y/control-has-associated-label -- Labelled by its children.
+		render: render ?? <button type="button" />,
+		props: mergeProps<"button">(props, {
+			"aria-expanded": !folded,
+			onClick: onToggleFolded,
+			className: styles.drawerToggle,
+			children: (
+				<span className={styles.label}>
+					<span className={classes("text-12", "text-semibold", styles.name)}>{name}</span>
+					{count !== undefined && (
+						<Badge variant="lightGray" className={styles.badge}>
+							{count}
+						</Badge>
+					)}
+					<span className={styles.toggle} aria-hidden>
+						<Icon size={12} name={folded ? "chevron-right" : "chevron-down"} />
+					</span>
+				</span>
+			),
+		}),
+	});
+	return (
+		<div className={classes(styles.row, styles.compact, styles.drawer)}>
+			{toggle}
+			{(shown !== undefined || onHover !== undefined) && (
+				<span className={styles.end}>
+					<span className={styles.actions} data-actions>
+						{onHover !== undefined && <span className={styles.hoverActions}>{onHover}</span>}
+						{shown}
+					</span>
+				</span>
+			)}
+		</div>
+	);
+};
+
+/**
+ * A drawer at the foot of the sidebar and what it holds: its {@link DrawerItem}, and while it's
+ * open, its `children` under it, such as a card of the other projects or of the terminals grouped
+ * by what they're at. It takes the row's props, and the host keeps whether it's `folded`.
+ *
+ * A `--but-border-subtle` hairline rules it off from what's above, the cards or another drawer.
+ * Under an open drawer its card is the rule, so the next drawer drops its hairline. The last
+ * drawer at the panel's foot takes `last`, which rules it off from the foot with a hairline under it.
+ *
+ * @figma `folded=false` shows the `content` slot: put the card in it.
+ * @import import { Drawer } from "@gitbutler/but-ui-react/SidebarRow.tsx";
+ */
+export const Drawer: FC<
+	{
+		name: string;
+		count?: number;
+		folded: boolean;
+		onToggleFolded?: () => void;
+		actions?: ReactNode;
+		hoverActions?: ReactNode;
+		children?: ReactNode;
+		/** The drawer at the panel's foot: a hairline under it too. */
+		last?: boolean;
+	} & Omit<ComponentProps<"section">, "children">
+> = ({ name, count, folded, onToggleFolded, actions, hoverActions, children, last, ...props }) => (
+	<section
+		aria-label={name}
+		{...props}
+		className={classes(styles.drawerSection, last && styles.drawerLast, props.className)}
+	>
+		<DrawerItem
+			name={name}
+			count={count}
+			folded={folded}
+			onToggleFolded={onToggleFolded}
+			actions={actions}
+			hoverActions={hoverActions}
+		/>
+		{!folded && filled(children) !== undefined && (
+			<div className={styles.drawerContent}>{children}</div>
+		)}
+	</section>
+);
+
+/**
  * A page in a navigation panel, such as the docs site's: its name, and the glyph that names the
  * page when there is one (`icon`, an icon's name, or an element of its own such as a colour's
  * swatch or an {@link Avatar}, drawn at 14px). Its `meta` sits at the row's end, as on every
