@@ -56,6 +56,9 @@ const RESIZE_EVERY: Duration = Duration::from_millis(25);
 
 pub struct Terminal {
     tty: Tty,
+    /// The program it was started to run in place of a prompt, by name, which titles it until
+    /// the program does.
+    command: Option<SharedString>,
     ghostty: Ghostty,
     /// The colours set, once set, with the ground and ink for what they leave unset.
     colors: Option<(Colors, RgbColor, RgbColor)>,
@@ -110,9 +113,11 @@ impl Terminal {
         cell_height: 16,
     };
 
-    /// A terminal on the shell just started, coloured as `ghostty` says.
+    /// A terminal on the shell just started to run `command`, if any, coloured as `ghostty`
+    /// says.
     pub fn new(
         shell: Shell,
+        command: Option<SharedString>,
         ghostty: Ghostty,
         store: WeakEntity<Store>,
         cx: &mut App,
@@ -121,6 +126,7 @@ impl Terminal {
         let (tty, updates) = Tty::new(shell, &colors.0, colors.1, colors.2)?;
         Ok(Self::showing(
             tty,
+            command,
             updates,
             Some(colors),
             ghostty,
@@ -135,12 +141,14 @@ impl Terminal {
     #[cfg(unix)]
     pub fn adopt(
         detached: Detached,
+        command: Option<SharedString>,
         store: WeakEntity<Store>,
         cx: &mut App,
     ) -> anyhow::Result<Entity<Self>> {
         let (tty, updates) = Tty::adopt(detached)?;
         Ok(Self::showing(
             tty,
+            command,
             updates,
             None,
             Ghostty::load(),
@@ -151,6 +159,7 @@ impl Terminal {
 
     fn showing(
         tty: Tty,
+        command: Option<SharedString>,
         mut updates: Updates,
         colors: Option<(Colors, RgbColor, RgbColor)>,
         ghostty: Ghostty,
@@ -160,6 +169,7 @@ impl Terminal {
         let size = tty.size();
         let terminal = cx.new(|cx: &mut Context<Self>| Self {
             tty,
+            command,
             ghostty,
             colors,
             scrolled: fixed(0.),
@@ -192,7 +202,13 @@ impl Terminal {
     }
 
     pub fn title(&self) -> SharedString {
-        shown_title(&self.tty.title())
+        shown_title(&self.tty.title(), self.command.as_deref())
+    }
+
+    /// The program it was started to run, by name, if it was, for the next build to title it by.
+    #[cfg(unix)]
+    pub fn command(&self) -> Option<&SharedString> {
+        self.command.as_ref()
     }
 
     pub fn status(&self) -> Status {
@@ -227,7 +243,8 @@ impl Terminal {
     /// The emulator has more to show.
     fn updated(&mut self, cx: &mut Context<Self>) {
         if let Some(title) = self.tty.retitled() {
-            cx.emit(TerminalEvent::Retitled(shown_title(&title)));
+            let title = shown_title(&title, self.command.as_deref());
+            cx.emit(TerminalEvent::Retitled(title));
         }
         self.restatused(cx);
         // What a program in it copies, as `OSC 52` asks.
@@ -852,12 +869,22 @@ fn mods(modifiers: Modifiers) -> Mods {
     mods
 }
 
-/// What the shell titled the terminal, or that it's one.
-fn shown_title(title: &str) -> SharedString {
-    match title.trim() {
-        "" => "Terminal".into(),
-        title => title.to_owned().into(),
+/// What the shell titled the terminal, else the program it was started to run, else that it's
+/// one.
+fn shown_title(title: &str, command: Option<&str>) -> SharedString {
+    match (title.trim(), command) {
+        ("", Some(command)) => command.to_owned().into(),
+        ("", None) => "Terminal".into(),
+        (title, _) => title.to_owned().into(),
     }
+}
+
+/// The program `run` starts, by its file's name: `codex` for `codex --full-auto`, or for
+/// `~/bin/codex`.
+pub(crate) fn command_name(run: &str) -> Option<SharedString> {
+    let program = run.split_whitespace().next()?;
+    let name = program.rsplit('/').next().filter(|name| !name.is_empty())?;
+    Some(name.to_owned().into())
 }
 
 /// A texture of `image`, or none if its pixels don't fill its size.
@@ -1201,6 +1228,40 @@ mod tests {
     use but_tty::Style;
 
     use super::*;
+
+    #[test]
+    fn a_terminal_is_titled_by_its_program_until_the_program_titles_it() {
+        assert_eq!(
+            shown_title("", Some("codex")),
+            "codex",
+            "a program that sets no title is named after the command it was started with"
+        );
+        assert_eq!(
+            shown_title("Codex · fixing tests", Some("codex")),
+            "Codex · fixing tests",
+            "once the program titles it, that title shows"
+        );
+        assert_eq!(
+            shown_title("  ", None),
+            "Terminal",
+            "a shell started with no command and no title is only a terminal"
+        );
+    }
+
+    #[test]
+    fn a_command_is_named_by_its_program_alone() {
+        assert_eq!(
+            command_name("codex --full-auto").as_deref(),
+            Some("codex"),
+            "arguments are left out"
+        );
+        assert_eq!(
+            command_name("/opt/homebrew/bin/claude").as_deref(),
+            Some("claude"),
+            "a path is named by its file"
+        );
+        assert_eq!(command_name("   "), None, "a blank command names nothing");
+    }
 
     #[test]
     fn a_point_over_a_fractional_cell_lands_in_that_cell_on_the_surface() {
