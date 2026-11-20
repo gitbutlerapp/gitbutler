@@ -125,6 +125,11 @@ pub struct Theme {
     pub danger_surface_hover: Hsla,
     pub purple_surface: Hsla,
     pub purple_surface_hover: Hsla,
+    /// Under the pointer, a coloured outline button's ground: its hue's faintest see-through
+    /// tint.
+    pub blue_outline_hover: Hsla,
+    pub safe_outline_hover: Hsla,
+    pub warn_outline_hover: Hsla,
     /// Each hue laid over what must still show through it.
     pub pop_wash: Hsla,
     pub pop_wash_strong: Hsla,
@@ -789,6 +794,9 @@ impl Theme {
             danger_surface_hover: token(on_ground!(DANGER_SURFACE_HOVER)),
             purple_surface: token(on_ground!(DONE_SURFACE)),
             purple_surface_hover: token(on_ground!(DONE_SURFACE_HOVER)),
+            blue_outline_hover: token(on_ground!(INFO_OUTLINE_HOVER)),
+            safe_outline_hover: token(on_ground!(SUCCESS_OUTLINE_HOVER)),
+            warn_outline_hover: token(on_ground!(WARNING_OUTLINE_HOVER)),
             pop_wash: token(on_ground!(PRIMARY_WASH)),
             pop_wash_strong: token(on_ground!(PRIMARY_WASH_STRONG)),
             blue_wash: token(on_ground!(INFO_WASH)),
@@ -951,6 +959,7 @@ impl Theme {
                 .unwrap_or(0x000000)
         };
         let (on_pop, on_warn) = (ink_on(pop), ink_on(ansi(3)));
+        let outline_hover = |hue: u32| color(hue).opacity(if dark { 0.1 } else { 0.06 });
         let washed = |hue: u32, strength: usize| {
             let share = WASHES.get(strength).copied().unwrap_or(0.);
             color(hue).opacity(share)
@@ -1045,6 +1054,10 @@ impl Theme {
             danger_surface_hover: color(soft_hover(ansi(1))),
             purple_surface: color(soft(ansi(5))),
             purple_surface_hover: color(soft_hover(ansi(5))),
+            // As faint as the tokens' a2 steps.
+            blue_outline_hover: outline_hover(ansi(4)),
+            safe_outline_hover: outline_hover(ansi(2)),
+            warn_outline_hover: outline_hover(ansi(3)),
             pop_wash: washed(pop, 0),
             pop_wash_strong: washed(pop, 1),
             blue_wash: washed(ansi(4), 0),
@@ -1198,6 +1211,22 @@ impl Theme {
             Hue::Danger => self.danger_soft_hover,
             Hue::Purple => self.purple_soft_hover,
             Hue::Gray => self.muted_hover,
+        }
+    }
+
+    /// A coloured outline button's edge: its hue's text at 30%.
+    pub fn outline_edge(&self, hue: Hue) -> Hsla {
+        self.hue(hue).opacity(0.3)
+    }
+
+    /// Under the pointer, a coloured outline button's ground: its hue's faintest see-through
+    /// tint, as Radix's outline buttons hover. Only info, success and warning draw one.
+    pub fn outline_hover(&self, hue: Hue) -> Hsla {
+        match hue {
+            Hue::Blue => self.blue_outline_hover,
+            Hue::Safe => self.safe_outline_hover,
+            Hue::Warn => self.warn_outline_hover,
+            _ => self.hover,
         }
     }
 

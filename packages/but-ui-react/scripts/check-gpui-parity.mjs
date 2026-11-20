@@ -54,10 +54,9 @@ const PARITY = [
 			"outline-inverted": ["ButtonStyle::Outline", "fn inverted"],
 			danger: ["ButtonStyle::Danger"],
 			"danger-solid": null,
-			// Its `tint` takes a banner's colour, a different thing from these outlines.
-			info: null,
-			warning: null,
-			success: null,
+			info: ["ButtonStyle::Info"],
+			warning: ["ButtonStyle::Warning"],
+			success: ["ButtonStyle::Success"],
 			ghost: ["ButtonStyle::Ghost"],
 			"ghost-inverted": ["ButtonStyle::Ghost", "fn inverted"],
 		},

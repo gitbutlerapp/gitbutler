@@ -16,6 +16,12 @@ pub enum ButtonStyle {
     /// The one primary action of a surface.
     Pop,
     Danger,
+    /// An outline in blue, for work to send: a branch's Push, with its unpushed count.
+    Info,
+    /// An outline in amber, for work waiting on you: Update for what's behind, Resolve.
+    Warning,
+    /// An outline in green, for what an agent or a check finished: Merge once it's green.
+    Success,
 }
 
 #[derive(IntoElement)]
@@ -23,6 +29,8 @@ pub struct Button {
     id: ElementId,
     label: Option<SharedString>,
     icon: Option<Icon>,
+    /// An icon after the label, as a count's glyph follows its number.
+    icon_end: Option<Icon>,
     picture: Option<AnyElement>,
     style: ButtonStyle,
     /// Held down, as a toggle that's on: React's `data-pressed`.
@@ -60,6 +68,7 @@ pub fn button(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Butto
         id: id.into(),
         label: Some(label.into()),
         icon: None,
+        icon_end: None,
         picture: None,
         style: ButtonStyle::Outline,
         pressed: false,
@@ -101,6 +110,12 @@ pub fn picture_button(id: impl Into<ElementId>, picture: impl IntoElement) -> Bu
 impl Button {
     pub fn icon(mut self, icon: Icon) -> Self {
         self.icon = Some(icon);
+        self
+    }
+
+    /// `icon` after the label, as a count's next step draws its count's glyph after its number.
+    pub fn icon_end(mut self, icon: Icon) -> Self {
+        self.icon_end = Some(icon);
         self
     }
 
@@ -215,6 +230,11 @@ impl RenderOnce for Button {
                 None,
                 theme.danger_soft_hover,
             ),
+            // The colour's text and an edge of it at 30%, and under the pointer its faintest
+            // see-through tint, as React's coloured outlines draw them.
+            ButtonStyle::Info => outlined(theme, Hue::Blue),
+            ButtonStyle::Warning => outlined(theme, Hue::Warn),
+            ButtonStyle::Success => outlined(theme, Hue::Safe),
         };
         let (fg, bg, hover) = match self.tint {
             Some(tint) => (
@@ -277,6 +297,15 @@ impl RenderOnce for Button {
             ),
         };
         let has_label = self.label.is_some();
+        // Colour loses an icon at 0.7, so a coloured outline's glyph keeps a step up.
+        let coloured = matches!(
+            self.style,
+            ButtonStyle::Info | ButtonStyle::Warning | ButtonStyle::Success
+        );
+        let icon_opacity = match (has_label, coloured) {
+            (true, false) => 0.7,
+            _ => 0.8,
+        };
         let shrinks = self.shrinks;
         let name = self.label.clone().or_else(|| self.tooltip.clone());
         h_flex()
@@ -349,13 +378,15 @@ impl RenderOnce for Button {
             })
             .when(self.disabled.is_some() && pictured, |el| el.opacity(0.5))
             .when_some(self.icon, |el, kind| {
-                let opacity = if has_label { 0.7 } else { 0.8 };
-                el.child((icon_at(kind, icon_size).text_color(fg)).opacity(opacity))
+                el.child((icon_at(kind, icon_size).text_color(fg)).opacity(icon_opacity))
             })
             .children(self.picture)
             .when_some(self.label, |el, label| match shrinks {
                 true => el.child(div().min_w_0().truncate().child(label)),
                 false => el.child(label),
+            })
+            .when_some(self.icon_end, |el, kind| {
+                el.child((icon_at(kind, icon_size).text_color(fg)).opacity(icon_opacity))
             })
             .when_some(self.disabled.clone().or(self.tooltip), |el, tooltip| {
                 let enabled = self.disabled.is_none();
@@ -376,6 +407,12 @@ impl RenderOnce for Button {
                 },
             )
     }
+}
+
+/// An outline in `hue`'s text, with an edge of it, tinted under the pointer.
+fn outlined(theme: &Theme, hue: Hue) -> (Hsla, Option<Hsla>, Option<Hsla>, Hsla) {
+    let edge = Some(theme.outline_edge(hue));
+    (theme.hue(hue), None, edge, theme.outline_hover(hue))
 }
 
 const DROPDOWN_GROUP: &str = "dropdown-button";
