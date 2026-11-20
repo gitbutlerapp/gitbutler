@@ -1,7 +1,7 @@
 import { stories } from "../stories/stories.ts";
 import { useState, type FC, type ReactNode } from "react";
 import { Button } from "./Button.tsx";
-import { CiStatus, MetaCount } from "./MetaCount.tsx";
+import { MetaCount, MetaStatus } from "./MetaCount.tsx";
 import {
 	BranchItem,
 	CommitItem,
@@ -91,7 +91,7 @@ const Stacks: FC<{ folded: [boolean, boolean] }> = ({ folded: initiallyFolded })
 						folded
 						meta={
 							<>
-								<CiStatus status="working" />
+								<MetaStatus variant="working">CI</MetaStatus>
 								<MetaCount type="age">12m</MetaCount>
 							</>
 						}
@@ -113,7 +113,7 @@ const Stacks: FC<{ folded: [boolean, boolean] }> = ({ folded: initiallyFolded })
 						folded
 						meta={
 							<>
-								<CiStatus status="working" />
+								<MetaStatus variant="working">CI</MetaStatus>
 								<MetaCount type="age">5h</MetaCount>
 							</>
 						}
@@ -127,7 +127,7 @@ const Stacks: FC<{ folded: [boolean, boolean] }> = ({ folded: initiallyFolded })
 				folded
 				meta={
 					<>
-						<CiStatus status="working" />
+						<MetaStatus variant="working">CI</MetaStatus>
 						<MetaCount type="age">8m</MetaCount>
 					</>
 				}
@@ -152,7 +152,7 @@ const Stacks: FC<{ folded: [boolean, boolean] }> = ({ folded: initiallyFolded })
 						folded
 						meta={
 							<>
-								<CiStatus status="working" />
+								<MetaStatus variant="working">CI</MetaStatus>
 								<MetaCount type="age">35m</MetaCount>
 							</>
 						}
@@ -384,7 +384,7 @@ const ConflictsTree: FC<{ selected?: boolean }> = ({ selected = false }) => {
 				meta={
 					<>
 						<MetaCount type="conflicts">2</MetaCount>
-						<CiStatus status="working" />
+						<MetaStatus variant="working">CI</MetaStatus>
 						<MetaCount type="unpushed">5</MetaCount>
 					</>
 				}
@@ -397,7 +397,7 @@ const ConflictsTree: FC<{ selected?: boolean }> = ({ selected = false }) => {
 				folded={false}
 				meta={
 					<>
-						<CiStatus status="working" />
+						<MetaStatus variant="working">CI</MetaStatus>
 						<MetaCount type="unpushed">5</MetaCount>
 					</>
 				}

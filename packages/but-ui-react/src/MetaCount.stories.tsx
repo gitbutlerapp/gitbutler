@@ -1,7 +1,7 @@
 import { stories } from "../stories/stories.ts";
 import { Button } from "./Button.tsx";
 import { Icon } from "./Icon.tsx";
-import { CiStatus, MetaCount, type MetaCountType } from "./MetaCount.tsx";
+import { MetaCount, type MetaCountType, MetaStatus } from "./MetaCount.tsx";
 import { Tooltip } from "./Tooltip.tsx";
 
 const types: Array<MetaCountType> = [
@@ -62,28 +62,15 @@ const sample: Record<MetaCountType, string> = {
 	"cpu-danger": "84%",
 };
 
-/** Every kind of count, as rows show them, and the three states of a branch's checks. */
+/** Every kind of count, as rows show them. */
 export const Kinds = meta.story({
-	parameters: {
-		design: {
-			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2572-3595",
-		},
-	},
 	render: () => (
-		<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-			<div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-				{types.map((type) => (
-					<MetaCount key={type} type={type}>
-						{sample[type]}
-					</MetaCount>
-				))}
-			</div>
-			<div style={{ display: "flex", gap: 12 }}>
-				<CiStatus status="working" />
-				<CiStatus status="passed" />
-				<CiStatus status="failed" />
-			</div>
+		<div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+			{types.map((type) => (
+				<MetaCount key={type} type={type}>
+					{sample[type]}
+				</MetaCount>
+			))}
 		</div>
 	),
 });
@@ -97,24 +84,13 @@ export const Kinds = meta.story({
 export const WithNextStep = meta.story({
 	render: () => (
 		<div style={{ display: "flex", columnGap: 4, alignItems: "center" }}>
-			<CiStatus status="working" />
+			<MetaStatus variant="working">CI</MetaStatus>
 			<Tooltip content="Push 5 commits">
 				<Button size="small" variant="info" aria-label="Push 5 commits">
 					5
 					<Icon name="arrow-up" />
 				</Button>
 			</Tooltip>
-		</div>
-	),
-});
-
-/** Checks with how far they got, as a pull request's tab shows them: 2 of 14 done, or failed. */
-export const CiProgress = meta.story({
-	render: () => (
-		<div style={{ display: "flex", gap: 12 }}>
-			<CiStatus status="working">CI 2/14</CiStatus>
-			<CiStatus status="failed">CI 2/14</CiStatus>
-			<CiStatus status="passed" />
 		</div>
 	),
 });

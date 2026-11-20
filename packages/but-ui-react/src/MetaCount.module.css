@@ -6,6 +6,8 @@
 	align-items: center;
 	/* A long value (a branch's name) gives way before the counts beside it, down to its glyph. */
 	min-width: 20px;
+	/* A glyph alone, a MetaStatus with no label, stays as tall as the counts beside it. */
+	min-height: 20px;
 	padding: 2px 3px;
 	color: var(--but-muted-foreground);
 	line-height: 16px;
@@ -211,7 +213,8 @@
 .uncommitted,
 .conflicts,
 .agent-waiting,
-.working {
+.working,
+.warning {
 	color: var(--but-warning-text);
 }
 
