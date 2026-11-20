@@ -84,6 +84,14 @@ Unfolding reads nothing: a commit is read when it's opened itself, and once a
 branch has nothing new inside, its dot goes, folded or not. An empty branch
 never has one.
 
+**A terminal's own row takes no dot: its status is what you haven't seen.** A
+✓ or ✕ shows once its program finishes or fails and goes once you open the
+terminal, and an agent's waiting robot goes once you answer it. New output
+alone marks nothing, as a busy terminal prints all the time. Folded away, a
+terminal that finished or failed since you last opened it puts the dot on the
+most folded row holding it, as a new commit does; a waiting agent takes the
+age's place there instead. A working agent or an idle shell adds nothing.
+
 ## Never together
 
 Check a drawing or a story against these:
@@ -93,6 +101,7 @@ Check a drawing or a story against these:
 - ↑ and ⟜ on one row
 - the same author's picture on a folded row and on a row under it
 - a dot on an open branch for commits that show their own
+- a dot on a terminal's row, or on an open row for terminals that show their own
 - Update on an open branch (its heading has it)
 - a step that shows only under the pointer
 - a ⋯ on a row (its menu opens with a right-click)

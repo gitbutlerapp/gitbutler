@@ -21,6 +21,7 @@ export type MetaCountType =
 	| "repos"
 	| "agent-working"
 	| "agent-waiting"
+	| "running"
 	| "stack"
 	| "cpu"
 	| "cpu-danger";
@@ -41,6 +42,7 @@ const glyph: Record<MetaCountType, IconName> = {
 	repos: "repo",
 	"agent-working": "robot",
 	"agent-waiting": "robot",
+	running: "spinner",
 	stack: "stack",
 	cpu: "cpu",
 	"cpu-danger": "cpu-danger",
@@ -54,11 +56,11 @@ type MetaCountProps = { type: MetaCountType } & ComponentProps<"span">;
  * many of a branch's commits are conflicted: a conflict waits on you, it hasn't failed), blue is
  * work to send
  * (`unpushed`); the rest are neutral. An agent at work (`agent-working`) is among them: it needs
- * nothing from you, and its robot moving says it's at work. So is `stack`: where a branch sits in
- * its stack, "1/3 in stack". `rebased` is the unpushed arrow in that
- * neutral grey: commits that were pushed and have been rewritten since, most often by a rebase onto
- * the target, so a push replaces them rather than sending new work. Quietest of all
- * are `empty`, a branch with no commits yet, and `head`, what a worktree with nothing to list is on
+ * nothing from you, and its robot moving says it's at work. So is `running`, any other program at
+ * work in a terminal, as the terminal's own dots spinner, and `stack`: where a branch sits in its
+ * stack, "1/3 in stack". `rebased` is the unpushed arrow in that neutral grey: commits that were
+ * pushed and have been rewritten since, most often by a rebase onto the target, so a push replaces
+ * them rather than sending new work. Quietest of all are `empty`, a branch with no commits yet, and `head`, what a worktree with nothing to list is on
  * (`empty`, `detached`); a row shows either first, ahead of its counts. `cpu` is a process's CPU
  * use while it stays low, in green; `cpu-danger` is the same use once it runs high, in red with a
  * warning on the chip.
@@ -75,18 +77,50 @@ type MetaCountProps = { type: MetaCountType } & ComponentProps<"span">;
  * the count's colour beside the counts, or in its place, as an `info` Push is for ↑ `unpushed` and
  * a `warning` Update for ↓ `behind`.
  *
+ * @figma `value` turns the value off, as children left out do, for a robot or the running dots alone.
+ * `running` draws the dots' first step.
  * @see packages/but-ui/design/components/meta-lines.md
+ * @see packages/but-ui/design/patterns/work-under-way.md
  * @import import { MetaCount } from "@gitbutler/but-ui-react/MetaCount.tsx";
  */
 export const MetaCount: FC<MetaCountProps> = ({ type, children, ...props }) => (
 	<span {...props} className={classes(props.className, "text-13", styles.count, styles[type])}>
 		{type === "agent-working" ? (
 			<WorkingRobot />
+		) : type === "running" ? (
+			<RunningDots />
 		) : (
 			<Icon name={glyph[type]} size={14} className={styles.glyph} />
 		)}
-		<span className={styles.value}>{children}</span>
+		{children !== undefined && <span className={styles.value}>{children}</span>}
 	</span>
+);
+
+/** Where each of the six dots of {@link RunningDots} sits: two columns of three, top down. */
+const runningDots = [0, 1, 2, 3, 4, 5].map((bit) => ({
+	bit,
+	cx: 5.25 + Math.floor(bit / 3) * 3.5,
+	cy: 3.5 + (bit % 3) * 3.5,
+}));
+
+/**
+ * A program at work in a terminal, as the terminal's own spinner draws it: six dots, braille's,
+ * stepping round ten times a second. Drawn here rather than as an icon, as its dots change from
+ * step to step; it holds still under reduced motion.
+ */
+const RunningDots: FC = () => (
+	<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" className={styles.glyph}>
+		{runningDots.map(({ bit, cx, cy }) => (
+			<circle
+				key={bit}
+				className={classes(styles["spin-dot"], styles[`spin-dot-${bit}`])}
+				cx={cx}
+				cy={cy}
+				r="1"
+				fill="currentColor"
+			/>
+		))}
+	</svg>
 );
 
 /**
@@ -175,6 +209,7 @@ const statusWord: Record<MetaStatusVariant, string> = {
  *
  * @figma `label` turns the label off; `label text` is its words.
  *
+ * @see packages/but-ui/design/patterns/work-under-way.md
  * @import import { MetaStatus } from "@gitbutler/but-ui-react/MetaCount.tsx";
  */
 export const MetaStatus: FC<

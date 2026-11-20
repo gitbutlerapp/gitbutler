@@ -766,6 +766,54 @@ export const GroupLabel: FC<
 	});
 
 /**
+ * A terminal open on a worktree, by its `name`: the one the user gave it, else what its program
+ * titled it, else the program it was started to run. Where it is open follows the name, quieter
+ * and giving way first (`place`: the worktree, or the repository and the worktree), unless the
+ * rows around it already say.
+ *
+ * What its program is at goes in `meta`. An agent's is a {@link MetaCount}'s robot alone, with no
+ * value: `agent-working`, which moves, or `agent-waiting` while it waits for you.
+ * Any other program that reports shows the terminal's own dots spinner while it shows progress, a
+ * MetaCount `running` with no value, then a {@link MetaStatus} glyph alone: `passed` once it
+ * finished, `failed` once it stopped on an error. An idle terminal shows
+ * none, and nor does one running a program that reports nothing, so the ones that want something
+ * stand out down the list.
+ *
+ * It takes no `unread` dot: its status is what you haven't seen, and the host drops `passed` and
+ * `failed` once the terminal is opened. While a folded row hides it, an unseen `passed` or `failed`
+ * puts the dot on that row instead, and a waiting agent takes its age's place.
+ *
+ * @figma `place` turns the place off and `place text` is its words, after their slash. `meta` turns
+ * the status off for an idle terminal; its instance is a MetaCount robot with `value` off, swapped
+ * for `running` for another program's progress, or a MetaStatus glyph once it ends.
+ * @see packages/but-ui/design/components/sidebar-rows.md
+ * @see packages/but-ui/design/patterns/work-under-way.md
+ * @import import { TerminalItem } from "@gitbutler/but-ui-react/SidebarRow.tsx";
+ */
+export const TerminalItem: FC<{ name: string; place?: string } & RowProps> = ({
+	name,
+	place,
+	tooltip,
+	...props
+}) => (
+	<Row
+		{...props}
+		name={name}
+		icon={<Icon name="terminal" />}
+		label={
+			<>
+				<Name tooltip={tooltip} className={classes("text-14", "text-semibold", styles.name)}>
+					{name}
+				</Name>
+				{place !== undefined && (
+					<span className={classes("text-13", styles.name, styles.place)}>/ {place}</span>
+				)}
+			</>
+		}
+	/>
+);
+
+/**
  * A page in a navigation panel, such as the docs site's: its name, and the glyph that names the
  * page when there is one (`icon`, an icon's name, or an element of its own such as a colour's
  * swatch or an {@link Avatar}, drawn at 14px). Its `meta` sits at the row's end, as on every
