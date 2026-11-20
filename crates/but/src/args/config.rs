@@ -452,7 +452,17 @@ pub enum ForgeSubcommand {
     ///  - Atlassian API token with scopes (read:user:bitbucket,
     ///    read:repository:bitbucket, read:pullrequest:bitbucket,
     ///    write:pullrequest:bitbucket)
-    Auth,
+    ///
+    /// Without a terminal, pass `--with-token` to store a GitHub token read from stdin:
+    ///
+    /// ```text
+    /// echo "$GH_TOKEN" | but config forge auth --with-token
+    /// ```
+    Auth {
+        /// Read a GitHub token from stdin and store it as a Personal Access Token, without prompts.
+        #[clap(long)]
+        with_token: bool,
+    },
 
     /// List authenticated forge accounts known to GitButler.
     ///
