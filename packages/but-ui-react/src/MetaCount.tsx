@@ -53,8 +53,9 @@ type MetaCountProps = { type: MetaCountType } & ComponentProps<"span">;
  * Amber is work waiting on you (`behind`, `uncommitted`, `agent-waiting`, and `conflicts`, how
  * many of a branch's commits are conflicted: a conflict waits on you, it hasn't failed), blue is
  * work to send
- * (`unpushed`), green is an agent at work (`agent-working`); the rest are neutral, `stack` among
- * them: where a branch sits in its stack, "1/3 in stack". `rebased` is the unpushed arrow in that
+ * (`unpushed`); the rest are neutral. An agent at work (`agent-working`) is among them: it needs
+ * nothing from you, and its robot moving says it's at work. So is `stack`: where a branch sits in
+ * its stack, "1/3 in stack". `rebased` is the unpushed arrow in that
  * neutral grey: commits that were pushed and have been rewritten since, most often by a rebase onto
  * the target, so a push replaces them rather than sending new work. Quietest of all
  * are `empty`, a branch with no commits yet, and `head`, what a worktree with nothing to list is on
