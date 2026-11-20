@@ -7,14 +7,19 @@ import {
 import { pageList } from "./page-list.ts";
 
 /**
- * A page: a design note, or a component's stories with the notes its JSDoc names (`notes`), and
- * whether the GPUI client draws that component too (`gpui`, from `crates/but-ui-gpui`).
+ * A page: a design note, the Adoption page, or a component's stories with the notes its JSDoc
+ * names (`notes`), the component and the library file it comes from (`module`), how many stories it has, its frame in
+ * Figma, and whether the GPUI client draws that component too (`gpui`, from `crates/but-ui-gpui`).
  */
 export type Page = {
 	id: string;
 	title: string;
 	file: string;
 	notes?: Array<string>;
+	component?: string;
+	module?: string;
+	stories?: number;
+	figma?: string;
 	gpui?: boolean;
 };
 export const pages: Array<Page> = pageList;
@@ -23,6 +28,8 @@ export const isDesignPage = (page: Page) => page.id.startsWith("design-");
 
 /** The Colours page draws the stylesheet itself, not a note. */
 const isColoursPage = (page: Page) => page.file.endsWith("/tokens.css");
+
+export const isAdoptionPage = (page: Page) => page.id === "components-adoption";
 
 /** The pages under their headings: a design page's folder, a component's group. */
 export function groupPages(list: Array<Page>): Array<[heading: string, pages: Array<Page>]> {
@@ -92,6 +99,24 @@ export type ComponentPageData = {
 };
 export type DesignPageData = { kind: "design"; source: string };
 export type ColoursPageData = { kind: "colours"; source: string };
+export type AdoptionPageData = { kind: "adoption"; snapshot: Adoption };
+
+/** What but.dev uses of the library, as `scripts/adoption.mjs` read it off a but-dev commit. */
+export type Adoption = {
+	commit: string;
+	date: string;
+	/** The commit of this repository but.dev pins the library at. */
+	pin: string | null;
+	/** How many of the library's commits on master that pin doesn't have. */
+	behind: number | null;
+	/** How many of but.dev's files import from the library. */
+	files: number;
+	/** By the library's file: how many but.dev files import from it, and each name they import. */
+	modules: Record<
+		string,
+		{ files: number; names: Record<string, { files: number; uses: number }> }
+	>;
+};
 
 /** A JSDoc block's text, less its stars and its tags (`@import …`). */
 function jsdoc(comment: string | undefined): string | undefined {
@@ -168,7 +193,12 @@ async function loadColoursPage(page: Page): Promise<ColoursPageData> {
 	return { kind: "colours", source };
 }
 
-type PageData = ComponentPageData | DesignPageData | ColoursPageData;
+async function loadAdoptionPage(): Promise<AdoptionPageData> {
+	const snapshot = (await import("./adoption.json")).default as Adoption;
+	return { kind: "adoption", snapshot };
+}
+
+type PageData = ComponentPageData | DesignPageData | ColoursPageData | AdoptionPageData;
 
 const loads = new Map<string, Promise<PageData>>();
 
@@ -179,11 +209,13 @@ const loads = new Map<string, Promise<PageData>>();
 export function loadPage(page: Page): Promise<PageData> {
 	let load = loads.get(page.id);
 	if (load === undefined) {
-		const started: Promise<PageData> = isColoursPage(page)
-			? loadColoursPage(page)
-			: isDesignPage(page)
-				? loadDesignPage(page)
-				: loadComponentPage(page);
+		const started: Promise<PageData> = isAdoptionPage(page)
+			? loadAdoptionPage()
+			: isColoursPage(page)
+				? loadColoursPage(page)
+				: isDesignPage(page)
+					? loadDesignPage(page)
+					: loadComponentPage(page);
 		void started.then(
 			(value) => {
 				const settled: Promise<PageData> & { status?: "fulfilled"; value?: PageData } = started;

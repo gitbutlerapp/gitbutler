@@ -12,6 +12,10 @@ shots of them beside. It shows the libraries; it doesn't hold them.
   `packages/but-ui-react/design`. `vite.config.ts` lists the pages from those
   files, so a new note or stories file shows without touching the site.
 - `src/gpui` holds the GPUI shots, which `scripts/gpui-shots.mjs` takes.
+- `src/adoption.json` is what but.dev uses of the library, for the Adoption
+  page the Components card opens. `scripts/adoption.mjs` reads it off a
+  but-dev checkout's `origin/main`; rerun it there rather than editing it:
+  `pnpm -F @gitbutler/but-ui-pantry adoption <but-dev checkout>`.
 
 Run it on port 6007:
 

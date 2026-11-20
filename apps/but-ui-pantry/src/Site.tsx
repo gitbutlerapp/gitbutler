@@ -5,6 +5,7 @@ import { ResizeHandle } from "@gitbutler/but-ui-react/ResizeHandle.tsx";
 import { ScrollArea } from "@gitbutler/but-ui-react/ScrollArea.tsx";
 import { GroupLabel, NavItem } from "@gitbutler/but-ui-react/SidebarRow.tsx";
 import { treeGuides } from "@gitbutler/but-ui-react/treeGuides.ts";
+import { AdoptionPage } from "./AdoptionPage.tsx";
 import { ColoursPage } from "./ColoursPage.tsx";
 import { ComponentPage } from "./ComponentPage.tsx";
 import { DesignPage } from "./DesignPage.tsx";
@@ -77,7 +78,9 @@ export const Site: FC = () => {
 
 const PageView: FC<{ page: Page }> = ({ page }) => {
 	const data = use(loadPage(page));
-	return data.kind === "colours" ? (
+	return data.kind === "adoption" ? (
+		<AdoptionPage snapshot={data.snapshot} />
+	) : data.kind === "colours" ? (
 		<ColoursPage source={data.source} />
 	) : data.kind === "design" ? (
 		<DesignPage source={data.source} folder={page.file.split("/").at(-2) ?? ""} />
@@ -87,7 +90,7 @@ const PageView: FC<{ page: Page }> = ({ page }) => {
 };
 
 /** The sidebar's cards: the design notes under Docs, which opens the overview, and the components'
- * stories under Components. */
+ * stories under Components, which opens what but.dev uses of them. */
 const sections: Array<{
 	name: string;
 	icon: IconName;
@@ -95,7 +98,12 @@ const sections: Array<{
 	holds: (page: Page) => boolean;
 }> = [
 	{ name: "Docs", icon: "docs", page: findPage("design-overview"), holds: isDesignPage },
-	{ name: "Components", icon: "components", holds: (page) => !isDesignPage(page) },
+	{
+		name: "Components",
+		icon: "components",
+		page: findPage("components-adoption"),
+		holds: (page) => !isDesignPage(page),
+	},
 ];
 
 /** Each group's glyph, by its heading: the design notes' folders and the components' shelves. */
