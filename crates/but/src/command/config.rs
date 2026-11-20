@@ -93,6 +93,10 @@ pub async fn exec(
         Some(Subcommands::Forge {
             cmd: Some(ForgeSubcommand::GithubStacks { status }),
         }) => out.print_cli_output(github_stacks_config(ctx, status)?),
+        #[cfg(feature = "nightly")]
+        Some(Subcommands::Forge {
+            cmd: Some(ForgeSubcommand::_Move { destination }),
+        }) => crate::command::legacy::forge::move_repo::move_repo(ctx, out, destination).await,
         Some(Subcommands::Forge { cmd }) => forge_config(out, cmd).await,
         Some(Subcommands::Metrics { status }) => {
             out.print_cli_output(metrics_config(status).await?)
@@ -684,6 +688,10 @@ pub(crate) async fn forge_config(
                 anyhow::anyhow!("GitHub stacks configuration requires a repository").into(),
             );
         }
+        #[cfg(feature = "nightly")]
+        Some(ForgeSubcommand::_Move { .. }) => {
+            return Err(anyhow::anyhow!("Moving a repository requires a repository").into());
+        }
         None => forge_show_overview(out).await?,
     }
     Ok(())
@@ -780,10 +788,12 @@ async fn forge_show_overview(out: &mut OutputChannel) -> CliResult<()> {
     let known_gh_accounts = but_api::github::list_known_github_accounts()?;
     let known_gl_accounts = but_api::gitlab::list_known_gitlab_accounts()?;
     let known_bb_accounts = but_api::bitbucket::list_known_bitbucket_accounts()?;
+    let known_code_accounts = but_api::gitbutler_code::list_known_accounts()?;
 
     let no_accounts = known_gh_accounts.is_empty()
         && known_gl_accounts.is_empty()
-        && known_bb_accounts.is_empty();
+        && known_bb_accounts.is_empty()
+        && known_code_accounts.is_empty();
 
     // Checking credentials talks to each forge, and only the human output shows the result,
     // one forge at a time as its checks finish.
@@ -800,11 +810,20 @@ async fn forge_show_overview(out: &mut OutputChannel) -> CliResult<()> {
             let section = check_bitbucket_accounts(&known_bb_accounts).await;
             some_accounts_invalid |= write_forge_accounts_section(writer, t, &section)?;
         }
+        if !known_code_accounts.is_empty() {
+            let section = check_gitbutler_code_accounts(&known_code_accounts).await;
+            some_accounts_invalid |= write_forge_accounts_section(writer, t, &section)?;
+        }
     }
 
     out.print_cli_output(ForgeAccountsOutcome {
         no_accounts,
-        accounts: extract_account_details(known_gh_accounts, known_gl_accounts, known_bb_accounts),
+        accounts: extract_account_details(
+            known_gh_accounts,
+            known_gl_accounts,
+            known_bb_accounts,
+            known_code_accounts,
+        ),
         some_accounts_invalid,
     })
 }
@@ -926,6 +945,7 @@ fn extract_account_details(
     known_gh_accounts: Vec<but_github::GithubAccountIdentifier>,
     known_gl_accounts: Vec<but_gitlab::GitlabAccountIdentifier>,
     known_bb_accounts: Vec<but_bitbucket::BitbucketAccountIdentifier>,
+    known_code_accounts: Vec<but_gitbutler_code::GitbutlerCodeAccountIdentifier>,
 ) -> Vec<ForgeAccount> {
     let mut accounts: Vec<ForgeAccount> = Vec::new();
 
@@ -978,6 +998,14 @@ fn extract_account_details(
             account_type,
         });
     }
+
+    for account in &known_code_accounts {
+        accounts.push(ForgeAccount {
+            provider: "GitButler Code".to_string(),
+            username: account.username().to_owned(),
+            account_type: "Device login".to_string(),
+        });
+    }
     accounts
 }
 
@@ -987,6 +1015,8 @@ async fn forge_auth(out: &mut OutputChannel) -> CliResult<()> {
         GitHub,
         GitLab,
         Bitbucket,
+        #[cfg(feature = "nightly")]
+        GitbutlerCode,
     }
 
     impl From<ForgeProvider> for String {
@@ -995,15 +1025,23 @@ async fn forge_auth(out: &mut OutputChannel) -> CliResult<()> {
                 ForgeProvider::GitHub => "GitHub".to_string(),
                 ForgeProvider::GitLab => "GitLab".to_string(),
                 ForgeProvider::Bitbucket => "Bitbucket".to_string(),
+                #[cfg(feature = "nightly")]
+                ForgeProvider::GitbutlerCode => "GitButler Code".to_string(),
             }
         }
     }
 
-    let auth_options = nonempty::nonempty![
+    #[cfg_attr(
+        not(feature = "nightly"),
+        expect(unused_mut, reason = "only nightly adds options")
+    )]
+    let mut auth_options = nonempty::nonempty![
         ("GitHub", ForgeProvider::GitHub),
         ("GitLab", ForgeProvider::GitLab),
         ("Bitbucket", ForgeProvider::Bitbucket)
     ];
+    #[cfg(feature = "nightly")]
+    auth_options.push(("GitButler Code", ForgeProvider::GitbutlerCode));
     let selected_option = {
         let mut input = out.prepare_for_terminal_input().ok_or_else(|| {
             bad_input("Human input required - run this in a terminal").hint(
@@ -1025,8 +1063,50 @@ async fn forge_auth(out: &mut OutputChannel) -> CliResult<()> {
         ForgeProvider::GitHub => github_auth(out).await?,
         ForgeProvider::GitLab => gitlab_auth(out).await?,
         ForgeProvider::Bitbucket => bitbucket_auth(out).await?,
+        #[cfg(feature = "nightly")]
+        ForgeProvider::GitbutlerCode => {
+            let mut inout = out
+                .prepare_for_terminal_input()
+                .context("Human input required - run this in a terminal")?;
+            gitbutler_code_login(&mut inout).await?;
+        }
     }
     Ok(())
+}
+
+/// Sign in to GitButler Code with its device login: show the page that approves the code, then
+/// wait until the user has. Returns the username, with the account stored and its token in
+/// Git's credential store.
+#[cfg(feature = "nightly")]
+pub(crate) async fn gitbutler_code_login(inout: &mut InputOutputChannel<'_>) -> Result<String> {
+    use but_gitbutler_code::LoginStatus;
+
+    let login = but_api::gitbutler_code::start_login().await?;
+    writeln!(
+        inout,
+        "To sign in to GitButler Code, open this page and approve the code {}:\n\n    {}\n\nWaiting for you to approve it… (press Ctrl-C to cancel)",
+        login.user_code, login.verification_url
+    )?;
+    let interval = std::time::Duration::from_secs(login.interval.max(1));
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(login.expires_in);
+    loop {
+        tokio::time::sleep(interval).await;
+        match but_api::gitbutler_code::check_login(login.device_code.clone()).await? {
+            LoginStatus::Pending if std::time::Instant::now() < deadline => continue,
+            LoginStatus::Pending | LoginStatus::Expired => {
+                anyhow::bail!("The sign-in code expired. Run `but config forge auth` to try again.")
+            }
+            LoginStatus::Denied => anyhow::bail!("The sign-in was declined."),
+            LoginStatus::Authorized(user) => {
+                writeln!(
+                    inout,
+                    "Signed in to GitButler Code as {}. Pushes to it no longer ask for a password.",
+                    user.username
+                )?;
+                return Ok(user.username);
+            }
+        }
+    }
 }
 
 /// Authenticate with Bitbucket Cloud using an Atlassian API token.
@@ -1307,11 +1387,33 @@ async fn check_bitbucket_accounts(
     }
 }
 
+async fn check_gitbutler_code_accounts(
+    known_accounts: &[but_gitbutler_code::GitbutlerCodeAccountIdentifier],
+) -> ForgeAccountsSection {
+    let mut accounts = Vec::new();
+    for account in known_accounts {
+        let status = match but_api::gitbutler_code::check_credentials(account.clone()).await {
+            Ok(but_gitbutler_code::CredentialCheckResult::Valid) => CredentialStatus::Valid,
+            Ok(but_gitbutler_code::CredentialCheckResult::Invalid) => CredentialStatus::Invalid,
+            Ok(but_gitbutler_code::CredentialCheckResult::NoCredentials) => {
+                CredentialStatus::NoCredentials
+            }
+            Err(err) => CredentialStatus::Unknown(format!("{err:#}")),
+        };
+        accounts.push((account.to_string(), status));
+    }
+    ForgeAccountsSection {
+        forge: "GitButler Code",
+        accounts,
+    }
+}
+
 #[derive(Debug, Clone)]
 enum AccountToForget {
     GitHub(but_github::GithubAccountIdentifier),
     GitLab(but_gitlab::GitlabAccountIdentifier),
     Bitbucket(but_bitbucket::BitbucketAccountIdentifier),
+    GitbutlerCode(but_gitbutler_code::GitbutlerCodeAccountIdentifier),
 }
 
 impl Display for AccountToForget {
@@ -1320,6 +1422,9 @@ impl Display for AccountToForget {
             AccountToForget::GitHub(account) => write!(f, "GitHub account '{account}'"),
             AccountToForget::GitLab(account) => write!(f, "GitLab account '{account}'"),
             AccountToForget::Bitbucket(account) => write!(f, "Bitbucket account '{account}'"),
+            AccountToForget::GitbutlerCode(account) => {
+                write!(f, "GitButler Code account '{account}'")
+            }
         }
     }
 }
@@ -1334,6 +1439,9 @@ fn forget_account(account: &AccountToForget) -> Result<()> {
         }
         AccountToForget::Bitbucket(bb_account) => {
             but_api::bitbucket::forget_bitbucket_account(bb_account.clone())
+        }
+        AccountToForget::GitbutlerCode(account) => {
+            but_api::gitbutler_code::forget_account(account.clone())
         }
     }
 }
@@ -1361,6 +1469,12 @@ async fn forge_forget(username: Option<String>, out: &mut OutputChannel) -> Resu
     for account in known_bb_accounts {
         if username.as_ref().is_none_or(|u| account.email() == u) {
             accounts_to_delete.push(AccountToForget::Bitbucket(account.clone()));
+        }
+    }
+
+    for account in but_api::gitbutler_code::list_known_accounts()? {
+        if username.as_ref().is_none_or(|u| account.username() == u) {
+            accounts_to_delete.push(AccountToForget::GitbutlerCode(account));
         }
     }
 
@@ -1920,81 +2034,87 @@ async fn target_config(
                 )?;
             }
 
-            if let Some(push_remote) = push_remote.as_deref() {
-                ctx.repo
-                    .get()?
-                    .find_remote(push_remote)
-                    .with_context(|| format!("Failed to find push remote '{push_remote}'"))?;
-            }
-
-            let mut guard = ctx.exclusive_worktree_access();
-            let (target_ref, created) = {
-                let repo = ctx.repo.get()?;
-                let ref_name: gix::refs::FullName = if new_branch.starts_with("refs/") {
-                    new_branch
-                        .as_str()
-                        .try_into()
-                        .context("Invalid target branch name")?
-                } else {
-                    let local_ref: gix::refs::FullName = format!("refs/heads/{new_branch}")
-                        .try_into()
-                        .context("Invalid target branch name")?;
-                    if repo.try_find_reference(local_ref.as_ref())?.is_some() {
-                        local_ref
-                    } else {
-                        format!("refs/remotes/{new_branch}")
-                            .try_into()
-                            .context("Invalid target branch name")?
-                    }
-                };
-                if ref_name.category() == Some(gix::refs::Category::RemoteBranch) {
-                    repo.try_find_reference(ref_name.as_ref())?
-                        .with_context(|| format!("Target branch '{new_branch}' not found"))?;
-                }
-                match but_core::ref_metadata::resolve_local_target(ref_name.as_ref(), &repo) {
-                    Ok(target_ref) => (target_ref, false),
-                    // The remote name is shorthand for the local branch tracking it, not a stored
-                    // legacy target, so the error describes the input rather than a migration.
-                    Err(err) => {
-                        if let Some(unresolved) =
-                            err.downcast_ref::<UnresolvedLegacyTargetRefError>()
-                            && unresolved.reason == UnresolvedLegacyTargetReason::NoTrackingBranch
-                        {
-                            // The branch is left out of the undo timeline, as setting the target is:
-                            // a snapshot needs a target to read, and there is often none yet.
-                            match create_branch_to_track(&repo, ref_name.as_ref())? {
-                                Some(target_ref) => (target_ref, true),
-                                None => {
-                                    let target_ref = ref_name.shorten();
-                                    return Err(bad_input(format!(
-                                        "No local branch tracks {target_ref}"
-                                    ))
-                                    .hint(track_remote_target_hint(unresolved))
-                                    .into());
-                                }
-                            }
-                        } else {
-                            return Err(err.into());
-                        }
-                    }
-                }
-            };
-            if created {
-                // Setting the target makes a branch without an upstream track the default remote,
-                // so it must see the upstream the new branch got, which the cached repository
-                // reads only once reloaded.
-                ctx.reload_repo_and_invalidate_workspace(guard.write_permission())?;
-            }
-            // Setting the target takes the lock itself.
-            drop(guard);
-            but_api::workspace::set_target_ref_and_init_project(
-                ctx,
-                target_ref.as_local_full_name_ref(),
-                push_remote,
-            )?;
+            set_target(ctx, &new_branch, push_remote)?;
         }
     }
 
+    Ok(())
+}
+
+/// Make `branch` the target, as `but config target <branch>` does: a local branch, or a
+/// remote-tracking one, whose local tracking branch is created when no branch has its name.
+/// `push_remote` names the remote branches are pushed to when it's set.
+pub(crate) fn set_target(
+    ctx: &mut Context,
+    branch: &str,
+    push_remote: Option<String>,
+) -> CliResult<()> {
+    if let Some(push_remote) = push_remote.as_deref() {
+        ctx.repo
+            .get()?
+            .find_remote(push_remote)
+            .with_context(|| format!("Failed to find push remote '{push_remote}'"))?;
+    }
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let (target_ref, created) = {
+        let repo = ctx.repo.get()?;
+        let ref_name: gix::refs::FullName = if branch.starts_with("refs/") {
+            branch.try_into().context("Invalid target branch name")?
+        } else {
+            let local_ref: gix::refs::FullName = format!("refs/heads/{branch}")
+                .try_into()
+                .context("Invalid target branch name")?;
+            if repo.try_find_reference(local_ref.as_ref())?.is_some() {
+                local_ref
+            } else {
+                format!("refs/remotes/{branch}")
+                    .try_into()
+                    .context("Invalid target branch name")?
+            }
+        };
+        if ref_name.category() == Some(gix::refs::Category::RemoteBranch) {
+            repo.try_find_reference(ref_name.as_ref())?
+                .with_context(|| format!("Target branch '{branch}' not found"))?;
+        }
+        match but_core::ref_metadata::resolve_local_target(ref_name.as_ref(), &repo) {
+            Ok(target_ref) => (target_ref, false),
+            // The remote name is shorthand for the local branch tracking it, not a stored
+            // legacy target, so the error describes the input rather than a migration.
+            Err(err) => {
+                if let Some(unresolved) = err.downcast_ref::<UnresolvedLegacyTargetRefError>()
+                    && unresolved.reason == UnresolvedLegacyTargetReason::NoTrackingBranch
+                {
+                    // The branch is left out of the undo timeline, as setting the target is:
+                    // a snapshot needs a target to read, and there is often none yet.
+                    match create_branch_to_track(&repo, ref_name.as_ref())? {
+                        Some(target_ref) => (target_ref, true),
+                        None => {
+                            let target_ref = ref_name.shorten();
+                            return Err(bad_input(format!("No local branch tracks {target_ref}"))
+                                .hint(track_remote_target_hint(unresolved))
+                                .into());
+                        }
+                    }
+                } else {
+                    return Err(err.into());
+                }
+            }
+        }
+    };
+    if created {
+        // Setting the target makes a branch without an upstream track the default remote,
+        // so it must see the upstream the new branch got, which the cached repository
+        // reads only once reloaded.
+        ctx.reload_repo_and_invalidate_workspace(guard.write_permission())?;
+    }
+    // Setting the target takes the lock itself.
+    drop(guard);
+    but_api::workspace::set_target_ref_and_init_project(
+        ctx,
+        target_ref.as_local_full_name_ref(),
+        push_remote,
+    )?;
     Ok(())
 }
 

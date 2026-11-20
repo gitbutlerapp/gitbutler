@@ -81,8 +81,8 @@ impl Adding {
                 "Make an API token with scopes at id.atlassian.com/manage-profile/security/api-tokens, \
                  and give the account's email."
             }
-            // Nothing offers to add an Azure token.
-            (Forge::Azure, _) => "",
+            // Nothing offers to add an Azure or GitButler Code token.
+            (Forge::Azure | Forge::GitButler, _) => "",
         }
     }
 }

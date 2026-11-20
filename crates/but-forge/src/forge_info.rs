@@ -119,6 +119,8 @@ pub fn compare_branch_url(
             urlencoding::encode(base),
             urlencoding::encode(&head)
         ),
+        // GitButler Code has no compare page; its project page is the closest.
+        ForgeName::GitButler => base_url,
     })
 }
 
@@ -153,6 +155,7 @@ fn build_base_url(remote_url: &str, repo_info: &ForgeRepoInfo, accounts: &[Forge
             ForgeName::GitLab => "gitlab.com".into(),
             ForgeName::Bitbucket => "bitbucket.org".into(),
             ForgeName::Azure => "dev.azure.com".into(),
+            ForgeName::GitButler => "code.gitbutler.com".into(),
         });
     let host = match parsed.as_ref().and_then(|url| url.port) {
         Some(port) if !rewrote_scheme => format!("{host}:{port}"),
@@ -216,12 +219,14 @@ fn url_paths(forge: &ForgeName) -> (&'static str, &'static str) {
         ForgeName::GitLab => ("/-/commit/", "/-/merge_requests/"),
         ForgeName::Bitbucket => ("/commits/", "/pull-requests/"),
         ForgeName::Azure => ("/commit/", "/pullrequest/"),
+        // GitButler Code serves pull requests at `/pulls/<n>` and has no commit page yet.
+        ForgeName::GitButler => ("/commit/", "/pulls/"),
     }
 }
 
 fn label_for(forge: &ForgeName) -> (ForgeUnitInfo, &'static str) {
     match forge {
-        ForgeName::GitHub | ForgeName::Bitbucket | ForgeName::Azure => (
+        ForgeName::GitHub | ForgeName::Bitbucket | ForgeName::Azure | ForgeName::GitButler => (
             ForgeUnitInfo {
                 name: "Pull request".into(),
                 abbr: "PR".into(),
@@ -266,7 +271,7 @@ fn capabilities_for(forge: &ForgeName) -> ForgeCapabilities {
             review_comments: false,
             review_management: false,
         },
-        ForgeName::Azure => ForgeCapabilities {
+        ForgeName::Azure | ForgeName::GitButler => ForgeCapabilities {
             checks: false,
             repo_info: false,
             pr_service: false,

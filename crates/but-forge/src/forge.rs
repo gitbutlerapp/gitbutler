@@ -9,15 +9,28 @@ pub enum ForgeName {
     GitLab,
     Bitbucket,
     Azure,
+    /// GitButler Code, `code.gitbutler.com`. `but` recognises it and signs in to it, but it has
+    /// no review or CI API yet.
+    GitButler,
 }
 
 impl ForgeName {
+    /// Whether `but` talks to this forge's API for reviews, checks and repository details.
+    /// Forges without one take the unsupported path everywhere instead of reaching for accounts.
+    pub fn has_api(&self) -> bool {
+        match self {
+            Self::GitHub | Self::GitLab | Self::Bitbucket => true,
+            Self::Azure | Self::GitButler => false,
+        }
+    }
+
     pub(crate) fn public_host(&self) -> Option<&'static str> {
         match self {
             Self::GitHub => Some("github.com"),
             Self::GitLab => Some("gitlab.com"),
             Self::Bitbucket => Some("bitbucket.org"),
             Self::Azure => Some("dev.azure.com"),
+            Self::GitButler => Some("code.gitbutler.com"),
         }
     }
 
@@ -36,6 +49,7 @@ impl ForgeName {
             "gitlab" => Some(ForgeName::GitLab),
             "bitbucket" => Some(ForgeName::Bitbucket),
             "azure" => Some(ForgeName::Azure),
+            "gitbutler" => Some(ForgeName::GitButler),
             _ => None,
         }
     }
@@ -123,6 +137,7 @@ pub enum ForgeUser {
     GitHub(but_github::GithubAccountIdentifier),
     GitLab(but_gitlab::GitlabAccountIdentifier),
     Bitbucket(but_bitbucket::BitbucketAccountIdentifier),
+    GitButler(but_gitbutler_code::GitbutlerCodeAccountIdentifier),
 }
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(ForgeUser);
@@ -151,6 +166,7 @@ impl ForgeUser {
             ForgeUser::GitHub(_) => ForgeName::GitHub,
             ForgeUser::GitLab(_) => ForgeName::GitLab,
             ForgeUser::Bitbucket(_) => ForgeName::Bitbucket,
+            ForgeUser::GitButler(_) => ForgeName::GitButler,
         }
     }
     /// The enterprise/self-hosted instance host, when the account has one.
@@ -159,6 +175,7 @@ impl ForgeUser {
             ForgeUser::GitHub(id) => id.custom_host(),
             ForgeUser::GitLab(id) => id.custom_host(),
             ForgeUser::Bitbucket(id) => id.custom_host(),
+            ForgeUser::GitButler(id) => id.custom_host(),
         }
     }
 }

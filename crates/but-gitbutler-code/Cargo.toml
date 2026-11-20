@@ -1,0 +1,36 @@
+[package]
+name = "but-gitbutler-code"
+version = "0.0.0"
+edition.workspace = true
+repository.workspace = true
+license-file = "../../LICENSE.md"
+description = "The GitButler Code integration: signing in, and the project calls of code.gitbutler.com"
+authors.workspace = true
+readme = "../../README.md"
+publish = false
+rust-version.workspace = true
+
+[features]
+export-schema = ["dep:schemars", "dep:but-schemars"]
+
+[lib]
+doctest = false
+
+[dependencies]
+but-secret.workspace = true
+but-forge-storage.workspace = true
+serde.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+reqwest = { workspace = true, features = ["json"] }
+serde_json.workspace = true
+url.workspace = true
+gix = { workspace = true }
+schemars = { workspace = true, optional = true }
+but-schemars = { workspace = true, optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt"] }
+
+[lints]
+workspace = true

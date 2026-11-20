@@ -804,7 +804,7 @@ pub fn merge_method(store: &Store, project: &ProjectId) -> Option<MergeMethod> {
 pub fn has_drafts(store: &Store, project: &ProjectId) -> bool {
     match store.workspace(project).and_then(|ws| ws.forge) {
         Some(Forge::GitHub | Forge::GitLab | Forge::Bitbucket) => true,
-        Some(Forge::Azure) | None => false,
+        Some(Forge::Azure | Forge::GitButler) | None => false,
     }
 }
 

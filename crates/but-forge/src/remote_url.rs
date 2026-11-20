@@ -42,7 +42,7 @@ impl RemoteUrl {
 
     pub(crate) fn repository_parts(&self, forge: &ForgeName) -> Option<(String, String)> {
         match forge {
-            ForgeName::GitHub | ForgeName::Bitbucket => {
+            ForgeName::GitHub | ForgeName::Bitbucket | ForgeName::GitButler => {
                 let (owner, repo) = self.path.split_once('/')?;
                 (!owner.is_empty() && !repo.is_empty() && !repo.contains('/'))
                     .then(|| (owner.to_string(), repo.to_string()))

@@ -92,6 +92,17 @@ pub fn get_review_template_functions(forge_name: &ForgeName) -> ReviewTemplateFu
             is_valid_review_template_path: is_valid_review_template_path_bitbucket,
             supported_template_directories: &[SupportedTemplateDirectory::ForgeRoot],
         },
+        // A repository moved from GitHub keeps its `.github` templates.
+        ForgeName::GitButler => ReviewTemplateFunctions {
+            is_review_template: is_review_template_github,
+            get_root: get_github_directory_path,
+            is_valid_review_template_path: is_valid_review_template_path_github,
+            supported_template_directories: &[
+                SupportedTemplateDirectory::ForgeRoot,
+                SupportedTemplateDirectory::ProjectRoot,
+                SupportedTemplateDirectory::Custom("docs"),
+            ],
+        },
         ForgeName::Azure => ReviewTemplateFunctions {
             is_review_template: is_review_template_azure,
             get_root: get_azure_directory_path,
@@ -760,6 +771,18 @@ impl From<but_github::CredentialCheckResult> for ForgeAccountValidity {
     }
 }
 
+impl From<but_gitbutler_code::CredentialCheckResult> for ForgeAccountValidity {
+    fn from(value: but_gitbutler_code::CredentialCheckResult) -> Self {
+        match value {
+            but_gitbutler_code::CredentialCheckResult::Invalid => ForgeAccountValidity::Invalid,
+            but_gitbutler_code::CredentialCheckResult::NoCredentials => {
+                ForgeAccountValidity::NoCredentials
+            }
+            but_gitbutler_code::CredentialCheckResult::Valid => ForgeAccountValidity::Valid,
+        }
+    }
+}
+
 impl From<but_gitlab::CredentialCheckResult> for ForgeAccountValidity {
     fn from(value: but_gitlab::CredentialCheckResult) -> Self {
         match value {
@@ -788,16 +811,15 @@ pub async fn check_forge_account_is_valid(
     forge_repo_info: &crate::forge::ForgeRepoInfo,
     storage: &but_forge_storage::Controller,
 ) -> Result<ForgeAccountValidity> {
+    if !forge_repo_info.forge.has_api() {
+        return Err(Error::msg(format!(
+            "Checking reviews for forge {:?} is not implemented yet",
+            forge_repo_info.forge
+        )));
+    }
     let Some(account) = crate::find_forge_account(&preferred_forge_user, forge_repo_info, storage)?
     else {
-        return if forge_repo_info.forge == ForgeName::Azure {
-            Err(Error::msg(format!(
-                "Checking reviews for forge {:?} is not implemented yet",
-                forge_repo_info.forge
-            )))
-        } else {
-            Ok(ForgeAccountValidity::NoCredentials)
-        };
+        return Ok(ForgeAccountValidity::NoCredentials);
     };
     match account {
         crate::ForgeUser::GitHub(account) => but_github::check_credentials(&account, storage)
@@ -809,6 +831,11 @@ pub async fn check_forge_account_is_valid(
         crate::ForgeUser::Bitbucket(account) => but_bitbucket::check_credentials(&account, storage)
             .await
             .map(Into::into),
+        crate::ForgeUser::GitButler(account) => {
+            but_gitbutler_code::check_credentials(&account, storage)
+                .await
+                .map(Into::into)
+        }
     }
 }
 
@@ -1398,7 +1425,9 @@ pub async fn get_review_base_repo_url(
                 .context("Failed to fetch PR base repo URL")
         }
         // None tells the UI to fall back to a branch-name-only check.
-        ForgeName::GitLab | ForgeName::Bitbucket | ForgeName::Azure => Ok(None),
+        ForgeName::GitLab | ForgeName::Bitbucket | ForgeName::Azure | ForgeName::GitButler => {
+            Ok(None)
+        }
     }
 }
 
@@ -2413,7 +2442,7 @@ pub async fn sync_reviews(
     let crate::forge::ForgeRepoInfo {
         forge, owner, repo, ..
     } = forge_repo_info;
-    if reviews.is_empty() && *forge != ForgeName::Azure {
+    if reviews.is_empty() && forge.has_api() {
         return Ok(());
     }
     let preferred_forge_user = resolve_account(preferred_forge_user, forge_repo_info, storage)?;

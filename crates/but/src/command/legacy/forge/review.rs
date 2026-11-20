@@ -472,6 +472,13 @@ async fn ensure_forge_authentication(ctx: &mut Context) -> CliResult<()> {
                 .hint("Run `but push <branch>` and open the review on the Azure DevOps website")
                 .into());
         }
+        but_forge::ForgeName::GitButler => {
+            return Err(
+                bad_input("GitButler Code doesn't support pull requests from `but` yet")
+                    .hint("Run `but push <branch>` and open the pull request on GitButler Code's website")
+                    .into(),
+            );
+        }
         but_forge::ForgeName::GitHub => "GitHub",
         but_forge::ForgeName::GitLab => "GitLab",
         but_forge::ForgeName::Bitbucket => "Bitbucket",

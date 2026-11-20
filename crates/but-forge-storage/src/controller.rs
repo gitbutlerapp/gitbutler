@@ -190,6 +190,44 @@ impl Controller {
         self.save_settings(&settings)
     }
 
+    pub fn gitbutler_code_accounts(
+        &self,
+    ) -> anyhow::Result<Vec<crate::settings::GitbutlerCodeAccount>> {
+        let settings = self.read_settings()?;
+        Ok(settings.gitbutler_code.known_accounts)
+    }
+
+    /// Add a GitButler Code account, replacing a stored one with the same username.
+    pub fn add_gitbutler_code_account(
+        &self,
+        account: &crate::settings::GitbutlerCodeAccount,
+    ) -> anyhow::Result<()> {
+        let mut settings = self.read_settings()?;
+        settings
+            .gitbutler_code
+            .known_accounts
+            .retain(|a| a.username() != account.username());
+        settings
+            .gitbutler_code
+            .known_accounts
+            .push(account.to_owned());
+        self.save_settings(&settings)
+    }
+
+    /// Remove a GitButler Code account and its cached profile.
+    pub fn remove_gitbutler_code_account(
+        &self,
+        account: &crate::settings::GitbutlerCodeAccount,
+    ) -> anyhow::Result<()> {
+        let mut settings = self.read_settings()?;
+        settings.cached_profiles.remove(account.access_token_key());
+        settings
+            .gitbutler_code
+            .known_accounts
+            .retain(|a| a != account);
+        self.save_settings(&settings)
+    }
+
     fn read_settings(&self) -> anyhow::Result<crate::settings::ForgeSettings> {
         self.settings_storage.read()
     }

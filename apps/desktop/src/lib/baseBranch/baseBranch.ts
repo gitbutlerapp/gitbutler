@@ -4,7 +4,7 @@ export interface RemoteBranchInfo {
 	name: string;
 }
 
-export type ForgeProvider = "github" | "gitlab" | "bitbucket" | "azure";
+export type ForgeProvider = "github" | "gitlab" | "bitbucket" | "azure" | "gitbutler";
 
 export type ForgeRepoInfo = {
 	forge: ForgeProvider;
