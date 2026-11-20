@@ -142,11 +142,11 @@ pub fn run(ctx: &Context, perm: &mut RepoExclusive, op: NewOperation) -> Result<
         NewOperation::NewBranch {
             ref_name,
             base: Some(base),
-        } => but_api::worktrees::worktree_new_at_base_with_perm(ctx, ref_name, base, perm)?,
+        } => but_api::worktrees::worktree_new_at_base_with_perm(ctx, ref_name, None, base, perm)?,
         NewOperation::NewBranch {
             ref_name,
             base: None,
-        } => but_api::worktrees::worktree_new_with_perm(ctx, ref_name, perm)?,
+        } => but_api::worktrees::worktree_new_with_perm(ctx, ref_name, None, perm)?,
         NewOperation::ExistingBranch(ref_name) => {
             but_api::worktrees::worktree_new_on_branch_with_perm(ctx, ref_name, perm)?
         }

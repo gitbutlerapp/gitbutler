@@ -1060,25 +1060,59 @@ impl AppView {
                         });
                     }
                 };
-                let selected = project.clone();
-                this.prompt_branch(
-                    Selection::Project(project),
-                    "New worktree",
-                    &suggested,
-                    window,
-                    cx,
-                    |name| backend::worktrees::CreateWorktree::New(Some(name)),
-                    move |store, name, cx| {
-                        store.select(
-                            Some(Selection::Checkout(selected, Checkout::Linked(name))),
-                            cx,
-                        )
-                    },
-                )
+                this.prompt_worktree(project, &suggested, window, cx)
             })
             .ok();
         })
         .detach();
+    }
+
+    /// Ask for a new worktree's name, `suggested` ready to type over, and make it on a new
+    /// branch with a canned name.
+    fn prompt_worktree(
+        &mut self,
+        project: ProjectId,
+        suggested: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let place = self
+            .store
+            .read(cx)
+            .place(&Selection::Project(project.clone()));
+        let input = cx.new(|cx| {
+            let mut input = crate::ui::text_input::TextInput::new("Worktree name", false, cx)
+                .spaces_as_dashes();
+            input.load(suggested.to_owned(), cx);
+            input.select_all_text(cx);
+            input
+        });
+        let checked = project.clone();
+        let check = move |this: &AppView, name: &str, cx: &App| -> Option<SharedString> {
+            let name = name.trim();
+            if name.is_empty() {
+                return Some("Enter a name for the worktree".into());
+            }
+            let taken = (this.store.read(cx).workspace(&checked)).is_some_and(|ws| {
+                (ws.worktrees.iter()).any(|wt| wt.name.eq_ignore_ascii_case(name.as_bytes()))
+            });
+            taken.then(|| format!("{name} already exists").into())
+        };
+        self.open_prompt(
+            Some(place),
+            "New worktree",
+            None,
+            "Create",
+            input,
+            None,
+            Some(Box::new(check)),
+            window,
+            cx,
+            move |this, name, _, cx| {
+                let create = backend::worktrees::CreateWorktree::New(Some(name.trim().to_owned()));
+                (this.store).update(cx, |store, cx| store.create_worktree(&project, create, cx))
+            },
+        );
     }
 
     /// Ask the desktop app's update feed now: show the update card for the newer version it

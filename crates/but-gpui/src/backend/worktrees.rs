@@ -229,9 +229,10 @@ pub fn heads(repo: &gix::Repository) -> Heads {
     Heads(heads.collect())
 }
 
-/// Make a linked worktree, as `but worktree new` does: on a new branch at the workspace's base,
-/// named or with a made-up name, or on a branch outside the workspace, a remote one's local
-/// tracking branch made first as `git checkout` does. Done is the worktree's name.
+/// Make a linked worktree, as `but worktree new` does: one named as given or with a made-up
+/// name, on a new branch with a canned name at the workspace's base, or on a branch outside the
+/// workspace, a remote one's local tracking branch made first as `git checkout` does. Done is
+/// the worktree's name.
 pub enum CreateWorktree {
     New(Option<String>),
     On(super::FullName),
@@ -242,12 +243,13 @@ impl Intent for CreateWorktree {
 
     fn apply(self, run: &mut Run) -> Result<BString> {
         let created = match self {
-            Self::New(name) => {
-                let ref_name = name.as_deref().map(super::ops::branch_ref).transpose()?;
-                run.locked(|ctx, perm| {
-                    but_api::worktrees::worktree_new_with_perm(ctx, ref_name, perm)
-                })?
-            }
+            Self::New(name) => run.locked(|ctx, perm| {
+                let name = match name {
+                    Some(name) => name,
+                    None => worktree_name(&*ctx.repo.get()?)?,
+                };
+                but_api::worktrees::worktree_new_with_perm(ctx, None, Some(&name), perm)
+            })?,
             Self::On(branch) => run.locked(|ctx, perm| {
                 let local = match branch.category() {
                     Some(gix::refs::Category::RemoteBranch) => {
@@ -266,11 +268,25 @@ impl Intent for CreateWorktree {
 }
 
 /// The name [`CreateWorktree::New`] makes up when given none, to offer before the worktree is
-/// made. A branch made meanwhile can take it.
+/// made. A worktree made meanwhile can take it.
 pub fn made_up_name(path: &Path) -> Result<String> {
     let ctx = open(path)?;
-    let name = but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?;
-    Ok(name.shorten().to_string())
+    worktree_name(&*ctx.repo.get()?)
+}
+
+/// The canned branch name with `worktree` for `branch`, as `pl-worktree-1`, numbered past the
+/// linked worktrees that have it. The branch in it keeps the canned branch name.
+fn worktree_name(repo: &gix::Repository) -> Result<String> {
+    let canned = but_core::branch::canned_refname(repo)?;
+    let canned = canned.shorten().to_string();
+    let prefix = canned.strip_suffix("branch-1").unwrap_or("");
+    let taken: HashSet<String> = (repo.worktrees()?.into_iter())
+        .filter_map(|wt| Some(wt.id().ok()?.to_str_lossy().to_lowercase()))
+        .collect();
+    let name = (1..)
+        .map(|n| format!("{prefix}worktree-{n}"))
+        .find(|name| !taken.contains(&name.to_lowercase()));
+    name.ok_or_else(|| anyhow::anyhow!("every worktree name is taken"))
 }
 
 /// Show an archived worktree again in place of making a new one, as
@@ -404,22 +420,63 @@ mod tests {
     use crate::backend::ops::tests::{agent_worktree, git, repo_with, target_origin_main};
 
     #[test]
-    fn a_made_up_name_is_a_branch_name_git_allows_that_no_branch_has() {
+    fn a_made_up_name_is_a_worktree_name_no_worktree_has() {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\n");
             let path = dir.path();
 
             let first = super::made_up_name(path).unwrap();
-            assert_eq!(
-                crate::backend::branch_name(&first).as_deref(),
-                Some(first.as_str()),
-                "the prompt's field takes it as it is"
+            assert!(
+                first.ends_with("worktree-1"),
+                "{first} says it's a worktree, not a branch"
             );
             git(path, &["branch", &first]);
-            assert_ne!(
+            assert_eq!(
                 super::made_up_name(path).unwrap(),
                 first,
-                "one a branch took since is passed over"
+                "a branch of that name doesn't take it, as the worktree's branch is named apart"
+            );
+            let outside = tempfile::tempdir().unwrap();
+            let linked = outside.path().join(&first);
+            git(
+                path,
+                &[
+                    "worktree",
+                    "add",
+                    "-q",
+                    "-b",
+                    "other",
+                    linked.to_str().unwrap(),
+                ],
+            );
+            let second = super::made_up_name(path).unwrap();
+            assert!(
+                second.ends_with("worktree-2"),
+                "{second} passes over the worktree that took {first}"
+            );
+        });
+    }
+
+    #[test]
+    fn a_new_worktree_is_named_apart_from_its_branch() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+
+            let create = super::CreateWorktree::New(Some("bla-worktree".into()));
+            let name = crate::backend::apply(path, create).unwrap().0;
+            assert_eq!(name, "bla-worktree", "the worktree takes the name given");
+            let linked = but_path::home_dir()
+                .unwrap()
+                .join(".gitbutler-worktrees")
+                .join(path.file_name().unwrap())
+                .join("bla-worktree");
+            let branch = git(&linked, &["branch", "--show-current"]);
+            assert!(
+                branch.trim().ends_with("branch-1"),
+                "its branch gets the canned name a new branch would, not {}",
+                branch.trim()
             );
         });
     }

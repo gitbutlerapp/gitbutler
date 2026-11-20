@@ -308,7 +308,8 @@ but_schemars::register_sdk_type!(NewWorktree);
 /// The branch is `new_ref` or a canned name, and the checkout lives at
 /// `~/.gitbutler-worktrees/<repo-dir-basename>/<slug>`, where the repository directory is
 /// the main worktree. The slug is derived from the short branch name, falling back to `wt`
-/// if empty. If the directory is taken, creation retries up to five times with a random ASCII suffix.
+/// if empty; [`worktree_new_with_perm()`] can take it from a name of its own instead.
+/// If the directory is taken, creation retries up to five times with a random ASCII suffix.
 /// This fails without a target to base the worktree on, and refuses an existing branch, see
 /// [`worktree_new_on_branch_with_perm()`] for that.
 #[but_api(refreshes)]
@@ -318,14 +319,16 @@ pub fn worktree_new(
     #[but_api(crate::json::MaybeLossyFullNameRef)] new_ref: Option<gix::refs::FullName>,
 ) -> Result<NewWorktree> {
     let mut guard = ctx.exclusive_worktree_access();
-    worktree_new_with_perm(ctx, new_ref, guard.write_permission())
+    worktree_new_with_perm(ctx, new_ref, None, guard.write_permission())
 }
 
 /// See [`worktree_new()`]; this variant is for callers that already hold exclusive
-/// worktree access.
+/// worktree access. With `name`, the worktree's directory is named after it rather than
+/// after the branch.
 pub fn worktree_new_with_perm(
     ctx: &but_ctx::Context,
     new_ref: Option<gix::refs::FullName>,
+    name: Option<&str>,
     perm: &mut RepoExclusive,
 ) -> Result<NewWorktree> {
     let base = {
@@ -333,12 +336,13 @@ pub fn worktree_new_with_perm(
         ws.highest_base()
             .context("The workspace has no target to base a new worktree on")?
     };
-    worktree_new_at_base_with_perm(ctx, new_ref, base, perm)
+    worktree_new_at_base_with_perm(ctx, new_ref, name, base, perm)
 }
 
 pub fn worktree_new_at_base_with_perm(
     ctx: &but_ctx::Context,
     new_ref: Option<gix::refs::FullName>,
+    name: Option<&str>,
     base: gix::ObjectId,
     perm: &mut RepoExclusive,
 ) -> Result<NewWorktree> {
@@ -352,6 +356,7 @@ pub fn worktree_new_at_base_with_perm(
             name: ref_name.as_ref(),
             base,
         },
+        name,
         perm,
     )?;
     Ok(NewWorktree {
@@ -389,7 +394,7 @@ pub fn worktree_new_on_branch_with_perm(
         }
         tip.id
     };
-    let (name, path) = add_worktree(ctx, WorktreeBranch::Existing(ref_name.as_ref()), perm)?;
+    let (name, path) = add_worktree(ctx, WorktreeBranch::Existing(ref_name.as_ref()), None, perm)?;
     Ok(NewWorktree {
         name,
         path,
@@ -419,10 +424,11 @@ pub fn worktree_recycle_with_perm(
     perm: &mut RepoExclusive,
 ) -> Result<RecycledWorktree> {
     let Some(tip) = target_tip(ctx, perm.read_permission())? else {
-        return worktree_new_with_perm(ctx, None, perm).map(RecycledWorktree::Created);
+        return worktree_new_with_perm(ctx, None, None, perm).map(RecycledWorktree::Created);
     };
     let Some((listed, checkout)) = recyclable(ctx, perm.read_permission(), tip)? else {
-        return worktree_new_at_base_with_perm(ctx, None, tip, perm).map(RecycledWorktree::Created);
+        return worktree_new_at_base_with_perm(ctx, None, None, tip, perm)
+            .map(RecycledWorktree::Created);
     };
     // The files first, so a checkout that refuses leaves the branches as they were.
     let files_only = but_core::worktree::checkout::Options {
@@ -517,13 +523,14 @@ fn ref_tip(repo: &gix::Repository, name: &gix::refs::FullNameRef) -> Option<gix:
 fn add_worktree(
     ctx: &but_ctx::Context,
     branch: WorktreeBranch<'_>,
+    name: Option<&str>,
     _perm: &mut RepoExclusive,
 ) -> Result<(BString, PathBuf)> {
     let repo = ctx.repo.get()?;
     but_workspace::worktrees::prune_gone(&repo, branch.name())?;
     // Forget the archived state of what was pruned, so the new worktree starts out active.
     ctx.worktrees_with_state()?;
-    let slug = slug(branch.name().shorten());
+    let slug = slug(name.map_or(branch.name().shorten(), |name| name.as_bytes().as_bstr()));
     let slug = if slug.is_empty() { "wt" } else { &slug };
     let repo_name = repo
         .workdir()
