@@ -26,7 +26,7 @@ type RowProps = {
 	onToggleFolded?: () => void;
 	/** Selected: the quiet fill, or the solid one while the list holds the selection focus. */
 	selected?: boolean;
-	/** `MetaCount`s and a `CiStatus`, in the order the row should read them. */
+	/** `MetaCount`s and a `MetaStatus`, in the order the row should read them. */
 	meta?: ReactNode;
 	/** The row's next step, a small outline `Button`, after its state and always shown. A step that
 	 * acts on a count takes that count's place: leave the count out of `meta` and give the button its
@@ -358,7 +358,7 @@ const Authors: FC<{ authors: ReadonlyArray<CommitAuthor> }> = ({ authors }) =>
  * glyph and the badge, its number, and its title as `title`; without one, `title` is the branch's
  * name.
  *
- * Its `meta` reads in one order: `conflicts`, then `CiStatus`, ↓ `behind`, ↑ `unpushed`,
+ * Its `meta` reads in one order: `conflicts`, then `MetaStatus`, ↓ `behind`, ↑ `unpushed`,
  * `uncommitted`, and `commits`. `conflicts` counts its conflicted commits while it is folded; on an
  * expanded branch drop it, since each {@link CommitItem} marks its own. Show ↑ or ⟜, never both; on an expanded branch drop ⟜, since its commits are listed
  * under it. A branch with no commits yet leads with `empty` saying "empty", and takes

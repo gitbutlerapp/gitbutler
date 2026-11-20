@@ -131,47 +131,63 @@ const WorkingRobot: FC = () => (
 	</svg>
 );
 
-/** The state of a branch's checks, as {@link CiStatus} shows it. */
-export type CiStatusType = "working" | "passed" | "failed";
+/** Where the thing a {@link MetaStatus} names has got to, which sets its glyph and its colour. */
+export type MetaStatusVariant =
+	/** Amber spinner: under way, as checks that are running. */
+	| "working"
+	/** Green tick: done and fine, as checks that passed. */
+	| "passed"
+	/** Red cross: done and broken, as a check that failed. */
+	| "failed"
+	/** Amber warning: stopped until you act, as a check that needs approval. */
+	| "warning"
+	/** Grey dashed ring: no result yet, as checks that are pending, queued, cancelled or unknown. */
+	| "neutral";
 
-const ciGlyph: Record<CiStatusType, IconName> = {
+const statusGlyph: Record<MetaStatusVariant, IconName> = {
 	working: "spinner",
 	passed: "tick",
 	failed: "cross",
+	warning: "warning",
+	neutral: "pending",
 };
 
-const ciLabel: Record<CiStatusType, string> = {
-	working: "Checks running",
-	passed: "Checks passed",
-	failed: "Checks failed",
+const statusWord: Record<MetaStatusVariant, string> = {
+	working: "running",
+	passed: "passed",
+	failed: "failed",
+	warning: "needs you",
+	neutral: "no result",
 };
 
 /**
- * The state of a branch's pull request checks, as "CI" in amber while they run, green once they
- * pass and red if one fails. It sits in a row's meta beside the {@link MetaCount}s.
+ * Where something that runs has got to, as a glyph and a short label in its state's colour: a
+ * pull request's checks as "CI", a deploy, a sync. It sits in a row's meta beside the
+ * {@link MetaCount}s, or after a tab's label.
  *
- * Its words are "CI" unless given others: where there is room, as a pull request's tab, how far
- * the checks got, "CI 2/14".
+ * The label names the thing, not its state, which the glyph and colour say: "CI", not
+ * "CI passed". Where there is room, as a pull request's tab, it can say how far it got,
+ * "CI 2/14". A screen reader hears the label and the state, "CI, running".
  *
- * @import import { CiStatus } from "@gitbutler/but-ui-react/MetaCount.tsx";
+ * Without a label it is the glyph alone, where what it is about is already plain, as beside a
+ * pull request's title. Give it an `aria-label` then that names both, "Checks running".
+ *
+ * @figma `label` turns the label off; `label text` is its words.
+ *
+ * @import import { MetaStatus } from "@gitbutler/but-ui-react/MetaCount.tsx";
  */
-export const CiStatus: FC<{ status: CiStatusType } & ComponentProps<"span">> = ({
-	status,
-	children = "CI",
-	...props
-}) => (
+export const MetaStatus: FC<
+	{ variant: MetaStatusVariant } & Omit<ComponentProps<"span">, "children"> &
+		({ children: string } | { children?: undefined; "aria-label": string })
+> = ({ variant, children, ...props }) => (
 	<span
 		// oxlint-disable-next-line jsx_a11y/prefer-tag-over-role -- A glyph and a word with one name, not a picture with a source.
 		role="img"
-		aria-label={
-			typeof children === "string" && children !== "CI"
-				? `${ciLabel[status]}, ${children}`
-				: ciLabel[status]
-		}
+		aria-label={children === undefined ? undefined : `${children}, ${statusWord[variant]}`}
 		{...props}
-		className={classes(props.className, "text-13", styles.count, styles[status])}
+		className={classes(props.className, "text-13", styles.count, styles[variant])}
 	>
-		<Icon name={ciGlyph[status]} size={14} className={styles.glyph} />
-		<span className={styles.value}>{children}</span>
+		<Icon name={statusGlyph[variant]} size={14} className={styles.glyph} />
+		{children !== undefined && <span className={styles.value}>{children}</span>}
 	</span>
 );

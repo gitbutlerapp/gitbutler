@@ -3,7 +3,7 @@ import { Fragment, useState, type FC, type ReactNode } from "react";
 import { Button } from "./Button.tsx";
 import { Icon } from "./Icon.tsx";
 import { ContextMenu, MenuItem, MenuSection } from "./Menu.tsx";
-import { CiStatus, MetaCount } from "./MetaCount.tsx";
+import { MetaCount, MetaStatus } from "./MetaCount.tsx";
 import {
 	BranchItem,
 	CommitItem,
@@ -48,7 +48,11 @@ export const Default = meta.story({
 		<ContextMenu
 			aria-label="Branch actions"
 			trigger={
-				<BranchItem {...args} meta={<CiStatus status="working" />} actions={<>{push(4)}</>} />
+				<BranchItem
+					{...args}
+					meta={<MetaStatus variant="working">CI</MetaStatus>}
+					actions={<>{push(4)}</>}
+				/>
 			}
 		>
 			<MenuSection>
@@ -105,7 +109,7 @@ const Tree: FC<{ selected?: string }> = ({ selected }) => {
 							folded
 							meta={
 								<>
-									<CiStatus status="working" />
+									<MetaStatus variant="working">CI</MetaStatus>
 									{age("8m")}
 								</>
 							}
@@ -116,7 +120,7 @@ const Tree: FC<{ selected?: string }> = ({ selected }) => {
 							pr={{ number: 280, state: "open" }}
 							depth={3}
 							folded={false}
-							meta={<CiStatus status="working" />}
+							meta={<MetaStatus variant="working">CI</MetaStatus>}
 							actions={<>{push(7)}</>}
 						/>
 						<CommitItem message="chore: separator tokens" pushed={false} depth={4} />
@@ -242,7 +246,7 @@ const ByRepositoryTree: FC<{ open: boolean }> = ({ open }) => {
 						folded
 						meta={
 							<>
-								<CiStatus status="working" />
+								<MetaStatus variant="working">CI</MetaStatus>
 								{age("3d")}
 							</>
 						}
@@ -448,7 +452,7 @@ const repositories: ReadonlyArray<TreeNode> = [
 										pr={{ number: 377, state: "open" }}
 										meta={
 											<>
-												<CiStatus status="working" />
+												<MetaStatus variant="working">CI</MetaStatus>
 												{since("8m")}
 											</>
 										}
@@ -469,7 +473,7 @@ const repositories: ReadonlyArray<TreeNode> = [
 										{...fold}
 										title="feat: resume work on another machine"
 										pr={{ number: 280, state: "open" }}
-										meta={<CiStatus status="working" />}
+										meta={<MetaStatus variant="working">CI</MetaStatus>}
 										actions={<>{push(7)}</>}
 									/>
 								),
@@ -931,7 +935,7 @@ const UpstreamTree: FC = () => {
 				depth={1}
 				folded={!branch}
 				onToggleFolded={() => setBranch(!branch)}
-				meta={<CiStatus status="working" />}
+				meta={<MetaStatus variant="working">CI</MetaStatus>}
 				authors={[pavel, kiril]}
 				actions={!branch && update(3, "origin")}
 			/>
