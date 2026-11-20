@@ -5,6 +5,7 @@ GitButler is a Rust/Svelte/React/TypeScript monorepo.
 ## Repo Map
 
 - `crates/` - Rust crates.
+- `crates/but-gpui/` - the GPUI desktop client.
 - `apps/desktop/` - Tauri/Svelte desktop app.
 - `apps/web/` - Svelte web app.
 - `apps/but-ui-pantry/` - the pantry, the design system's site.
@@ -16,18 +17,11 @@ GitButler is a Rust/Svelte/React/TypeScript monorepo.
 - "The pantry" is the design system's site: the design notes and every
   component in its states. Run it with `pnpm -F @gitbutler/but-ui-pantry dev`
   (port 6007).
-- "The GPUI pantry" is the GPUI client's window of the shared controls. Run it
-  with `cargo run -p but-gpui --features stories --bin gitbutler-gpui-pantry`.
+- "The GPUI pantry" is the GPUI client's window of the shared controls. Drive
+  it with the `gpui-screenshots` skill (`drive.sh run --stories`).
 
 ## Working Style
 
 - Before declaring shared behavior done, check each applicable surface and contract
-  (desktop, web, CLI/TUI, SDK types, and docs) and update it or explicitly
-  determine that it is unaffected.
-
-## Scoped Instructions
-
-- For Rust work under `crates/`, follow `crates/AGENTS.md`.
-- For desktop work under `apps/desktop/`, follow `apps/desktop/AGENTS.md`.
-- For the React component library under `packages/but-ui-react/`, follow
-  `packages/but-ui-react/AGENTS.md`.
+  (desktop, the GPUI client, web, CLI/TUI, SDK types, and docs) and update it or
+  explicitly determine that it is unaffected.

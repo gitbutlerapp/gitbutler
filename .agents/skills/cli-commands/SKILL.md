@@ -87,7 +87,7 @@ match cmd {
         )?;
         out.begin_status_after(status_after);
 
-        let outcome = command::legacy::commit3::commit(
+        let outcome = command::commit3::commit(
             &mut ctx,
             IntermediateChannel::new(out),
             commit_args,
@@ -109,12 +109,11 @@ Things to note:
 Use `IntermediateChannel`. Do not pass `OutputChannel` to commands.
 
 Use `OutputChannel::print_cli_output` to print the final output from the
-command. This ensures we handle all supported formats. If only human format is
-supported, use `OutputChannel::print_cli_output_human`.
+command. This ensures we handle all supported formats.
 
 ## Implementing the command
 
-In `crates/but/src/command/legacy/commit3.rs`
+In `crates/but/src/command/commit3.rs`
 
 ```
 pub fn commit(
@@ -243,7 +242,7 @@ is fine.
 
 For examples of this structure in practice see
 
+- `crates/but/src/command/worktree/remove.rs`
+- `crates/but/src/command/open/gui.rs`
 - `crates/but/src/command/legacy/commit.rs`
 - `crates/but/src/command/legacy/move.rs`
-- `crates/but/src/command/legacy/squash.rs`
-- `crates/but/src/command/legacy/diff.rs`

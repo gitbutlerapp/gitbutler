@@ -10,10 +10,9 @@ The skill also covers fixtures and measuring performance and power.
 ## The design system
 
 The theme, the tokens, the icons, the fonts and every component with a counterpart in
-`packages/but-ui-react` live in `crates/but-ui-gpui`, which `ui` re-exports, so call sites
-write `ui::button` as before. A component goes there only if it reaches into nothing of the
-app's (`Store`, `backend`, `dev`), as one in but-ui-react takes everything from its props; the
-rest of `ui` is the app's own. Change a shared component there, and draw it as but-ui-react's.
+`packages/but-ui-react` live in `crates/but-ui-gpui` (its `AGENTS.md` says what belongs
+there), which `ui` re-exports as `ui::button` and so on. The rest of `ui` is the app's own.
+Change a shared component there, and draw it as but-ui-react's.
 
 To use a component:
 
@@ -71,8 +70,8 @@ unseen is what a laptop's battery pays for.
   waits: watcher reloads collect in `Store::unseen`, and `Store::set_visible` reads them once it
   shows. New watcher-driven or timed work takes the same path, as the mesh poll does. Work
   something else reads slows down instead, as the forge poll does.
-- Operations the user starts hold off App Nap while they run (`prevent_app_nap` in
-  `Store::start`). Refreshes don't, so a background app's run on efficiency cores.
+- Only operations the user starts hold off App Nap while they run (`prevent_app_nap` in
+  `Store::apply`); refreshes don't.
 
 ## GPUI traps
 
@@ -169,82 +168,47 @@ unseen is what a laptop's battery pays for.
 
 ## Metrics
 
-Like the mesh, metrics must never break or slow anything else.
+Metrics must never break or slow anything else.
 
 - Its code stays in `backend/metrics.rs` and `backend/metrics/`. Capture only where the
   user acts, never in render, loads, the watcher or a loop. Failures and errors of one kind go
   out once a minute (`limit`).
 - A property the desktop app sends too keeps its name and values (`totalLanesInWorkspace`,
   `theme`, `error_code`), so one chart covers both apps.
-- Nothing sent may name a branch, file, project or anything the user wrote. An operation's label
-  that names one needs `Label::new` with a fixed name for the metrics, which the compiler asks
-  for. Errors go through `redact`.
+- Nothing sent may name a branch, file, project or anything the user wrote: an operation's
+  label that names one needs `Label::new` with a fixed name, and errors go through `redact`.
 
 ## Mesh
 
-The mesh shows the user's other machines' work. It's optional, and it must never break or slow
+The mesh shows the user's other machines' work. It's optional and must never break or slow
 anything else.
 
-- Its code stays in `backend/mesh.rs`, `state/mesh.rs`, `navigator/mesh.rs`,
-  `detail/machine.rs` and `settings/mesh.rs`. Everything else reaches it through a
-  `Selection::Mesh` or `Section::Mesh` arm, `store.mesh`, the `Store::mesh_*` methods or
-  `StoreEvent::MeshRead`, with at most a dispatch arm.
-- The app only calls the `but-mesh` CLI, as the mesh lives in a private repository. Gate
-  anything new on `store.mesh.connection()`: without `but-mesh`, or signed out, only the
-  Settings row shows.
-- Every mesh call goes through `backend::run` with one of the timeouts in `backend/mesh.rs`,
-  never on the UI thread. Network work never runs as a project's operation, which would hold up
-  commits, pushes and updates.
-- Background failures log at debug, keep the last good read and are tried again. Only what the
-  user asked for, signing in or out and Apply here, shows an error.
+- Keep its code in the `mesh` modules and `detail/machine.rs`. Everything else reaches it
+  through `store.mesh` and the `Store::mesh_*` methods, with at most a dispatch arm.
+- The app only calls the `but-mesh` CLI, as the mesh is a private repository. Gate anything
+  new on `store.mesh.connection()`.
+- Every mesh call goes through `backend::run` with a timeout from `backend/mesh.rs`, never on
+  the UI thread and never as a project's operation.
+- Background failures log at debug and keep the last good read. Only what the user asked for
+  shows an error.
 
 ## Briefs
 
-Briefs are the server's write-ups of a branch. The API and what it sends will change for a while,
-and the feature may go, so it stays separate.
+Briefs are the server's write-ups of a branch. The API is still changing and the feature may
+go, so it stays separate.
 
-- Its code stays in `crates/but-briefs`, `backend/briefs/`, `state/briefs.rs` and `detail/brief/`.
-  Everything else reaches it through `Store::brief_at`, `Detail::has_brief`, `BriefState`, `BriefView` and
-  `PageTab::Brief`, with at most a dispatch arm. Outside that, the Branches page's "With a brief"
-  filter reads it, and a quiet mark on a branch's row in the navigator and on that page.
-- What Briefs sent and comments not sent yet are kept in a file of their own under the app's data
-  folder, never in `but-db`, and pictures under its cache folder.
-  It holds the server's JSON, which is read leniently, and has no migrations: anything unreadable
-  is dropped and asked for again, and a bump of its `SCHEMA` empties it but for those comments.
-- Pages read only what's kept, so the tab is there at once and nothing marks a row. The poll
-  beside the forge's fills it, and a page asks only about a branch the poll leaves out. It waits
-  while the window is hidden and asks nothing while the flag is off or no one's signed in.
-- Background failures log at debug and keep what's known. Signing out deletes the file.
-- What the agent wrote and what's known apart from it never look alike: the facts panel shows only
-  what the repository or the CLI says, and colour in it goes only on what should change a decision.
-  A fact worked out here (`Standing`, `ReadBack`, a card that differs from the branch) is stated, not
-  softened, and with no way to know, it says nothing.
-- Notes stay on this machine until they're sent, as a comment tells people. Nothing goes out, to
-  Briefs or a terminal, without a key press or a click on what names where it goes.
-- Facts come from the branch's own diff where they can (`TestFacts`, the names of code in the words),
-  so they hold whatever the agent wrote. A fact that accuses has to be right nearly always: a name
-  the code doesn't have looks like any other code and only a click on it says so, as every one found
-  in real briefs was a fair thing to write.
-- `RowKey::Changes` is a row's changes in a tile of their own, beside its brief. While it's there a
-  name or file in the brief goes to it by `StoreEvent::CodeAsked`, and the brief keeps the keys and
-  its place. Without it a click goes to the Changes tab and Esc comes back.
-- A version never changes, so a commit landing only asks again how it stands. Reading it again would
-  lose what's marked as new in it.
-- The list's state can't be asked anything while it draws a row: it's borrowed, and it panics. What a
-  row needs from it is worked out before the list is drawn, as `measure_brief_room` does.
-- What's said goes in the margin, beside the paragraph it's about, or under it where the tab's too
-  narrow. A paragraph's margin takes no height while it can run on past the words without meeting
-  anything, so writing, sending and replying move nothing.
-- While the margin shows, everything keeps one measure, wide blocks too, so comments stay in one
-  column and writing beside a block moves nothing. Under the margin's width, blocks go full width.
-- What a paragraph shows on hover goes by `brief_hovered`, the words last pointed at, not a hover
-  group: it has to last the way over the gap to it and over a card from the paragraph before. A
-  scripted `click` jumps there and can't catch that going wrong: walk there with `move`s and look.
-- Not sent yet is blue, as what's not pushed is, and pop stays for the one primary action.
-- The page's tab row says where a brief stands: what's asked, comments not sent and the answers.
-  It has no bar of its own, as one would sit on top of the status bar.
-- A debug build can be pointed at a stand-in server with `GITBUTLER_BRIEFS_BASE`, to try what writes
-  without touching anyone's briefs.
+- Its code stays in `crates/but-briefs`, `backend/briefs/`, `state/briefs.rs` and
+  `detail/brief/`. Everything else reaches it through `Store::brief_at`, `Detail::has_brief`
+  and `PageTab::Brief`, with at most a dispatch arm.
+- What Briefs sent and unsent comments are kept in a file of their own under the app's data
+  folder, never in `but-db`, with no migrations: anything unreadable is dropped and asked for
+  again. Signing out deletes it.
+- Nothing goes out, to Briefs or a terminal, without a key press or a click on what names
+  where it goes.
+- Background failures log at debug and keep what's known.
+- The list's state panics if read while it draws a row. Work out what a row needs before the
+  list draws, as `measure_brief_room` does.
+- Point a debug build at a stand-in server with `GITBUTLER_BRIEFS_BASE`.
 
 ## Sizes
 

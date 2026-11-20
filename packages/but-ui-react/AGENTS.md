@@ -9,8 +9,7 @@ The visual language, how things should look and read on every platform, is
 `@gitbutler/but-ui`'s `DESIGN.md` (`packages/but-ui/DESIGN.md`): an index of
 the pages in its `design/`, one per topic; read the ones for what you are
 changing before changing anything a user sees. `DESIGN.md` beside this file
-has only how to build with this library. This file is the tooling that
-enforces them.
+has only how to build with this library.
 
 ## Writing the code
 
@@ -57,99 +56,49 @@ in the module. Button has them so far.
 
 ### Icons
 
-Icons are SVGs in `src/icons/`, inlined into the bundle as raw strings; the
-filename is the icon name (`folder-lock.svg` → `<Icon name="folder-lock" />`).
-To add one:
+Icons are SVGs in `src/icons/`, named as their component in Figma
+(`folder-lock.svg` → `<Icon name="folder-lock" />`). To add one:
 
-1. Export it from Figma at 16×16 (🍑 But UI library) as SVG into `src/icons/`,
-   named as its component is there (a rename goes to both sides).
-   Ungroup it first. Each icon is its strokes merged into one union shape,
-   `icon`, so Figma can colour it at once, and a merged shape exports as a
-   filled outline whose 1.5px line thickens as the icon grows. Ungrouped, its
-   paths export as strokes, which stay 1.5px at any size. Export from a copy
-   so the library keeps the union; through the Figma MCP, clone the
-   component's children into a 16×16 frame, move each union's children up
-   to its parent, and `exportAsync({ format: "SVG_STRING" })` the frame. A
-   union that is itself stroked, an outline drawn around merged shapes
-   (`pointer`, `key`), would come apart into solid pieces: flatten that union
-   into one vector instead, with no fill and its stroke. A subtract
-   (`theme-dark`) draws differently either way: export it merged.
-2. Run `pnpm -F @gitbutler/but-ui-react optimize-icons`. It minifies the SVG,
-   recolors it to `currentColor`, gives every shape
-   `vector-effect="non-scaling-stroke"` and regenerates `src/iconNames.ts`.
-   The docs server only picks up a new file after a restart.
-3. Commit both. `iconNames.ts` is generated; never hand-edit it. The All icons
-   story's Size range shows an export gone wrong: a filled outline thickens
-   at 48px where its neighbours stay thin.
+1. Export it at 16×16 from 🍑 But UI as SVG, ungrouped: each icon is one union
+   shape, which exports as a filled outline that thickens as the icon grows,
+   while its ungrouped paths export as strokes. Through the Figma MCP, clone the
+   component's children into a 16×16 frame, move each union's children up to
+   its parent, and `exportAsync({ format: "SVG_STRING" })` the frame. Flatten a
+   stroked union (`pointer`, `key`) into one vector with no fill instead, and
+   export a subtract (`theme-dark`) merged.
+2. Run `pnpm -F @gitbutler/but-ui-react optimize-icons`, which recolours it to
+   `currentColor` and regenerates `src/iconNames.ts`. The pantry picks up a new
+   file only after a restart.
+3. Commit both. The All icons story's Size range shows an export gone wrong: a
+   filled outline thickens at 48px where its neighbours stay thin.
 
-`src/file-icons/` are the language and filetype glyphs. They keep their brand
-colours and are deliberately not run through the script.
-
-`src/program-icons/` are the marks of editors and terminals, as PNGs at 2×.
-Their rounded corner is part of the image: export each from the "Programm"
-frame on 🍑 But UI's Icons page, where the mark is a 14px rectangle with
-the corner on it, as PNG at 2× with the layer named as the file is
-(`vscode` → `vscode@2x.png`). No CSS rounds them, so a square export shows
-square.
+`src/file-icons/` keep their brand colours and skip the script.
+`src/program-icons/` are PNGs at 2× from the "Programm" frame on 🍑 But UI's
+Icons page, named as the layer (`vscode@2x.png`), with the rounded corner in
+the image.
 
 ## Figma
 
 One file, **🍑 But UI** —
-<https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI>,
-holds the system and everything drawn with it, as a monorepo holds packages:
+<https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI>, holds
+the library (💎 Tokens, 💠 Icons, and this package's components under 🎛️
+Components, a page per group), the app's screens (📱 Panel, 🖼️ Preview, 🎴
+Overlays, 🪟 Modals), app components (⚙️ Meta) and drafts (the 🚧 pages).
 
-- **The library**, published: tokens (💎 Tokens), icons (💠 Icons) and this
-  package's components under 🎛️ Components, one section per component. It is
-  the source of truth for tokens; for components, code is, and the drawing
-  follows it. The components are on pages by what they are for: Actions,
-  Inputs, Overlays, Content & status, Files & diffs, Illustrations, Preview
-  (a details view's header and the bars around it), and Sidebar: NavItem
-  and its GroupLabel for any list of pages or settings, and the Workspace
-  tree, the rows of the `but panel` tree (machines, repositories, worktrees,
-  branches and commits), each in a frame of its own. A new
-  component's section goes at the end of its group's page, with its examples
-  section under it. Only these pages define the library's components; the
-  showcases and drafts use instances of them. The docs site shelves the
-  stories in the same groups, in the same order (plus Icons, which Figma
-  keeps on its own page, and the Workspace tree, a group of its own after
-  Sidebar, one page for the tree and one for each kind of row it is long
-  enough to need): a stories file names its group in `title` and
-  keeps its old `id`, so the addresses below don't change when a component
-  moves group.
-- **The showcases**: 📱 Panel, 🖼️ Preview, 🎴 Overlays and 🪟 Modals, with the
-  pages under them, are the app's screens and surfaces built from the
-  library. The designer moves work here once it's settled.
-- **⚙️ Meta**: app components, the ones whose code lives in an app.
-- **The 🚧 pages**: drafts and explorations. Anything an agent draws goes on
-  one of these, unless the designer names another place: a mockup, a
-  variant to compare, a try at a component. Build it from the file's own
-  components and variables.
-
-A component is drawn where its code lives: one in this package on its
-group's page, one in an app on ⚙️ Meta. When a component moves between the two
-in code, its drawing moves with it in the same piece of work, and the
-mockups' instances are swapped to the new one.
-
-The drawing mirrors the code's structure: the same component under the same
-name, variant properties named as the props and their values (`status`,
-`variant`, `glyph`), and no property the code lacks. Figma may add only what
-the code produces from data, such as a toggle for a side the code drops when
-its count is zero, and a `state` property (`default`, `hover`) for what CSS
-draws under the pointer, as Button has; two components the code keeps apart
-stay apart in Figma and are placed side by side where a surface shows both.
-
-A component's description in Figma is written from the code, so the two can't
-say different things. `scripts/figma-descriptions.mjs` makes it from the
-component's JSDoc (what it is for), the documented values of its `Variant`
-type, its `@figma` tag (what only the drawing has, such as a `state`
-property), a `Rules:` link to each note its `@see` tags name, and a `Code:`
-line, into `figma-descriptions.json`, by the node its stories link. After
-changing any of those, run it and apply the file to 🍑 But UI with the Figma
-MCP's `use_figma`, setting each node's `description` (the REST API can't
-write one). `check` fails when the file is out of date, and with
-`FIGMA_API_KEY` and `FIGMA_FILE_KEY` set, when a drawing's description differs
-from it. A component drawn as a section frame, such as Modal from its three
-parts, has no description; the script's `FRAMES` lists them.
+- Figma is the source of truth for tokens. For components, code is, and the
+  drawing follows it: the same name, variant properties named as the props and
+  their values, and no property the code lacks beyond a `state` for what CSS
+  draws under the pointer.
+- Anything an agent draws goes on a 🚧 page unless the designer names another
+  place, built from the file's own components and variables.
+- A component is drawn where its code lives: this package's on its group's
+  page, an app's on ⚙️ Meta. When one moves in code, its drawing moves in the
+  same piece of work.
+- A component's Figma description is generated from its JSDoc, its `Variant`
+  type and its `@figma` and `@see` tags by `scripts/figma-descriptions.mjs`
+  into `figma-descriptions.json`. After changing any of those, run it and apply
+  the file with the Figma MCP's `use_figma` (the REST API can't write
+  descriptions). `check` fails when the file is out of date.
 
 ## Verifying your work
 
@@ -207,13 +156,9 @@ tokens.
 
 ### Stories and the pantry
 
-Every component has a story beside it, in both themes, and a component that
-lives only in code is half a component. `pnpm check` holds the package to it
-through `scripts/check-stories.mjs`, which fails on a component no story
-imports.
-
-A stories file describes its page with `stories()` from `stories/stories.ts`,
-and each story with `meta.story()`:
+Every component has a story beside it, in both themes; `check` fails on a
+component no story imports. A stories file describes its page with `stories()`
+from `stories/stories.ts`, and each story with `meta.story()`:
 
 ```tsx
 const meta = stories({ title: "Content & status/Badge", id: "components-badge", component: Badge });
@@ -221,42 +166,20 @@ export const Default = meta.story({ args: { children: "42" } });
 ```
 
 A story takes `args`, a `render(args)`, `decorators`, `parameters` (`design`,
-the Figma link, and `layout`) and a `play` function. The pantry, the design
-system's site in `apps/but-ui-pantry`, is a small Vite app that draws every
-page with these components: one page per component under its group's heading, every story on it with its
-JSDoc, and the design notes from but-ui's `DESIGN.md` and `design/`, and this
-library's own `design/`. A component's own note, in but-ui's
-`design/components/`, has no page: it shows as Guidelines on the page of each
-component whose JSDoc names it with `@see`, above the stories, and a link to
-it opens the first of them. A note there that no component names shows
-nowhere. It runs on port 6007:
+the Figma link, and `layout`) and a `play` function. `title` names its Figma
+group; keep `id` when it moves group. Keep the `design` link when you add a
+story, and compare the two sides when either changes.
 
-```console
-$ pnpm -F @gitbutler/but-ui-pantry dev
-```
+In the pantry (`apps/but-ui-pantry`), a page is at
+`http://localhost:6007/?page=components-<name>`, and a story alone, with its
+`play` run, at `?story=components-<name>--<export>`; append `&theme=dark` for
+the dark theme. A note in but-ui's `design/components/` shows as Guidelines on
+the page of each component whose JSDoc names it with `@see`.
 
-A page is at `http://localhost:6007/?page=components-<name>`. A story renders
-alone at `http://localhost:6007/?story=components-<name>--<export>`, with its
-`play` function run; append `&theme=dark` for the dark theme. Overlays' stories
-and full-window ones are shown that way on their page, each in a frame of its
-own. A story links its Figma component through the `design` parameter; keep
-the link when you add a story, and compare the two sides when either changes.
-`grep -l 'type: "figma"' src/*.stories.tsx` lists the stories that have one;
-a story without one has no drawn spec yet.
-
-`test` runs the unit tests and then every story as a test in headless
-Chromium (`stories/stories.test.tsx`). A story fails when it throws while
-rendering or its `play` function fails. Run the stories alone with:
-
-```console
-$ pnpm -F @gitbutler/but-ui-react test:stories
-```
-
-They need Playwright's Chromium, once per checkout:
-
-```console
-$ pnpm -F @gitbutler/but-ui-react playwright:install:unit
-```
+`test` runs every story as a test in headless Chromium; a story fails when it
+throws or its `play` fails. `pnpm -F @gitbutler/but-ui-react test:stories`
+runs them alone, after `pnpm -F @gitbutler/but-ui-react playwright:install:unit`
+once per checkout.
 
 ### Default, then examples
 
@@ -282,40 +205,18 @@ instance through the `design` parameter.
 
 ### How a story stands on its page
 
-The docs site gives each story a place under its words. Pick it with the
-`layout` parameter, never with a wrapper the story draws itself:
+Place a story with the `layout` parameter and size it with `width` and
+`height`, never with a wrapper, border, card or background the story draws:
 
-- **The ground (default):** a muted ground as wide as the text above it,
-  with no border and 24px of room, the story at its start, so the title, the
-  words and the component share one edge. A component with its own card
-  (`RowGroup`, `DescriptionList`) isn't framed by a second card that looks
-  the same. Don't add a border, a card or a background around the component.
-- **`wide`:** the same ground broken out to the column's full width on both
-  sides, as media is in rendered markdown: for a part that fills its pane in
-  the app (`Table`, `DiffFile`, `Markdown`) and a grid that fills its row
-  (`Icon`'s gallery).
-- **`bar`:** a bar that runs the width of a window or a pane (`StatusBar`,
-  `LocationBar`, `ViewHeader`): edge to edge in a bordered card as wide as
-  the text above it, with no padding and no scrolling. The card's border is
-  the bar's edge, the bar's own top and bottom lines are dropped so they
-  don't double it, and the card is the size container the bar's container
-  queries ask.
-- **`fullscreen`:** a whole window or view (`Details view`), and every
-  overlay: its own frame, so it opens inside its card rather than over the
-  page.
+- default: a muted ground as wide as the text, for most components.
+- `wide`: the ground at the column's full width, for a part that fills its pane
+  (`Table`, `DiffFile`, `Markdown`) or a grid that fills its row.
+- `bar`: edge to edge in a bordered card, for a bar that spans a window or pane
+  (`StatusBar`, `LocationBar`, `ViewHeader`).
+- `fullscreen`: its own frame, for a whole window or view and every overlay.
 
-Size a story with the `width` and `height` parameters, not a `<div style={{
-width }}>`: on the ground the story takes that width, the ground growing past
-the text on both sides only for a story wider than it, and a card follows the
-story's size, centred on the column whether it is narrower or wider, so a
-narrow bar has no gap beside it and a full view is never cropped or scrolled.
-A width the app gives the component itself, as a range's `style`, stays on the
-component. Give a size only when the size is the point (a narrow pane, a
-phone, a window); a part that fills its pane in the app, as a diff card or a
-file list, fills its ground here too, rather than a width copied from an old
-pane. Pick a story's content to fit the text, about 570px inside the ground
-(770px when `wide`), rather than making the page scroll sideways: the bar's
-own drop and ellipsis rules are what a narrower width shows.
+Give a size only when the size is the point (a narrow pane, a window), and pick
+content that fits about 570px (770px when `wide`).
 
 ### Looking up a component
 
