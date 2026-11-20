@@ -70,3 +70,4 @@ Rules for one component that its docs don't carry yet.
 | [Conflicts](design/patterns/conflicts.md)                       | A conflicted commit, file or branch              |
 | [Toasts and snackbars](design/patterns/toasts-and-snackbars.md) | Telling the user something happened              |
 | [Markdown](design/patterns/markdown.md)                         | Rendering a description or a comment             |
+| [Work under way](design/patterns/work-under-way.md)             | Showing that something runs: which spinner       |

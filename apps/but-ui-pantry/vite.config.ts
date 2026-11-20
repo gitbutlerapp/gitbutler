@@ -32,11 +32,12 @@ const designFolders = [
 	["../../packages/but-ui/design", "patterns"],
 ] as const;
 
-/** The component notes a JSDoc block names in its `@see` tags, as paths from this package. */
+/** The notes a JSDoc block names in its `@see` tags, as paths from this package: a component's own
+ * note, or a pattern the component takes part in, which keeps its own page too. */
 const componentNotes = (jsdoc: string) =>
-	[...jsdoc.matchAll(/@see packages\/but-ui\/(design\/components\/[a-z-]+\.md)/g)].flatMap(
-		([, note]) => (note === undefined ? [] : [`../../packages/but-ui/${note}`]),
-	);
+	[
+		...jsdoc.matchAll(/@see packages\/but-ui\/(design\/(?:components|patterns)\/[a-z-]+\.md)/g),
+	].flatMap(([, note]) => (note === undefined ? [] : [`../../packages/but-ui/${note}`]));
 
 /** Where the GPUI client's design system is, whose components the docs site marks GPUI. */
 const gpuiSource = "../../crates/but-ui-gpui/src";
