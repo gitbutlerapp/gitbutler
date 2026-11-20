@@ -587,6 +587,36 @@ pub(crate) fn graph(
                     });
                 1
             };
+            // Like the edges of a workspace commit, it also leads to each stack of the workspace
+            // resting where the workspace's lanes meet the target, which without a workspace
+            // commit is the target commit, as an empty lane of its own.
+            let stacks_on_workspace_base: Vec<&Stack> = if is_workspace_ref_name(full_name.as_ref())
+                && workspace_commit.is_none()
+            {
+                stacks
+                    .iter()
+                    .filter(|stack| {
+                        stack.in_workspace && stack.tip != commit_id && is_workspace_base(stack.tip)
+                    })
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            for (offset, stack) in stacks_on_workspace_base.iter().enumerate() {
+                unassigned_oid_map
+                    .entry(stack.tip)
+                    .or_default()
+                    .entry(StackLineage {
+                        branches_in_lineage: stack.branches.iter().cloned().collect(),
+                        is_unclaimed_workspace_edge: false,
+                    })
+                    .or_default()
+                    .push(ToRepoint {
+                        node_index,
+                        parent_index: parent_count + offset,
+                    });
+            }
+            let parent_count = parent_count + stacks_on_workspace_base.len();
             unassigned_oid_map.insert(commit_id, new_map);
 
             // 3. Push the node for this ref.
