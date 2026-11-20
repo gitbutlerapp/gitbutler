@@ -96,26 +96,6 @@ pub fn write_virtual_branches_and_sync(path: &Path, vb: &VirtualBranches) -> any
     Ok(())
 }
 
-/// Import TOML into DB if TOML is valid, overwriting existing data forcefully.
-///
-/// This is meant for oplog restore and similar flows where TOML was restored externally.
-pub fn import_toml_into_db(path: &Path) -> anyhow::Result<()> {
-    let info = read_toml_info(path)?;
-    let TomlInfo::Parsed(parsed) = info else {
-        bail!("Cannot import TOML into DB: TOML does not exist or is invalid");
-    };
-
-    let mut db = db_handle_from_toml_path(path)?;
-    let mut tx = db.immediate_transaction()?;
-    let mut state = snapshot_state(path, &tx)?.unwrap_or_default().state;
-    state.initialized = true;
-    parsed.update_last_seen_metadata_on(&mut state);
-    let snapshot = legacy_to_snapshot(&parsed.data, into_db_toml_file_info(state))?;
-    persist_snapshot(&mut tx, snapshot)?;
-    tx.commit()?;
-    Ok(())
-}
-
 fn read_or_init_vb_storage(
     path: &Path,
     tx: &mut but_db::Transaction<'_>,
