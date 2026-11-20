@@ -1,6 +1,6 @@
 ---
 name: gpui-screenshots
-description: Use whenever you need to see, click through or screenshot the GPUI client (crates/but-gpui), to check a UI change works, reproduce a UI bug, or show what a change looks like. Drives the app from a script in a window that never shows on the user's screen, against throwaway app data. Never start the app with `cargo run` or the plain binary to look at it.
+description: Use whenever you need to see, click through, screenshot or measure the performance or power of the GPUI client (crates/but-gpui), to check a UI change works, reproduce a UI bug, or show what a change looks like. Drives the app from a script in a window that never shows on the user's screen, against throwaway app data. Never start the app with `cargo run` or the plain binary to look at it.
 ---
 
 `crates/but-gpui/scripts/drive.sh` builds the client with `--features dev-script` and runs it
@@ -206,12 +206,10 @@ To film after inputs of your own, `clock stop` first, before the input that star
 then `film` without `--`; `clock run` runs the clock again from where it stopped. `tick 8`
 moves a stopped clock on by hand, so `move`s and `shot`s can go between ticks.
 
-Motion reads `crate::clock::now()`, never `Instant::now()`, and so must any animation you
-write, or it runs on the real time while the rest stands still. What GPUI animates itself
-(`with_animation`, `with_spring`, as a fold's chevron and spinners do) and timers keep the
-real time, so they jump between frames: a tooltip's delay, and a drag's edge scroll, which
-goes on scrolling near a list's top or bottom while the clock is stopped, so keep a filmed drag
-clear of the edges. Don't stretch a duration in the code to see a motion slowly.
+What GPUI animates itself (`with_animation`, `with_spring`, as a fold's chevron and spinners
+do) and timers keep the real time rather than `clock::now()`, so they jump between frames: a
+tooltip's delay, and a drag's edge scroll, which goes on scrolling near a list's top or bottom
+while the clock is stopped, so keep a filmed drag clear of the edges.
 
 ## Checking a motion
 
@@ -243,48 +241,32 @@ in the stories' window, each in its states side by side, with no repository to m
 toolbar switches light and dark and the interface scale. Add the variant a change makes to
 its story in `crates/but-gpui/src/stories` and shoot that.
 
-## Showing a choice
-
-When the user picks between looks, build each one and give them the shots' paths side by
-side, not a sketch in text. A sketch hides what they react to: how tall it is, how loud, and
-what it covers.
-
 ## Measuring performance
 
 - Measure with `run --release`. `perf <label> <input>` times the input until loads settle and
-  prints `stall`: the longest the UI thread was busy meanwhile, frames included. Nothing draws
-  while it's busy, so keep it under 8.3ms for 120Hz. The harness draws a frame right after the
-  input and again once loads land, running `on_next_frame` callbacks first as a display link
-  would. `perf startup` counts from launch, so make it the first step.
+  prints `stall`, the longest the UI thread was busy meanwhile; keep it under 8.3ms for 120Hz.
+  `perf startup` counts from launch, so make it the first step.
 - The plain and dev-script builds write the same `target/release/gitbutler-gpui`, and the plain
-  one ignores the script and hangs. Check with
-  `strings target/release/gitbutler-gpui | grep -c GITBUTLER_GPUI_SCRIPT`, and when done rebuild
-  the plain one with `cargo build --release -p but-gpui -p gitbutler-git --bins`, so the askpass
-  helper is there for pushes.
-- Running the binary yourself with `GITBUTLER_GPUI_SCRIPT`, guard it with a kill of your own:
-  the script waits for loads without a timeout, quit waits for running operations, and macOS
-  has no `timeout`. Kill only the process you started.
-- macOS naps an app whose window isn't visible, and after about 30 seconds every step slows by
-  2-3x. The dev script opts out with `NSProcessInfo` (`src/dev.rs`). Keep that in any harness
-  that drives the app off screen, and distrust a slowdown that starts partway through a run.
-- Profile with `sample <pid> <seconds> -file out.txt`. Look at the main thread, mostly idle
-  between steps, and read CPU from the self samples, past the wait frames (`__psynch_cvwait`,
-  `mach_msg`, `kevent`).
-- Stall numbers swing by 30-50% with machine load. Check `uptime`, run the old and new binaries
-  in turns, and compare means before calling a change a regression.
-- A dev-script build idles at 6-10% CPU, as the stall watcher wakes the UI thread every
-  millisecond. Measure idle CPU, memory and power on the plain build.
+  one ignores the script and hangs. When done, rebuild the plain one with
+  `cargo build --release -p but-gpui -p gitbutler-git --bins`, so the askpass helper is there
+  for pushes.
+- Running the binary yourself with `GITBUTLER_GPUI_SCRIPT`, guard it with a kill of your own
+  (macOS has no `timeout`), and kill only the process you started.
+- macOS naps an app whose window isn't visible, slowing every step after about 30 seconds. The
+  dev script opts out (`src/dev.rs`); keep that in any harness that drives the app off screen.
+- Stall numbers swing with machine load: run the old and new binaries in turns and compare
+  means before calling a change a regression.
+- Measure idle CPU, memory and power on the plain build: the dev-script build's stall watcher
+  wakes the UI thread every millisecond.
+- Profile with `sample <pid> <seconds> -file out.txt` and read the main thread's self samples.
 
 ## Measuring power
 
 - Judge battery by energy, not CPU time or `top`'s estimate: `proc_pid_rusage` with
-  `RUSAGE_INFO_V6` reads a process's `ri_energy_nj` and its performance-core time without root.
-  Its times are mach ticks, so convert them with `mach_timebase_info`.
+  `RUSAGE_INFO_V6` reads `ri_energy_nj` without root. Its times are mach ticks
+  (`mach_timebase_info`).
 - Measure on the plain build with the screen unlocked, in each state a user's window is in:
-  frontmost, visible behind another app, and hidden. `osascript` with System Events sets them:
-  `set frontmost of` or `set visible of` the process found by its unix id, or activate another
-  app. A locked screen makes every app a background one. With an agent writing to a
-  repository, the app drew about 500 mW frontmost and 6 mW hidden.
+  frontmost, visible behind another app, and hidden. `osascript` with System Events sets them.
 
 ## Notes
 

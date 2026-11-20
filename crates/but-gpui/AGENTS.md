@@ -1,8 +1,7 @@
 # GPUI client instructions
 
-These apply to `crates/but-gpui`, on top of `crates/AGENTS.md`. The README is for people
-running and developing the app, and stays short: don't describe behaviour, key bindings or the
-code's layout in it, and leave it alone when behaviour changes.
+The README is for people running and developing the app, and stays short: don't describe
+behaviour, key bindings or the code's layout in it, and leave it alone when behaviour changes.
 
 Look at the UI with `scripts/drive.sh` (the `gpui-screenshots` skill), never by starting the
 app: `cargo run` and the plain binary open a window on the user's screen and take their keys.
@@ -11,10 +10,9 @@ The skill also covers fixtures and measuring performance and power.
 ## The design system
 
 The theme, the tokens, the icons, the fonts and every component with a counterpart in
-`packages/but-ui-react` live in `crates/but-ui-gpui`, which `ui` re-exports, so call sites
-write `ui::button` as before. A component goes there only if it reaches into nothing of the
-app's (`Store`, `backend`, `dev`), as one in but-ui-react takes everything from its props; the
-rest of `ui` is the app's own. Change a shared component there, and draw it as but-ui-react's.
+`packages/but-ui-react` live in `crates/but-ui-gpui` (its `AGENTS.md` says what belongs
+there), which `ui` re-exports as `ui::button` and so on. The rest of `ui` is the app's own.
+Change a shared component there, and draw it as but-ui-react's.
 
 To use a component:
 
@@ -35,10 +33,10 @@ To use a component:
 
 - Use only the font families the app embeds (`../but-ui-gpui/assets/fonts`, `theme.ui_font` and
   `theme.mono_font`). Any other resolves to whatever the machine has installed, and an
-  installed variable font with an optical size axis (`opsz`) lays out many times slower. Only
-  fonts the user picks leave them: `theme.diff_font` and `theme.terminal_font`, checked with
-  `ui::digit_advance` first. Never load a user's font with `add_fonts`, which keeps a variable
-  font at its default instance.
+  installed variable font with an optical size axis (`opsz`) lays out many times slower. The
+  exceptions are the fonts the user picks, `theme.diff_font` and `theme.terminal_font`, which
+  are checked with `ui::digit_advance` first. Never load a user's font with `add_fonts`, which
+  keeps a variable font at its default instance.
 - A character the embedded Inter lacks is drawn from another font, heavier and off the
   baseline. Before writing a new symbol into the UI, check it's in `../but-ui-gpui/assets/fonts`
   and add it from the full Inter if not. That folder's `README.md` has the recipe.
@@ -52,14 +50,14 @@ To use a component:
 - A cached view that misses its cache renders all its descendants with caching off, so a
   cached child inside a view that notifies often saves nothing.
 - Reading an entity in `render` has the window draw on its every notify, even if it's never
-  mounted. Keep what a row shows of something that notifies often where the row already looks,
-  as `Terminals::title` does.
+  mounted. A row showing something from an entity that notifies often reads a copy kept in state
+  the row already reads, as `Terminals::title` keeps a terminal's title.
 - Text shaping dominates frames with new content, and each text run is shaped on its own, so
   fewer text elements per row is the lever. GPUI keeps a shaped line only while the same text
   is drawn the frame after, so text that changes a little every frame is shaped in pieces that
   keep, as the terminal shapes each run of a row.
 - Layout costs per element, and a flex row of many small ones costs most: place them with
-  `absolute` insets. Word tooltips in the tooltip's builder, not in render.
+  `absolute` insets. Build a tooltip's text in its builder, not in render.
 - Put any list that can grow in `uniform_list` or `list`, and don't derive per-row state for
   every row each frame.
 
@@ -72,8 +70,8 @@ unseen is what a laptop's battery pays for.
   waits: watcher reloads collect in `Store::unseen`, and `Store::set_visible` reads them once it
   shows. New watcher-driven or timed work takes the same path, as the mesh poll does. Work
   something else reads slows down instead, as the forge poll does.
-- Operations the user starts hold off App Nap while they run (`prevent_app_nap` in
-  `Store::start`). Refreshes don't, so a background app's run on efficiency cores.
+- Only operations the user starts hold off App Nap while they run (`prevent_app_nap` in
+  `Store::apply`); refreshes don't.
 
 ## GPUI traps
 
@@ -115,9 +113,9 @@ unseen is what a laptop's battery pays for.
 - `AppView` draws `DiffPane` absolutely over the detail pane, below
   `Detail::view_header_height`. Anything that changes the height above the file list, like tabs
   or a banner, must be counted there, or the diff covers it and takes its clicks.
-- A `Detail` draws and loads what it `shows`, not `Store::selection`: a pinned page shows its own
-  row, and the home tile's takes the selection as the update making it ends, so its page, diff
-  and checks change together. What acts on a page it just selected calls
+- A `Detail` draws and loads what it `shows`, not `Store::selection`. A pinned page shows its own
+  row. The home tile's `Detail` takes up the selection when the update that changed it ends, so
+  its page, diff and checks change together. Code that acts on a page it has just selected calls
   `Detail::follow_selection` first.
 - How a page is being looked at goes in its `PageState` variant (`detail/page.rs`), not on
   `Detail`, so it stays with that item in that tile. A position in the loaded diff is kept by what
@@ -170,82 +168,49 @@ unseen is what a laptop's battery pays for.
 
 ## Metrics
 
-Like the mesh, metrics must never break or slow anything else.
+Metrics must never break or slow anything else.
 
 - Its code stays in `backend/metrics.rs` and `backend/metrics/`. Capture only where the
   user acts, never in render, loads, the watcher or a loop. Failures and errors of one kind go
   out once a minute (`limit`).
 - A property the desktop app sends too keeps its name and values (`totalLanesInWorkspace`,
   `theme`, `error_code`), so one chart covers both apps.
-- Nothing sent may name a branch, file, project or anything the user wrote. An operation's label
-  that names one needs `Label::new` with a fixed name for the metrics, which the compiler asks
-  for. Errors go through `redact`.
+- Nothing sent may name a branch, file, project or anything the user wrote: an operation's
+  label that names one needs `Label::new` with a fixed name, and errors go through `redact`.
 
 ## Mesh
 
-The mesh shows the user's other machines' work. It's optional, and it must never break or slow
+The mesh shows the user's other machines' work. It's optional and must never break or slow
 anything else.
 
-- Its code stays in `backend/mesh.rs`, `state/mesh.rs`, `navigator/mesh.rs`,
-  `detail/machine.rs` and `settings/mesh.rs`. Everything else reaches it through a
-  `Selection::Mesh` or `Section::Mesh` arm, `store.mesh`, the `Store::mesh_*` methods or
-  `StoreEvent::MeshRead`, with at most a dispatch arm.
-- The app only calls the `but-mesh` CLI, as the mesh lives in a private repository. Gate
-  anything new on `store.mesh.connection()`: without `but-mesh`, or signed out, only the
-  Settings row shows.
-- Every mesh call goes through `backend::run` with one of the timeouts in `backend/mesh.rs`,
-  never on the UI thread. Network work never runs as a project's operation, which would hold up
-  commits, pushes and updates.
-- Background failures log at debug, keep the last good read and are tried again. Only what the
-  user asked for, signing in or out and Apply here, shows an error.
+- Keep its code in the `mesh` modules and `detail/machine.rs`. Everything else reaches it
+  through `store.mesh` and the `Store::mesh_*` methods, with at most a dispatch arm.
+- The app only calls the `but-mesh` CLI, as the mesh is a private repository. Gate anything
+  new on `store.mesh.connection()`.
+- Every mesh call goes through `backend::run` with a timeout from `backend/mesh.rs`, never on
+  the UI thread and never as a project's operation.
+- Background failures log at debug and keep the last good read. Only what the user asked for
+  shows an error.
 
 ## Briefs
 
-Briefs are the server's write-ups of a branch. The API and what it sends will change for a while,
-and the feature may go, so it stays separate.
+Briefs are the server's write-ups of a branch. The API is still changing and the feature may
+go, so it stays separate.
 
-- Its code stays in `crates/but-briefs`, `backend/briefs/`, `state/briefs.rs` and `detail/brief/`.
-  Everything else reaches it through `Store::brief_at`, `Detail::has_brief`, `BriefState`, `BriefView` and
-  `PageTab::Brief`, with at most a dispatch arm. Outside that, the Branches page's "With a brief"
-  filter reads it, and a quiet mark on a branch's row in the navigator and on that page.
-- What Briefs sent and comments not sent yet are kept in a file of their own under the app's data
-  folder, never in `but-db`, and pictures under its cache folder.
-  It holds the server's JSON, which is read leniently, and has no migrations: anything unreadable
-  is dropped and asked for again, and a bump of its `SCHEMA` empties it but for those comments.
-- Pages read only what's kept, so the tab is there at once and nothing marks a row. The poll
-  beside the forge's fills it, and a page asks only about a branch the poll leaves out. It waits
-  while the window is hidden and asks nothing while the flag is off or no one's signed in.
-- Background failures log at debug and keep what's known. Signing out deletes the file.
-- What the agent wrote and what's known apart from it never look alike: the facts panel shows only
-  what the repository or the CLI says, and colour in it goes only on what should change a decision.
-  A fact worked out here (`Standing`, `ReadBack`, a card that differs from the branch) is stated, not
-  softened, and with no way to know, it says nothing.
-- Notes stay on this machine until they're sent, as a comment tells people. Nothing goes out, to
-  Briefs or a terminal, without a key press or a click on what names where it goes.
-- Facts come from the branch's own diff where they can (`TestFacts`, the names of code in the words),
-  so they hold whatever the agent wrote. A fact that accuses has to be right nearly always: a name
-  the code doesn't have looks like any other code and only a click on it says so, as every one found
-  in real briefs was a fair thing to write.
-- `RowKey::Changes` is a row's changes in a tile of their own, beside its brief. While it's there a
-  name or file in the brief goes to it by `StoreEvent::CodeAsked`, and the brief keeps the keys and
-  its place. Without it a click goes to the Changes tab and Esc comes back.
-- A version never changes, so a commit landing only asks again how it stands. Reading it again would
-  lose what's marked as new in it.
-- The list's state can't be asked anything while it draws a row: it's borrowed, and it panics. What a
-  row needs from it is worked out before the list is drawn, as `measure_brief_room` does.
-- What's said goes in the margin, beside the paragraph it's about, or under it where the tab's too
-  narrow. A paragraph's margin takes no height while it can run on past the words without meeting
-  anything, so writing, sending and replying move nothing.
-- While the margin shows, everything keeps one measure, wide blocks too, so comments stay in one
-  column and writing beside a block moves nothing. Under the margin's width, blocks go full width.
-- What a paragraph shows on hover goes by `brief_hovered`, the words last pointed at, not a hover
-  group: it has to last the way over the gap to it and over a card from the paragraph before. A
-  scripted `click` jumps there and can't catch that going wrong: walk there with `move`s and look.
-- Not sent yet is blue, as what's not pushed is, and pop stays for the one primary action.
-- The page's tab row says where a brief stands: what's asked, comments not sent and the answers.
-  It has no bar of its own, as one would sit on top of the status bar.
-- A debug build can be pointed at a stand-in server with `GITBUTLER_BRIEFS_BASE`, to try what writes
-  without touching anyone's briefs.
+- Its code stays in `crates/but-briefs`, `backend/briefs/`, `state/briefs.rs` and
+  `detail/brief/`. Everything else reaches it through `Store::brief_at`, `Detail::has_brief`
+  and `PageTab::Brief`, with at most a dispatch arm.
+- What Briefs sent, and comments not yet sent, are kept in a SQLite file of their own under the
+  app's data folder, never in `but-db`. What Briefs sent is a cache with no migrations: anything
+  unreadable is dropped and asked for again. Unsent comments are the user's words and kept
+  nowhere else, so they outlive a schema change, and changing their `note` table takes a
+  migration. Signing out deletes the file.
+- Nothing goes out, to Briefs or a terminal, without a key press or a click on what names
+  where it goes.
+- Background failures log at debug and keep what's known.
+- The list's state panics if read while it draws a row. Work out what a row needs before the
+  list draws, as `measure_brief_room` does.
+- Point a debug build at a stand-in server with `GITBUTLER_BRIEFS_BASE`.
 
 ## Sizes
 
@@ -325,8 +290,7 @@ and tests it.
   pop. A disabled control says why in its tooltip. Tooltips are a few words, with the shortcut
   in its key slot, and a right-click item that a key also does shows it, built with
   `MenuItem::keyed` or `MenuItem::action`. Snackbars are fragments without a full stop.
-  Misleading copy is a bug.
-- The app is reactive, so no reload buttons. Nothing added may make it slower.
+- The app is reactive, so no reload buttons.
 - A part of the window a setting can leave out is a `Part`. Call sites ask `Prefs::shows`,
   never the flag behind it.
 - Nothing outside tests may panic, as the app runs as GitButler itself: clippy denies unwrap,
@@ -342,8 +306,9 @@ and tests it.
   reacting, resolving), editing a commit in the app (the resolver and `but resolve` cover it),
   editing a file in the diff, moving a commit one step, updating one stack, Locate for a moved
   project, diff zoom and the palette's theme toggle.
-- Format a file on its own with `rustfmt --edition 2024 <file>`: given `lib.rs` or a `mod.rs`,
-  rustfmt formats every module under it too, which matters when others edit the crate at once.
+- Format a file on its own with `rustfmt --edition 2024 <file>`. rustfmt also formats every
+  module the file declares with `mod x;`, so given `lib.rs` it formats the whole crate, which
+  matters when others edit the crate at once.
 
 ## Motion
 

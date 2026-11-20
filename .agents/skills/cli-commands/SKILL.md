@@ -38,7 +38,6 @@ In `crates/but/src/args/mod.rs`:
 
 ```rust
 #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-#[clap(hide = true, name = "_commit3")]
 Commit3(commit3::Platform),
 ```
 
@@ -61,6 +60,9 @@ documentation from `Platform`.
 
 Use `#[clap(group = "...")]` to create mutually exclusive groups of arguments.
 
+A command that isn't ready for users stays hidden under an underscore name, as
+`#[clap(hide = true, name = "_reword2")]` does.
+
 Commands with tricky grammar can define a `pub(crate) const ERROR_EXAMPLES`
 next to `Platform` and register it in `args::error_examples`; the block is
 appended after clap parse errors. At most 4 lines, each a
@@ -69,38 +71,17 @@ include `-m` where omitting it would open an editor).
 
 ## Handling the command
 
-Add a match arm to `crates/but/src/lib.rs` to handle the command:
+In `crates/but/src/lib.rs`, add the command to the `setup::init_ctx` match with the
+`InitCtxOptions` it needs, and give it an arm in the dispatch match after it:
 
 ```rust
-match cmd {
-    Subcommands::Commit3(commit_args) => {
-        use crate::utils::IntermediateChannel;
+Subcommands::Commit3(commit_args) => {
+    use crate::utils::IntermediateChannel;
 
-        let status_after = args.status_after;
-        let mut ctx = setup::init_ctx(
-            &args,
-            InitCtxOptions {
-                background_sync: BackgroundSync::Enabled { silent: false },
-                ..Default::default()
-            },
-            out,
-        )?;
-        out.begin_status_after(status_after);
-
-        let outcome = command::legacy::commit3::commit(
-            &mut ctx,
-            IntermediateChannel::new(out),
-            commit_args,
-        )
-        .emit_metrics(metrics_ctx)?;
-        out.print_cli_output(outcome)?;
-
-        run_status_after_if_requested(status_after, &mut ctx, out);
-
-        Ok(())
-    }
-
-    // all the other commands...
+    let outcome =
+        command::commit3::commit(&mut ctx, IntermediateChannel::new(out), commit_args)?;
+    out.print_cli_output(outcome)?;
+    None
 }
 ```
 
@@ -109,12 +90,14 @@ Things to note:
 Use `IntermediateChannel`. Do not pass `OutputChannel` to commands.
 
 Use `OutputChannel::print_cli_output` to print the final output from the
-command. This ensures we handle all supported formats. If only human format is
-supported, use `OutputChannel::print_cli_output_human`.
+command. This ensures we handle all supported formats.
+
+Metrics are sent once, after dispatch. A command that honours `--status-after`
+sets `status_after_data`, as the `Subcommands::Commit` arm does.
 
 ## Implementing the command
 
-In `crates/but/src/command/legacy/commit3.rs`
+In `crates/but/src/command/commit3.rs`
 
 ```
 pub fn commit(
@@ -152,13 +135,18 @@ struct CommitOutcome {
 }
 
 impl CliOutputHuman for CommitOutcome {
-    fn on_human(self, out: &mut dyn WriteWithUtils, _theme: &Theme) -> anyhow::Result<()> {
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        _theme: &'static Theme,
+    ) -> anyhow::Result<()> {
         let Self { new_commit } = self;
 
         writeln!(
             out,
             "Created commit {}",
-            theme::Commit(new_commit, None),
+            theme::Commit(new_commit),
         )?;
 
         Ok(())
@@ -166,14 +154,6 @@ impl CliOutputHuman for CommitOutcome {
 }
 
 impl CliOutput for CommitOutcome {
-    fn on_shell(self, out: &mut dyn WriteWithUtils) -> anyhow::Result<()> {
-        let Self { new_commit } = self;
-
-        writeln!(out, "{}", new_commit.to_hex_with_len(7))?;
-
-        Ok(())
-    }
-
     fn on_json(self) -> impl serde::Serialize {
         #[derive(Serialize)]
         struct Output {
@@ -243,7 +223,7 @@ is fine.
 
 For examples of this structure in practice see
 
+- `crates/but/src/command/worktree/remove.rs`
+- `crates/but/src/command/open/gui.rs`
 - `crates/but/src/command/legacy/commit.rs`
 - `crates/but/src/command/legacy/move.rs`
-- `crates/but/src/command/legacy/squash.rs`
-- `crates/but/src/command/legacy/diff.rs`

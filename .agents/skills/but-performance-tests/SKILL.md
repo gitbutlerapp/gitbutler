@@ -5,34 +5,18 @@ description: Use when creating, changing, running, or debugging shell-based `but
 
 # `but` CLI performance tests
 
-Read [performance framework documentation](../../../crates/but/tests/performance/README.md)
-completely before answering questions or changing performance scenarios. Inspect nearby
-scenarios and current shared helpers as applicable; README is canonical source for
-framework behavior, commands, helper APIs, and debugging options.
+[The performance README](../../../crates/but/tests/performance/README.md) documents the
+framework: its commands, helpers, scenario layout and debugging options. Read all of it before
+answering a question about the scenarios or changing one.
 
-## Workflow for changes
+To add or change a scenario:
 
-1. Confirm requested operation and timing boundary.
-2. Inspect closest existing scenarios plus `lib.sh` and `run.sh`.
-3. Add or update only scenario's `setup.sh` and `test.sh` unless shared behavior is
-   genuinely required.
-4. Prefer real, representative GitButler repository state over toy data.
-5. Keep setup, validation, and ID discovery outside timed operation.
-6. Reuse documented helpers instead of creating parallel fixture, state, output, or
-   timing mechanisms.
-7. List every scenario in top-level performance README's included-scenario list, and
-   update its entry when materially changing scenario.
-8. Run README's shell validation and short single-scenario benchmark.
-
-For usage or debugging questions, answer from current README and scripts. Do not edit
-files unless user asks for changes.
-
-## Guardrails
-
-- Keep changes inside `crates/but/tests/performance/` unless task specifically requests
-  related documentation or skill updates.
-- Preserve two-file scenario contract.
-- Do not add custom timing/statistics code; Hyperfine owns measurement.
-- Do not include fixture setup or compilation in measured command.
-- Do not run all scenarios when user requests or changes only one.
-- Report fixture/setup limitations and unavailable validation explicitly.
+1. Start from the closest existing scenario, `lib.sh` and `run.sh`.
+2. Change only the scenario's `setup.sh` and `test.sh`, unless shared behavior has to change.
+   Reuse the README's helpers rather than adding fixture, state, output or timing mechanisms.
+3. Use real, representative GitButler repository state, not toy data.
+4. Keep fixture setup, compilation, validation and ID discovery out of `test.sh`, which
+   Hyperfine times in full. Hyperfine owns measurement, so add no timing or statistics code.
+5. List the scenario under the README's Included scenarios, and update its entry when the
+   scenario changes materially.
+6. Run the README's shell validation and a short single-scenario benchmark.
