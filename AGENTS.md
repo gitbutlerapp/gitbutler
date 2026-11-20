@@ -15,6 +15,11 @@ GitButler is a Rust/Svelte/React/TypeScript monorepo.
   tokens, React components, and their GPUI counterparts.
 - `e2e/` - Playwright, WebdriverIO, and blackbox end-to-end tests.
 
+## Commits and PRs
+
+Do not leave agent creditation in PRs or Commit messages. These are disallowed
+in GitButler repos.
+
 ## The Pantries
 
 - "The pantry" is the design system's site: the design notes and every
