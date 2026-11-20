@@ -26,7 +26,7 @@ use crate::backend::{self, Checkout};
 use crate::edits::{Discard, RenameTerminal};
 use crate::overlays::{MenuItem, has_keys};
 use crate::palette::StatusGroup;
-use crate::state::{Axis, NavigatorPlace, ProjectId, Store, TerminalGrouping};
+use crate::state::{Axis, NavigatorPlace, Part, ProjectId, Store, TerminalGrouping};
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
 use crate::ui::Text;
@@ -823,7 +823,8 @@ impl Render for TerminalOverview {
             window.request_animation_frame();
         }
         let theme = Theme::get(cx);
-        let focused = has_keys(&self.focus, window, cx);
+        let outlined = self.store.read(cx).prefs.shows(Part::FocusOutline)
+            && has_keys(&self.focus, window, cx);
         let in_tab = self.in_tab(cx);
         let rows = (!folded_away).then(|| {
             let rows = match self.items.is_empty() {
@@ -907,7 +908,7 @@ impl Render for TerminalOverview {
             .when(!in_tab, |el| {
                 el.bg(theme.bg_1)
                     .border_1()
-                    .border_color(match focused {
+                    .border_color(match outlined {
                         true => theme.focus_edge(),
                         false => theme.border_3,
                     })

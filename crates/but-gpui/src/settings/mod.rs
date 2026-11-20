@@ -933,6 +933,17 @@ impl SettingsView {
         });
         let status_bar = self.status_bar_row(cx);
         let terminal_overview = self.terminal_overview_row(cx);
+        let focus_outline = Row::new(
+            "Outline what has the keys",
+            "The card or pane your typing goes to has a darker edge.",
+            self.pref_switch(
+                "focus-outline",
+                prefs.focus_outline,
+                |p| p.focus_outline ^= true,
+                cx,
+            ),
+        )
+        .with_keywords("focus border ring edge");
         let navigator_place = self.navigator_place_row(cx);
         let app = self.app.clone();
         let mut diff = vec![
@@ -1126,6 +1137,7 @@ impl SettingsView {
                     navigator_place,
                     status_bar,
                     terminal_overview,
+                    focus_outline,
                 ],
             ),
             Card::new(Some("Navigator"), navigator),

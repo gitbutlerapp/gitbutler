@@ -36,7 +36,7 @@ impl Database {
         )
     }
 
-    fn open_in(dir: Option<PathBuf>) -> Self {
+    pub(crate) fn open_in(dir: Option<PathBuf>) -> Self {
         let Some(path) = dir.map(|dir| dir.join("state.sqlite")) else {
             return Self(None);
         };

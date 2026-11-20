@@ -1197,9 +1197,10 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                 "diff-controls" => (|p| &mut p.hide_diff_controls, true),
                 "menu-bar" => (|p| &mut p.menu_bar_everywhere, false),
                 "terminal-overview" => (|p| &mut p.hide_terminal_overview, true),
+                "focus-outline" => (|p| &mut p.focus_outline, false),
                 _ => bail!(
-                    "pref takes status-bar, headers, full-messages, diff-controls, menu-bar or \
-                     terminal-overview"
+                    "pref takes status-bar, headers, full-messages, diff-controls, menu-bar, \
+                     terminal-overview or focus-outline"
                 ),
             };
             let set = on != hides;

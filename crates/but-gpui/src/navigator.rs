@@ -25,7 +25,9 @@ use crate::backend::{
 };
 use crate::detail::{ChecksChanged, Detail, PageTab, oldest_conflict};
 use crate::overlays::{MenuItem, keys_at};
-use crate::state::{Prefs, ProjectId, Section, Selection, Store, StoreEvent, Tile, WatchedOrder};
+use crate::state::{
+    Part, Prefs, ProjectId, Section, Selection, Store, StoreEvent, Tile, WatchedOrder,
+};
 use crate::terminal::TerminalId;
 use crate::theme::{Hue, Theme, tokens};
 use crate::transfer::{
@@ -2362,8 +2364,11 @@ impl Navigator {
     /// Note the card the selection's in while the navigator has the keys, but in its filter,
     /// for its rows to edge it as the tile with the keys is.
     fn find_focused_card(&self, window: &Window, cx: &App) {
-        let keys = !self.on_drawer_bar && self.rows_have_keys(window, cx);
-        let selection = self.store.read(cx).selection.as_ref();
+        let store = self.store.read(cx);
+        let keys = store.prefs.shows(Part::FocusOutline)
+            && !self.on_drawer_bar
+            && self.rows_have_keys(window, cx);
+        let selection = store.selection.as_ref();
         let at = selection.filter(|_| keys).and_then(|selection| {
             (self.built.rows.iter())
                 .position(|row| matches!(row, Row::Item(item) if item == selection))
