@@ -218,6 +218,7 @@
 	color: var(--but-warning-text);
 }
 
+.agent-working,
 .empty,
 .head {
 	color: var(--but-subtle-foreground);
@@ -227,7 +228,6 @@
 	color: var(--but-info-text);
 }
 
-.agent-working,
 .cpu,
 .passed {
 	color: var(--but-success-text);

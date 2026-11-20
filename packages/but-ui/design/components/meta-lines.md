@@ -4,9 +4,9 @@ The line under a header's title, and a row's meta: small facts, each a glyph
 and its words (`MetaPart`) or a glyph and a number (`MetaCount`).
 
 **Colour says what it asks of you.** Amber is work waiting on you (behind,
-uncommitted, an agent waiting), blue is work to send (unpushed), green is an
-agent at work or a branch this one follows, red is what failed. The rest are
-gray.
+uncommitted, an agent waiting), blue is work to send (unpushed), green is a
+branch this one follows, red is what failed. The rest are gray, an agent at
+work among them: it needs nothing from you, and its robot moving says so.
 
 **A header's line says what needs you.** Then one fact about the thing and its
 age: three or four parts at most. What the page shows below the header, or a
