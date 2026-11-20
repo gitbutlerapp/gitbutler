@@ -17,6 +17,7 @@ export-schema = ["dep:schemars", "dep:but-schemars"]
 doctest = false
 
 [dependencies]
+but-http.workspace = true
 but-secret.workspace = true
 but-forge-storage.workspace = true
 but-error.workspace = true

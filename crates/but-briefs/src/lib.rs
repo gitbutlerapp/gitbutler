@@ -63,7 +63,7 @@ pub struct Client {
 
 impl Client {
     pub fn new(token: Sensitive<String>) -> Result<Self> {
-        let http = reqwest::Client::builder()
+        let http = but_http::client_builder()?
             // HTTP clients keep custom headers across hosts, and media redirects to an image
             // host, so nothing is followed with the token on: `media` follows by hand.
             .redirect(redirect::Policy::none())
