@@ -576,45 +576,6 @@ impl AppView {
         window.is_action_available(command, cx) && command.listed(self, cx)
     }
 
-    /// Ask for a new branch's name, with `suggested` in the field ready to type over, then apply
-    /// the intent `op` makes of it and hand `done` what it returns. `at` is what it acts on, the
-    /// project or a branch or commit in it, for the prompt to say where.
-    #[expect(clippy::too_many_arguments)]
-    pub(crate) fn prompt_branch<I: backend::Intent>(
-        &mut self,
-        at: Selection,
-        title: &str,
-        suggested: &str,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-        op: impl FnOnce(String) -> I + 'static,
-        done: impl FnOnce(&mut Store, I::Done, &mut Context<Store>) + 'static,
-    ) {
-        let project = at.project().clone();
-        let place = self.store.read(cx).place(&at);
-        let input = branch_name_input(suggested, cx);
-        let checked = project.clone();
-        let check = move |this: &AppView, name: &str, cx: &App| {
-            branch_name(this.store.read(cx), &checked, name, "").err()
-        };
-        self.open_prompt(
-            Some(place),
-            title,
-            None,
-            "Create",
-            input,
-            None,
-            Some(Box::new(check)),
-            window,
-            cx,
-            move |this, name, _, cx| {
-                (this.store).update(cx, |store, cx| {
-                    run_named(store, &project, None, name, op, done, cx)
-                })
-            },
-        );
-    }
-
     #[expect(clippy::too_many_arguments)]
     pub(crate) fn open_prompt(
         &mut self,
