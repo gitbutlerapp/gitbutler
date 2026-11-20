@@ -8,23 +8,27 @@ use std::rc::Rc;
 use std::sync::{Arc, Once};
 use std::time::{Duration, Instant};
 
+use libghostty_vt::color::Rgb as RgbColor;
+use libghostty_vt::effect::{
+    ClipboardWriteError, ProgramStatus, ProgramStatusState, ProgressReport, ProgressState,
+};
 use libghostty_vt::error::Error;
-use libghostty_vt::fmt::{Format, Formatter, FormatterOptions};
+use libghostty_vt::fmt::{Format, Formatter};
 use libghostty_vt::focus;
 use libghostty_vt::key::{self, Key, Mods};
 use libghostty_vt::kitty::graphics::{self, ImageFormat, RustPngDecoder};
+use libghostty_vt::mode::Mode;
 use libghostty_vt::mouse;
+use libghostty_vt::point::{Coordinate as PointCoordinate, Point as GridPoint};
 use libghostty_vt::render::{
     CellIterator, CursorVisualStyle, Dirty, ImageIterator, ImageLayer, ImageProtocol, RowId,
     RowIterator, Snapshot,
 };
+use libghostty_vt::report::{ColorScheme, SizeReportSize};
 use libghostty_vt::screen::{CellWide, Screen};
 use libghostty_vt::selection::gesture::{self, Gesture};
-use libghostty_vt::style::{RgbColor, Underline};
-use libghostty_vt::terminal::{
-    ClipboardWriteError, ColorScheme, Mode, Point as GridPoint, PointCoordinate, ProgramStatus,
-    ProgramStatusState, ProgressReport, ProgressState, ScrollViewport, SizeReportSize,
-};
+use libghostty_vt::style::Underline;
+use libghostty_vt::terminal::ScrollViewport;
 use libghostty_vt::{RenderState, paste};
 
 use super::{Colors, Size};
@@ -236,7 +240,7 @@ pub(crate) struct Vt {
 
 impl Vt {
     pub(crate) fn new(size: Size) -> libghostty_vt::error::Result<Self> {
-        use libghostty_vt::terminal::{
+        use libghostty_vt::effect::{
             ConformanceLevel, DeviceAttributeFeature, DeviceAttributes, DeviceType,
             PrimaryDeviceAttributes, SecondaryDeviceAttributes, TertiaryDeviceAttributes,
         };
@@ -359,7 +363,9 @@ impl Vt {
             })
         })?;
         let mut mouse = mouse::Encoder::new()?;
-        mouse.set_track_last_cell(true).set_size(encoder_size(size));
+        mouse
+            .set_track_last_cell(true)
+            .set_size(encoder_size(size))?;
         Ok(Self {
             term,
             drawer,
@@ -508,7 +514,7 @@ impl Vt {
             return Vec::new();
         }
         let mut bytes = [0; 16];
-        let written = scheme.encode_report(&mut bytes).unwrap_or(0);
+        let written = scheme.encode(&mut bytes).unwrap_or(0);
         bytes[..written].to_vec()
     }
 
@@ -521,7 +527,7 @@ impl Vt {
         (self.term)
             .resize(size.cols, size.rows, cell.0, cell.1)
             .ok();
-        self.mouse.set_size(encoder_size(size));
+        self.mouse.set_size(encoder_size(size)).ok();
         self.take_replies()
     }
 
@@ -647,16 +653,13 @@ impl Vt {
     /// What's selected, as Ghostty copies it: lines the terminal wrapped joined again, and
     /// without the blanks trailing each.
     pub(crate) fn selected(&self) -> Option<String> {
-        let selection = self.term.selection().ok()??;
-        let options = FormatterOptions::new()
-            .with_format(Format::Plain)
-            .with_unwrap(true)
-            .with_trim(true)
-            .with_selection(&selection);
-        let text = Formatter::new(&self.term, options)
-            .ok()?
-            .format_alloc(None)
+        let mut formatter = Formatter::new_selection(&self.term).ok()??;
+        formatter
+            .set_format(Format::Plain)
+            .and_then(|f| f.set_unwrap(true))
+            .and_then(|f| f.set_trim(true))
             .ok()?;
+        let text = formatter.format_alloc(None).ok()?;
         Some(String::from_utf8_lossy(&text).into_owned())
     }
 
@@ -664,11 +667,12 @@ impl Vt {
     /// joined again, and without the blanks trailing each. An alternate screen, as a full-screen
     /// program draws, comes without the one behind it.
     pub(crate) fn text(&self) -> libghostty_vt::error::Result<String> {
-        let options = FormatterOptions::new()
-            .with_format(Format::Plain)
-            .with_unwrap(true)
-            .with_trim(true);
-        let text = Formatter::new(&self.term, options)?.format_alloc(None)?;
+        let mut formatter = Formatter::new(&self.term)?;
+        formatter
+            .set_format(Format::Plain)?
+            .set_unwrap(true)?
+            .set_trim(true)?;
+        let text = formatter.format_alloc(None)?;
         Ok(String::from_utf8_lossy(&text).into_owned())
     }
 
@@ -716,23 +720,29 @@ impl Vt {
     /// An alternate screen comes without the one behind it.
     #[cfg(unix)]
     pub(crate) fn screen(&self) -> libghostty_vt::error::Result<Vec<u8>> {
-        let options = FormatterOptions::new()
-            .with_format(Format::Vt)
-            .with_modes(true)
-            .with_scrolling_region(true)
-            .with_pwd(true)
-            .with_keyboard(true)
-            .with_cursor(true)
-            .with_style(true)
-            .with_hyperlink(true)
-            .with_protection(true)
-            .with_kitty_keyboard(true)
-            .with_charsets(true);
+        use libghostty_vt::fmt::Extras;
+
+        let mut formatter = Formatter::new(&self.term)?;
+        formatter
+            .set_format(Format::Vt)?
+            .set_trim(false)?
+            .set_extras(
+                Extras::MODES
+                    | Extras::SCROLLING_REGION
+                    | Extras::PWD
+                    | Extras::KEYBOARD
+                    | Extras::CURSOR
+                    | Extras::STYLE
+                    | Extras::HYPERLINK
+                    | Extras::PROTECTION
+                    | Extras::KITTY_KEYBOARD
+                    | Extras::CHARSETS,
+            )?;
         let title = self.term.title().unwrap_or_default();
         let mut screen = b"\x1b]2;".to_vec();
         screen.extend_from_slice(title);
         screen.extend_from_slice(b"\x1b\\");
-        screen.extend_from_slice(&Formatter::new(&self.term, options)?.format_alloc(None)?);
+        screen.extend_from_slice(&formatter.format_alloc(None)?);
         Ok(screen)
     }
 
@@ -868,7 +878,7 @@ impl Drawer {
         // Nor does an image being placed or moved.
         let images_now = ImagesRead {
             placements: snapshot.image_placements_generation()?,
-            storage: term.kitty_graphics()?.generation()?,
+            storage: term.kitty_graphics()?.map_or(Ok(0), |g| g.generation())?,
             cell: cell_pixels(term)?,
         };
         let images_changed = self.images_drawn != Some(images_now);
@@ -1015,7 +1025,10 @@ fn placements(
     (cell_width, cell_height): (u32, u32),
     before: &[Placement],
 ) -> libghostty_vt::error::Result<Vec<Placement>> {
-    let graphics = term.kitty_graphics()?;
+    // When Kitty graphics are disabled at build time there is nothing to draw.
+    let Some(graphics) = term.kitty_graphics()? else {
+        return Ok(Vec::new());
+    };
     let (cell_width, cell_height) = (cell_width.max(1) as f32, cell_height.max(1) as f32);
     // By z-index, and as Ghostty orders those alike, by image id.
     let mut placements: Vec<((i32, u32), Placement)> = Vec::new();
@@ -1750,10 +1763,8 @@ mod tests {
         let mut vt = Vt::new(SIZE).unwrap();
         vt.write(b"hello world");
         let cell = |x| {
-            let point = libghostty_vt::terminal::PointCoordinate { x, y: 0 };
-            vt.term
-                .grid_ref(libghostty_vt::terminal::Point::Viewport(point))
-                .unwrap()
+            let point = PointCoordinate { x, y: 0 };
+            vt.term.grid_ref(GridPoint::Viewport(point)).unwrap()
         };
         let hello = libghostty_vt::selection::Selection::new(cell(0), cell(4), false);
         vt.term.set_selection(Some(&hello)).unwrap();
@@ -2074,11 +2085,13 @@ mod tests {
 
     #[cfg(unix)]
     fn plain(vt: &Vt) -> String {
-        let options = FormatterOptions::new().with_format(Format::Plain);
-        let text = Formatter::new(&vt.term, options)
+        let mut formatter = Formatter::new(&vt.term).unwrap();
+        formatter
+            .set_format(Format::Plain)
             .unwrap()
-            .format_alloc(None)
+            .set_trim(false)
             .unwrap();
+        let text = formatter.format_alloc(None).unwrap();
         String::from_utf8(text.to_vec()).unwrap()
     }
 
