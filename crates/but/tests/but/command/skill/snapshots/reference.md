@@ -287,3 +287,4 @@ Check if a new version of the GitButler CLI is available
 
 ### but config forge auth
 Authenticate with the forge (GitHub, GitLab, or Bitbucket)
+- `--with-token` Read a GitHub token from stdin and store it as a Personal Access Token, without prompts
