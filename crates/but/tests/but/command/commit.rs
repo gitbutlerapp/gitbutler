@@ -4223,6 +4223,67 @@ Hint: Most likely you want `but pull`, which updates the workspace and removes l
 "#]]);
 }
 
+/// A worktree has the lower branch `A` of a stack checked out, and the target fast-forwarded
+/// over it. `A` landed, so it is refused although its commits now show under `B`.
+#[test]
+fn commit_to_a_worktree_on_a_landed_lower_branch_is_refused() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.but("branch new -A A B").assert().success();
+    env.file("b.txt", "b");
+    env.but("commit -b B -m 'on B'").assert().success();
+    env.invoke_git("update-ref refs/remotes/origin/main A");
+    let wt = env.app_data_dir().join("worktrees");
+    but_testsupport::invoke_bash_at_dir(
+        &format!(
+            r#"git worktree add -q "{wt}/wt-lower" A"#,
+            wt = wt.display()
+        ),
+        env.projects_root(),
+    );
+    env.file("file.txt", "Some text");
+
+    env.but("commit -b wt-lower -m 'onto landed'")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Branch 'A' is merged upstream
+
+Hint: Most likely you want `but pull`, which updates the workspace and removes landed work. In rare cases `--allow-merged` can bypass this check
+
+"#]]);
+}
+
+/// The target fast-forwarded over stack `A`, so a new branch made on `A`'s tip rests on the
+/// target with nothing of its own that landed, and taking commits isn't refused.
+#[test]
+fn commit_to_a_new_worktree_branch_on_a_landed_stack_tip() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.invoke_git("update-ref refs/remotes/origin/main A");
+    let wt = env.app_data_dir().join("worktrees").join("wt-fresh");
+    but_testsupport::invoke_bash_at_dir(
+        &format!(
+            r#"git worktree add -q -b fresh "{wt}" A && echo new >"{wt}/new.txt""#,
+            wt = wt.display()
+        ),
+        env.projects_root(),
+    );
+
+    env.but("commit -m 'onto landed'")
+        .current_dir(&wt)
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created commit usl on branch 'fresh'
+
+"#]]);
+}
+
 /// A dirty file literally named `@` competes with the uncommitted area instead of silently
 /// shadowing it, the same way a file sharing a worktree's name does.
 #[test]
