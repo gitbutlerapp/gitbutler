@@ -32,6 +32,13 @@ const Card: FC<{ children: ReactNode }> = ({ children }) => (
 	</div>
 );
 
+/** A drawer's card with nothing in it: the empty state, with the card's room around it. */
+const EmptyCard: FC<{ children: ReactNode }> = ({ children }) => (
+	<Card>
+		<div style={{ padding: "28px 16px" }}>{children}</div>
+	</Card>
+);
+
 /** One group of a drawer's card, ruled off from the next. */
 const Group: FC<{ children: ReactNode; last?: boolean }> = ({ children, last = false }) => (
 	<div
@@ -212,7 +219,7 @@ export const SidebarDrawers = meta.story({
 				</Card>
 			</Open>
 			<Open name="Terminals" count={0} hoverActions={ghost("plus", "New terminal…")} last open>
-				<Card>
+				<EmptyCard>
 					<EmptyState
 						variant="tidy"
 						title="No terminals open"
@@ -223,7 +230,7 @@ export const SidebarDrawers = meta.story({
 							<Icon name="plus" />
 						</Button>
 					</EmptyState>
-				</Card>
+				</EmptyCard>
 			</Open>
 		</>
 	),
@@ -237,7 +244,7 @@ export const Empty = meta.story({
 	render: () => (
 		<>
 			<Open name="Other projects" count={0} open actions={ghost("plus", "Add project")}>
-				<Card>
+				<EmptyCard>
 					<EmptyState
 						variant="tidy"
 						title="Every project is showing"
@@ -248,10 +255,10 @@ export const Empty = meta.story({
 							<Icon name="plus" />
 						</Button>
 					</EmptyState>
-				</Card>
+				</EmptyCard>
 			</Open>
 			<Open name="Terminals" count={0} hoverActions={ghost("plus", "New terminal…")} last open>
-				<Card>
+				<EmptyCard>
 					<EmptyState
 						variant="tidy"
 						title="No terminals open"
@@ -262,7 +269,7 @@ export const Empty = meta.story({
 							<Icon name="plus" />
 						</Button>
 					</EmptyState>
-				</Card>
+				</EmptyCard>
 			</Open>
 		</>
 	),
