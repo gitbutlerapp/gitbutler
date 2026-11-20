@@ -243,12 +243,6 @@ in the stories' window, each in its states side by side, with no repository to m
 toolbar switches light and dark and the interface scale. Add the variant a change makes to
 its story in `crates/but-gpui/src/stories` and shoot that.
 
-## Showing a choice
-
-When the user picks between looks, build each one and give them the shots' paths side by
-side, not a sketch in text. A sketch hides what they react to: how tall it is, how loud, and
-what it covers.
-
 ## Measuring performance
 
 - Measure with `run --release`. `perf <label> <input>` times the input until loads settle and

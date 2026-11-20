@@ -16,10 +16,8 @@ enforces them.
 
 React Compiler makes `useMemo`, `useCallback` and `React.memo` redundant,
 except in hot paths where the compiler can't tell that a computation is pure;
-check the compiler's output before adding one. `useEffect` is usually an
-anti-pattern: think hard before reaching for it, and ask for consent before
-adding one. Comments explain the non-obvious why, never the what; when in
-doubt, leave the comment out.
+check the compiler's output before adding one. Ask for consent before adding a
+`useEffect`.
 
 ### Changing a component
 
@@ -155,9 +153,8 @@ parts, has no description; the script's `FRAMES` lists them.
 
 ## Verifying your work
 
-Always run the specified commands **exactly** as written. The package has no
-app to run, so the story is how a component is checked before it goes into a
-surface.
+The package has no app to run, so the story is how a component is checked
+before it goes into a surface.
 
 ### Typechecking, the CSS rules, and tests
 
@@ -242,9 +239,8 @@ A page is at `http://localhost:6007/?page=components-<name>`. A story renders
 alone at `http://localhost:6007/?story=components-<name>--<export>`, with its
 `play` function run; append `&theme=dark` for the dark theme. Overlays' stories
 and full-window ones are shown that way on their page, each in a frame of its
-own. Check colour, font and spacing from computed styles rather than by eye. A
-story links its Figma component through the `design` parameter; keep the link
-when you add a story, and compare the two sides when either changes.
+own. A story links its Figma component through the `design` parameter; keep
+the link when you add a story, and compare the two sides when either changes.
 `grep -l 'type: "figma"' src/*.stories.tsx` lists the stories that have one;
 a story without one has no drawn spec yet.
 
@@ -323,10 +319,7 @@ own drop and ellipsis rules are what a narrower width shows.
 
 ### Looking up a component
 
-Before using a component, read its source and JSDoc in `src/` and its stories
-beside it, rather than guessing. Use only props the types declare; if one
-seems missing, ask instead of inventing it. A component's JSDoc names the
-import to write in its `@import` tag, as
+A component's JSDoc names the import to write in its `@import` tag, as
 `@import import { Badge } from "@gitbutler/but-ui-react/Badge.tsx";`; give a new
 component one. A styling helper is not how a control is offered:
 `getButtonClassName` is for making another component look like a button, and
@@ -347,5 +340,4 @@ $ pnpm exec prettier --check packages/but-ui-react
 $ pnpm run oxlint
 ```
 
-Run these before declaring the work done. The lint job in CI runs both and
-fails on what either reports.
+The lint job in CI runs both and fails on what either reports.

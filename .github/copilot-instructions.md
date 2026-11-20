@@ -8,6 +8,7 @@ The main applications are found in the `apps` directory:
 
 - `desktop` containing the Tauri application's frontend code
 - `web` containing the web application's frontend code
+- `but-ui-pantry` containing the pantry, the design system's site
 
 Rust code is found in the `crates` directory. It contains `gitbutler-tauri` for
 the Tauri application, `but-api` for the API surface used by Tauri, CLI,
@@ -17,25 +18,19 @@ The `packages` directory contains different self-contained npm packages.
 These are shared between the applications.
 The packages are:
 
-- `but-sdk` containing the generated TypeScript/Node SDK for Rust APIs
+- `but-sdk` containing the TypeScript types generated from the Rust API
+- `but-ui` containing the design tokens, fonts and base styles
+- `but-ui-react` containing the React component library built on `but-ui`
+- `but-mcp-app` containing the React apps that render GitButler's MCP tool results
+- `ui-svelte` containing the Svelte component library used by desktop and web
 - `core` containing shared TypeScript helpers
-- `ui` containing the shared UI components
-- `shared` containing the shared types and utils
+- `shared` containing the services, state and utils shared between desktop and web
 - `no-cross-domain-imports` containing the no-cross-domain-imports ESLint package
 - `no-relative-imports` containing the no-relative-imports ESLint package
 - `svelte-comment-injector` containing the Svelte comment injector package
 
 The `e2e` directory contains Playwright, WebdriverIO, and blackbox end-to-end
 tests.
-
-## Technology Stack
-
-- **Frontend**: Svelte with TypeScript
-- **Backend**: Rust
-- **Desktop Framework**: Tauri (like Electron but using Rust instead of Node.js)
-- **Build Tools**: Turborepo for monorepo management, pnpm for package management
-- **Git Libraries**: gix (gitoxide) and git2 (libgit2)
-- **Testing**: Vitest for JS/TS, Playwright for E2E tests, standard Rust testing framework
 
 ## Development Setup
 
@@ -48,10 +43,6 @@ tests.
 ### Initial Setup
 
 ```bash
-# Clone the repository
-git clone https://github.com/gitbutlerapp/gitbutler.git
-cd gitbutler
-
 # Install dependencies and the project-managed Node.js runtime
 pnpm install
 
@@ -98,8 +89,6 @@ pnpm tauri build --features devtools --config crates/gitbutler-tauri/tauri.conf.
 ## Testing
 
 When asked about frontend tests please read `@frontend.md` for context.
-
-To run rust tests run `cargo test`, and for specific crates `cargo test -p CRATE_NAME`
 
 ## Code Style and Linting
 
@@ -169,45 +158,10 @@ cargo clippy --all-targets
 
 ## Dependency Management
 
-### Adding JavaScript/TypeScript Dependencies
-
-```bash
-# Add to root workspace
-pnpm add -D <package>
-
-# Add to specific package
-pnpm add <package> --filter @gitbutler/desktop
-pnpm add <package> --filter @gitbutler/ui-svelte
-```
-
-**Always check for vulnerabilities before adding npm packages** (ecosystem: npm).
-
-### Adding Rust Dependencies
-
-Edit the appropriate `Cargo.toml` file:
-
-- Workspace-level dependencies go in `/Cargo.toml` under `[workspace.dependencies]`
+- Workspace-level Rust dependencies go in `/Cargo.toml` under `[workspace.dependencies]`
 - Individual crate dependencies reference workspace versions when possible, and when it's used more than once.
 
-**Always check for vulnerabilities before adding Rust dependencies** (ecosystem: rust).
-
-## Monorepo Structure
-
-### Workspace Navigation
-
-The repository uses:
-
-- **Turborepo** for JavaScript/TypeScript build orchestration
-- **Cargo workspace** for Rust crate management
-- **pnpm workspace** for npm package management
-
-When making changes:
-
-1. Identify which package/crate is affected
-2. Run builds/tests in that package first
-3. Then verify dependent packages still work
-
-### Crate Organization
+## Crate Organization
 
 The `crates/` directory contains ~65 Rust crates organized by functionality:
 
@@ -249,7 +203,6 @@ Auto-fix with `pnpm begood && cargo clippy --fix --all-targets`
 ### Frontend File Organization
 
 - Use absolute imports via package references (e.g., `@gitbutler/ui-svelte`) instead of relative imports
-- Components should be in logical directories by feature
 - Shared utilities go in `packages/shared`
 - UI components go in `packages/ui-svelte`
 
@@ -261,13 +214,7 @@ Auto-fix with `pnpm begood && cargo clippy --fix --all-targets`
 - Files: kebab-case (e.g., `branch-service.ts`)
 - Variables/functions: camelCase
 
-**Rust**:
-
-- Follow standard Rust naming conventions
-
 ### Error Handling
-
-**JavaScript/TypeScript**: Throw errors and handle with try/catch at appropriate boundaries
 
 **Rust**: Use `Result<T, E>` and `anyhow` for error handling. Most functions should return `anyhow::Result`.
 
@@ -280,12 +227,6 @@ Auto-fix with `pnpm begood && cargo clippy --fix --all-targets`
 pnpm exec turbo daemon stop
 pnpm exec turbo daemon clean
 
-# Clear node_modules and reinstall
-rm -rf .turbo node_modules
-pnpm install
-
-# Clear Rust build artifacts
-cargo clean
 ```
 
 ### Platform-Specific Issues
@@ -299,12 +240,9 @@ cargo clean
 ### Development Builds
 
 - Set `GITBUTLER_PERFORMANCE_LOG=1` for performance logging
-- Use `--release` flag for more realistic performance testing
 
 ### Turbo Cache
 
-- Turborepo caches build outputs
-- If experiencing stale builds, clear cache: `pnpm exec turbo daemon clean`
 - Case-sensitive filesystem issues may affect Turbo on macOS (see DEVELOPMENT.md)
 
 ## Additional Resources
@@ -316,17 +254,9 @@ cargo clean
 
 ## Important Notes for AI Coding Agents
 
-1. **Always run lints and tests** after making changes
-2. **Use the existing patterns** in the codebase - don't introduce new patterns without discussion
-3. **Keep changes minimal** - surgical changes are preferred over large refactors
-4. **Follow the monorepo structure** - understand which package your change affects
-5. **Check both JS and Rust** - changes to the backend often require frontend updates
-6. **Documentation** - update relevant docs if changing public APIs or user-facing features
-7. **Avoid relative imports** - ESLint will error on relative imports; use package references
-8. **Test on target platform** if making platform-specific changes
-9. **Security**: Check dependencies for vulnerabilities before adding them
-10. **Code marked for refactoring**: Be extra careful with crates in the "Code Hitlist" section
-11. **but CLI happy path testing only**: CLI tests are expensive and should be limited to what really matters.
+1. **Check both JS and Rust** - changes to the backend often require frontend updates
+2. **Code marked for refactoring**: Be extra careful with crates in the "Code Hitlist" section
+3. **but CLI happy path testing only**: CLI tests are expensive and should be limited to what really matters.
 
 ## Review Guidelines
 

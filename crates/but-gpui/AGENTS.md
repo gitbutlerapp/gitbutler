@@ -1,8 +1,7 @@
 # GPUI client instructions
 
-These apply to `crates/but-gpui`, on top of `crates/AGENTS.md`. The README is for people
-running and developing the app, and stays short: don't describe behaviour, key bindings or the
-code's layout in it, and leave it alone when behaviour changes.
+The README is for people running and developing the app, and stays short: don't describe
+behaviour, key bindings or the code's layout in it, and leave it alone when behaviour changes.
 
 Look at the UI with `scripts/drive.sh` (the `gpui-screenshots` skill), never by starting the
 app: `cargo run` and the plain binary open a window on the user's screen and take their keys.
@@ -325,8 +324,7 @@ and tests it.
   pop. A disabled control says why in its tooltip. Tooltips are a few words, with the shortcut
   in its key slot, and a right-click item that a key also does shows it, built with
   `MenuItem::keyed` or `MenuItem::action`. Snackbars are fragments without a full stop.
-  Misleading copy is a bug.
-- The app is reactive, so no reload buttons. Nothing added may make it slower.
+- The app is reactive, so no reload buttons.
 - A part of the window a setting can leave out is a `Part`. Call sites ask `Prefs::shows`,
   never the flag behind it.
 - Nothing outside tests may panic, as the app runs as GitButler itself: clippy denies unwrap,

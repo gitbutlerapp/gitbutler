@@ -5,22 +5,17 @@ description: "Use when changing what users see in an app built on `@gitbutler/bu
 
 # Building GitButler UI
 
-Work as you would in any codebase: find the closest thing that already
-exists and copy it. These notes say where to look and what to check. They are
-not a gate to clear before starting.
-
 ## Scope
 
-Change what the task needs. Older screens may not follow these notes; leave
-them alone unless the task is to fix them.
+Older screens may not follow these notes; leave them alone unless the task is
+to fix them.
 
 ## Start from the library
 
 `@gitbutler/but-ui-react` has the controls: `Button`, `Popup` (modals, dropdowns),
 `Select`, `Field`, `Checkbox`, `Switch`, `Tooltip`, `EmptyState`, `Snackbar`
 (raised through the `Snackbars` stack), `Toasts`, `Banner` and more. Use them
-rather than a control styled in a feature's CSS. Find a surface that already
-uses the ones you need and follow its structure.
+rather than a control styled in a feature's CSS.
 
 The source is the reference, because it is the version you build with:
 

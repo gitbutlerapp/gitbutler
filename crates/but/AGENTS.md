@@ -1,7 +1,5 @@
 # but CLI Instructions
 
-These supplement `crates/AGENTS.md` for work under `crates/but/`.
-
 For CLI work that touches graph/workspace/branch/stack/commit relationships,
 reachability, ordering, operation targets, or Git graph/history/ref-placement
 changes, also read `crates/WORKSPACE_MODEL.md`.
@@ -62,8 +60,6 @@ permission-taking helper.
   scoped to a test name when possible. For colored terminal output, assert
   against `snapbox::file!["snapshots/<test-name>/<invocation>.stdout.term.svg"]`
   and update with the same command.
-    - When updating snapshots, always inspect the results to ensure that the
-      tests still test what they claim to
 - Use sandbox helpers instead of `std::process::Command::new("git")`:
   `env.invoke_bash(...)` for multi-line command sequences and
   `env.invoke_git("...")` for single Git commands. Do not rewrite existing
