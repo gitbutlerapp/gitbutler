@@ -1,5 +1,4 @@
 use anyhow::bail;
-use but_core::RefMetadata;
 use but_rebase::graph_rebase::{Editor, LookupStep as _, Selector, Step, SuccessfulRebase};
 use gix::{bstr::ByteSlice as _, refs::Category};
 
@@ -19,10 +18,10 @@ use crate::editor_workspace::{
 /// With a target, `HEAD` on `ref_name` alone enters the workspace where it is rather than being
 /// left detached, so it's left again for the local target or the branch below if either has the
 /// same files.
-pub fn drop_reference<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
+pub fn drop_reference<'ws, 'meta>(
+    mut editor: Editor<'ws, 'meta>,
     ref_name: &gix::refs::FullNameRef,
-) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+) -> anyhow::Result<SuccessfulRebase<'ws, 'meta>> {
     if ref_name.category() != Some(Category::LocalBranch) {
         bail!(
             "Can only delete local branches under refs/heads, got '{}'",
@@ -55,8 +54,8 @@ pub fn drop_reference<'ws, 'meta, M: RefMetadata>(
 }
 
 /// The next branch below `reference` before the target, if commits lie between them.
-fn branch_below_its_commits<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+fn branch_below_its_commits(
+    editor: &Editor<'_, '_>,
     reference: Selector,
 ) -> anyhow::Result<Option<Selector>> {
     let target = editor.target_selector();
@@ -79,10 +78,7 @@ fn branch_below_its_commits<M: RefMetadata>(
     Ok(None)
 }
 
-fn first_parent<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
-    selector: Selector,
-) -> anyhow::Result<Option<Selector>> {
+fn first_parent(editor: &Editor<'_, '_>, selector: Selector) -> anyhow::Result<Option<Selector>> {
     Ok(editor
         .direct_parents(selector)?
         .into_iter()

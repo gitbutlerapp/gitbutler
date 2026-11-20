@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use anyhow::{Context as _, Result, bail};
 use bstr::BStr;
 use but_core::{
-    ChangeId, RefMetadata, RepositoryExt,
+    ChangeId, RepositoryExt,
     commit::{add_conflict_markers, write_conflicted_tree},
 };
 use but_error::bail_precondition;
@@ -204,8 +204,8 @@ pub(super) enum PreparedIntegrationStep {
 ///
 /// `steps` is the editable integration script in parent-to-child execution
 /// order.
-pub(super) fn prepare_integration_steps_for_editor<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+pub(super) fn prepare_integration_steps_for_editor(
+    editor: &Editor<'_, '_>,
     steps: &[InteractiveIntegrationStep],
 ) -> Result<Vec<PreparedIntegrationStep>> {
     let mut prepared = Vec::with_capacity(steps.len());
@@ -242,8 +242,8 @@ pub(super) fn prepare_integration_steps_for_editor<M: RefMetadata>(
 
 /// Precompute the squash payload from the current editor/repository state,
 /// before later integration graph mutations can rewire step-graph ancestry.
-fn prepare_squash_step_for_editor<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+fn prepare_squash_step_for_editor(
+    editor: &Editor<'_, '_>,
     commit_ids: &[gix::ObjectId],
     message: Option<&str>,
 ) -> Result<gix::ObjectId> {
@@ -343,8 +343,8 @@ fn apply_merge_commit_changes_outcome(
 ///
 /// Returns the delimiter spanning from the reference node to the deepest
 /// inserted parent.
-pub(crate) fn integration_steps_into_segment_nodes<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
+pub(crate) fn integration_steps_into_segment_nodes(
+    editor: &mut Editor<'_, '_>,
     ref_name: &gix::refs::FullNameRef,
     steps: &[PreparedIntegrationStep],
 ) -> Result<SegmentDelimiter<Selector, Selector>> {
@@ -382,8 +382,8 @@ pub(crate) fn integration_steps_into_segment_nodes<M: RefMetadata>(
 /// edges.
 ///
 /// `steps` is the prepared integration plan in execution order.
-fn integration_steps_to_segment_steps_for_editor<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
+fn integration_steps_to_segment_steps_for_editor(
+    editor: &mut Editor<'_, '_>,
     steps: &[PreparedIntegrationStep],
 ) -> Result<Vec<gix::ObjectId>> {
     let mut out: Vec<gix::ObjectId> = vec![];
@@ -429,8 +429,8 @@ fn integration_steps_to_segment_steps_for_editor<M: RefMetadata>(
 /// The chain rebuild supplies the new first parent. Edges with an order above 0 are the
 /// commit's other parents and stay, so a reused merge keeps the history it merges. The
 /// first-parent edge may already be gone when the integrated segment was detached from it.
-fn detach_first_parent_and_make_mutable_if_existing<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
+fn detach_first_parent_and_make_mutable_if_existing(
+    editor: &mut Editor<'_, '_>,
     commit_id: gix::ObjectId,
 ) -> Result<()> {
     if let Some(existing) = editor.try_select_commit(commit_id) {

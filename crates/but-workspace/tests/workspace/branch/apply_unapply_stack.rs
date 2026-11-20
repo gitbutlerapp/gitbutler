@@ -1,8 +1,7 @@
 use std::borrow::Cow;
 
 use bstr::ByteSlice;
-use but_core::{RefMetadata, WORKSPACE_REF_NAME, ref_metadata::StackKind};
-use but_meta::VirtualBranchesTomlMetadata;
+use but_core::{WORKSPACE_REF_NAME, ref_metadata::StackKind};
 use but_rebase::graph_rebase::Editor;
 use but_testsupport::{
     CommandExt as _, git, gix_testtools::tempfile::TempDir, graph_workspace_determinisitcally,
@@ -31,41 +30,33 @@ fn two_stacks(
         unapplied_branch,
         unapplied_conflicting_branch,
     }: Options,
-) -> anyhow::Result<(
-    TempDir,
-    gix::Repository,
-    VirtualBranchesTomlMetadata,
-    but_db::DbHandle,
-)> {
-    let (tmp, repo, mut meta, db) =
-        named_writable_scenario("ws-two-stacks-with-unapplied-branches")?;
-    add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
-    add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &[]);
+) -> anyhow::Result<(TempDir, gix::Repository, but_db::DbHandle)> {
+    let (tmp, repo, mut db) = named_writable_scenario("ws-two-stacks-with-unapplied-branches")?;
+    add_stack_with_segments(&mut db, 0, "A", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut db, 1, "B", StackState::InWorkspace, &[]);
     if !unapplied_branch {
         git(&repo).args(["branch", "-D", "C"]).run();
     }
     if !unapplied_conflicting_branch {
         git(&repo).args(["branch", "-D", "conflicting"]).run();
     }
-    Ok((tmp, repo, meta, db))
+    Ok((tmp, repo, db))
 }
 
 fn workspace(
     repo: &gix::Repository,
-    meta: &VirtualBranchesTomlMetadata,
     db: &mut but_db::DbHandle,
 ) -> anyhow::Result<but_graph::Workspace> {
-    graph(repo, meta, db)?.into_workspace()
+    graph(repo, db)?.into_workspace()
 }
 
 fn apply_stack(
     branch: &gix::refs::FullNameRef,
     mut ws: but_graph::Workspace,
     repo: &gix::Repository,
-    meta: &mut VirtualBranchesTomlMetadata,
     db: &mut but_db::DbHandle,
 ) -> anyhow::Result<apply::Outcome> {
-    let editor = Editor::create(&mut ws, meta, repo, db)?;
+    let editor = Editor::create(&mut ws, repo, db)?;
     let apply::ApplyStackOutcome {
         rebase,
         status,
@@ -88,11 +79,10 @@ fn unapply_stack<'ws>(
     branch: &gix::refs::FullNameRef,
     ws: &'ws but_graph::Workspace,
     repo: &gix::Repository,
-    meta: &mut VirtualBranchesTomlMetadata,
     db: &mut but_db::DbHandle,
 ) -> anyhow::Result<unapply::Outcome<'ws>> {
     let mut changed = ws.clone();
-    let editor = Editor::create(&mut changed, meta, repo, db)?;
+    let editor = Editor::create(&mut changed, repo, db)?;
     let rebase = but_workspace::branch::unapply_stack(editor, branch, Default::default())?;
     let workspace = if rebase.references_updated()? {
         rebase.materialize(Default::default())?;
@@ -134,8 +124,8 @@ fn branch_config(repo: &gix::Repository, branch: &str) -> anyhow::Result<String>
 }
 
 /// The stacks the workspace metadata records as applied.
-fn applied_stacks_in_metadata(meta: &VirtualBranchesTomlMetadata) -> anyhow::Result<Vec<String>> {
-    Ok(meta
+fn applied_stacks_in_metadata(db_meta: &but_db::Meta<'_>) -> anyhow::Result<Vec<String>> {
+    Ok(db_meta
         .workspace(r(WORKSPACE_REF_NAME))?
         .stacks(StackKind::Applied)
         .filter_map(|stack| stack.name().map(|name| name.shorten().to_string()))
@@ -144,13 +134,13 @@ fn applied_stacks_in_metadata(meta: &VirtualBranchesTomlMetadata) -> anyhow::Res
 
 #[test]
 fn apply_and_unapply_compose_in_one_editor() -> anyhow::Result<()> {
-    let (_tmp, repo, mut meta, mut db) = two_stacks(Options {
+    let (_tmp, repo, mut db) = two_stacks(Options {
         unapplied_branch: true,
         ..Default::default()
     })?;
-    let mut ws = workspace(&repo, &meta, &mut db)?;
+    let mut ws = workspace(&repo, &mut db)?;
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, &mut db)?;
     let applied = but_workspace::branch::apply_stack(editor, r("refs/heads/C"), None)?;
     let rebase = but_workspace::branch::unapply_stack(
         applied.rebase.into_editor(),
@@ -196,15 +186,15 @@ fn apply_and_unapply_compose_in_one_editor() -> anyhow::Result<()> {
 
 #[test]
 fn apply_adds_a_branch_as_the_last_lane() -> anyhow::Result<()> {
-    let (_tmp, repo, mut meta, mut db) = two_stacks(Options {
+    let (_tmp, repo, mut db) = two_stacks(Options {
         unapplied_branch: true,
         ..Default::default()
     })?;
 
     assert_worktree_files(&repo, &["a", "b"], &["c"]);
-    let ws = workspace(&repo, &meta, &mut db)?;
+    let ws = workspace(&repo, &mut db)?;
 
-    let out = apply_stack(r("refs/heads/C"), ws, &repo, &mut meta, &mut db)?;
+    let out = apply_stack(r("refs/heads/C"), ws, &repo, &mut db)?;
 
     assert_eq!(
         out.status,
@@ -255,13 +245,13 @@ fn apply_adds_a_branch_as_the_last_lane() -> anyhow::Result<()> {
 
 #[test]
 fn apply_adds_a_branch_at_the_given_order() -> anyhow::Result<()> {
-    let (_tmp, repo, mut meta, mut db) = two_stacks(Options {
+    let (_tmp, repo, mut db) = two_stacks(Options {
         unapplied_branch: true,
         ..Default::default()
     })?;
-    let mut ws = workspace(&repo, &meta, &mut db)?;
+    let mut ws = workspace(&repo, &mut db)?;
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, &mut db)?;
     let out = but_workspace::branch::apply_stack(editor, r("refs/heads/C"), 1)?;
     out.rebase.materialize(Default::default())?;
 
@@ -287,7 +277,7 @@ fn apply_adds_a_branch_at_the_given_order() -> anyhow::Result<()> {
 "#]]
     );
     assert_eq!(
-        applied_stacks_in_metadata(&meta)?,
+        applied_stacks_in_metadata(&db.meta())?,
         ["A", "C", "B"],
         "the metadata follows the parent order"
     );
@@ -296,11 +286,11 @@ fn apply_adds_a_branch_at_the_given_order() -> anyhow::Result<()> {
 
 #[test]
 fn apply_of_an_applied_branch_changes_nothing() -> anyhow::Result<()> {
-    let (_tmp, repo, mut meta, mut db) = two_stacks(Default::default())?;
+    let (_tmp, repo, mut db) = two_stacks(Default::default())?;
     let before = visualize_commit_graph_all(&repo)?;
-    let ws = workspace(&repo, &meta, &mut db)?;
+    let ws = workspace(&repo, &mut db)?;
 
-    let out = apply_stack(r("refs/heads/A"), ws, &repo, &mut meta, &mut db)?;
+    let out = apply_stack(r("refs/heads/A"), ws, &repo, &mut db)?;
 
     assert_eq!(
         out.status,
@@ -318,11 +308,11 @@ fn apply_of_an_applied_branch_changes_nothing() -> anyhow::Result<()> {
 
 #[test]
 fn apply_of_the_target_changes_nothing() -> anyhow::Result<()> {
-    let (_tmp, repo, mut meta, mut db) = two_stacks(Default::default())?;
+    let (_tmp, repo, mut db) = two_stacks(Default::default())?;
     let before = visualize_commit_graph_all(&repo)?;
 
-    let ws = workspace(&repo, &meta, &mut db)?;
-    let out = apply_stack(r("refs/heads/main"), ws, &repo, &mut meta, &mut db)?;
+    let ws = workspace(&repo, &mut db)?;
+    let out = apply_stack(r("refs/heads/main"), ws, &repo, &mut db)?;
     assert_eq!(
         out.status,
         OutcomeStatus::AlreadyApplied,
@@ -343,13 +333,12 @@ fn apply_of_the_target_changes_nothing() -> anyhow::Result<()> {
 
 #[test]
 fn apply_refuses_an_overlapping_branch() -> anyhow::Result<()> {
-    let (_tmp, repo, mut meta, mut db) = two_stacks(Default::default())?;
+    let (_tmp, repo, mut db) = two_stacks(Default::default())?;
     git(&repo).args(["branch", "D", "A^"]).run();
     let before = visualize_commit_graph_all(&repo)?;
-    let ws = workspace(&repo, &meta, &mut db)?;
+    let ws = workspace(&repo, &mut db)?;
 
-    let err =
-        apply_stack(r("refs/heads/D"), ws, &repo, &mut meta, &mut db).expect_err("D overlaps A");
+    let err = apply_stack(r("refs/heads/D"), ws, &repo, &mut db).expect_err("D overlaps A");
 
     snapbox::assert_data_eq!(
         err.to_string(),
@@ -369,16 +358,16 @@ fn apply_refuses_an_overlapping_branch() -> anyhow::Result<()> {
 
 #[test]
 fn apply_of_a_remote_tracking_branch_applies_its_local_tracking_branch() -> anyhow::Result<()> {
-    let (_tmp, repo, mut meta, mut db) = two_stacks(Options {
+    let (_tmp, repo, mut db) = two_stacks(Options {
         unapplied_branch: true,
         ..Default::default()
     })?;
     git(&repo)
         .args(["update-ref", "refs/remotes/origin/C", "C"])
         .run();
-    let ws = workspace(&repo, &meta, &mut db)?;
+    let ws = workspace(&repo, &mut db)?;
 
-    let out = apply_stack(r("refs/remotes/origin/C"), ws, &repo, &mut meta, &mut db)?;
+    let out = apply_stack(r("refs/remotes/origin/C"), ws, &repo, &mut db)?;
 
     assert_eq!(
         out.applied_branches,
@@ -395,22 +384,16 @@ fn apply_of_a_remote_tracking_branch_applies_its_local_tracking_branch() -> anyh
 
 #[test]
 fn apply_of_a_remote_tracking_branch_creates_its_local_tracking_branch() -> anyhow::Result<()> {
-    let (_tmp, repo, mut meta, mut db) = two_stacks(Options {
+    let (_tmp, repo, mut db) = two_stacks(Options {
         unapplied_branch: true,
         ..Default::default()
     })?;
     git(&repo)
         .args(["update-ref", "refs/remotes/origin/remote-only", "C"])
         .run();
-    let ws = workspace(&repo, &meta, &mut db)?;
+    let ws = workspace(&repo, &mut db)?;
 
-    let out = apply_stack(
-        r("refs/remotes/origin/remote-only"),
-        ws,
-        &repo,
-        &mut meta,
-        &mut db,
-    )?;
+    let out = apply_stack(r("refs/remotes/origin/remote-only"), ws, &repo, &mut db)?;
 
     assert_eq!(
         out.applied_branches,
@@ -447,14 +430,14 @@ branch.remote-only.merge refs/heads/remote-only
 
 #[test]
 fn apply_of_a_conflicting_branch_returns_error_payload() -> anyhow::Result<()> {
-    let (_tmp, repo, mut meta, mut db) = two_stacks(Options {
+    let (_tmp, repo, mut db) = two_stacks(Options {
         unapplied_conflicting_branch: true,
         ..Default::default()
     })?;
     let before = visualize_commit_graph_all(&repo)?;
-    let ws = workspace(&repo, &meta, &mut db)?;
+    let ws = workspace(&repo, &mut db)?;
 
-    let err = apply_stack(r("refs/heads/conflicting"), ws, &repo, &mut meta, &mut db)
+    let err = apply_stack(r("refs/heads/conflicting"), ws, &repo, &mut db)
         .expect_err("conflicting changes the file A changes");
 
     let conflict = err
@@ -513,18 +496,17 @@ fn apply_merges_each_stack_over_what_it_shares_with_any_stack_before_it() -> any
             "`empty-at-main` doesn't hide the conflict of `reverts-main` and `edits-main`",
         ),
     ] {
-        let (_tmp, repo, mut meta, mut db) =
-            named_writable_scenario("various-heads-on-mixed-bases")?;
+        let (_tmp, repo, mut db) = named_writable_scenario("various-heads-on-mixed-bases")?;
         git(&repo)
             .args(["reset", "--hard", &format!("ws/{}", stacks.join("+"))])
             .run();
         for (idx, stack) in stacks.iter().enumerate() {
-            add_stack_with_segments(&mut meta, idx as u128, stack, StackState::InWorkspace, &[]);
+            add_stack_with_segments(&mut db, idx as u128, stack, StackState::InWorkspace, &[]);
         }
-        let ws = workspace(&repo, &meta, &mut db)?;
+        let ws = workspace(&repo, &mut db)?;
 
         let branch = format!("refs/heads/{branch}");
-        let outcome = match apply_stack(r(&branch), ws, &repo, &mut meta, &mut db) {
+        let outcome = match apply_stack(r(&branch), ws, &repo, &mut db) {
             Ok(_) => format!(
                 "file is {}",
                 repo.head_tree()?
@@ -549,7 +531,7 @@ fn apply_merges_each_stack_over_what_it_shares_with_any_stack_before_it() -> any
 
 #[test]
 fn apply_creates_a_missing_workspace_commit() -> anyhow::Result<()> {
-    let (_tmp, repo, mut meta, mut db) = two_stacks(Default::default())?;
+    let (_tmp, repo, mut db) = two_stacks(Default::default())?;
     git(&repo).args(["reset", "--hard", "main"]).run();
     // The workspace reference is checked out, but without a workspace commit.
     snapbox::assert_data_eq!(
@@ -563,9 +545,9 @@ fn apply_creates_a_missing_workspace_commit() -> anyhow::Result<()> {
 
 "#]]
     );
-    let ws = workspace(&repo, &meta, &mut db)?;
+    let ws = workspace(&repo, &mut db)?;
 
-    let out = apply_stack(r("refs/heads/A"), ws, &repo, &mut meta, &mut db)?;
+    let out = apply_stack(r("refs/heads/A"), ws, &repo, &mut db)?;
 
     assert_eq!(
         out.status,
@@ -601,15 +583,15 @@ fn apply_creates_a_missing_workspace_commit() -> anyhow::Result<()> {
 
 #[test]
 fn apply_switches_into_the_workspace_from_a_branch() -> anyhow::Result<()> {
-    let (_tmp, repo, mut meta, mut db) = two_stacks(Options {
+    let (_tmp, repo, mut db) = two_stacks(Options {
         unapplied_branch: true,
         ..Default::default()
     })?;
     git(&repo).args(["checkout", "C"]).run();
     let c_before = repo.rev_parse_single("C")?.detach();
-    let ws = workspace(&repo, &meta, &mut db)?;
+    let ws = workspace(&repo, &mut db)?;
 
-    let out = apply_stack(r("refs/heads/B"), ws, &repo, &mut meta, &mut db)?;
+    let out = apply_stack(r("refs/heads/B"), ws, &repo, &mut db)?;
 
     assert_eq!(
         out.applied_branches,
@@ -658,7 +640,7 @@ fn apply_switches_into_the_workspace_from_a_branch() -> anyhow::Result<()> {
     );
     assert_worktree_files(&repo, &["b", "c"], &["a"]);
     assert_eq!(
-        applied_stacks_in_metadata(&meta)?,
+        applied_stacks_in_metadata(&db.meta())?,
         ["C", "B"],
         "A, which was applied before, is left out"
     );
@@ -668,14 +650,14 @@ fn apply_switches_into_the_workspace_from_a_branch() -> anyhow::Result<()> {
 #[test]
 fn apply_of_the_branch_head_is_on_switches_into_a_workspace_with_just_that_branch()
 -> anyhow::Result<()> {
-    let (_tmp, repo, mut meta, mut db) = two_stacks(Options {
+    let (_tmp, repo, mut db) = two_stacks(Options {
         unapplied_branch: true,
         ..Default::default()
     })?;
     git(&repo).args(["checkout", "C"]).run();
-    let ws = workspace(&repo, &meta, &mut db)?;
+    let ws = workspace(&repo, &mut db)?;
 
-    let out = apply_stack(r("refs/heads/C"), ws, &repo, &mut meta, &mut db)?;
+    let out = apply_stack(r("refs/heads/C"), ws, &repo, &mut db)?;
 
     assert_eq!(
         out.status,
@@ -712,14 +694,14 @@ fn apply_of_the_branch_head_is_on_switches_into_a_workspace_with_just_that_branc
 
 #[test]
 fn apply_switches_into_the_workspace_from_the_target() -> anyhow::Result<()> {
-    let (_tmp, repo, mut meta, mut db) = two_stacks(Options {
+    let (_tmp, repo, mut db) = two_stacks(Options {
         unapplied_branch: true,
         ..Default::default()
     })?;
     git(&repo).args(["checkout", "main"]).run();
-    let ws = workspace(&repo, &meta, &mut db)?;
+    let ws = workspace(&repo, &mut db)?;
 
-    let out = apply_stack(r("refs/heads/C"), ws, &repo, &mut meta, &mut db)?;
+    let out = apply_stack(r("refs/heads/C"), ws, &repo, &mut db)?;
 
     assert_eq!(
         out.applied_branches,
@@ -755,10 +737,10 @@ fn apply_switches_into_the_workspace_from_the_target() -> anyhow::Result<()> {
 
 #[test]
 fn unapply_removes_a_lane() -> anyhow::Result<()> {
-    let (_tmp, repo, mut meta, mut db) = two_stacks(Default::default())?;
-    let ws = workspace(&repo, &meta, &mut db)?;
+    let (_tmp, repo, mut db) = two_stacks(Default::default())?;
+    let ws = workspace(&repo, &mut db)?;
 
-    let out = unapply_stack(r("refs/heads/B"), &ws, &repo, &mut meta, &mut db)?;
+    let out = unapply_stack(r("refs/heads/B"), &ws, &repo, &mut db)?;
 
     assert!(out.workspace_changed(), "B was applied");
     // Only A remains a parent of the workspace commit, and B keeps its commit.
@@ -787,7 +769,7 @@ fn unapply_removes_a_lane() -> anyhow::Result<()> {
     );
     assert_worktree_files(&repo, &["a"], &["b"]);
     assert_eq!(
-        applied_stacks_in_metadata(&meta)?,
+        applied_stacks_in_metadata(&db.meta())?,
         ["A"],
         "materializing records the remaining lanes in metadata"
     );
@@ -796,10 +778,10 @@ fn unapply_removes_a_lane() -> anyhow::Result<()> {
 
 #[test]
 fn unapply_of_the_last_lane_puts_the_workspace_commit_on_the_target() -> anyhow::Result<()> {
-    let (_tmp, repo, mut meta, mut db) = two_stacks(Default::default())?;
+    let (_tmp, repo, mut db) = two_stacks(Default::default())?;
     for branch in ["refs/heads/A", "refs/heads/B"] {
-        let ws = workspace(&repo, &meta, &mut db)?;
-        unapply_stack(r(branch), &ws, &repo, &mut meta, &mut db)?;
+        let ws = workspace(&repo, &mut db)?;
+        unapply_stack(r(branch), &ws, &repo, &mut db)?;
     }
 
     // The workspace reference stays checked out, with an empty workspace.
@@ -817,7 +799,7 @@ fn unapply_of_the_last_lane_puts_the_workspace_commit_on_the_target() -> anyhow:
 "#]]
     );
     snapbox::assert_data_eq!(
-        graph_workspace_determinisitcally(&workspace(&repo, &meta, &mut db)?).to_string(),
+        graph_workspace_determinisitcally(&workspace(&repo, &mut db)?).to_string(),
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 0dc3733
 
@@ -829,12 +811,12 @@ fn unapply_of_the_last_lane_puts_the_workspace_commit_on_the_target() -> anyhow:
 
 #[test]
 fn unapply_of_a_branch_that_is_not_a_lane_changes_nothing() -> anyhow::Result<()> {
-    let (_tmp, repo, mut meta, mut db) = two_stacks(Default::default())?;
+    let (_tmp, repo, mut db) = two_stacks(Default::default())?;
     git(&repo).args(["branch", "C", "A^"]).run();
     let before = visualize_commit_graph_all(&repo)?;
-    let ws = workspace(&repo, &meta, &mut db)?;
+    let ws = workspace(&repo, &mut db)?;
 
-    let out = unapply_stack(r("refs/heads/C"), &ws, &repo, &mut meta, &mut db)?;
+    let out = unapply_stack(r("refs/heads/C"), &ws, &repo, &mut db)?;
     assert!(matches!(out.workspace, Cow::Borrowed(_)), "C isn't a lane");
     assert_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -846,12 +828,12 @@ fn unapply_of_a_branch_that_is_not_a_lane_changes_nothing() -> anyhow::Result<()
 
 #[test]
 fn unapply_of_a_branch_below_the_tip_of_a_lane_changes_nothing() -> anyhow::Result<()> {
-    let (_tmp, repo, mut meta, mut db) = two_stacks(Default::default())?;
+    let (_tmp, repo, mut db) = two_stacks(Default::default())?;
     git(&repo).args(["branch", "also-A", "A"]).run();
     let before = visualize_commit_graph_all(&repo)?;
-    let ws = workspace(&repo, &meta, &mut db)?;
+    let ws = workspace(&repo, &mut db)?;
 
-    let out = unapply_stack(r("refs/heads/also-A"), &ws, &repo, &mut meta, &mut db)?;
+    let out = unapply_stack(r("refs/heads/also-A"), &ws, &repo, &mut db)?;
 
     assert!(
         !out.workspace_changed(),
@@ -867,11 +849,11 @@ fn unapply_of_a_branch_below_the_tip_of_a_lane_changes_nothing() -> anyhow::Resu
 
 #[test]
 fn unapply_keeps_conflicting_worktree_changes() -> anyhow::Result<()> {
-    let (_tmp, repo, mut meta, mut db) = two_stacks(Default::default())?;
-    let ws = workspace(&repo, &meta, &mut db)?;
+    let (_tmp, repo, mut db) = two_stacks(Default::default())?;
+    let ws = workspace(&repo, &mut db)?;
 
     std::fs::write(repo.workdir_path("b").expect("non-bare"), "local edit\n")?;
-    let out = unapply_stack(r("refs/heads/B"), &ws, &repo, &mut meta, &mut db)?;
+    let out = unapply_stack(r("refs/heads/B"), &ws, &repo, &mut db)?;
 
     assert!(
         out.workspace_changed(),

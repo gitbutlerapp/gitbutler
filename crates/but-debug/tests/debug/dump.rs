@@ -214,7 +214,7 @@ stderr:
 │   ├── config:100644
 │   ├── gitbutler:40755/
 │   │   └── vb.toml:100644
-│   └── ... 28 files not shown
+│   └── ... 27 files not shown
 ├── .gitignore:100644
 ├── executable.sh:100755
 ├── graph.dot:100644
@@ -281,7 +281,7 @@ stderr:
 │   ├── config:100644
 │   ├── gitbutler:40755/
 │   │   └── vb.toml:100644
-│   └── ... 28 files not shown
+│   └── ... 27 files not shown
 ├── .gitignore:100644
 ├── executable.sh:100755
 ├── graph.dot:100644

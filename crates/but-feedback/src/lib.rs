@@ -34,13 +34,12 @@ impl Archival {
     /// It's the graph the rebase editor is built from. If the workspace can't be built, it's
     /// walked without one from `HEAD` and the linked worktrees' `HEAD`s.
     pub fn zip_anonymous_graph(&self, ctx: &Context, perm: &RepoShared) -> Result<PathBuf> {
-        let meta = ctx.meta()?;
         let editor_graph = ctx
             .workspace_and_db_with_perm(perm)
-            .and_then(|(repo, ws, _db)| {
+            .and_then(|(repo, ws, db)| {
                 let mut heads = Vec::from_iter(ws.graph.entrypoint()?.commit().map(|c| c.id));
                 heads.extend(ws.graph.worktree_tips.iter().map(|tip| tip.id));
-                but_graph::nosegment::workspace_segment_graph(&ws, &repo, &meta, heads)
+                but_graph::nosegment::workspace_segment_graph(&ws, &repo, &db.meta(), heads)
             });
         let mut graph = match editor_graph {
             Ok(graph) => graph,
@@ -65,9 +64,10 @@ impl Archival {
                     .filter(|id| repo.find_commit(*id).is_ok());
                 let mut heads = Vec::from_iter(head_id);
                 heads.extend(worktree_heads);
+                let db = ctx.db.get_cache()?;
                 but_graph::nosegment::segment_graph(
                     &repo,
-                    &meta,
+                    &db.meta(),
                     but_graph::init::Overlay::default(),
                     project_meta,
                     head_ref.as_ref().map(|name| name.as_ref()),

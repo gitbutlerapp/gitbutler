@@ -55,11 +55,10 @@ pub fn commit_discard_with_perm(
     let details = SnapshotDetails::new(OperationKind::DiscardCommit)
         .with_count(subject_commit_ids.len())
         .with_trailers(subject_commit_ids.iter().copied().map(Trailer::Sha));
-    let mut meta = ctx.meta()?;
-    let workspace =
-        with_transaction_with_perm(ctx, &mut meta, perm, details, &[], dry_run, |mut tx| {
-            tx.discard_commits(subject_commit_ids.iter().copied())
-        })?;
+
+    let workspace = with_transaction_with_perm(ctx, perm, details, &[], dry_run, |mut tx| {
+        tx.discard_commits(subject_commit_ids.iter().copied())
+    })?;
 
     Ok(CommitDiscardResult {
         discarded_commits: subject_commit_ids,
@@ -103,12 +102,11 @@ pub fn commit_discard_changes_with_perm(
 ) -> anyhow::Result<MoveChangesResult> {
     let details = SnapshotDetails::new(OperationKind::DiscardChanges)
         .with_trailers([Trailer::Sha(commit_id)]);
-    let mut meta = ctx.meta()?;
-    let workspace =
-        with_transaction_with_perm(ctx, &mut meta, perm, details, &[], dry_run, |mut tx| {
-            tx.discard_changes_from_commit(commit_id, changes)?;
-            Ok(())
-        })?;
+
+    let workspace = with_transaction_with_perm(ctx, perm, details, &[], dry_run, |mut tx| {
+        tx.discard_changes_from_commit(commit_id, changes)?;
+        Ok(())
+    })?;
 
     Ok(MoveChangesResult { workspace })
 }

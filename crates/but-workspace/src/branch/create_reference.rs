@@ -77,10 +77,7 @@ impl<'a> Anchor<'a> {
 
 pub(super) mod function {
     use anyhow::Context as _;
-    use but_core::{
-        RefMetadata,
-        branch::{find_unique_refname_excluding, refuse_colliding_refname},
-    };
+    use but_core::branch::{find_unique_refname_excluding, refuse_colliding_refname};
     use but_error::bail_precondition;
     use but_rebase::graph_rebase::{
         Editor, LookupStep, Selector, Step, SuccessfulRebase, mutate::InsertSide,
@@ -88,7 +85,7 @@ pub(super) mod function {
 
     use crate::{
         branch::create_reference::{Anchor, Position},
-        editor_workspace::{enter_workspace, leave_unnecessary_workspace},
+        editor_workspace::{enter_workspace_for_new_stack, leave_unnecessary_workspace},
     };
 
     enum Placement {
@@ -100,17 +97,17 @@ pub(super) mod function {
     /// or as a new independent branch on the workspace base if `anchor` is `None`.
     ///
     /// An independent branch becomes a parent of the workspace commit at `order`, or its last parent
-    /// if `order` is `None`. The workspace is entered for that, see
-    /// [`enter_workspace()`](crate::editor_workspace::enter_workspace()), and left again if the
-    /// new branch is all it would hold, so `HEAD` is on the new branch then.
+    /// if `order` is `None`. Entering the workspace restores saved stacks when the current
+    /// branch has a lane. If the workspace would only hold the new branch, `HEAD` stays on that
+    /// branch without a workspace.
     ///
     /// Fail if `ref_name` is already taken, in the repository or in the editor.
-    pub fn create_reference<'ws, 'meta, 'anchor, M: RefMetadata>(
-        editor: Editor<'ws, 'meta, M>,
+    pub fn create_reference<'ws, 'meta, 'anchor>(
+        editor: Editor<'ws, 'meta>,
         ref_name: &gix::refs::FullNameRef,
         anchor: impl Into<Option<Anchor<'anchor>>>,
         order: impl Into<Option<usize>>,
-    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta>> {
         ensure_name_is_available(&editor, ref_name)?;
         if editor.repo().head()?.is_unborn() {
             bail_precondition!("Cannot create reference on unborn branch");
@@ -123,8 +120,9 @@ pub(super) mod function {
         match placement {
             Placement::Independent { base } => {
                 let was_outside_workspace = editor.workspace_reference().is_none();
-                let (successful_rebase, workspace_commit) = enter_workspace(editor)?;
-                editor = successful_rebase.into_editor();
+                let (workspace_editor, workspace_commit) =
+                    enter_workspace_for_new_stack(editor, !workspace.stacks.is_empty())?;
+                editor = workspace_editor;
                 if workspace.stacks.is_empty() {
                     for (placeholder, _) in editor.direct_parents(workspace_commit)? {
                         editor.remove_edges(workspace_commit, placeholder)?;
@@ -146,8 +144,8 @@ pub(super) mod function {
 
     /// Fail if `ref_name` is taken, in the repository, by a remote's branch or in `editor`, or
     /// if it nests with another reference's name.
-    pub fn ensure_name_is_available<M: RefMetadata>(
-        editor: &Editor<'_, '_, M>,
+    pub fn ensure_name_is_available(
+        editor: &Editor<'_, '_>,
         ref_name: &gix::refs::FullNameRef,
     ) -> anyhow::Result<()> {
         let available = find_unique_refname_excluding(editor.repo(), ref_name, |name| {
@@ -159,8 +157,8 @@ pub(super) mod function {
         refuse_colliding_refname(editor.repo(), ref_name, None)
     }
 
-    fn placement<M: RefMetadata>(
-        editor: &Editor<'_, '_, M>,
+    fn placement(
+        editor: &Editor<'_, '_>,
         workspace: &but_graph::Workspace,
         ref_name: &gix::refs::FullNameRef,
         anchor: Option<Anchor<'_>>,
@@ -244,8 +242,8 @@ pub(super) mod function {
     /// no lane of a workspace.
     ///
     /// Fail if `HEAD` is detached, as it's no lane of a workspace either.
-    fn checked_out_branch_to_stack_on<M: RefMetadata>(
-        editor: &Editor<'_, '_, M>,
+    fn checked_out_branch_to_stack_on(
+        editor: &Editor<'_, '_>,
         ref_name: &gix::refs::FullNameRef,
     ) -> anyhow::Result<Option<Selector>> {
         let checked_out = editor
@@ -272,8 +270,8 @@ pub(super) mod function {
         )
     }
 
-    fn select_anchor<M: RefMetadata>(
-        editor: &Editor<'_, '_, M>,
+    fn select_anchor(
+        editor: &Editor<'_, '_>,
         anchor: &gix::refs::FullNameRef,
     ) -> anyhow::Result<Selector> {
         match editor.try_select_reference(anchor) {
@@ -285,8 +283,8 @@ pub(super) mod function {
         }
     }
 
-    fn ensure_commit_below<M: RefMetadata>(
-        editor: &Editor<'_, '_, M>,
+    fn ensure_commit_below(
+        editor: &Editor<'_, '_>,
         target: Selector,
         side: InsertSide,
     ) -> anyhow::Result<()> {

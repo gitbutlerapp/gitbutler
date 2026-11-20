@@ -1,5 +1,4 @@
 use anyhow::{Context as _, Result};
-use but_core::RefMetadata;
 use but_error::bail_precondition;
 use but_rebase::{
     commit::DateMode,
@@ -11,8 +10,8 @@ use but_rebase::{
 use crate::editor_workspace::leave_unnecessary_workspace;
 
 #[derive(Debug)]
-pub struct SquashCommitsOutcome<'ws, 'meta, M: RefMetadata> {
-    pub rebase: SuccessfulRebase<'ws, 'meta, M>,
+pub struct SquashCommitsOutcome<'ws, 'meta> {
+    pub rebase: SuccessfulRebase<'ws, 'meta>,
     /// Selector pointing to the squashed replacement commit.
     pub commit_selector: Selector,
 }
@@ -95,12 +94,12 @@ but_schemars::register_sdk_type!(MessageCombinationStrategy);
 ///
 /// A workspace that is unnecessary afterwards is left, see
 /// [`leave_unnecessary_workspace()`](crate::editor_workspace::leave_unnecessary_workspace()).
-pub fn squash_commits<'ws, 'meta, M: RefMetadata, S: ToCommitSelector, T: ToCommitSelector>(
-    editor: Editor<'ws, 'meta, M>,
+pub fn squash_commits<'ws, 'meta, S: ToCommitSelector, T: ToCommitSelector>(
+    editor: Editor<'ws, 'meta>,
     subjects: Vec<S>,
     target_commit: T,
     how_to_combine_messages: MessageCombinationStrategy,
-) -> Result<SquashCommitsOutcome<'ws, 'meta, M>> {
+) -> Result<SquashCommitsOutcome<'ws, 'meta>> {
     let mut seen_subjects = std::collections::HashSet::with_capacity(subjects.len());
 
     if subjects.is_empty() {

@@ -50,7 +50,6 @@ but-workspace = { workspace = true, features = ["legacy"] }
 but-api = { workspace = true, features = ["path-bytes", "legacy"] }
 but-graph.workspace = true
 but-hunk-dependency.workspace = true
-but-meta.workspace = true
 but-llm.workspace = true
 but-agentlog.workspace = true
 but-transaction.workspace = true
