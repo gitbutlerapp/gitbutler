@@ -246,6 +246,43 @@ fn restore_snapshot_replaces_branch_order() -> anyhow::Result<()> {
 }
 
 #[test]
+fn undo_restores_branch_metadata() -> anyhow::Result<()> {
+    use but_core::RefMetadata as _;
+    use but_meta::virtual_branches_legacy_types::VirtualBranches;
+
+    let Test { repo, ctx } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
+    let mut guard = ctx.exclusive_worktree_access();
+    let snapshot_id = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        guard.write_permission(),
+    )?;
+    let snapshotted: VirtualBranches = toml::from_str(&snapshot_blob(
+        &repo.open_repo(),
+        snapshot_id,
+        "virtual_branches.toml",
+    )?)?;
+
+    ctx.legacy_meta()?.remove("refs/heads/A".try_into()?)?;
+    assert_ne!(
+        ctx.legacy_meta()?.data(),
+        &snapshotted,
+        "removing stack A leaves something to undo"
+    );
+
+    ctx.restore_snapshot(
+        snapshot_id,
+        RestoreKind::RestoreFromSnapshotViaUndo,
+        guard.write_permission(),
+    )?;
+    assert_eq!(
+        ctx.legacy_meta()?.data(),
+        &snapshotted,
+        "undo puts the snapshot's branches back in the database"
+    );
+    Ok(())
+}
+
+#[test]
 fn restore_snapshot_restores_explicitly_empty_branch_order() -> anyhow::Result<()> {
     let Test { ctx, .. } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
     let mut guard = ctx.exclusive_worktree_access();
@@ -794,8 +831,6 @@ fn malformed_project_meta_fails_before_restore_mutates_state() -> anyhow::Result
     )?;
     let before_meta = ctx.project_meta()?;
     let before_oplog_head = ctx.oplog_head()?;
-    let live_path = ctx.project_data_dir().join("virtual_branches.toml");
-    let before_toml = fs::read(&live_path)?;
 
     let error = ctx
         .restore_snapshot(
@@ -817,11 +852,6 @@ fn malformed_project_meta_fails_before_restore_mutates_state() -> anyhow::Result
         ctx.oplog_head()?,
         before_oplog_head,
         "a failed restore does not advance the oplog head"
-    );
-    assert_eq!(
-        fs::read(live_path)?,
-        before_toml,
-        "a failed restore does not rewrite virtual_branches.toml"
     );
     Ok(())
 }

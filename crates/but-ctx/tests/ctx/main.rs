@@ -303,25 +303,11 @@ fn project_meta_observes_changes_made_through_other_repository_handles() -> anyh
 }
 
 #[test]
-fn context_creation_ports_legacy_toml_before_cleanup() -> anyhow::Result<()> {
-    let (_tmp, repo, target_commit_id) = run_fixture("project-meta-toml")?;
-    let ctx = Context::from_repo_for_testing(repo)?;
-    let expected = project_meta(target_commit_id, "refs/heads/main", "fork")?;
-
-    assert_eq!(ctx.project_meta()?, expected);
-
-    fs::write(
-        ctx.project_data_dir().join("virtual_branches.toml"),
-        "[branches]\n",
-    )?;
-    let reopened = Context::from_repo_for_testing(open_repo(&ctx.gitdir)?)?;
-    assert_eq!(reopened.project_meta()?, expected);
-    Ok(())
-}
-
-#[test]
-fn concurrent_context_creation_ports_legacy_toml() -> anyhow::Result<()> {
-    let (_tmp, repo, target_commit_id) = run_fixture("project-meta-toml")?;
+fn concurrent_context_creation_ports_project_meta() -> anyhow::Result<()> {
+    let (_tmp, repo, target_commit_id) = run_fixture("project-meta-ported")?;
+    but_core::git_config::edit_repo_config(&repo, gix::config::Source::Local, |config| {
+        but_core::git_config::remove_config_value(config, "gitbutler.project.portedMeta")
+    })?;
     let gitdir = repo.git_dir().to_owned();
     let barrier = Arc::new(Barrier::new(9));
     let repos = (0..8)
@@ -346,8 +332,8 @@ fn concurrent_context_creation_ports_legacy_toml() -> anyhow::Result<()> {
     }
     assert_eq!(
         ProjectMeta::resolve(&repo)?,
-        project_meta(target_commit_id, "refs/heads/main", "fork")?,
-        "legacy project metadata is ported"
+        project_meta(target_commit_id, "refs/heads/trunk", "origin")?,
+        "concurrent contexts port the project metadata"
     );
     Ok(())
 }
