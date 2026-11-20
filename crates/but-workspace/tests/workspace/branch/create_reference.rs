@@ -1767,7 +1767,7 @@ Single commit, target, no ws commit, but ws-reference
 "#]]
         );
 
-        let graph = but_graph::Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &*meta,
             project_meta(&repo)?,
@@ -1787,8 +1787,8 @@ Single commit, target, no ws commit, but ws-reference
         );
         assert_eq!(
             ws.incoming_target_commit_ids(&repo)?,
-            Vec::from([repo.rev_parse_single("origin/main")?.detach()]),
-            "incoming upstream commits must remain visible independently of the local target count"
+            Vec::<gix::ObjectId>::new(),
+            "origin/main is the parent of the workspace base, so none of its commits are incoming"
         );
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
