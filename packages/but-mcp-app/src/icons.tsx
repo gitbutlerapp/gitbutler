@@ -56,6 +56,7 @@ export function ForgeIcon({ name, ...props }: { name: ForgeInfo["name"] } & Comp
 				</Icon>
 			);
 		case "azure":
+		case "gitbutler":
 			return (
 				<Icon {...props}>
 					<circle

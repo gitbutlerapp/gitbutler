@@ -491,6 +491,42 @@ pub enum ForgeSubcommand {
         #[clap(value_enum)]
         status: Option<GitHubStacksStatus>,
     },
+
+    /// Move this repository from GitHub to GitButler Code.
+    ///
+    /// Makes the organization project `<DOMAIN>/<NAME>` on GitButler Code the repository's home.
+    /// When it doesn't exist yet, the target branch is pushed as its `main`, which creates it,
+    /// visible to the organization's members. You get your own copy of it at `<you>/<NAME>`, made
+    /// on the server. Then `origin` is renamed to `github`, `origin` points at the organization's
+    /// project, a remote named after you points at your copy, and the target becomes `origin/main`
+    /// with your copy as the push remote, so `but push` publishes branches there.
+    ///
+    /// Without a GitButler Code account, a terminal signs in first, as `but config forge auth`
+    /// does; a non-interactive run fails. Running it again finishes a move that stopped partway
+    /// and changes nothing after a complete one. The move isn't recorded in the oplog, so
+    /// `but undo` doesn't revert it; `but config target github/<branch>` points back at GitHub.
+    ///
+    /// ## Examples
+    ///
+    /// Move a personal repository to your own organization, `<you>.gitbutler.dev`:
+    ///
+    /// ```text
+    /// but config forge _move
+    /// ```
+    ///
+    /// Move a team repository to the `gitbutler.com` organization:
+    ///
+    /// ```text
+    /// but config forge _move gitbutler.com
+    /// ```
+    #[cfg(feature = "nightly")]
+    #[clap(hide = true, name = "_move")]
+    _Move {
+        /// Where to move the repository: `<DOMAIN>` or `<DOMAIN>/<NAME>`. Defaults to your
+        /// personal organization, `<you>.gitbutler.dev`, and the GitHub repository's name.
+        #[clap(value_name = "DOMAIN[/NAME]")]
+        destination: Option<String>,
+    },
 }
 
 /// Values for the native GitHub stacks project setting.

@@ -517,7 +517,8 @@ fn unique_remote_name(repo: &gix::Repository, base: &str) -> Result<String> {
     Ok(candidate)
 }
 
-fn add_remote_to_config(repo: &gix::Repository, name: &str, remote_url: &str) -> Result<()> {
+/// Add the remote `name` at `remote_url`, fetching every branch into `refs/remotes/<name>/`.
+pub fn add_remote_to_config(repo: &gix::Repository, name: &str, remote_url: &str) -> Result<()> {
     edit_repo_config(repo, gix::config::Source::Local, |config| {
         let mut section = config.section_mut_or_create_new("remote", Some(name.into()))?;
         section.push("url", remote_url)?;

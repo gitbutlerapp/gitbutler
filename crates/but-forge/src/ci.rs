@@ -65,7 +65,9 @@ fn fetch_and_refresh_cache(
 ) -> anyhow::Result<Vec<CiCheck>> {
     let asked = match forge_repo_info.forge {
         ForgeName::GitHub => head_commit.unwrap_or(reference),
-        ForgeName::GitLab | ForgeName::Bitbucket | ForgeName::Azure => reference,
+        ForgeName::GitLab | ForgeName::Bitbucket | ForgeName::Azure | ForgeName::GitButler => {
+            reference
+        }
     };
     let fetched = ci_checks_for_ref(preferred_forge_user, forge_repo_info, storage, asked)?;
     Ok(refresh_cache_with_fetched(db, reference, fetched))
@@ -218,7 +220,7 @@ fn ci_checks_for_ref(
                     .collect()
             }))
         }
-        ForgeName::Azure => Err(anyhow::anyhow!(
+        ForgeName::Azure | ForgeName::GitButler => Err(anyhow::anyhow!(
             "Listing ci checks for forge {forge:?} is not implemented yet."
         )),
     }

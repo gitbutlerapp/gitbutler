@@ -131,6 +131,8 @@ pub enum Forge {
     GitLab,
     Bitbucket,
     Azure,
+    /// GitButler Code. Recognised from the remote, with no pull request support yet.
+    GitButler,
 }
 
 impl Forge {
@@ -140,6 +142,7 @@ impl Forge {
             Forge::GitLab => "GitLab",
             Forge::Bitbucket => "Bitbucket",
             Forge::Azure => "Azure",
+            Forge::GitButler => "GitButler Code",
         }
     }
 }

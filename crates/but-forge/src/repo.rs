@@ -36,7 +36,7 @@ pub async fn get_repo_info(
                 .await
                 .map(RepoInfo::from)
         }
-        ForgeName::Azure => Err(anyhow::anyhow!(
+        ForgeName::Azure | ForgeName::GitButler => Err(anyhow::anyhow!(
             "Fetching repo info for forge {:?} is not implemented yet.",
             forge_repo_info.forge
         )),

@@ -18,6 +18,10 @@ pub mod gitlab;
 
 /// Functions for Bitbucket authentication.
 pub mod bitbucket;
+/// Gated behind `legacy` because pushing and fetching rely on the legacy `gitbutler-git`, as for
+/// `land`.
+#[cfg(feature = "legacy")]
+pub mod gitbutler_code;
 
 pub mod branch;
 

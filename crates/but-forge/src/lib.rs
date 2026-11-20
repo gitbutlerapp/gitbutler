@@ -34,7 +34,9 @@ pub use review::{
 };
 
 fn determine_forge_from_host(host: &str) -> Option<ForgeName> {
-    if host.contains("github.com") || host.starts_with("github.") {
+    if but_gitbutler_code::is_gitbutler_code_host(host) {
+        Some(ForgeName::GitButler)
+    } else if host.contains("github.com") || host.starts_with("github.") {
         Some(ForgeName::GitHub)
     } else if host.contains("gitlab.com") || host.starts_with("gitlab.") {
         Some(ForgeName::GitLab)
@@ -190,6 +192,7 @@ fn canonical_repository_host<'a>(forge: &ForgeName, host: &'a str) -> &'a str {
         ForgeName::GitLab => &["altssh.gitlab.com"],
         ForgeName::Bitbucket => &["ssh.bitbucket.org", "altssh.bitbucket.org"],
         ForgeName::Azure => &["ssh.dev.azure.com"],
+        ForgeName::GitButler => &[],
     };
     if aliases
         .iter()
@@ -251,6 +254,10 @@ pub(crate) fn find_forge_account(
             .into_iter()
             .map(ForgeUser::Bitbucket)
             .collect(),
+        ForgeName::GitButler => but_gitbutler_code::list_known_accounts(storage)?
+            .into_iter()
+            .map(ForgeUser::GitButler)
+            .collect(),
         ForgeName::Azure => return Ok(None),
     };
     Ok(accounts.into_iter().find(|account| {
@@ -261,13 +268,14 @@ pub(crate) fn find_forge_account(
 
 /// Resolve the account before any live repository API call. The account's
 /// existing client configuration supplies the endpoint; never retarget a token.
-/// Azure returns `None` without reading storage, as authenticated API dispatch isn't implemented.
+/// Forges without an API (`ForgeName::has_api`) return `None` without reading storage, as
+/// authenticated API dispatch isn't implemented for them.
 pub(crate) fn resolve_account(
     preferred: &Option<ForgeUser>,
     repo: &ForgeRepoInfo,
     storage: &but_forge_storage::Controller,
 ) -> anyhow::Result<Option<ForgeUser>> {
-    if repo.forge == ForgeName::Azure {
+    if !repo.forge.has_api() {
         return Ok(None);
     }
     find_forge_account(preferred, repo, storage)?.map(Some).ok_or_else(|| {

@@ -39,11 +39,40 @@ struct FailedBranch {
     error: String,
 }
 
+/// In a clone of a GitButler Code organization project with no push remote yet, make the
+/// user's copy of it the push remote, so branches go there: the organization's project only
+/// takes `main`.
+#[cfg(feature = "nightly")]
+async fn set_up_gitbutler_code_copy(ctx: &mut Context, out: &mut OutputChannel) -> CliResult<()> {
+    match but_api::gitbutler_code::ensure_copy(ctx).await {
+        Ok(Some(copy)) => {
+            if let Some(out) = out.for_human() {
+                writeln!(
+                    out,
+                    "Pushing to your copy {} from now on (remote {})",
+                    copy.space.project, copy.remote
+                )?;
+            }
+            Ok(())
+        }
+        Ok(None) => Ok(()),
+        Err(err) if err.is::<but_api::gitbutler_code::NotSignedIn>() => {
+            Err(crate::command::legacy::forge::move_repo::not_signed_in().into())
+        }
+        Err(err) => Err(err.into()),
+    }
+}
+
 pub async fn handle(
     args: push::Command,
     ctx: &mut Context,
     out: &mut OutputChannel,
 ) -> CliResult<()> {
+    #[cfg(feature = "nightly")]
+    if !args.dry_run {
+        set_up_gitbutler_code_copy(ctx, out).await?;
+    }
+
     let push_remote = {
         let guard = ctx.shared_worktree_access();
         let (repo, ws, _) = ctx.workspace_and_db_with_perm(guard.read_permission())?;

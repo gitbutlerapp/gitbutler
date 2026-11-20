@@ -698,6 +698,23 @@ async fn dispatch_subcommand(
                         command::config::user_config(ctx.as_ref(), cmd.clone()).await?,
                     )
                 }
+                #[cfg(feature = "nightly")]
+                Some(args::config::Subcommands::Forge {
+                    cmd: Some(args::config::ForgeSubcommand::_Move { .. }),
+                }) => {
+                    // Moving starts from the target, so a fresh clone gets one inferred, as
+                    // `but status` would.
+                    let mut ctx = setup::init_ctx(
+                        &args,
+                        InitCtxOptions {
+                            background_sync: BackgroundSync::Disabled,
+                            target_requirement: TargetRequirement::Required,
+                            ..Default::default()
+                        },
+                        out,
+                    )?;
+                    command::config::exec(&mut ctx, out, cmd).await
+                }
                 Some(args::config::Subcommands::Forge {
                     cmd: Some(args::config::ForgeSubcommand::GithubStacks { .. }),
                 }) => {

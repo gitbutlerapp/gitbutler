@@ -460,3 +460,28 @@ fn ssh_alias_hosts_yield_public_web_urls() {
         "https://bitbucket.org/owner/repo/pull-requests/42"
     );
 }
+
+#[test]
+fn gitbutler_code_is_recognised_with_no_features() {
+    let remote = "https://code.gitbutler.com/gitbutler.com/gitbutler.git";
+    let info = forge_info(remote, &[], None).expect("code.gitbutler.com is GitButler Code");
+    assert_eq!(
+        info.name,
+        ForgeName::GitButler,
+        "the host alone names the forge"
+    );
+    assert_eq!(
+        info.base_url, "https://code.gitbutler.com/gitbutler.com/gitbutler",
+        "organization domains keep their dots in the project path"
+    );
+    let caps = info.capabilities;
+    assert!(
+        !(caps.checks
+            || caps.repo_info
+            || caps.pr_service
+            || caps.list_service
+            || caps.review_comments
+            || caps.review_management),
+        "GitButler Code has no API for reviews or checks yet, so nothing may call one"
+    );
+}

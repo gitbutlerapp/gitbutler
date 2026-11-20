@@ -748,7 +748,9 @@ impl Detail {
             .text_h2()
             .on_click(cx.listener(|this, _, window, cx| this.start_review_edit(window, cx)))
             .into_any_element(),
-            (None, Some(Forge::Azure) | None) => div().text_h2().child(title).into_any_element(),
+            (None, Some(Forge::Azure | Forge::GitButler) | None) => {
+                div().text_h2().child(title).into_any_element()
+            }
         };
         v_flex()
             .gap(dp(12.))

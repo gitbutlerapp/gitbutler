@@ -95,7 +95,9 @@ pub fn add_token(forge: Forge, token: String, email: String) -> Result<String> {
             ))?;
             email
         }
-        Forge::Azure => bail!("GitButler can't sign in to Azure yet"),
+        Forge::Azure | Forge::GitButler => {
+            bail!("GitButler can't sign in to {} here yet", forge.name())
+        }
     })
 }
 
@@ -116,7 +118,7 @@ pub fn add_self_hosted_token(forge: Forge, url: String, token: String) -> Result
                 .block_on(but_api::gitlab::store_gitlab_selfhosted_pat(token, url))?
                 .username
         }
-        Forge::Bitbucket | Forge::Azure => {
+        Forge::Bitbucket | Forge::Azure | Forge::GitButler => {
             bail!(
                 "GitButler can't sign in to a self-hosted {} yet",
                 forge.name()

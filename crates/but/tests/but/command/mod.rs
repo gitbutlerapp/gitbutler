@@ -19,6 +19,8 @@ mod expand;
 #[cfg(unix)]
 mod external;
 mod filters;
+#[cfg(feature = "nightly")]
+mod forge_move;
 mod format;
 mod gui;
 mod help;

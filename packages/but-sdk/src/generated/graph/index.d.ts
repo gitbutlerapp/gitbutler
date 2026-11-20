@@ -1041,7 +1041,7 @@ export type ForgeInfo = {
 };
 
 /** Supported git forge types */
-export type ForgeName = "github" | "gitlab" | "bitbucket" | "azure";
+export type ForgeName = "github" | "gitlab" | "bitbucket" | "azure" | "gitbutler";
 
 /**
  * Represents a review (pull request/merge request) from a forge platform (GitHub, GitLab, etc.).
@@ -1290,6 +1290,9 @@ export type ForgeUser = {
 } | {
   provider: "bitbucket";
   details: BitbucketAccountIdentifier;
+} | {
+  provider: "gitbutler";
+  details: GitbutlerCodeAccountIdentifier;
 };
 
 /**
@@ -1331,6 +1334,14 @@ export type GitHubOAuthAppSettings = {
 
 /** Controls whether GitButler registers reviewed stacks with GitHub's native stacks API. */
 export type GitHubStackingMode = "auto" | "disabled" | "native";
+
+/** A GitButler Code account `but` signed in to. */
+export type GitbutlerCodeAccountIdentifier = {
+  type: "deviceLogin";
+  info: {
+    username: string;
+  };
+};
 
 export type GithubAccountIdentifier = {
   type: "oAuthUsername";

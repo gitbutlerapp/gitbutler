@@ -61,6 +61,7 @@ pub(super) fn app_forge(name: ForgeName) -> Forge {
         ForgeName::GitLab => Forge::GitLab,
         ForgeName::Bitbucket => Forge::Bitbucket,
         ForgeName::Azure => Forge::Azure,
+        ForgeName::GitButler => Forge::GitButler,
     }
 }
 
