@@ -33,6 +33,9 @@ pub(crate) struct WorkspaceGraph {
     unclaimed_branches: BTreeSet<FullName>,
     /// The managed workspace commit the workspace reference points at, if any.
     workspace_commit: Option<gix::ObjectId>,
+    /// The workspace references that, like after a traversal, are ordinary branches: they have no
+    /// workspace metadata, and the graph isn't seen from them.
+    plain_workspace_refs: BTreeSet<FullName>,
 }
 
 const UNKNOWN_PARENT_NODE_INDEX: NodeIndex = usize::MAX;
@@ -53,9 +56,17 @@ pub(crate) fn graph(
     target_commit_id: Option<gix::ObjectId>,
     commits_limit: Option<usize>,
 ) -> Result<WorkspaceGraph> {
-    let (workspace_ref_name, workspace_commit, heads_on_reaching, mut oid_to_refs, ref_to_oid) = {
+    let (
+        workspace_ref_name,
+        workspace_commit,
+        plain_workspace_refs,
+        heads_on_reaching,
+        mut oid_to_refs,
+        ref_to_oid,
+    ) = {
         let mut workspace_ref_name = None;
         let mut workspace_commit = None;
+        let mut plain_workspace_refs = BTreeSet::new();
         let mut heads_on_reaching = HashMap::<gix::ObjectId, Vec<gix::ObjectId>>::new();
         let mut oid_to_refs = HashMap::<gix::ObjectId, Vec<FullName>>::new();
         let mut ref_to_oid = BTreeMap::<FullName, gix::ObjectId>::new();
@@ -65,7 +76,12 @@ pub(crate) fn graph(
                 continue;
             };
             let full_name = reference.name().to_owned();
-            if is_workspace_ref_name(full_name.as_ref()) {
+            if is_workspace_ref_name(full_name.as_ref())
+                && head_ref != Some(full_name.as_ref())
+                && overlay_meta.workspace_opt(full_name.as_ref())?.is_none()
+            {
+                plain_workspace_refs.insert(full_name.clone());
+            } else if is_workspace_ref_name(full_name.as_ref()) {
                 workspace_ref_name = Some(full_name.clone());
                 let commit = repo.find_commit(id)?;
                 workspace_commit = crate::workspace::commit::is_managed_workspace_by_message(
@@ -111,10 +127,16 @@ pub(crate) fn graph(
         (
             workspace_ref_name,
             workspace_commit,
+            plain_workspace_refs,
             heads_on_reaching,
             oid_to_refs,
             ref_to_oid,
         )
+    };
+    // Like after a traversal, a workspace reference without workspace metadata is an ordinary
+    // branch, unless the graph is seen from it.
+    let is_workspace_ref_name = |name: &FullNameRef| -> bool {
+        but_core::is_workspace_ref_name(name) && !plain_workspace_refs.contains(name)
     };
 
     /// The branches of a stack that exist, top first.
@@ -204,8 +226,13 @@ pub(crate) fn graph(
                 // traversal its branches belong to whichever lane reaches them.
                 let is_outside_seen_from_workspace =
                     !stack.in_workspace && head_ref.is_some_and(is_workspace_ref_name);
+                // Seen from anything but the workspace, a stack in it is no lane either, as a
+                // traversal only splits the workspace into its stacks when seen from the workspace.
+                let is_inside_seen_from_elsewhere =
+                    stack.in_workspace && !head_ref.is_some_and(is_workspace_ref_name);
                 if !(stack.in_workspace && (is_stack_underneath_another || rests_on_another_stack))
                     && !is_outside_seen_from_workspace
+                    && !is_inside_seen_from_elsewhere
                 {
                     stacks.push(stack);
                 } else {
@@ -215,11 +242,14 @@ pub(crate) fn graph(
         }
         // Branches outside the workspace, like those of a single-branch-mode
         // checkout, may still be stacked through their persisted branch stack order.
-        // Those of a workspace stack that was left out above aren't, so they stay with
-        // whichever stack reaches them.
+        // Seen from the workspace, those of a workspace stack that was left out above
+        // aren't, so they stay with whichever stack reaches them. Seen from elsewhere, a
+        // traversal ignores the workspace's stacks, so their branches are stacked like
+        // any other.
         for full_name in ref_to_oid.keys() {
             if full_name.category() != Some(gix::refs::Category::LocalBranch)
-                || unstacked_workspace_branches.contains(full_name)
+                || (unstacked_workspace_branches.contains(full_name)
+                    && head_ref.is_some_and(is_workspace_ref_name))
                 || stacks
                     .iter()
                     .any(|stack| stack.branches.contains(full_name))
@@ -261,8 +291,10 @@ pub(crate) fn graph(
             if let Some(position) = head_stack.iter().position(|r| r == reference) {
                 return (0, position + 1);
             }
+            // Without a stack it still comes right after the workspace ref, whatever its name, so
+            // the workspace ref leads to it like to the tip a traversal makes of it.
             if Some(reference.as_ref()) == head_ref {
-                return (0, 0);
+                return (0, 1);
             }
             (
                 match reference.category() {
@@ -424,7 +456,8 @@ pub(crate) fn graph(
                     .is_some_and(|local_name| !ref_to_oid.contains_key(&local_name));
             let is_stackless_branch = match category {
                 Some(gix::refs::Category::LocalBranch) => {
-                    !full_name.as_bstr().starts_with(b"refs/heads/gitbutler/")
+                    (!full_name.as_bstr().starts_with(b"refs/heads/gitbutler/")
+                        || plain_workspace_refs.contains(&full_name))
                         && stack_of_branch(&stacks, full_name.as_ref()).is_empty()
                         && !is_checked_out_elsewhere
                 }
@@ -738,6 +771,7 @@ pub(crate) fn graph(
         nodes,
         unclaimed_branches,
         workspace_commit: workspace_commit.map(|commit| commit.id),
+        plain_workspace_refs,
     })
 }
 
@@ -844,6 +878,11 @@ impl WorkspaceGraph {
         seen_from_commit: Option<gix::ObjectId>,
         worktree_tips: &[crate::init::WorktreeTip],
     ) -> Result<crate::Graph> {
+        // Like after a traversal, a workspace reference without workspace metadata is an ordinary
+        // branch, unless the graph is seen from it.
+        let is_workspace_ref_name = |name: &FullNameRef| -> bool {
+            but_core::is_workspace_ref_name(name) && !self.plain_workspace_refs.contains(name)
+        };
         let mut inner_graph = crate::init::PetGraph::default();
         let shallow_commits = repo.shallow_commits()?;
         let mut node_index_to_predecessor_segment_info =
@@ -910,19 +949,29 @@ impl WorkspaceGraph {
             }
             i
         };
+        // The local branches with metadata on each commit, other than the workspace ref, which a
+        // traversal leaves out when it names a segment.
+        let mut branches_with_metadata_by_commit = HashMap::<gix::ObjectId, usize>::new();
         for (i, node) in self.nodes.iter().enumerate() {
             if let NodeWeight::Ref { full_name } = &node.weight
                 && full_name.category() == Some(gix::refs::Category::LocalBranch)
-                && self.unclaimed_branches.contains(full_name)
-                && crate::init::walk::extract_local_branch_metadata(
+                && !is_workspace_ref_name(full_name.as_ref())
+            {
+                let counts = if crate::init::walk::extract_local_branch_metadata(
                     full_name.as_ref(),
                     overlay_meta,
                 )?
-                .is_none()
-            {
-                *ambiguous_branches_by_commit
-                    .entry(self.commit_id_of(i))
-                    .or_default() += 1;
+                .is_some()
+                {
+                    Some(&mut branches_with_metadata_by_commit)
+                } else {
+                    self.unclaimed_branches
+                        .contains(full_name)
+                        .then_some(&mut ambiguous_branches_by_commit)
+                };
+                if let Some(counts) = counts {
+                    *counts.entry(self.commit_id_of(i)).or_default() += 1;
+                }
             }
         }
 
@@ -1177,8 +1226,14 @@ impl WorkspaceGraph {
                                 && ambiguous_branches_by_commit
                                     .get(&self.commit_id_of(i))
                                     .is_some_and(|count| *count > 1);
+                            // Like after a traversal, only a branch another worktree has checked out
+                            // names a segment for that alone, as the traversal walks it as a tip,
+                            // and so does the branch the graph is seen from, its entrypoint.
                             ((continues_anonymous || shares_segment || continues_through_ambiguous)
-                                && !worktree_by_branch.contains_key(full_name))
+                                && seen_from_ref != Some(full_name.as_ref())
+                                && !worktree_by_branch.get(full_name).is_some_and(|worktrees| {
+                                    worktrees.iter().any(|wt| !wt.owned_by_repo)
+                                }))
                             .then_some(segment_index)
                         }
                         // Like after a traversal, a workspace only owns its workspace commit,
@@ -1418,6 +1473,16 @@ impl WorkspaceGraph {
                             full_name.as_ref(),
                             overlay_meta,
                         )?
+                        // Like the tip a traversal makes of it, the branch the graph is seen
+                        // from takes its metadata along only if no other branch on its commit
+                        // has any, as otherwise the traversal only names its segment after it.
+                        .filter(|_| {
+                            seen_from_ref != Some(full_name.as_ref())
+                                || is_workspace_ref_name(full_name.as_ref())
+                                || branches_with_metadata_by_commit
+                                    .get(&self.commit_id_of(i))
+                                    .is_none_or(|count| *count < 2)
+                        })
                         .or_else(|| {
                             (seen_from_workspace_ref == Some(full_name.as_ref()))
                                 .then(|| SegmentMetadata::Workspace(Default::default()))
