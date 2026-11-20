@@ -109,13 +109,13 @@ jobs:
       contents: read
       id-token: write
     concurrency:
-      group: ecs-${{ vars.DEPLOY_ENVIRONMENT || 'preview' }}-web-frontend
+      group: ecs-${{ vars.DEPLOY_ENVIRONMENT || 'production' }}-web-frontend
       queue: max
       cancel-in-progress: false
     env:
       AWS_REGION: us-east-1
-      ENVIRONMENT: ${{ vars.DEPLOY_ENVIRONMENT || 'preview' }}
-      SERVICE: ${{ vars.DEPLOY_ENVIRONMENT || 'preview' }}-web-frontend
+      ENVIRONMENT: ${{ vars.DEPLOY_ENVIRONMENT || 'production' }}
+      SERVICE: ${{ vars.DEPLOY_ENVIRONMENT || 'production' }}-web-frontend
       REGISTRY: 221886364861.dkr.ecr.us-east-1.amazonaws.com
       TOOLING_BUCKET: gitbutler-deploy-tooling-221886364861
     steps:
