@@ -680,7 +680,8 @@ pub(crate) async fn forge_config(
     cmd: Option<ForgeSubcommand>,
 ) -> CliResult<()> {
     match cmd {
-        Some(ForgeSubcommand::Auth) => forge_auth(out).await?,
+        Some(ForgeSubcommand::Auth { with_token: true }) => github_token_from_stdin(out).await?,
+        Some(ForgeSubcommand::Auth { with_token: false }) => forge_auth(out).await?,
         Some(ForgeSubcommand::ListUsers) => forge_show_overview(out).await?,
         Some(ForgeSubcommand::Forget { username }) => forge_forget(username, out).await?,
         Some(ForgeSubcommand::GithubStacks { .. }) => {
@@ -1045,7 +1046,7 @@ async fn forge_auth(out: &mut OutputChannel) -> CliResult<()> {
     let selected_option = {
         let mut input = out.prepare_for_terminal_input().ok_or_else(|| {
             bad_input("Human input required - run this in a terminal").hint(
-                "Ask the user to run `but config forge auth` in a terminal. It has no non-interactive form",
+                "For GitHub, pipe a token in: `echo \"$GH_TOKEN\" | but config forge auth --with-token`. Otherwise ask the user to run `but config forge auth` in a terminal",
             )
         })?;
         input
@@ -1107,6 +1108,32 @@ pub(crate) async fn gitbutler_code_login(inout: &mut InputOutputChannel<'_>) -> 
             }
         }
     }
+}
+
+/// Store a GitHub token read from stdin as a PAT, for runs without a terminal.
+async fn github_token_from_stdin(out: &mut OutputChannel) -> CliResult<()> {
+    let token = std::io::read_to_string(std::io::stdin())
+        .context("Could not read the GitHub token from stdin")?
+        .trim()
+        .to_owned();
+    if token.is_empty() {
+        return Err(bad_input("No token on stdin")
+            .arg_name("--with-token")
+            .hint(
+                "Pipe a GitHub token in: `echo \"$GH_TOKEN\" | but config forge auth --with-token`",
+            )
+            .into());
+    }
+
+    let but_github::AuthStatusResponse { login, .. } =
+        but_api::github::store_github_pat(Sensitive(token))
+            .await
+            .map_err(|err| err.context("Authentication failed"))?;
+
+    if let Some(out) = out.for_human() {
+        writeln!(out, "Authentication successful! Welcome, {login}.")?;
+    }
+    Ok(())
 }
 
 /// Authenticate with Bitbucket Cloud using an Atlassian API token.
