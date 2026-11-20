@@ -90,6 +90,9 @@ pub struct Handed {
     /// Missing from what a build from before tilings carried over hands over.
     #[serde(default)]
     tiled: bool,
+    /// Missing from what a build from before command names hands over.
+    #[serde(default)]
+    command: Option<String>,
 }
 
 /// How the rows laid their tiles out, and the row selected, for the next build to show the same.
@@ -326,6 +329,7 @@ impl Store {
         let socket = (cx.try_global::<crate::control::ControlSocket>()).map(|s| s.0.clone());
         let asked = Instant::now();
         let via = backend::metrics::via();
+        let command = run.as_deref().and_then(crate::terminal::command_name);
         cx.spawn(async move |this, cx| {
             let started = backend::run(move || {
                 let env: Vec<(&str, &std::ffi::OsStr)> = (socket.iter())
@@ -337,8 +341,9 @@ impl Store {
             .await;
             this.update(cx, |store, cx| {
                 let store_handle = cx.weak_entity();
-                let opened = started
-                    .and_then(|(shell, ghostty)| Terminal::new(shell, ghostty, store_handle, cx));
+                let opened = started.and_then(|(shell, ghostty)| {
+                    Terminal::new(shell, command, ghostty, store_handle, cx)
+                });
                 match opened {
                     Ok(terminal) => {
                         backend::metrics::operation(
@@ -551,7 +556,12 @@ impl Store {
     pub fn hand_off_terminals(&mut self, cx: &mut Context<Self>) -> Vec<(Handed, Detached)> {
         (self.terminals.open.iter())
             .filter_map(|open| {
-                let detached = open.terminal.update(cx, |terminal, _| terminal.detach());
+                let (detached, command) = open.terminal.update(cx, |terminal, _| {
+                    (
+                        terminal.detach(),
+                        terminal.command().map(ToString::to_string),
+                    )
+                });
                 let detached = (detached)
                     .inspect_err(|err| tracing::error!("couldn't hand a terminal over: {err:#}"))
                     .ok()?;
@@ -561,6 +571,7 @@ impl Store {
                     id: open.id.0,
                     named: open.named.as_ref().map(ToString::to_string),
                     tiled: open.tiled,
+                    command,
                 };
                 Some((handed, detached))
             })
@@ -577,9 +588,10 @@ impl Store {
                 id,
                 named,
                 tiled,
+                command,
             } = handed;
             let store = cx.weak_entity();
-            match Terminal::adopt(detached, store, cx) {
+            match Terminal::adopt(detached, command.map(Into::into), store, cx) {
                 Ok(terminal) => {
                     let (id, named) = (TerminalId(id), named.map(Into::into));
                     self.insert_terminal(id, project.into(), checkout, terminal, named, cx);
@@ -907,6 +919,7 @@ mod tests {
             id: 1,
             named: named.map(Into::into),
             tiled: false,
+            command: None,
         }
     }
 
@@ -994,6 +1007,32 @@ mod tests {
         let json = serde_json::to_string(&tiled).unwrap();
         let adopted: Handed = serde_json::from_str(&json).unwrap();
         assert!(adopted.tiled, "it stays out of the navigator");
+    }
+
+    #[test]
+    fn the_next_build_keeps_the_command_a_terminal_runs() {
+        let running = Handed {
+            command: Some("codex".to_owned()),
+            ..handed(None)
+        };
+        let json = serde_json::to_string(&running).unwrap();
+        let adopted: Handed = serde_json::from_str(&json).unwrap();
+        assert_eq!(
+            adopted.command.as_deref(),
+            Some("codex"),
+            "it stays titled by its program until the program titles it"
+        );
+    }
+
+    #[test]
+    fn a_build_from_before_command_names_hands_over_terminals_without_one() {
+        let mut json = serde_json::to_value(handed(None)).unwrap();
+        json.as_object_mut().unwrap().remove("command");
+        let adopted: Handed = serde_json::from_value(json).unwrap();
+        assert_eq!(
+            adopted.command, None,
+            "they show their shell's title, or Terminal"
+        );
     }
 
     #[test]
