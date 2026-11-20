@@ -3911,7 +3911,7 @@ fn advanced_workspace_single_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         err.to_string(),
         snapbox::str![[r#"
-Found 4 commit(s) on top of the workspace commit.
+Found 5 commit(s) on top of the workspace commit.
 
 Run the following command in your working directory to fix this while leaving your worktree unchanged.
 Worktree changes need to be re-committed manually for now.
@@ -3957,11 +3957,11 @@ fn a_padding_commit_does_not_count_as_on_top_of_the_workspace_commit() -> anyhow
 
     add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
     let err = head_info(&repo, &meta, &mut db, standard_options()).unwrap_err();
-    // Only the 4 commits of `advanced_workspace_single_stack` count, not the padding commit above them.
+    // Only the 5 commits of `advanced_workspace_single_stack` count, not the padding commit above them.
     snapbox::assert_data_eq!(
         err.to_string(),
         snapbox::str![[r#"
-Found 4 commit(s) on top of the workspace commit.
+Found 5 commit(s) on top of the workspace commit.
 
 Run the following command in your working directory to fix this while leaving your worktree unchanged.
 Worktree changes need to be re-committed manually for now.

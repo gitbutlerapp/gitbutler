@@ -587,6 +587,36 @@ pub(crate) fn graph(
                     });
                 1
             };
+            // Like the edges of a workspace commit, it also leads to each stack of the workspace
+            // resting where the workspace's lanes meet the target, which without a workspace
+            // commit is the target commit, as an empty lane of its own.
+            let stacks_on_workspace_base: Vec<&Stack> = if is_workspace_ref_name(full_name.as_ref())
+                && workspace_commit.is_none()
+            {
+                stacks
+                    .iter()
+                    .filter(|stack| {
+                        stack.in_workspace && stack.tip != commit_id && is_workspace_base(stack.tip)
+                    })
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            for (offset, stack) in stacks_on_workspace_base.iter().enumerate() {
+                unassigned_oid_map
+                    .entry(stack.tip)
+                    .or_default()
+                    .entry(StackLineage {
+                        branches_in_lineage: stack.branches.iter().cloned().collect(),
+                        is_unclaimed_workspace_edge: false,
+                    })
+                    .or_default()
+                    .push(ToRepoint {
+                        node_index,
+                        parent_index: parent_count + offset,
+                    });
+            }
+            let parent_count = parent_count + stacks_on_workspace_base.len();
             unassigned_oid_map.insert(commit_id, new_map);
 
             // 3. Push the node for this ref.
@@ -1216,12 +1246,43 @@ impl WorkspaceGraph {
                         let mut others_leave_the_commit = true;
                         let mut remote_branch_segment = None;
                         let mut only_remotes_with_commits_reach = true;
+                        // Like after a traversal, a branch right below commits of its own lane
+                        // keeps its commit where the target's lane reaches it too, as that commit
+                        // is its own work merged into the target. Only a stack resting on the
+                        // commit stays an empty lane.
+                        let branch_is_below_commits_of_its_lane = predecessor_segment_info
+                            .segment_indexes
+                            .iter()
+                            .any(|(segment_index, _)| {
+                                let segment = &inner_graph[*segment_index];
+                                segment.commits.is_empty()
+                                    && segment.ref_info.as_ref().is_some_and(|ref_info| {
+                                        ref_info.ref_name.category()
+                                            == Some(gix::refs::Category::LocalBranch)
+                                    })
+                                    && inner_graph
+                                        .neighbors_directed(
+                                            *segment_index,
+                                            petgraph::Direction::Incoming,
+                                        )
+                                        .any(|above| {
+                                            let above = &inner_graph[above];
+                                            above.workspace_metadata().is_none()
+                                                && above.commits.iter().any(|commit| {
+                                                    commit.flags.contains(CommitFlags::InWorkspace)
+                                                })
+                                        })
+                            });
                         for (segment_index, _) in &predecessor_segment_info.segment_indexes {
                             let segment = &inner_graph[*segment_index];
                             let category = segment
                                 .ref_info
                                 .as_ref()
                                 .and_then(|ref_info| ref_info.ref_name.category());
+                            let is_target_lane = segment.commits.last().is_some_and(|commit| {
+                                commit.flags.contains(CommitFlags::Integrated)
+                                    && !commit.flags.contains(CommitFlags::InWorkspace)
+                            });
                             // A branch outside the workspace and the target, and not checked
                             // out elsewhere, reaching the commit doesn't take it from its branch.
                             let is_branch_outside_lanes = category
@@ -1268,7 +1329,9 @@ impl WorkspaceGraph {
                                 }
                                 _ if !segment.commits.is_empty()
                                     && (!seen_from_ref.is_some_and(is_workspace_ref_name)
-                                        || is_branch_outside_lanes) =>
+                                        || is_branch_outside_lanes
+                                        || (is_target_lane
+                                            && branch_is_below_commits_of_its_lane)) =>
                                 {
                                     only_remotes_with_commits_reach = false;
                                 }
