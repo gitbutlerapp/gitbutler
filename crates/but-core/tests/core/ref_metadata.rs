@@ -807,12 +807,19 @@ mod project_meta {
 
     #[test]
     fn porting_metadata_preserves_an_unset_cutoff() -> anyhow::Result<()> {
+        use but_testsupport::CommandExt as _;
         let (repo, _tmp) = but_testsupport::writable_scenario("project-target-metadata");
-        let meta = local_target("refs/heads/main")?;
-        ProjectMeta::port_if_needed(&repo, || Ok(meta.clone()))?;
+        but_testsupport::git(&repo)
+            .args([
+                "config",
+                but_core::ref_metadata::PROJECT_TARGET_REF,
+                "refs/heads/main",
+            ])
+            .run();
+        ProjectMeta::port_if_needed(&repo)?;
         assert_eq!(
             ProjectMeta::resolve(&repo)?,
-            meta,
+            local_target("refs/heads/main")?,
             "migration must not invent a stored cutoff"
         );
         Ok(())

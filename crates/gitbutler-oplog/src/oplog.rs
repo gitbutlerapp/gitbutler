@@ -1360,7 +1360,7 @@ fn restore_snapshot_tree(
     let repo = ctx.repo.get()?;
     let snapshot_tree = repo.find_tree(tree_id)?;
     // Validate all metadata formats before creating the before-restore snapshot or mutating the
-    // worktree, refs, config, TOML, or database.
+    // worktree, refs, config, or database.
     let (restored_project_meta, restored_virtual_branches, restored_branch_order, restored_target) =
         snapshot_metadata(&snapshot_tree, &repo)?;
     let restored_checkout = snapshot_checkout(&snapshot_tree, &repo)?;
@@ -1543,7 +1543,7 @@ fn restore_snapshot_tree(
         None => {}
     }
 
-    but_meta::legacy_storage::write_virtual_branches_and_sync(
+    but_meta::legacy_storage::write_virtual_branches(
         &ctx.project_data_dir().join("virtual_branches.toml"),
         &restored_virtual_branches,
     )?;

@@ -18,58 +18,20 @@ struct StackSpec<'a> {
 }
 
 pub fn writable_context(script_name: &str, repo_name: &str) -> Result<(Context, TempDir)> {
-    let script_name = script_name.to_owned();
-    let repo_name = repo_name.to_owned();
-    let repo_name_for_post = repo_name.clone();
-    let script_name_for_post = script_name.clone();
-    let (tmp, _) = gix_testtools::scripted_fixture_writable_with_args_with_post(
-        script_name.clone(),
+    let tmp = gix_testtools::scripted_fixture_writable_with_args(
+        script_name,
         None::<String>,
         if script_name == "workspace-commit.sh" || script_name == "for-listing.sh" {
             gix_testtools::Creation::Execute
         } else {
             gix_testtools::Creation::CopyFromReadOnly
         },
-        6,
-        move |fixture| {
-            if fixture.is_uninitialized() {
-                let repo = open_repo(&fixture.path().join(&repo_name_for_post))?;
-                seed_fixture(&repo, &script_name_for_post, &repo_name_for_post)?;
-            }
-            Ok(())
-        },
     )
     .map_err(anyhow::Error::from_boxed)?;
-    let repo = open_repo(tmp.path().join(repo_name).as_path())?;
+    let repo_path = tmp.path().join(repo_name);
+    seed_fixture(&open_repo(&repo_path)?, script_name, repo_name)?;
+    let repo = open_repo(&repo_path)?;
     Ok((Context::from_repo_for_testing(repo)?, tmp))
-}
-
-pub fn read_only_context(script_name: &str, repo_name: &str) -> Result<Context> {
-    let script_name = script_name.to_owned();
-    let repo_name = repo_name.to_owned();
-    let repo_name_for_post = repo_name.clone();
-    let script_name_for_post = script_name.clone();
-    let (root, _) =
-        gix_testtools::scripted_fixture_read_only_with_post(script_name, 6, move |fixture| {
-            if fixture.is_uninitialized() {
-                if script_name_for_post == "for-listing.sh" {
-                    for repo_name in [
-                        "one-vbranch-in-workspace",
-                        "one-vbranch-in-workspace-one-commit",
-                    ] {
-                        let repo = open_repo(&fixture.path().join(repo_name))?;
-                        seed_fixture(&repo, &script_name_for_post, repo_name)?;
-                    }
-                } else {
-                    let repo = open_repo(&fixture.path().join(&repo_name_for_post))?;
-                    seed_fixture(&repo, &script_name_for_post, &repo_name_for_post)?;
-                }
-            }
-            Ok(())
-        })
-        .map_err(anyhow::Error::from_boxed)?;
-    let repo = open_repo(root.join(repo_name).as_path())?;
-    Context::from_repo_for_testing(repo)
 }
 
 fn seed_fixture(repo: &gix::Repository, script_name: &str, repo_name: &str) -> Result<()> {
@@ -147,6 +109,7 @@ fn disable_gitbutler_commit_signing(repo: &gix::Repository) -> Result<()> {
 }
 
 fn write_workspace_metadata(repo: &gix::Repository, stacks: &[StackSpec<'_>]) -> Result<()> {
+    std::fs::create_dir_all(repo.gitbutler_storage_path()?)?;
     let mut meta = VirtualBranchesTomlMetadata::from_path(
         repo.gitbutler_storage_path()?.join("virtual_branches.toml"),
     )?;

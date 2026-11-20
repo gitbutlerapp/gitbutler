@@ -634,10 +634,11 @@ fn repo_state(env: &Sandbox) -> String {
     ]
     .map(|args| env.invoke_git(args))
     .join("\n");
-    for file in ["edit_mode_metadata.toml", "virtual_branches.toml"] {
-        state += &std::fs::read_to_string(env.projects_root().join(".git/gitbutler").join(file))
-            .expect("GitButler keeps its metadata in .git/gitbutler");
-    }
+    state += &std::fs::read_to_string(
+        env.projects_root()
+            .join(".git/gitbutler/edit_mode_metadata.toml"),
+    )
+    .expect("GitButler keeps its edit-mode metadata in .git/gitbutler");
     state
 }
 

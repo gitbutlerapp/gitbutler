@@ -631,7 +631,7 @@ pub fn add_workspace_shape(event: &mut Event, current_dir: &Path) {
     );
 }
 
-/// The workspace as seen from `HEAD`, built without rewriting `virtual_branches.toml`,
+/// The workspace as seen from `HEAD`, built without writing branch metadata,
 /// unlike the `Context::workspace_and_db()` family.
 ///
 /// The caller guarantees the project database already exists, so borrowing it here

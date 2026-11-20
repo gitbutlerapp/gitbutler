@@ -581,22 +581,15 @@ impl ProjectMeta {
         Ok(())
     }
 
-    /// Port project metadata, loading the legacy fallback only if Git config has no metadata. Then
-    /// replace a legacy remote target that no local branch tracks with the local branch named as
-    /// it, like main for origin/main, unless that branch tracks something else.
-    ///
-    /// If the legacy fallback fails with [`UnresolvedLegacyTargetRefError`], its remote target is
-    /// ported as is, along with its cutoff and push remote. Reading project metadata keeps failing
-    /// with that error until the target resolves or one is chosen.
+    /// Repair the project metadata in Git config once. Then replace a legacy remote target that no
+    /// local branch tracks with the local branch named as it, like main for origin/main, unless
+    /// that branch tracks something else.
     ///
     /// Returns whether the legacy target was replaced, which can change branch configuration that
     /// `repo` sees only once reloaded.
-    pub fn port_if_needed(
-        repo: &gix::Repository,
-        legacy_fallback: impl FnOnce() -> anyhow::Result<Self>,
-    ) -> anyhow::Result<bool> {
+    pub fn port_if_needed(repo: &gix::Repository) -> anyhow::Result<bool> {
         if !Self::is_ported_repo(repo)? {
-            Self::port_to_git_config(repo, legacy_fallback)?;
+            Self::port_to_git_config(repo)?;
         }
         // What this can't repair goes on failing to read, with an error that says what to do.
         match Self::replace_untracked_legacy_target(repo) {
@@ -608,40 +601,13 @@ impl ProjectMeta {
         }
     }
 
-    fn port_to_git_config(
-        repo: &gix::Repository,
-        legacy_fallback: impl FnOnce() -> anyhow::Result<Self>,
-    ) -> anyhow::Result<()> {
+    fn port_to_git_config(repo: &gix::Repository) -> anyhow::Result<()> {
         let changed = git_config::edit_repo_config(repo, gix::config::Source::Local, |config| {
             if matches!(config.boolean(PROJECT_PORTED_META), Ok(Some(true))) {
                 return Ok(());
             }
             let configured = Self::try_from_config(config, repo)?;
-            let project_meta = if configured == Self::default() {
-                match legacy_fallback() {
-                    Ok(project_meta) => project_meta,
-                    Err(err) => {
-                        let Some(unresolved) = err.downcast_ref::<UnresolvedLegacyTargetRefError>()
-                        else {
-                            return Err(err);
-                        };
-                        ProjectMeta {
-                            target_ref: None,
-                            target_commit_id: unresolved.target_commit_id,
-                            push_remote: unresolved.push_remote.clone(),
-                        }
-                        .write_to_config(config)?;
-                        return git_config::set_config_value(
-                            config,
-                            PROJECT_TARGET_REF,
-                            unresolved.target_ref.as_bstr(),
-                        );
-                    }
-                }
-            } else {
-                configured
-            };
-            repair_target_metadata_for_migration(&project_meta, repo).write_to_config(config)
+            repair_target_metadata_for_migration(&configured, repo).write_to_config(config)
         })?;
         notify_legacy_storage(repo, changed);
         Ok(())
