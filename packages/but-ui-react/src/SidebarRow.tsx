@@ -28,20 +28,22 @@ type RowProps = {
 	selected?: boolean;
 	/** `MetaCount`s and a `CiStatus`, in the order the row should read them. */
 	meta?: ReactNode;
-	/** The row's next step, as small outline `Button`s: Push, Update, Create PR, View PR. They take
-	 * the state's place under the pointer and on keyboard focus; leave them out when there is none,
-	 * and the row keeps its state there. */
+	/** The row's next step, a small outline `Button`, after its state and always shown. A step that
+	 * acts on a count takes that count's place: leave the count out of `meta` and give the button its
+	 * number, then its glyph, in its colour (`info` Push for ↑ `unpushed`, `warning` Update for ↓
+	 * `behind`). The rest of what the row can do is in its menu, which opens with a right-click, or
+	 * Shift-F10 on the focused row: make the row a `ContextMenu`'s `trigger`. It has no ⋯. */
 	actions?: ReactNode;
-	/** The row's menu button, a small ghost icon-only `Button`. It shows under the pointer, on
-	 * keyboard focus and on a selected row. */
-	menu?: ReactNode;
 	/** What the name stands for in full (a path, a pull request's state, a commit's author), shown
 	 * over the name alone, so the counts beside it keep their own. */
 	tooltip?: ReactNode;
 	/** An action on the row is running, whether started from its menu or its `actions`: a spinner
 	 * stands in for its glyph until it is done. Every row shows its work there, at its start, so the
-	 * state and the menu at its end keep their places. */
+	 * state at its end keeps its place. */
 	busy?: boolean;
+	/** Something on the row changed since it was last opened: a dot in the row's start padding,
+	 * before its guides, where it moves nothing, so the counts line up down the list either way. */
+	unread?: boolean;
 } & useRender.ComponentProps<"div">;
 
 const Steps: FC<{
@@ -138,8 +140,8 @@ const measureRuns = (event: PointerEvent<HTMLElement>) => {
 	}
 };
 
-/** The one line every sidebar item is drawn on: the name takes the line and the state sits at the
- * end, where it stays; the menu follows it under the pointer, and the actions take its place.
+/** The one line every sidebar item is drawn on: the name takes the line, and the state and then the
+ * next step sit at the end, where they stay.
  * `spinner` is what stands in for `icon` while it is `busy`, a plain one unless the item colours
  * its own. A row without an `icon` starts with its name, after its chevron if it folds. */
 const Row: FC<
@@ -158,6 +160,7 @@ const Row: FC<
 	spinner = <Icon name="spinner" />,
 	label,
 	busy = false,
+	unread,
 	depth = 0,
 	guides,
 	folded,
@@ -165,12 +168,11 @@ const Row: FC<
 	selected = false,
 	meta: metaSlot,
 	actions: actionsSlot,
-	menu: menuSlot,
 	rowClassName,
 	render,
 	...props
 }) => {
-	const [meta, actions, menu] = [filled(metaSlot), filled(actionsSlot), filled(menuSlot)];
+	const [meta, actions] = [filled(metaSlot), filled(actionsSlot)];
 	return useRender({
 		render: render ?? <div />,
 		state: { selected },
@@ -196,25 +198,19 @@ const Row: FC<
 						icon !== undefined && <span className={styles.icon}>{icon}</span>
 					)}
 					<span className={styles.label}>{label}</span>
-					{
-						// The state and the actions share the row's end, so neither moves when one gives way
-						// to the other.
-						(meta !== undefined || actions !== undefined) && (
-							<span
-								className={classes(
-									styles.end,
-									actions !== undefined && (meta === undefined ? styles.endBare : styles.endSwaps),
-								)}
-							>
-								{meta !== undefined && <span className={styles.meta}>{meta}</span>}
-								{actions !== undefined && <span className={styles.hover}>{actions}</span>}
-							</span>
-						)
-					}
-					{menu !== undefined && (
-						<span className={styles.menu} data-menu>
-							{menu}
+					{(meta !== undefined || actions !== undefined) && (
+						<span className={styles.end}>
+							{meta !== undefined && <span className={styles.meta}>{meta}</span>}
+							{actions !== undefined && (
+								<span className={styles.actions} data-actions>
+									{actions}
+								</span>
+							)}
 						</span>
+					)}
+					{unread === true && (
+						// oxlint-disable-next-line jsx_a11y/prefer-tag-over-role -- A drawn dot with a name, not a picture with a source.
+						<span role="img" aria-label="Unread" className={styles.unread} />
 					)}
 				</>
 			),
@@ -343,6 +339,20 @@ const prBadge: Record<PullRequestState, BadgeVariant> = {
 	merged: "purple",
 };
 
+/** Who a commit is from: their picture's `src` if the host has one, and `seed`, their email, which
+ * finds their Gravatar and picks their colour without one. */
+export type CommitAuthor = { src?: string | null; seed: string };
+
+/** Who new commits come from, each once, as overlapping pictures: the first three. */
+const Authors: FC<{ authors: ReadonlyArray<CommitAuthor> }> = ({ authors }) =>
+	authors.length > 0 && (
+		<span className={styles.authors}>
+			{authors.slice(0, 3).map((a) => (
+				<Avatar key={a.seed} src={a.src} seed={a.seed} size={14} />
+			))}
+		</span>
+	);
+
 /**
  * A branch in the sidebar. With a pull request (`pr`), the row is the request: its state in the
  * glyph and the badge, its number, and its title as `title`; without one, `title` is the branch's
@@ -353,7 +363,8 @@ const prBadge: Record<PullRequestState, BadgeVariant> = {
  * expanded branch drop it, since each {@link CommitItem} marks its own. Show ↑ or ⟜, never both; on an expanded branch drop ⟜, since its commits are listed
  * under it. A branch with no commits yet leads with `empty` saying "empty", and takes
  * `folded="empty"`, so its row isn't bare and lines up with the branches that fold. `actions` hold the one next step (Resolve, Update, Push, Create PR or Merge),
- * then View PR on a branch with a request.
+ * always shown after the counts: Update and Push take the place of ↓ and ↑, as their number and
+ * arrow in a `warning` or `info` button. Opening the pull request is in the row's menu.
  *
  * A merged request is done with: its title recedes. A branch merged into its target with no request
  * known takes `merged`: the same muted title, its branch glyph and a Merged badge.
@@ -361,15 +372,16 @@ const prBadge: Record<PullRequestState, BadgeVariant> = {
  * While an action on the branch runs, its `busy` spinner takes the glyph's colour. A merge takes `pr` state `merged` as it starts, so the row reads as where it is heading;
  * back to `open` if it is refused.
  *
- * Under the pointer, on keyboard focus and while selected, its state stays and the menu follows it
- * at once, while the name gives way. An action takes the state's place under the pointer only;
- * selected, the state stays.
  *
  * @figma `pr` follows the pull request: `none` shows the branch's name, the others its number and
  * title, and `none-merged` is `merged` with no request known. The counts come from BranchMeta: on
  * an expanded branch turn off commits (⟜), and turn on conflicts only while it's folded. For a
- * branch with no commits yet, turn on commits alone and set its text to empty.
+ * branch with no commits yet, turn on commits alone and set its text to empty. For Push, turn on
+ * BranchMeta's action and turn unpushed off. `unread` draws the
+ * dot in the row's start padding, before its guides, where it moves nothing; every tree row has
+ * it.
  * @see packages/but-ui/design/components/sidebar-trees.md
+ * @see packages/but-ui/design/components/sidebar-rows.md
  * @import import { BranchItem } from "@gitbutler/but-ui-react/SidebarRow.tsx";
  */
 export const BranchItem: FC<
@@ -378,8 +390,11 @@ export const BranchItem: FC<
 		pr?: { number: number; state: PullRequestState };
 		/** Merged into the target with no pull request known. Ignored with `pr`. */
 		merged?: boolean;
+		/** Who the commits on its remote that it doesn't have yet come from, shown while it's folded
+		 * after its counts, as its {@link UpstreamItem} shows them while that is. */
+		authors?: ReadonlyArray<CommitAuthor>;
 	} & RowProps
-> = ({ title, pr, merged = false, tooltip, ...props }) => {
+> = ({ title, pr, merged = false, authors = [], tooltip, meta, ...props }) => {
 	const state = pr?.state ?? (merged ? "merged" : undefined);
 	const glyph = (name: IconName) => (
 		<Icon
@@ -402,6 +417,16 @@ export const BranchItem: FC<
 			rowClassName={classes(state === "merged" && styles.merged)}
 			icon={icon}
 			spinner={spinner}
+			meta={
+				props.folded === true && authors.length > 0 ? (
+					<>
+						{meta}
+						<Authors authors={authors} />
+					</>
+				) : (
+					meta
+				)
+			}
 			label={
 				<>
 					{badge}
@@ -419,17 +444,20 @@ export const BranchItem: FC<
 
 /**
  * A commit under an expanded branch: the hollow glyph while it is only here, the solid one once it
- * is pushed. Its `menu` shows under the pointer, on keyboard focus and when selected.
+ * is pushed. The glyph takes its state's `--but-commit-*` token, never a colour of its own: blue
+ * `commit-local` while only here, muted `commit-remote` once pushed, and amber `commit-upstream`
+ * for an `upstream` commit, one on its branch's remote the workspace doesn't have yet. A state's
+ * colour changes in that token, for every client at once (but-ui's Sidebar trees note).
  *
- * A `conflicted` commit takes the warning in red in its glyph's place, pushed or not, so the
+ * A `conflicted` commit takes the warning in amber in its glyph's place, pushed or not, so the
  * commits to resolve stand out of the list. Its branch counts them in `conflicts` while folded;
  * open, the marks on its commits say it.
  *
- * Under a {@link TargetItem}, a `merge` takes the merge glyph and, with `folded`, opens to the
- * commits it brought in, one level deeper. There each commit comes from someone else, so give its
- * `author`: their {@link Avatar} takes the glyph's place. A merge keeps its glyph, which is what
- * says the row opens to commits; its own commits carry the faces. Name the author in the
- * `tooltip`; the picture is decorative.
+ * Among `upstream` commits a `merge` takes the merge glyph and, with `folded`, opens to the commits
+ * it brought in, one level deeper. Someone else pushed them, so give each its
+ * `author`: their {@link Avatar} sits at the row's end, after any `meta`, where a count would, so
+ * the glyphs down the list keep saying what each row is. A merge has no author of its own: folded,
+ * it shows its commits' `authors` stacked, and open, its commits carry the faces. Name the author in the `tooltip`; the picture is decorative.
  *
  * @import import { CommitItem } from "@gitbutler/but-ui-react/SidebarRow.tsx";
  */
@@ -437,24 +465,62 @@ export const CommitItem: FC<
 	{
 		message: string;
 		pushed?: boolean;
+		upstream?: boolean;
 		merge?: boolean;
 		conflicted?: boolean;
 		author?: CommitAuthor;
+		/** A merge's: who the commits it brought in come from, shown while it's folded. */
+		authors?: ReadonlyArray<CommitAuthor>;
 	} & RowProps
-> = ({ message, pushed = true, merge = false, conflicted = false, author, tooltip, ...props }) => (
+> = ({
+	message,
+	pushed = true,
+	upstream = false,
+	merge = false,
+	conflicted = false,
+	author,
+	authors = [],
+	tooltip,
+	meta,
+	...props
+}) => (
 	<Row
 		{...props}
 		name={message}
+		meta={
+			merge ? (
+				props.folded === true && authors.length > 0 ? (
+					<>
+						{meta}
+						<Authors authors={authors} />
+					</>
+				) : (
+					meta
+				)
+			) : author ? (
+				<>
+					{meta}
+					<span className={styles.author}>
+						<Avatar src={author.src} seed={author.seed} size={14} />
+					</span>
+				</>
+			) : (
+				meta
+			)
+		}
 		icon={
 			conflicted ? (
 				// oxlint-disable-next-line jsx_a11y/prefer-tag-over-role -- A glyph with a name, not a picture with a source.
 				<span role="img" aria-label="Conflicted" className={styles.conflicted}>
 					<Icon name="warning" />
 				</span>
-			) : author && !merge ? (
-				<Avatar src={author.src} seed={author.seed} size={14} />
 			) : (
-				<Icon name={merge ? "branch-merge" : pushed ? "commit-fill" : "commit"} />
+				<Icon
+					name={merge ? "branch-merge" : pushed || upstream ? "commit-fill" : "commit"}
+					className={
+						upstream ? styles.upstream : merge ? undefined : pushed ? styles.remote : styles.local
+					}
+				/>
 			)
 		}
 		label={
@@ -466,57 +532,49 @@ export const CommitItem: FC<
 );
 
 /**
- * What the repository's target (`target`, such as `master`) has that its workspace doesn't: the
- * first row under the repository, right over its worktrees. It says how many
- * commits (`count`) and keeps Update (`actions`) beside them rather than in their place under the
- * pointer, since taking them in is what the row is for. Open, the commits sit under it one level
- * deeper as {@link CommitItem}s, a merge's own one more. Leave it out while there are none.
+ * What a branch's remote (`remote`, such as `origin`) has that the branch doesn't: a heading one
+ * level under the branch, right over the branch's own commits. Folded, it says who the new
+ * commits come from (`authors`, each once, as overlapping pictures; it draws the first three, so
+ * name them all in the `tooltip`); open, it leaves that to the commits, each with its own `author`,
+ * as a folded row sums up what it hides. It always says how many (`count`), and Update (`actions`)
+ * takes that count's place, as on every row. Its glyph takes `--but-commit-upstream`, as the commits under it do, so the two change
+ * together. Open, the commits sit under it one level deeper as `upstream` {@link CommitItem}s.
+ * Leave it out while there are none.
  *
- * `authors`, the people the commits come from, each once, show as overlapping pictures before the
- * count, so who is coming in reads with the list folded. It draws the first three; name them all
- * in the `tooltip`.
+ * Name the remote alone, `origin`, and the whole ref, `origin/perf-cheaper-status-polling`, in
+ * the `tooltip`: the row reads "New on origin" in a narrow sidebar.
  *
- * @import import { TargetItem } from "@gitbutler/but-ui-react/SidebarRow.tsx";
+ * @import import { UpstreamItem } from "@gitbutler/but-ui-react/SidebarRow.tsx";
  */
-export const TargetItem: FC<
-	{ target: string; count: number; authors?: ReadonlyArray<CommitAuthor> } & Omit<RowProps, "meta">
-> = ({ target, count, authors = [], actions, tooltip, ...props }) => (
+export const UpstreamItem: FC<
+	{ remote: string; count: number; authors?: ReadonlyArray<CommitAuthor> } & Omit<RowProps, "meta">
+> = ({ remote, count, authors = [], actions, tooltip, folded, ...props }) => (
 	<Row
 		{...props}
-		name={`New on ${target}`}
-		rowClassName={styles.target}
-		icon={<Icon name="arrow-in-box" />}
+		folded={folded}
+		name={`New on ${remote}`}
+		icon={<Icon name="arrow-in-box" className={styles.upstream} />}
 		label={
 			<Name tooltip={tooltip} className={classes("text-14", "text-semibold", styles.name)}>
-				New on {target}
+				New on {remote}
 			</Name>
 		}
 		meta={
 			<>
-				{authors.length > 0 && (
-					<span className={styles.authors}>
-						{authors.slice(0, 3).map((a) => (
-							<Avatar key={a.seed} src={a.src} seed={a.seed} size={14} />
-						))}
-					</span>
-				)}
-				<MetaCount type="behind">{count}</MetaCount>
-				{filled(actions)}
+				{folded !== false && <Authors authors={authors} />}
+				{filled(actions) === undefined && <MetaCount type="behind">{count}</MetaCount>}
 			</>
 		}
+		actions={actions}
 	/>
 );
-
-/** Who a commit is from: their picture's `src` if the host has one, and `seed`, their email, which
- * finds their Gravatar and picks their colour without one. */
-export type CommitAuthor = { src?: string | null; seed: string };
 
 /**
  * A worktree's uncommitted changes, as a row of its own, with how many files it has changed
  * (`count`). It sits where the work does, first among the worktree's branches:
  * under the worktree, or under a repository with only one. It opens the changes themselves, as a
  * branch opens its commits; the worktree's own row opens its overview. Leave it out while the
- * worktree is clean. Its `menu` shows under the pointer, on keyboard focus and when selected.
+ * worktree is clean.
  *
  * @import import { UncommittedItem } from "@gitbutler/but-ui-react/SidebarRow.tsx";
  */
@@ -542,8 +600,9 @@ export const UncommittedItem: FC<
  * click anywhere on it, as on its chevron, hides the stack's branches. Folded, the branch at the
  * stack's top (`tip`), the one that gets pushed, follows "Stack", muted and giving way first, and
  * `meta` says what the hidden branches hold. "Stack" keeps one quiet colour either way, so the
- * caption doesn't read as one more branch. Its `menu` (push the stack, open its pull requests)
- * shows under the pointer.
+ * caption doesn't read as one more branch. `actions` is the stack's next step, as on any row: a
+ * Push for the whole stack in place of its ↑. The rest (open its pull requests) is in its menu,
+ * which opens with a right-click, as every row's does.
  *
  * @see packages/but-ui/design/components/sidebar-trees.md
  * @import import { StackCaption } from "@gitbutler/but-ui-react/SidebarRow.tsx";
@@ -551,10 +610,30 @@ export const UncommittedItem: FC<
 export const StackCaption: FC<
 	{ count: number; tip: string } & Pick<
 		RowProps,
-		"depth" | "guides" | "folded" | "onToggleFolded" | "meta" | "menu" | "tooltip" | "busy"
+		| "depth"
+		| "guides"
+		| "folded"
+		| "onToggleFolded"
+		| "meta"
+		| "actions"
+		| "tooltip"
+		| "busy"
+		| "unread"
 	> &
 		ComponentProps<"div">
-> = ({ count, tip, depth = 0, folded, onToggleFolded, meta, menu, tooltip, busy, ...props }) => {
+> = ({
+	count,
+	tip,
+	depth = 0,
+	folded,
+	onToggleFolded,
+	meta,
+	actions,
+	tooltip,
+	busy,
+	unread,
+	...props
+}) => {
 	const folds = typeof folded === "boolean" && onToggleFolded !== undefined;
 	return (
 		<Row
@@ -564,18 +643,19 @@ export const StackCaption: FC<
 			folded={folded}
 			onToggleFolded={onToggleFolded}
 			meta={meta}
-			menu={menu}
+			actions={actions}
 			busy={busy}
+			unread={unread}
 			onClick={(event) => {
 				props.onClick?.(event);
 				const target = event.target as Element;
-				// Not from the menu: its button sits in the row, and its items bubble here through their
-				// portal while being no part of the row on the page.
+				// Not from a popup's items, which bubble here through their portal while being no part of
+				// the row on the page, nor from its next step, which does its own thing.
 				if (
 					!folds ||
 					event.defaultPrevented ||
 					!event.currentTarget.contains(target) ||
-					target.closest("[data-menu]")
+					target.closest("[data-actions]") !== null
 				)
 					return;
 				onToggleFolded();
@@ -715,7 +795,7 @@ export const NavItem: FC<
 		/** A leading row's chevron: `true` while its card's groups are hidden. */
 		folded?: boolean;
 		onToggleFolded?: () => void;
-	} & Omit<RowProps, "folded" | "onToggleFolded" | "actions" | "menu" | "busy">
+	} & Omit<RowProps, "folded" | "onToggleFolded" | "actions" | "busy">
 > = ({
 	name,
 	icon,
@@ -763,15 +843,15 @@ export const NavItem: FC<
  * Where rows should be and can't show, in their place: what failed (`message`, one sentence) under
  * the warning glyph, in grey, and the way out (`action`, such as Try again) as a link after it. The
  * reason, when there is one beyond the message, goes in `tooltip`. Rows that load from somewhere
- * the card's own data doesn't, such as a {@link TargetItem}'s commits, use it rather than open onto
- * nothing.
+ * the card's own data doesn't, such as a branch's commits on its remote, use it rather than open
+ * onto nothing.
  *
  * @import import { NoticeItem } from "@gitbutler/but-ui-react/SidebarRow.tsx";
  */
 export const NoticeItem: FC<
 	{ message: string; action?: { label: string; onClick: () => void } } & Omit<
 		RowProps,
-		"folded" | "onToggleFolded" | "meta" | "actions" | "menu" | "busy"
+		"folded" | "onToggleFolded" | "meta" | "actions" | "busy"
 	>
 > = ({ message, action, tooltip, ...props }) => (
 	<Row

@@ -1916,7 +1916,7 @@ pub(super) fn new_commit_row(
     };
     (style.row(format!("new-commit-{project}"), COMMIT_INDENT))
         .gap(dp(10.))
-        .child(small_icon(Icon::Commit).text_color(style.meta(theme.blue_mark)))
+        .child(small_icon(Icon::Commit).text_color(style.meta(theme.commit_local)))
         .child(title.flex_1().min_w_0().truncate())
         .into_any_element()
 }

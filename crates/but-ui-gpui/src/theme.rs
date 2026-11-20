@@ -84,6 +84,13 @@ pub struct Theme {
     pub warn_mark: Hsla,
     pub danger_mark: Hsla,
     pub purple_mark: Hsla,
+    /// A commit's glyph by where it stands, from but-ui's `--but-commit-*` tokens: every
+    /// commit-state glyph takes one of these, never a hue, so a state's colour changes in one
+    /// place (the Sidebar trees note).
+    pub commit_local: Hsla,
+    pub commit_remote: Hsla,
+    pub commit_upstream: Hsla,
+    pub commit_integrated: Hsla,
     /// Each hue's text on its own soft or surface fill, which is darker than the grounds `pop`
     /// and its kin are drawn for.
     pub pop_on_soft: Hsla,
@@ -748,6 +755,10 @@ impl Theme {
             warn_mark: token(on_ground!(WARNING_MARK)),
             danger_mark: token(on_ground!(DANGER_MARK)),
             purple_mark: token(on_ground!(DONE_MARK)),
+            commit_local: token(on_ground!(COMMIT_LOCAL)),
+            commit_remote: token(on_ground!(COMMIT_REMOTE)),
+            commit_upstream: token(on_ground!(COMMIT_UPSTREAM)),
+            commit_integrated: token(on_ground!(COMMIT_INTEGRATED)),
             pop_on_soft: token(on_ground!(PRIMARY_SOFT_FOREGROUND)),
             blue_on_soft: token(on_ground!(INFO_SOFT_FOREGROUND)),
             safe_on_soft: token(on_ground!(SUCCESS_SOFT_FOREGROUND)),
@@ -998,6 +1009,11 @@ impl Theme {
             warn_mark: color(text(ansi(3), 3.)),
             danger_mark: color(text(ansi(1), 3.)),
             purple_mark: color(text(ansi(5), 3.)),
+            // The roles the tokens alias: info's mark, muted text, warning's mark, purple's mark.
+            commit_local: color(text(ansi(4), 3.)),
+            commit_remote: color(text(mix(bg, fg, 0.65), 4.5)),
+            commit_upstream: color(text(ansi(3), 3.)),
+            commit_integrated: color(text(ansi(5), 3.)),
             pop_on_soft: color(pop_text),
             blue_on_soft: color(blue),
             safe_on_soft: color(safe),

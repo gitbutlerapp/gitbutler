@@ -483,6 +483,13 @@
 	}
 }
 
+/* Conflicted: the warning in amber, as a conflicted commit's glyph is: a conflict waits on the
+   user, it hasn't failed (but-ui's Conflicts note). */
+.conflicted {
+	display: flex;
+	color: var(--but-warning-mark);
+}
+
 /* Open to edit with nothing changed yet: quiet, as the folder is, since nothing has happened. */
 .editing {
 	display: flex;

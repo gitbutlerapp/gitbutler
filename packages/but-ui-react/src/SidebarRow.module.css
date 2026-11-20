@@ -6,8 +6,7 @@
 	column-gap: var(--but-gap-icon-text);
 	align-items: center;
 	min-height: var(--but-size-control);
-	/* Less on the end: a menu button sets itself in from the edge already. */
-	padding-inline: var(--but-space-lg) var(--but-space-sm);
+	padding-inline: var(--but-space-lg);
 	border-radius: var(--but-radius-control);
 	color: var(--but-foreground);
 	text-decoration: none;
@@ -58,6 +57,10 @@
 	   light-dark() colours resolve to their inverted values, as Badge and MetaCount do. */
 	.branchGlyph,
 	.conflicted,
+	.unread,
+	.local,
+	.remote,
+	.upstream,
 	.title {
 		color-scheme: dark;
 
@@ -166,6 +169,12 @@
    than its step, on top of the row's. Behind the glyph, so the box doesn't cover it. */
 button.toggle {
 	isolation: isolate;
+
+	/* Out of the tab order, as the tree moves with the arrow keys, so it never needs a ring of its
+	   own: the row rings. A click focuses it, and the browser would draw its default ring. */
+	&:focus-visible {
+		outline: none;
+	}
 
 	&::before {
 		z-index: -1;
@@ -301,16 +310,19 @@ button.toggle {
 	align-items: center;
 }
 
-/* A TargetItem keeps Update beside its count rather than in its place: a gap on top of the count's
-   own padding tells the button from the count. */
-.target .meta {
-	column-gap: var(--but-space-sm);
+/* A commit's author at the row's end, set in like a count's glyph, so the picture lines up with
+   the counts above it. */
+.author {
+	display: flex;
+	padding-inline: 3px;
 }
 
 /* Each picture tucks under the one before it, cut where that one sits with a sliver of gap, rather
-   than ringed in a ground colour: the row's ground changes under the pointer and on selection. */
+   than ringed in a ground colour: the row's ground changes under the pointer and on selection. Set
+   in like a single author's picture, so the stacks and the pictures line up down the list. */
 .authors {
 	display: flex;
+	padding-inline: 3px;
 
 	& > * + * {
 		margin-left: -4px;
@@ -318,83 +330,42 @@ button.toggle {
 	}
 }
 
-/* compact: the name takes the line and the state sits at the end, where it stays: the menu follows
-   it under the pointer, on keyboard focus and on a selected row, and the name gives way. The
-   actions, a next step for what the state counts (Update for ↓, Push for ↑), take the state's
-   place under the pointer and on keyboard focus only, so a selected row still says where it stands.
-   Keyboard focus only: a click focuses what it lands on (the chevron too), and the actions would
-   stay up after it. Also while the row's menu is open: the popup takes the pointer and the focus
-   away from the row, and its button must stay put. */
+/* compact: the name takes the line, and the state and then the next step sit at the end, where
+   they stay: nothing on the row shows or gives way under the pointer. There is no ⋯: the row's
+   menu opens with a right-click. */
 .compact {
 	.label {
 		flex-grow: 1;
 	}
 }
 
+/* The next step sits 4px after the counts, so a button in a count's place reads as one more. */
 .end {
-	display: grid;
+	display: flex;
+	column-gap: var(--but-space-sm);
 	flex-shrink: 0;
-	justify-items: end;
-
-	& > * {
-		grid-area: 1 / 1;
-	}
+	align-items: center;
 }
 
-.hover {
+.actions {
 	display: flex;
-	visibility: hidden;
 	column-gap: var(--but-space-sm);
 	align-items: center;
-
-	.row:is(:hover, :focus-visible, :has(:focus-visible), :has([aria-haspopup][aria-expanded="true"]))
-		& {
-		visibility: visible;
-	}
 }
 
-/* The hidden state gives up its width too, so the name runs on up to the actions rather than
-   stopping where the wider state began. The actions stay put at the end. */
-.endSwaps .meta {
-	.row:is(:hover, :focus-visible, :has(:focus-visible), :has([aria-haspopup][aria-expanded="true"]))
-		& {
-		visibility: hidden;
-		max-width: 0;
-		overflow: hidden;
-	}
-}
-
-/* With no state to swap with, the actions keep no room while hidden: the name takes the line, and
-   gives the end back only while they show, as the menu does. */
-.endBare {
-	.row:not(
-			:hover,
-			:focus-visible,
-			:has(:focus-visible),
-			:has([aria-haspopup][aria-expanded="true"])
-		)
-		& {
-		display: none;
-	}
-}
-
-/* The menu takes the row's end only while it shows, so the name keeps the width the rest of the
-   time. */
-.menu {
-	display: none;
-	flex-shrink: 0;
-	margin-inline-start: auto;
-
-	.row:is(
-			:hover,
-			:focus-visible,
-			:has(:focus-visible),
-			[data-selected],
-			:has([aria-haspopup][aria-expanded="true"])
-		)
-		& {
-		display: flex;
-	}
+/* Something changed since the row was last opened: a dot in the row's start padding, before its
+   guides, where it moves nothing, so the counts line up down the list whether a row has one or not.
+   In quiet neutral ink, never a state's colour: unread says something changed, not what it is,
+   and a list can hold many. Gray 8, between the border and subtle text, which no role names. */
+.unread {
+	position: absolute;
+	width: 5px;
+	height: 5px;
+	inset-block-start: calc(50% - 2.5px);
+	/* 3px in from the row's edge, so it clears the edge of the row's fill. */
+	inset-inline-start: 3px;
+	border-radius: var(--but-radius-full);
+	background-color: var(--but-gray-8);
 }
 
 /* A pull request's state in its glyph, a mark with no words of its own. */
@@ -411,10 +382,25 @@ button.toggle {
 }
 
 /* A conflicted commit's warning, in its glyph's place. Flex, so the wrapper that names it takes
-   no line box of its own, which would sit the icon on a text baseline above the row's centre. */
+   no line box of its own, which would sit the icon on a text baseline above the row's centre.
+   Amber: a conflict waits on the user, it hasn't failed (but-ui's Conflicts note). */
 .conflicted {
 	display: flex;
-	color: var(--but-danger-mark);
+	color: var(--but-warning-mark);
+}
+
+/* A commit's glyph by where it stands, from its state's token and never a colour of its own, so a
+   state's colour changes in one place for every client (but-ui's Sidebar trees note). */
+.local {
+	color: var(--but-commit-local);
+}
+
+.remote {
+	color: var(--but-commit-remote);
+}
+
+.upstream {
+	color: var(--but-commit-upstream);
 }
 
 .badge {
@@ -435,8 +421,8 @@ button.toggle {
 	display: flex;
 }
 
-/* A stack's caption names what follows; it doesn't open, so alone it doesn't answer the pointer
-   beyond showing its menu. */
+/* A stack's caption names what follows; it doesn't open, so alone it doesn't answer the
+   pointer. */
 .caption {
 	color: var(--but-subtle-foreground);
 	cursor: default;
@@ -465,12 +451,7 @@ button.toggle {
 	color: var(--but-muted-foreground);
 }
 
-/* A page's value at its end ("Light", "Teal") reads two steps under its name. A NavItem has no menu
-   to set itself in from the edge, so the end keeps the start's inset. */
-.nav:has(.meta) {
-	padding-inline-end: var(--but-space-lg);
-}
-
+/* A page's value at its end ("Light", "Teal") reads two steps under its name. */
 .nav .meta {
 	color: var(--but-subtle-foreground);
 	font-size: 13px;

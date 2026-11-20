@@ -475,9 +475,9 @@ impl<'a> RowStyle<'a> {
             (Icon::Warning, theme.warn_mark)
         } else {
             match commit.state {
-                CommitState::Local => (Icon::Commit, theme.blue_mark),
-                CommitState::Pushed => (Icon::CommitFill, self.muted()),
-                CommitState::Integrated => (Icon::CommitFill, theme.purple_mark),
+                CommitState::Local => (Icon::Commit, theme.commit_local),
+                CommitState::Pushed => (Icon::CommitFill, theme.commit_remote),
+                CommitState::Integrated => (Icon::CommitFill, theme.commit_integrated),
             }
         };
         let glyph = small_icon(glyph).text_color(self.meta(color));
@@ -496,7 +496,7 @@ impl<'a> RowStyle<'a> {
     /// The copy of a commit titled `title` from outside the workspace a cherry-pick would
     /// make, `id` the row's: a local commit.
     fn copy(&self, id: String, title: SharedString) -> Stateful<Div> {
-        let glyph = small_icon(Icon::Commit).text_color(self.meta(self.theme.blue_mark));
+        let glyph = small_icon(Icon::Commit).text_color(self.meta(self.theme.commit_local));
         self.commit_line(id, COMMIT_INDENT, glyph, title, false, None)
     }
 }
@@ -1654,7 +1654,7 @@ impl Navigator {
                 .pr(dp(12.))
                 .gap(dp(10.))
                 .when(*slow, |el| el.opacity(0.5))
-                .child(small_icon(Icon::Commit).text_color(theme.blue_mark))
+                .child(small_icon(Icon::Commit).text_color(theme.commit_local))
                 .child(
                     div()
                         .flex_1()
@@ -3307,12 +3307,17 @@ impl Navigator {
                         }),
                     }
                 })
-                // Folded, how many only its remote has; open, its On origin/… row says.
+                // Folded, who and how many only its remote has; open, its New on origin row says.
                 .when(!open, |el| {
                     let n = branch.incoming.len();
                     let remote = branch.remote.as_deref().unwrap_or("the remote");
                     let tip = format!("{} only on {remote}", plural(n, "commit"));
-                    el.children(self.pull_count(id, ref_name, n, tip, style, cx))
+                    let people = branch
+                        .incoming
+                        .iter()
+                        .map(|c| (c.author.as_str(), c.email.as_str()));
+                    el.children(authors_stack(people, theme))
+                        .children(self.pull_count(id, ref_name, n, tip, style, cx))
                 })
                 .children(self.push_count(id, ref_name, unpushed_n, style, cx))
                 .map(|el| self.selectable(el, item, cx))
@@ -3485,7 +3490,7 @@ impl Navigator {
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let (title, slow) = self.store.read(cx).pending_commit(project, op)?;
-        let glyph = small_icon(Icon::Commit).text_color(style.meta(style.theme.blue_mark));
+        let glyph = small_icon(Icon::Commit).text_color(style.meta(style.theme.commit_local));
         let ellipsis = div().text_11().text_color(style.muted()).child("…");
         Some(
             style
@@ -3518,16 +3523,28 @@ impl Navigator {
         let workspace = store.workspace(id)?;
         let listed = (workspace.upstream(ref_name).iter()).find(|c| c.id == *commit_id);
         // One a merge listed brought in sits a step in under it.
-        let (title, merge, nested) = match listed {
-            Some(commit) => (commit.title.clone(), commit.merge, false),
+        let (title, merge, nested, author, email) = match listed {
+            Some(commit) => (
+                commit.title.clone(),
+                commit.merge,
+                false,
+                commit.author.clone(),
+                commit.email.clone(),
+            ),
             None => {
                 let (_, commit) = store.merged_upstream(id, ref_name, *commit_id)?;
-                (commit.title.clone(), false, true)
+                (
+                    commit.title.clone(),
+                    false,
+                    true,
+                    commit.author.clone(),
+                    commit.email.clone(),
+                )
             }
         };
         let title: SharedString = title.into();
         let unread = listed.is_some_and(|commit| store.is_unread(id, commit));
-        let warn = style.meta(style.theme.warn);
+        let warn = style.meta(style.theme.commit_upstream);
         // A merge folds the commits it brought in on a double-click, or by the chevron its ↓
         // turns into.
         let toggle = merge.then(|| {
@@ -3536,16 +3553,42 @@ impl Navigator {
                 this.toggle_merge(&project, owner.clone(), merge_id, window, cx)
             }
         });
-        let arrow = small_icon(Icon::ArrowDown).text_color(warn);
+        // A commit's glyph by its state, as every commit's is: upstream, or a merge among them.
+        let arrow = small_icon(match merge {
+            true => Icon::BranchMerge,
+            false => Icon::CommitFill,
+        })
+        .text_color(warn);
+        let merge_open = self.open_merges.contains(commit_id)
+            || matches!(&store.selection, Some(Selection::Upstream(_, _, c))
+                if store.merged_upstream(id, ref_name, *c).is_some_and(|(m, _)| m == *commit_id));
         let glyph = match toggle.clone() {
             None => arrow.into_any_element(),
             Some(toggle) => {
-                let open = self.open_merges.contains(commit_id)
-                    || matches!(&store.selection, Some(Selection::Upstream(_, _, c))
-                        if store.merged_upstream(id, ref_name, *c).is_some_and(|(m, _)| m == *commit_id));
                 let fold = ElementId::Name(format!("merge-fold-{}", commit_id.0).into());
-                self.fold(fold, arrow, Some(open), style.selected, warn, cx, toggle)
+                self.fold(
+                    fold,
+                    arrow,
+                    Some(merge_open),
+                    style.selected,
+                    warn,
+                    cx,
+                    toggle,
+                )
             }
+        };
+        // Who it's from at its end; a folded merge, who the commits it brought in are from, once
+        // they're read. Open, its commits carry the faces.
+        let end = match merge {
+            false => {
+                Some(crate::ui::person::author_avatar(&author, &email, 14., style.theme).mx(dp(3.)))
+            }
+            true if !merge_open => store.merged.get(commit_id).and_then(|read| {
+                let (merged, _) = read.as_ref()?;
+                let people = merged.iter().map(|c| (c.author.as_str(), c.email.as_str()));
+                authors_stack(people, style.theme)
+            }),
+            true => None,
         };
         Some(
             style
@@ -3558,6 +3601,7 @@ impl Navigator {
                     unread,
                     None,
                 )
+                .children(end)
                 .map(|el| self.selectable(el, item, cx))
                 .map(|el| self.page_drag(el, item, cx))
                 .when_some(toggle, |el, toggle| el.on_click(double_click(toggle, cx)))
@@ -3716,8 +3760,9 @@ impl Navigator {
             })
     }
 
-    /// Over the commits only branch `ref_name`'s remote has, a section heading as Network
-    /// worktrees has: where they are, how many while folded, and Pull. The branch's own row
+    /// Over the commits only branch `ref_name`'s remote has, as but-ui-react's UpstreamItem:
+    /// "New on origin", the whole ref on hover, who they're from and how many while folded, and
+    /// Pull. The branch's own row
     /// says when any is unread.
     fn upstream_heading(
         &self,
@@ -3731,10 +3776,25 @@ impl Navigator {
         let workspace = store.workspace(project);
         let can_pull = workspace.is_some_and(|ws| ws.can_pull(ref_name));
         let open = self.upstream_open(store, project, ref_name);
-        let (label, count, tip) = upstream_label(workspace, ref_name);
+        let (_, count, tip) = upstream_label(workspace, ref_name);
+        let branch = workspace.and_then(|ws| ws.find_branch(Some(ref_name)));
+        let full = branch.and_then(|b| b.remote.clone());
+        // The remote alone, as but-ui-react's UpstreamItem names it; the whole ref on hover.
+        let label = match full.as_deref().and_then(|full| full.split_once('/')) {
+            Some((remote, _)) => format!("New on {remote}"),
+            None => "New on the remote".to_owned(),
+        };
+        let people = branch.map(|b| {
+            b.incoming
+                .iter()
+                .map(|c| (c.author.as_str(), c.email.as_str()))
+        });
+        let authors = (!open).then(|| people.and_then(|people| authors_stack(people, style.theme)));
         let section = Section::Upstream(ref_name.clone());
         let row = self.section_heading(ix, project, &section, label, style, cx);
         let row = row
+            .when_some(full, |el, full| el.tooltip(Tooltip::text(full)))
+            .children(authors.flatten())
             .pr(dp(8.))
             // Folded, how many. While they can be pulled it shows open too, as what pulls them.
             .when(!open || can_pull, |el| {
@@ -3759,7 +3819,7 @@ impl Navigator {
         let label = label.into();
         let (indent, glyph) = match section {
             // A branch's remote's under its commit glyphs, its label under their titles.
-            Section::Upstream(_) => (UPSTREAM_GUIDE - 8. - ROW_LEFT, Icon::ArrowDoubleDown),
+            Section::Upstream(_) => (UPSTREAM_GUIDE - 8. - ROW_LEFT, Icon::ArrowInBox),
             Section::Inactive => (6., Icon::Clock),
             Section::Mesh => (6., Icon::Globe),
         };
@@ -3772,8 +3832,13 @@ impl Navigator {
             }
         };
         let quiet = style.quiet();
+        // The upstream heading's glyph takes its commits' colour, so the two change together.
+        let ink = match section {
+            Section::Upstream(_) => style.meta(style.theme.commit_upstream),
+            Section::Inactive | Section::Mesh => quiet,
+        };
         let glyph =
-            (div().w(dp(16.)).flex().justify_center()).child(small_icon(glyph).text_color(quiet));
+            (div().w(dp(16.)).flex().justify_center()).child(small_icon(glyph).text_color(ink));
         (style.row(format!("section-heading-{ix}"), indent))
             .pr(dp(12.))
             .aria_label(label.clone())
@@ -3788,10 +3853,14 @@ impl Navigator {
                 toggle.clone(),
             ))
             .child(
-                (section_label(label, style.theme).text_color(quiet))
-                    .flex_1()
-                    .min_w_0()
-                    .truncate(),
+                (section_label(label, style.theme).text_color(match section {
+                    // A heading of its own rows, as but-ui-react's UpstreamItem, not a group's.
+                    Section::Upstream(_) => style.meta(style.theme.text_1),
+                    Section::Inactive | Section::Mesh => quiet,
+                }))
+                .flex_1()
+                .min_w_0()
+                .truncate(),
             )
             .map(|el| self.selectable(el, &item, cx))
             .map(|el| self.page_drag(el, &item, cx))
@@ -4056,6 +4125,35 @@ pub(crate) fn upstream_label(
         None => "On the remote".to_owned(),
     };
     (label, count, plural(count, "commit"))
+}
+
+/// Who `people` (name, email) are, each once, as overlapping pictures: the first three, as
+/// but-ui-react's rows stack them on a folded row. Set in 3 points, as one picture is.
+fn authors_stack<'a>(
+    people: impl Iterator<Item = (&'a str, &'a str)>,
+    theme: &Theme,
+) -> Option<Div> {
+    let mut shown: Vec<(&str, &str)> = Vec::new();
+    for (name, email) in people {
+        if shown.len() == 3 {
+            break;
+        }
+        if !shown
+            .iter()
+            .any(|(_, known)| known.eq_ignore_ascii_case(email))
+        {
+            shown.push((name, email));
+        }
+    }
+    (!shown.is_empty()).then(|| {
+        h_flex()
+            .flex_none()
+            .px(dp(3.))
+            .children(shown.into_iter().enumerate().map(|(ix, (name, email))| {
+                crate::ui::person::author_avatar(name, email, 14., theme)
+                    .when(ix > 0, |el| el.ml(dp(-4.)))
+            }))
+    })
 }
 
 /// How many commits the target's merges brought in besides, as " (N counting merged

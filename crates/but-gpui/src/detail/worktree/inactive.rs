@@ -94,7 +94,7 @@ impl Detail {
         let parts = [
             (
                 Icon::Commit,
-                theme.blue,
+                theme.commit_local,
                 theme.blue,
                 "with unpushed commits",
                 count(|l| matches!(l, Left::Unpushed(_))),
@@ -108,7 +108,7 @@ impl Detail {
             ),
             (
                 Icon::CommitFill,
-                theme.text_2,
+                theme.commit_remote,
                 theme.text_2,
                 "pushed",
                 count(|l| matches!(l, Left::Pushed)),
