@@ -414,6 +414,7 @@ fn settings(state: &State) -> Props {
         ("statusBar", json!(prefs.shows(Part::StatusBar))),
         ("headers", json!(prefs.shows(Part::CommitHeader))),
         ("diffControls", json!(prefs.shows(Part::DiffTools))),
+        ("focusOutline", json!(prefs.shows(Part::FocusOutline))),
         ("fileView", json!(prefs.file_view)),
         ("fileSort", json!(prefs.file_sort)),
         ("folderStops", json!(prefs.folder_stops)),

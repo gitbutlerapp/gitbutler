@@ -2940,8 +2940,9 @@ impl AppView {
         match self.arranging.as_ref() {
             Some(arranging) if arranging.tile == *tile => Some(card_edge(theme.pop, theme.shape)),
             Some(_) => None,
-            None => (self.has_keys(tile, window, cx))
-                .then(|| card_edge(theme.focus_edge(), theme.shape)),
+            None => (self.store.read(cx).prefs.shows(Part::FocusOutline)
+                && self.has_keys(tile, window, cx))
+            .then(|| card_edge(theme.focus_edge(), theme.shape)),
         }
     }
 

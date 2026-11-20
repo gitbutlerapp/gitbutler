@@ -841,8 +841,9 @@ impl NavigatorTabs {
 
     /// The line around the selected tab and the card down from it: the focused tile's while the
     /// keys are along the tabs, else a resting tile's.
-    fn edge(&self, theme: &Theme) -> Hsla {
-        match self.keyed.is_some() {
+    fn edge(&self, theme: &Theme, cx: &App) -> Hsla {
+        let outlined = self.store.read(cx).prefs.shows(Part::FocusOutline);
+        match outlined && self.keyed.is_some() {
             true => theme.focus_edge(),
             false => theme.border_3,
         }
@@ -1654,7 +1655,7 @@ impl NavigatorTabs {
             .rounded_tl(dp(left_corner))
             .rounded_tr(dp(right_corner))
             .shadow(Vec::new())
-            .border_color(self.edge(&theme))
+            .border_color(self.edge(&theme, cx))
             .opacity(fade)
             .overflow_hidden()
             .occlude()
@@ -2200,7 +2201,7 @@ impl Render for NavigatorTabs {
                 false => outlines.0.push(outline),
             }
         }
-        let edge = self.edge(&theme);
+        let edge = self.edge(&theme, cx);
         let ground_at = |left: f32, width: f32| {
             div()
                 .absolute()

@@ -598,6 +598,9 @@ pub struct Prefs {
     pub navigator_place: NavigatorPlace,
     /// The bar along the window's bottom is left out.
     pub hide_status_bar: bool,
+    /// The card or tile with the keys is outlined. Off unless picked, but state saved before
+    /// the setting keeps it on (`Saved::parse`).
+    pub focus_outline: bool,
     /// The terminals open on every project aren't listed under the navigator.
     pub hide_terminal_overview: bool,
     /// What the terminal overview lists its terminals under.
@@ -708,6 +711,8 @@ pub enum Part {
     /// The terminals open on every project, under the navigator beside the panes, which lists
     /// them too, but for those living in a tile.
     TerminalOverview,
+    /// The outline round the card or tile with the keys.
+    FocusOutline,
 }
 
 impl Prefs {
@@ -717,6 +722,7 @@ impl Prefs {
             Part::BranchHeader | Part::CommitHeader | Part::ChangesHeader => !self.messages_in_diff,
             Part::DiffTools | Part::FileHeaderControls => !self.hide_diff_controls,
             Part::TerminalOverview => !self.hide_terminal_overview,
+            Part::FocusOutline => self.focus_outline,
         }
     }
 
@@ -799,12 +805,21 @@ impl Saved {
     pub(super) fn load(db: &Database) -> (Self, bool) {
         let rows = db.read();
         let fresh = rows.is_empty();
-        let fields = (rows.into_iter())
+        let mut fields: serde_json::Map<_, _> = (rows.into_iter())
             .filter_map(|(key, value)| Some((key, serde_json::from_str(&value).ok()?)))
             .collect();
+        // A first launch writes its prefs, so saved state without them is from before that,
+        // with every choice as it was then (`parse`).
+        if !fresh {
+            (fields.entry("prefs")).or_insert_with(|| serde_json::json!({}));
+        }
         let saved = Self::parse(serde_json::Value::Object(fields));
-        // As this build writes them, so only what changes from here on is written.
-        db.loaded(saved.rows());
+        // As this build writes them, so only what changes from here on is written, but for a
+        // first launch's prefs.
+        let rows = (saved.rows().into_iter())
+            .filter(|(key, _)| !fresh || key != "prefs")
+            .collect();
+        db.loaded(rows);
         (saved, fresh)
     }
 
@@ -818,6 +833,10 @@ impl Saved {
                     prefs.entry(key).or_insert_with(|| scheme.clone());
                 }
             }
+            // The card with the keys was always outlined before it could be turned off.
+            prefs
+                .entry("focus_outline")
+                .or_insert(serde_json::Value::Bool(true));
         }
         Self::deserialize(&value).unwrap_or_else(|err| {
             tracing::warn!("reading only some of the saved state: {err}");
@@ -947,6 +966,48 @@ mod tests {
             !saved.prefs.confirm_terminal_close,
             "what was saved before the setting closes at once"
         );
+    }
+
+    #[test]
+    fn the_focus_outline_stays_on_only_for_who_had_it() -> anyhow::Result<()> {
+        use crate::backend::saved::Database;
+        let outline = |dir: &tempfile::TempDir| {
+            Saved::load(&Database::open_in(Some(dir.path().into())))
+                .0
+                .prefs
+                .focus_outline
+        };
+
+        let new = tempfile::tempdir()?;
+        let db = Database::open_in(Some(new.path().into()));
+        let (saved, fresh) = Saved::load(&db);
+        assert!(
+            fresh && !saved.prefs.focus_outline,
+            "a new install starts without it"
+        );
+        db.write(1, saved.rows());
+        drop(db);
+        assert!(!outline(&new), "and stays without it, settings untouched");
+
+        let older = tempfile::tempdir()?;
+        let db = Database::open_in(Some(older.path().into()));
+        db.write(1, vec![("expanded".into(), r#"["a"]"#.into())]);
+        drop(db);
+        assert!(
+            outline(&older),
+            "an install that never changed a setting keeps it"
+        );
+
+        let changed = tempfile::tempdir()?;
+        let db = Database::open_in(Some(changed.path().into()));
+        db.write(1, vec![("prefs".into(), r#"{ "wrap": true }"#.into())]);
+        drop(db);
+        assert!(outline(&changed), "so does one with settings from before");
+
+        let picked = r#"{ "prefs": { "focus_outline": false } }"#;
+        let picked = Saved::parse(serde_json::from_str(picked).expect("it's JSON"));
+        assert!(!picked.prefs.focus_outline, "turned off, it stays off");
+        Ok(())
     }
 
     #[test]
