@@ -31,7 +31,7 @@ pub(super) fn write_to_worktree(
     conflicts: Conflicts<'_>,
     mut index: LockedIndex,
 ) -> anyhow::Result<()> {
-    let plan = Plan::new(&index.entries, &trees, conflicts);
+    let plan = Plan::new(&index.entries, &trees, conflicts)?;
     plan.refuse_paths_differing_only_in_case(
         &index.entries,
         repo.filesystem_options()?.ignore_case,
@@ -58,7 +58,7 @@ impl LockedIndex {
             repo.index_path(),
             gix::lock::acquire::Fail::Immediately,
             None,
-            0,
+            repo.refs.shared_repository_permissions,
         )
         .context("Repository index is locked by another process")?;
         Ok(LockedIndex {

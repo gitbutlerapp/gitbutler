@@ -380,12 +380,8 @@ pub(crate) fn apply(
         // commits that were only marked by the legacy header — the header is
         // cleared below, so the message must carry the state.
         commit.message = but_core::commit::add_conflict_markers(commit.message.as_ref());
-        let conflict_entries = but_core::commit::conflict_entries_from_merge_outcome(
-            &repo,
-            merged_tree_id,
-            &outcome,
-            treat_as_unresolved,
-        )?;
+        let conflict_entries =
+            but_core::commit::conflict_entries_from_merge_outcome(&outcome, treat_as_unresolved)?;
         let tree_expression = TreeExpression {
             base_tree_ids: vec![base_tree_id],
             side_tree_ids: [ours_tree_id, theirs_tree_id].into_iter().collect(),

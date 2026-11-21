@@ -20,7 +20,11 @@ type Listing = (Vec<Worktree>, Vec<(BString, Option<super::FullName>)>);
 
 /// The project's [`Listing`]. A worktree's files in `kept` are shown again rather than read,
 /// while its `HEAD` has the tree they were read against.
-pub(super) fn linked(ctx: &Context, kept: &mut HashMap<BString, KeptWorktree>) -> Result<Listing> {
+pub(super) fn linked(
+    ctx: &Context,
+    kept: &mut HashMap<BString, KeptWorktree>,
+    status: &mut super::watch::StatusResponses,
+) -> Result<Listing> {
     let listing = {
         let guard = ctx.shared_worktree_access();
         but_api::worktrees::worktrees_list_with_perm(ctx, guard.read_permission())?
@@ -30,12 +34,18 @@ pub(super) fn linked(ctx: &Context, kept: &mut HashMap<BString, KeptWorktree>) -
             let name = listed.name;
             let checkout = opened(ctx, name.as_ref())?;
             let tree = head_tree(&checkout);
+            let status = status.remove(&super::Checkout::Linked(name.clone()));
             // What Git is partway through is cheap to read, and changes without the files.
             let ((uncommitted, tree), git_operation) = match kept.remove(&name) {
-                Some((files, read_against)) if read_against == tree => {
+                Some((files, read_against)) if read_against == tree && status.is_none() => {
                     ((files, tree), git_operation(&checkout))
                 }
-                previous => read(&checkout, name.as_ref(), previous.unwrap_or_default()),
+                previous => read(
+                    &checkout,
+                    name.as_ref(),
+                    previous.unwrap_or_default(),
+                    status,
+                ),
             };
             Some(Worktree {
                 name,
@@ -59,17 +69,33 @@ pub(super) fn linked(ctx: &Context, kept: &mut HashMap<BString, KeptWorktree>) -
 
 /// `shown` with the uncommitted files read again of the main checkout, with `main`, and of
 /// the `linked` worktrees, for when only files changed.
+#[cfg(test)]
 pub fn reload_uncommitted(
+    path: &Path,
+    shown: Workspace,
+    main: bool,
+    linked: &HashSet<BString>,
+) -> Result<Workspace> {
+    reload_uncommitted_with_status(path, shown, main, linked, Default::default())
+}
+
+/// Reload selected files using each checkout's requested snapshot when available.
+pub fn reload_uncommitted_with_status(
     path: &Path,
     mut shown: Workspace,
     main: bool,
     linked: &HashSet<BString>,
+    mut status: super::watch::StatusResponses,
 ) -> Result<Workspace> {
     let started = std::time::Instant::now();
     let ctx = open(path)?;
     let repo = ctx.repo.get()?;
     if main {
-        shown.uncommitted = worktree_files(&repo, &shown.uncommitted)?;
+        shown.uncommitted = super::worktree_files_requested(
+            &repo,
+            &shown.uncommitted,
+            status.remove(&super::Checkout::Main),
+        )?;
         shown.tree = head_tree(&repo);
     }
     shown.worktrees.retain_mut(|worktree| {
@@ -80,7 +106,9 @@ pub fn reload_uncommitted(
             return false;
         };
         let previous = (std::mem::take(&mut worktree.uncommitted), worktree.tree);
-        let ((files, tree), operation) = read(&checkout, worktree.name.as_ref(), previous);
+        let response = status.remove(&super::Checkout::Linked(worktree.name.clone()));
+        let ((files, tree), operation) =
+            read(&checkout, worktree.name.as_ref(), previous, response);
         worktree.uncommitted = files;
         worktree.tree = tree;
         worktree.git_operation = operation;
@@ -97,9 +125,10 @@ fn read(
     checkout: &gix::Repository,
     name: &BStr,
     previous: KeptWorktree,
+    status: Option<super::watch::StatusResponse>,
 ) -> (KeptWorktree, Option<&'static str>) {
     let tree = head_tree(checkout);
-    let kept = match worktree_files(checkout, &previous.0) {
+    let kept = match super::worktree_files_requested(checkout, &previous.0, status) {
         Ok(files) => (files, tree),
         Err(err) => {
             tracing::warn!("couldn't read worktree {name}: {err:#}");

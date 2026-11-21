@@ -167,7 +167,7 @@ pub fn discard_workspace_changes(
     }
 
     if edit.finish() {
-        index.write(Default::default())?;
+        index.write(Default::default(), repo.refs.shared_repository_permissions)?;
     }
     Ok(dropped)
 }
@@ -230,7 +230,7 @@ mod file {
                 gix::tempfile::create_dir::all(
                     file_path.parent().context("encountered strange filepath")?,
                     Retries::default(),
-                    0,
+                    gix::fs::SharedPermissions::Umask,
                 )?;
                 if let Err(err) = tempfile.persist(&file_path) {
                     if err.error.kind() == std::io::ErrorKind::IsADirectory {
