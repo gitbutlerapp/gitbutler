@@ -83,10 +83,11 @@ pub(crate) fn graph(
             let full_name = reference.name().to_owned();
             // A fetch refspec can map an annotated tag into the remote-tracking namespace.
             let id = if Some(full_name.as_ref()) == target_upstream_ref {
-                let Ok(commit) = reference.peel_to_commit() else {
+                let peeled = reference.peel_to_id()?;
+                if !peeled.header()?.kind().is_commit() {
                     continue;
-                };
-                commit.id
+                }
+                peeled.detach()
             } else {
                 id.detach()
             };
