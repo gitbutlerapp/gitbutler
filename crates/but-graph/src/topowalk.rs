@@ -1,49 +1,49 @@
 use anyhow::Context;
+use gix::{hashtable::hash_map::Entry, revwalk::graph::IdMap};
 use smallvec::SmallVec;
 use std::collections::{BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque};
 
-#[derive(Eq, PartialEq, Ord, PartialOrd)]
-struct Untraversed {
-    // The latest untraversed commit will be popped from the BinaryHeap.
-    time_seconds: i64,
-    id: gix::ObjectId,
-    parents_cache: SmallVec<[gix::ObjectId; 1]>,
-}
-struct Traversed {
-    time_seconds: i64,
-    parents: SmallVec<[gix::ObjectId; 1]>,
+pub(crate) struct Walk {
+    /// The commits the walk visited, children first.
+    pub order: Vec<gix::ObjectId>,
+    /// Includes the immediate parents at which the walk stopped.
+    pub commits: IdMap<Commit>,
 }
 
+#[derive(Debug)]
 pub(crate) struct Commit {
-    pub id: gix::ObjectId,
-    /// Includes the parents at the edge of the walk, except at a shallow-clone boundary.
-    pub parents: SmallVec<[gix::ObjectId; 1]>,
+    time_seconds: i64,
+    pub parent_ids: SmallVec<[gix::ObjectId; 1]>,
+    pub is_workspace: bool,
+    pub is_shallow: bool,
 }
 
-fn insert_untraversed(
-    repo: &gix::Repository,
-    id: gix::ObjectId,
-    untraversed: &mut BinaryHeap<Untraversed>,
-    untraversed_ids: &mut HashSet<gix::ObjectId>,
-    shallow_boundary: Option<&gix::shallow::Commits>,
-) -> anyhow::Result<()> {
-    if !untraversed_ids.insert(id) {
-        return Ok(());
+impl Commit {
+    fn read(
+        repo: &gix::Repository,
+        id: gix::ObjectId,
+        shallow_boundary: Option<&gix::shallow::Commits>,
+    ) -> anyhow::Result<Self> {
+        let commit = repo.find_commit(id)?;
+        Ok(Self {
+            time_seconds: commit.time()?.seconds,
+            parent_ids: commit.parent_ids().map(gix::Id::detach).collect(),
+            is_workspace: crate::workspace::commit::is_managed_workspace_by_message(
+                commit.message_raw()?,
+            ),
+            is_shallow: shallow_boundary
+                .is_some_and(|boundary| boundary.binary_search(&id).is_ok()),
+        })
     }
-    let commit = repo.find_commit(id)?;
-    untraversed.push(Untraversed {
-        time_seconds: commit.time()?.seconds,
-        id,
-        // A shallow clone doesn't have the parents of the commits at its boundary.
-        parents_cache: if shallow_boundary
-            .is_some_and(|boundary| boundary.binary_search(&id).is_ok())
-        {
-            SmallVec::new()
+
+    /// A shallow clone records its boundary commits' parents even though it can't walk them.
+    pub fn parents_to_walk(&self) -> &[gix::ObjectId] {
+        if self.is_shallow {
+            &[]
         } else {
-            commit.parent_ids().map(gix::Id::detach).collect()
-        },
-    });
-    Ok(())
+            &self.parent_ids
+        }
+    }
 }
 
 /// Return the commits reachable from `heads` in topological order, children first.
@@ -66,26 +66,26 @@ pub fn walk(
     excludes: impl IntoIterator<Item = gix::ObjectId>,
     limit: Option<usize>,
     shallow_boundary: Option<&gix::shallow::Commits>,
-) -> anyhow::Result<Vec<Commit>> {
+) -> anyhow::Result<Walk> {
     // Invariants, unless the limit left an id out:
     //  - if an id appears in `excluded`, it appears in either `untraversed`
-    //    or `id_to_traversed`
-    //  - if an id appears in `excluded` and `id_to_traversed`, all its parents
+    //    or `traversed`
+    //  - if an id appears in `excluded` and `traversed`, all its parents
     //    also appear in `excluded`
-    //  - an id cannot appear in both `untraversed` and `id_to_traversed`
+    //  - an id cannot appear in both `untraversed` and `traversed`
     //  - all parents of all traversed values appear either in `untraversed`
-    //    or `id_to_traversed`
-    let mut excluded = HashSet::<gix::ObjectId>::new();
-    let mut untraversed = BinaryHeap::<Untraversed>::new();
-    let mut id_to_traversed = HashMap::<gix::ObjectId, Traversed>::new();
+    //    or `traversed`
+    let mut untraversed = BinaryHeap::<(i64, gix::ObjectId)>::new();
+    let mut traversed = HashSet::<gix::ObjectId>::new();
+    let mut commits = IdMap::<Commit>::default();
 
     // Ids that appear in `untraversed`.
     let mut untraversed_ids = HashSet::<gix::ObjectId>::new();
 
-    // Ids in `id_to_traversed` that do not have parents.
+    // Ids in `traversed` that do not have parents.
     let mut traversed_orphans = HashSet::<gix::ObjectId>::new();
 
-    // The times and ids in `id_to_traversed` that do not appear in `excluded`, oldest first.
+    // The times and ids in `traversed` that do not appear in `excluded`, oldest first.
     let mut undecided = BTreeSet::<(i64, gix::ObjectId)>::new();
 
     // Ids known to be ancestors of commits that were in `undecided` when they were traversed.
@@ -94,79 +94,61 @@ pub fn walk(
     let mut id_to_child_count = HashMap::<gix::ObjectId, u64>::new();
 
     let mut pushed_to_heads = HashSet::<gix::ObjectId>::new();
-    let mut heads: VecDeque<gix::ObjectId> = {
-        let mut new_heads = VecDeque::<gix::ObjectId>::new();
-        for id in heads {
-            if pushed_to_heads.insert(id) {
-                new_heads.push_back(id);
-                insert_untraversed(
-                    repo,
-                    id,
-                    &mut untraversed,
-                    &mut untraversed_ids,
-                    shallow_boundary,
-                )?;
+    let mut heads: VecDeque<_> = heads
+        .into_iter()
+        .filter(|id| pushed_to_heads.insert(*id))
+        .collect();
+    let excludes: Vec<_> = excludes.into_iter().collect();
+    let mut excluded: HashSet<_> = excludes.iter().copied().collect();
+    let mut to_enqueue: Vec<_> = heads.iter().chain(&excludes).copied().collect();
+
+    loop {
+        for id in to_enqueue.drain(..) {
+            if untraversed_ids.insert(id) {
+                let commit = match commits.entry(id) {
+                    Entry::Occupied(entry) => entry.into_mut(),
+                    Entry::Vacant(entry) => entry.insert(Commit::read(repo, id, shallow_boundary)?),
+                };
+                untraversed.push((commit.time_seconds, id));
             }
         }
-        new_heads
-    };
-    let excludes: Vec<_> = excludes.into_iter().collect();
-    for &id in &excludes {
-        insert_untraversed(
-            repo,
-            id,
-            &mut untraversed,
-            &mut untraversed_ids,
-            shallow_boundary,
-        )?;
-        excluded.insert(id);
-    }
 
-    while (traversed_orphans.iter().any(|id| !excluded.contains(id))
-        || untraversed_ids.iter().any(|id| !excluded.contains(id))
-        || heads.iter().any(|id| untraversed_ids.contains(id))
-        || undecided.first().is_some_and(|(oldest_time_seconds, _)| {
-            untraversed.iter().any(|next| {
-                next.time_seconds >= *oldest_time_seconds && !below_undecided.contains(&next.id)
-            })
-        }))
-        && let Some(Untraversed {
-            time_seconds,
-            id,
-            parents_cache,
-        }) = untraversed.pop()
-    {
+        let has_work = traversed_orphans.iter().any(|id| !excluded.contains(id))
+            || untraversed_ids.iter().any(|id| !excluded.contains(id))
+            || heads.iter().any(|id| untraversed_ids.contains(id))
+            || undecided.first().is_some_and(|(oldest_time_seconds, _)| {
+                untraversed
+                    .iter()
+                    .any(|(time, id)| time >= oldest_time_seconds && !below_undecided.contains(id))
+            });
+        if !has_work {
+            break;
+        }
+        let Some((time_seconds, id)) = untraversed.pop() else {
+            break;
+        };
         untraversed_ids.remove(&id);
         // `pushed_to_heads` only holds the heads while walking.
-        if limit.is_some_and(|limit| id_to_traversed.len() >= limit)
-            && !pushed_to_heads.contains(&id)
-        {
+        if limit.is_some_and(|limit| traversed.len() >= limit) && !pushed_to_heads.contains(&id) {
             continue;
         }
-        if parents_cache.is_empty() {
+        let parents = commits[&id].parents_to_walk();
+        if parents.is_empty() {
             traversed_orphans.insert(id);
         }
         let is_below_undecided = !excluded.contains(&id) || below_undecided.contains(&id);
-        for parent_id in &parents_cache {
+        for parent_id in parents {
             *id_to_child_count.entry(*parent_id).or_default() += 1;
-            if !id_to_traversed.contains_key(parent_id) {
-                insert_untraversed(
-                    repo,
-                    *parent_id,
-                    &mut untraversed,
-                    &mut untraversed_ids,
-                    shallow_boundary,
-                )?;
+            if !traversed.contains(parent_id) {
+                to_enqueue.push(*parent_id);
             }
             if excluded.contains(&id) {
                 // Propagate to all known ancestors (untraversed or traversed)
                 let mut ancestor_ids = vec![*parent_id];
                 while let Some(ancestor_id) = ancestor_ids.pop() {
-                    if excluded.insert(ancestor_id)
-                        && let Some(traversed) = id_to_traversed.get(&ancestor_id)
-                    {
-                        undecided.remove(&(traversed.time_seconds, ancestor_id));
-                        ancestor_ids.extend(traversed.parents.iter().cloned());
+                    if excluded.insert(ancestor_id) && traversed.contains(&ancestor_id) {
+                        undecided.remove(&(commits[&ancestor_id].time_seconds, ancestor_id));
+                        ancestor_ids.extend(commits[&ancestor_id].parents_to_walk());
                     }
                 }
             }
@@ -174,10 +156,8 @@ pub fn walk(
                 // Propagate to all known ancestors (untraversed or traversed)
                 let mut ancestor_ids = vec![*parent_id];
                 while let Some(ancestor_id) = ancestor_ids.pop() {
-                    if below_undecided.insert(ancestor_id)
-                        && let Some(traversed) = id_to_traversed.get(&ancestor_id)
-                    {
-                        ancestor_ids.extend(traversed.parents.iter().cloned());
+                    if below_undecided.insert(ancestor_id) && traversed.contains(&ancestor_id) {
+                        ancestor_ids.extend(commits[&ancestor_id].parents_to_walk());
                     }
                 }
             }
@@ -185,24 +165,12 @@ pub fn walk(
         if !excluded.contains(&id) {
             undecided.insert((time_seconds, id));
         }
-        id_to_traversed.insert(
-            id,
-            Traversed {
-                time_seconds,
-                parents: parents_cache,
-            },
-        );
+        traversed.insert(id);
         for head_id in heads_on_reaching.get(&id).into_iter().flatten() {
             if pushed_to_heads.insert(*head_id) {
                 heads.push_back(*head_id);
-                if !id_to_traversed.contains_key(head_id) {
-                    insert_untraversed(
-                        repo,
-                        *head_id,
-                        &mut untraversed,
-                        &mut untraversed_ids,
-                        shallow_boundary,
-                    )?;
+                if !traversed.contains(head_id) {
+                    to_enqueue.push(*head_id);
                 }
             }
         }
@@ -211,14 +179,14 @@ pub fn walk(
     // An excluded commit no head reaches, like a target commit its branch was rewound past,
     // starts the outcome too, or the walked commits below it would never be returned.
     for id in excludes {
-        if id_to_traversed.contains_key(&id)
+        if traversed.contains(&id)
             && id_to_child_count.get(&id).is_none_or(|count| *count == 0)
             && pushed_to_heads.insert(id)
         {
             heads.push_back(id);
         }
     }
-    let mut outcome = Vec::new();
+    let mut order = Vec::with_capacity(traversed.len());
     while let Some(position) = heads.iter().position(|id| {
         id_to_child_count
             .get(id)
@@ -227,21 +195,21 @@ pub fn walk(
         let id = heads
             .remove(position)
             .context("BUG: we just got position from position()")?;
-        let parents = id_to_traversed
-            .remove(&id)
-            .context("BUG: each head and queued parent was traversed")?
-            .parents;
-        for parent_id in parents.iter().rev() {
+        anyhow::ensure!(
+            traversed.remove(&id),
+            "BUG: each head and queued parent was traversed"
+        );
+        for parent_id in commits[&id].parents_to_walk().iter().rev() {
             *id_to_child_count
                 .get_mut(parent_id)
                 .context("BUG: traversed without corresponding entry in `id_to_child_count`")? -= 1;
-            if id_to_traversed.contains_key(parent_id) && pushed_to_heads.insert(*parent_id) {
+            if traversed.contains(parent_id) && pushed_to_heads.insert(*parent_id) {
                 heads.push_front(*parent_id);
             }
         }
-        outcome.push(Commit { id, parents });
+        order.push(id);
     }
-    Ok(outcome)
+    Ok(Walk { order, commits })
 }
 
 #[cfg(test)]
@@ -257,19 +225,10 @@ mod tests {
         )?)
     }
 
-    fn summaries(
-        repo: &gix::Repository,
-        commits: Vec<super::Commit>,
-    ) -> anyhow::Result<Vec<String>> {
-        commits
+    fn summaries(repo: &gix::Repository, walk: super::Walk) -> anyhow::Result<Vec<String>> {
+        walk.order
             .into_iter()
-            .map(|commit| {
-                Ok(repo
-                    .find_commit(commit.id)?
-                    .message()?
-                    .summary()
-                    .to_string())
-            })
+            .map(|id| Ok(repo.find_commit(id)?.message()?.summary().to_string()))
             .collect()
     }
 

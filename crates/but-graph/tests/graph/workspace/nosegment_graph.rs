@@ -104,6 +104,103 @@ fn commits_limit_bounds_only_a_walk_without_target_commit() -> anyhow::Result<()
 }
 
 #[test]
+fn segment_construction_reuses_walked_commits_and_their_boundary_parents() -> anyhow::Result<()> {
+    use std::sync::{Arc, Mutex};
+
+    #[derive(Clone, Default)]
+    struct Reads(Arc<Mutex<Vec<gix::ObjectId>>>);
+    impl gix::odb::pack::cache::Object for Reads {
+        fn put(&mut self, _: gix::ObjectId, _: gix::objs::Kind, _: &[u8]) {}
+
+        fn get(&mut self, id: &gix::ObjectId, _: &mut Vec<u8>) -> Option<gix::objs::Kind> {
+            self.0.lock().unwrap().push(*id);
+            None
+        }
+    }
+    let (mut repo, meta, _db) = read_only_in_memory_scenario("history-below-target")?;
+    let head = repo.head_id()?.detach();
+    let walked = repo.rev_parse_single("A~1")?.detach();
+    let boundary = repo.rev_parse_single("A~2")?.detach();
+    let beyond = repo.rev_parse_single("A~3")?.detach();
+    let reads = Reads::default();
+    repo.objects.set_object_cache({
+        let reads = reads.clone();
+        move || Box::new(reads.clone())
+    });
+    let graph = but_graph::nosegment::segment_graph(
+        &repo,
+        &*meta,
+        Default::default(),
+        Default::default(),
+        None,
+        Some(head),
+        vec![head],
+        Vec::new(),
+        None,
+        false,
+        Some(2),
+    )?;
+    let commits: Vec<_> = graph.segments().flat_map(|s| &graph[s].commits).collect();
+    assert_eq!(commits.len(), 3);
+    let reads = reads.0.lock().unwrap();
+    for (id, parent) in [(walked, boundary), (boundary, beyond)] {
+        assert_eq!(
+            commits.iter().find(|c| c.id == id).unwrap().parent_ids,
+            [parent]
+        );
+        assert_eq!(
+            reads.iter().filter(|read| **read == id).count(),
+            1,
+            "reads of {id}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn shallow_clone_keeps_the_recorded_parent_without_walking_it() -> anyhow::Result<()> {
+    let (repo, meta, _db) = crate::init::utils::named_read_only_in_memory_scenario(
+        "special-conditions",
+        "shallow-clone-ahead-of-upstream",
+    )?;
+    let head = repo.head_id()?.detach();
+    let boundary = repo.shallow_commits()?.unwrap().head;
+    let parent = repo
+        .find_commit(boundary)?
+        .parent_ids()
+        .next()
+        .unwrap()
+        .detach();
+    let graph = but_graph::nosegment::segment_graph(
+        &repo,
+        &*meta,
+        Default::default(),
+        Default::default(),
+        None,
+        Some(head),
+        vec![head],
+        Vec::new(),
+        None,
+        false,
+        None,
+    )?;
+    let boundary = graph
+        .segment_by_commit_id(boundary)?
+        .commits
+        .iter()
+        .find(|c| c.id == boundary)
+        .unwrap();
+    assert!(
+        boundary
+            .flags
+            .contains(but_graph::CommitFlags::ShallowBoundary)
+    );
+    assert_eq!(boundary.parent_ids, [parent]);
+    assert!(graph.segment_id_by_commit_id(parent).is_err());
+    Ok(())
+}
+
+#[test]
 fn placing_branches_does_not_read_history_beyond_the_walk() -> anyhow::Result<()> {
     struct RejectRead(gix::ObjectId);
     impl gix::odb::pack::cache::Object for RejectRead {

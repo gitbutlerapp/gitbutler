@@ -28,6 +28,7 @@ struct Node {
 #[derive(Debug)]
 pub(crate) struct WorkspaceGraph {
     nodes: Vec<Node>,
+    commits: gix::revwalk::graph::IdMap<crate::topowalk::Commit>,
     /// The local and remote-tracking branches that no stack claims, which belong to whichever
     /// lineage reaches them.
     unclaimed_branches: BTreeSet<FullName>,
@@ -204,7 +205,7 @@ pub(crate) fn graph(
             .flat_map(|stack| &stack.branches)
             .filter_map(|name| ref_to_oid.get(name)),
     );
-    let commits = crate::topowalk::walk(
+    let walk = crate::topowalk::walk(
         repo,
         heads,
         &heads_on_reaching,
@@ -223,12 +224,13 @@ pub(crate) fn graph(
     {
         in_workspace.insert(workspace.id);
         // Children precede their parents, so each edge propagates all known ancestry once.
-        for commit in &commits {
-            if in_target.contains(&commit.id) {
-                in_target.extend(&commit.parents);
+        for id in &walk.order {
+            let parents = walk.commits[id].parents_to_walk();
+            if in_target.contains(id) {
+                in_target.extend(parents);
             }
-            if in_workspace.contains(&commit.id) {
-                in_workspace.extend(&commit.parents);
+            if in_workspace.contains(id) {
+                in_workspace.extend(parents);
             }
         }
     }
@@ -396,11 +398,8 @@ pub(crate) fn graph(
     let mut nodes = Vec::<Node>::new();
     let mut unclaimed_branches = BTreeSet::new();
 
-    for crate::topowalk::Commit {
-        id: commit_id,
-        parents: parent_ids,
-    } in commits
-    {
+    for commit_id in walk.order {
+        let parent_ids = walk.commits[&commit_id].parents_to_walk();
         // Branches rest on the target commit when the target branch, or its
         // upstream, points there too.
         // LEGACY why check 3 things? could there be a simpler rule (or no rule)?
@@ -691,7 +690,8 @@ pub(crate) fn graph(
         let mut stack_edges = stack_edges.into_iter();
         let mut lanes_of_parents = Vec::<(gix::ObjectId, StackLineage)>::new();
         let mut parent_edges: Vec<_> = parent_ids
-            .into_iter()
+            .iter()
+            .copied()
             .filter_map(|parent_id| {
                 if covered_parent_ids.contains(&parent_id) {
                     // Like after a traversal, a parent the workspace commit has more often than
@@ -742,6 +742,7 @@ pub(crate) fn graph(
 
     Ok(WorkspaceGraph {
         nodes,
+        commits: walk.commits,
         unclaimed_branches,
         workspace_commit: workspace_commit.map(|commit| commit.id),
     })
@@ -851,7 +852,6 @@ impl WorkspaceGraph {
         worktree_tips: &[crate::init::WorktreeTip],
     ) -> Result<crate::Graph> {
         let mut inner_graph = crate::init::PetGraph::default();
-        let shallow_commits = repo.shallow_commits()?;
         let mut node_index_to_predecessor_segment_info =
             HashMap::<NodeIndex, PredecessorSegmentInfo>::new();
         let mut entrypoint = None;
@@ -1110,20 +1110,14 @@ impl WorkspaceGraph {
                 continue;
             }
             let commit = match &node.weight {
-                NodeWeight::Pick { oid } | NodeWeight::ShallowPoint { oid } => {
-                    Some(repo.find_commit(*oid)?)
-                }
+                NodeWeight::Pick { oid } | NodeWeight::ShallowPoint { oid } => Some(
+                    self.commits
+                        .get(oid)
+                        .context("BUG: the walk loaded every commit node")?,
+                ),
                 NodeWeight::Ref { .. } => None,
             };
-            let is_workspace_commit = commit
-                .as_ref()
-                .map(|commit| {
-                    anyhow::Ok(crate::workspace::commit::is_managed_workspace_by_message(
-                        commit.message_raw()?,
-                    ))
-                })
-                .transpose()?
-                .unwrap_or(false);
+            let is_workspace_commit = commit.is_some_and(|commit| commit.is_workspace);
             // A segment without a reference of its own continues through the
             // references it reaches, which then point at its next commit. A
             // branch checked out in a worktree still names a segment of its own,
@@ -1450,25 +1444,12 @@ impl WorkspaceGraph {
             };
             match &node.weight {
                 NodeWeight::Pick { oid } | NodeWeight::ShallowPoint { oid } => {
-                    // A shallow point keeps its parents too, so the editor knows the walk
-                    // stopped there and keeps it as it is.
-                    let parent_ids: Vec<_> = commit
-                        .as_ref()
-                        .expect("read for every commit node")
-                        .parent_ids()
-                        .map(|id| id.detach())
-                        .collect();
+                    let commit = commit.expect("every commit node has walk data");
                     let mut flags = predecessor_segment_info.commit_flags;
-                    // Like after a traversal, a commit at the boundary of a shallow clone says so.
-                    flags.set(
-                        CommitFlags::ShallowBoundary,
-                        shallow_commits
-                            .as_ref()
-                            .is_some_and(|boundary| boundary.binary_search(oid).is_ok()),
-                    );
+                    flags.set(CommitFlags::ShallowBoundary, commit.is_shallow);
                     inner_graph[segment_index].commits.push(crate::Commit {
                         id: *oid,
-                        parent_ids,
+                        parent_ids: commit.parent_ids.to_vec(),
                         flags,
                         refs: refs_awaiting_commit.remove(&i).unwrap_or_default(),
                     });
