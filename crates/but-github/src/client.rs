@@ -214,6 +214,53 @@ impl GitHubClient {
         Ok(dedupe_latest_by_name(check_runs))
     }
 
+    /// Fetch the latest commit status of each context on a branch ref, as check
+    /// runs. CI systems like Jenkins report through commit statuses instead.
+    pub async fn list_commit_statuses_for_ref(
+        &self,
+        owner: &str,
+        repo: &str,
+        reference: &str,
+    ) -> Result<Vec<CheckRun>> {
+        #[derive(Deserialize)]
+        struct CombinedStatusResponse {
+            sha: String,
+            total_count: usize,
+            statuses: Vec<CommitStatus>,
+        }
+
+        let url = format!(
+            "{}/repos/{}/{}/commits/{}/status",
+            self.base_url, owner, repo, reference
+        );
+
+        let mut page = 1;
+
+        let response = self.fetch_commit_statuses(&url, page).await?;
+
+        let result: CombinedStatusResponse = response.json().await?;
+        let sha = result.sha;
+        let total_count = result.total_count;
+        let mut statuses = result.statuses;
+
+        while statuses.len() < total_count {
+            page += 1;
+
+            let response = self.fetch_commit_statuses(&url, page).await?;
+            let result: CombinedStatusResponse = response.json().await?;
+            if result.statuses.is_empty() {
+                break;
+            }
+
+            statuses.extend(result.statuses);
+        }
+
+        Ok(statuses
+            .into_iter()
+            .map(|status| status.into_check_run(&sha))
+            .collect())
+    }
+
     /// Fetch every page of a GitHub list endpoint, 100 items per page,
     /// stopping at the first short page or after `max_pages` (a silent
     /// truncation bound for pathological list sizes; callers that must
@@ -281,6 +328,20 @@ impl GitHubClient {
                 per_page: 100,
                 page,
             })
+            .send()
+            .await?;
+
+        let response = ensure_success(response).await?;
+
+        Ok(response)
+    }
+
+    /// The actual REST API call to fetch a page of the commit statuses.
+    async fn fetch_commit_statuses(&self, url: &str, page: usize) -> Result<reqwest::Response> {
+        let response = self
+            .client
+            .get(url)
+            .query(&[("per_page", "100"), ("page", &page.to_string())])
             .send()
             .await?;
 
@@ -1521,6 +1582,46 @@ pub struct CheckRun {
     pub details_url: Option<String>,
 }
 
+/// A status reported through GitHub's legacy commit statuses API.
+#[derive(Deserialize)]
+struct CommitStatus {
+    id: i64,
+    state: String,
+    context: String,
+    #[serde(default)]
+    target_url: Option<String>,
+    #[serde(default)]
+    url: Option<String>,
+    #[serde(default)]
+    created_at: Option<String>,
+    #[serde(default)]
+    updated_at: Option<String>,
+}
+
+impl CommitStatus {
+    fn into_check_run(self, sha: &str) -> CheckRun {
+        // Check runs have no `error` conclusion; GitHub treats it as a failure too.
+        let (status, conclusion) = match self.state.as_str() {
+            "pending" => ("in_progress", None),
+            "success" => ("completed", Some("success")),
+            "failure" | "error" => ("completed", Some("failure")),
+            _ => ("unknown", None),
+        };
+        CheckRun {
+            id: self.id,
+            name: self.context,
+            status: status.to_owned(),
+            conclusion: conclusion.map(String::from),
+            completed_at: conclusion.and(self.updated_at),
+            html_url: self.target_url.clone(),
+            head_sha: Some(sha.to_owned()),
+            started_at: self.created_at,
+            url: self.url,
+            details_url: self.target_url,
+        }
+    }
+}
+
 /// GitHub returns check runs from every suite attached to a commit —
 /// including superseded suites from force-push-cancelled runs — so an
 /// orphaned `failure` (e.g. an aggregator that detects its deps got
@@ -2472,6 +2573,60 @@ mod tests {
                  {mutation}"
             );
         }
+    }
+
+    #[tokio::test]
+    async fn commit_statuses_read_as_check_runs() {
+        // What GitHub answers for a commit Jenkins reports on through the legacy
+        // commit statuses API instead of check runs.
+        let statuses = r#"{"sha":"abc","total_count":3,"statuses":[
+            {"id":2,"state":"pending","context":"jenkins","target_url":"https://ci/1","created_at":"2026-06-04T18:00:00Z","updated_at":"2026-06-04T18:00:00Z"},
+            {"id":3,"state":"error","context":"lint","target_url":null,"created_at":"2026-06-04T18:00:00Z","updated_at":"2026-06-04T18:05:00Z"},
+            {"id":4,"state":"success","context":"deploy","created_at":"2026-06-04T18:00:00Z","updated_at":"2026-06-04T18:06:00Z"}
+        ]}"#;
+        let (base_url, server) = serve(vec![(
+            "GET /repos/o/r/commits/feature/status?",
+            "200 OK",
+            statuses,
+        )]);
+        let client = GitHubClient {
+            client: reqwest::Client::new(),
+            base_url,
+        };
+
+        let checks = client
+            .list_commit_statuses_for_ref("o", "r", "feature")
+            .await
+            .expect("the statuses are listed");
+        server.join().unwrap();
+
+        let summary: Vec<_> = checks
+            .iter()
+            .map(|check| {
+                (
+                    check.name.as_str(),
+                    check.status.as_str(),
+                    check.conclusion.as_deref(),
+                    check.head_sha.as_deref(),
+                    check.details_url.as_deref(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            summary,
+            [
+                (
+                    "jenkins",
+                    "in_progress",
+                    None,
+                    Some("abc"),
+                    Some("https://ci/1")
+                ),
+                ("lint", "completed", Some("failure"), Some("abc"), None),
+                ("deploy", "completed", Some("success"), Some("abc"), None),
+            ],
+            "a pending status stays unfinished, `error` reads as a failure, and each carries the resolved commit"
+        );
     }
 
     #[tokio::test(start_paused = true)]
