@@ -70,6 +70,69 @@ fn is_conflicted() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn conflict_entries_preserve_forced_content_and_tree_reviews() -> anyhow::Result<()> {
+    use but_core::RepositoryExt as _;
+    use gix::object::tree::EntryKind;
+
+    let repo = conflict_repo("normal-and-artificial")?.with_object_memory();
+    let path = std::path::PathBuf::from("conflict");
+    let mut base = repo.empty_tree().edit()?;
+    base.upsert("conflict", EntryKind::Blob, repo.write_blob("base\n")?)?;
+    let base_tree_id = base.write()?.detach();
+    let mut ours = repo.edit_tree(base_tree_id)?;
+    ours.upsert("conflict", EntryKind::Blob, repo.write_blob("ours\n")?)?;
+    let our_tree_id = ours.write()?.detach();
+
+    for deleted in [false, true] {
+        let mut theirs = repo.edit_tree(base_tree_id)?;
+        if deleted {
+            theirs.remove("conflict")?;
+        } else {
+            theirs.upsert("conflict", EntryKind::Blob, repo.write_blob("theirs\n")?)?;
+        }
+        let their_tree_id = theirs.write()?.detach();
+        let outcome = repo.merge_trees(
+            base_tree_id,
+            our_tree_id,
+            their_tree_id,
+            repo.default_merge_labels(),
+            repo.merge_options_force_ours()?,
+        )?;
+        let how = gix::merge::tree::TreatAsUnresolved::forced_resolution();
+        assert!(
+            outcome.has_unresolved_conflicts(how),
+            "both kinds of forced resolution remain reviewable"
+        );
+        assert_eq!(
+            outcome.index.has_unmerged_entries(how),
+            !deleted,
+            "forced content keeps source stages while a selected tree entry remains stage zero"
+        );
+        let entries = but_core::commit::conflict_entries_from_merge_outcome(&outcome, how)?;
+        assert_eq!(
+            entries.ancestor_entries,
+            if deleted {
+                Vec::new()
+            } else {
+                vec![path.clone()]
+            },
+            "only actual unmerged stages supply an ancestor path"
+        );
+        assert_eq!(
+            entries.our_entries,
+            std::slice::from_ref(&path),
+            "our conflicting path is retained"
+        );
+        assert_eq!(
+            entries.their_entries,
+            std::slice::from_ref(&path),
+            "their conflicting path is retained"
+        );
+    }
+    Ok(())
+}
+
 mod padding {
     use bstr::ByteSlice as _;
     use but_core::commit::padding;

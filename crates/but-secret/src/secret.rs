@@ -415,7 +415,12 @@ pub mod git_credentials {
                 .credentials(&self.handle, None)
                 .map_err(|err| keyring::Error::PlatformFailure(err.into()))?;
             match cascade.invoke(get_action, prompt) {
-                Ok(Some(out)) => Ok(out.identity.password),
+                Ok(Some(out)) => match out.credentials {
+                    gix::sec::identity::Credentials::UsernamePassword { password, .. } => {
+                        Ok(password)
+                    }
+                    gix::sec::identity::Credentials::Encoded { .. } => Err(keyring::Error::NoEntry),
+                },
                 Ok(None) => Err(keyring::Error::NoEntry),
                 Err(err) => {
                     tracing::debug!(err = ?err, "credential-helper invoke failed - usually this means it wanted to prompt which is disabled");

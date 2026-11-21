@@ -569,16 +569,8 @@ fn modified_submodule_and_embedded_repo_in_worktree() -> anyhow::Result<()> {
     )?;
     assert!(dropped.is_empty());
 
-    // The embedded repository we don't currently see due to a `gix` shortcoming - it ignores embedded repos
-    // when doing a status even though it should treat it like an 'anonymous submodule'.
-    // However, the submodule itself is reset.
-    snapbox::assert_data_eq!(
-        git_status(&repo)?,
-        snapbox::str![[r#"
- M embedded-repository
-
-"#]]
-    );
+    // Both the registered submodule and the tracked embedded repository are reset.
+    snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
     snapbox::assert_data_eq!(
         visualize_index(&**repo.index()?),
         snapbox::str![[r#"

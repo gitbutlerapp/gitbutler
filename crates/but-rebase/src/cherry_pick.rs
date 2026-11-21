@@ -187,12 +187,7 @@ fn commit_from_conflicted_tree<'repo>(
 ) -> anyhow::Result<gix::Id<'repo>> {
     let repo = resolved_tree_id.repo;
 
-    let conflicted_files = conflict_entries_from_merge_outcome(
-        repo,
-        resolved_tree_id.detach(),
-        &cherry_pick,
-        treat_as_unresolved,
-    )?;
+    let conflicted_files = conflict_entries_from_merge_outcome(&cherry_pick, treat_as_unresolved)?;
 
     let conflicted_files_string = toml::to_string(&conflicted_files)?;
     let conflicted_files_blob = repo.write_blob(conflicted_files_string.as_bytes())?;

@@ -1,7 +1,7 @@
 use bstr::{BStr, BString, ByteSlice};
 use gix::diff::blob::{
     ResourceKind,
-    platform::prepare_diff::{self, Operation},
+    platform::prepare_diff::Operation,
     unified_diff::{ConsumeBinaryHunk, ContextSize, HunkHeader},
 };
 use serde::{Deserialize, Serialize};
@@ -121,7 +121,7 @@ impl UnifiedPatch {
         let current_state = current_state.into();
         let previous_state = previous_state.into();
         match diff_filter.set_resource(
-            current_state.map_or(repo.object_hash().null(), |state| state.id),
+            current_state.map(|state| state.id),
             current_state.map_or_else(
                 || {
                     previous_state
@@ -151,7 +151,7 @@ impl UnifiedPatch {
         };
         let actual_previous_path = previous_path.unwrap_or(path.as_bstr());
         match diff_filter.set_resource(
-            previous_state.map_or(repo.object_hash().null(), |state| state.id),
+            previous_state.map(|state| state.id),
             previous_state.map_or_else(
                 || {
                     current_state
@@ -180,21 +180,13 @@ impl UnifiedPatch {
             Err(err) => return Err(err.into()),
         };
 
-        let prep = match diff_filter.prepare_diff() {
-            Ok(prep) => prep,
-            Err(err)
-                if matches!(
-                    err.downcast_any_ref::<prepare_diff::Error>(),
-                    Some(prepare_diff::Error::SourceAndDestinationRemoved)
-                ) =>
-            {
+        let prep = diff_filter.prepare_diff()?;
+        Ok(Some(match prep.operation {
+            Operation::NeitherExists => {
                 tracing::warn!(%path, "ignoring diff of two removed resources");
                 return Ok(None);
             }
-            Err(err) => return Err(err.into()),
-        };
-        Ok(Some(match prep.operation {
-            Operation::InternalDiff { algorithm } => {
+            Operation::InternalDiff { algorithm, change } => {
                 #[derive(Default)]
                 struct ProduceDiffHunk {
                     hunks: Vec<DiffHunk>,
@@ -221,7 +213,7 @@ impl UnifiedPatch {
                         Ok(())
                     }
                 }
-                let input = prep.interned_input();
+                let input = change.patch_input();
                 let diff = gix::diff::blob::diff_with_slider_heuristics(algorithm, &input);
                 let (lines_added, lines_removed) = compute_line_changes(&diff);
                 let hunks = gix::diff::blob::UnifiedDiff::new(
@@ -277,7 +269,7 @@ fn detect_and_convert_to_utf8(content: BString) -> BString {
     let mut detect = chardetng::EncodingDetector::new();
     detect.feed(&content, true);
     let (encoding, high_confidence) = detect.guess_assess(None, true);
-    if encoding.name() == "UTF-8" || !high_confidence {
+    if encoding == encoding_rs::UTF_8 || !high_confidence {
         return content;
     }
 

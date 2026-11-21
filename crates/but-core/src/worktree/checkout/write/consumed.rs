@@ -297,7 +297,7 @@ impl<'repo> BlobMerger<'repo> {
         for (Content { id, mode }, kind) in sides.into_iter().zip(kinds) {
             let entry_kind = mode.to_tree_entry_mode().expect("a file").kind();
             platform
-                .set_resource(id, entry_kind, path, kind, &repo.objects)
+                .set_resource(Some(id), entry_kind, path, kind, &repo.objects)
                 .with_context(|| format!("loading {path:?} to merge"))?;
         }
         let prepared = platform

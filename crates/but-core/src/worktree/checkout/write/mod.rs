@@ -76,8 +76,8 @@ impl LockedIndex {
     }
 }
 
-/// The unresolved conflicts of the merge that produced the target, if any.
-pub(super) type Conflicts<'a> = Option<&'a gix::merge::tree::Outcome<'a>>;
+/// The final index of the merge that produced the target; only its unmerged stages are applied.
+pub(super) type Conflicts<'a> = Option<&'a gix::index::State>;
 
 /// The trees a checkout moves between, as index states.
 pub(super) struct Trees {
