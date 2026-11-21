@@ -34,6 +34,43 @@ pub(super) struct ConversationRead {
 }
 
 impl Store {
+    pub(super) fn watch_app_settings(cx: &mut Context<Self>) -> Task<()> {
+        cx.spawn(async move |this, cx| {
+            loop {
+                let watch = async {
+                    let dir = backend::run(backend::settings::config_dir).await?;
+                    let mut watch = backend::settings::AppSettingsWatch::new(dir).await?;
+                    loop {
+                        watch.changed().await?;
+                        let (single_file_diff, briefs) = match watch.read().await {
+                            Ok(flags) => flags,
+                            Err(err) => {
+                                tracing::debug!("couldn't read changed app settings: {err:#}");
+                                continue;
+                            }
+                        };
+                        let updated = this.update(cx, |store, cx| {
+                            if (store.single_file_diff, store.briefs) != (single_file_diff, briefs)
+                            {
+                                store.single_file_diff = single_file_diff;
+                                store.briefs = briefs;
+                                cx.notify();
+                            }
+                        });
+                        if updated.is_err() {
+                            return Ok::<(), anyhow::Error>(());
+                        }
+                    }
+                };
+                match watch.await {
+                    Ok(()) => return,
+                    Err(err) => tracing::warn!("couldn't watch app settings: {err:#}"),
+                }
+                cx.background_executor().timer(Duration::from_secs(5)).await;
+            }
+        })
+    }
+
     /// Fetch the expanded projects as often as GitButler's shared setting says, so what the
     /// target and remotes have stays current, and sooner once their forge reports a pull
     /// request merged. Quietly: a failed fetch only logs, and the next one tries again.

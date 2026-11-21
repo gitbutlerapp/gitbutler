@@ -68,6 +68,24 @@ impl AppSettings {
             but_utils::create_dirs_then_write(config_path, "{}\n")?;
         }
 
+        let mut settings = Self::read_merged(config_path, customization)?;
+        if let Some(legacy_overrides) = maybe_migrate_legacy_settings(config_path, &settings) {
+            // Migration saves the overrides to disk. Merge them into this read as well.
+            merge_json_value(legacy_overrides, &mut settings);
+        }
+        Ok(serde_json::from_value(settings)?)
+    }
+
+    /// Read an existing settings file and merge it with defaults, without creating or migrating files.
+    pub fn read(config_path: &Path) -> Result<Self> {
+        let settings = Self::read_merged(config_path, None)?;
+        Ok(serde_json::from_value(settings)?)
+    }
+
+    fn read_merged(
+        config_path: &Path,
+        customization: Option<serde_json::Value>,
+    ) -> Result<serde_json::Value> {
         // merge customizations from disk into the defaults to get a complete set of settings.
         let config_file_contents = std::fs::read_to_string(config_path).with_context(|| {
             format!(
@@ -91,14 +109,7 @@ impl AppSettings {
             merge_json_value(extra, &mut settings);
         }
 
-        if let Some(legacy_overrides) = maybe_migrate_legacy_settings(config_path, &settings) {
-            // At this point, `maybe_migrate_legacy_settings` has attempted to write the `customizations`
-            // as freshly read from `config_path` back to `config_path`, after merging them with the legacy settings.
-            // We now repeat this merging step with the in-memory settings to bring it up-to date with those overrides.
-            merge_json_value(legacy_overrides, &mut settings);
-        }
-
-        Ok(serde_json::from_value(settings)?)
+        Ok(settings)
     }
 
     pub fn load_from_default_path_creating_without_customization() -> Result<Self> {

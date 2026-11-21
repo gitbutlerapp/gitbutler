@@ -6,7 +6,8 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context as _, Result};
 use but_api::legacy::{config, projects};
 use but_core::settings::git::ui::GitConfigSettings;
-use but_settings::AppSettingsWithDiskSync;
+use but_settings::{AppSettings, AppSettingsWithDiskSync};
+use gix::notify::plumbing::{Loss, Watch, asynchronous::Watcher};
 
 use super::ops::changes_source;
 use super::{Forge, open};
@@ -486,9 +487,110 @@ pub(super) fn app_settings() -> Result<AppSettingsWithDiskSync> {
     AppSettingsWithDiskSync::new_with_customization(config_dir, None)
 }
 
+/// Watch the directory so an editor can replace settings.json without losing coverage.
+pub(crate) struct AppSettingsWatch {
+    watcher: Watcher,
+    dir: PathBuf,
+    path: PathBuf,
+}
+
+impl AppSettingsWatch {
+    pub(crate) async fn new(dir: PathBuf) -> Result<Self> {
+        let dir = super::run(move || Ok(dir.canonicalize()?)).await?;
+        let mut watcher = Watcher::new(Default::default())?;
+        watcher
+            .replace([Watch {
+                path: dir.clone(),
+                recursive: false,
+            }])?
+            .await?;
+        let path = AppSettings::default_settings_path(&dir);
+        Ok(Self { watcher, dir, path })
+    }
+
+    /// The initial registration also signals a change, closing the gap after startup reads.
+    pub(crate) async fn changed(&mut self) -> Result<()> {
+        loop {
+            self.watcher.ready().await;
+            let batch = self.watcher.drain(Default::default());
+            if let Some(error) = batch.error {
+                return Err(error.into());
+            }
+            if matches!(batch.loss, Some(Loss::BackendError | Loss::BackendStopped)) {
+                anyhow::bail!("lost filesystem coverage for settings.json");
+            }
+            if batch.loss.is_some()
+                || batch
+                    .events
+                    .iter()
+                    .flat_map(|event| &event.paths)
+                    .any(|path| path == &self.path || path == &self.dir)
+            {
+                return Ok(());
+            }
+        }
+    }
+
+    pub(crate) async fn read(&self) -> Result<(bool, bool)> {
+        let path = self.path.clone();
+        super::run(move || {
+            let flags = AppSettings::read(&path)?.feature_flags;
+            Ok((flags.gpui_single_file_diff, flags.gpui_briefs))
+        })
+        .await
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::{fs, time::Duration};
+
+    use super::AppSettingsWatch;
     use crate::backend::ops::tests::{git, repo_with};
+
+    #[test]
+    fn app_settings_watch_reads_edits_and_atomic_replacements() {
+        super::super::runtime().block_on(async {
+            tokio::time::timeout(Duration::from_secs(10), async {
+                let dir = tempfile::tempdir().unwrap();
+                let path = dir.path().join("settings.json");
+                let mut watch = AppSettingsWatch::new(dir.path().to_owned()).await.unwrap();
+
+                watch.changed().await.unwrap();
+                assert!(
+                    watch.read().await.is_err() && !path.exists(),
+                    "a reload must leave missing settings absent until the writer saves"
+                );
+                drop(watch);
+
+                fs::write(&path, "{}").unwrap();
+                let mut watch = AppSettingsWatch::new(dir.path().to_owned()).await.unwrap();
+                watch.changed().await.unwrap();
+                fs::write(&path, r#"{"featureFlags":{"gpuiSingleFileDiff":true}}"#).unwrap();
+                watch.changed().await.unwrap();
+                assert_eq!(
+                    watch.read().await.unwrap(),
+                    (true, false),
+                    "a direct write updates Single File Diff"
+                );
+                drop(watch);
+
+                let replacement = dir.path().join("settings.tmp");
+                fs::write(&replacement, r#"{"featureFlags":{"gpuiBriefs":true}}"#).unwrap();
+                let mut watch = AppSettingsWatch::new(dir.path().to_owned()).await.unwrap();
+                watch.changed().await.unwrap();
+                fs::rename(replacement, &path).unwrap();
+                watch.changed().await.unwrap();
+                assert_eq!(
+                    watch.read().await.unwrap(),
+                    (false, true),
+                    "an atomic replacement updates both flags"
+                );
+            })
+            .await
+            .expect("the settings changes are delivered by the native watcher");
+        });
+    }
 
     #[test]
     fn a_legacy_target_no_branch_tracks_is_picked_by_the_branch_named_as_it_tracking_it() {
