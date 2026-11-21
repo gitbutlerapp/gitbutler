@@ -81,6 +81,9 @@ pub struct Derived {
     /// `inverse-muted-foreground` at 40%: a tree's guide on a solid selection, as
     /// but-ui-react's `--guide-color` there.
     pub inverse_guide: Hsla,
+    /// `inverse-foreground` at 8%: the line between two rows of a run of selected ones on a
+    /// solid selection, as but-ui-react's `--joined-line` there.
+    pub joined_line_on_solid: Hsla,
     /// `success-text` stepped toward `inverse-foreground` until it reads at 4.5:1 on `inverse`:
     /// an added line count on a solid selection.
     pub inverse_success_text: Hsla,
@@ -157,6 +160,7 @@ impl Derived {
             primary_checked_hover: primary_checked_hover(c),
             inverse_input: c.inverse_foreground.opacity(0.26),
             inverse_guide: c.inverse_muted_foreground.opacity(0.4),
+            joined_line_on_solid: c.inverse_foreground.opacity(0.08),
             inverse_success_text: on_inverse(c.success_text),
             inverse_danger_text: on_inverse(c.danger_text),
             snackbar_warning: color(snackbar_warning.unwrap_or(snackbar_ink)),

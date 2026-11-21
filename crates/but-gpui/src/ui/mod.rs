@@ -445,8 +445,8 @@ pub fn joined(
     theme: &Theme,
 ) -> Stateful<Div> {
     let line = match solid {
-        true => theme.inverse_soft,
-        false => theme.background,
+        true => theme.derived.joined_line_on_solid,
+        false => theme.secondary,
     };
     row.when(above, |el| {
         el.relative().rounded_t_none().child(
