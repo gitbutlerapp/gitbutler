@@ -318,8 +318,14 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
 
     let target_ref_selector = target_ref.to_selector(&editor)?;
     let target_sha_selector = target_sha.to_selector(&editor)?;
-    // The editor strips padding commits, so a reference's first pick may be below its tip.
-    let target_ref_commit_selector = target_ref_commit.to_selector(&editor)?;
+    let (target_ref_commit_selector, editor_tip) =
+        editor.find_reference_target(target_ref_selector)?;
+    // A concurrent fetch or a stripped padding commit can put a different pick under the ref.
+    anyhow::ensure!(
+        editor_tip.id == target_ref_commit,
+        "Cannot integrate '{target_ref}' at {target_ref_commit}: the editor has {}",
+        editor_tip.id
+    );
 
     let from_target_ref = traverse_nodes(&editor, target_ref_selector)?;
     let mut from_target_sha = traverse_nodes(&editor, target_sha_selector)?;
