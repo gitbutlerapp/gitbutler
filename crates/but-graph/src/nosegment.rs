@@ -37,6 +37,19 @@ pub(crate) struct WorkspaceGraph {
 
 const UNKNOWN_PARENT_NODE_INDEX: NodeIndex = usize::MAX;
 
+/// Read the tag objects so replacements apply even when packed-refs caches a peeled ID.
+fn upstream_commit_id(mut id: gix::Id<'_>) -> Result<Option<gix::ObjectId>> {
+    let mut seen_tags = HashSet::new();
+    loop {
+        let object = id.object()?;
+        if object.kind != gix::objs::Kind::Tag {
+            return Ok(object.kind.is_commit().then_some(object.id));
+        }
+        anyhow::ensure!(seen_tags.insert(object.id), "tag cycle at {}", object.id);
+        id = object.into_tag().target_id()?;
+    }
+}
+
 #[expect(clippy::too_many_arguments)]
 pub(crate) fn graph(
     repo: &gix::Repository,
@@ -76,18 +89,17 @@ pub(crate) fn graph(
             ref_to_oid.insert(full_name.clone(), id.detach());
             oid_to_refs.entry(id.detach()).or_default().push(full_name);
         }
-        for mut reference in overlay_repo.references_with_prefix("refs/remotes/")? {
+        for reference in overlay_repo.references_with_prefix("refs/remotes/")? {
             let Some(id) = reference.try_id() else {
                 continue;
             };
             let full_name = reference.name().to_owned();
             // A fetch refspec can map an annotated tag into the remote-tracking namespace.
             let id = if Some(full_name.as_ref()) == target_upstream_ref {
-                let peeled = reference.peel_to_id()?;
-                if !peeled.header()?.kind().is_commit() {
+                let Some(id) = upstream_commit_id(id)? else {
                     continue;
-                }
-                peeled.detach()
+                };
+                id
             } else {
                 id.detach()
             };
