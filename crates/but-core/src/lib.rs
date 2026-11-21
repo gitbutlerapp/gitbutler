@@ -49,7 +49,7 @@ use std::{
 };
 
 use boolean_enums::gen_boolean_enum;
-use bstr::{BString, ByteSlice};
+use bstr::{BStr, BString, ByteSlice};
 use gix::{
     object::tree::EntryKind, refs::FullNameRef,
     status::plumbing::index_as_worktree::ConflictIndexEntry,
@@ -125,30 +125,38 @@ pub fn is_workspace_ref_name(ref_name: &FullNameRef) -> bool {
     ref_name == WORKSPACE_REF_NAME || ref_name == "refs/heads/gitbutler/integration"
 }
 
-/// A utility to extract the name of the remote from a remote tracking ref with `ref_name`,
-/// along with the short name of the branch that remains after stripping the remote name.
-/// If it's not a remote tracking ref, or no remote in `remote_names` (like `origin`) matches,
-/// `None` is returned.
-/// `remote_names` are expected to be returned by [`gix::Repository::remote_names()`],
-/// and as such are sorted in ascending order by length.
+/// Return owned remote and branch names from [`split_remote_branch_name()`].
 pub fn extract_remote_name_and_short_name(
     ref_name: &gix::refs::FullNameRef,
     remote_names: &gix::remote::Names,
 ) -> Option<(String, BString)> {
+    split_remote_branch_name(ref_name, remote_names)
+        .map(|(remote, branch)| (remote.to_string(), branch.to_owned()))
+}
+
+/// Split a remote-tracking ref at the longest matching name from [`gix::Repository::remote_names()`].
+/// Both names borrow from `ref_name`.
+/// An unconfigured remote is recognized only when the ref has exactly one slash after `refs/remotes/`.
+pub fn split_remote_branch_name<'a>(
+    ref_name: &'a gix::refs::FullNameRef,
+    remote_names: &gix::remote::Names,
+) -> Option<(&'a BStr, &'a BStr)> {
     let (category, shorthand_name) = ref_name.category_and_short_name()?;
     if !matches!(category, gix::refs::Category::RemoteBranch) {
         return None;
     }
 
-    let (longest_remote, short_name) = remote_names
+    remote_names
         .iter()
         .rev()
-        .filter_map(|remote_name| {
+        .find_map(|remote_name| {
             let stripped = shorthand_name.strip_prefix(remote_name.iter().as_slice())?;
             let short_name = stripped.strip_prefix(b"/")?;
-            Some((remote_name.as_bstr(), short_name.as_bstr()))
+            Some((
+                shorthand_name[..remote_name.len()].as_bstr(),
+                short_name.as_bstr(),
+            ))
         })
-        .next()
         .or_else(|| {
             // it's a stray RTB, without registered remote name. Let's not risk it and assume a name without slashes.
             let rtb_short_name = ref_name.shorten();
@@ -159,8 +167,7 @@ pub fn extract_remote_name_and_short_name(
                 return None;
             }
             Some((remote_name, short_name))
-        })?;
-    Some((longest_remote.to_string(), short_name.to_owned()))
+        })
 }
 
 /// A trait to associate arbitrary metadata with any *Git reference name*.
