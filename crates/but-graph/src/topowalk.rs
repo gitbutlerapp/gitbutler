@@ -24,12 +24,27 @@ impl Commit {
         id: gix::ObjectId,
         shallow_boundary: Option<&gix::shallow::Commits>,
     ) -> anyhow::Result<Self> {
+        use gix::objs::commit::ref_iter::Token;
+
         let commit = repo.find_commit(id)?;
+        let mut tokens = commit.iter();
+        let mut parent_ids = SmallVec::new();
+        let time_seconds = loop {
+            match tokens
+                .next()
+                .transpose()?
+                .with_context(|| format!("commit {id} is missing its committer"))?
+            {
+                Token::Parent { id } => parent_ids.push(id),
+                Token::Committer { signature } => break signature.time()?.seconds,
+                _ => {}
+            }
+        };
         Ok(Self {
-            time_seconds: commit.time()?.seconds,
-            parent_ids: commit.parent_ids().map(gix::Id::detach).collect(),
+            time_seconds,
+            parent_ids,
             is_workspace: crate::workspace::commit::is_managed_workspace_by_message(
-                commit.message_raw()?,
+                tokens.message()?,
             ),
             is_shallow: shallow_boundary
                 .is_some_and(|boundary| boundary.binary_search(&id).is_ok()),
@@ -102,6 +117,7 @@ pub fn walk(
     let mut excluded: HashSet<_> = excludes.iter().copied().collect();
     let mut to_enqueue: Vec<_> = heads.iter().chain(&excludes).copied().collect();
 
+    let mut ancestor_ids = Vec::new();
     loop {
         for id in to_enqueue.drain(..) {
             if untraversed_ids.insert(id) {
@@ -144,7 +160,7 @@ pub fn walk(
             }
             if excluded.contains(&id) {
                 // Propagate to all known ancestors (untraversed or traversed)
-                let mut ancestor_ids = vec![*parent_id];
+                ancestor_ids.push(*parent_id);
                 while let Some(ancestor_id) = ancestor_ids.pop() {
                     if excluded.insert(ancestor_id) && traversed.contains(&ancestor_id) {
                         undecided.remove(&(commits[&ancestor_id].time_seconds, ancestor_id));
@@ -154,7 +170,7 @@ pub fn walk(
             }
             if is_below_undecided {
                 // Propagate to all known ancestors (untraversed or traversed)
-                let mut ancestor_ids = vec![*parent_id];
+                ancestor_ids.push(*parent_id);
                 while let Some(ancestor_id) = ancestor_ids.pop() {
                     if below_undecided.insert(ancestor_id) && traversed.contains(&ancestor_id) {
                         ancestor_ids.extend(commits[&ancestor_id].parents_to_walk());
@@ -230,6 +246,36 @@ mod tests {
             .into_iter()
             .map(|id| Ok(repo.find_commit(id)?.message()?.summary().to_string()))
             .collect()
+    }
+
+    #[test]
+    fn reads_octopus_parents_and_workspace_message_after_extra_headers() -> anyhow::Result<()> {
+        let repo = scenario("history-below-target")?.with_object_memory();
+        let mut commit = repo.head_commit()?.decode()?.to_owned()?;
+        commit.parents = ["A~2", "A", "A~1"]
+            .into_iter()
+            .map(|rev| Ok(repo.rev_parse_single(rev)?.detach()))
+            .collect::<anyhow::Result<_>>()?;
+        commit.committer.time.seconds += 60;
+        commit
+            .extra_headers
+            .push(("gpgsig".into(), "first line\nsecond line".into()));
+        commit.message = "GitButler Workspace Commit\n\nbody".into();
+        let id = repo.write_object(&commit)?.detach();
+        let read = super::Commit::read(&repo, id, None)?;
+        assert_eq!(
+            read.parent_ids, commit.parents,
+            "all parents are kept in Git order"
+        );
+        assert_eq!(
+            read.time_seconds, commit.committer.time.seconds,
+            "the walk orders by committer time"
+        );
+        assert!(
+            read.is_workspace,
+            "the message follows the whole multiline header"
+        );
+        Ok(())
     }
 
     #[test]
