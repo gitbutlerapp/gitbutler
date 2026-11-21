@@ -727,7 +727,9 @@ pub(crate) fn ref_tip(
     repo: &gix::Repository,
     name: &gix::refs::FullNameRef,
 ) -> Option<gix::ObjectId> {
-    Some(repo.find_reference(name).ok()?.peel_to_id().ok()?.detach())
+    but_core::ref_metadata::target_ref_commit_id(repo, repo.find_reference(name).ok()?)
+        .ok()
+        .flatten()
 }
 
 /// What target `tip` has that what's checked out doesn't, as `but status` counts from where

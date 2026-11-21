@@ -212,6 +212,11 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     let target_ref = project_meta
         .remote_target_ref(repo)?
         .unwrap_or_else(|| local_target.to_owned());
+    let target_ref_commit = but_core::ref_metadata::target_ref_commit_id(
+        repo,
+        repo.find_reference(target_ref.as_ref())?,
+    )?
+    .with_context(|| format!("target '{target_ref}' did not point to a commit"))?;
     let local_target_ref = Some(local_target.to_owned());
 
     let entrypoint = workspace.graph.entrypoint()?;
@@ -313,9 +318,8 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
 
     let target_ref_selector = target_ref.to_selector(&editor)?;
     let target_sha_selector = target_sha.to_selector(&editor)?;
-    let (target_ref_commit_selector, target_commit) =
-        editor.find_reference_target(target_ref_selector)?;
-    let target_ref_commit = target_commit.id;
+    // The editor strips padding commits, so a reference's first pick may be below its tip.
+    let target_ref_commit_selector = target_ref_commit.to_selector(&editor)?;
 
     let from_target_ref = traverse_nodes(&editor, target_ref_selector)?;
     let mut from_target_sha = traverse_nodes(&editor, target_sha_selector)?;

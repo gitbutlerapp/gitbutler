@@ -191,16 +191,12 @@ pub(crate) fn set_base_branch(
         return go_back_to_integration(ctx, perm);
     }
 
-    let mut target_branch = repo
+    let target_branch = repo
         .try_find_reference(target_branch_ref.to_string().as_str())?
         .ok_or(anyhow!("remote branch '{target_branch_ref}' not found"))?;
 
-    let target_branch_head = target_branch
-        .peel_to_commit()
-        .context(format!(
-            "failed to peel branch {target_branch_ref} to commit"
-        ))?
-        .id;
+    let target_branch_head = but_core::ref_metadata::target_ref_commit_id(&repo, target_branch)?
+        .with_context(|| format!("failed to peel branch {target_branch_ref} to commit"))?;
 
     let mut current_head = repo.head().context("Failed to get HEAD reference")?;
     let current_head_commit = current_head
@@ -341,21 +337,22 @@ pub(crate) fn target_to_base_branch(
 ) -> Result<BaseBranch> {
     let target_ref_name = project_meta.target_ref_or_err()?.clone();
     let target_sha = project_meta.resolve_target_commit(repo)?;
-    let mut target_ref = repo
+    let target_ref = repo
         .find_reference(&target_ref_name)
         .context(Code::DefaultTargetNotFound)?;
-    let local_target_tip = target_ref
-        .peel_to_commit()
-        .with_context(|| format!("target '{target_ref_name}' did not point to a commit"))?
-        .id;
+    let local_target_tip = but_core::ref_metadata::target_ref_commit_id(repo, target_ref)?
+        .with_context(|| format!("target '{target_ref_name}' did not point to a commit"))?;
     let upstream_name = project_meta.remote_target_ref(repo)?;
-    let upstream_tip = upstream_name
-        .as_ref()
-        .map(|name| repo.try_find_reference(name.as_ref()))
-        .transpose()?
-        .flatten()
-        .map(|mut reference| reference.peel_to_commit().map(|commit| commit.id))
-        .transpose()?;
+    let upstream_tip = if let Some(name) = &upstream_name
+        && let Some(reference) = repo.try_find_reference(name.as_ref())?
+    {
+        Some(
+            but_core::ref_metadata::target_ref_commit_id(repo, reference)?
+                .with_context(|| format!("upstream '{name}' did not point to a commit"))?,
+        )
+    } else {
+        None
+    };
     let target_ref_commit_id = match upstream_name {
         Some(_) => upstream_tip,
         None => Some(local_target_tip),
