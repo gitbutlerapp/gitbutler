@@ -1000,13 +1000,17 @@ pub(crate) fn workspace_integrate_upstream_with_details_and_perm(
         let Some(upstream) = project_meta.remote_target_ref(&repo)? else {
             return Ok(None);
         };
-        let Some(mut upstream_reference) = repo.try_find_reference(upstream.as_ref())? else {
+        let Some(upstream_reference) = repo.try_find_reference(upstream.as_ref())? else {
+            return Ok(None);
+        };
+        let Some(tip) = but_core::ref_metadata::target_ref_commit_id(&repo, upstream_reference)?
+        else {
             return Ok(None);
         };
         but_workspace::local_tracking_branch_to_fast_forward(
             &repo,
             target_ref.as_local_full_name_ref(),
-            upstream_reference.peel_to_id()?.detach(),
+            tip,
         )
     })();
     let local_target_ref = match local_target_ref {

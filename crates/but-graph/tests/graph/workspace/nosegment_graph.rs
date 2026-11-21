@@ -172,5 +172,12 @@ fn a_stack_integrated_only_into_the_targets_upstream_keeps_its_lane() -> anyhow:
         ["B", "A"],
         "origin/trunk contains A, so A is a separate lane even though B is stacked on it"
     );
+    let mut inferred = target_meta(&repo);
+    inferred.target_commit_id = None;
+    assert_eq!(
+        inferred.resolve_target_commit(&repo)?,
+        repo.rev_parse_single("corrected^{commit}")?.detach(),
+        "an inferred cutoff follows the same upstream as stack placement"
+    );
     Ok(())
 }

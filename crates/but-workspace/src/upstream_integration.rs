@@ -212,7 +212,6 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     let target_ref = project_meta
         .remote_target_ref(repo)?
         .unwrap_or_else(|| local_target.to_owned());
-    let target_ref_commit = repo.find_reference(target_ref.as_ref())?.peel_to_id()?;
     let local_target_ref = Some(local_target.to_owned());
 
     let entrypoint = workspace.graph.entrypoint()?;
@@ -314,7 +313,9 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
 
     let target_ref_selector = target_ref.to_selector(&editor)?;
     let target_sha_selector = target_sha.to_selector(&editor)?;
-    let target_ref_commit_selector = target_ref_commit.to_selector(&editor)?;
+    let (target_ref_commit_selector, target_commit) =
+        editor.find_reference_target(target_ref_selector)?;
+    let target_ref_commit = target_commit.id;
 
     let from_target_ref = traverse_nodes(&editor, target_ref_selector)?;
     let mut from_target_sha = traverse_nodes(&editor, target_sha_selector)?;
@@ -343,7 +344,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
         from_target_ref,
         target_sha,
         target_ref.as_ref(),
-        target_ref_commit.detach(),
+        target_ref_commit,
         review_hints,
     )?;
 
@@ -635,7 +636,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     }
 
     let mut project_meta = project_meta;
-    project_meta.target_commit_id = Some(target_ref_commit.detach());
+    project_meta.target_commit_id = Some(target_ref_commit);
     let mut rebase = leave_unnecessary_workspace(editor.rebase()?.into_editor())?;
     // Materializing re-projects the workspace from the graph's own project meta, and the
     // dry-run overlay reads its target from there too. Without this the outcome is projected

@@ -1813,11 +1813,13 @@ EOF
     git checkout --detach A
     commit upstream
     git tag -am "upstream release" release main
+    git tag -am "intermediate release" intermediate main
     git tag -am "corrected release" corrected
     git update-ref refs/remotes/origin/trunk refs/tags/release
     git pack-refs --all
     # The upstream's packed, peeled ID predates the replacement tag.
-    git replace refs/tags/release refs/tags/corrected
+    git replace refs/tags/release refs/tags/intermediate
+    git replace refs/tags/intermediate refs/tags/corrected
     git checkout gitbutler/workspace
     git config --add remote.origin.fetch '+refs/tags/release:refs/remotes/origin/trunk'
     git config branch.main.merge refs/tags/release

@@ -3,6 +3,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::json::HexHash;
+use anyhow::Context as _;
 use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_forge::ForgeReview;
@@ -74,9 +75,11 @@ pub(crate) fn workspace_target_commits_with_perm(
         // Continue below the cursor commit.
         Some(HexHash(from)) => present_first_parent(&repo.find_commit(from)?),
         None => Some(
-            repo.find_reference(upstream_ref.as_ref())?
-                .peel_to_commit()?
-                .id,
+            but_core::ref_metadata::target_ref_commit_id(
+                &repo,
+                repo.find_reference(upstream_ref.as_ref())?,
+            )?
+            .with_context(|| format!("target upstream '{upstream_ref}' has no commit"))?,
         ),
     };
     if limit == 0 {
