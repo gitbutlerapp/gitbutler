@@ -521,10 +521,15 @@ pub(crate) fn graph(
                     new_map.insert(stack_lineage, to_repoints);
                 }
             }
-            // A remote-tracking branch leads through the local branch of the same name.
+            // Carry only names a subsequent ref can match. Remote-only names would
+            // otherwise accumulate in every ancestor's lineage.
             if category == Some(gix::refs::Category::RemoteBranch) {
-                if let Some((_remote, short_name)) =
-                    but_core::extract_remote_name_and_short_name(full_name.as_ref(), remote_names)
+                if !is_remote_only_branch
+                    && let Some((_remote, short_name)) =
+                        but_core::extract_remote_name_and_short_name(
+                            full_name.as_ref(),
+                            remote_names,
+                        )
                 {
                     new_stack_lineage
                         .branches_in_lineage
