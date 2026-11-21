@@ -144,3 +144,33 @@ fn placing_branches_does_not_read_history_beyond_the_walk() -> anyhow::Result<()
     );
     Ok(())
 }
+
+#[test]
+fn a_stack_integrated_only_into_the_targets_upstream_keeps_its_lane() -> anyhow::Result<()> {
+    let (repo, mut meta, _db) =
+        read_only_in_memory_scenario("ws/single-stack-renamed-target-upstream")?;
+    add_stack(&mut meta, 1, "B", StackState::InWorkspace);
+    add_stack(&mut meta, 2, "A", StackState::InWorkspace);
+    let ws = but_graph::nosegment::workspace(
+        &repo,
+        &*meta,
+        Default::default(),
+        target_meta(&repo),
+        repo.head_name()?.as_ref().map(|name| name.as_ref()),
+        Some(repo.head_id()?.detach()),
+        [],
+        Vec::new(),
+        false,
+        None,
+    )?;
+    assert_eq!(
+        ws.stacks
+            .iter()
+            .filter_map(|stack| stack.ref_name())
+            .map(|name| name.shorten().to_string())
+            .collect::<Vec<_>>(),
+        ["B", "A"],
+        "origin/trunk contains A, so A is a separate lane even though B is stacked on it"
+    );
+    Ok(())
+}

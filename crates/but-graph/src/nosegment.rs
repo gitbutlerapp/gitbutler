@@ -98,6 +98,17 @@ pub(crate) fn graph(
             ref_to_oid.insert(full_name.clone(), id.detach());
             oid_to_refs.entry(id.detach()).or_default().push(full_name);
         }
+        // The target's configured upstream may have a different branch name.
+        if let Some(upstream) = target_upstream_ref.and_then(|name| ref_to_oid.get(name)) {
+            if let Some(target) = ref_to_oid.get(target_ref) {
+                heads_on_reaching
+                    .entry(*target)
+                    .or_default()
+                    .push(*upstream);
+            } else {
+                heads.push(*upstream);
+            }
+        }
         if collect_tags {
             for mut reference in overlay_repo.references_with_prefix("refs/tags/")? {
                 let Ok(commit) = reference.peel_to_commit() else {
@@ -158,17 +169,21 @@ pub(crate) fn graph(
         // Branches outside the workspace, like those of a single-branch-mode
         // checkout, may still be stacked through their persisted branch stack order.
         let mut branch_stacks = Vec::new();
+        let mut claimed_branches: HashSet<_> = workspace_stacks
+            .iter()
+            .flat_map(|stack| stack.branches.iter().cloned())
+            .collect();
         for full_name in ref_to_oid.keys() {
             if full_name.category() != Some(gix::refs::Category::LocalBranch)
-                || workspace_stacks
-                    .iter()
-                    .chain(&branch_stacks)
-                    .any(|stack| stack.branches.contains(full_name))
+                || claimed_branches.contains(full_name)
             {
                 continue;
             }
-            if let Some(branches) = overlay_meta.branch_stack_order(full_name.as_ref())? {
-                branch_stacks.extend(live_stack(branches, false));
+            if let Some(branches) = overlay_meta.branch_stack_order(full_name.as_ref())?
+                && let Some(stack) = live_stack(branches, false)
+            {
+                claimed_branches.extend(stack.branches.iter().cloned());
+                branch_stacks.push(stack);
             }
         }
         (workspace_stacks, branch_stacks)

@@ -1808,6 +1808,15 @@ EOF
     create_workspace_commit_once B
   )
 
+  cp -R single-stack single-stack-renamed-target-upstream
+  (cd single-stack-renamed-target-upstream
+    git checkout -b soon-trunk A
+    commit upstream
+    setup_remote_tracking soon-trunk trunk move
+    git checkout gitbutler/workspace
+    git branch --set-upstream-to=origin/trunk main
+  )
+
   # A workspace where the only ref on the branch commits is origin/A (remote).
   # The local branch never existed - only the remote was fetched.
   # This tests that a remote-only ref at the top of the stack still produces the
