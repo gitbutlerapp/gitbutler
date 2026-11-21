@@ -22,6 +22,7 @@ use ratatui::{
     widgets::{Scrollbar, ScrollbarOrientation, ScrollbarState},
 };
 use syntect::{easy::HighlightLines, highlighting, parsing::SyntaxSet};
+use unicode_width::UnicodeWidthStr as _;
 
 use crate::{
     ChangeSourceId, CliId,
@@ -53,7 +54,8 @@ use crate::{
     utils::{
         DebugAsType,
         diff_rendering::{
-            self, CodeLineKind, DetailsLine, DiffLineWriter, IdGen, SectionId, load_syntax_set,
+            self, CODE_GUTTER_SPANS, CodeLineKind, CodeLineNumbers, DetailsCodeLine, DetailsLine,
+            DiffLineWriter, IdGen, SectionId, TAB_WIDTH, load_syntax_set,
         },
         string_interning::Strings,
     },
@@ -77,6 +79,7 @@ pub enum DetailsMessage {
     Discard,
     DropToBeDiscarded,
     Mark,
+    ToggleWrap,
 }
 
 #[derive(Debug)]
@@ -100,6 +103,8 @@ pub struct Details {
     worker: Worker,
     to_be_discarded: Vec<SectionId>,
     clipboard: Clipboard,
+    /// Wrap code lines that are wider than the pane instead of cutting them off.
+    wrap_code_lines: bool,
 }
 
 #[derive(Debug, Default)]
@@ -148,6 +153,7 @@ impl Details {
             worker: Worker::new(),
             to_be_discarded: Default::default(),
             clipboard,
+            wrap_code_lines: true,
         }
     }
 
@@ -652,7 +658,7 @@ impl Details {
         let mut highlight_lines = None;
 
         let mut layout_cache = self.layout_cache.borrow_mut();
-        layout_cache.update(area.width, &self.lines);
+        layout_cache.update(area.width, self.wrap_code_lines, &self.lines);
 
         let viewport_height = area.height as usize;
         let total_display_lines = layout_cache.total_display_lines();
@@ -878,6 +884,9 @@ impl Details {
                 };
                 self.handle_mark(messages, marks, backstack)?;
             }
+            DetailsMessage::ToggleWrap => {
+                self.wrap_code_lines = !self.wrap_code_lines;
+            }
         }
 
         Ok(())
@@ -1005,63 +1014,67 @@ impl Details {
                 }
             }
             DetailsLine::Code(line) => {
-                if skip_display_lines == 0 {
-                    let Some(line_area) = areas.next() else {
-                        return RenderedLine::viewport_filled();
-                    };
+                if highlight_lines.is_none() {
+                    let syntax = line.syntax(syntax_set);
+                    *highlight_lines = Some(HighlightLines::new(syntax, syntax_theme));
+                }
 
-                    if highlight_lines.is_none() {
-                        let syntax = line.syntax(syntax_set);
-                        *highlight_lines = Some(HighlightLines::new(syntax, syntax_theme));
+                line.ensure_highlighted(
+                    syntax_set,
+                    highlight_lines.as_mut().unwrap(),
+                    self.theme,
+                    &mut self.strings.lock(),
+                );
+
+                let syntax_highlighted_line = line.syntax_highlighted_line.borrow();
+                let syntax_highlighted_line = syntax_highlighted_line
+                    .as_ref()
+                    .expect("line should have been highlighted by now");
+
+                let available = code_wrap_width(width, line.line_numbers);
+                let fits = !self.wrap_code_lines
+                    || syntax_highlighted_line.spans[CODE_GUTTER_SPANS..]
+                        .iter()
+                        .map(|span| span.content.chars().map(char_display_width).sum::<usize>())
+                        .sum::<usize>()
+                        <= available;
+
+                if fits {
+                    if skip_display_lines == 0 {
+                        let Some(line_area) = areas.next() else {
+                            return RenderedLine::viewport_filled();
+                        };
+                        self.render_code_row(
+                            line,
+                            syntax_highlighted_line,
+                            line_area,
+                            marks,
+                            frame,
+                        );
                     }
-
-                    let id = line.id;
-                    let mut strings = self.strings.lock();
-
-                    line.ensure_highlighted(
-                        syntax_set,
-                        highlight_lines.as_mut().unwrap(),
-                        self.theme,
-                        &mut strings,
-                    );
-
-                    let syntax_highlighted_line = line.syntax_highlighted_line.borrow();
-                    let syntax_highlighted_line = syntax_highlighted_line
-                        .as_ref()
-                        .expect("line should have been highlighted by now");
-
-                    if self.section_is_to_be_discarded(id) {
-                        let crossed_out_line = syntax_highlighted_line
-                            .spans
+                } else {
+                    let (gutter, code) = syntax_highlighted_line.spans.split_at(CODE_GUTTER_SPANS);
+                    let continuation_gutter = continuation_gutter(gutter);
+                    for (row_index, row) in wrap_code_spans(code, available)
+                        .into_iter()
+                        .enumerate()
+                        .skip(skip_display_lines)
+                    {
+                        let Some(line_area) = areas.next() else {
+                            return RenderedLine::viewport_filled();
+                        };
+                        let gutter = if row_index == 0 {
+                            gutter
+                        } else {
+                            &continuation_gutter
+                        };
+                        let row = gutter
                             .iter()
                             .cloned()
-                            .map(|span| span.crossed_out())
+                            .chain(row)
                             .collect::<Line<'_>>()
                             .style(syntax_highlighted_line.style);
-                        frame.render_widget(crossed_out_line, line_area);
-                    } else {
-                        frame.render_widget(syntax_highlighted_line, line_area);
-                    }
-
-                    if line
-                        .cli_id
-                        .as_ref()
-                        .is_some_and(|id| marks.contains_cli_id(id))
-                    {
-                        if let Some(color) = line.line_numbers.kind.bg(self.theme) {
-                            if let Color::Rgb(r, g, b) = color {
-                                let base = Rgb(r, g, b);
-                                let mix = Rgb(150, 150, 150);
-                                let weight = 0.3;
-                                frame
-                                    .buffer_mut()
-                                    .set_style(line_area, base.lerp(mix, weight).into_bg_style());
-                            }
-                        } else {
-                            frame
-                                .buffer_mut()
-                                .set_style(line_area, self.theme.tui_details_context_lines_marked);
-                        }
+                        self.render_code_row(line, &row, line_area, marks, frame);
                     }
                 }
             }
@@ -1079,6 +1092,51 @@ impl Details {
         }
 
         RenderedLine::line_finished()
+    }
+
+    /// Renders one row of a code line, crossed out when it is about to be discarded and
+    /// highlighted when it is marked.
+    fn render_code_row(
+        &self,
+        code_line: &DetailsCodeLine,
+        row: &Line<'_>,
+        area: Rect,
+        marks: MarksRef<'_>,
+        frame: &mut Frame,
+    ) {
+        if self.section_is_to_be_discarded(code_line.id) {
+            let crossed_out_row = row
+                .spans
+                .iter()
+                .cloned()
+                .map(|span| span.crossed_out())
+                .collect::<Line<'_>>()
+                .style(row.style);
+            frame.render_widget(crossed_out_row, area);
+        } else {
+            frame.render_widget(row, area);
+        }
+
+        if code_line
+            .cli_id
+            .as_ref()
+            .is_some_and(|id| marks.contains_cli_id(id))
+        {
+            if let Some(color) = code_line.line_numbers.kind.bg(self.theme) {
+                if let Color::Rgb(r, g, b) = color {
+                    let base = Rgb(r, g, b);
+                    let mix = Rgb(150, 150, 150);
+                    let weight = 0.3;
+                    frame
+                        .buffer_mut()
+                        .set_style(area, base.lerp(mix, weight).into_bg_style());
+                }
+            } else {
+                frame
+                    .buffer_mut()
+                    .set_style(area, self.theme.tui_details_context_lines_marked);
+            }
+        }
     }
 
     fn reset_scroll(&self) {
@@ -1895,16 +1953,20 @@ enum PendingSectionSelection {
 #[derive(Debug, Default)]
 struct LayoutCache {
     width: u16,
+    wrap_code_lines: bool,
     line_count: usize,
     heights: Vec<usize>,
     prefix_sum: Vec<usize>,
 }
 
 impl LayoutCache {
-    fn update(&mut self, width: u16, lines: &[DetailsLine]) {
+    fn update(&mut self, width: u16, wrap_code_lines: bool, lines: &[DetailsLine]) {
         count_allocations("update_cache", || {
-            if self.width != width || self.line_count > lines.len() {
-                self.rebuild(width, lines);
+            if self.width != width
+                || self.wrap_code_lines != wrap_code_lines
+                || self.line_count > lines.len()
+            {
+                self.rebuild(width, wrap_code_lines, lines);
                 return;
             }
 
@@ -1917,7 +1979,7 @@ impl LayoutCache {
             }
 
             for line in &lines[self.line_count..] {
-                let height = display_height(line, width);
+                let height = display_height(line, width, wrap_code_lines);
                 self.heights.push(height);
                 let next = self.prefix_sum.last().copied().unwrap_or_default() + height;
                 self.prefix_sum.push(next);
@@ -1926,12 +1988,13 @@ impl LayoutCache {
         });
     }
 
-    fn rebuild(&mut self, width: u16, lines: &[DetailsLine]) {
+    fn rebuild(&mut self, width: u16, wrap_code_lines: bool, lines: &[DetailsLine]) {
         self.width = width;
+        self.wrap_code_lines = wrap_code_lines;
         self.line_count = 0;
         self.heights.clear();
         self.prefix_sum.clear();
-        self.update(width, lines);
+        self.update(width, wrap_code_lines, lines);
     }
 
     fn total_display_lines(&self) -> usize {
@@ -2000,9 +2063,16 @@ fn section_display_range(section: &Section, layout_cache: &LayoutCache) -> (usiz
     )
 }
 
-fn display_height(line: &DetailsLine, width: u16) -> usize {
+fn display_height(line: &DetailsLine, width: u16, wrap_code_lines: bool) -> usize {
     match line {
-        DetailsLine::Text { .. } | DetailsLine::Code(_) | DetailsLine::SectionSeparator => 1,
+        DetailsLine::Text { .. } | DetailsLine::SectionSeparator => 1,
+        DetailsLine::Code(line) => {
+            if wrap_code_lines {
+                code_line_display_height(line, width)
+            } else {
+                1
+            }
+        }
         DetailsLine::TextToWrap { text, .. } => wrapped_text_lines(text, width).count(),
         DetailsLine::HunkHeader { .. } => {
             // 2 for the top and bottom boxes, 1 for the path itself, and 1 for the bottom padding:
@@ -2024,6 +2094,131 @@ fn wrapped_text_lines(text: &str, width: u16) -> impl Iterator<Item = std::borro
             Position::Last => (!line.is_empty()).then_some(line),
         })
         .map(|line| if line.is_empty() { " ".into() } else { line })
+}
+
+/// Width of the line-number gutter in front of every code line, like `12 ┊ 13 │ +`.
+fn code_gutter_width(line_numbers: CodeLineNumbers) -> usize {
+    // Both numbers, the ` ┊ ` and ` │ ` separators, and the `+`/`-`/` ` marker.
+    (line_numbers.old_width + line_numbers.new_width) as usize + 7
+}
+
+/// How many columns the code of a wrapped code line gets on each row.
+///
+/// The last column is left free because the scrollbar is drawn over it.
+fn code_wrap_width(width: u16, line_numbers: CodeLineNumbers) -> usize {
+    usize::from(width)
+        .saturating_sub(1)
+        .saturating_sub(code_gutter_width(line_numbers))
+        .max(1)
+}
+
+fn char_display_width(c: char) -> usize {
+    unicode_width::UnicodeWidthChar::width(c).unwrap_or(0)
+}
+
+/// Returns the char indices where each row of wrapped code starts, so that no row is wider
+/// than `available` columns. Rows break after the last whitespace that fits, and only break in
+/// the middle of a word when the word alone is wider than a row.
+///
+/// Both the layout cache and the renderer go through this so that a line takes up exactly as
+/// many rows as it is counted with.
+fn code_row_starts(code: impl Iterator<Item = char>, available: usize) -> Vec<usize> {
+    let mut starts = vec![0];
+    let mut row_width = 0;
+    // Where the row would continue if it was broken after the last whitespace in it, and the
+    // width of what comes after that whitespace so far.
+    let mut after_whitespace: Option<(usize, usize)> = None;
+    for (index, c) in code.enumerate() {
+        let width = char_display_width(c);
+        if row_width > 0 && row_width + width > available {
+            match after_whitespace.take() {
+                Some((start, width_after)) => {
+                    starts.push(start);
+                    row_width = width_after;
+                }
+                None => {
+                    starts.push(index);
+                    row_width = 0;
+                }
+            }
+        }
+        row_width += width;
+        if let Some((_, width_after)) = &mut after_whitespace {
+            *width_after += width;
+        }
+        if c.is_whitespace() {
+            after_whitespace = Some((index + 1, 0));
+        }
+    }
+    starts
+}
+
+fn code_line_display_height(line: &DetailsCodeLine, width: u16) -> usize {
+    let available = code_wrap_width(width, line.line_numbers);
+    line.with_line_from_diff(|code| {
+        // Tabs are expanded when the line is highlighted, so expand them the same way here.
+        let mut column = 0;
+        let expanded = code.chars().flat_map(|c| {
+            let (c, count) = if c == '\t' {
+                (' ', TAB_WIDTH - column % TAB_WIDTH)
+            } else {
+                (c, 1)
+            };
+            column += char_display_width(c) * count;
+            std::iter::repeat_n(c, count)
+        });
+        code_row_starts(expanded, available).len()
+    })
+}
+
+/// Splits the code spans of a highlighted line into rows that fit `available` columns.
+fn wrap_code_spans(spans: &[Span<'static>], available: usize) -> Vec<Vec<Span<'static>>> {
+    let row_starts = code_row_starts(
+        spans.iter().flat_map(|span| span.content.chars()),
+        available,
+    );
+    let mut next_row_starts = row_starts.into_iter().skip(1).peekable();
+    let mut rows = vec![Vec::new()];
+    let mut char_index = 0;
+    for span in spans {
+        let mut start = 0;
+        for (byte_index, _) in span.content.char_indices() {
+            if next_row_starts.next_if_eq(&char_index).is_some() {
+                if byte_index > start {
+                    rows.last_mut()
+                        .expect("there is always a row")
+                        .push(Span::styled(
+                            span.content[start..byte_index].to_owned(),
+                            span.style,
+                        ));
+                }
+                rows.push(Vec::new());
+                start = byte_index;
+            }
+            char_index += 1;
+        }
+        if span.content.len() > start {
+            rows.last_mut()
+                .expect("there is always a row")
+                .push(Span::styled(span.content[start..].to_owned(), span.style));
+        }
+    }
+    rows
+}
+
+/// The gutter for the rows a wrapped code line continues on: the separators stay so the
+/// columns line up, but the line numbers and the `+`/`-` marker are only shown on the first row.
+fn continuation_gutter(gutter: &[Span<'static>]) -> Vec<Span<'static>> {
+    gutter
+        .iter()
+        .map(|span| {
+            if span.content.contains(['┊', '│']) {
+                span.clone()
+            } else {
+                Span::styled(" ".repeat(span.content.width()), span.style)
+            }
+        })
+        .collect()
 }
 
 struct RenderedLine {
@@ -2275,5 +2470,41 @@ mod tests {
             matches!(selected.get(), SelectedSection::None),
             "no section is selected when the latest one does not match"
         );
+    }
+
+    mod code_row_starts {
+        use super::super::code_row_starts;
+
+        #[test]
+        fn short_code_stays_on_one_row() {
+            assert_eq!(code_row_starts("fits".chars(), 10), [0], "nothing to wrap");
+        }
+
+        #[test]
+        fn breaks_after_the_last_whitespace_that_fits() {
+            assert_eq!(
+                code_row_starts("the end of it is cut".chars(), 12),
+                [0, 11],
+                "`it` moves to the next row whole instead of being split after `i`",
+            );
+        }
+
+        #[test]
+        fn breaks_inside_a_word_that_is_wider_than_a_row() {
+            assert_eq!(
+                code_row_starts("abcdefghij".chars(), 4),
+                [0, 4, 8],
+                "without whitespace there is nowhere else to break",
+            );
+        }
+
+        #[test]
+        fn double_width_chars_never_straddle_rows() {
+            assert_eq!(
+                code_row_starts("ああああ".chars(), 3),
+                [0, 1, 2, 3],
+                "a two-column char does not fit next to another one in three columns",
+            );
+        }
     }
 }

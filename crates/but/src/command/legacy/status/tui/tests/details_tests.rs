@@ -515,6 +515,41 @@ fn details_view_resize_clamps_to_max_and_min_width() {
 }
 
 #[test]
+fn details_view_wraps_long_lines_and_z_toggles_it() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file(
+        "README.md",
+        "# Title\n\nA whole markdown paragraph lives on one line, so without wrapping the end of it is cut off at the edge of the pane.\nshort line\n",
+    );
+
+    let mut tui = test_status_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 100,
+            height: 20,
+            ..Default::default()
+        },
+    );
+
+    // long lines wrap by default, with the line numbers only on the first row
+    tui.input('l').assert_rendered_term_svg_eq(file![
+        "snapshots/details_view_wraps_long_lines_and_z_toggles_it_001.svg"
+    ]);
+
+    // `z` turns wrapping off, so the paragraph is cut off at the edge again
+    tui.input('z').assert_rendered_term_svg_eq(file![
+        "snapshots/details_view_wraps_long_lines_and_z_toggles_it_002.svg"
+    ]);
+
+    // and back on
+    tui.input('z').assert_rendered_term_svg_eq(file![
+        "snapshots/details_view_wraps_long_lines_and_z_toggles_it_003.svg"
+    ]);
+}
+
+#[test]
 fn details_cursor_stays_visible_after_resizing() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
