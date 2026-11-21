@@ -48,6 +48,7 @@ mod account;
 mod cursor;
 mod drop;
 mod frame;
+mod groups;
 mod menu;
 pub(crate) use menu::{
     ArchiveWorktree, OpenProjectSettings, OpenRepository, Reveal, StopWatching, UnarchiveWorktree,
@@ -508,6 +509,8 @@ pub struct Navigator {
     focus: FocusHandle,
     /// The rows as last built, and what's worked out from them: see [`Built`].
     built: Built,
+    /// Repository status for group badges, refreshed on store changes, never while drawing.
+    group_changes: HashSet<ProjectId>,
     /// How tall a row is, in design pixels, as the density draws it: the theme's control
     /// height, taken as the navigator draws, so its row maths and its rows agree.
     row: f32,
@@ -698,6 +701,7 @@ impl Navigator {
                 }
             }),
             cx.observe(&store, |this, store, cx| {
+                this.group_changes = groups::changed_projects(store.read(cx));
                 let prefs = &store.read(cx).prefs;
                 if this.branches_start_open == prefs.branches_start_folded {
                     this.branches_start_open = !prefs.branches_start_folded;
@@ -751,6 +755,7 @@ impl Navigator {
             (!prefs.branches_start_folded, prefs.all_branch_commits);
         Self {
             app,
+            group_changes: groups::changed_projects(store.read(cx)),
             store,
             detail,
             focus: cx.focus_handle(),
@@ -1631,6 +1636,7 @@ impl Navigator {
         let el = match self.built.rows.get(ix) {
             None | Some(Row::Gap) => return div().h(dp(CARD_GAP)).into_any_element(),
             _ if hidden => div().into_any_element(),
+            Some(Row::Group(group)) => self.group_row(group, cx),
             Some(Row::Item(_)) => self.render_item(&self.built.rows, ix, inset, window, theme, cx),
             // A dashed line, as but-ui-react's WorktreeDivider.
             Some(Row::WorktreeDivider) => h_flex()
@@ -2780,7 +2786,9 @@ impl Navigator {
                 // Only the manual order moves cards by hand.
                 .map(|el| {
                     let name = SharedString::from(entry.project.name.clone());
-                    self.project_drag(el, item, name, expanded && manual, cx)
+                    let grouped = !store.prefs.project_groups.is_empty() && self.scope.is_none();
+                    let el = self.project_drag(el, item, name, expanded && manual && !grouped, cx);
+                    self.group_project_drop(el, id, grouped, cx)
                 })
                 .into_any_element(),
         )
