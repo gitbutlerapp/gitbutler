@@ -44,6 +44,15 @@ type RowProps = {
 	/** Something on the row changed since it was last opened: a dot in the row's start padding,
 	 * before its guides, where it moves nothing, so the counts line up down the list either way. */
 	unread?: boolean;
+	/** The row is part of something the pointer is on elsewhere in the tree, as a row whose tile is
+	 * in the split whose map is pointed at: it takes the hover's ground, so the rows that go together
+	 * read as one while it lasts. */
+	linked?: boolean;
+	/** The row's `SplitPreviewMap`, while it is in a split: in a cell of its own at the row's very
+	 * end, after its counts and next step, so the maps line up down the list. Give the tree
+	 * `data-split-room` while any of its rows has one, and the rows without keep the cell's room, so
+	 * their counts line up too. */
+	split?: ReactNode;
 } & useRender.ComponentProps<"div">;
 
 const Steps: FC<{
@@ -166,16 +175,18 @@ const Row: FC<
 	folded,
 	onToggleFolded,
 	selected = false,
+	linked = false,
 	meta: metaSlot,
 	actions: actionsSlot,
+	split: splitSlot,
 	rowClassName,
 	render,
 	...props
 }) => {
-	const [meta, actions] = [filled(metaSlot), filled(actionsSlot)];
+	const [meta, actions, split] = [filled(metaSlot), filled(actionsSlot), filled(splitSlot)];
 	return useRender({
 		render: render ?? <div />,
-		state: { selected },
+		state: { selected, linked },
 		props: mergeProps<"div">(props, {
 			className: classes(styles.row, styles.compact, rowClassName),
 			onPointerEnter: measureRuns,
@@ -198,7 +209,7 @@ const Row: FC<
 						icon !== undefined && <span className={styles.icon}>{icon}</span>
 					)}
 					<span className={styles.label}>{label}</span>
-					{(meta !== undefined || actions !== undefined) && (
+					{(meta !== undefined || actions !== undefined || split !== undefined) && (
 						<span className={styles.end}>
 							{meta !== undefined && <span className={styles.meta}>{meta}</span>}
 							{actions !== undefined && (
@@ -206,6 +217,7 @@ const Row: FC<
 									{actions}
 								</span>
 							)}
+							{split !== undefined && <span className={styles.split}>{split}</span>}
 						</span>
 					)}
 					{unread === true && (

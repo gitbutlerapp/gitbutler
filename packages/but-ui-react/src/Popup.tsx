@@ -571,11 +571,16 @@ export const PopupItem: FC<
 		leading?: ReactNode;
 		/** Closes the row — a tick for the current choice, a chevron for a step further in. */
 		trailing?: IconName;
+		/**
+		 * Closes the row where a glyph from the icon set is not the right mark — a `MetaStatus` in
+		 * its own colour, say. Sits before any shortcut and `trailing` glyph.
+		 */
+		end?: ReactNode;
 		/** The shortcut that does what the row does, sat before any trailing glyph. */
 		kbd?: string | HotkeySequence;
 		children: ReactNode;
 	} & useRender.ComponentProps<"button">
-> = ({ icon, leading, trailing, kbd, children, render, ...props }) =>
+> = ({ icon, leading, trailing, end, kbd, children, render, ...props }) =>
 	useRender({
 		// oxlint-disable-next-line jsx_a11y/control-has-associated-label -- Labelled by its children.
 		render: render ?? <button type="button" />,
@@ -586,6 +591,7 @@ export const PopupItem: FC<
 					{icon !== undefined && <Icon name={icon} className={styles.itemIcon} />}
 					{leading}
 					<span className={styles.itemLabel}>{children}</span>
+					{end !== undefined && <span className={styles.itemEnd}>{end}</span>}
 					{kbd !== undefined && <Kbd hotkey={kbd} className={styles.itemKbd} />}
 					{trailing !== undefined && <Icon name={trailing} className={styles.itemIcon} />}
 				</>

@@ -385,6 +385,13 @@
 	color: var(--but-subtle-foreground);
 }
 
+/* Something of its own at the row's end, a status, in its own colour. */
+.itemEnd {
+	display: flex;
+	flex: none;
+	align-items: center;
+}
+
 /* A popup's empty list keeps the popup's proportions however wide it opens: as wide as the list,
    and as tall as 5:2 of that, rather than one fixed height that is a slab in a narrow dropdown and
    a strip in a wide picker. Content taller than the ratio still grows it. */
