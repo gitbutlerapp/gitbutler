@@ -1,12 +1,16 @@
 //! Segment graphs built from a topological walk of commits and references, rather than from
 //! the traversal of [`Graph::from_head()`](crate::Graph::from_head()).
 
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::{
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    rc::Rc,
+};
 
 use anyhow::{Context as _, Result};
 use but_core::{RefMetadata, WORKSPACE_REF_NAME, is_workspace_ref_name};
 use gix::refs::{FullName, FullNameRef};
 use petgraph::visit::EdgeRef as _;
+use smallvec::{SmallVec, smallvec};
 
 use crate::{CommitFlags, SegmentMetadata, init::Overlay};
 
@@ -22,7 +26,7 @@ enum NodeWeight {
 #[derive(Debug)]
 struct Node {
     weight: NodeWeight,
-    parents: Vec<NodeIndex>,
+    parents: SmallVec<[NodeIndex; 2]>,
 }
 
 #[derive(Debug)]
@@ -365,13 +369,33 @@ pub(crate) fn graph(
     /// branches are.)
     #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
     struct StackLineage {
-        branches_in_lineage: BTreeSet<gix::refs::FullName>,
+        /// Forks share the set until a reference changes which branches a lane carries.
+        branches: Rc<BTreeSet<FullName>>,
         /// This lineage comes directly from the workspace, either along a parent
         /// edge of the managed workspace commit that no stack covers, or from the
         /// workspace reference itself when there's no workspace commit, down to the
         /// first commit with a branch it takes in. It takes in every reference on
         /// the commit it reaches, whichever stack the reference belongs to.
         is_unclaimed_workspace_edge: bool,
+    }
+    impl StackLineage {
+        fn for_stack(stack: &Stack) -> Self {
+            Self {
+                branches: Rc::new(stack.branches.iter().cloned().collect()),
+                is_unclaimed_workspace_edge: false,
+            }
+        }
+
+        fn merge(&mut self, other: Self) {
+            self.is_unclaimed_workspace_edge |= other.is_unclaimed_workspace_edge;
+            if self.branches.is_empty() {
+                self.branches = other.branches;
+            } else if !Rc::ptr_eq(&self.branches, &other.branches)
+                && !other.branches.is_subset(&self.branches)
+            {
+                Rc::make_mut(&mut self.branches).extend(other.branches.iter().cloned());
+            }
+        }
     }
     /// An element of [Node::parents] that must be updated when an unassigned
     /// OID becomes assigned to a node.
@@ -390,14 +414,16 @@ pub(crate) fn graph(
             nodes[to_repoint.node_index].parents[to_repoint.parent_index] = node_index;
         }
     }
+    type RepointsByLineage = HashMap<StackLineage, SmallVec<[ToRepoint; 1]>>;
     // Data regarding known OIDs that have not yet been assigned a `NodeIndex`.
     // Each OID is known because we have parsed at least one of its children.
-    let mut unassigned_oid_map =
-        HashMap::<gix::ObjectId, HashMap<StackLineage, Vec<ToRepoint>>>::new();
+    let mut unassigned_oid_map = HashMap::<gix::ObjectId, RepointsByLineage>::new();
 
+    let empty_lineage = StackLineage::default();
     let mut nodes = Vec::<Node>::new();
     let mut unclaimed_branches = BTreeSet::new();
 
+    let mut parent_edges = Vec::new();
     for commit_id in walk.order {
         let parent_ids = walk.commits[&commit_id].parents_to_walk();
         // Branches rest on the target commit when the target branch, or its
@@ -476,8 +502,8 @@ pub(crate) fn graph(
             // this commit. Some ToRepoint elements are executed, and others are reinserted into
             // `unassigned_oid_map`.
 
-            let mut new_stack_lineage = StackLineage::default();
-            let mut new_map = HashMap::<StackLineage, Vec<ToRepoint>>::new();
+            let mut new_stack_lineage = empty_lineage.clone();
+            let mut new_map = RepointsByLineage::new();
             let node_index = nodes.len();
             // Like after a traversal, where the branch naming the segment of a commit has it for
             // every lane reaching it, the lanes of the workspace that reach a branch of a stack in
@@ -488,7 +514,7 @@ pub(crate) fn graph(
                         && stack
                             .branches
                             .iter()
-                            .any(|name| stack_lineage.branches_in_lineage.contains(name))
+                            .any(|name| stack_lineage.branches.contains(name))
                 })
             };
             let own_lane_reaches_it = workspace_commit.is_some()
@@ -499,7 +525,7 @@ pub(crate) fn graph(
                 && unassigned_oid_map.get(&commit_id).is_some_and(|lineages| {
                     lineages
                         .keys()
-                        .any(|stack_lineage| stack_lineage.branches_in_lineage.contains(&full_name))
+                        .any(|stack_lineage| stack_lineage.branches.contains(&full_name))
                 });
             for (stack_lineage, to_repoints) in
                 unassigned_oid_map.remove(&commit_id).unwrap_or_default()
@@ -511,11 +537,9 @@ pub(crate) fn graph(
                     && (full_name.as_ref() == target_ref
                         || (stack_lineage.is_unclaimed_workspace_edge && !rests_beside)
                         || is_stackless_branch
-                        || stack_lineage.branches_in_lineage.contains(&full_name)
+                        || stack_lineage.branches.contains(&full_name)
                         || (own_lane_reaches_it && is_workspace_lane(&stack_lineage)));
-                if in_lineage
-                    && own_lane_reaches_it
-                    && !stack_lineage.branches_in_lineage.contains(&full_name)
+                if in_lineage && own_lane_reaches_it && !stack_lineage.branches.contains(&full_name)
                 {
                     stack_run_into = Some(stack_of_branch(&stacks, full_name.as_ref()));
                 }
@@ -532,11 +556,7 @@ pub(crate) fn graph(
                     workspace_took_in_branch |= stack_lineage.is_unclaimed_workspace_edge
                         && category == Some(gix::refs::Category::LocalBranch)
                         && !is_workspace_ref_name(full_name.as_ref());
-                    new_stack_lineage
-                        .branches_in_lineage
-                        .extend(stack_lineage.branches_in_lineage);
-                    new_stack_lineage.is_unclaimed_workspace_edge |=
-                        stack_lineage.is_unclaimed_workspace_edge;
+                    new_stack_lineage.merge(stack_lineage);
                     repoint(&mut nodes, to_repoints, node_index);
                 } else {
                     new_map.insert(stack_lineage, to_repoints);
@@ -552,14 +572,14 @@ pub(crate) fn graph(
                             remote_names,
                         )
                 {
-                    new_stack_lineage
-                        .branches_in_lineage
+                    Rc::make_mut(&mut new_stack_lineage.branches)
                         .insert(gix::refs::Category::LocalBranch.to_full_name(&short_name[..])?);
                 }
             } else {
-                new_stack_lineage
-                    .branches_in_lineage
-                    .extend(stack_of_branch(&stacks, full_name.as_ref()).iter().cloned());
+                let branches = stack_of_branch(&stacks, full_name.as_ref());
+                if !branches.is_empty() {
+                    Rc::make_mut(&mut new_stack_lineage.branches).extend(branches.iter().cloned());
+                }
             }
             // Without a workspace commit, the workspace reference sits on top
             // of the branches on its commit, whichever stack they belong to,
@@ -577,10 +597,7 @@ pub(crate) fn graph(
             let parent_count = if stacks_resting_here.len() > 1 {
                 for (parent_index, stack) in stacks_resting_here.iter().enumerate() {
                     new_map
-                        .entry(StackLineage {
-                            branches_in_lineage: stack.branches.iter().cloned().collect(),
-                            is_unclaimed_workspace_edge: false,
-                        })
+                        .entry(StackLineage::for_stack(stack))
                         .or_default()
                         .push(ToRepoint {
                             node_index,
@@ -620,10 +637,7 @@ pub(crate) fn graph(
                 unassigned_oid_map
                     .entry(stack.tip)
                     .or_default()
-                    .entry(StackLineage {
-                        branches_in_lineage: stack.branches.iter().cloned().collect(),
-                        is_unclaimed_workspace_edge: false,
-                    })
+                    .entry(StackLineage::for_stack(stack))
                     .or_default()
                     .push(ToRepoint {
                         node_index,
@@ -637,18 +651,14 @@ pub(crate) fn graph(
 
             nodes.push(Node {
                 weight: NodeWeight::Ref { full_name },
-                parents: vec![UNKNOWN_PARENT_NODE_INDEX; parent_count],
+                parents: smallvec![UNKNOWN_PARENT_NODE_INDEX; parent_count],
             });
         }
 
-        let mut branches_in_lineage = BTreeSet::<gix::refs::FullName>::new();
-        let mut reached_by_unclaimed_workspace_edge = false;
+        let mut stack_lineage = empty_lineage.clone();
         let node_index = nodes.len();
-        for (stack_lineage, to_repoints) in
-            unassigned_oid_map.remove(&commit_id).unwrap_or_default()
-        {
-            branches_in_lineage.extend(stack_lineage.branches_in_lineage);
-            reached_by_unclaimed_workspace_edge |= stack_lineage.is_unclaimed_workspace_edge;
+        for (lineage, to_repoints) in unassigned_oid_map.remove(&commit_id).unwrap_or_default() {
+            stack_lineage.merge(lineage);
             repoint(&mut nodes, to_repoints, node_index);
         }
 
@@ -666,56 +676,42 @@ pub(crate) fn graph(
         if is_managed_workspace_commit {
             for stack in stacks.iter().filter(|stack| stack.in_workspace) {
                 if parent_ids.contains(&stack.tip) || is_workspace_base(stack.tip) {
-                    stack_edges.push((
-                        stack.tip,
-                        StackLineage {
-                            branches_in_lineage: stack.branches.iter().cloned().collect(),
-                            is_unclaimed_workspace_edge: false,
-                        },
-                    ));
+                    stack_edges.push((stack.tip, StackLineage::for_stack(stack)));
                 }
             }
         }
-        let stack_lineage = StackLineage {
-            branches_in_lineage,
-            // Without a workspace commit, the commits below the workspace reference are a lane of
-            // the workspace, like after a traversal, until it reaches a branch.
-            is_unclaimed_workspace_edge: is_managed_workspace_commit
-                || (workspace_commit.is_none()
-                    && reached_by_unclaimed_workspace_edge
-                    && !workspace_took_in_branch),
-        };
+        // Without a workspace commit, the workspace reference's lane continues until it reaches a branch.
+        stack_lineage.is_unclaimed_workspace_edge = is_managed_workspace_commit
+            || (workspace_commit.is_none()
+                && stack_lineage.is_unclaimed_workspace_edge
+                && !workspace_took_in_branch);
         let covered_parent_ids: Vec<gix::ObjectId> =
             stack_edges.iter().map(|(tip, _)| *tip).collect();
         let mut stack_edges = stack_edges.into_iter();
         let mut lanes_of_parents = Vec::<(gix::ObjectId, StackLineage)>::new();
-        let mut parent_edges: Vec<_> = parent_ids
-            .iter()
-            .copied()
-            .filter_map(|parent_id| {
-                if covered_parent_ids.contains(&parent_id) {
-                    // Like after a traversal, a parent the workspace commit has more often than
-                    // stacks have a lane on it is one more lane into the same commit.
-                    let edge = stack_edges.next().or_else(|| {
-                        lanes_of_parents
-                            .iter()
-                            .find(|(tip, _)| *tip == parent_id)
-                            .cloned()
-                    });
-                    lanes_of_parents.extend(edge.clone());
-                    edge
-                } else {
-                    Some((parent_id, stack_lineage.clone()))
-                }
-            })
-            .collect();
+        parent_edges.extend(parent_ids.iter().copied().filter_map(|parent_id| {
+            if covered_parent_ids.contains(&parent_id) {
+                // Like after a traversal, a parent the workspace commit has more often than
+                // stacks have a lane on it is one more lane into the same commit.
+                let edge = stack_edges.next().or_else(|| {
+                    lanes_of_parents
+                        .iter()
+                        .find(|(tip, _)| *tip == parent_id)
+                        .cloned()
+                });
+                lanes_of_parents.extend(edge.clone());
+                edge
+            } else {
+                Some((parent_id, stack_lineage.clone()))
+            }
+        }));
         parent_edges.extend(stack_edges);
 
         nodes.push(Node {
             weight: NodeWeight::Pick { oid: commit_id },
-            parents: vec![UNKNOWN_PARENT_NODE_INDEX; parent_edges.len()],
+            parents: smallvec![UNKNOWN_PARENT_NODE_INDEX; parent_edges.len()],
         });
-        for (parent_index, (parent_id, stack_lineage)) in parent_edges.into_iter().enumerate() {
+        for (parent_index, (parent_id, stack_lineage)) in parent_edges.drain(..).enumerate() {
             unassigned_oid_map
                 .entry(parent_id)
                 .or_default()
@@ -736,7 +732,7 @@ pub(crate) fn graph(
         );
         nodes.push(Node {
             weight: NodeWeight::ShallowPoint { oid },
-            parents: Vec::new(),
+            parents: SmallVec::new(),
         });
     }
 
@@ -823,7 +819,7 @@ impl WorkspaceGraph {
 struct PredecessorSegmentInfo {
     /// The segments of the child nodes, each with the position of this node
     /// among that child's parents.
-    segment_indexes: Vec<(crate::SegmentIndex, u32)>,
+    segment_indexes: SmallVec<[(crate::SegmentIndex, u32); 2]>,
     must_start_new_segment: bool,
     commit_flags: CommitFlags,
 }
@@ -1426,6 +1422,8 @@ impl WorkspaceGraph {
                     NodeWeight::Pick { .. } | NodeWeight::ShallowPoint { .. } => None,
                 };
                 let segment_index = inner_graph.add_node(crate::Segment {
+                    // A merge-heavy history has many segments containing only their starting commit.
+                    commits: Vec::with_capacity(usize::from(commit.is_some())),
                     metadata,
                     ..Default::default()
                 });

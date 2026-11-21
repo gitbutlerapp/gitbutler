@@ -140,7 +140,7 @@ impl Graph {
 
     /// Like [`Self::rebuild_edges_in_parent_order()`], for `sidx` alone.
     fn rebuild_outgoing_edges_in_parent_order(&mut self, sidx: SegmentIndex) {
-        let mut outgoing_edges: Vec<EdgeOwned> = self
+        let mut outgoing_edges: smallvec::SmallVec<[EdgeOwned; 2]> = self
             .inner
             .edges_directed(sidx, Direction::Outgoing)
             .map(EdgeOwned::from)
