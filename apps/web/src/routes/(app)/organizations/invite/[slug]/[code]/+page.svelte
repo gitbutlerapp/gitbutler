@@ -14,6 +14,7 @@
 	const organizationService = inject(ORGANIZATION_SERVICE);
 
 	const user = $derived(userService.user);
+	const userLoaded = $derived(userService.loaded);
 
 	// Get the org slug and invite code from the route parameters
 	const inviteCode = $derived($page.params.code!);
@@ -100,7 +101,11 @@
 	<div class="invite-card">
 		<h1>Organization Invitation</h1>
 
-		{#if !isLoggedIn}
+		{#if !isLoggedIn && !$userLoaded}
+			<div class="loading-container">
+				<p>Checking your invitation...</p>
+			</div>
+		{:else if !isLoggedIn}
 			<p>You've been invited to join <strong>{slug}</strong>.</p>
 			<p>Please log in to continue.</p>
 			<Button onclick={goToLogin} style="pop">Log In</Button>
