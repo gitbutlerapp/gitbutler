@@ -596,6 +596,7 @@ pub struct Store {
     /// whatever the interval.
     fetch_soon: HashSet<ProjectId>,
     _auto_fetch: Task<()>,
+    _app_settings_watch: Task<()>,
     _update_check: Task<()>,
     forge_requests: mpsc::UnboundedSender<ProjectId>,
     /// Projects waiting for a forge refresh, so each waits only once.
@@ -759,6 +760,7 @@ impl Store {
             last_merged: HashMap::new(),
             fetch_soon: HashSet::new(),
             _auto_fetch: Self::fetch_in_background(cx),
+            _app_settings_watch: Self::watch_app_settings(cx),
             _update_check: Self::check_for_updates(cx),
         };
         store.load_projects(cx);
