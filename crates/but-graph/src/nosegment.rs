@@ -1,7 +1,7 @@
 //! Segment graphs built from a topological walk of commits and references, rather than from
 //! the traversal of [`Graph::from_head()`](crate::Graph::from_head()).
 
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use anyhow::{Context as _, Result};
 use but_core::{RefMetadata, WORKSPACE_REF_NAME, is_workspace_ref_name};
@@ -126,34 +126,7 @@ pub(crate) fn graph(
         /// workspace commit.
         in_workspace: bool,
     }
-    // Whether the target has the commit `id`, as the target commit or in the history of the
-    // target branch or its upstream.
-    let target_tips: Vec<gix::ObjectId> = std::iter::once(target_ref)
-        .chain(target_upstream_ref)
-        .filter_map(|name| ref_to_oid.get(name).copied())
-        .collect();
-    let cache = repo.commit_graph_if_enabled().ok();
-    let mut revision_graph = cache
-        .as_ref()
-        .map(|cache| repo.revision_graph(cache.as_ref()));
-    let is_ancestor = |id, tip, graph: &mut Option<_>| {
-        graph
-            .as_mut()
-            .is_some_and(|graph| repo.is_ancestor_with_graph(id, tip, graph).unwrap_or(false))
-    };
-    let is_in_target = |id, graph: &mut _| {
-        Some(id) == target_commit_id || target_tips.iter().any(|&tip| is_ancestor(id, tip, graph))
-    };
-    // Whether the workspace's lanes meet the target at the commit `id`: it's the target commit,
-    // or the target and the managed workspace commit both have it.
-    let is_workspace_base = |id, graph: &mut _| {
-        Some(id) == target_commit_id
-            || (is_in_target(id, graph)
-                && workspace_commit
-                    .as_ref()
-                    .is_some_and(|workspace_commit| is_ancestor(id, workspace_commit.id, graph)))
-    };
-    let (stacks, unstacked_workspace_branches) = {
+    let (mut workspace_stacks, branch_stacks) = {
         let live_stack = |branches: Vec<FullName>, in_workspace: bool| {
             let branches: Vec<FullName> = branches
                 .into_iter()
@@ -167,15 +140,11 @@ pub(crate) fn graph(
             })
         };
 
-        let mut stacks = Vec::<Stack>::new();
-        let mut unstacked_workspace_branches = BTreeSet::<FullName>::new();
+        let mut workspace_stacks = Vec::new();
         if let Some(workspace_ref_name) = &workspace_ref_name
             && let Some(workspace_metadata) =
                 overlay_meta.workspace_opt(workspace_ref_name.as_ref())?
         {
-            let workspace_commit_parent_ids = workspace_commit
-                .as_ref()
-                .map(|commit| commit.parent_ids().map(gix::Id::detach).collect::<Vec<_>>());
             for stack in workspace_metadata.stacks {
                 let in_workspace = stack.is_in_workspace();
                 let branches = stack
@@ -183,59 +152,91 @@ pub(crate) fn graph(
                     .into_iter()
                     .map(|branch| branch.ref_name)
                     .collect();
-                let Some(stack) = live_stack(branches, in_workspace) else {
-                    continue;
-                };
-                // A stack whose tip isn't a parent of the managed workspace commit
-                // has had another one stacked onto it in Git, unless it rests where the
-                // workspace's lanes meet the target as an empty lane of its own. Its
-                // branches then belong to whichever stack reaches them.
-                // LEGACY
-                let is_stack_underneath_another = workspace_commit_parent_ids
-                    .as_ref()
-                    .is_some_and(|parent_ids| !parent_ids.contains(&stack.tip))
-                    && !is_workspace_base(stack.tip, &mut revision_graph);
-                // Like after a traversal, a parent of the managed workspace commit is one lane
-                // however many stacks rest on it, that of the first of them, unless the target
-                // already has it, where each is an empty lane. The branches of the others then
-                // belong to that lane too.
-                let rests_on_another_stack = workspace_commit_parent_ids.is_some()
-                    && stacks
-                        .iter()
-                        .any(|other| other.in_workspace && other.tip == stack.tip)
-                    && !is_in_target(stack.tip, &mut revision_graph);
-                // Seen from the workspace, a stack outside of it is no lane, so like after a
-                // traversal its branches belong to whichever lane reaches them.
-                let is_outside_seen_from_workspace =
-                    !stack.in_workspace && head_ref.is_some_and(is_workspace_ref_name);
-                if !(stack.in_workspace && (is_stack_underneath_another || rests_on_another_stack))
-                    && !is_outside_seen_from_workspace
-                {
-                    stacks.push(stack);
-                } else {
-                    unstacked_workspace_branches.extend(stack.branches);
-                }
+                workspace_stacks.extend(live_stack(branches, in_workspace));
             }
         }
         // Branches outside the workspace, like those of a single-branch-mode
         // checkout, may still be stacked through their persisted branch stack order.
-        // Those of a workspace stack that was left out above aren't, so they stay with
-        // whichever stack reaches them.
+        let mut branch_stacks = Vec::new();
         for full_name in ref_to_oid.keys() {
             if full_name.category() != Some(gix::refs::Category::LocalBranch)
-                || unstacked_workspace_branches.contains(full_name)
-                || stacks
+                || workspace_stacks
                     .iter()
+                    .chain(&branch_stacks)
                     .any(|stack| stack.branches.contains(full_name))
             {
                 continue;
             }
             if let Some(branches) = overlay_meta.branch_stack_order(full_name.as_ref())? {
-                stacks.extend(live_stack(branches, false));
+                branch_stacks.extend(live_stack(branches, false));
             }
         }
-        (stacks, unstacked_workspace_branches)
+        (workspace_stacks, branch_stacks)
     };
+
+    // Walk every stack branch, even when it will belong to another lane.
+    heads.extend(
+        workspace_stacks
+            .iter()
+            .chain(&branch_stacks)
+            .flat_map(|stack| &stack.branches)
+            .filter_map(|name| ref_to_oid.get(name)),
+    );
+    let commits = crate::topowalk::walk(
+        repo,
+        heads,
+        &heads_on_reaching,
+        target_commit_id,
+        commits_limit,
+        repo.shallow_commits()?.as_ref(),
+    )?;
+
+    let mut in_target: HashSet<_> = std::iter::once(target_ref)
+        .chain(target_upstream_ref)
+        .filter_map(|name| ref_to_oid.get(name).copied())
+        .collect();
+    let mut in_workspace = HashSet::new();
+    if let Some(workspace) = &workspace_commit
+        && workspace_stacks.iter().any(|stack| stack.in_workspace)
+    {
+        in_workspace.insert(workspace.id);
+        // Children precede their parents, so each edge propagates all known ancestry once.
+        for commit in &commits {
+            if in_target.contains(&commit.id) {
+                in_target.extend(&commit.parents);
+            }
+            if in_workspace.contains(&commit.id) {
+                in_workspace.extend(&commit.parents);
+            }
+        }
+    }
+    // The stored cutoff itself is a base even if the target branch has since been rewound.
+    let is_in_target = |id| Some(id) == target_commit_id || in_target.contains(&id);
+    let is_workspace_base = |id| {
+        Some(id) == target_commit_id || (in_target.contains(&id) && in_workspace.contains(&id))
+    };
+
+    let workspace_parents = workspace_commit
+        .as_ref()
+        .map(|commit| commit.parent_ids().map(gix::Id::detach).collect::<Vec<_>>());
+    let mut lane_tips = HashSet::new();
+    workspace_stacks.retain(|stack| {
+        if !stack.in_workspace {
+            return !head_ref.is_some_and(is_workspace_ref_name);
+        }
+        let Some(parents) = &workspace_parents else {
+            return true;
+        };
+        // A stack below a workspace parent belongs to the lane that reaches it, unless
+        // it rests on the workspace base as an empty lane of its own.
+        if !parents.contains(&stack.tip) && !is_workspace_base(stack.tip) {
+            return false;
+        }
+        // Stacks sharing a parent form one lane unless the target already has that commit.
+        lane_tips.insert(stack.tip) || is_in_target(stack.tip)
+    });
+    let mut stacks = workspace_stacks;
+    stacks.extend(branch_stacks);
 
     /// The branches of the stack containing `branch`, or none if no stack does.
     fn stack_of_branch<'a>(stacks: &'a [Stack], branch: &FullNameRef) -> &'a [FullName] {
@@ -322,26 +323,6 @@ pub(crate) fn graph(
         });
     }
 
-    // Like a traversal, the branches of every stack the workspace has are walked, even those of
-    // a stack left out above, so they're in the graph however far from the workspace commit.
-    heads.extend(
-        stacks
-            .iter()
-            .flat_map(|stack| &stack.branches)
-            .chain(&unstacked_workspace_branches)
-            .filter_map(|name| ref_to_oid.get(name)),
-    );
-
-    let shallow_commits = repo.shallow_commits()?;
-    let commit_ids = crate::topowalk::walk(
-        repo,
-        heads,
-        &heads_on_reaching,
-        target_commit_id,
-        commits_limit,
-        shallow_commits.as_ref(),
-    )?;
-
     /// The children of each commit can be partitioned by stack lineages. The
     /// stack lineage determines whether a child points to a branch or directly
     /// to the commit itself. For example, suppose a commit C has a child A of
@@ -393,8 +374,11 @@ pub(crate) fn graph(
     let mut nodes = Vec::<Node>::new();
     let mut unclaimed_branches = BTreeSet::new();
 
-    for commit_id in commit_ids {
-        let commit = repo.find_commit(commit_id)?;
+    for crate::topowalk::Commit {
+        id: commit_id,
+        parents: parent_ids,
+    } in commits
+    {
         // Branches rest on the target commit when the target branch, or its
         // upstream, points there too.
         // LEGACY why check 3 things? could there be a simpler rule (or no rule)?
@@ -487,7 +471,7 @@ pub(crate) fn graph(
                 })
             };
             let own_lane_reaches_it = workspace_commit.is_some()
-                && !is_in_target(commit_id, &mut revision_graph)
+                && !is_in_target(commit_id)
                 && stacks
                     .iter()
                     .any(|stack| stack.in_workspace && stack.branches.contains(&full_name))
@@ -594,19 +578,18 @@ pub(crate) fn graph(
             // Like the edges of a workspace commit, it also leads to each stack of the workspace
             // resting where the workspace's lanes meet the target, which without a workspace
             // commit is the target commit, as an empty lane of its own.
-            let stacks_on_workspace_base: Vec<&Stack> =
-                if is_workspace_ref_name(full_name.as_ref()) && workspace_commit.is_none() {
-                    stacks
-                        .iter()
-                        .filter(|stack| {
-                            stack.in_workspace
-                                && stack.tip != commit_id
-                                && is_workspace_base(stack.tip, &mut revision_graph)
-                        })
-                        .collect()
-                } else {
-                    Vec::new()
-                };
+            let stacks_on_workspace_base: Vec<&Stack> = if is_workspace_ref_name(full_name.as_ref())
+                && workspace_commit.is_none()
+            {
+                stacks
+                    .iter()
+                    .filter(|stack| {
+                        stack.in_workspace && stack.tip != commit_id && is_workspace_base(stack.tip)
+                    })
+                    .collect()
+            } else {
+                Vec::new()
+            };
             for (offset, stack) in stacks_on_workspace_base.iter().enumerate() {
                 unassigned_oid_map
                     .entry(stack.tip)
@@ -650,24 +633,13 @@ pub(crate) fn graph(
         // [1, 2, 3] and the stacks in metadata order are [3, 4, 1], the parents that correspond to
         // stacks are 1 and 3. Its edges will therefore be [3, 2, 4, 1] (notice that the 3-4-1 order
         // is preserved and parent 2 keeps its position).
-        // The parents of a commit at the boundary of a shallow clone aren't there.
-        let parent_ids: Vec<gix::ObjectId> = if shallow_commits
-            .as_ref()
-            .is_some_and(|boundary| boundary.binary_search(&commit_id).is_ok())
-        {
-            Vec::new()
-        } else {
-            commit.parent_ids().map(gix::Id::detach).collect()
-        };
         let is_managed_workspace_commit = workspace_commit
             .as_ref()
             .is_some_and(|commit| commit.id == commit_id);
         let mut stack_edges = Vec::<(gix::ObjectId, StackLineage)>::new();
         if is_managed_workspace_commit {
             for stack in stacks.iter().filter(|stack| stack.in_workspace) {
-                if parent_ids.contains(&stack.tip)
-                    || is_workspace_base(stack.tip, &mut revision_graph)
-                {
+                if parent_ids.contains(&stack.tip) || is_workspace_base(stack.tip) {
                     stack_edges.push((
                         stack.tip,
                         StackLineage {
@@ -1852,6 +1824,7 @@ pub fn workspace(
 /// ends in a commit whose parents are left out. Branches that no stack claims are kept off the
 /// stacks if they rest on it. Without it, all history is included, or if `commits_limit` is
 /// set, only that many commits, the most recent first, along with each head.
+/// Stack placement uses the ancestry visible in this walk and the explicit target commit.
 ///
 /// `overlay` amends the references of `repo` and `meta`, and tags are part of the graph if
 /// `collect_tags` is set.

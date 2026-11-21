@@ -14,6 +14,12 @@ struct Traversed {
     parents: SmallVec<[gix::ObjectId; 1]>,
 }
 
+pub(crate) struct Commit {
+    pub id: gix::ObjectId,
+    /// Includes the parents at the edge of the walk, except at a shallow-clone boundary.
+    pub parents: SmallVec<[gix::ObjectId; 1]>,
+}
+
 fn insert_untraversed(
     repo: &gix::Repository,
     id: gix::ObjectId,
@@ -60,7 +66,7 @@ pub fn walk(
     excludes: impl IntoIterator<Item = gix::ObjectId>,
     limit: Option<usize>,
     shallow_boundary: Option<&gix::shallow::Commits>,
-) -> anyhow::Result<Vec<gix::ObjectId>> {
+) -> anyhow::Result<Vec<Commit>> {
     // Invariants, unless the limit left an id out:
     //  - if an id appears in `excluded`, it appears in either `untraversed`
     //    or `id_to_traversed`
@@ -221,17 +227,19 @@ pub fn walk(
         let id = heads
             .remove(position)
             .context("BUG: we just got position from position()")?;
-        if let Some(Traversed { parents, .. }) = id_to_traversed.remove(&id) {
-            for parent_id in parents.into_iter().rev() {
-                *id_to_child_count.get_mut(&parent_id).context(
-                    "BUG: traversed without corresponding entry in `id_to_child_count`",
-                )? -= 1;
-                if id_to_traversed.contains_key(&parent_id) && pushed_to_heads.insert(parent_id) {
-                    heads.push_front(parent_id);
-                }
+        let parents = id_to_traversed
+            .remove(&id)
+            .context("BUG: each head and queued parent was traversed")?
+            .parents;
+        for parent_id in parents.iter().rev() {
+            *id_to_child_count
+                .get_mut(parent_id)
+                .context("BUG: traversed without corresponding entry in `id_to_child_count`")? -= 1;
+            if id_to_traversed.contains_key(parent_id) && pushed_to_heads.insert(*parent_id) {
+                heads.push_front(*parent_id);
             }
         }
-        outcome.push(id);
+        outcome.push(Commit { id, parents });
     }
     Ok(outcome)
 }
@@ -249,9 +257,19 @@ mod tests {
         )?)
     }
 
-    fn summaries(repo: &gix::Repository, ids: Vec<gix::ObjectId>) -> anyhow::Result<Vec<String>> {
-        ids.into_iter()
-            .map(|id| Ok(repo.find_commit(id)?.message()?.summary().to_string()))
+    fn summaries(
+        repo: &gix::Repository,
+        commits: Vec<super::Commit>,
+    ) -> anyhow::Result<Vec<String>> {
+        commits
+            .into_iter()
+            .map(|commit| {
+                Ok(repo
+                    .find_commit(commit.id)?
+                    .message()?
+                    .summary()
+                    .to_string())
+            })
             .collect()
     }
 

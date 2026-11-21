@@ -2,7 +2,7 @@ use but_graph::Graph;
 use but_testsupport::visualize_commit_graph_all;
 
 use super::target_meta;
-use crate::init::utils::{read_only_in_memory_scenario, standard_options};
+use crate::init::utils::{StackState, add_stack, read_only_in_memory_scenario, standard_options};
 
 #[test]
 fn walk_stops_below_the_target_commit() -> anyhow::Result<()> {
@@ -99,6 +99,48 @@ fn commits_limit_bounds_only_a_walk_without_target_commit() -> anyhow::Result<()
         subjects(Some(target_commit_id))?,
         ["A", "M", "old-1", "old-2"],
         "the target commit bounds the walk instead of the limit"
+    );
+    Ok(())
+}
+
+#[test]
+fn placing_branches_does_not_read_history_beyond_the_walk() -> anyhow::Result<()> {
+    struct RejectRead(gix::ObjectId);
+    impl gix::odb::pack::cache::Object for RejectRead {
+        fn put(&mut self, _: gix::ObjectId, _: gix::objs::Kind, _: &[u8]) {}
+
+        fn get(&mut self, id: &gix::ObjectId, _: &mut Vec<u8>) -> Option<gix::objs::Kind> {
+            assert_ne!(
+                *id, self.0,
+                "placing refs must not walk back to the common ancestor outside the graph"
+            );
+            None
+        }
+    }
+
+    let (mut repo, mut meta, _db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
+    // A and main diverge at init. A walk limited to its heads includes neither path to init.
+    let common_ancestor = repo.rev_parse_single("main~2")?.detach();
+    let workspace = repo.head_id()?.detach();
+    repo.objects
+        .set_object_cache(move || Box::new(RejectRead(common_ancestor)));
+    let graph = but_graph::nosegment::segment_graph(
+        &repo,
+        &*meta,
+        Default::default(),
+        Default::default(),
+        repo.head_name()?.as_ref().map(|name| name.as_ref()),
+        Some(workspace),
+        vec![workspace],
+        Vec::new(),
+        None,
+        false,
+        Some(0),
+    )?;
+    assert!(
+        graph.segment_id_by_commit_id(common_ancestor).is_err(),
+        "the common ancestor is beyond the walk's boundary"
     );
     Ok(())
 }
