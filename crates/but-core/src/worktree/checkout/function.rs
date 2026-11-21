@@ -1,3 +1,4 @@
+use anyhow::Context as _;
 use but_error::bail_precondition;
 use gix::{merge::tree::TreatAsUnresolved, prelude::ObjectIdExt as _, refs::Target};
 use tracing::instrument;
@@ -92,6 +93,82 @@ pub fn safe_checkout_from_head(
         head_update,
         conflict_occurred,
     })
+}
+
+/// Make the worktree and `.git/index` of `repo` match `tree`, discarding uncommitted changes and
+/// untracked files, like `git checkout --force` followed by `git clean`. Ignored files that `tree`
+/// doesn't replace are kept. `HEAD` doesn't change.
+///
+/// `conflicts`, if set, is the merge that produced `tree`. Its unresolved conflicts become index
+/// stages, and the worktree gets what `tree` holds at those paths.
+///
+/// Files are written through the repository's worktree filters. Nothing changes if a filter
+/// fails, if a file changes while this runs, or if `.git/index` is locked.
+#[instrument(skip(repo, conflicts), err(Debug))]
+pub fn overwrite_worktree(
+    repo: &gix::Repository,
+    tree: gix::ObjectId,
+    conflicts: Option<&gix::merge::tree::Outcome<'_>>,
+) -> anyhow::Result<()> {
+    let mut index = write::LockedIndex::acquire(repo)?;
+    #[allow(deprecated)]
+    let baseline = repo.create_wd_tree(u64::MAX)?;
+    index.entries = index_keeping_stat(repo, tree, &index.entries)?;
+    let trees = write::Trees::new(repo, tree, tree, [baseline, tree])?;
+    write::write_to_worktree(repo, trees, conflicts, index)
+}
+
+/// Undo [`overwrite_worktree()`]: make the worktree and `.git/index` of `repo` match `tree` again,
+/// where the worktree still holds what `.git/index` records. Only paths where the index and
+/// `tree` differ change, so files that are in neither, like ignored ones, stay as they are.
+///
+/// Files are written through the repository's worktree filters. Nothing changes if a filter
+/// fails, if a file changes while this runs, or if `.git/index` is locked.
+#[instrument(skip(repo), err(Debug))]
+pub fn revert_worktree(repo: &gix::Repository, tree: gix::ObjectId) -> anyhow::Result<()> {
+    repo.workdir().context("checkout needs a worktree")?;
+    let mut index = write::LockedIndex::acquire(repo)?;
+    let baseline: gix::index::State = index.entries.clone().into();
+    let target: gix::index::State = repo.index_from_tree(&tree)?.into();
+    index.entries = index_keeping_stat(repo, tree, &index.entries)?;
+    let trees = write::Trees {
+        head: target.clone(),
+        new_head: target.clone(),
+        baseline,
+        target,
+    };
+    write::write_to_worktree(repo, trees, None, index)
+}
+
+/// Make `.git/index` of `repo` match `tree` without touching the worktree, keeping the stat of
+/// entries whose content doesn't change. Conflict stages and staged changes are dropped.
+pub fn reset_index(repo: &gix::Repository, tree: gix::ObjectId) -> anyhow::Result<()> {
+    let mut index = write::LockedIndex::acquire(repo)?;
+    index.entries = index_keeping_stat(repo, tree, &index.entries)?;
+    index.write()
+}
+
+/// An index of `tree`, with the stat of each entry `previous` has with the same id and mode, so
+/// files that keep their content aren't hashed or filtered again on the next status. A stat that
+/// is racy against `previous` isn't kept, as the new index would vouch for it.
+fn index_keeping_stat(
+    repo: &gix::Repository,
+    tree: gix::ObjectId,
+    previous: &gix::index::File,
+) -> anyhow::Result<gix::index::File> {
+    let (timestamp, options) = (previous.timestamp(), repo.stat_options()?);
+    let mut index = repo.index_from_tree(&tree)?;
+    let (entries, path_backing) = index.entries_mut_and_pathbacking();
+    for entry in entries {
+        if let Some(old) = previous.entry_by_path(entry.path_in(path_backing))
+            && old.id == entry.id
+            && old.mode == entry.mode
+            && !old.stat.is_racy(timestamp, options)
+        {
+            entry.stat = old.stat;
+        }
+    }
+    Ok(index)
 }
 
 /// Merge the worktree into the change from `old_tree` to `new_tree`, and write the result to the

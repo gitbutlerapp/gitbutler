@@ -2,6 +2,7 @@
 
 use bstr::ByteSlice;
 
+use super::util::{find_branch, status_json};
 use crate::utils::Sandbox;
 
 fn read(env: &Sandbox, path: &str) -> Vec<u8> {
@@ -57,4 +58,295 @@ fn pull_writes_filtered_files_in_worktree_form() {
         "",
         "the smudged files match the updated workspace"
     );
+}
+
+/// Pull so that stack A's commit, which changes the filtered `a.secret`, conflicts on
+/// `file.txt`, and return its CLI ID.
+fn pull_conflicting_commit_with_filtered_file() -> (Sandbox, String) {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "upstream-conflicted-with-filtered-files",
+    );
+    env.setup_metadata_at_target(&["A"], "refs/heads/base");
+    env.invoke_git("remote set-url origin .");
+    env.but("pull").assert().success();
+    let status = status_json(&env);
+    let commit = find_branch(&status, "A")["commits"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|commit| commit["conflicted"].as_bool() == Some(true))
+        .and_then(|commit| commit["cliId"].as_str())
+        .expect("pulling conflicts A's commit")
+        .to_owned();
+    (env, commit)
+}
+
+/// Pull so that stack A's commit, which changes the filtered `a.secret`, conflicts on
+/// `file.txt`, then enter edit mode on it with `but resolve`.
+fn resolve_conflicted_commit_with_filtered_file() -> Sandbox {
+    resolve_conflicted_commit_with_filtered_file_after(|_| {})
+}
+
+/// Like [`resolve_conflicted_commit_with_filtered_file()`], but call `prepare` on the
+/// workspace before entering edit mode.
+fn resolve_conflicted_commit_with_filtered_file_after(prepare: impl FnOnce(&Sandbox)) -> Sandbox {
+    let (env, commit) = pull_conflicting_commit_with_filtered_file();
+    prepare(&env);
+    env.but(format!("resolve {commit}")).assert().success();
+    env
+}
+
+#[test]
+fn resolve_writes_filtered_files_in_worktree_form() {
+    let env = resolve_conflicted_commit_with_filtered_file();
+    assert_eq!(
+        read(&env, "a.secret").as_bstr(),
+        "changed on A\n",
+        "the commit's change to the filtered file is written smudged"
+    );
+}
+
+#[test]
+fn resolve_cancel_restores_uncommitted_filtered_files_in_worktree_form() {
+    let env = resolve_conflicted_commit_with_filtered_file_after(|env| {
+        env.file("a.secret", "edited before resolving\n");
+        env.file("untracked.txt", "untracked\n");
+    });
+
+    env.but("resolve cancel --force").assert().success();
+    assert_eq!(
+        read(&env, "a.secret").as_bstr(),
+        "edited before resolving\n",
+        "the uncommitted edit comes back smudged"
+    );
+    assert_eq!(
+        env.git_status(),
+        " M a.secret\n?? untracked.txt\n",
+        "the worktree and index are as before resolving"
+    );
+}
+
+#[test]
+fn resolve_finish_stores_filtered_files_once_and_writes_them_in_worktree_form() {
+    let env = resolve_conflicted_commit_with_filtered_file_after(|env| {
+        env.file("c.secret", "untracked before resolving\n");
+    });
+    env.file("file.txt", "resolved\n");
+    env.file("a.secret", "resolved secret\n");
+
+    env.but("resolve finish").assert().success();
+    assert_eq!(
+        env.invoke_git("cat-file -p A:a.secret")
+            .as_bytes()
+            .as_bstr(),
+        "SECRET\0erfbyirq frperg",
+        "the commit stores the resolved file cleaned once"
+    );
+    assert_eq!(
+        read(&env, "a.secret").as_bstr(),
+        "resolved secret\n",
+        "the committed file is written smudged"
+    );
+    assert_eq!(
+        read(&env, "c.secret").as_bstr(),
+        "untracked before resolving\n",
+        "the uncommitted file comes back smudged"
+    );
+    assert_eq!(
+        env.git_status(),
+        "?? c.secret\n",
+        "the worktree matches the workspace and its uncommitted file"
+    );
+}
+
+#[test]
+fn resolve_finish_keeps_the_stat_of_filtered_files_it_leaves_alone() {
+    let env = resolve_conflicted_commit_with_filtered_file_after(|env| {
+        // The fixture's files were copied, so let status record their stat first, as it had.
+        // A stat no older than the index is racy and never kept, so date the file back.
+        std::fs::File::options()
+            .write(true)
+            .open(env.projects_root().join("b.secret"))
+            .unwrap()
+            .set_modified(std::time::SystemTime::now() - std::time::Duration::from_secs(10))
+            .unwrap();
+        env.git_status();
+    });
+    env.file("file.txt", "resolved\n");
+    env.but("resolve finish").assert().success();
+
+    let git_dir = env.projects_root().join(".git");
+    // Age the index so status relies on the recorded stat, as it does a moment later.
+    std::fs::File::options()
+        .write(true)
+        .open(git_dir.join("index"))
+        .unwrap()
+        .set_modified(std::time::SystemTime::now() + std::time::Duration::from_secs(2))
+        .unwrap();
+    std::fs::write(git_dir.join("clean-calls"), "").unwrap();
+    assert_eq!(env.git_status(), "", "the worktree matches the workspace");
+    assert!(
+        !std::fs::read_to_string(git_dir.join("clean-calls"))
+            .unwrap()
+            .contains("b.secret"),
+        "the index keeps the stat of the untouched filtered file, so status doesn't clean it"
+    );
+}
+
+/// What a failed edit-mode transition must leave as it was: refs, `HEAD`, index, worktree
+/// status and edit-mode metadata.
+fn repo_state(env: &Sandbox) -> String {
+    let mut state = [
+        "symbolic-ref HEAD",
+        "for-each-ref",
+        "ls-files --stage",
+        "status --porcelain",
+    ]
+    .map(|args| env.invoke_git(args))
+    .join("\n");
+    state += &format!(
+        "\nedit mode metadata: {}",
+        env.projects_root()
+            .join(".git/gitbutler/edit_mode_metadata.toml")
+            .exists()
+    );
+    state
+}
+
+#[test]
+fn resolve_changes_nothing_if_a_filter_fails() {
+    let (env, commit) = pull_conflicting_commit_with_filtered_file();
+    env.file("b.secret", "edited\n");
+    std::fs::write(env.projects_root().join(".git/fail-smudge"), "").unwrap();
+    let before = repo_state(&env);
+
+    env.but(format!("resolve {commit}")).assert().failure();
+    assert_eq!(repo_state(&env), before, "a failed enter changes nothing");
+    assert_eq!(read(&env, "b.secret").as_bstr(), "edited\n");
+}
+
+#[test]
+fn resolve_cancel_changes_nothing_if_a_filter_fails() {
+    let env = resolve_conflicted_commit_with_filtered_file_after(|env| {
+        env.file("b.secret", "edited\n");
+    });
+    std::fs::write(env.projects_root().join(".git/fail-smudge"), "").unwrap();
+    let before = repo_state(&env);
+
+    env.but("resolve cancel --force").assert().failure();
+    assert_eq!(repo_state(&env), before, "a failed cancel changes nothing");
+    assert_eq!(read(&env, "b.secret").as_bstr(), "base\n");
+}
+
+#[test]
+fn resolve_keeps_uncommitted_changes_if_moving_refs_fails() {
+    let (env, commit) = pull_conflicting_commit_with_filtered_file();
+    env.file("b.secret", "edited\n");
+    let lock = env
+        .projects_root()
+        .join(".git/refs/heads/gitbutler/edit.lock");
+    std::fs::create_dir_all(lock.parent().unwrap()).unwrap();
+    std::fs::write(&lock, "").unwrap();
+    let before = repo_state(&env);
+
+    env.but(format!("resolve {commit}")).assert().failure();
+    assert_eq!(repo_state(&env), before, "a failed enter changes nothing");
+    assert_eq!(
+        read(&env, "b.secret").as_bstr(),
+        "edited\n",
+        "the uncommitted change is still in the worktree"
+    );
+}
+
+#[test]
+fn resolve_finish_changes_nothing_if_saving_the_rebase_fails() {
+    let env = resolve_conflicted_commit_with_filtered_file_after(|env| {
+        env.file("b.secret", "edited\n");
+    });
+    env.file("file.txt", "resolved\n");
+    let lock = env.projects_root().join(".git/refs/heads/A.lock");
+    std::fs::write(&lock, "").unwrap();
+    let before = repo_state(&env);
+
+    env.but("resolve finish").assert().failure();
+    assert_eq!(repo_state(&env), before, "a failed finish changes nothing");
+    assert_eq!(
+        read(&env, "b.secret").as_bstr(),
+        "base\n",
+        "the worktree still shows the edited commit"
+    );
+
+    std::fs::remove_file(&lock).unwrap();
+    env.but("resolve finish").assert().success();
+    assert_eq!(
+        env.invoke_git("rev-parse A:b.secret"),
+        env.invoke_git("rev-parse base:b.secret"),
+        "the retried finish doesn't commit the uncommitted change"
+    );
+    assert_eq!(read(&env, "b.secret").as_bstr(), "edited\n");
+}
+
+#[test]
+fn resolve_cancel_changes_nothing_if_moving_head_fails() {
+    let env = resolve_conflicted_commit_with_filtered_file_after(|env| {
+        env.file("b.secret", "edited\n");
+    });
+    let lock = env.projects_root().join(".git/HEAD.lock");
+    std::fs::write(&lock, "").unwrap();
+    let before = repo_state(&env);
+
+    env.but("resolve cancel --force").assert().failure();
+    assert_eq!(repo_state(&env), before, "a failed cancel changes nothing");
+    assert_eq!(read(&env, "b.secret").as_bstr(), "base\n");
+
+    std::fs::remove_file(&lock).unwrap();
+    env.but("resolve cancel --force").assert().success();
+    assert_eq!(read(&env, "b.secret").as_bstr(), "edited\n");
+}
+
+#[test]
+fn resolve_finish_changes_nothing_if_moving_head_fails() {
+    let env = resolve_conflicted_commit_with_filtered_file_after(|env| {
+        env.file("b.secret", "edited\n");
+    });
+    env.file("file.txt", "resolved\n");
+    let lock = env.projects_root().join(".git/HEAD.lock");
+    std::fs::write(&lock, "").unwrap();
+    let before = repo_state(&env);
+
+    env.but("resolve finish").assert().failure();
+    assert_eq!(repo_state(&env), before, "a failed finish changes nothing");
+
+    std::fs::remove_file(&lock).unwrap();
+    env.but("resolve finish").assert().success();
+    assert_eq!(env.invoke_git("show A:file.txt"), "resolved");
+    assert_eq!(
+        env.invoke_git("rev-parse A:b.secret"),
+        env.invoke_git("rev-parse base:b.secret"),
+        "the retried finish doesn't commit the uncommitted change"
+    );
+    assert_eq!(read(&env, "b.secret").as_bstr(), "edited\n");
+}
+
+#[test]
+fn resolve_finish_changes_nothing_if_a_filter_fails_and_can_be_retried() {
+    let env = resolve_conflicted_commit_with_filtered_file_after(|env| {
+        env.file("b.secret", "edited\n");
+    });
+    env.file("file.txt", "resolved\n");
+    let fail_smudge = env.projects_root().join(".git/fail-smudge");
+    std::fs::write(&fail_smudge, "").unwrap();
+    let before = repo_state(&env);
+
+    env.but("resolve finish").assert().failure();
+    assert_eq!(repo_state(&env), before, "a failed finish changes nothing");
+
+    std::fs::remove_file(&fail_smudge).unwrap();
+    env.but("resolve finish").assert().success();
+    assert_eq!(
+        read(&env, "b.secret").as_bstr(),
+        "edited\n",
+        "the retried finish brings the uncommitted change back"
+    );
+    assert_eq!(env.invoke_git("show A:file.txt"), "resolved");
 }
