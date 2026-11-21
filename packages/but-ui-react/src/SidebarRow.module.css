@@ -14,7 +14,8 @@
 
 	/* No transition: hover and selection share this ground, and selection moves with the arrow
 	   keys (design/foundations/states.md, "List rows snap"). */
-	&:where(:hover) {
+	/* A linked row takes the hover's ground: the pointer is on what it goes with. */
+	&:where(:hover, [data-linked]) {
 		background-color: var(--but-hover);
 	}
 
@@ -352,6 +353,22 @@ button.toggle {
 	display: flex;
 	column-gap: var(--but-space-sm);
 	align-items: center;
+}
+
+/* A split's map, last on the row and an icon wide, so the maps line up down the list. It stands a
+   step further off than the counts sit from each other, so it reads as its own mark. */
+.split {
+	display: flex;
+	flex-shrink: 0;
+	justify-content: center;
+	width: 16px;
+	margin-inline-start: var(--but-space-sm);
+}
+
+/* In a tree that shows splits, a row without one keeps the cell's room, the end's gap and the
+   cell's own step, so the counts line up down the list too. */
+:where([data-split-room]) .row:not(:has(> .end > .split)) {
+	padding-inline-end: calc(var(--but-space-lg) + 16px + 2 * var(--but-space-sm));
 }
 
 /* Something changed since the row was last opened: a dot in the row's start padding, before its

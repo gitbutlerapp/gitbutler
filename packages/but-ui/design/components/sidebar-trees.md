@@ -38,6 +38,17 @@ A row that changed since it was last opened ends in a dot after its counts.
 Once a tree tracks that, every row keeps the dot's room, so the counts line
 up down the list.
 
+**A row in a split says so at its very end.** Every row a split shows, the one
+it was made on and each whose tile is in it, carries its `SplitPreviewMap`: a
+small map of the tiles with that row's own inked, in a cell of its own after
+the counts and the next step. While a tree shows any split, every row keeps that
+cell's room, as with the unread dot, so the maps line up down the list and so
+do the counts. Under the pointer it opens a `SplitPreview`
+of what each tile shows, by name and state, never their content, beside the
+sidebar rather than over it, and the split's other rows light up (`linked`), so
+the rows that go together read as one. It is a mark, not a button: a row itself
+opens the split again.
+
 **A commit's glyph takes its state's token, in every client, always.** React,
 GPUI and 🍑 But UI draw a commit's glyph from its commit token in the table
 (GPUI's `theme.commit_local` and its kin, Figma's `commit/local` and its kin),
