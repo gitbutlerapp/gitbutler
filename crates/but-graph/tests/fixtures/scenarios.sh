@@ -1810,11 +1810,13 @@ EOF
 
   cp -R single-stack single-stack-renamed-target-upstream
   (cd single-stack-renamed-target-upstream
-    git checkout -b soon-trunk A
+    git checkout --detach A
     commit upstream
-    setup_remote_tracking soon-trunk trunk move
+    git tag -am "upstream release" release
+    git update-ref refs/remotes/origin/trunk refs/tags/release
     git checkout gitbutler/workspace
-    git branch --set-upstream-to=origin/trunk main
+    git config --add remote.origin.fetch '+refs/tags/release:refs/remotes/origin/trunk'
+    git config branch.main.merge refs/tags/release
   )
 
   # A workspace where the only ref on the branch commits is origin/A (remote).

@@ -76,11 +76,20 @@ pub(crate) fn graph(
             ref_to_oid.insert(full_name.clone(), id.detach());
             oid_to_refs.entry(id.detach()).or_default().push(full_name);
         }
-        for reference in overlay_repo.references_with_prefix("refs/remotes/")? {
+        for mut reference in overlay_repo.references_with_prefix("refs/remotes/")? {
             let Some(id) = reference.try_id() else {
                 continue;
             };
             let full_name = reference.name().to_owned();
+            // A fetch refspec can map an annotated tag into the remote-tracking namespace.
+            let id = if Some(full_name.as_ref()) == target_upstream_ref {
+                let Ok(commit) = reference.peel_to_commit() else {
+                    continue;
+                };
+                commit.id
+            } else {
+                id.detach()
+            };
             // Like a traversal, the walk leaves out the remote-tracking branch of a workspace
             // reference, as it would bring in a stale workspace commit.
             if let Some((_remote, short_name)) =
@@ -90,13 +99,10 @@ pub(crate) fn graph(
                 && !is_workspace_ref_name(local_name.as_ref())
                 && let Some(local_id) = ref_to_oid.get(&local_name)
             {
-                heads_on_reaching
-                    .entry(*local_id)
-                    .or_default()
-                    .push(id.detach());
+                heads_on_reaching.entry(*local_id).or_default().push(id);
             }
-            ref_to_oid.insert(full_name.clone(), id.detach());
-            oid_to_refs.entry(id.detach()).or_default().push(full_name);
+            ref_to_oid.insert(full_name.clone(), id);
+            oid_to_refs.entry(id).or_default().push(full_name);
         }
         // The target's configured upstream may have a different branch name.
         if let Some(upstream) = target_upstream_ref.and_then(|name| ref_to_oid.get(name)) {
