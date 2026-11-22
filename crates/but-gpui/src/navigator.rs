@@ -2891,10 +2891,15 @@ impl Navigator {
             .label(row_name().child(entry.project.name.clone()))
             .meta(summary)
             .meta_gives_way();
-        let row = self.folding(row, expanded.then_some(!card_folded), cx, {
-            let id = id.clone();
-            move |this, _, cx| this.toggle_project(&id, cx)
-        });
+        let row = match expanded || filtering {
+            true => self.folding(row, expanded.then_some(!card_folded), cx, {
+                let id = id.clone();
+                move |this, _, cx| this.toggle_project(&id, cx)
+            }),
+            // In the drawer, folded, as but-ui-react's Drawer lists its projects: the chevron
+            // says so, and its button shows it among the cards.
+            false => row.fold(RowFold::Folded),
+        };
         // Only a watched project's: an unwatched one updates from its page or its menu, which
         // keeps the list of the others quiet.
         let row = match expanded && needs_update {
