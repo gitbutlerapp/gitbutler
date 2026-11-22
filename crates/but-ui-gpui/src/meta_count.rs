@@ -127,9 +127,11 @@ pub fn meta_count(kind: MetaCountType, value: Option<SharedString>, theme: &Them
             .justify_center()
             .child(spinning(color, true))
             .into_any_element(),
+        // A step quieter than its value, as 🍑 But UI draws it, so the value reads first.
         _ => icon_at(kind.glyph(), 14.)
             .flex_none()
             .text_color(color)
+            .opacity(0.7)
             .into_any_element(),
     };
     count_box(color, glyph, value).when(
@@ -169,11 +171,17 @@ pub fn meta_status(variant: MetaStatusVariant, label: Option<SharedString>, them
         MetaStatusVariant::Warning => (Icon::Warning, theme.warning_text),
         MetaStatusVariant::Neutral => (Icon::Pending, theme.muted_foreground),
     };
+    // A step quieter than its label, as a MetaCount's glyph is.
     let glyph = match variant {
-        MetaStatusVariant::Working => spinner(14., color).into_any_element(),
+        MetaStatusVariant::Working => div()
+            .flex_none()
+            .opacity(0.7)
+            .child(spinner(14., color))
+            .into_any_element(),
         _ => icon_at(glyph, 14.)
             .flex_none()
             .text_color(color)
+            .opacity(0.7)
             .into_any_element(),
     };
     count_box(color, glyph, label)

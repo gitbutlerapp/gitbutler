@@ -95,7 +95,7 @@ export const MetaCount: FC<MetaCountProps> = ({ type, children, ...props }) => (
 		) : type === "running" ? (
 			<RunningDots />
 		) : (
-			<Icon name={glyph[type]} size={14} className={styles.glyph} />
+			<Icon name={glyph[type]} size={14} className={classes(styles.glyph, styles.faded)} />
 		)}
 		{children !== undefined && <span className={styles.value}>{children}</span>}
 	</span>
@@ -140,7 +140,7 @@ const WorkingRobot: FC = () => (
 		viewBox="0 0 12 12"
 		fill="none"
 		aria-hidden="true"
-		className={styles.glyph}
+		className={classes(styles.glyph, styles.faded)}
 	>
 		<rect x="1.5" y="1.5" width="9" height="9" stroke="currentColor" strokeWidth="1.5" />
 		<rect x="0" y="3.75" width="1.5" height="3.75" fill="currentColor" />
@@ -228,7 +228,7 @@ export const MetaStatus: FC<
 		{...props}
 		className={classes(props.className, "text-13", styles.count, styles[variant])}
 	>
-		<Icon name={statusGlyph[variant]} size={14} className={styles.glyph} />
+		<Icon name={statusGlyph[variant]} size={14} className={classes(styles.glyph, styles.faded)} />
 		{children !== undefined && <span className={styles.value}>{children}</span>}
 	</span>
 );
