@@ -2880,8 +2880,10 @@ impl Navigator {
             .when(entry.is_loading(), |el| {
                 el.child(small_icon(Icon::Clock).text_color(theme.subtle_foreground))
             })
+            // Its age only folded or in the drawer: an open card's header drops it, as
+            // sidebar-rows.md says.
             .children(
-                (!entry.is_loading())
+                (!entry.is_loading() && (card_folded || !expanded))
                     .then(|| age(rows::last_active(entry), theme))
                     .flatten(),
             );
@@ -3102,12 +3104,6 @@ impl Navigator {
         let counts = (!open)
             .then(|| change_counts(tally(&uncommitted), style).chain(style.unpushed(unpushed_n)));
         let row = counts.into_iter().flatten().fold(row, SidebarRow::meta);
-        // When it last moved: its own reflogs, or the newest commit on its branches.
-        let newest = (branches.iter())
-            .filter_map(|b| b.commits.first().map(|c| c.time))
-            .max();
-        let at = worktree.and_then(|wt| wt.updated_at).max(newest);
-        let row = age(at, style.theme).into_iter().fold(row, SidebarRow::meta);
         let row = match head {
             Some(head) => row.meta(head).meta_gives_way(),
             None => row,
