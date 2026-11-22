@@ -482,10 +482,15 @@ fn identity(user: &GitButlerUser, avatar: Option<Arc<Image>>, theme: &Theme) -> 
                 .child(
                     div()
                         .text_13()
-                        .text_color(theme.text_1)
+                        .text_color(theme.foreground)
                         .child(user.name.clone()),
                 )
-                .children(email.map(|email| div().text_12().text_color(theme.text_2).child(email))),
+                .children(email.map(|email| {
+                    div()
+                        .text_12()
+                        .text_color(theme.muted_foreground)
+                        .child(email)
+                })),
         )
 }
 

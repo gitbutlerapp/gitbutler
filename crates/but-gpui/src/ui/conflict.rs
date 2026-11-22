@@ -250,9 +250,9 @@ fn side_look(side: Side, plain: bool, theme: &Theme) -> Look {
         Side::NewBase => look(LineKind::Added, plain, theme),
         Side::Commit => Look {
             bg: (!plain).then_some(theme.surface(Hue::Blue)),
-            number: theme.blue_on_soft,
+            number: theme.info_soft_foreground,
             emph: theme.highlight(Highlight::Incoming),
-            bar: Some(theme.blue.into()),
+            bar: Some(theme.info_text.into()),
         },
         Side::Ancestor => look(LineKind::Context, plain, theme),
     }
@@ -291,10 +291,10 @@ fn bar(row: &Row, theme: &Theme) -> AnyElement {
         Some(Kept::Pick(_) | Kept::Text { writing: false, .. })
     );
     let (mark, color, ground, current) = match handled {
-        true => (Icon::Tick, theme.safe, theme.hover, theme.secondary),
+        true => (Icon::Tick, theme.success_text, theme.hover, theme.secondary),
         false => (
             Icon::Warning,
-            theme.warn_on_soft,
+            theme.warning_soft_foreground,
             theme.surface(Hue::Warn),
             theme.surface_hover(Hue::Warn),
         ),
@@ -366,8 +366,8 @@ fn pick_key(pick: Pick) -> &'static str {
 /// A side's name over its lines, or what it says when it has none.
 fn label(side: Side, row: &Row, theme: &Theme) -> AnyElement {
     let (glyph, name, color) = match side {
-        Side::NewBase => (row.icons[0], row.sides[0], theme.diff_added),
-        Side::Commit => (row.icons[1], row.sides[1], theme.blue),
+        Side::NewBase => (row.icons[0], row.sides[0], theme.derived.diff_added),
+        Side::Commit => (row.icons[1], row.sides[1], theme.info_text),
         // Under its toggle, not a label.
         Side::Ancestor => return div().into_any_element(),
     };
@@ -378,7 +378,7 @@ fn label(side: Side, row: &Row, theme: &Theme) -> AnyElement {
     };
     strip(row.layout, row.last && empty, theme)
         .h(dp(24.))
-        .text_color(theme.text_2)
+        .text_color(theme.muted_foreground)
         .child(small_icon(glyph).text_color(color))
         .child(text)
         .into_any_element()
@@ -391,7 +391,7 @@ fn ancestor_toggle(row: &Row, theme: &Theme) -> AnyElement {
     let strip = strip(row.layout, row.last, theme).h(dp(28.));
     if lines == 0 {
         return strip
-            .text_color(theme.text_3)
+            .text_color(theme.subtle_foreground)
             .child("Both sides added these lines")
             .into_any_element();
     }
@@ -466,9 +466,9 @@ fn result(row: &Row, theme: &Theme) -> AnyElement {
     );
     let kept_look = Look {
         bg: None,
-        number: theme.diff_muted,
-        emph: theme.bg_1,
-        bar: Some(theme.safe.into()),
+        number: theme.derived.diff_line_number,
+        emph: theme.background,
+        bar: Some(theme.success_text.into()),
     };
     let last = row.last;
     v_flex()
@@ -476,8 +476,8 @@ fn result(row: &Row, theme: &Theme) -> AnyElement {
         .child(
             strip(row.layout, last && lines.is_empty(), theme)
                 .h(dp(28.))
-                .text_color(theme.text_2)
-                .child(small_icon(Icon::Tick).text_color(theme.safe))
+                .text_color(theme.muted_foreground)
+                .child(small_icon(Icon::Tick).text_color(theme.success_text))
                 .child(
                     div()
                         .flex_1()
@@ -554,7 +554,7 @@ fn editor(input: Entity<TextInput>, row: &Row, theme: &Theme) -> AnyElement {
                 .child(
                     div()
                         .flex_1()
-                        .text_color(theme.text_2)
+                        .text_color(theme.muted_foreground)
                         .child("Leaving it empty removes these lines."),
                 )
                 .child(

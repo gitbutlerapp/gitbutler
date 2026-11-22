@@ -36,12 +36,11 @@ impl FileStatus {
     }
 
     pub fn color(self, theme: &Theme) -> Hsla {
-        let [added, modified, deleted, renamed] = theme.change_status;
         match self {
-            FileStatus::Addition => added,
-            FileStatus::Deletion => deleted,
-            FileStatus::Modification => modified,
-            FileStatus::Rename => renamed,
+            FileStatus::Addition => theme.change_status_addition,
+            FileStatus::Deletion => theme.change_status_deletion,
+            FileStatus::Modification => theme.change_status_modification,
+            FileStatus::Rename => theme.change_status_rename,
         }
     }
 }

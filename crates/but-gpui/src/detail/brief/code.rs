@@ -23,8 +23,8 @@ const MOST_WHOLE_HUNKS: usize = 30;
 /// A small marked word by a file's name, in amber if it's a `warning`.
 fn chip(words: &str, warning: bool, theme: &Theme) -> Div {
     let (color, edge) = match warning {
-        true => (theme.warn, theme.warn_edge),
-        false => (theme.text_3, theme.border_3),
+        true => (theme.warning_text, theme.derived.warning_edge),
+        false => (theme.subtle_foreground, theme.border_subtle),
     };
     div()
         .flex_none()
@@ -35,7 +35,7 @@ fn chip(words: &str, warning: bool, theme: &Theme) -> Div {
         .text_11()
         .line_height(dp(16.))
         .text_color(color)
-        .bg(theme.bg_1)
+        .bg(theme.background)
         .child(words.to_owned())
 }
 
@@ -44,7 +44,7 @@ fn not_shown(omitted: &[String], theme: &Theme) -> Option<Div> {
     (!omitted.is_empty()).then(|| {
         div()
             .text_11()
-            .text_color(theme.text_3)
+            .text_color(theme.subtle_foreground)
             .child(format!("Not shown: {}", omitted.join(", ")))
     })
 }
@@ -103,11 +103,11 @@ impl Detail {
             .rounded(dp(theme.shape.card))
             .border_1()
             .border_color(match code.source {
-                CodeSource::Proposal => theme.warn_edge,
-                _ => theme.border_3,
+                CodeSource::Proposal => theme.derived.warning_edge,
+                _ => theme.border_subtle,
             })
             .overflow_hidden()
-            .child(header.border_b_1().border_color(theme.border_3))
+            .child(header.border_b_1().border_color(theme.border_subtle))
             .children(match whole.as_ref().filter(|_| shows_whole) {
                 // All the branch changes in the file, up to where a row would get too long to
                 // draw, as what an agent picks to show can be too little.
@@ -115,7 +115,9 @@ impl Detail {
                     .take(MOST_WHOLE_HUNKS)
                     .map(|(ix, hunk)| {
                         div()
-                            .when(ix > 0, |el| el.border_t_1().border_color(theme.border_3))
+                            .when(ix > 0, |el| {
+                                el.border_t_1().border_color(theme.border_subtle)
+                            })
                             .child(diff::excerpt_flat(&hunk.lines, theme))
                             .into_any_element()
                     })
@@ -123,7 +125,9 @@ impl Detail {
                 None => (code.parts.iter().enumerate())
                     .map(|(ix, lines)| {
                         div()
-                            .when(ix > 0, |el| el.border_t_1().border_color(theme.border_3))
+                            .when(ix > 0, |el| {
+                                el.border_t_1().border_color(theme.border_subtle)
+                            })
                             .child(diff::excerpt_found(
                                 lines,
                                 |line| self.found_on(Spot::BriefCode(at, ix, line)),
@@ -141,7 +145,7 @@ impl Detail {
                     .px(dp(10.))
                     .py(dp(4.))
                     .border_t_1()
-                    .border_color(theme.border_3)
+                    .border_color(theme.border_subtle)
                     .text_11()
                     .children(whole.as_ref().map(|file| {
                         let (added, removed) = file.stats();
@@ -153,8 +157,8 @@ impl Detail {
                         };
                         div()
                             .id(("brief-whole-file", at))
-                            .text_color(theme.text_2)
-                            .hover(|el| el.text_color(theme.text_1).underline())
+                            .text_color(theme.muted_foreground)
+                            .hover(|el| el.text_color(theme.foreground).underline())
                             .role(gpui::Role::Button)
                             .aria_label(SharedString::from(words.clone()))
                             .on_click(cx.listener(move |this, _, _, cx| {
@@ -179,7 +183,7 @@ impl Detail {
         v_flex()
             .rounded(dp(theme.shape.card))
             .border_1()
-            .border_color(theme.border_3)
+            .border_color(theme.border_subtle)
             .overflow_hidden()
             .children(files.iter().enumerate().map(|(ix, file)| {
                 self.brief_file_row(
@@ -190,14 +194,16 @@ impl Detail {
                     None,
                     cx,
                 )
-                .when(ix > 0, |el| el.border_t_1().border_color(theme.border_3))
+                .when(ix > 0, |el| {
+                    el.border_t_1().border_color(theme.border_subtle)
+                })
             }))
             .children(not_shown(omitted, theme).map(|words| {
                 words
                     .px(dp(10.))
                     .py(dp(4.))
                     .border_t_1()
-                    .border_color(theme.border_3)
+                    .border_color(theme.border_subtle)
             }))
             .into_any_element()
     }
@@ -226,7 +232,7 @@ impl Detail {
             .min_h(dp(28.))
             .px(dp(10.))
             .gap(dp(6.))
-            .bg(theme.bg_2)
+            .bg(theme.canvas)
             .text_12()
             .when(goes, |el| {
                 el.role(gpui::Role::Button)
@@ -241,7 +247,7 @@ impl Detail {
             .child(
                 div()
                     .flex_none()
-                    .text_color(theme.text_1)
+                    .text_color(theme.foreground)
                     .when(deleted, |el| el.line_through())
                     .child(name),
             )
@@ -252,7 +258,7 @@ impl Detail {
                     .overflow_hidden()
                     .whitespace_nowrap()
                     .text_ellipsis_middle()
-                    .text_color(theme.text_3)
+                    .text_color(theme.subtle_foreground)
                     .child(dir),
             )
             .children(stats.map(|stats| diff_stats(stats.additions, stats.deletions, false, theme)))
@@ -261,7 +267,7 @@ impl Detail {
                     div()
                         .flex_none()
                         .text_11()
-                        .text_color(theme.text_3)
+                        .text_color(theme.subtle_foreground)
                         .child("not on the branch now"),
                 )
             })
@@ -271,7 +277,7 @@ impl Detail {
                         .flex_none()
                         .opacity(0.)
                         .group_hover("brief-file", |el| el.opacity(1.))
-                        .child(icon_at(Icon::ArrowUpRight, 12.).text_color(theme.text_2)),
+                        .child(icon_at(Icon::ArrowUpRight, 12.).text_color(theme.muted_foreground)),
                 )
             })
     }

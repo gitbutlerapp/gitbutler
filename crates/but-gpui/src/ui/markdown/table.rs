@@ -44,13 +44,13 @@ pub(super) fn draw(
     theme: &Theme,
 ) -> AnyElement {
     let shares = column_shares(cells);
-    let mut table = (v_flex().border_b_1().border_x_1()).border_color(theme.border_3);
+    let mut table = (v_flex().border_b_1().border_x_1()).border_color(theme.border_subtle);
     let mut next = first;
     let row_of = |block: &Block| block.cell.map(|cell| cell.row);
     for row in cells.chunk_by(|a, b| row_of(a) == row_of(b)) {
         let head = (row.first().and_then(|block| block.cell)).is_some_and(|cell| cell.row == 1);
         let mut line = (h_flex().items_stretch().border_t_1())
-            .border_color(theme.border_3)
+            .border_color(theme.border_subtle)
             // On the grey code sits on.
             .when(head, |el| el.bg(theme.secondary));
         for (column, share) in shares.iter().enumerate() {
@@ -62,7 +62,7 @@ pub(super) fn draw(
                     .py(dp(6.))
                     .gap(dp(8.))
                     .when(column > 0, |el| {
-                        el.border_l_1().border_color(theme.border_3)
+                        el.border_l_1().border_color(theme.border_subtle)
                     })
                     .children(blocks.map(|(n, block)| {
                         element(id, next + n, block, gallery, range, texts, theme)

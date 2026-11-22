@@ -437,14 +437,14 @@ impl Render for BuildOutput {
         let elapsed = duration(self.started.elapsed().as_secs() as i64);
         let waiting = self.store.read(cx).unfinished();
         let (status, color) = match self.state {
-            State::Building => (format!("Building… {elapsed}"), theme.text_2),
+            State::Building => (format!("Building… {elapsed}"), theme.muted_foreground),
             State::Restarting if waiting > 0 => (
                 "Built, restarting once the operations running finish…".to_owned(),
-                theme.text_2,
+                theme.muted_foreground,
             ),
-            State::Restarting => ("Built, restarting…".to_owned(), theme.text_2),
-            State::Failed => ("Build failed".to_owned(), theme.danger),
-            State::Cancelled => ("Build cancelled".to_owned(), theme.text_2),
+            State::Restarting => ("Built, restarting…".to_owned(), theme.muted_foreground),
+            State::Failed => ("Build failed".to_owned(), theme.danger_text),
+            State::Cancelled => ("Build cancelled".to_owned(), theme.muted_foreground),
         };
         let folder = folder_name(&self.dir);
         let header = v_flex()
@@ -453,7 +453,7 @@ impl Render for BuildOutput {
             .py(dp(14.))
             .gap(dp(2.))
             .border_b_1()
-            .border_color(theme.border_3)
+            .border_color(theme.border_subtle)
             .child(
                 div()
                     .text_14()
@@ -488,7 +488,7 @@ impl Render for BuildOutput {
         .py(dp(8.));
         let scroll = Scroll::List(self.list.clone());
         let body = scrolled(rows, "build-output-scrollbar", scroll, theme)
-            .bg(theme.bg_2)
+            .bg(theme.canvas)
             .font_family(theme.mono_font.clone())
             .text_12();
         let actions = match self.state {
@@ -528,7 +528,7 @@ impl Render for BuildOutput {
             .py(dp(12.))
             .gap(dp(6.))
             .border_t_1()
-            .border_color(theme.border_3)
+            .border_color(theme.border_subtle)
             .child(
                 button("build-copy", "Copy output")
                     .small()
@@ -666,17 +666,17 @@ impl Style {
     }
 }
 
-/// The theme's colour for terminal colour `color`, read on `bg_2`.
+/// The theme's colour for terminal colour `color`, read on `canvas`.
 fn terminal_color(color: u8, theme: &Theme) -> Hsla {
     match color {
-        0 => theme.text_3,
-        1 => theme.danger,
-        2 => theme.safe,
-        3 => theme.warn,
-        4 => theme.blue,
-        5 => theme.purple,
-        6 => theme.pop,
-        _ => theme.text_1,
+        0 => theme.subtle_foreground,
+        1 => theme.danger_text,
+        2 => theme.success_text,
+        3 => theme.warning_text,
+        4 => theme.info_text,
+        5 => theme.done_text,
+        6 => theme.primary_text,
+        _ => theme.foreground,
     }
 }
 

@@ -23,9 +23,9 @@ impl Render for RowsStory {
         let row = |id: &'static str, glyph: Icon, name: &'static str, selected, solid| {
             side_row(id, selected, solid, theme)
                 .child(icon(glyph).text_color(if selected && solid {
-                    theme.text_inverted
+                    theme.inverse_foreground
                 } else {
-                    theme.text_2
+                    theme.muted_foreground
                 }))
                 .child(name)
         };
@@ -45,7 +45,7 @@ impl Render for RowsStory {
                     .child(fold_button(
                         "src-fold",
                         Some(open),
-                        theme.text_2,
+                        theme.muted_foreground,
                         // There's no pane around it here to give the keys.
                         &cx.focus_handle(),
                         cx,
@@ -115,5 +115,5 @@ fn list(theme: &Theme) -> Div {
         .w(dp(240.))
         .py(dp(6.))
         .rounded(dp(6.))
-        .bg(theme.bg_2)
+        .bg(theme.canvas)
 }

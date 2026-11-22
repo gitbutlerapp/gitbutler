@@ -224,8 +224,8 @@ impl SettingsView {
             });
         });
         let signing_note = self.signing.as_ref().map(|result| match result {
-            Ok(()) => div().text_color(theme.safe).child("Signing works"),
-            Err(err) => div().text_color(theme.danger).child(err.clone()),
+            Ok(()) => div().text_color(theme.success_text).child("Signing works"),
+            Err(err) => div().text_color(theme.danger_text).child(err.clone()),
         });
         let name = Row::new(
             "Name",
@@ -382,11 +382,15 @@ impl SettingsView {
             .zip(self.credentials.iter().flatten());
         let checks = checks.map(|(name, check)| match check {
             None => Row::new(name, "", muted("Checking…", theme)),
-            Some(Ok(())) => Row::new(name, "", muted("Works", theme).text_color(theme.safe)),
+            Some(Ok(())) => Row::new(
+                name,
+                "",
+                muted("Works", theme).text_color(theme.success_text),
+            ),
             Some(Err(err)) => Row::new(
                 name,
                 error_summary(err),
-                muted("Failed", theme).text_color(theme.danger),
+                muted("Failed", theme).text_color(theme.danger_text),
             ),
         });
         let hooks = Row::new(

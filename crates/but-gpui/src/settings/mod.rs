@@ -896,7 +896,12 @@ impl SettingsView {
                 });
             h_flex()
                 .gap(dp(8.))
-                .child(div().text_13().text_color(theme.text_2).child(name))
+                .child(
+                    div()
+                        .text_13()
+                        .text_color(theme.muted_foreground)
+                        .child(name),
+                )
                 .child(scheme)
         };
         let schemes = Row::new(
@@ -1781,15 +1786,15 @@ impl SettingsView {
                     .pl(dp(16.))
                     .text_12()
                     .semibold()
-                    .text_color(theme.text_3)
+                    .text_color(theme.subtle_foreground)
                     .child(heading)
             }))
             .child(
                 v_flex()
                     .rounded(dp(theme.shape.popup))
                     .border_1()
-                    .border_color(theme.border_3)
-                    .bg(theme.bg_1)
+                    .border_color(theme.border_subtle)
+                    .bg(theme.background)
                     .overflow_hidden()
                     .children(
                         (card.rows.into_iter().enumerate())
@@ -1815,7 +1820,9 @@ impl SettingsView {
                     el.items_center()
                 }
             })
-            .when(divided, |el| el.border_t_1().border_color(theme.border_3))
+            .when(divided, |el| {
+                el.border_t_1().border_color(theme.border_subtle)
+            })
             .child(
                 v_flex()
                     .flex_1()
@@ -1825,7 +1832,7 @@ impl SettingsView {
                         div()
                             .text_15()
                             .semibold()
-                            .text_color(theme.text_1)
+                            .text_color(theme.foreground)
                             .child(row.title),
                     )
                     .when(hint, |el| {
@@ -1833,7 +1840,7 @@ impl SettingsView {
                             div()
                                 .text_12()
                                 .body()
-                                .text_color(theme.text_2)
+                                .text_color(theme.muted_foreground)
                                 .child(row.description),
                         )
                     })
@@ -1866,8 +1873,8 @@ impl SettingsView {
         .mx_0()
         .track_focus(&link.focus)
         .child(icon(page.icon()).text_color(match selected {
-            true => theme.muted_on_solid,
-            false => theme.text_2,
+            true => theme.inverse_muted_foreground,
+            false => theme.muted_foreground,
         }))
         .child(page.title())
         .on_click(cx.listener(move |this, _, _, cx| this.show_page(page.clone(), cx)))
@@ -1900,13 +1907,13 @@ impl SettingsView {
                 "fold",
                 open,
                 match selected {
-                    true => theme.muted_on_solid,
-                    false => theme.text_3,
+                    true => theme.inverse_muted_foreground,
+                    false => theme.subtle_foreground,
                 },
             ))
             .child(icon(Icon::Folder).text_color(match selected {
-                true => theme.muted_on_solid,
-                false => theme.text_2,
+                true => theme.inverse_muted_foreground,
+                false => theme.muted_foreground,
             }))
             .child(div().flex_1().min_w_0().truncate().child(name))
             .on_click(cx.listener(move |this, _, _, cx| this.show_page(page.clone(), cx)));
@@ -2005,7 +2012,7 @@ impl Render for SettingsView {
                     .pb(dp(8.))
                     .text_12()
                     .semibold()
-                    .text_color(theme.text_3)
+                    .text_color(theme.subtle_foreground)
                     .child(label)
             };
             let entries = |projects: &[ProjectId]| {
@@ -2055,7 +2062,7 @@ impl Render for SettingsView {
                 .pt(dp(16.))
                 .px(dp(12.))
                 .border_t_1()
-                .border_color(theme.border_3)
+                .border_color(theme.border_subtle)
                 .child(heading("Projects"))
                 .children(entries(&listed.watched))
                 .children(above)
@@ -2078,7 +2085,7 @@ impl Render for SettingsView {
                     .pb(dp(10.))
                     .text_16()
                     .semibold()
-                    .text_color(theme.text_1)
+                    .text_color(theme.foreground)
                     .child("Settings"),
             )
             .child(
@@ -2138,7 +2145,7 @@ impl Render for SettingsView {
                     .w(dp(211.))
                     .flex_none()
                     .h_full()
-                    .bg(theme.bg_2)
+                    .bg(theme.canvas)
                     // Its ground fills the modal's left corners, which it rounds as the modal does.
                     .rounded_l(dp(theme.shape.popup - 1.))
                     .key_context("SettingsPages")
@@ -2163,8 +2170,8 @@ impl Render for SettingsView {
                     .min_w_0()
                     .h_full()
                     .border_l_1()
-                    .border_color(theme.border_3)
-                    .bg(theme.bg_1)
+                    .border_color(theme.border_subtle)
+                    .bg(theme.background)
                     .rounded_r(dp(theme.shape.popup - 1.))
                     .child(scrolled(
                         content,

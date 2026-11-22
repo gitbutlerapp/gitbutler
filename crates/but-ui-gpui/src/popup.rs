@@ -8,8 +8,8 @@ use crate::*;
 pub fn popover(theme: &Theme) -> Div {
     v_flex()
         .rounded(dp(theme.shape.popup))
-        .bg(theme.bg_1)
+        .bg(theme.background)
         .border_1()
-        .border_color(theme.border_2)
+        .border_color(theme.border)
         .shadow_lg()
 }

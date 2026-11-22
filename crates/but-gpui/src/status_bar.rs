@@ -78,11 +78,13 @@ impl AppView {
         let (state, state_keys): (AnyElement, Vec<(SharedString, &str)>) = if self.swapping() {
             let state = h_flex()
                 .gap(dp(6.))
-                .child(div().text_color(theme.pop).child("Swapping tiles"))
+                .child(div().text_color(theme.primary_text).child("Swapping tiles"))
                 .child("press a tile's letter");
             (state.into_any_element(), vec![("esc".into(), "cancel")])
         } else if self.arranging() {
-            let state = div().text_color(theme.pop).child("Arranging tiles");
+            let state = div()
+                .text_color(theme.primary_text)
+                .child("Arranging tiles");
             let keys = [("hjkl".into(), "move tile")]
                 .into_iter()
                 .chain(shortcut(&FinishArranging, cx).map(|keys| (keys, "done")))
@@ -92,8 +94,8 @@ impl AppView {
         } else if let Some(working) = working {
             let working = h_flex()
                 .gap(dp(6.))
-                .text_color(theme.pop)
-                .child(small_icon(Icon::Clock).text_color(theme.pop))
+                .text_color(theme.primary_text)
+                .child(small_icon(Icon::Clock).text_color(theme.primary_text))
                 .child(working);
             (working.into_any_element(), Vec::new())
         } else if let Some(moving) = &store.moving {
@@ -207,7 +209,7 @@ impl AppView {
                 .gap(dp(6.))
                 .child(
                     div()
-                        .text_color(theme.pop)
+                        .text_color(theme.primary_text)
                         .child(format!("{} selected", crate::ui::plural(n, what))),
                 )
                 .children(how);
@@ -372,9 +374,9 @@ impl AppView {
             .px(dp(12.))
             .gap(dp(10.))
             // On the ground the cards are on, with nothing between, as the top bars are.
-            .bg(theme.bg_2)
+            .bg(theme.canvas)
             .text_12()
-            .text_color(theme.text_2)
+            .text_color(theme.muted_foreground)
             // What's going on on the left, how fresh the remote is first, as it's there whatever
             // else is, and the keys on the right, Commands last so it stays put.
             .when_some(fetched, |el, (failed, said)| {
@@ -383,9 +385,13 @@ impl AppView {
                     clickable("fetched", &said, theme.hover, &theme)
                         // Pulled left by its hover's padding, so its words start at the bar's edge.
                         .ml(dp(-6.))
-                        .text_color(if failed { theme.warn } else { theme.text_3 })
+                        .text_color(if failed {
+                            theme.warning_text
+                        } else {
+                            theme.subtle_foreground
+                        })
                         .when(failed, |el| {
-                            el.child(small_icon(Icon::Warning).text_color(theme.warn))
+                            el.child(small_icon(Icon::Warning).text_color(theme.warning_text))
                         })
                         .child(said)
                         .tooltip(Tooltip::keyed(tip, shortcut(&Fetch, cx)))
@@ -482,7 +488,7 @@ impl AppView {
             if let (Some(text), Some(first)) = (text, writing.first()) {
                 notes.push(Note {
                     id: "writing",
-                    mark: dot(theme.pop).into_any_element(),
+                    mark: dot(theme.primary_text).into_any_element(),
                     tone: None,
                     text,
                     tip: "Show the worktree",
@@ -500,7 +506,7 @@ impl AppView {
                 notes.push(Note {
                     id: "unread",
                     mark: small_icon(Icon::Commit)
-                        .text_color(theme.text_3)
+                        .text_color(theme.subtle_foreground)
                         .into_any_element(),
                     tone: None,
                     text: format!("{} unread", unread.len()),
@@ -520,7 +526,7 @@ impl AppView {
             notes.push(Note {
                 id: "last-done",
                 mark: small_icon(Icon::Undo)
-                    .text_color(theme.text_3)
+                    .text_color(theme.subtle_foreground)
                     .into_any_element(),
                 tone: None,
                 text: format!("{said}{} · {}", store.in_project(done_in), ago(at / 1000)),
@@ -697,7 +703,7 @@ fn hint(keys: &str, label: &str, theme: &Theme) -> gpui::Div {
         .gap(dp(4.))
         .child(
             div()
-                .text_color(theme.text_3)
+                .text_color(theme.subtle_foreground)
                 .child(crate::ui::keys_text(keys)),
         )
         .child(label.to_owned())

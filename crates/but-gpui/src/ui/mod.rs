@@ -219,9 +219,9 @@ pub fn inset_by(el: Div, by: f32) -> Div {
 /// A tile's card over its area, as the navigator's cards are drawn.
 pub fn tile_card(theme: &Theme) -> Div {
     inset_by(div(), TILE_MARGIN)
-        .bg(theme.bg_1)
+        .bg(theme.background)
         .border_1()
-        .border_color(theme.border_3)
+        .border_color(theme.border_subtle)
         .rounded(dp(theme.shape.card))
 }
 
@@ -243,7 +243,7 @@ pub fn tile_corners(theme: &Theme) -> [Div; 2] {
     let reach = dp(theme.shape.card);
     let mut ring = inset_by(div(), -theme.shape.card)
         .rounded(dp(2. * theme.shape.card))
-        .border_color(theme.bg_2);
+        .border_color(theme.canvas);
     ring.style().border_widths = gpui::EdgesRefinement {
         top: Some(reach.into()),
         right: Some(reach.into()),
@@ -255,7 +255,7 @@ pub fn tile_corners(theme: &Theme) -> [Div; 2] {
         inset_by(div(), TILE_MARGIN)
             .rounded(dp(theme.shape.card))
             .border_1()
-            .border_color(theme.border_3),
+            .border_color(theme.border_subtle),
     ]
 }
 
@@ -322,7 +322,7 @@ pub fn guide(at: f32, theme: &Theme) -> Div {
         .bottom_0()
         .left(dp(at))
         .w(fixed(1.))
-        .bg(theme.border_3)
+        .bg(theme.border_subtle)
 }
 
 /// A fold's glyph in a step as wide as a branch's chevron: a chevron, down while `open` and
@@ -358,9 +358,9 @@ pub fn fold_row(
         .pl(dp(icon_at))
         .gap(dp(text_at - icon_at - 12.))
         .text_12()
-        .text_color(theme.text_2)
-        .hover(|el| el.text_color(theme.text_1))
-        .child(small_icon(glyph).text_color(theme.text_3))
+        .text_color(theme.muted_foreground)
+        .hover(|el| el.text_color(theme.foreground))
+        .child(small_icon(glyph).text_color(theme.subtle_foreground))
 }
 
 /// For a press on something whose click places the focus itself: left be, the press would
@@ -417,14 +417,14 @@ pub fn side_row(
     theme: &Theme,
 ) -> Stateful<Div> {
     list_row(id, selected, theme).when(selected && solid, |el| {
-        el.bg(theme.fill_gray).text_color(theme.text_inverted)
+        el.bg(theme.inverse).text_color(theme.inverse_foreground)
     })
 }
 
 /// `el`, a row's secondary text, softened against a solid selection `on` it.
 pub fn quiet(el: Div, on: bool, theme: &Theme) -> Div {
     el.flex_none()
-        .when(on, |el| el.text_color(theme.muted_on_solid))
+        .when(on, |el| el.text_color(theme.inverse_muted_foreground))
 }
 
 /// Where row `ix` of `list` was last drawn, while some of it shows: where ⇧F10 opens the menu
@@ -446,7 +446,7 @@ pub fn joined(
 ) -> Stateful<Div> {
     let line = match solid {
         true => theme.inverse_soft,
-        false => theme.bg_1,
+        false => theme.background,
     };
     row.when(above, |el| {
         el.relative().rounded_t_none().child(
@@ -476,12 +476,8 @@ pub fn field(input: &Entity<text_input::TextInput>, focused: bool, theme: &Theme
         .py(dp(5.))
         .rounded(dp(theme.shape.control))
         .border_1()
-        .border_color(if focused {
-            theme.focus_border
-        } else {
-            theme.border_2
-        })
-        .bg(theme.bg_1)
+        .border_color(if focused { theme.ring } else { theme.border })
+        .bg(theme.background)
         .text_13()
         .child(input.clone())
 }
@@ -612,7 +608,7 @@ pub fn spinning(color: Hsla, turning: bool) -> impl IntoElement {
 /// become a drag, when the wash goes. Keep it off a selected row, whose ground marks it.
 pub fn glow_once(id: impl Into<ElementId>, theme: &Theme) -> impl IntoElement {
     use gpui::{Animation, AnimationExt as _};
-    let wash = theme.pop;
+    let wash = theme.primary_text;
     div()
         .absolute()
         .inset_0()
@@ -663,7 +659,7 @@ pub fn resize_handle(pane: Pane, store: Entity<Store>, theme: &Theme) -> impl In
                 .bottom_0()
                 .left(dp(2.))
                 .w(fixed(1.))
-                .group_hover("resize-handle", |el| el.bg(theme.border_1)),
+                .group_hover("resize-handle", |el| el.bg(theme.border_hover)),
         )
         .on_drag(pane, |_, _, _, cx| cx.new(|_| EmptyView))
         .on_click(move |event, _, cx| {
@@ -693,8 +689,8 @@ pub fn gap_divider(
     };
     let pill = pill
         .rounded_full()
-        .when(dragged, |el| el.bg(theme.border_1))
-        .group_hover("gap-divider", |el| el.bg(theme.border_1));
+        .when(dragged, |el| el.bg(theme.border_hover))
+        .group_hover("gap-divider", |el| el.bg(theme.border_hover));
     let let_go = {
         let store = store.clone();
         move |_: &gpui::MouseUpEvent, _: &mut Window, cx: &mut App| {
@@ -746,8 +742,8 @@ pub fn gap_junction(
             Side::Left => pill.top(dp(6.)).left(dp(-8.)).h(dp(4.)).w(dp(18.)),
             Side::Right => pill.top(dp(6.)).left(dp(6.)).h(dp(4.)).w(dp(18.)),
         };
-        pill.when(dragged, |el| el.bg(theme.border_1))
-            .group_hover("gap-junction", |el| el.bg(theme.border_1))
+        pill.when(dragged, |el| el.bg(theme.border_hover))
+            .group_hover("gap-junction", |el| el.bg(theme.border_hover))
     };
     let pills = [Side::Top, Side::Right, Side::Bottom, Side::Left]
         .into_iter()

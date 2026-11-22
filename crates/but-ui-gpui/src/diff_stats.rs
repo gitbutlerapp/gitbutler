@@ -18,8 +18,11 @@ pub fn diff_stats(added: u32, removed: u32, solid: bool, theme: &Theme) -> Div {
     // One run of text, coloured in parts: a list draws this on every row.
     let (text, [added, removed]) = stats_text(added, removed);
     let [safe, danger] = match solid {
-        true => [theme.safe_on_solid, theme.danger_on_solid],
-        false => [theme.safe, theme.danger],
+        true => [
+            theme.derived.inverse_success_text,
+            theme.derived.inverse_danger_text,
+        ],
+        false => [theme.success_text, theme.danger_text],
     };
     let colors = [(added, safe), (removed, danger)]
         .into_iter()

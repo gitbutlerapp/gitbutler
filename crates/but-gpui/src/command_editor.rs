@@ -599,7 +599,7 @@ impl CommandEditor {
             .py(dp(10.))
             .child(segmented(true, theme, tabs));
         match self.tab {
-            Tab::MenuBar => bar.border_b_1().border_color(theme.border_2),
+            Tab::MenuBar => bar.border_b_1().border_color(theme.border),
             Tab::Keys => bar
                 .child(div().flex_1().max_w(dp(300.)).min_w_0().child(field(
                     &self.search,
@@ -614,7 +614,7 @@ impl CommandEditor {
                     h_flex()
                         .gap(dp(5.))
                         .text_13()
-                        .child(ui::dot(theme.pop))
+                        .child(ui::dot(theme.primary_text))
                         .child("Shown in tooltips and right-click menus"),
                 ),
         }
@@ -642,7 +642,7 @@ impl CommandEditor {
             (true, _) => press.child("Press a key…"),
             (false, Some(keys)) => press.child(ui::keycap_large(keys, theme)),
             (false, None) => press
-                .text_color(theme.text_3)
+                .text_color(theme.subtle_foreground)
                 .child("Find by pressing a key"),
         };
         h_flex()
@@ -652,8 +652,12 @@ impl CommandEditor {
             .pr(dp(3.))
             .rounded(dp(theme.shape.control))
             .border_1()
-            .border_color(if finding { theme.pop } else { theme.border_2 })
-            .bg(theme.bg_1)
+            .border_color(if finding {
+                theme.primary_text
+            } else {
+                theme.border
+            })
+            .bg(theme.background)
             .text_13()
             .child(press)
             .children(found.map(|_| {
@@ -671,7 +675,7 @@ impl CommandEditor {
             .h(dp(30.))
             .px(dp(SIDE_PAD))
             .border_b_1()
-            .border_color(theme.border_2)
+            .border_color(theme.border)
             .child(div().flex_none().w(dp(AUDIT_WIDTH)))
             .child(text_column(COMMAND_WIDTH).child(table_heading("Command")))
             .child(text_column(ACTION_WIDTH).child(table_heading("Action")))
@@ -826,7 +830,7 @@ impl CommandEditor {
                         el.child(
                             icon_at(Icon::Lock, 12.)
                                 .flex_none()
-                                .text_color(theme.text_1),
+                                .text_color(theme.foreground),
                         )
                     })
                     .child(div().min_w_0().truncate().child(text))
@@ -896,7 +900,7 @@ impl CommandEditor {
             .px(dp(SIDE_PAD))
             .py(dp(3.))
             .when(striped, |el| el.bg(theme.hover))
-            .hover(|el| el.bg(theme.selected_unfocused))
+            .hover(|el| el.bg(theme.selected_inactive))
             .child(audit)
             .child(command)
             .child(action)
@@ -1012,17 +1016,17 @@ impl CommandEditor {
             .rounded(dp(theme.shape.control))
             .border_1()
             .border_color(match conflicted {
-                true => theme.warn,
+                true => theme.warning_text,
                 false => gpui::transparent_black(),
             })
-            .hover(|el| el.bg(theme.selected_unfocused))
+            .hover(|el| el.bg(theme.selected_inactive))
             .text_13()
             .tooltip(Tooltip::text(tooltip))
             .on_click(cx.listener(move |this, _, window, cx| {
                 this.start_recording(target.clone(), window, cx)
             }))
             .child(ui::keycap_large(&key.label, theme))
-            .when(key.shown, |el| el.child(ui::dot(theme.pop)))
+            .when(key.shown, |el| el.child(ui::dot(theme.primary_text)))
             .when(key.shared(), |el| el.child("shared"))
             .when_some(key.platforms.clone(), |el, platforms| el.child(platforms));
         let remove = div()
@@ -1101,25 +1105,25 @@ impl CommandEditor {
         let (text, color) = match (&self.recording, errors.first(), notice) {
             _ if self.finding.is_some() => (
                 "Press a key to find what's bound to it. Click elsewhere to cancel.".to_owned(),
-                theme.text_1,
+                theme.foreground,
             ),
             (Some(_), _, _) => (
                 "Press the keys, two for a chord. Click elsewhere to cancel.".to_owned(),
-                theme.text_1,
+                theme.foreground,
             ),
-            (None, Some(error), _) => (error.clone(), theme.danger),
-            (None, None, Some(Notice::Warning(text))) => (text.clone(), theme.warn),
-            (None, None, Some(Notice::Done(text))) => (text.clone(), theme.text_1),
+            (None, Some(error), _) => (error.clone(), theme.danger_text),
+            (None, None, Some(Notice::Warning(text))) => (text.clone(), theme.warning_text),
+            (None, None, Some(Notice::Done(text))) => (text.clone(), theme.foreground),
             (None, None, None) => match (self.tab, menu_warning) {
-                (Tab::MenuBar, Some(warning)) => (warning, theme.warn),
+                (Tab::MenuBar, Some(warning)) => (warning, theme.warning_text),
                 (Tab::MenuBar, None) => (
                     "Drag commands into menus and around them. Changes are saved as you make them."
                         .to_owned(),
-                    theme.text_1,
+                    theme.foreground,
                 ),
                 (Tab::Keys, _) => (
                     "Click keys to change them. Changes are saved as you make them.".to_owned(),
-                    theme.text_1,
+                    theme.foreground,
                 ),
             },
         };
@@ -1134,7 +1138,7 @@ impl CommandEditor {
             .px(dp(SIDE_PAD))
             .gap(dp(12.))
             .border_t_1()
-            .border_color(theme.border_2)
+            .border_color(theme.border)
             .text_13()
             .child(
                 div()
@@ -1245,9 +1249,9 @@ fn recording_cap(recording: &Recording, theme: &Theme) -> impl IntoElement + use
         .px(dp(6.))
         .rounded(dp(theme.shape.control))
         .border_1()
-        .border_color(theme.pop)
+        .border_color(theme.primary_text)
         .text_13()
-        .text_color(theme.text_1)
+        .text_color(theme.foreground)
         .child(label)
 }
 
@@ -1365,8 +1369,8 @@ impl Render for CommandEditor {
             .size_full()
             .font_family(theme.ui_font.clone())
             .text_14()
-            .text_color(theme.text_1)
-            .bg(theme.bg_1)
+            .text_color(theme.foreground)
+            .bg(theme.background)
             .on_action(|_: &CloseWindow, window, _| window.remove_window())
             // Before what's pressed takes it, so pressing other keys to change starts afresh.
             .capture_any_mouse_down(cx.listener(|this, event, _, cx| {

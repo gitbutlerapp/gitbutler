@@ -775,7 +775,7 @@ impl AppView {
                     .h(fixed(1.))
                     .mx(dp(10.))
                     .my(dp(4.))
-                    .bg(theme.border_3)
+                    .bg(theme.border_subtle)
                     .into_any_element()
             });
             // As but-ui-react's menu sections head theirs.
@@ -785,7 +785,7 @@ impl AppView {
                     .pt(dp(4.))
                     .pb(dp(2.))
                     .text_12()
-                    .text_color(theme.text_3)
+                    .text_color(theme.subtle_foreground)
                     .child(heading)
                     .into_any_element()
             });
@@ -794,19 +794,19 @@ impl AppView {
                 .gap(dp(16.))
                 .text_13()
                 .text_color(if item.danger {
-                    theme.danger
+                    theme.danger_text
                 } else {
-                    theme.text_1
+                    theme.foreground
                 })
                 .child(div().flex_1().child(item.label.clone()))
                 .when_some(item.detail.clone(), |el, detail| {
-                    el.child(div().text_color(theme.text_3).child(detail))
+                    el.child(div().text_color(theme.subtle_foreground).child(detail))
                 })
                 .when_some(item.key.clone(), |el, key| el.child(keycap(&key, theme)))
                 // A row with a detail keeps the tick's place, so the details line up.
                 .when(item.ticked || item.detail.is_some(), |el| {
                     el.child(small_icon(Icon::Tick).text_color(match item.ticked {
-                        true => theme.text_1,
+                        true => theme.foreground,
                         false => gpui::transparent_black(),
                     }))
                 })
@@ -870,7 +870,7 @@ impl AppView {
             })
             .child(field(&input, focused, theme).font_family(theme.mono_font.clone()))
             .when_some(prompt.hint.clone(), |el, hint| {
-                el.child(div().text_12().text_color(theme.danger).child(hint))
+                el.child(div().text_12().text_color(theme.danger_text).child(hint))
             })
             .child(
                 h_flex()
@@ -984,10 +984,12 @@ impl AppView {
                                     .child(match waits {
                                         // A round glyph centred on the line looks low beside
                                         // the letters, so it sits on their middle instead.
-                                        true => icon(Icon::Clock).text_color(theme.text_3),
-                                        false => {
-                                            icon(Icon::Warning).text_color(theme.danger).mt(dp(2.))
+                                        true => {
+                                            icon(Icon::Clock).text_color(theme.subtle_foreground)
                                         }
+                                        false => icon(Icon::Warning)
+                                            .text_color(theme.danger_text)
+                                            .mt(dp(2.)),
                                     })
                                     .child(
                                         // A long title wraps rather than running off the card.
@@ -1087,7 +1089,7 @@ impl AppView {
             .size(dp(32.))
             .rounded(dp(theme.shape.popup))
             .bg(theme.surface(Hue::Pop))
-            .child(icon(Icon::ArrowInBox).text_color(theme.pop_on_soft));
+            .child(icon(Icon::ArrowInBox).text_color(theme.primary_soft_foreground));
         Some(
             popover(theme)
                 .id("update-card")

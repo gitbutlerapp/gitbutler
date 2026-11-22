@@ -73,7 +73,7 @@ impl Render for ReviewStory {
                     let (glyph, color, text) = checks_summary(checks, theme);
                     let summary = h_flex()
                         .gap(dp(6.))
-                        .text_color(theme.text_2)
+                        .text_color(theme.muted_foreground)
                         .child(icon(glyph).text_color(color))
                         .child(text);
                     variant(caption, theme, summary)

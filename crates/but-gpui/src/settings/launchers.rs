@@ -50,7 +50,7 @@ struct LauncherPreview {
 impl Render for LauncherPreview {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx);
-        let mark = small_icon(Icon::TextCode).text_color(theme.pop);
+        let mark = small_icon(Icon::TextCode).text_color(theme.primary_text);
         let command = pill_label(self.command.clone()).font_family(theme.mono_font.clone());
         drag_pill(self.offset, mark, command, Some("Move".into()), 1, theme)
     }
@@ -268,7 +268,7 @@ impl SettingsView {
             .id("grip")
             .flex_none()
             .py(dp(6.))
-            .child(small_icon(Icon::DragVertical).text_color(theme.text_3))
+            .child(small_icon(Icon::DragVertical).text_color(theme.subtle_foreground))
             .on_drag(LauncherDrag(id), move |_, offset, _, cx| {
                 let command = SharedString::from(input.read(cx).text().to_owned());
                 let preview = cx.new(|_| LauncherPreview { command, offset });
@@ -296,7 +296,7 @@ impl SettingsView {
             .h(dp(ROW_HEIGHT))
             .gap(dp(6.))
             // On the card's ground, as it slides over the rows making room.
-            .when(held, |el| el.bg(theme.bg_1))
+            .when(held, |el| el.bg(theme.background))
             .child(grip)
             .child(
                 field(&row.input, focused, theme)
@@ -305,7 +305,8 @@ impl SettingsView {
                     // Outlined where letting go puts it, as the navigator's rows are while they
                     // move.
                     .when(held, |el| {
-                        el.border_color(theme.pop).bg(theme.surface(Hue::Pop))
+                        el.border_color(theme.primary_text)
+                            .bg(theme.surface(Hue::Pop))
                     }),
             )
             .child(

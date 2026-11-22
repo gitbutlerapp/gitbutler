@@ -53,17 +53,17 @@ pub(super) const EXAMPLES: [Example; 5] = [
         draw: |theme| {
             row([
                 regular(BadgeVariant::Safe, theme)
-                    .child(small_icon(Icon::Tick).text_color(theme.safe)),
+                    .child(small_icon(Icon::Tick).text_color(theme.success_text)),
                 regular(BadgeVariant::Danger, theme)
-                    .child(small_icon(Icon::Cross).text_color(theme.danger)),
-                regular(BadgeVariant::LightGray, theme).child(spinning(theme.text_1, true)),
+                    .child(small_icon(Icon::Cross).text_color(theme.danger_text)),
+                regular(BadgeVariant::LightGray, theme).child(spinning(theme.foreground, true)),
                 regular(BadgeVariant::Warn, theme)
-                    .child(small_icon(Icon::Warning).text_color(theme.warn)),
+                    .child(small_icon(Icon::Warning).text_color(theme.warning_text)),
                 (regular(BadgeVariant::Safe, theme))
-                    .child(small_icon(Icon::Tick).text_color(theme.safe))
+                    .child(small_icon(Icon::Tick).text_color(theme.success_text))
                     .child("Passed"),
                 (large(BadgeVariant::Safe, theme))
-                    .child(small_icon(Icon::Tick).text_color(theme.safe))
+                    .child(small_icon(Icon::Tick).text_color(theme.success_text))
                     .child("Passed"),
             ])
         },

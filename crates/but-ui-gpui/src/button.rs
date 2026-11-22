@@ -197,20 +197,28 @@ impl RenderOnce for Button {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = Theme::get(cx);
         let (fg, bg, border, hover): (Hsla, Option<Hsla>, Option<Hsla>, Hsla) = match self.style {
-            ButtonStyle::Ghost if self.pressed => {
-                (theme.text_1, Some(theme.muted), None, theme.muted_hover)
-            }
-            ButtonStyle::Ghost => (theme.text_1, None, None, theme.hover),
-            ButtonStyle::Outline => (theme.text_1, None, Some(theme.control_border), theme.hover),
-            ButtonStyle::Gray => (
-                theme.text_inverted,
-                Some(theme.fill_gray),
+            ButtonStyle::Ghost if self.pressed => (
+                theme.foreground,
+                Some(theme.muted),
                 None,
-                theme.fill_gray_hover,
+                theme.derived.muted_hover,
             ),
-            ButtonStyle::Pop => (theme.on_pop, Some(theme.pop_button), None, theme.pop_hover),
+            ButtonStyle::Ghost => (theme.foreground, None, None, theme.hover),
+            ButtonStyle::Outline => (theme.foreground, None, Some(theme.input), theme.hover),
+            ButtonStyle::Gray => (
+                theme.inverse_foreground,
+                Some(theme.inverse),
+                None,
+                theme.inverse_hover,
+            ),
+            ButtonStyle::Pop => (
+                theme.primary_foreground,
+                Some(theme.primary),
+                None,
+                theme.primary_hover,
+            ),
             ButtonStyle::Danger => (
-                theme.danger_on_soft,
+                theme.danger_soft_foreground,
                 Some(theme.danger_soft),
                 None,
                 theme.danger_soft_hover,
@@ -229,18 +237,18 @@ impl RenderOnce for Button {
                 },
             ),
             None if self.inverted && self.style != ButtonStyle::Pop => (
-                theme.text_inverted,
+                theme.inverse_foreground,
                 bg.map(|_| theme.inverse_soft),
                 match bg {
                     Some(_) => theme.inverse_soft_hover,
-                    None => theme.hover_on_solid,
+                    None => theme.inverse_ghost_hover,
                 },
             ),
             None => (fg, bg, hover),
         };
         let (fg, hover) = self.ink.unwrap_or((fg, hover));
         let border = match self.inverted && self.tint.is_none() {
-            true => border.map(|_| theme.control_border_on_solid),
+            true => border.map(|_| theme.derived.inverse_input),
             false => border,
         };
         // Disabled, it fades as one picture, as React's `opacity: 0.5` does, in solid colours
@@ -249,8 +257,8 @@ impl RenderOnce for Button {
         let pictured = self.picture.is_some();
         let faded = self.disabled.is_some() && !pictured;
         let ground = match self.inverted {
-            true => theme.fill_gray,
-            false => theme.bg_1,
+            true => theme.inverse,
+            false => theme.background,
         };
         let fade = |color: Hsla| match faded {
             true => Theme::disabled_on(color, ground),
@@ -323,7 +331,7 @@ impl RenderOnce for Button {
                 let (rule, strength) = match (bg, border) {
                     (Some(_), _) => (fg, 0.2),
                     (None, Some(border)) => (border, 0.6),
-                    (None, None) => (theme.control_border, 0.6),
+                    (None, None) => (theme.input, 0.6),
                 };
                 let enabled = self.disabled.is_none();
                 el.relative().child(

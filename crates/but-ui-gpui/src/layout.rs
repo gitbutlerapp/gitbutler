@@ -28,11 +28,17 @@ pub fn v_flex() -> Div {
 }
 
 pub fn muted(text: impl IntoElement, theme: &Theme) -> Div {
-    div().text_12().text_color(theme.text_2).child(text)
+    div()
+        .text_12()
+        .text_color(theme.muted_foreground)
+        .child(text)
 }
 
 pub fn faint(text: impl IntoElement, theme: &Theme) -> Div {
-    div().text_11().text_color(theme.text_3).child(text)
+    div()
+        .text_11()
+        .text_color(theme.subtle_foreground)
+        .child(text)
 }
 
 pub fn section_label(text: impl IntoElement, theme: &Theme) -> Div {

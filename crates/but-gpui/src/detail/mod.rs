@@ -4302,7 +4302,7 @@ impl Render for Detail {
                                 .relative()
                                 .h_full()
                                 .border_r_1()
-                                .border_color(theme.border_3)
+                                .border_color(theme.border_subtle)
                                 // A list page's list takes the arrows itself, and the files
                                 // beside it hold their focus there.
                                 .when(!list_page, |el| {
@@ -4324,7 +4324,7 @@ impl Render for Detail {
                                     .w(dp(width * open))
                                     .overflow_hidden()
                                     .child(column)
-                                    .child(edge(theme.border_3).right_0()),
+                                    .child(edge(theme.border_subtle).right_0()),
                                 None => column,
                             })
                         })
@@ -4511,8 +4511,8 @@ impl Render for Detail {
             // The ground the home tile's card is on, as the navigator's cards are; a pinned
             // page is inside its card.
             .bg(match self.pinned {
-                Some(_) => theme.bg_1,
-                None => theme.bg_2,
+                Some(_) => theme.background,
+                None => theme.canvas,
             })
             // A pinned page goes in its tile, under the location bar across the home tile's.
             .when(
@@ -4669,7 +4669,7 @@ fn welcome(store: &Entity<Store>, theme: &Theme, cx: &App) -> AnyElement {
                 .child(
                     div()
                         .text_h2()
-                        .text_color(theme.text_1)
+                        .text_color(theme.foreground)
                         .child("Welcome to GitButler"),
                 )
                 .child(
@@ -4677,7 +4677,7 @@ fn welcome(store: &Entity<Store>, theme: &Theme, cx: &App) -> AnyElement {
                         .max_w(dp(420.))
                         .text_center()
                         .text_13()
-                        .text_color(theme.text_2)
+                        .text_color(theme.muted_foreground)
                         .child(
                             "Add a repository your coding agents work in. What they change shows \
                              up here as it happens, to review, commit and stack into branches.",
@@ -4754,7 +4754,7 @@ fn usage_notice(theme: &Theme) -> AnyElement {
     // the line were left-aligned, so the links would miss.
     div()
         .text_12()
-        .text_color(theme.text_3)
+        .text_color(theme.subtle_foreground)
         .child(gpui::InteractiveText::new("usage-notice", styled).on_click(
             vec![policy, opt_out],
             |link, window, cx| match link {

@@ -483,8 +483,8 @@ fn row_id((file, hunk, line): (usize, usize, usize)) -> usize {
 pub(super) fn card(el: gpui::Div, flat: bool, theme: &Theme) -> gpui::Div {
     el.w_full()
         .when(!flat, |el| el.border_l_1().border_r_1())
-        .border_color(theme.border_2)
-        .bg(theme.bg_1)
+        .border_color(theme.border)
+        .bg(theme.background)
 }
 
 /// What blinks over a diff's rows and headers as they're copied: a light wash of pop, at most a
@@ -508,7 +508,7 @@ pub fn change_scale(added: u32, removed: u32, theme: &Theme) -> Option<gpui::Div
             .gap(fixed(1.))
             .children((0..5).map(|ix| {
                 div().size(dp(5.)).bg(if ix < green {
-                    theme.safe_mark
+                    theme.success_mark
                 } else {
                     theme.danger_mark
                 })
@@ -530,7 +530,13 @@ pub fn file_header(
     // Under the cursor, as a list's selected row: solid with its text inverted while the diff
     // has the keys, faint while they're elsewhere.
     let on = decor.current && decor.solid;
-    let soft = |color| if on { theme.muted_on_solid } else { color };
+    let soft = |color| {
+        if on {
+            theme.inverse_muted_foreground
+        } else {
+            color
+        }
+    };
     let titled = decor.titled;
     card(h_flex(), decor.flat, theme)
         .id(("diff-file", ix))
@@ -542,7 +548,7 @@ pub fn file_header(
         .gap(dp(8.))
         .when(!titled, |el| el.border_t_1())
         .border_b_1()
-        .when(titled, |el| el.border_color(theme.border_3))
+        .when(titled, |el| el.border_color(theme.border_subtle))
         .when(!decor.flat, |el| {
             el.rounded_t(dp(theme.shape.card))
                 .when(decor.folded, |el| el.rounded_b(dp(theme.shape.card)))
@@ -551,7 +557,7 @@ pub fn file_header(
         // A title is marked only while the keys act on it.
         .when(decor.current && (decor.solid || !titled), |el| {
             el.bg(match decor.solid {
-                true => theme.fill_gray,
+                true => theme.inverse,
                 false => theme.selected_on_card(),
             })
         })
@@ -572,7 +578,7 @@ pub fn file_header(
                 .pl(dp(10.))
                 .pr(dp(4.))
                 .mr(dp(-4.))
-                .child(fold::chevron("fold", open, soft(theme.text_2)));
+                .child(fold::chevron("fold", open, soft(theme.muted_foreground)));
             el.child(match decor.fold {
                 Some(fold) => chevron
                     .role(Role::Button)
@@ -597,9 +603,9 @@ pub fn file_header(
                         .flex_none()
                         .when(titled, |el| el.text_14().semibold())
                         .text_color(if on {
-                            theme.text_inverted
+                            theme.inverse_foreground
                         } else {
-                            theme.text_1
+                            theme.foreground
                         })
                         .child(name.to_owned()),
                 )
@@ -610,7 +616,7 @@ pub fn file_header(
                         .overflow_hidden()
                         .whitespace_nowrap()
                         .text_ellipsis_middle()
-                        .text_color(soft(theme.text_3))
+                        .text_color(soft(theme.subtle_foreground))
                         .child(match &file.file.previous_path {
                             Some(previous) => format!("{dir}  ← {previous}"),
                             None => dir.to_owned(),
@@ -621,7 +627,7 @@ pub fn file_header(
                 .children((file.file.mode_change()).map(|mode| {
                     faint(mode, theme)
                         .flex_none()
-                        .text_color(soft(theme.text_3))
+                        .text_color(soft(theme.subtle_foreground))
                 })),
         )
         .when(file.file.conflicted, |el| el.child(conflicted_badge(theme)))
@@ -639,7 +645,7 @@ pub fn file_header(
                     .mx(dp(2.))
                     .bg(match on {
                         true => theme.inverse_soft,
-                        false => theme.border_3,
+                        false => theme.border_subtle,
                     }),
             )
         })
@@ -707,7 +713,13 @@ pub fn hunk_header(
     // Under the cursor, as a list's selected row: solid with its text inverted while the diff
     // has the keys, faint while they're elsewhere.
     let on = decor.current && decor.solid;
-    let soft = |color| if on { theme.muted_on_solid } else { color };
+    let soft = |color| {
+        if on {
+            theme.inverse_muted_foreground
+        } else {
+            color
+        }
+    };
     let title = match (unmodified, scopes(named, on, theme)) {
         // Nothing hidden and no scope to name: the `@@` header says where the hunk is,
         // unless the lines around it name its scopes.
@@ -729,8 +741,13 @@ pub fn hunk_header(
                         .child(plural(n as usize, "unmodified line")),
                 )
                 .when_some(scopes, |el, scopes| {
-                    el.child(div().flex_none().text_color(soft(theme.text_3)).child("·"))
-                        .child(scopes)
+                    el.child(
+                        div()
+                            .flex_none()
+                            .text_color(soft(theme.subtle_foreground))
+                            .child("·"),
+                    )
+                    .child(scopes)
                 })
                 .into_any_element(),
         ),
@@ -749,12 +766,12 @@ pub fn hunk_header(
                 .rounded(dp(theme.shape.card))
                 // The rest fainter than one under the cursor while the keys are elsewhere.
                 .bg(match (decor.current, decor.solid) {
-                    (true, true) => theme.fill_gray,
-                    (true, false) => theme.selected_unfocused,
+                    (true, true) => theme.inverse,
+                    (true, false) => theme.selected_inactive,
                     (false, _) => theme.hover,
                 })
                 .text_12()
-                .text_color(soft(theme.diff_muted))
+                .text_color(soft(theme.derived.diff_line_number))
                 .overflow_hidden()
                 .whitespace_nowrap()
                 .when_some(decor.blink, |el, n| {
@@ -766,9 +783,9 @@ pub fn hunk_header(
                 .when(unmodified > 0, |el| {
                     el.hover(|el| {
                         el.text_color(if on {
-                            theme.text_inverted
+                            theme.inverse_foreground
                         } else {
-                            theme.text_1
+                            theme.foreground
                         })
                     })
                 })
@@ -778,7 +795,7 @@ pub fn hunk_header(
                     el.child(
                         div()
                             .flex_none()
-                            .text_color(soft(theme.text_3))
+                            .text_color(soft(theme.subtle_foreground))
                             .child("not included"),
                     )
                 })
@@ -838,8 +855,12 @@ pub fn note(file: &FileDiff, flat: bool, theme: &Theme) -> AnyElement {
         .gap(dp(6.))
         .when(!flat, |el| el.border_b_1().rounded_b(dp(theme.shape.card)))
         .text_12()
-        .text_color(theme.text_2)
-        .child(small_icon(Icon::File).flex_none().text_color(theme.text_3))
+        .text_color(theme.muted_foreground)
+        .child(
+            small_icon(Icon::File)
+                .flex_none()
+                .text_color(theme.subtle_foreground),
+        )
         .child(div().min_w_0().child(text))
         .into_any_element()
 }
@@ -859,22 +880,22 @@ pub(super) fn look(kind: LineKind, plain: bool, theme: &Theme) -> Look {
     match kind {
         LineKind::Context => Look {
             bg: None,
-            number: theme.diff_muted,
-            emph: theme.bg_1,
+            number: theme.derived.diff_line_number,
+            emph: theme.background,
             bar: None,
         },
         LineKind::Added => Look {
-            bg: (!plain).then_some(theme.diff_added_bg),
-            number: theme.diff_added,
-            emph: theme.diff_added_emph,
-            bar: Some(theme.diff_added.into()),
+            bg: (!plain).then_some(theme.derived.diff_added_line),
+            number: theme.derived.diff_added,
+            emph: theme.derived.diff_added_words,
+            bar: Some(theme.derived.diff_added.into()),
         },
         LineKind::Removed => Look {
-            bg: (!plain).then_some(theme.diff_removed_bg),
-            number: theme.diff_removed,
-            emph: theme.diff_removed_emph,
+            bg: (!plain).then_some(theme.derived.diff_removed_line),
+            number: theme.derived.diff_removed,
+            emph: theme.derived.diff_removed_words,
             // Hatched: stripes two device pixels wide and apart.
-            bar: Some(pattern_slash(theme.diff_removed, 2., 2.)),
+            bar: Some(pattern_slash(theme.derived.diff_removed, 2., 2.)),
         },
     }
 }
@@ -900,7 +921,7 @@ pub(super) fn number_cell(
     let digit = digit_width(theme);
     let picked = gutter.as_ref().is_some_and(|gutter| gutter.picked);
     let bar = match picked {
-        true => Some(theme.pop.into()),
+        true => Some(theme.primary_text.into()),
         false => look.bar,
     };
     div()
@@ -911,7 +932,11 @@ pub(super) fn number_cell(
         .flex()
         .items_start()
         .justify_end()
-        .text_color(if picked { theme.pop } else { look.number })
+        .text_color(if picked {
+            theme.primary_text
+        } else {
+            look.number
+        })
         .when(last, |el| el.rounded_bl(dp(theme.shape.card - 1.)))
         .when(picked, |el| {
             el.bg(theme.highlight(Highlight::Picked)).semibold()
@@ -1019,7 +1044,7 @@ pub(super) fn line_text(
             // The match the keys are on is solid, its words in the ink that reads there.
             let style = match *color == here {
                 true => HighlightStyle {
-                    color: Some(theme.on_warn),
+                    color: Some(theme.warning_foreground),
                     ..ground(*color)
                 },
                 false => ground(*color),
@@ -1046,7 +1071,7 @@ pub(super) fn text_cell(
         .flex_1()
         .min_w_0()
         .pl(dp(8.))
-        .text_color(theme.text_1)
+        .text_color(theme.foreground)
         .map(|el| match wrap {
             true => el.overflow_hidden().child(text),
             // Every line of the side as wide, so they all scroll as far.
@@ -1094,7 +1119,7 @@ pub fn excerpt(lines: &[DiffLine], theme: &Theme) -> gpui::Div {
     excerpt_flat(lines, theme)
         .rounded(dp(theme.shape.card))
         .border_1()
-        .border_color(theme.border_3)
+        .border_color(theme.border_subtle)
         .overflow_hidden()
 }
 
@@ -1143,7 +1168,7 @@ pub fn excerpt_found(
                         .flex_1()
                         .min_w_0()
                         .px(dp(8.))
-                        .text_color(theme.text_1)
+                        .text_color(theme.foreground)
                         .child(line_text(line, look.emph, found(ix), None, theme)),
                 )
         }))
@@ -1290,7 +1315,7 @@ pub fn pair_row(
             // It stretches rather than taking `h_full`: a wrapped row sets only a minimum
             // height, so a share of its height comes to nothing.
             return (div().flex_1().min_w_0().self_stretch()).bg(pattern_slash(
-                theme.border_3,
+                theme.border_subtle,
                 1.,
                 6.,
             ));
@@ -1332,7 +1357,7 @@ pub fn pair_row(
                 .flex_none()
                 .w(fixed(1.))
                 .self_stretch()
-                .bg(theme.border_3),
+                .bg(theme.border_subtle),
         )
         .child(right.when(last, |el| el.rounded_br(dp(theme.shape.card - 1.))))
         .into_any_element()
@@ -1345,7 +1370,7 @@ fn outline_box((top, bottom): (bool, bool), theme: &Theme) -> gpui::Div {
         .absolute()
         .inset_0()
         .border_dashed()
-        .border_color(theme.pop)
+        .border_color(theme.primary_text)
         .border_l_1()
         .border_r_1()
         .when(top, |el| el.border_t_1())
@@ -1369,9 +1394,9 @@ fn scopes(scope: &[String], on: bool, theme: &Theme) -> Option<AnyElement> {
                 .min_w_0()
                 .gap(dp(6.))
                 .text_color(if on {
-                    theme.muted_on_solid
+                    theme.inverse_muted_foreground
                 } else {
-                    theme.text_3
+                    theme.subtle_foreground
                 })
                 .child(div().min_w_0().truncate().child(scope.clone()))
                 .child("›")
@@ -1380,9 +1405,9 @@ fn scopes(scope: &[String], on: bool, theme: &Theme) -> Option<AnyElement> {
             div()
                 .flex_none()
                 .text_color(if on {
-                    theme.text_inverted
+                    theme.inverse_foreground
                 } else {
-                    theme.text_1
+                    theme.foreground
                 })
                 .child(inner.clone()),
         );
@@ -1406,7 +1431,12 @@ fn image_row(before: Option<Picture>, after: Option<Picture>, theme: &Theme) -> 
                 .min_w_0()
                 .gap(dp(6.))
                 .items_center()
-                .child(div().text_11().text_color(theme.text_2).child(label))
+                .child(
+                    div()
+                        .text_11()
+                        .text_color(theme.muted_foreground)
+                        .child(label),
+                )
                 .child(match image {
                     Some(picture) => {
                         // The frame hugs the image: at its own size but no taller than 220
@@ -1436,7 +1466,7 @@ fn image_row(before: Option<Picture>, after: Option<Picture>, theme: &Theme) -> 
                         .flex()
                         .items_center()
                         .text_12()
-                        .text_color(theme.text_3)
+                        .text_color(theme.subtle_foreground)
                         .child(missing)
                         .into_any_element(),
                 })
@@ -1447,8 +1477,13 @@ fn image_row(before: Option<Picture>, after: Option<Picture>, theme: &Theme) -> 
         .p(dp(12.))
         .border_b_1()
         .rounded_b(dp(theme.shape.card))
-        .child(side("Before", "New file", before, theme.diff_removed))
-        .child(side("After", "Deleted", after, theme.diff_added))
+        .child(side(
+            "Before",
+            "New file",
+            before,
+            theme.derived.diff_removed,
+        ))
+        .child(side("After", "Deleted", after, theme.derived.diff_added))
 }
 
 #[cfg(test)]

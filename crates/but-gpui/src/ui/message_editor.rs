@@ -120,12 +120,8 @@ impl Render for MessageEditor {
         v_flex()
             .rounded(dp(theme.shape.card))
             .border_1()
-            .border_color(if focused {
-                theme.focus_border
-            } else {
-                theme.border_2
-            })
-            .bg(theme.bg_1)
+            .border_color(if focused { theme.ring } else { theme.border })
+            .bg(theme.background)
             .body()
             .child(
                 part(&self.title)
@@ -135,7 +131,7 @@ impl Render for MessageEditor {
                         window.focus(&this.body.focus_handle(cx), cx)
                     })),
             )
-            .child(div().h(fixed(1.)).bg(theme.border_3))
+            .child(div().h(fixed(1.)).bg(theme.border_subtle))
             .child(
                 part(&self.body)
                     .key_context("MessageBody")

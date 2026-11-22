@@ -20,15 +20,15 @@ pub fn select(
         .gap(dp(8.))
         .rounded(dp(theme.shape.control))
         .border_1()
-        .border_color(theme.border_2)
-        .bg(theme.bg_1)
+        .border_color(theme.border)
+        .bg(theme.background)
         .text_13()
-        .text_color(theme.text_1)
-        .hover(|el| el.border_color(theme.border_1))
+        .text_color(theme.foreground)
+        .hover(|el| el.border_color(theme.border_hover))
         .child(div().min_w_0().truncate().child(label.into()))
         .child(
             icon(Icon::ChevronDown)
-                .text_color(theme.text_1)
+                .text_color(theme.foreground)
                 .opacity(0.7),
         )
 }

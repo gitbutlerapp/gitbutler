@@ -232,8 +232,8 @@ impl Detail {
             let (project, id) = (project.clone(), release.id);
             list_row(("release", ix), false, theme)
                 .child(small_icon(Icon::Tag).text_color(match release.id == first {
-                    true => theme.pop,
-                    false => theme.text_3,
+                    true => theme.primary_text,
+                    false => theme.subtle_foreground,
                 }))
                 .child(
                     div()
@@ -346,7 +346,7 @@ impl Detail {
                 .and_then(|email| summary.people.iter().find(|p| p.email == *email));
             let (project, id) = (project.clone(), merge.id);
             list_row(("largest", ix), false, theme)
-                .child(small_icon(Icon::BranchMerge).text_color(theme.purple))
+                .child(small_icon(Icon::BranchMerge).text_color(theme.done_text))
                 .child(
                     div()
                         .flex_1()

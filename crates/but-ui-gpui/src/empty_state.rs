@@ -41,7 +41,7 @@ pub fn empty_state(
                                 div()
                                     .text_14()
                                     .semibold()
-                                    .text_color(theme.text_1)
+                                    .text_color(theme.foreground)
                                     .child(title),
                             )
                         })

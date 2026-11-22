@@ -35,7 +35,7 @@ impl<'a> ProjectIcon<'a> {
     pub fn render(&self, px: f32, theme: &Theme) -> AnyElement {
         match self {
             ProjectIcon::Glyph => {
-                (icon_at(Icon::Repo, px).text_color(theme.text_1)).into_any_element()
+                (icon_at(Icon::Repo, px).text_color(theme.foreground)).into_any_element()
             }
             ProjectIcon::Emoji(emoji) => div().child(emoji.to_string()).into_any_element(),
         }

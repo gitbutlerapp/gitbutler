@@ -9,8 +9,12 @@ use crate::*;
 /// One choice of several that exclude each other.
 pub fn radio(id: impl Into<ElementId>, checked: bool, theme: &Theme) -> Stateful<Div> {
     let (fill, edge, hover) = match checked {
-        true => (theme.pop_bg, theme.pop_bg, theme.pop_bg_hover),
-        false => (theme.bg_1, theme.border_2, theme.border_1),
+        true => (
+            theme.primary,
+            theme.primary,
+            theme.derived.primary_checked_hover,
+        ),
+        false => (theme.background, theme.border, theme.border_hover),
     };
     frame(id, checked, fill, edge, 1., theme).map(|el| match checked {
         true => el.hover(move |el| el.bg(hover).border_color(hover)),
@@ -25,12 +29,8 @@ pub fn radio_disabled(
     why: impl Into<SharedString>,
     theme: &Theme,
 ) -> Stateful<Div> {
-    let ink = if checked {
-        theme.pop_bg
-    } else {
-        theme.border_2
-    };
-    let faded = Theme::disabled_on(ink, theme.bg_1);
+    let ink = if checked { theme.primary } else { theme.border };
+    let faded = Theme::disabled_on(ink, theme.background);
     frame(id, checked, faded, faded, 0.5, theme).tooltip(Tooltip::text(why.into()))
 }
 
@@ -64,7 +64,7 @@ fn frame(
                 div()
                     .size(dp(6.))
                     .rounded_full()
-                    .bg(theme.on_pop)
+                    .bg(theme.primary_foreground)
                     .opacity(dot),
             )
         })

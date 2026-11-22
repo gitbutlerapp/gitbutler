@@ -26,7 +26,7 @@ const MARK: &str = "M7.96875 8.9375L7.96875 5.9375M7.96875 11.9375L7.96875 10.43
 
 /// The conflict mark, `px` across.
 pub fn conflict_icon(px: f32, theme: &Theme, cx: &App) -> Div {
-    let colors = [theme.warn_bg, theme.on_warn].map(|color| hex(Rgba::from(color)));
+    let colors = [theme.warning, theme.warning_foreground].map(|color| hex(Rgba::from(color)));
     let drawn = DRAWN.with_borrow_mut(|drawn| {
         let draw = || draw(&cx.svg_renderer(), &colors);
         drawn.entry(colors.clone()).or_insert_with(draw).clone()

@@ -614,7 +614,7 @@ impl Detail {
                         el.child(
                             div()
                                 .ml(dp(6.))
-                                .text_color(theme.text_3)
+                                .text_color(theme.subtle_foreground)
                                 .child(format!("{count} parts")),
                         )
                     })
@@ -648,7 +648,7 @@ impl Detail {
                     div()
                         .mt(dp(4.))
                         .text_12()
-                        .text_color(theme.warn)
+                        .text_color(theme.warning_text)
                         .child("The code under this changed after it was written")
                 }));
                 (if after_code { 22. } else { 12. }, words.into_any_element())
@@ -669,7 +669,7 @@ impl Detail {
                     }
                     BriefBody::OnTheWeb(what) => div()
                         .text_12()
-                        .text_color(theme.text_3)
+                        .text_color(theme.subtle_foreground)
                         .child(format!("{what}, which shows on the web"))
                         .into_any_element(),
                 };
@@ -726,7 +726,7 @@ impl Detail {
                                     true => el.w(dp(2.)),
                                     false => el.w(fixed(1.)),
                                 })
-                                .bg(theme.pop),
+                                .bg(theme.primary_text),
                         )
                     })
                     .child(content),
@@ -845,7 +845,8 @@ fn render_pictures(
             .gap(dp(6.))
             .min_w_0()
             .children(
-                (picture.title.as_deref()).map(|title| small_line(title, theme.text_1).semibold()),
+                (picture.title.as_deref())
+                    .map(|title| small_line(title, theme.foreground).semibold()),
             )
             .child(markdown::figure(
                 format!("{id}-{}", picture.at),
@@ -853,7 +854,7 @@ fn render_pictures(
                 picture.at,
             ))
             .when(!picture.caption.is_empty(), |el| {
-                el.child(small_line(&picture.caption, theme.text_3))
+                el.child(small_line(&picture.caption, theme.subtle_foreground))
             })
     };
     let holder = div().w_full().max_w(dp(row.widest()));

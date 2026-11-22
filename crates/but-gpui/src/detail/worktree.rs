@@ -463,8 +463,8 @@ impl Detail {
                     .gap(dp(6.))
                     // Lit while an agent writes.
                     .child(div().size(dp(7.)).rounded_full().bg(match writing {
-                        true => theme.pop,
-                        false => theme.text_3,
+                        true => theme.primary_text,
+                        false => theme.subtle_foreground,
                     }))
                     .child(state),
             )
@@ -681,15 +681,15 @@ impl Detail {
                     let ((glyph, color), said, unread, target) = match made {
                         Made::Here(branch, commit) => (
                             match commit.conflicted {
-                                true => (Icon::Warning, theme.warn_mark),
-                                false => (Icon::Commit, theme.blue_mark),
+                                true => (Icon::Warning, theme.warning_mark),
+                                false => (Icon::Commit, theme.info_mark),
                             },
                             branch_said(store, project, branch, theme),
                             store.is_unread(project, commit),
                             Selection::Commit(project.clone(), commit.id),
                         ),
                         Made::Gone(seen) => (
-                            (Icon::Commit, theme.text_3),
+                            (Icon::Commit, theme.subtle_foreground),
                             left_said(seen, theme),
                             false,
                             Selection::Project(project.clone()),
@@ -724,14 +724,16 @@ impl Detail {
                         .child(faint(label, theme).min_w_0().truncate())
                         .tooltip(Tooltip::text(tip));
                     row.when_some(glow, |el, glow| el.relative().child(glow_once(glow, theme)))
-                        .when(unread, |el| el.relative().child(unread_line(theme.pop)))
+                        .when(unread, |el| {
+                            el.relative().child(unread_line(theme.primary_text))
+                        })
                         .child(small_icon(glyph).text_color(color))
                         .child(
                             div()
                                 .flex_1()
                                 .min_w_0()
                                 .truncate()
-                                .when(!unread, |el| el.text_color(theme.text_2))
+                                .when(!unread, |el| el.text_color(theme.muted_foreground))
                                 .child(commit_title(made.title())),
                         )
                         .child(branch)
@@ -754,8 +756,8 @@ impl Detail {
                         .into_any_element()
                 }
                 Item::Moved(said) => row
-                    .text_color(theme.text_2)
-                    .child(small_icon(Icon::Branch).text_color(theme.text_3))
+                    .text_color(theme.muted_foreground)
+                    .child(small_icon(Icon::Branch).text_color(theme.subtle_foreground))
                     .child(div().flex_1().min_w_0().truncate().child(said.to_owned()))
                     .child(overview_column(
                         relative_time(at),
@@ -846,8 +848,8 @@ fn scrolling(
 fn file_label(path: &str, on: bool, theme: &Theme, cx: &App) -> Div {
     let (name, dir) = diff::split_path(path);
     let muted = match on {
-        true => theme.muted_on_solid,
-        false => theme.text_3,
+        true => theme.inverse_muted_foreground,
+        false => theme.subtle_foreground,
     };
     h_flex()
         .flex_1()
@@ -858,7 +860,7 @@ fn file_label(path: &str, on: bool, theme: &Theme, cx: &App) -> Div {
         .child(
             (div().min_w_0().overflow_hidden().whitespace_nowrap())
                 .text_ellipsis_middle()
-                .when(!on, |el| el.text_color(theme.text_2))
+                .when(!on, |el| el.text_color(theme.muted_foreground))
                 .child(name.to_owned()),
         )
         .when(!dir.is_empty(), |el| {
@@ -888,7 +890,7 @@ fn left_said(commit: &SeenCommit, theme: &Theme) -> ((Icon, gpui::Hsla), String,
             format!("{name} · merged, on the project's page"),
         ),
         CommitState::Local | CommitState::Pushed => (
-            (Icon::Branch, theme.text_3),
+            (Icon::Branch, theme.subtle_foreground),
             name.clone(),
             format!("{name} · left this worktree, on the Branches page"),
         ),
@@ -915,6 +917,6 @@ fn branch_said(
             review.title.clone(),
             format!("{name} · #{} {}", review.number, review.title),
         ),
-        None => ((Icon::Branch, theme.text_3), name.clone(), name),
+        None => ((Icon::Branch, theme.subtle_foreground), name.clone(), name),
     }
 }

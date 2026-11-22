@@ -307,8 +307,8 @@ impl WhatsNew {
         let marker = div().flex_none().size(dp(6.)).rounded_full();
         let marker = match self.has(release) {
             Some(false) => marker.border_1().border_color(match selected {
-                true => theme.muted_on_solid,
-                false => theme.text_3,
+                true => theme.inverse_muted_foreground,
+                false => theme.subtle_foreground,
             }),
             _ => marker,
         };
@@ -335,7 +335,8 @@ impl WhatsNew {
                 badge(BadgeVariant::Pop, BadgeSize::Regular, theme)
                     // On a solid selection, in its own muted colour, as the row's other text.
                     .when(selected, |el| {
-                        el.bg(theme.inverse_soft).text_color(theme.muted_on_solid)
+                        el.bg(theme.inverse_soft)
+                            .text_color(theme.inverse_muted_foreground)
                     })
                     .child("Yours"),
             )
@@ -394,9 +395,9 @@ impl WhatsNew {
                     .gap(dp(4.))
                     .text_12()
                     .semibold()
-                    .text_color(theme.text_2)
-                    .hover(|el| el.text_color(theme.text_1))
-                    .child(fold_glyph("fold", Some(open), theme.text_3))
+                    .text_color(theme.muted_foreground)
+                    .hover(|el| el.text_color(theme.foreground))
+                    .child(fold_glyph("fold", Some(open), theme.subtle_foreground))
                     .child(section.folded())
                     .on_click({
                         let key = key.clone();
@@ -475,11 +476,11 @@ impl WhatsNew {
             let has = self.has(release).map(|has| match has {
                 true => h_flex()
                     .gap(dp(4.))
-                    .text_color(theme.safe)
-                    .child(small_icon(Icon::Tick).text_color(theme.safe))
+                    .text_color(theme.success_text)
+                    .child(small_icon(Icon::Tick).text_color(theme.success_text))
                     .child("In your version"),
                 false => div()
-                    .text_color(theme.text_2)
+                    .text_color(theme.muted_foreground)
                     .child(format!("Needs {}", release.version)),
             });
             parts.push(
@@ -490,7 +491,7 @@ impl WhatsNew {
                             .gap(dp(8.))
                             .pb(dp(4.))
                             .border_b_1()
-                            .border_color(theme.border_3)
+                            .border_color(theme.border_subtle)
                             .child(
                                 div()
                                     .font_family(theme.mono_font.clone())
@@ -587,7 +588,7 @@ impl Render for WhatsNew {
             .w(dp(232.))
             .flex_none()
             .h_full()
-            .bg(theme.bg_2)
+            .bg(theme.canvas)
             // Its ground fills the modal's left corners, which it rounds as the modal does.
             .rounded_l(dp(theme.shape.popup - 1.))
             .child(
@@ -597,7 +598,7 @@ impl Render for WhatsNew {
                     .pb(dp(10.))
                     .text_16()
                     .semibold()
-                    .text_color(theme.text_1)
+                    .text_color(theme.foreground)
                     .child("What's new"),
             )
             .when(self.nightly, |el| {
@@ -660,8 +661,8 @@ impl Render for WhatsNew {
                     .min_w_0()
                     .h_full()
                     .border_l_1()
-                    .border_color(theme.border_3)
-                    .bg(theme.bg_1)
+                    .border_color(theme.border_subtle)
+                    .bg(theme.background)
                     .rounded_r(dp(theme.shape.popup - 1.))
                     .child(pane),
             )

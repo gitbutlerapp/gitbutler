@@ -1027,9 +1027,9 @@ impl gpui::Render for Peek {
                     .px(dp(10.))
                     .py(dp(5.))
                     .border_b_1()
-                    .border_color(theme.border_3)
+                    .border_color(theme.border_subtle)
                     .text_11()
-                    .text_color(theme.text_2)
+                    .text_color(theme.muted_foreground)
                     .font_family(theme.ui_font.clone())
                     .child(self.path.clone()),
             )
@@ -1181,7 +1181,7 @@ fn element(
         Kind::Rule => div()
             .h(fixed(1.))
             .my(dp(4.))
-            .bg(theme.border_3)
+            .bg(theme.border_subtle)
             .into_any_element(),
         Kind::Code => div()
             .px(dp(10.))
@@ -1202,7 +1202,7 @@ fn element(
                 _ => el.text_14().semibold(),
             })
             .when(*level <= 2 && !block.centered, |el| {
-                el.pb(dp(6.)).border_b_1().border_color(theme.border_3)
+                el.pb(dp(6.)).border_b_1().border_color(theme.border_subtle)
             })
             .child(text(id, ix, block, range, texts, theme))
             .into_any_element(),
@@ -1213,7 +1213,7 @@ fn element(
                 div()
                     .flex_none()
                     .min_w(dp(14.))
-                    .text_color(theme.text_2)
+                    .text_color(theme.muted_foreground)
                     .child(SharedString::from(marker.clone())),
             )
             .child(
@@ -1253,9 +1253,9 @@ fn placed(block: &Block, space: f32, el: AnyElement, theme: &Theme) -> AnyElemen
         .child(el);
     match block.quoted {
         true => indented
-            .text_color(theme.text_2)
+            .text_color(theme.muted_foreground)
             .border_l_2()
-            .border_color(theme.border_2)
+            .border_color(theme.border)
             .ml(dp(2.))
             .pl(dp(10. + block.depth as f32 * 16.))
             .into_any_element(),
@@ -1299,8 +1299,8 @@ fn text(
         false => gpui::font(theme.ui_font.clone()),
     };
     let color: Hsla = match block.quoted {
-        true => theme.text_2,
-        false => theme.text_1,
+        true => theme.muted_foreground,
+        false => theme.foreground,
     };
     // A run for every stretch between where a style or link starts or ends.
     let mut cuts: Vec<usize> = vec![0, block.text.len()];
@@ -1349,8 +1349,8 @@ fn text(
                 },
                 // The search match the keys are on is solid, its words in the ink that reads there.
                 color: match linked && !to_code {
-                    _ if style.tint == Some(Tint::FoundHere) && !picked => theme.on_warn,
-                    true => theme.blue,
+                    _ if style.tint == Some(Tint::FoundHere) && !picked => theme.warning_foreground,
+                    true => theme.info_text,
                     false => color,
                 },
                 // The selection blue like the diff's, over a search's tint and code's grey.
@@ -1363,8 +1363,8 @@ fn text(
                 underline: linked.then(|| UnderlineStyle {
                     thickness: fixed(1.),
                     color: Some(match to_code {
-                        true => theme.text_3,
-                        false => theme.blue_edge,
+                        true => theme.subtle_foreground,
+                        false => theme.derived.info_edge,
                     }),
                     wavy: false,
                 }),

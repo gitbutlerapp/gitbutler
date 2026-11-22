@@ -711,7 +711,7 @@ impl Detail {
     }
 
     fn render_diff(&self, window: &Window, theme: &Theme, cx: &Context<Self>) -> AnyElement {
-        let ground = || div().flex_1().min_w_0().h_full().bg(theme.bg_1);
+        let ground = || div().flex_1().min_w_0().h_full().bg(theme.background);
         if let Some(err) = &self.diff_error {
             let message = empty_state(
                 Some(Illustration::Papers),
@@ -803,7 +803,7 @@ impl Detail {
                         .right_0()
                         // The pane's ground, so the lines under it don't show past the header's
                         // rounded corners.
-                        .bg(theme.bg_1)
+                        .bg(theme.background)
                         .block_mouse_except_scroll()
                         .child(self.render_diff_row(ix, entity.clone(), window, cx)),
                 )
@@ -1180,7 +1180,7 @@ impl Detail {
                 .pt(dp(tokens::PADDING_PANEL))
                 .px(dp(tokens::PADDING_PANEL))
                 .gap(dp(8.))
-                .bg(theme.bg_1)
+                .bg(theme.background)
                 .children(files)
                 .child(div().flex_1())
                 .when(controls, |el| {
@@ -1351,8 +1351,8 @@ impl Detail {
                         .truncate()
                         .text_11()
                         .text_color(match on {
-                            true => theme.muted_on_solid,
-                            false => theme.text_3,
+                            true => theme.inverse_muted_foreground,
+                            false => theme.subtle_foreground,
                         })
                         .child(label)
                         .when_some(why, |el, why| el.tooltip(why))
@@ -1916,7 +1916,7 @@ impl Detail {
             .flex()
             .items_center()
             .cursor(CursorStyle::OpenHand)
-            .child(small_icon(Icon::DragVertical).text_color(Theme::get(cx).text_2))
+            .child(small_icon(Icon::DragVertical).text_color(Theme::get(cx).muted_foreground))
             // Not a press on the number, which would pick the line, nor the start of
             // dragging over the numbers to pick more.
             .on_mouse_down(MouseButton::Left, {
@@ -1998,8 +1998,8 @@ fn hunk_marks(solid: bool, last: bool, theme: &Theme) -> impl Iterator<Item = gp
         .ml(fixed(1.))
         .w(dp(4.))
         .bg(match solid {
-            true => theme.fill_gray,
-            false => theme.border_2,
+            true => theme.inverse,
+            false => theme.border,
         });
     let tint = div()
         .absolute()
@@ -2007,7 +2007,7 @@ fn hunk_marks(solid: bool, last: bool, theme: &Theme) -> impl Iterator<Item = gp
         .bottom_0()
         .left(dp(tokens::PADDING_PANEL))
         .right(dp(tokens::PADDING_PANEL))
-        .bg(theme.selected_unfocused)
+        .bg(theme.selected_inactive)
         .when(last, |el| el.rounded_b(dp(theme.shape.card)));
     solid.then_some(tint).into_iter().chain([tab])
 }
@@ -2026,7 +2026,7 @@ fn card_end(height: Pixels, theme: &Theme) -> [Div; 2] {
         .bottom(-reach)
         .top(-(reach + round))
         .rounded(reach + round)
-        .border_color(theme.bg_1);
+        .border_color(theme.background);
     ring.style().border_widths = gpui::EdgesRefinement {
         top: Some(reach.into()),
         right: Some(reach.into()),
@@ -2040,7 +2040,7 @@ fn card_end(height: Pixels, theme: &Theme) -> [Div; 2] {
         (div().absolute().top_0().bottom_0().left(side).right(side))
             .rounded(round)
             .border_1()
-            .border_color(theme.border_2),
+            .border_color(theme.border),
     ]
 }
 
@@ -2271,7 +2271,7 @@ pub(super) fn files_toggle(
         .gap(dp(6.))
         .rounded(dp(theme.shape.control))
         .hover(|el| el.bg(theme.hover))
-        .child(icon(glyph).text_color(theme.text_2))
+        .child(icon(glyph).text_color(theme.muted_foreground))
         .when_some(counts, |el, (n, added, removed)| {
             el.child(count_badge(n, theme))
                 .child(diff_stats(added, removed, false, theme))

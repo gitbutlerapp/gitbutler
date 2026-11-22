@@ -122,7 +122,11 @@ fn cells(spans: &[Span], content: f32, track: f32, cell: f32, least: f32) -> Vec
 /// `marks` along the right edge of a positioned element the size of the diff's list, just left
 /// of where its scrollbar's thumb shows.
 pub fn change_marks(marks: Rc<ChangeMarks>, theme: &Theme) -> impl IntoElement + use<> {
-    let (added, removed, scale) = (theme.diff_added, theme.diff_removed, theme.scale);
+    let (added, removed, scale) = (
+        theme.derived.diff_added,
+        theme.derived.diff_removed,
+        theme.scale,
+    );
     let line = theme.code_line * scale;
     canvas(
         |_, _, _| {},

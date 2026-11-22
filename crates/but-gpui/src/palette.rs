@@ -1848,7 +1848,7 @@ impl AppView {
                 let el = list_row(("command", ix), selected, &theme)
                     .gap(dp(12.))
                     .when_some(choice.icon, |el, icon| {
-                        el.child(small_icon(icon).text_color(theme.text_2))
+                        el.child(small_icon(icon).text_color(theme.muted_foreground))
                     })
                     .child(
                         div()
@@ -1875,7 +1875,7 @@ impl AppView {
             let every = (None, "All", groups.total);
             let counted =
                 (groups.counts.iter()).map(|(group, count)| (Some(*group), group.label(), *count));
-            let text = theme.text_1;
+            let text = theme.foreground;
             let tabs = std::iter::once(every)
                 .chain(counted)
                 .map(|(group, name, count)| {
@@ -1887,12 +1887,16 @@ impl AppView {
                         // Always there, so picking another moves nothing.
                         .border_b_2()
                         .border_color(if on { text } else { gpui::transparent_black() })
-                        .text_color(if on { text } else { theme.text_2 })
+                        .text_color(if on { text } else { theme.muted_foreground })
                         .hover(move |el| el.text_color(text))
                         .aria_label(format!("{name} {count}"))
                         .aria_selected(on)
                         .child(name)
-                        .child(div().text_color(theme.text_3).child(count.to_string()))
+                        .child(
+                            div()
+                                .text_color(theme.subtle_foreground)
+                                .child(count.to_string()),
+                        )
                         .on_click(cx.listener(move |this, _, window, cx| {
                             this.show_group(|_| group, window, cx)
                         }));
@@ -1907,7 +1911,7 @@ impl AppView {
                 .px(dp(12.))
                 .gap(dp(14.))
                 .border_b_1()
-                .border_color(theme.border_3)
+                .border_color(theme.border_subtle)
                 .text_12()
                 .children(tabs)
         });
@@ -1935,7 +1939,7 @@ impl AppView {
                     .items_center()
                     .gap(dp(12.))
                     .border_b_1()
-                    .border_color(theme.border_3)
+                    .border_color(theme.border_subtle)
                     .child(div().flex_1().min_w_0().child(palette.input.clone()))
                     .children((palette.place.clone()).map(|place| muted(place, &theme))),
             )
@@ -1959,7 +1963,7 @@ impl AppView {
                                     div()
                                         .px(dp(12.))
                                         .py(dp(6.))
-                                        .text_color(theme.text_2)
+                                        .text_color(theme.muted_foreground)
                                         .child("Nothing matches"),
                                 )
                             }),
@@ -1977,13 +1981,13 @@ impl AppView {
                     .px(dp(12. + theme.sizes.padding))
                     .gap(dp(12.))
                     .border_t_1()
-                    .border_color(theme.border_3)
-                    .bg(theme.bg_2)
+                    .border_color(theme.border_subtle)
+                    .bg(theme.canvas)
                     // Its ground fills the card's bottom corners, which it rounds as the card
                     // does, inside its border.
                     .rounded_b(dp(theme.shape.popup - 1.))
                     .text_12()
-                    .text_color(theme.text_2)
+                    .text_color(theme.muted_foreground)
                     .children(
                         [
                             Some(("↑ ↓", "Move")),

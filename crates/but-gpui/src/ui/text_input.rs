@@ -1012,7 +1012,11 @@ impl Element for TextElement {
         } else {
             input.content.clone().into()
         };
-        let color = if is_empty { theme.text_3 } else { style.color };
+        let color = if is_empty {
+            theme.subtle_foreground
+        } else {
+            style.color
+        };
 
         let mut lines = Vec::new();
         let mut offset = 0;
@@ -1107,7 +1111,7 @@ impl Element for TextElement {
             if caret_visible && let Some(at) = position(cursor_offset) {
                 cursor = Some(fill(
                     Bounds::new(origin + at, size(theme.scaled(1.5), line_height)),
-                    theme.pop,
+                    theme.primary_text,
                 ));
             }
         } else if let (Some(start), Some(end)) = (position(selected.start), position(selected.end))

@@ -31,8 +31,8 @@ pub fn state_hue(state: ReviewState) -> Hue {
 /// merged or closed.
 pub fn title_color(state: ReviewState, theme: &Theme) -> Hsla {
     match state {
-        ReviewState::Open | ReviewState::Draft => theme.text_1,
-        ReviewState::Merged | ReviewState::Closed => theme.text_3,
+        ReviewState::Open | ReviewState::Draft => theme.foreground,
+        ReviewState::Merged | ReviewState::Closed => theme.subtle_foreground,
     }
 }
 
@@ -40,8 +40,8 @@ pub fn title_color(state: ReviewState, theme: &Theme) -> Hsla {
 /// the row still says it merged.
 pub fn merged_color(solid: bool, theme: &Theme) -> Hsla {
     match solid {
-        true => theme.purple_on_solid,
-        false => theme.purple_mark,
+        true => theme.derived.inverse_done_mark,
+        false => theme.done_mark,
     }
 }
 
@@ -63,14 +63,18 @@ pub fn checks_summary(checks: Checks, theme: &Theme) -> (Icon, Hsla, String) {
         if checks.failed > 0 {
             text.push_str(&format!(", {} failed", checks.failed));
         }
-        (Icon::Clock, theme.warn, text)
+        (Icon::Clock, theme.warning_text, text)
     } else if checks.failed > 0 {
         (
             Icon::Cross,
-            theme.danger,
+            theme.danger_text,
             format!("{} of {total} failed", checks.failed),
         )
     } else {
-        (Icon::Tick, theme.safe, "All checks passed".to_owned())
+        (
+            Icon::Tick,
+            theme.success_text,
+            "All checks passed".to_owned(),
+        )
     }
 }

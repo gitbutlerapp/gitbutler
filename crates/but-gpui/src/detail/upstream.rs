@@ -630,7 +630,7 @@ impl Detail {
                 .px(dp(16.))
                 .items_end()
                 .border_b_1()
-                .border_color(theme.border_3)
+                .border_color(theme.border_subtle)
                 .child(tabs)
         });
         // How wide it is, for whether the files fit beside the diff.
@@ -674,7 +674,7 @@ impl Detail {
                         .relative()
                         .h_full()
                         .border_r_1()
-                        .border_color(theme.border_3)
+                        .border_color(theme.border_subtle)
                         // Its own focus, so a file picked shows solid and the arrows step
                         // through the files, as in a checkout's file list.
                         .track_focus(&self.files_focus)
@@ -774,7 +774,7 @@ impl Detail {
             .px(dp(16.))
             .py(dp(12.))
             .border_b_1()
-            .border_color(theme.border_3)
+            .border_color(theme.border_subtle)
             .child(
                 div()
                     .id("target-message-title")
@@ -804,7 +804,7 @@ impl Detail {
                         .id("target-message-body")
                         .text_13()
                         .line_height(dp(LINE))
-                        .text_color(theme.text_2)
+                        .text_color(theme.muted_foreground)
                         .whitespace_normal()
                         // A long one scrolls rather than push the diff out of the window.
                         .max_h(dp(LINE * 12.))
@@ -1015,7 +1015,7 @@ impl Detail {
         let rows = (picks.into_iter().enumerate()).map(|(ix, (name, picked))| {
             list_row(("target-choice", ix), false, theme)
                 .cursor_pointer()
-                .child(small_icon(Icon::Branch).text_color(theme.text_3))
+                .child(small_icon(Icon::Branch).text_color(theme.subtle_foreground))
                 .child(
                     div()
                         .flex_1()
@@ -1035,7 +1035,7 @@ impl Detail {
                         .py(dp(4.))
                         .rounded(dp(theme.shape.popup))
                         .border_1()
-                        .border_color(theme.border_3)
+                        .border_color(theme.border_subtle)
                         .text_left()
                         .children(rows),
                 )
@@ -1688,7 +1688,7 @@ impl Detail {
                 el.child(match fetch {
                     Some(None) => item.into_any_element(),
                     _ => {
-                        let hover = theme.text_1;
+                        let hover = theme.foreground;
                         div()
                             .id("fetch-now")
                             .flex_none()
@@ -1731,7 +1731,7 @@ impl Detail {
                     meta_item(Icon::Warning, theme)
                         .flex_none()
                         .id("untracked-target")
-                        .text_color(theme.warn)
+                        .text_color(theme.warning_text)
                         .child(format!("{} doesn't track {remote}", target.name))
                         .tooltip(Tooltip::text(format!(
                             "What's pushed to {remote} doesn't show here, nor can branches be \
@@ -1850,7 +1850,7 @@ impl Detail {
             }),
             upstream.and_then(|u| u.unconnected_forge).map(|forge| {
                 callout(theme.hover)
-                    .child(div().text_color(theme.text_1).child(format!(
+                    .child(div().text_color(theme.foreground).child(format!(
                         "Connect {} to see pull requests and CI here.",
                         forge.name()
                     )))
@@ -1870,7 +1870,7 @@ impl Detail {
                 callout(theme.surface(Hue::Danger))
                     .child(
                         div()
-                            .text_color(theme.danger_on_soft)
+                            .text_color(theme.danger_soft_foreground)
                             .children(entry.error.clone()),
                     )
                     .child(
@@ -1889,7 +1889,7 @@ impl Detail {
                 callout(theme.surface(Hue::Danger))
                     .child(
                         div()
-                            .text_color(theme.danger_on_soft)
+                            .text_color(theme.danger_soft_foreground)
                             .children(entry.error.clone()),
                     )
                     .child(
@@ -1921,8 +1921,8 @@ impl Detail {
                 .map(|err| {
                     h_flex()
                         .gap(dp(8.))
-                        .text_color(theme.danger)
-                        .child(icon(Icon::Warning).text_color(theme.danger))
+                        .text_color(theme.danger_text)
+                        .child(icon(Icon::Warning).text_color(theme.danger_text))
                         .child(div().flex_1().min_w_0().child(err))
                         .into_any_element()
                 }),
@@ -2051,9 +2051,9 @@ impl Detail {
                             // Merged, as everything here has, in purple, as the app marks what
                             // merged; amber while the workspace doesn't have it yet.
                             let glyph = match (on, incoming) {
-                                (true, _) => theme.text_inverted,
-                                (false, true) => theme.warn,
-                                (false, false) => theme.purple,
+                                (true, _) => theme.inverse_foreground,
+                                (false, true) => theme.warning_text,
+                                (false, false) => theme.done_text,
                             };
                             // One that merged a pull request by the request,
                             // its number, merge commit and ID on hover.
@@ -2073,8 +2073,8 @@ impl Detail {
                                     let project = shown.clone();
                                     let open = upstream.view.open_merges.contains(&id);
                                     let ink = match on {
-                                        true => theme.text_inverted,
-                                        false => theme.text_3,
+                                        true => theme.inverse_foreground,
+                                        false => theme.subtle_foreground,
                                     };
                                     fold_button(
                                         ("target-commit-fold", ix),
@@ -2100,7 +2100,9 @@ impl Detail {
                                         .flex_1()
                                         .min_w_0()
                                         .truncate()
-                                        .when(!incoming && !on, |el| el.text_color(theme.text_2))
+                                        .when(!incoming && !on, |el| {
+                                            el.text_color(theme.muted_foreground)
+                                        })
                                         .child(label(commit))
                                         .when_some(tip, |el, tip| el.tooltip(Tooltip::text(tip))),
                                 )
@@ -2145,7 +2147,7 @@ impl Detail {
                             // A page at a time, on a click, saying so while it reads.
                             Row::Older if upstream.paging.get() == Paging::Loading => {
                                 list_row("target-older", false, theme)
-                                    .text_color(theme.text_3)
+                                    .text_color(theme.subtle_foreground)
                                     .child("Loading…")
                                     .into_any_element()
                             }
@@ -2158,7 +2160,7 @@ impl Detail {
                                     |c| format!("Show older than {}", crate::ui::day_label(c.time)),
                                 );
                                 list_row("target-older", false, theme)
-                                    .text_color(theme.text_2)
+                                    .text_color(theme.muted_foreground)
                                     .child(read_to)
                                     .on_click(cx.listener(move |this, _, _, cx| {
                                         this.load_upstream(&project, true, false, cx);
@@ -2169,7 +2171,7 @@ impl Detail {
                             Row::ChangedPath => {
                                 let project = shown.clone();
                                 list_row("target-changed-path", false, theme)
-                                    .text_color(theme.text_2)
+                                    .text_color(theme.muted_foreground)
                                     .child("Search changed paths")
                                     .on_click(cx.listener(move |this, _, _, cx| {
                                         this.search_paths(&project, cx)
@@ -2192,14 +2194,14 @@ impl Detail {
                                 }
                                 match upstream.paging.get() {
                                     Paging::Failed => list_row("target-more", false, theme)
-                                        .text_color(theme.text_2)
+                                        .text_color(theme.muted_foreground)
                                         .child("Show older")
                                         .on_click(cx.listener(move |this, _, _, cx| {
                                             this.load_upstream(&project, true, false, cx)
                                         }))
                                         .into_any_element(),
                                     _ => list_row("target-more", false, theme)
-                                        .text_color(theme.text_3)
+                                        .text_color(theme.subtle_foreground)
                                         .child("Loading…")
                                         .into_any_element(),
                                 }
@@ -2336,10 +2338,10 @@ fn activity_strip(
                     .h(dp((n as f32 / most as f32 * HEIGHT).max(2.)))
                     .rounded_t(fixed(1.))
                     .map(|el| match (n, picked.is_empty(), inside, recent) {
-                        (0, ..) => el.bg(theme.border_2),
-                        (_, false, true, _) | (_, true, _, true) => el.bg(theme.pop),
-                        (_, false, false, _) => el.bg(theme.pop).opacity(0.2),
-                        (_, true, _, false) => el.bg(theme.pop).opacity(0.4),
+                        (0, ..) => el.bg(theme.border),
+                        (_, false, true, _) | (_, true, _, true) => el.bg(theme.primary_text),
+                        (_, false, false, _) => el.bg(theme.primary_text).opacity(0.2),
+                        (_, true, _, false) => el.bg(theme.primary_text).opacity(0.4),
                     }),
             )
         })

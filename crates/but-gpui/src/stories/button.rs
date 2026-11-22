@@ -76,7 +76,7 @@ fn in_order(theme: &Theme, build: impl Fn(usize, ButtonStyle, bool) -> Button) -
                 .map(|(ix, (style, inverted))| {
                     let button = build(ix, style, inverted);
                     match inverted {
-                        true => (div().p(dp(8.)).rounded(dp(8.)).bg(theme.fill_gray))
+                        true => (div().p(dp(8.)).rounded(dp(8.)).bg(theme.inverse))
                             .child(button)
                             .into_any_element(),
                         false => button.into_any_element(),
@@ -169,7 +169,7 @@ impl Render for ButtonStory {
                     [variant(
                         "Ghost, Outline and Gray",
                         theme,
-                        div().p(dp(6.)).rounded(dp(4.)).bg(theme.fill_gray).child(
+                        div().p(dp(6.)).rounded(dp(4.)).bg(theme.inverse).child(
                             h_flex().gap(dp(6.)).children(
                                 (STYLES.into_iter().enumerate().take(3)).map(|(ix, style)| {
                                     styled("inverted", ix, style).small().inverted(true)

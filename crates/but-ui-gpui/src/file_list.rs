@@ -208,7 +208,7 @@ impl RenderOnce for FileList {
                             .left_0()
                             .right_0()
                             .h(fixed(1.))
-                            .bg(theme.border_3),
+                            .bg(theme.border_subtle),
                     )
                 }),
         )
@@ -329,7 +329,7 @@ impl RenderOnce for FileListHeader {
                     .text_ellipsis()
                     .text_14()
                     .bold()
-                    .text_color(theme.text_1)
+                    .text_color(theme.foreground)
                     .child(self.title),
             )
             .child(
@@ -411,12 +411,12 @@ fn filter_field(field: AnyElement, found: Option<String>, focused: bool, theme: 
         .rounded(dp(theme.shape.control))
         .border_1()
         .border_color(match focused {
-            true => theme.focus_border,
-            false => theme.border_2,
+            true => theme.ring,
+            false => theme.border,
         })
-        .bg(theme.bg_1)
+        .bg(theme.background)
         .text_13()
-        .text_color(theme.text_1)
+        .text_color(theme.foreground)
         .child(
             div()
                 .absolute()
@@ -425,11 +425,16 @@ fn filter_field(field: AnyElement, found: Option<String>, focused: bool, theme: 
                 .bottom_0()
                 .flex()
                 .items_center()
-                .child(icon(Icon::Search).text_color(theme.text_3)),
+                .child(icon(Icon::Search).text_color(theme.subtle_foreground)),
         )
         .gap(dp(8.))
         .child(div().flex_1().min_w_0().child(field))
-        .children(found.map(|found| div().flex_none().text_color(theme.text_3).child(found)))
+        .children(found.map(|found| {
+            div()
+                .flex_none()
+                .text_color(theme.subtle_foreground)
+                .child(found)
+        }))
 }
 
 fn plural(count: usize, word: &str) -> String {
@@ -679,14 +684,14 @@ impl FileListItem {
         let solid = self.selected && self.focused;
         // On the solid ground the row's quieter parts read in the inverted muted colour.
         let muted = match solid {
-            true => theme.muted_on_solid,
-            false => theme.text_2,
+            true => theme.inverse_muted_foreground,
+            false => theme.muted_foreground,
         };
         // React mixes the muted foreground in at 20%, which isn't a token yet: the subtle border is
         // what the app's trees draw their guides in.
         let guide_color = match solid {
-            true => theme.guide_on_solid,
-            false => theme.border_3,
+            true => theme.derived.inverse_guide,
+            false => theme.border_subtle,
         };
         let faded = |el: Div| el.when(self.reviewed, |el| el.opacity(0.5));
         // An open directory's files say what happened to them, so its own totals wait until it
@@ -737,7 +742,7 @@ impl FileListItem {
                     .as_ref()
                     .map(|(check, _)| *check != Toggled::False);
                 let icon = faded(h_flex().flex_none())
-                    .text_color(theme.text_3)
+                    .text_color(theme.subtle_foreground)
                     .map(|el| match checked {
                         Some(true) => el.opacity(0.),
                         Some(false) => el.group_hover(LEAD, |s| s.opacity(0.)),
@@ -760,7 +765,11 @@ impl FileListItem {
                                 checkbox_on(
                                     "check",
                                     check,
-                                    if solid { theme.fill_gray } else { theme.bg_1 },
+                                    if solid {
+                                        theme.inverse
+                                    } else {
+                                        theme.background
+                                    },
                                     &theme,
                                 )
                                 // Checking a file doesn't press the row under it.
@@ -785,7 +794,7 @@ impl FileListItem {
             // Subtle, so the name reads first; on the solid ground, the inverted muted colour.
             let color = match solid {
                 true => muted,
-                false => theme.text_3,
+                false => theme.subtle_foreground,
             };
             // Cut in the middle, so the end that tells two folders apart stays.
             truncated(matched(text, self.directory_matches))
@@ -826,7 +835,7 @@ impl FileListItem {
                     .aria_label("Editing")
                     .child(icon(Icon::Edit).text_color(match solid {
                         true => muted,
-                        false => theme.text_3,
+                        false => theme.subtle_foreground,
                     })),
             )
         } else if self.reviewed {
@@ -837,7 +846,7 @@ impl FileListItem {
                     .justify_center()
                     .id("status")
                     .aria_label("Reviewed")
-                    .child(icon_at(Icon::Tick, 11.).text_color(theme.pop_mark)),
+                    .child(icon_at(Icon::Tick, 11.).text_color(theme.primary_mark)),
             )
         } else if let Some(status) = self.status {
             Some(
@@ -854,7 +863,7 @@ impl FileListItem {
                     .text_12()
                     .text_color(match solid {
                         true => muted,
-                        false => theme.text_3,
+                        false => theme.subtle_foreground,
                     })
                     .child(count.to_string())
             })
@@ -882,10 +891,10 @@ impl FileListItem {
             .pl(dp(tokens::SPACE_LG - if has_steps { 0. } else { 1. }))
             .pr(dp(tokens::SPACE_SM))
             .rounded(dp(theme.shape.control))
-            .text_color(theme.text_1)
+            .text_color(theme.foreground)
             .map(|el| match (self.selected, solid) {
-                (true, true) => el.bg(theme.fill_gray).text_color(theme.text_inverted),
-                (true, false) => el.bg(theme.selected_unfocused),
+                (true, true) => el.bg(theme.inverse).text_color(theme.inverse_foreground),
+                (true, false) => el.bg(theme.selected_inactive),
                 (false, _) => el.hover(|el| el.bg(theme.hover)),
             })
             .when(self.selected && self.joined.1, |el| el.rounded_b_none())
@@ -893,8 +902,8 @@ impl FileListItem {
             // faint line across it, set in from the ends as the row's contents are.
             .when(self.selected && self.joined.0, |el| {
                 let (fill, line) = match solid {
-                    true => (theme.fill_gray, theme.inverse_soft),
-                    false => (theme.selected_unfocused, theme.bg_1),
+                    true => (theme.inverse, theme.inverse_soft),
+                    false => (theme.selected_inactive, theme.background),
                 };
                 el.relative()
                     .rounded_t_none()
@@ -1029,11 +1038,11 @@ fn toggle(folded: bool, on_toggle: Option<OnClick>, name: &str, solid: bool, the
     };
     let (rest, hover, ground) = match solid {
         true => (
-            theme.muted_on_solid,
-            theme.muted_on_solid,
-            theme.hover_on_solid,
+            theme.inverse_muted_foreground,
+            theme.inverse_muted_foreground,
+            theme.inverse_ghost_hover,
         ),
-        false => (theme.text_3, theme.text_2, theme.hover),
+        false => (theme.subtle_foreground, theme.muted_foreground, theme.hover),
     };
     let chevron = small_icon(glyph).text_color(rest).opacity(0.6);
     let step = div().flex_none().w(dp(STEP)).h_full().flex().items_center();

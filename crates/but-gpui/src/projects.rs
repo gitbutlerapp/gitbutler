@@ -483,7 +483,7 @@ impl AppView {
                 .rounded(dp(theme.shape.control))
                 .text_off_scale(18.)
                 .hover(|el| el.bg(theme.hover))
-                .when(current == stored, |el| el.bg(theme.selected_unfocused))
+                .when(current == stored, |el| el.bg(theme.selected_inactive))
                 .tooltip(Tooltip::text(name))
                 .child(mark)
                 .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {

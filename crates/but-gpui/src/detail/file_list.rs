@@ -343,8 +343,8 @@ impl Detail {
             self.current_entry() == super::Entry::Message && self.cursor_folder(cx).is_none();
         let solid = current && has_keys(&self.files_focus, window, cx);
         let muted = match solid {
-            true => theme.muted_on_solid,
-            false => theme.text_2,
+            true => theme.inverse_muted_foreground,
+            false => theme.muted_foreground,
         };
         let label = match count {
             None => "Commit message",
@@ -600,7 +600,7 @@ impl Detail {
                     .left_0()
                     .right_0()
                     .h(crate::ui::fixed(1.))
-                    .bg(theme.border_3),
+                    .bg(theme.border_subtle),
             )
         });
         (list, count)
@@ -1184,7 +1184,7 @@ impl Detail {
             .pr(dp(12.))
             .gap(dp(8.))
             .border_b_1()
-            .border_color(theme.border_2)
+            .border_color(theme.border)
             .child(
                 h_flex()
                     .flex_1()
@@ -1194,13 +1194,13 @@ impl Detail {
                     .child(
                         div()
                             .flex_none()
-                            .text_color(theme.text_1)
+                            .text_color(theme.foreground)
                             .child(name.to_owned()),
                     )
                     .child(
                         (div().min_w_0().overflow_hidden().whitespace_nowrap())
                             .text_ellipsis_middle()
-                            .text_color(theme.text_3)
+                            .text_color(theme.subtle_foreground)
                             .child(parent.to_owned()),
                     ),
             )
@@ -1246,8 +1246,8 @@ impl Detail {
             .min_h_0()
             .rounded(dp(theme.shape.card))
             .border_1()
-            .border_color(theme.border_2)
-            .bg(theme.bg_1)
+            .border_color(theme.border)
+            .bg(theme.background)
             .overflow_hidden()
             .child(header)
             .child(
@@ -1264,7 +1264,7 @@ impl Detail {
             .min_w_0()
             .h_full()
             .p(dp(12.))
-            .bg(theme.bg_1)
+            .bg(theme.background)
             .child(card)
             .into_any_element()
     }
@@ -1498,7 +1498,7 @@ impl Detail {
             .when_some(blink, |el, n| {
                 let shape = div().absolute().inset_0().rounded(dp(theme.shape.control));
                 el.relative()
-                    .child(blink_once(("blink", n), shape, theme.pop))
+                    .child(blink_once(("blink", n), shape, theme.primary_text))
             })
             .aria_label(file.path.clone())
             .aria_description(file.kind.word())

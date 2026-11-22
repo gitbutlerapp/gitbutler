@@ -330,12 +330,12 @@ impl Detail {
             .gap(dp(8.))
             .pt(dp(12.))
             .border_t_1()
-            .border_color(theme.border_3)
+            .border_color(theme.border_subtle)
             .child(
                 h_flex()
                     .gap(dp(8.))
                     .text_12()
-                    .text_color(theme.text_3)
+                    .text_color(theme.subtle_foreground)
                     .children(self.next_brief(true, cx).map(|next| {
                         button("brief-next", format!("Next: {}", next.title))
                             .small()
@@ -352,7 +352,7 @@ impl Detail {
                         v_flex()
                             .child(super::small_line(
                                 &format!("On version {}", thread.version.unwrap_or_default()),
-                                theme.text_3,
+                                theme.subtle_foreground,
                             ))
                             .child(self.brief_thread(thread, state, cx))
                     }),
@@ -374,19 +374,21 @@ impl Detail {
                     .px(dp(10.))
                     .py(dp(8.))
                     .gap(dp(2.))
-                    .when(at > 0, |el| el.border_t_1().border_color(theme.border_3))
+                    .when(at > 0, |el| {
+                        el.border_t_1().border_color(theme.border_subtle)
+                    })
                     .child(
                         h_flex()
                             .min_h(dp(20.))
                             .gap(dp(6.))
                             .text_12()
-                            .text_color(theme.text_2)
+                            .text_color(theme.muted_foreground)
                             .child(person_avatar(name, 16., theme))
                             .child(
                                 div()
                                     .flex_none()
                                     .semibold()
-                                    .text_color(theme.text_1)
+                                    .text_color(theme.foreground)
                                     .child(name.to_owned()),
                             )
                             .children(agent.map(|agent| {
@@ -503,11 +505,11 @@ impl Detail {
             .py(dp(6.))
             .gap(dp(2.))
             .map(|el| match nested {
-                true => el.border_t_1().border_color(theme.border_3),
+                true => el.border_t_1().border_color(theme.border_subtle),
                 false => el
                     .rounded(dp(theme.shape.card))
                     .border_1()
-                    .border_color(theme.blue_edge)
+                    .border_color(theme.derived.info_edge)
                     .bg(theme.surface(Hue::Blue))
                     .hover(|el| el.bg(theme.surface_hover(Hue::Blue))),
             })
@@ -527,7 +529,7 @@ impl Detail {
                             .min_w_0()
                             .text_13()
                             .body()
-                            .text_color(theme.text_1)
+                            .text_color(theme.foreground)
                             .child(note.body.clone()),
                     )
                     .child(

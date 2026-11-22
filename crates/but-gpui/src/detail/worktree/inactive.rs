@@ -94,29 +94,29 @@ impl Detail {
         let parts = [
             (
                 Icon::Commit,
-                theme.blue,
-                theme.blue,
+                theme.info_text,
+                theme.info_text,
                 "with unpushed commits",
                 count(|l| matches!(l, Left::Unpushed(_))),
             ),
             (
                 Icon::BranchMerge,
-                theme.purple,
-                theme.purple,
+                theme.done_text,
+                theme.done_text,
                 "merged",
                 count(|l| matches!(l, Left::Merged)),
             ),
             (
                 Icon::CommitFill,
-                theme.text_2,
-                theme.text_2,
+                theme.muted_foreground,
+                theme.muted_foreground,
                 "pushed",
                 count(|l| matches!(l, Left::Pushed)),
             ),
             (
                 Icon::FolderCopy,
-                theme.text_3,
-                theme.border_1,
+                theme.subtle_foreground,
+                theme.border_hover,
                 "with no commits",
                 count(|l| matches!(l, Left::Nothing)),
             ),
@@ -128,10 +128,10 @@ impl Detail {
             glyph: Icon::FolderCopy,
             name: wt.name.to_string(),
             tag: Some(match left {
-                Left::Unpushed(n) => (format!("{n} unpushed"), theme.blue),
-                Left::Merged => ("merged".to_owned(), theme.purple),
-                Left::Pushed => ("pushed".to_owned(), theme.text_3),
-                Left::Nothing => ("no commits".to_owned(), theme.text_3),
+                Left::Unpushed(n) => (format!("{n} unpushed"), theme.info_text),
+                Left::Merged => ("merged".to_owned(), theme.done_text),
+                Left::Pushed => ("pushed".to_owned(), theme.subtle_foreground),
+                Left::Nothing => ("no commits".to_owned(), theme.subtle_foreground),
             }),
             branches: (wt.branch.as_ref())
                 .map_or("detached".into(), backend::short_ref)
