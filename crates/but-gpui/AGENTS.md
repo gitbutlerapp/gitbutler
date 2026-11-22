@@ -276,18 +276,20 @@ and tests it.
 - In a prompt or a modal Tab goes round that dialog's tab stops, and `open_modal` gives a new
   modal this. Tab scrolls the control it reaches into view only inside
   `ui::scrollbar::scrolled`, so a dialog's scrolling list goes in one.
-- A colour comes from `Theme`, and a new one is a but-ui token, read by name from `theme`'s
-  `tokens`, which the build script fills from `packages/but-ui/tokens/tokens.json`: a
-  semantic token where one fits, else a step on its scales. Text needs 4.5:1 and a control's
-  marks 3:1, on `bg_1` and `bg_2` in both themes.
+- A colour comes from `Theme`, which has a field for each of but-ui's semantic tokens, named
+  as the token (`theme.muted_foreground` is `--but-muted-foreground`). The build script makes
+  them from `packages/but-ui/tokens`, so a new token is a field once it's exported; never name
+  a colour by hand. One with no token is worked out in `theme.derived`, a candidate token for
+  🍑 But UI. Text needs 4.5:1 and a control's marks 3:1, on `background` and `canvas` in both
+  themes.
 
 ## Conventions
 
 - Match the rules in `packages/but-ui/design/`. Adapt Tauri and but.dev rather than copy
   them, and leave out what GPUI has no data for.
-- Conflicts are `warn`, never danger red. One accent button per surface. Controls keep the
-  arrow cursor, as the desktop does, and a focused field rings in gray (`focus_border`), not
-  pop. A disabled control says why in its tooltip. Tooltips are a few words, with the shortcut
+- Conflicts are `warning`, never danger red. One accent button per surface. Controls keep the
+  arrow cursor, as the desktop does, and a focused field rings in gray (`ring`), not
+  the primary. A disabled control says why in its tooltip. Tooltips are a few words, with the shortcut
   in its key slot, and a right-click item that a key also does shows it, built with
   `MenuItem::keyed` or `MenuItem::action`. Snackbars are fragments without a full stop.
 - The app is reactive, so no reload buttons.

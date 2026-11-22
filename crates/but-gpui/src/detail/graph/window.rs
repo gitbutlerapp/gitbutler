@@ -159,12 +159,12 @@ impl Render for GraphWindow {
                 .flex_none()
                 .justify_center()
                 .gap(dp(6.))
-                .bg(theme.bg_1)
+                .bg(theme.background)
                 .border_b_1()
-                .border_color(theme.border_2)
+                .border_color(theme.border)
                 .text_13()
                 .child(self.name.clone())
-                .child(div().text_color(theme.text_3).child("Graph")),
+                .child(div().text_color(theme.subtle_foreground).child("Graph")),
         );
         let root = v_flex()
             .id("graph-window")
@@ -175,8 +175,8 @@ impl Render for GraphWindow {
             .on_action(|_: &Zoom, window, _| window.zoom_window())
             .relative()
             .size_full()
-            .bg(theme.bg_2)
-            .text_color(theme.text_1)
+            .bg(theme.canvas)
+            .text_color(theme.foreground)
             .font_family(theme.ui_font.clone())
             .text_13()
             .child(header)

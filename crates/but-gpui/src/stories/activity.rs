@@ -22,7 +22,7 @@ impl Render for ActivityStory {
             .w(dp(240.))
             .py(dp(6.))
             .rounded(dp(6.))
-            .bg(theme.bg_2)
+            .bg(theme.canvas)
             .child(
                 list_row("glow-row", false, theme)
                     .relative()
@@ -35,7 +35,7 @@ impl Render for ActivityStory {
                     .child(blink_once(
                         ("blink", n),
                         div().absolute().inset_0().rounded(dp(4.)),
-                        theme.pop,
+                        theme.primary_text,
                     ))
                     .child("What y just copied"),
             );
@@ -51,8 +51,8 @@ impl Render for ActivityStory {
                 "Under way",
                 theme,
                 [
-                    variant("Spinning", theme, spinning(theme.text_2, true)),
-                    variant("Pulsing", theme, pulsing(dot(theme.pop))),
+                    variant("Spinning", theme, spinning(theme.muted_foreground, true)),
+                    variant("Pulsing", theme, pulsing(dot(theme.primary_text))),
                 ],
             ),
             section(

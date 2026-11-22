@@ -36,7 +36,12 @@ impl Detail {
         if store.workspace(project).and_then(|ws| ws.forge) != Some(Forge::GitHub) {
             return None;
         }
-        let quiet = |text: &'static str| div().text_13().text_color(theme.text_3).child(text);
+        let quiet = |text: &'static str| {
+            div()
+                .text_13()
+                .text_color(theme.subtle_foreground)
+                .child(text)
+        };
         let status = match store.conversation(project, review.number) {
             // Faded in, so a read done in a blink doesn't flash it.
             None => Some(
@@ -66,7 +71,7 @@ impl Detail {
                 // With the first card's own 6, 16 under the heading.
                 .when(status.is_none(), |el| el.pb(dp(10.)))
                 .border_t_1()
-                .border_color(theme.border_3)
+                .border_color(theme.border_subtle)
                 .child(div().text_15().semibold().child("Activity"))
                 .children(status),
         )
@@ -123,12 +128,12 @@ impl Detail {
                 .gap(dp(5.))
                 .rounded_full()
                 .border_1()
-                .border_color(theme.border_2)
+                .border_color(theme.border)
                 .text_12()
                 .child(reaction.emoji.clone())
                 .child(
                     div()
-                        .text_color(theme.text_2)
+                        .text_color(theme.muted_foreground)
                         .child(reaction.count.to_string()),
                 )
                 .tooltip(Tooltip::text(names.join(", ")))
@@ -191,7 +196,7 @@ impl Detail {
             .gap(dp(6.))
             .text_12()
             .hover(|el| el.bg(theme.hover))
-            .child(fold::chevron("fold", open, theme.text_3))
+            .child(fold::chevron("fold", open, theme.subtle_foreground))
             .child(
                 h_flex()
                     .flex_grow(1.)
@@ -201,14 +206,14 @@ impl Detail {
                             div()
                                 .min_w_0()
                                 .truncate()
-                                .text_color(theme.text_3)
+                                .text_color(theme.subtle_foreground)
                                 .child(format!("{dir}/")),
                         )
                     })
                     .child(
                         div()
                             .flex_none()
-                            .text_color(theme.text_1)
+                            .text_color(theme.foreground)
                             .child(format!("{name}{lines}")),
                     ),
             )
@@ -217,7 +222,7 @@ impl Detail {
                 el.child(
                     div()
                         .flex_none()
-                        .text_color(theme.text_3)
+                        .text_color(theme.subtle_foreground)
                         .child(plural(thread.comments.len(), "comment")),
                 )
             })
@@ -236,8 +241,8 @@ impl Detail {
         v_flex()
             .rounded(dp(theme.shape.card))
             .border_1()
-            .border_color(theme.border_3)
-            .bg(theme.bg_2)
+            .border_color(theme.border_subtle)
+            .bg(theme.canvas)
             .overflow_hidden()
             .child(anchor)
             .when(self.page_folds.shows(&fold, open), |el| {
@@ -248,8 +253,8 @@ impl Detail {
                             .p(dp(10.))
                             .gap(dp(10.))
                             .border_t_1()
-                            .border_color(theme.border_3)
-                            .bg(theme.bg_1)
+                            .border_color(theme.border_subtle)
+                            .bg(theme.background)
                             .when(!thread.excerpt.is_empty(), |el| {
                                 el.child(excerpt(&thread.excerpt, theme))
                             })
@@ -257,7 +262,9 @@ impl Detail {
                                 v_flex()
                                     .gap(dp(6.))
                                     .when(ix > 0, |el| {
-                                        el.pt(dp(10.)).border_t_1().border_color(theme.border_3)
+                                        el.pt(dp(10.))
+                                            .border_t_1()
+                                            .border_color(theme.border_subtle)
                                     })
                                     .child(header(note, None, true, theme))
                                     .child(self.note_body(note, theme, cx))
@@ -287,7 +294,7 @@ fn header(note: &Note, verdict: Option<Verdict>, compact: bool, theme: &Theme) -
                     .truncate()
                     .map(|el| if compact { el.text_12() } else { el.text_13() })
                     .semibold()
-                    .text_color(theme.text_1)
+                    .text_color(theme.foreground)
                     .child(author.login.clone()),
             )
     });
@@ -326,11 +333,11 @@ fn opens(note: &Note, at: i64, compact: bool, theme: &Theme) -> AnyElement {
         .flex_none()
         .gap(dp(6.))
         .text_12()
-        .text_color(theme.text_2)
-        .hover(|el| el.text_color(theme.text_1))
+        .text_color(theme.muted_foreground)
+        .hover(|el| el.text_color(theme.foreground))
         .child(ago(at))
         .when(note.edited, |el| {
-            el.child(div().text_color(theme.text_3).child("edited"))
+            el.child(div().text_color(theme.subtle_foreground).child("edited"))
         })
         .child(
             h_flex()
@@ -340,7 +347,7 @@ fn opens(note: &Note, at: i64, compact: bool, theme: &Theme) -> AnyElement {
                 .right(dp(-room))
                 .child(
                     icon_at(Icon::ArrowUpRight, arrow)
-                        .text_color(theme.text_3)
+                        .text_color(theme.subtle_foreground)
                         .opacity(0.)
                         .group_hover(group, |el| el.opacity(1.)),
                 ),

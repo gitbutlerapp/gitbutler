@@ -209,7 +209,7 @@ impl AppView {
                 .px(dp(8.))
                 .rounded(dp(theme.shape.card))
                 .text_13()
-                .text_color(theme.text_1)
+                .text_color(theme.foreground)
                 .when(ix == open, |el| el.bg(theme.hover))
                 .hover(|el| el.bg(theme.hover))
                 .on_mouse_down(
@@ -242,7 +242,7 @@ impl AppView {
             .pl(left)
             .pr(dp(8.))
             .gap(dp(2.))
-            .bg(theme.bg_2)
+            .bg(theme.canvas)
             .occlude()
             .children(names);
         Some(deferred(row).with_priority(OVERLAY + 1).into_any_element())

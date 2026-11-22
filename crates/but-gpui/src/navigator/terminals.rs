@@ -740,7 +740,7 @@ impl TerminalOverview {
                         .ml(dp(-5.))
                         .px(dp(4.))
                         .py(dp(1.))
-                        .text_color(theme.text_1),
+                        .text_color(theme.foreground),
                 )
                 .into_any_element(),
         )
@@ -906,11 +906,11 @@ impl Render for TerminalOverview {
             .size_full()
             // The card under its tab is its edges.
             .when(!in_tab, |el| {
-                el.bg(theme.bg_1)
+                el.bg(theme.background)
                     .border_1()
                     .border_color(match outlined {
                         true => theme.focus_edge(),
-                        false => theme.border_3,
+                        false => theme.border_subtle,
                     })
                     .rounded(dp(theme.shape.card))
             })

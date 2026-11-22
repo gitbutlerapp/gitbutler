@@ -264,8 +264,8 @@ impl Detail {
             .map(crate::ui::drags_window)
             .gap(dp(12.))
             // On the ground the detail's cards are on, which they edge.
-            .bg(theme.bg_2)
-            .text_color(theme.text_2)
+            .bg(theme.canvas)
+            .text_color(theme.muted_foreground)
             .child(
                 h_flex().flex_1().min_w_0().gap(dp(6.)).children(
                     crumbs
@@ -274,7 +274,7 @@ impl Detail {
                         .flat_map(|(ix, (crumb, target))| {
                             let sep = (ix > 0).then(|| {
                                 icon_at(Icon::ChevronRight, 10.)
-                                    .text_color(theme.text_3)
+                                    .text_color(theme.subtle_foreground)
                                     .into_any_element()
                             });
                             // Short ones, like the project's name or a commit's ID, stay whole
@@ -287,7 +287,7 @@ impl Detail {
                             let el = match target.filter(|_| ix != last) {
                                 Some(target) => {
                                     // Darker under the pointer: it's still a quiet trail.
-                                    let hover = theme.text_1;
+                                    let hover = theme.foreground;
                                     above_drag(text.id(("crumb", ix)))
                                         .hover(move |el| el.text_color(hover))
                                         .on_click(cx.listener(move |this, _, window, cx| {
@@ -598,9 +598,9 @@ impl Detail {
         let target = (store.workspace(project).and_then(|ws| ws.target.as_ref()))
             .map_or("the target", |t| t.name.as_str());
         let (state, color) = match commit.state {
-            CommitState::Local => ("not pushed".to_owned(), theme.blue),
-            CommitState::Pushed => ("on the remote".to_owned(), theme.safe),
-            CommitState::Integrated => (format!("in {target}"), theme.text_2),
+            CommitState::Local => ("not pushed".to_owned(), theme.info_text),
+            CommitState::Pushed => ("on the remote".to_owned(), theme.success_text),
+            CommitState::Integrated => (format!("in {target}"), theme.muted_foreground),
         };
         meta_row(theme)
             .child(byline(
@@ -613,7 +613,7 @@ impl Detail {
             .child(self.reference_chip(commit, theme))
             .child(div().text_color(color).child(state))
             .when(commit.conflicted, |el| {
-                el.child(div().text_color(theme.warn).child("conflicted"))
+                el.child(div().text_color(theme.warning_text).child("conflicted"))
             })
             // Last, as it's read after the rest, so nothing moves when it shows.
             .when_some(
@@ -622,7 +622,7 @@ impl Detail {
                     el.child(
                         meta_item(Icon::Lock, theme)
                             .id("commit-signed")
-                            .text_color(theme.text_3)
+                            .text_color(theme.subtle_foreground)
                             .child("Signed")
                             .tooltip(Tooltip::text(format!("Signed with {signer}, not verified"))),
                     )
@@ -679,7 +679,7 @@ impl Detail {
                 .p(dp(16.))
                 .rounded(dp(theme.shape.popup))
                 .border_1()
-                .border_color(theme.border_2)
+                .border_color(theme.border)
                 .child(top)
                 .children(rest)
                 .into_any_element(),
@@ -809,10 +809,14 @@ impl Detail {
                 theme,
             ))
             .child(self.sha_chip(id, theme))
-            .child(div().text_color(theme.warn).child(match commit.remote {
-                Some(remote) => format!("only on {remote}"),
-                None => "only on the remote".to_owned(),
-            }))
+            .child(
+                div()
+                    .text_color(theme.warning_text)
+                    .child(match commit.remote {
+                        Some(remote) => format!("only on {remote}"),
+                        None => "only on the remote".to_owned(),
+                    }),
+            )
     }
 
     /// The selected branch's messages: its name, how many commits it has and where they
@@ -933,7 +937,7 @@ impl Detail {
             .gap(dp(6.))
             .pt(dp(16.))
             .border_t_1()
-            .border_color(theme.border_3)
+            .border_color(theme.border_subtle)
             .child(h_flex().child(title))
             .child(meta)
             .when(!body.is_empty(), |el| {
@@ -1066,7 +1070,7 @@ impl Detail {
             .when(!one_run, |el| {
                 el.child(
                     div()
-                        .text_color(theme.text_3)
+                        .text_color(theme.subtle_foreground)
                         .child("With others between them, so each one's changes show in turn"),
                 )
             });
@@ -1099,7 +1103,7 @@ impl Detail {
         tooltip: &'static str,
         theme: &Theme,
     ) -> Stateful<Div> {
-        let hover = theme.text_1;
+        let hover = theme.foreground;
         h_flex()
             .id("commit-sha")
             .gap(dp(4.))
@@ -1107,7 +1111,7 @@ impl Detail {
             .hover(move |el| el.text_color(hover))
             .child(
                 icon_at(Icon::Hash, 14.)
-                    .text_color(theme.text_2)
+                    .text_color(theme.muted_foreground)
                     .opacity(0.7)
                     .group_hover("commit-sha", move |el| el.text_color(hover)),
             )
@@ -1227,7 +1231,7 @@ impl Detail {
             .pt(dp(16.))
             .pb(dp(if tabs.is_some() { 0. } else { 16. }))
             .border_b_1()
-            .border_color(theme.border_3)
+            .border_color(theme.border_subtle)
             .child(
                 h_flex()
                     .items_start()
@@ -1459,7 +1463,7 @@ pub(super) fn page_title(icon_name: Icon, theme: &Theme) -> Div {
             .h(dp(22.))
             .flex()
             .items_center()
-            .child(icon(icon_name).text_color(theme.text_1)),
+            .child(icon(icon_name).text_color(theme.foreground)),
     )
 }
 
@@ -1494,15 +1498,17 @@ pub(super) fn meta_row(theme: &Theme) -> Div {
         .h(dp(20.))
         .gap(dp(12.))
         .text_13()
-        .text_color(theme.text_2)
+        .text_color(theme.muted_foreground)
 }
 
 /// One of a header's facts in its `meta_row`: its glyph at 0.7 of the line's ink, as
 /// but-ui-react's meta glyphs are, then what's added after.
 pub(super) fn meta_item(glyph: Icon, theme: &Theme) -> Div {
-    h_flex()
-        .gap(dp(3.))
-        .child(icon_at(glyph, 14.).text_color(theme.text_2).opacity(0.7))
+    h_flex().gap(dp(3.)).child(
+        icon_at(glyph, 14.)
+            .text_color(theme.muted_foreground)
+            .opacity(0.7),
+    )
 }
 
 /// A row of an overview, which opens `at` in the navigator, the navigator taking the keys, as a
@@ -1563,7 +1569,7 @@ pub(super) fn worktree_lanes(
         overview_row(("lane", ix), lane.at, cx)
             .h_auto()
             .py(dp(4.))
-            .child(icon(lane.glyph).text_color(theme.text_2))
+            .child(icon(lane.glyph).text_color(theme.muted_foreground))
             .child(
                 h_flex()
                     .flex_1()
@@ -1626,8 +1632,8 @@ fn day_strip(days: &[u32], most: u32, today: i64, theme: &Theme) -> Div {
             .rounded(dp(theme.shape.xs))
             // A day without commits is a faint rule; the busier a day, the more of pop.
             .map(|el| match n {
-                0 => el.bg(theme.border_3).opacity(0.6),
-                _ => el.bg(theme.pop).opacity(0.3 + 0.7 * shade),
+                0 => el.bg(theme.border_subtle).opacity(0.6),
+                _ => el.bg(theme.primary_text).opacity(0.3 + 0.7 * shade),
             })
             .tooltip(move |window, cx| {
                 let day = crate::ui::local_weekday(noon(day));
@@ -1650,7 +1656,7 @@ pub(super) fn side_header(theme: &Theme) -> Div {
         .p(dp(16.))
         .gap(dp(6.))
         .border_b_1()
-        .border_color(theme.border_3)
+        .border_color(theme.border_subtle)
 }
 
 /// The bar along the bottom of a checkout's uncommitted changes, and the composer's row of
@@ -1673,14 +1679,14 @@ fn footer(
     theme: &Theme,
 ) -> AnyElement {
     footer_bar()
-        .border_color(theme.border_3)
+        .border_color(theme.border_subtle)
         .child(
             div()
                 .flex_1()
                 .min_w_0()
                 .truncate()
                 .text_12()
-                .text_color(theme.text_3)
+                .text_color(theme.subtle_foreground)
                 .child(label),
         )
         .children(actions)
@@ -2037,7 +2043,7 @@ impl Detail {
             .py(dp(8.))
             .gap(dp(2.))
             .border_1()
-            .border_color(theme.border_3)
+            .border_color(theme.border_subtle)
             .rounded(dp(theme.shape.popup))
             .track_focus(&self.people_focus)
             .on_action(cx.listener({
@@ -2218,7 +2224,7 @@ pub(super) fn keyed_tiles(
                         .py(dp(10.))
                         .gap(dp(2.))
                         .border_1()
-                        .border_color(theme.border_3)
+                        .border_color(theme.border_subtle)
                         .rounded(dp(theme.shape.popup))
                         .tooltip(Tooltip::text(tip))
                         .child(
@@ -2257,8 +2263,8 @@ pub(super) fn share_row(
 ) -> Stateful<Div> {
     let on = picked && solid;
     let (track, fill) = match on {
-        true => (theme.inverse_soft, theme.muted_on_solid),
-        false => (theme.border_3, theme.pop_bg),
+        true => (theme.inverse_soft, theme.inverse_muted_foreground),
+        false => (theme.border_subtle, theme.primary),
     };
     let share = n as f32 / most.max(1) as f32;
     side_row(id, picked, solid, theme)
@@ -2352,7 +2358,7 @@ pub(super) fn message_body(body: impl IntoElement, theme: &Theme) -> Div {
         .font_family(theme.mono_font.clone())
         .text_13()
         .body()
-        .text_color(theme.text_1)
+        .text_color(theme.foreground)
         .child(body)
 }
 
@@ -2361,17 +2367,17 @@ pub(super) fn message_body(body: impl IntoElement, theme: &Theme) -> Div {
 fn branch_meta(ws: &backend::Workspace, branch: &Branch, theme: &Theme) -> Div {
     let target = ws.target.as_ref().map_or("the target", |t| t.name.as_str());
     let (state, color) = match branch.push {
-        PushState::Integrated => (format!("in {target}"), theme.text_2),
+        PushState::Integrated => (format!("in {target}"), theme.muted_foreground),
         // The remote has commits it doesn't: pulling comes first.
-        _ if !branch.incoming.is_empty() => (branch.remote_state(), theme.warn),
-        PushState::NothingToPush => (branch.remote_state(), theme.safe),
-        _ => (branch.remote_state(), theme.blue),
+        _ if !branch.incoming.is_empty() => (branch.remote_state(), theme.warning_text),
+        PushState::NothingToPush => (branch.remote_state(), theme.success_text),
+        _ => (branch.remote_state(), theme.info_text),
     };
     let conflicted = branch.commits.iter().filter(|c| c.conflicted).count();
     meta_row(theme).map(|el| match branch.commits.len() {
         0 => el.child(
             meta_item(Icon::Commit, theme)
-                .text_color(theme.text_3)
+                .text_color(theme.subtle_foreground)
                 .child("No commits"),
         ),
         n => el
@@ -2384,7 +2390,7 @@ fn branch_meta(ws: &backend::Workspace, branch: &Branch, theme: &Theme) -> Div {
 fn conflicted_note(n: usize, theme: &Theme) -> Option<Div> {
     (n > 0).then(|| {
         div()
-            .text_color(theme.warn)
+            .text_color(theme.warning_text)
             .child(format!("{n} conflicted"))
     })
 }
@@ -2407,8 +2413,8 @@ fn person_row(
 ) -> Stateful<Div> {
     let on = picked && solid;
     let (track, bar) = match on {
-        true => (theme.inverse_soft, theme.muted_on_solid),
-        false => (theme.border_3, theme.text_3),
+        true => (theme.inverse_soft, theme.inverse_muted_foreground),
+        false => (theme.border_subtle, theme.subtle_foreground),
     };
     side_row(id, picked, solid, theme)
         .h_auto()

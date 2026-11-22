@@ -1574,7 +1574,7 @@ impl Tint {
     fn color(self, theme: &Theme) -> Hsla {
         match self {
             Tint::Lane(lane) => hue(theme, lane),
-            Tint::Integrated => theme.purple,
+            Tint::Integrated => theme.done_text,
         }
     }
 }
@@ -2032,29 +2032,29 @@ struct Paint {
 fn hue(theme: &Theme, lane: usize) -> Hsla {
     // Not purple, which is for what the target has, nor the target's own colour.
     match lane % 3 {
-        0 => theme.blue,
-        1 => theme.safe,
-        _ => theme.warn,
+        0 => theme.info_text,
+        1 => theme.success_text,
+        _ => theme.warning_text,
     }
 }
 
 impl Kind {
     fn accent(self, theme: &Theme) -> Hsla {
         match self {
-            Kind::Lane(_, _, true) => theme.danger,
+            Kind::Lane(_, _, true) => theme.danger_text,
             // In the target, as the navigator marks it.
-            Kind::Lane(_, CommitState::Integrated, false) => theme.purple,
+            Kind::Lane(_, CommitState::Integrated, false) => theme.done_text,
             Kind::Lane(lane, CommitState::Local | CommitState::Pushed, false)
             | Kind::Remote(lane) => hue(theme, lane),
-            Kind::Incoming => theme.pop,
-            Kind::History => theme.text_3,
+            Kind::Incoming => theme.primary_text,
+            Kind::History => theme.subtle_foreground,
         }
     }
 
     /// The colour of a lit edge, and of a hovered or pinned commit's border, so the two match.
     fn lit(self, theme: &Theme) -> Hsla {
         match self {
-            Kind::History => theme.text_2,
+            Kind::History => theme.muted_foreground,
             Kind::Lane(..) | Kind::Remote(_) | Kind::Incoming => self.accent(theme),
         }
     }
@@ -2065,7 +2065,7 @@ impl Look {
         match self {
             Look::Branch(tint) | Look::CheckedOut(tint) => tint.color(theme),
             Look::Remote(lane) | Look::Worktree(lane) => hue(theme, lane),
-            Look::Target | Look::Local => theme.pop,
+            Look::Target | Look::Local => theme.primary_text,
         }
     }
 }
@@ -2101,7 +2101,7 @@ impl Paint {
     }
 
     fn paint(&self, bounds: Bounds<Pixels>, window: &mut Window, cx: &mut App) {
-        window.paint_quad(fill(bounds, self.theme.bg_2));
+        window.paint_quad(fill(bounds, self.theme.canvas));
         window.with_content_mask(Some(ContentMask { bounds }), |window| {
             self.paint_grid(bounds, window);
             self.paint_edges(bounds, window);
@@ -2118,7 +2118,7 @@ impl Paint {
             step *= 2.;
         }
         let dot = 1.5 * self.scale;
-        let color = self.theme.border_3;
+        let color = self.theme.border_subtle;
         let (width, height) = (f32::from(bounds.size.width), f32::from(bounds.size.height));
         let start = point(
             (self.camera.offset.x + self.grid.x * self.k).rem_euclid(step),
@@ -2192,7 +2192,7 @@ impl Paint {
                 && self.lineage.contains(&parent);
             let color = match (on.kind, lights || lineage) {
                 (kind, true) => kind.lit(theme),
-                (Kind::History, false) => theme.border_1,
+                (Kind::History, false) => theme.border_hover,
                 (kind @ (Kind::Lane(..) | Kind::Remote(_) | Kind::Incoming), false) => {
                     kind.accent(theme).opacity(0.85)
                 }
@@ -2234,7 +2234,7 @@ impl Paint {
             any = true;
         }
         if any && let Ok(stubs) = stubs.build() {
-            window.paint_path(stubs, theme.border_2);
+            window.paint_path(stubs, theme.border);
         }
         for (color, paths) in strokes {
             for path in paths {
@@ -2348,14 +2348,14 @@ impl Paint {
             }
             if pill <= 0. {
                 let color = match node.kind {
-                    Kind::History => theme.border_1,
+                    Kind::History => theme.border_hover,
                     Kind::Lane(..) | Kind::Remote(_) | Kind::Incoming => accent,
                 };
                 window.paint_quad(fill(rect, color.opacity(presence)).corner_radii(corners));
                 continue;
             }
             let (border, style) = match node.kind {
-                Kind::History => (theme.border_2, gpui::BorderStyle::Solid),
+                Kind::History => (theme.border, gpui::BorderStyle::Solid),
                 Kind::Remote(_) => (accent, gpui::BorderStyle::Dashed),
                 Kind::Lane(..) | Kind::Incoming => (accent, gpui::BorderStyle::Solid),
             };
@@ -2366,7 +2366,7 @@ impl Paint {
             };
             // From a dot's colour to a pill's ground as it opens.
             let ground = match node.kind {
-                Kind::History => theme.border_1,
+                Kind::History => theme.border_hover,
                 Kind::Lane(..) | Kind::Remote(_) | Kind::Incoming => accent,
             };
             window.paint_quad(quad(
@@ -2380,7 +2380,7 @@ impl Paint {
             window.paint_quad(quad(
                 rect,
                 corners,
-                theme.bg_1.opacity(pill * presence),
+                theme.background.opacity(pill * presence),
                 fixed(0.),
                 gpui::transparent_black(),
                 gpui::BorderStyle::Solid,
@@ -2462,8 +2462,8 @@ impl Paint {
             );
             let title = self.title(ix, &title_font, window);
             let color = match node.kind {
-                Kind::History => theme.text_2,
-                Kind::Lane(..) | Kind::Remote(_) | Kind::Incoming => theme.text_1,
+                Kind::History => theme.muted_foreground,
+                Kind::Lane(..) | Kind::Remote(_) | Kind::Incoming => theme.foreground,
             };
             let line_height = title_size * 1.3;
             let title_top = lerp(
@@ -2501,7 +2501,7 @@ impl Paint {
                     let run = TextRun {
                         len: meta.len(),
                         font: ui_font.clone(),
-                        color: theme.text_3.opacity(presence),
+                        color: theme.subtle_foreground.opacity(presence),
                         background_color: None,
                         underline: None,
                         strikethrough: None,
@@ -2537,7 +2537,7 @@ impl Paint {
         let run = TextRun {
             len: title.len(),
             font: font.clone(),
-            color: self.theme.text_1,
+            color: self.theme.foreground,
             background_color: None,
             underline: None,
             strikethrough: None,
@@ -2580,7 +2580,7 @@ impl Paint {
             Corners::all(fixed(radius)),
             gpui::transparent_black(),
             fixed(width),
-            self.theme.text_3.opacity(0.25),
+            self.theme.subtle_foreground.opacity(0.25),
             gpui::BorderStyle::Solid,
         ));
         let on = |angle: f32| {
@@ -2596,7 +2596,7 @@ impl Paint {
         let inner = fixed(radius - width / 2.);
         arc.arc_to(point(inner, inner), fixed(0.), false, true, on(start + 1.6));
         if let Ok(path) = arc.build() {
-            window.paint_path(path, self.theme.text_2);
+            window.paint_path(path, self.theme.muted_foreground);
         }
     }
 
@@ -2670,7 +2670,7 @@ impl Paint {
                     let accent = label.look.accent(theme);
                     let (ground, border, text) = match label.look {
                         Look::Branch(_) | Look::CheckedOut(_) | Look::Target | Look::Local => {
-                            (accent, accent, theme.bg_1)
+                            (accent, accent, theme.background)
                         }
                         Look::Remote(_) => (gpui::transparent_black(), accent, accent),
                         Look::Worktree(_) => (accent.opacity(0.16), accent.opacity(0.5), accent),
@@ -2759,7 +2759,7 @@ impl Paint {
                 if x + width >= left && x <= right && y + height >= top && y <= bottom {
                     let rect = Bounds::new(pixels(point(x, y)), size(fixed(width), fixed(height)));
                     // On the page's ground first, so a tinted tag hides the edges behind it.
-                    window.paint_quad(fill(rect, theme.bg_2).corner_radii(fixed(height / 2.)));
+                    window.paint_quad(fill(rect, theme.canvas).corner_radii(fixed(height / 2.)));
                     window.paint_quad(quad(
                         rect,
                         Corners::all(fixed(height / 2.)),
@@ -2799,7 +2799,7 @@ impl Paint {
                     // Faded under the ground, as a branch's text is the ground's colour.
                     if presence < 1. {
                         window.paint_quad(
-                            fill(rect, theme.bg_2.opacity(1. - presence))
+                            fill(rect, theme.canvas.opacity(1. - presence))
                                 .corner_radii(fixed(height / 2.)),
                         );
                     }
@@ -3096,14 +3096,14 @@ impl Render for GraphView {
             };
             return div()
                 .size_full()
-                .bg(theme.bg_2)
+                .bg(theme.canvas)
                 .child(empty_state(None, title, detail, &theme, cx))
                 .into_any_element();
         };
         if scene.nodes.is_empty() {
             return div()
                 .size_full()
-                .bg(theme.bg_2)
+                .bg(theme.canvas)
                 .child(empty_state(
                     None,
                     "No commits yet",
@@ -3354,7 +3354,7 @@ impl Render for GraphView {
             .relative()
             .size_full()
             .overflow_hidden()
-            .bg(theme.bg_2)
+            .bg(theme.canvas)
             .child(graph)
             .children(card)
             .child(controls)
@@ -3370,14 +3370,14 @@ fn controls_pill(id: &'static str, theme: &Theme) -> Stateful<Div> {
         .gap(dp(2.))
         .p(dp(2.))
         .rounded(dp(theme.shape.popup))
-        .bg(theme.bg_1)
+        .bg(theme.background)
         .border_1()
-        .border_color(theme.border_2)
+        .border_color(theme.border)
         .shadow_sm()
 }
 
 fn controls_divider(theme: &Theme) -> Div {
-    div().w(fixed(1.)).h(dp(16.)).mx(dp(2.)).bg(theme.border_2)
+    div().w(fixed(1.)).h(dp(16.)).mx(dp(2.)).bg(theme.border)
 }
 
 /// The pointer's events on the canvas, `hitbox`, to `view`: presses, pans and zooms over it,
@@ -3476,7 +3476,7 @@ fn card(
             .gap(dp(3.))
             .map(|el| match label.look {
                 Look::Branch(_) | Look::CheckedOut(_) | Look::Target | Look::Local => {
-                    el.bg(accent).text_color(theme.bg_1)
+                    el.bg(accent).text_color(theme.background)
                 }
                 Look::Remote(_) | Look::Worktree(_) => {
                     el.border_1().border_color(accent).text_color(accent)
@@ -3484,7 +3484,7 @@ fn card(
             })
             .when(label.look.in_worktree(), |el| {
                 let color = match label.look {
-                    Look::CheckedOut(_) => theme.bg_1,
+                    Look::CheckedOut(_) => theme.background,
                     Look::Branch(_)
                     | Look::Remote(_)
                     | Look::Worktree(_)
@@ -3526,13 +3526,13 @@ fn card(
                 .child(
                     div()
                         .semibold()
-                        .text_color(theme.text_1)
+                        .text_color(theme.foreground)
                         .child(node.title.clone()),
                 )
                 .child(
                     div()
                         .text_12()
-                        .text_color(theme.text_3)
+                        .text_color(theme.subtle_foreground)
                         .child(format!("{by} · {}", ago(node.time))),
                 ),
         );
@@ -3569,7 +3569,7 @@ fn card(
             el.child(
                 div()
                     .text_12()
-                    .text_color(theme.text_2)
+                    .text_color(theme.muted_foreground)
                     .max_h(dp(140.))
                     .overflow_hidden()
                     .child(body),
@@ -3581,13 +3581,18 @@ fn card(
                 .gap(dp(6.))
                 .items_center()
                 .children(tags)
-                .child(div().text_11().text_color(theme.text_3).child(what))
+                .child(
+                    div()
+                        .text_11()
+                        .text_color(theme.subtle_foreground)
+                        .child(what),
+                )
                 .when(commit, |el| {
                     el.child(
                         div()
                             .text_11()
                             .font_family(theme.mono_font.clone())
-                            .text_color(theme.text_3)
+                            .text_color(theme.subtle_foreground)
                             .child(node.id.short()),
                     )
                 }),

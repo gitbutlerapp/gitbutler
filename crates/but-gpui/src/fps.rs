@@ -93,8 +93,12 @@ impl Render for Fps {
         window.request_animation_frame();
         let theme = Theme::get(cx);
         // The middle dot, not the dot operator, which Geist Mono doesn't have.
-        let dip = dip.map(|dip| div().text_color(theme.warn).child(format!("· {dip}")));
-        let (safe, warn) = (theme.safe, theme.warn);
+        let dip = dip.map(|dip| {
+            div()
+                .text_color(theme.warning_text)
+                .child(format!("· {dip}"))
+        });
+        let (safe, warn) = (theme.success_text, theme.warning_text);
         let graph = canvas(
             |_, _, _| {},
             move |bounds, _, window, _| {
@@ -124,7 +128,7 @@ impl Render for Fps {
             .gap(dp(6.))
             .font_family(theme.mono_font.clone())
             .text_11()
-            .text_color(theme.safe)
+            .text_color(theme.success_text)
             .child(graph)
             .child(fps.to_string())
             .children(dip)

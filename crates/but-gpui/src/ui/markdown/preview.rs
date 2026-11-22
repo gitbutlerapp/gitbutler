@@ -122,7 +122,7 @@ impl Render for Preview {
             .pr(dp(10.))
             .gap(dp(8.))
             .border_b_1()
-            .border_color(theme.border_3)
+            .border_color(theme.border_subtle)
             .child(
                 div()
                     .flex_grow(1.)
@@ -167,7 +167,7 @@ impl Render for Preview {
                             .size_full()
                             .rounded(dp(theme.shape.card))
                             .border_1()
-                            .border_color(theme.border_3),
+                            .border_color(theme.border_subtle),
                     )
             }
             None => muted("Loading…", theme),
@@ -187,7 +187,7 @@ impl Render for Preview {
                     .min_h_0()
                     .items_center()
                     .justify_center()
-                    .bg(theme.bg_2)
+                    .bg(theme.canvas)
                     .child(shown),
             )
     }

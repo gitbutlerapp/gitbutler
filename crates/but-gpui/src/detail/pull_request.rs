@@ -640,9 +640,9 @@ impl Detail {
                 .w(relative(0.3))
                 .min_w(dp(PANEL_MIN_WIDTH))
                 .max_w(dp(PANEL_WIDTH))
-                .bg(theme.bg_1)
+                .bg(theme.background)
                 .border_l_1()
-                .border_color(theme.border_3),
+                .border_color(theme.border_subtle),
             ),
             false => column,
         };
@@ -801,7 +801,7 @@ impl Detail {
             .disabled_because(checking.then(|| format!("Asking {forge}…")))
             .on_click(ask);
         let age = stale.then(|| {
-            div().text_color(theme.warn).child(match synced {
+            div().text_color(theme.warning_text).child(match synced {
                 Some(at) => format!("{} old", relative_time(at)),
                 None => "Out of date".to_owned(),
             })
@@ -827,17 +827,18 @@ impl Detail {
             self.branches_section(review, theme),
             review.created_at.map(|at| {
                 side_section("Created", None, theme).child(
-                    div().text_13().text_color(theme.text_2).child(format!(
-                        "{}, {}",
-                        ago(at),
-                        local_time(at)
-                    )),
+                    div()
+                        .text_13()
+                        .text_color(theme.muted_foreground)
+                        .child(format!("{}, {}", ago(at), local_time(at))),
                 )
             }),
         ];
         v_flex().children(
             (sections.into_iter().flatten().enumerate()).map(|(ix, section)| {
-                section.when(ix > 0, |el| el.border_t_1().border_color(theme.border_3))
+                section.when(ix > 0, |el| {
+                    el.border_t_1().border_color(theme.border_subtle)
+                })
             }),
         )
     }
@@ -871,7 +872,7 @@ impl Detail {
                 .min_h(dp(20.))
                 .gap(dp(4.))
                 .text_12()
-                .text_color(theme.text_2)
+                .text_color(theme.muted_foreground)
         };
         let section = || v_flex().gap(dp(8.)).pl(dp(14.)).pr(dp(12.)).py(dp(12.));
         if runs.is_empty() {
@@ -882,7 +883,7 @@ impl Detail {
                     heading().justify_between().child("Checks").child(
                         h_flex()
                             .gap(dp(8.))
-                            .child(div().text_color(theme.text_3).child("None"))
+                            .child(div().text_color(theme.subtle_foreground).child("None"))
                             .child(fresh),
                     ),
                 ),
@@ -901,9 +902,9 @@ impl Detail {
         // Skipped ones ran nothing, so they're counted but take no room on the bar.
         let bar = h_flex().h(dp(6.)).gap(dp(2.)).children(
             [
-                (failed, theme.danger),
-                (running + queued, theme.warn),
-                (passed, theme.safe),
+                (failed, theme.danger_text),
+                (running + queued, theme.warning_text),
+                (passed, theme.success_text),
             ]
             .into_iter()
             .filter(|(n, _)| *n > 0)
@@ -919,18 +920,22 @@ impl Detail {
         let counts = h_flex().flex_wrap().gap(dp(8.)).text_12().children(
             // In the bar's order.
             [
-                (failed, format!("{failed} failed"), theme.danger),
-                (running, format!("{running} running"), theme.warn),
-                (queued, format!("{queued} queued"), theme.warn),
+                (failed, format!("{failed} failed"), theme.danger_text),
+                (running, format!("{running} running"), theme.warning_text),
+                (queued, format!("{queued} queued"), theme.warning_text),
                 (
                     passed,
                     match passed == runs.len() {
                         true => format!("All {passed} passed"),
                         false => format!("{passed} passed"),
                     },
-                    theme.safe,
+                    theme.success_text,
                 ),
-                (skipped, format!("{skipped} skipped"), theme.text_3),
+                (
+                    skipped,
+                    format!("{skipped} skipped"),
+                    theme.subtle_foreground,
+                ),
             ]
             .into_iter()
             .filter(|(n, ..)| *n > 0)
@@ -967,7 +972,7 @@ impl Detail {
             .child(
                 heading()
                     .ml(dp(-4.))
-                    .child(fold::chevron("fold", open, theme.text_3))
+                    .child(fold::chevron("fold", open, theme.subtle_foreground))
                     .child("Checks")
                     .children(fresh),
             )
@@ -1005,11 +1010,11 @@ impl Detail {
                 .aria_label("Copy branch name")
                 .min_w_0()
                 .truncate()
-                .text_color(theme.text_1)
+                .text_color(theme.foreground)
                 .border_b_1()
                 .border_dashed()
-                .border_color(theme.text_3)
-                .hover(|el| el.text_color(theme.text_2))
+                .border_color(theme.subtle_foreground)
+                .hover(|el| el.text_color(theme.muted_foreground))
                 .tooltip(Tooltip::text("Copy branch name"))
                 .child(name.clone())
                 .on_click(move |_, _, cx| clipboard::copy(&store, name.clone(), cx))
@@ -1017,12 +1022,17 @@ impl Detail {
         let target = h_flex()
             .min_w_0()
             .gap(dp(6.))
-            .child(div().flex_none().text_color(theme.text_3).child("→"))
+            .child(
+                div()
+                    .flex_none()
+                    .text_color(theme.subtle_foreground)
+                    .child("→"),
+            )
             .child(
                 div()
                     .min_w_0()
                     .truncate()
-                    .text_color(theme.text_2)
+                    .text_color(theme.muted_foreground)
                     .child(review.target_branch.clone()),
             );
         Some(
@@ -1105,7 +1115,7 @@ fn byline(review: &Review, theme: &Theme) -> Option<Div> {
     let author = review.author.as_ref().map(|author| {
         h_flex()
             .gap(dp(8.))
-            .text_color(theme.text_1)
+            .text_color(theme.foreground)
             .child(forge_avatar(
                 &author.login,
                 author.avatar_url.as_deref(),
@@ -1130,10 +1140,10 @@ fn byline(review: &Review, theme: &Theme) -> Option<Div> {
         .flex_wrap()
         .gap(dp(6.))
         .text_13()
-        .text_color(theme.text_2);
+        .text_color(theme.muted_foreground);
     for (ix, fact) in facts.into_iter().enumerate() {
         if ix > 0 {
-            row = row.child(div().text_color(theme.text_3).child("·"));
+            row = row.child(div().text_color(theme.subtle_foreground).child("·"));
         }
         row = row.child(fact);
     }
@@ -1150,7 +1160,7 @@ fn description(review: &Review, select: markdown::Select, theme: &Theme) -> Div 
     if body.is_empty() {
         return div()
             .text_14()
-            .text_color(theme.text_3)
+            .text_color(theme.subtle_foreground)
             .child("No description");
     }
     div()
@@ -1190,8 +1200,8 @@ pub(super) fn card(theme: &Theme) -> Div {
     v_flex()
         .rounded(dp(theme.shape.card))
         .border_1()
-        .border_color(theme.border_3)
-        .bg(theme.bg_1)
+        .border_color(theme.border_subtle)
+        .bg(theme.background)
 }
 
 /// A section of the side panel's card: its heading, with what acts on it opposite.
@@ -1210,7 +1220,7 @@ fn side_section(heading: &'static str, action: Option<AnyElement>, theme: &Theme
                     div()
                         .flex_none()
                         .text_12()
-                        .text_color(theme.text_2)
+                        .text_color(theme.muted_foreground)
                         .child(heading),
                 )
                 .children(action),
@@ -1244,10 +1254,10 @@ fn status_section(review: &Review, state: ReviewState, forge: &str, theme: &Them
             .aria_label(format!("Open on {forge}"))
             .gap(dp(2.))
             .text_12()
-            .text_color(theme.text_2)
-            .hover(|el| el.text_color(theme.text_1))
+            .text_color(theme.muted_foreground)
+            .hover(|el| el.text_color(theme.foreground))
             .child(div().underline().child(format!("#{}", review.number)))
-            .child(icon_at(Icon::ArrowUpRight, 12.).text_color(theme.text_3))
+            .child(icon_at(Icon::ArrowUpRight, 12.).text_color(theme.subtle_foreground))
             .tooltip(move |window, cx| {
                 let key = shortcut(&crate::app::OpenPullRequest, cx);
                 Tooltip::keyed("Open the pull request", key)(window, cx)
@@ -1285,7 +1295,7 @@ fn reviewers_section(review: &Review, github: bool, theme: &Theme) -> Option<Div
                 el.child(
                     div()
                         .id(("awaiting", ix))
-                        .child(icon(Icon::Clock).text_color(theme.text_3))
+                        .child(icon(Icon::Clock).text_color(theme.subtle_foreground))
                         .tooltip(Tooltip::text("Awaiting review")),
                 )
             })
@@ -1312,7 +1322,7 @@ fn labels_section(review: &Review, theme: &Theme) -> Option<Div> {
             .gap(dp(5.))
             .rounded_full()
             .border_1()
-            .border_color(theme.border_2)
+            .border_color(theme.border)
             .text_12()
             .children(dot_color.map(|color| dot(color).size(dp(8.))))
             .child(div().min_w_0().truncate().child(label.name.clone()))
@@ -1331,13 +1341,13 @@ fn check_row(ix: usize, run: &CheckRun, theme: &Theme) -> Stateful<Div> {
         (run.started_at.zip(run.completed_at)).map(|(start, end)| duration((end - start).max(0)));
     let mark = match run.state {
         CheckState::Failed => glyph(Icon::Cross, theme.danger_mark),
-        CheckState::Cancelled => glyph(Icon::Cross, theme.text_3),
-        CheckState::Running => dot(theme.warn_mark).size(dp(8.)).into_any_element(),
+        CheckState::Cancelled => glyph(Icon::Cross, theme.subtle_foreground),
+        CheckState::Running => dot(theme.warning_mark).size(dp(8.)).into_any_element(),
         CheckState::Queued => (dot(gpui::transparent_black()).size(dp(8.)).border_1())
-            .border_color(theme.warn_mark)
+            .border_color(theme.warning_mark)
             .into_any_element(),
-        CheckState::Passed => glyph(Icon::Tick, theme.safe_mark),
-        CheckState::Skipped => glyph(Icon::Minus, theme.text_3),
+        CheckState::Passed => glyph(Icon::Tick, theme.success_mark),
+        CheckState::Skipped => glyph(Icon::Minus, theme.subtle_foreground),
     };
     let aside = match (run.note, run.state) {
         (Some(note), _) => Some(note.to_owned()),
@@ -1365,7 +1375,7 @@ fn check_row(ix: usize, run: &CheckRun, theme: &Theme) -> Stateful<Div> {
         .flex_none()
         .relative()
         .min_w(dp(12.))
-        .text_color(theme.text_3)
+        .text_color(theme.subtle_foreground)
         .child(
             div()
                 .when(link, |el| {
@@ -1382,7 +1392,7 @@ fn check_row(ix: usize, run: &CheckRun, theme: &Theme) -> Stateful<Div> {
                     .right_0()
                     .opacity(0.)
                     .group_hover(group.clone(), |el| el.opacity(1.))
-                    .child(small_icon(Icon::ArrowUpRight).text_color(theme.text_3)),
+                    .child(small_icon(Icon::ArrowUpRight).text_color(theme.subtle_foreground)),
             )
         });
     let hover = theme.hover;
@@ -1432,9 +1442,9 @@ pub(super) fn tab(
         .rounded(dp(theme.shape.control))
         .text_13()
         .semibold()
-        .text_color(theme.text_1)
+        .text_color(theme.foreground)
         .when(!selected, |el| el.hover(move |el| el.bg(hover)))
-        .child(icon(glyph).text_color(theme.text_1).opacity(0.7))
+        .child(icon(glyph).text_color(theme.foreground).opacity(0.7))
         .child(
             div()
                 .opacity(if selected { 0.9 } else { 0.63 })
@@ -1450,8 +1460,8 @@ pub(super) fn tab(
                     .right(dp(8.))
                     .h(dp(4.))
                     .bg(match solid {
-                        true => theme.fill_gray,
-                        false => theme.selected_unfocused,
+                        true => theme.inverse,
+                        false => theme.selected_inactive,
                     }),
             )
         })

@@ -153,7 +153,7 @@ impl Navigator {
             (MeshPick::Commit(..), _, Some(commit)) => {
                 let (glyph, color) = match commit.pushed {
                     true => (Icon::CommitFill, style.muted()),
-                    false => (Icon::Commit, theme.blue_mark),
+                    false => (Icon::Commit, theme.info_mark),
                 };
                 let id = format!("mesh-commit-{project}-{key}-{:?}", commit.id);
                 let glyph = small_icon(glyph).text_color(style.meta(color));
@@ -169,8 +169,8 @@ impl Navigator {
                 let n = branch.commits.len();
                 let unpushed = branch.commits.iter().filter(|c| !c.pushed).count();
                 let (glyph, color) = match branch.status {
-                    BranchStatus::Integrated => (Icon::BranchMerge, theme.purple_mark),
-                    BranchStatus::Diverged => (Icon::Branch, theme.warn_mark),
+                    BranchStatus::Integrated => (Icon::BranchMerge, theme.done_mark),
+                    BranchStatus::Diverged => (Icon::Branch, theme.warning_mark),
                     BranchStatus::Other => (Icon::Branch, style.muted()),
                 };
                 let color = match branch.status {
@@ -244,7 +244,7 @@ impl Navigator {
                             .truncate()
                             .when(!checkout.online, |el| el.text_color(style.muted()))
                             .when(checkout.error.is_some() && !style.solid, |el| {
-                                el.text_color(theme.warn)
+                                el.text_color(theme.warning_text)
                             })
                             .tooltip(Tooltip::text(tip))
                             .child(checkout.label()),

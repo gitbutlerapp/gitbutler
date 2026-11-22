@@ -32,7 +32,7 @@ impl Render for SelectStory {
                     div()
                         .p(dp(12.))
                         .rounded(dp(theme.shape.card))
-                        .bg(theme.bg_2)
+                        .bg(theme.canvas)
                         .child(select("recessed", "Unified", theme)),
                 ),
             ],

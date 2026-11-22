@@ -55,22 +55,22 @@ fn commits_split(commits: &[Made], theme: &Theme) -> gpui::AnyElement {
         [
             (
                 Icon::CommitFill,
-                theme.purple,
-                theme.purple,
+                theme.done_text,
+                theme.done_text,
                 "merged".to_owned(),
                 count(CommitState::Integrated),
             ),
             (
                 Icon::CommitFill,
-                theme.text_2,
-                theme.border_1,
+                theme.muted_foreground,
+                theme.border_hover,
                 "pushed".to_owned(),
                 count(CommitState::Pushed),
             ),
             (
                 Icon::Commit,
-                theme.blue,
-                theme.text_2,
+                theme.info_text,
+                theme.muted_foreground,
                 "not pushed".to_owned(),
                 count(CommitState::Local),
             ),
@@ -82,16 +82,11 @@ fn commits_split(commits: &[Made], theme: &Theme) -> gpui::AnyElement {
             .px(dp(6.))
             .pt(dp(8.))
             .gap(dp(6.))
-            .child(
-                div()
-                    .h(dp(6.))
-                    .rounded(dp(theme.shape.xs))
-                    .bg(theme.border_2),
-            )
+            .child(div().h(dp(6.)).rounded(dp(theme.shape.xs)).bg(theme.border))
             .child(
                 h_flex()
                     .gap(dp(4.))
-                    .child(small_icon(Icon::Commit).text_color(theme.text_3))
+                    .child(small_icon(Icon::Commit).text_color(theme.subtle_foreground))
                     .child(faint("No commits", theme)),
             )
             .into_any_element()
@@ -162,13 +157,13 @@ impl Detail {
                 grouped(edits as usize),
                 "Files saved here, as the file watcher saw them while the app ran: a file saved \
                  twice counts twice",
-                Some(theme.pop),
+                Some(theme.primary_text),
             ),
             (
                 "Commits",
                 grouped(scoped.len()),
                 "Commits made here then",
-                Some(theme.text_2),
+                Some(theme.muted_foreground),
             ),
             (
                 "Files changed",
@@ -239,8 +234,8 @@ impl Detail {
                             .h(dp((n as f32 / most as f32 * BARS_HEIGHT).max(2.)))
                             .rounded_t(dp(1.))
                             .map(|el| match n {
-                                0 => el.bg(theme.border_2),
-                                _ => el.bg(theme.pop).opacity(edit),
+                                0 => el.bg(theme.border),
+                                _ => el.bg(theme.primary_text).opacity(edit),
                             }),
                     ),
             )
@@ -257,7 +252,7 @@ impl Detail {
                                 .w_full()
                                 .h(dp((share * (COMMITS_HEIGHT - 2.)).max(4.)))
                                 .rounded_b(dp(1.))
-                                .bg(theme.text_2)
+                                .bg(theme.muted_foreground)
                                 .opacity(commit),
                         )
                     }),

@@ -447,15 +447,20 @@ impl Detail {
                         .px(dp(10.))
                         .py(dp(8.))
                         .border_t_1()
-                        .border_color(theme.border_3),
+                        .border_color(theme.border_subtle),
                     false => el
                         .p(dp(8.))
                         .rounded(dp(theme.shape.card))
                         .border_1()
-                        .border_color(theme.focus_border)
-                        .bg(theme.bg_1),
+                        .border_color(theme.ring)
+                        .bg(theme.background),
                 })
-                .children(title.map(|title| div().text_12().text_color(theme.text_2).child(title)))
+                .children(title.map(|title| {
+                    div()
+                        .text_12()
+                        .text_color(theme.muted_foreground)
+                        .child(title)
+                }))
                 .child(div().text_13().child(input.field.clone()))
                 .children(shortcuts)
                 .child(actions),
@@ -487,7 +492,7 @@ impl Detail {
             .flex_wrap()
             .gap(dp(2.))
             .rounded(dp(theme.shape.card))
-            .bg(theme.bg_1)
+            .bg(theme.background)
             .children(
                 self.brief_shortcuts(cx)
                     .into_iter()
@@ -722,7 +727,7 @@ pub(super) fn quote_line(quote: &str, theme: &Theme) -> Div {
     div()
         .truncate()
         .text_12()
-        .text_color(theme.text_3)
+        .text_color(theme.subtle_foreground)
         .child(format!("“{}”", quote.lines().next().unwrap_or_default()))
 }
 

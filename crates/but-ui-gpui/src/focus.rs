@@ -9,7 +9,7 @@ use crate::*;
 /// doesn't press the control again.
 pub fn tab_stop(el: Stateful<Div>, theme: &Theme) -> Stateful<Div> {
     // Inside its edge: a shadow spread outside it fills a control without a ground of its own.
-    let ring = gpui::BoxShadow::new(fixed(0.), fixed(0.), theme.focus_border)
+    let ring = gpui::BoxShadow::new(fixed(0.), fixed(0.), theme.ring)
         .spread_radius(fixed(2.))
         .inset();
     shown_when_focused(el.tab_index(0))

@@ -36,7 +36,7 @@ pub const WINDOW_CONTROLS_WIDTH: f32 = match LINUX {
 )]
 pub fn window_controls(window: &Window, cx: &App) -> impl IntoElement {
     let theme = Theme::get(cx);
-    let glyph = theme.text_1;
+    let glyph = theme.foreground;
     // Windows' own red for close, with a white cross; GNOME's is like the others.
     let red: Hsla = Rgba {
         r: 232. / 255.,
@@ -57,7 +57,7 @@ pub fn window_controls(window: &Window, cx: &App) -> impl IntoElement {
         .flex_none()
         .text_color(glyph);
     let hover = match gnome() {
-        true => theme.border_2,
+        true => theme.border,
         false => theme.hover,
     };
     h_flex()

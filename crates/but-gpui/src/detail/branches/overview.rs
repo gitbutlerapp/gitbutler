@@ -264,8 +264,8 @@ fn review_split(summary: &Summary, theme: &Theme) -> Option<AnyElement> {
             }
             None => (
                 Icon::Branch,
-                theme.text_3,
-                theme.border_1,
+                theme.subtle_foreground,
+                theme.border_hover,
                 "no pull request".to_owned(),
                 n,
             ),
@@ -290,7 +290,7 @@ fn lane_row(
     let branch = lane.branch;
     let (glyph, color) = match &branch.review {
         Some(review) => review::state_glyph(review.state, theme),
-        None => (Icon::Branch, theme.text_2),
+        None => (Icon::Branch, theme.muted_foreground),
     };
     let quiet = Some(today - lane.latest).filter(|days| *days >= QUIET_DAYS);
     let since = branches.recency.since(today);
@@ -311,8 +311,8 @@ fn lane_row(
         // A day without commits is a faint rule; the busier a day, the more of pop, and all
         // of it fainter before what's picked.
         let (color, strength) = match n {
-            0 => (theme.border_3, 0.6),
-            _ => (theme.pop, 0.3 + 0.7 * shade),
+            0 => (theme.border_subtle, 0.6),
+            _ => (theme.primary_text, 0.3 + 0.7 * shade),
         };
         div()
             .id(("lane-day", day_ix))
@@ -362,7 +362,7 @@ fn lane_row(
                         .id("quiet-days")
                         .flex_none()
                         .text_11()
-                        .text_color(theme.warn)
+                        .text_color(theme.warning_text)
                         .tooltip(Tooltip::text(format!("No commits for {days} days")))
                         .child(format!("{days}d"))
                 })),

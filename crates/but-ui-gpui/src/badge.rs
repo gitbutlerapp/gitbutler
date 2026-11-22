@@ -31,14 +31,14 @@ impl BadgeVariant {
     /// The pill's fill and the colour its label and icon take, from the tokens React's CSS reads.
     pub fn colors(self, theme: &Theme) -> (Hsla, Hsla) {
         match self {
-            BadgeVariant::FillGray => (theme.fill_gray, theme.text_inverted),
-            BadgeVariant::LightGray => (theme.neutral_soft, theme.text_1),
-            BadgeVariant::Safe => (theme.safe_soft, theme.safe_on_soft),
-            BadgeVariant::Warn => (theme.warn_soft, theme.warn_on_soft),
-            BadgeVariant::Danger => (theme.danger_soft, theme.danger_on_soft),
-            BadgeVariant::Purple => (theme.purple_soft, theme.purple_on_soft),
-            BadgeVariant::Blue => (theme.blue_soft, theme.blue_on_soft),
-            BadgeVariant::Pop => (theme.pop_soft, theme.pop_on_soft),
+            BadgeVariant::FillGray => (theme.inverse, theme.inverse_foreground),
+            BadgeVariant::LightGray => (theme.neutral_soft, theme.foreground),
+            BadgeVariant::Safe => (theme.success_soft, theme.success_soft_foreground),
+            BadgeVariant::Warn => (theme.warning_soft, theme.warning_soft_foreground),
+            BadgeVariant::Danger => (theme.danger_soft, theme.danger_soft_foreground),
+            BadgeVariant::Purple => (theme.done_soft, theme.done_soft_foreground),
+            BadgeVariant::Blue => (theme.info_soft, theme.info_soft_foreground),
+            BadgeVariant::Pop => (theme.primary_soft, theme.primary_soft_foreground),
         }
     }
 }

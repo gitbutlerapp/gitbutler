@@ -845,7 +845,7 @@ impl NavigatorTabs {
         let outlined = self.store.read(cx).prefs.shows(Part::FocusOutline);
         match outlined && self.keyed.is_some() {
             true => theme.focus_edge(),
-            false => theme.border_3,
+            false => theme.border_subtle,
         }
     }
 
@@ -866,7 +866,7 @@ impl NavigatorTabs {
         let run = TextRun {
             len: text.len(),
             font: font(theme.ui_font.clone()),
-            color: theme.text_1,
+            color: theme.foreground,
             background_color: None,
             underline: None,
             strikethrough: None,
@@ -1710,7 +1710,7 @@ impl NavigatorTabs {
             .left(theme.scaled(tab_left) + fixed(1.))
             .w(theme.scaled(width) - fixed(2.))
             .h(fixed(1.))
-            .bg(theme.bg_1)
+            .bg(theme.background)
             .opacity(fade);
         Some(DrawnCard {
             elements: [
@@ -1749,7 +1749,7 @@ impl NavigatorTabs {
         };
         let glyph_color = match solid {
             true => style.muted(),
-            false => theme.text_2,
+            false => theme.muted_foreground,
         };
         let glyph = match key {
             TabKey::Project(id) => project_glyph(store, id, glyph_color, theme),
@@ -1786,9 +1786,9 @@ impl NavigatorTabs {
             .px(dp(TAB_PADDING))
             .gap(dp(ICON_GAP))
             .text_color(match (solid, current) {
-                (true, _) => theme.text_inverted,
-                (false, true) => theme.text_1,
-                (false, false) => theme.text_2,
+                (true, _) => theme.inverse_foreground,
+                (false, true) => theme.foreground,
+                (false, false) => theme.muted_foreground,
             })
             .child(
                 div()
@@ -2042,8 +2042,8 @@ impl NavigatorTabs {
             .rounded(dp(theme.shape.control))
             .overflow_hidden()
             .bg(match solid {
-                true => theme.fill_gray,
-                false => theme.selected_unfocused,
+                true => theme.inverse,
+                false => theme.selected_inactive,
             })
             .child(
                 div()
@@ -2210,7 +2210,7 @@ impl Render for NavigatorTabs {
                 .left(dp(left))
                 .w(dp(width))
                 .rounded(dp(theme.shape.card))
-                .bg(theme.bg_1)
+                .bg(theme.background)
                 .border_1()
                 .border_color(edge)
         };
@@ -2224,7 +2224,7 @@ impl Render for NavigatorTabs {
                 .left(dp(left))
                 .w(dp(card.width))
                 .rounded_t(dp(theme.shape.card))
-                .bg(theme.bg_1)
+                .bg(theme.background)
                 .border_t_1()
                 .border_l_1()
                 .border_r_1()
@@ -2264,8 +2264,8 @@ impl Render for NavigatorTabs {
                         .rounded(dp(theme.shape.popup))
                 };
                 (
-                    edges().bg(theme.bg_2),
-                    edges().border_1().border_color(theme.pop),
+                    edges().bg(theme.canvas),
+                    edges().border_1().border_color(theme.primary_text),
                 )
             });
         let (backdrop, edge) = held_edges.unzip();
@@ -2346,7 +2346,7 @@ impl Render for NavigatorTabs {
                 clippy::disallowed_methods,
                 reason = "the clear end of a fade to the ground"
             )]
-            let (ground, clear) = (theme.bg_2, theme.bg_2.opacity(0.));
+            let (ground, clear) = (theme.canvas, theme.canvas.opacity(0.));
             div()
                 .absolute()
                 .top_0()
@@ -2439,7 +2439,7 @@ impl Render for NavigatorTabs {
         h_flex()
             .size_full()
             .relative()
-            .bg(theme.bg_2)
+            .bg(theme.canvas)
             .map(crate::ui::drags_window)
             .pl(top_left.unwrap_or(theme.scaled(CARD_MARGIN)))
             .pr(dp(8.))

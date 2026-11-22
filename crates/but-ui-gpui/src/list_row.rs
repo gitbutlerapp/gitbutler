@@ -16,6 +16,6 @@ pub fn list_row(id: impl Into<ElementId>, selected: bool, theme: &Theme) -> Stat
         .px(dp(8.))
         .gap(dp(8.))
         .rounded(dp(theme.shape.control))
-        .when(selected, |el| el.bg(theme.selected_unfocused))
+        .when(selected, |el| el.bg(theme.selected_inactive))
         .when(!selected, |el| el.hover(|el| el.bg(theme.hover)))
 }

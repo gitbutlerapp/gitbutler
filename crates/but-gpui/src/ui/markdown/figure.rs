@@ -91,7 +91,7 @@ impl RenderOnce for Figure {
             .size_full()
             .rounded(dp(theme.shape.card))
             .border_1()
-            .border_color(theme.border_3);
+            .border_color(theme.border_subtle);
         // As GitHub sizes it: by its HTML, else a point a pixel, never wider than there's
         // room for. Until it lands, a box holds its place, exactly when the HTML gives its
         // size or it was fetched earlier this run.

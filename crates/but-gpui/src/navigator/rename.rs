@@ -291,7 +291,7 @@ impl Navigator {
                         .ml(dp(-5.))
                         .px(dp(4.))
                         .py(dp(1.))
-                        .text_color(theme.text_1)
+                        .text_color(theme.foreground)
                         // As a branch's name is.
                         .when(matches!(item, Selection::Branch(..)), |field| {
                             field.semibold()

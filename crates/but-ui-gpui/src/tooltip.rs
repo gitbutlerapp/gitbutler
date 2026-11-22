@@ -86,7 +86,7 @@ impl Render for Tooltip {
             }))
             .py(dp(tokens::PADDING_TOOLTIP_BLOCK))
             .text_12()
-            .text_color(theme.text_1)
+            .text_color(theme.foreground)
             .font_family(theme.ui_font.clone())
             .gap(dp(tokens::GAP_TOOLTIP))
             // A long one, even a path, wraps within the cap.

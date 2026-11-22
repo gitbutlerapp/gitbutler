@@ -28,7 +28,7 @@ impl Render for CountsStory {
                         div().children(meta_count(
                             Icon::ArrowUp,
                             3,
-                            theme.blue,
+                            theme.info_text,
                             "3 to push".into(),
                         )),
                     ),
@@ -38,7 +38,7 @@ impl Render for CountsStory {
                         div().children(meta_count(
                             Icon::Warning,
                             2,
-                            theme.warn,
+                            theme.warning_text,
                             "2 conflicted".into(),
                         )),
                     ),
@@ -48,7 +48,7 @@ impl Render for CountsStory {
                         div().children(meta_count(
                             Icon::ArrowUp,
                             0,
-                            theme.blue,
+                            theme.info_text,
                             "None to push".into(),
                         )),
                     ),
@@ -58,9 +58,9 @@ impl Render for CountsStory {
                 "Dots",
                 theme,
                 [
-                    variant("New work", theme, dot(theme.pop)),
-                    variant("Running", theme, dot(theme.warn)),
-                    variant("Failed", theme, dot(theme.danger)),
+                    variant("New work", theme, dot(theme.primary_text)),
+                    variant("Running", theme, dot(theme.warning_text)),
+                    variant("Failed", theme, dot(theme.danger_text)),
                 ],
             ),
             section(
@@ -81,10 +81,10 @@ impl Render for CountsStory {
                 [framed(
                     "A hairline in the row's padding, moving nothing",
                     theme,
-                    v_flex().w(dp(240.)).py(dp(4.)).bg(theme.bg_2).child(
+                    v_flex().w(dp(240.)).py(dp(4.)).bg(theme.canvas).child(
                         list_row("unread", false, theme)
                             .relative()
-                            .child(unread_line(theme.pop))
+                            .child(unread_line(theme.primary_text))
                             .child(div().flex_1().child("Agent's new commit")),
                     ),
                 )],

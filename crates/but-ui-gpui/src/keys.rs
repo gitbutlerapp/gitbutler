@@ -125,12 +125,12 @@ pub fn keys_text(text: &str) -> String {
 
 /// A box per key, as but-ui-react's `Kbd`; `text` writes them as macOS does.
 pub fn keycap(text: &str, theme: &Theme) -> Div {
-    keycaps(text, 16., 11., theme.text_2, theme)
+    keycaps(text, 16., 11., theme.muted_foreground, theme)
 }
 
 /// For a table of keys, where they're what's being read.
 pub fn keycap_large(text: &str, theme: &Theme) -> Div {
-    keycaps(text, 20., 13., theme.text_1, theme)
+    keycaps(text, 20., 13., theme.foreground, theme)
 }
 
 fn keycaps(text: &str, height: f32, size: f32, color: Hsla, theme: &Theme) -> Div {
@@ -164,7 +164,7 @@ fn keycaps(text: &str, height: f32, size: f32, color: Hsla, theme: &Theme) -> Di
                 .rounded(dp(theme.shape.xs))
                 .bg(theme.hover)
                 .border_1()
-                .border_color(theme.border_3)
+                .border_color(theme.border_subtle)
                 .text_off_scale(size)
                 .semibold()
                 .text_color(color)

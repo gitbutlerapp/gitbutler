@@ -1391,14 +1391,14 @@ impl Detail {
                         row @ Row::Stack(top, count, folded) => {
                             let selected = is_selected(branches, row);
                             let on = selected && solid;
-                            let ink = |color| if on { theme.text_inverted } else { color };
+                            let ink = |color| if on { theme.inverse_foreground } else { color };
                             let top_branch = branches.list.get(*top)?;
                             let top_ref = top_branch.ref_name.clone();
                             let fold = top_ref.clone();
                             let step = fold_button(
                                 ("stack-fold", ix),
                                 Some(!*folded),
-                                ink(theme.text_3),
+                                ink(theme.subtle_foreground),
                                 &this.side_focus,
                                 cx,
                                 move |this, _, cx| this.toggle_stack(&fold, cx),
@@ -1406,16 +1406,19 @@ impl Detail {
                             side_row(("stack-caption", ix), selected, solid, theme)
                                 .pl(dp(2.))
                                 .text_12()
-                                .text_color(ink(theme.text_2))
+                                .text_color(ink(theme.muted_foreground))
                                 .child(step)
-                                .child(small_icon(Icon::Stack).text_color(ink(theme.text_3)))
+                                .child(
+                                    small_icon(Icon::Stack)
+                                        .text_color(ink(theme.subtle_foreground)),
+                                )
                                 .child(div().flex_none().child(format!("Stack of {count}")))
                                 .when(*folded, |el| {
                                     el.child(
                                         div()
                                             .min_w_0()
                                             .truncate()
-                                            .text_color(ink(theme.text_1))
+                                            .text_color(ink(theme.foreground))
                                             .child(title(top_branch).into_owned()),
                                     )
                                 })
@@ -1458,8 +1461,8 @@ impl Detail {
                                 ))
                                 .aria_label(label.clone())
                                 .child(small_icon(Icon::Commit).text_color(match on {
-                                    true => theme.text_inverted,
-                                    false => theme.text_3,
+                                    true => theme.inverse_foreground,
+                                    false => theme.subtle_foreground,
                                 }))
                                 .child(div().flex_1().min_w_0().truncate().child(label))
                                 // Who wrote it and when, in the branch rows' columns, so the
@@ -1499,11 +1502,11 @@ impl Detail {
                             };
                             let (glyph, glyph_color) = match &branch.review {
                                 Some(review) => review::state_glyph(review.state, theme),
-                                None if is_merged => (Icon::BranchMerge, theme.purple),
-                                None => (Icon::Branch, theme.text_2),
+                                None if is_merged => (Icon::BranchMerge, theme.done_text),
+                                None => (Icon::Branch, theme.muted_foreground),
                             };
                             let on = selected && solid;
-                            let ink = |color| if on { theme.text_inverted } else { color };
+                            let ink = |color| if on { theme.inverse_foreground } else { color };
                             // As in the navigator: a chevron folds its commits away, without
                             // selecting it, and a branch with none to show has a dot there.
                             let open = (branch.own_commits != Some(0))
@@ -1512,7 +1515,7 @@ impl Detail {
                             let step = fold_button(
                                 ("other-branch-fold", ix),
                                 open,
-                                ink(theme.text_3),
+                                ink(theme.subtle_foreground),
                                 &this.side_focus,
                                 cx,
                                 move |this, _, cx| this.toggle_branch(&fold, cx),
@@ -1521,8 +1524,8 @@ impl Detail {
                             // the target has it.
                             let title_color = match &branch.review {
                                 Some(review) => review::title_color(review.state, theme),
-                                None if branch.ahead == Some(0) => theme.text_2,
-                                None => theme.text_1,
+                                None if branch.ahead == Some(0) => theme.muted_foreground,
+                                None => theme.foreground,
                             };
                             // What's asked for is what's been explained, by what it's called.
                             let shown = (brief_titles.get(&branch.name))
@@ -1551,7 +1554,10 @@ impl Detail {
                                 div()
                                     .id(("other-branch-brief", ix))
                                     .flex_none()
-                                    .child(small_icon(Icon::Docs).text_color(ink(theme.text_3)))
+                                    .child(
+                                        small_icon(Icon::Docs)
+                                            .text_color(ink(theme.subtle_foreground)),
+                                    )
                                     .tooltip(Tooltip::text("Read the brief"))
                                     .on_click(cx.listener(move |this, _, _, cx| {
                                         cx.stop_propagation();
@@ -1968,7 +1974,7 @@ impl Detail {
                 .px(dp(16.))
                 .py(dp(12.))
                 .border_b_1()
-                .border_color(theme.border_3)
+                .border_color(theme.border_subtle)
                 .child(top)
                 .children(description)
                 .child(height)
@@ -2117,7 +2123,7 @@ impl Detail {
         let description = description.map(|description| {
             div()
                 .text_13()
-                .text_color(theme.text_2)
+                .text_color(theme.muted_foreground)
                 .whitespace_normal()
                 .child(description)
         });

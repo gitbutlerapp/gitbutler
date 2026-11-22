@@ -11,7 +11,7 @@ pub fn segmented(
     theme: &Theme,
     segments: impl IntoIterator<Item = (Stateful<Div>, bool)>,
 ) -> Div {
-    let (text, hover, line) = (theme.text_1, theme.hover, theme.control_border);
+    let (text, hover, line) = (theme.foreground, theme.hover, theme.input);
     let segments: Vec<_> = segments.into_iter().collect();
     let picked: Vec<bool> = segments.iter().map(|(_, picked)| *picked).collect();
     h_flex()
@@ -21,7 +21,7 @@ pub fn segmented(
             false => theme.sizes.control,
         }))
         .rounded(dp(theme.shape.control))
-        .bg(theme.bg_2)
+        .bg(theme.canvas)
         .map(|el| if small { el.text_12() } else { el.text_13() })
         .semibold()
         .whitespace_nowrap()
@@ -35,7 +35,7 @@ pub fn segmented(
                     let rule = before.map(|before| {
                         let drawn = !before && !on;
                         (div().flex_none().w(fixed(1.)).h(dp(12.)))
-                            .when(drawn, |el| el.bg(theme.border_2))
+                            .when(drawn, |el| el.bg(theme.border))
                             .into_any_element()
                     });
                     let segment = tab_stop(segment, theme).role(Role::Button);
@@ -44,8 +44,8 @@ pub fn segmented(
                         .rounded(dp(theme.shape.control))
                         .border_1()
                         .border_color(if on { line } else { gpui::transparent_black() })
-                        .text_color(if on { text } else { theme.text_2 })
-                        .when(on, |el| el.bg(theme.bg_1))
+                        .text_color(if on { text } else { theme.muted_foreground })
+                        .when(on, |el| el.bg(theme.background))
                         .when(!on, |el| el.hover(move |el| el.bg(hover).text_color(text)));
                     rule.into_iter().chain([segment.into_any_element()])
                 }),

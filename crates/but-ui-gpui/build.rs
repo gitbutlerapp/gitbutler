@@ -69,7 +69,83 @@ fn color_tokens(out: &Path) {
         + &grounds(&data)
         + &shapes(&data);
     fs::write(out.join("color_tokens.rs"), consts).expect("OUT_DIR is writable");
+    color_fields(out, &data);
     text_tokens(out);
+}
+
+/// `ColorTokens`, the theme's colours: a field for each of but-ui's semantic tokens, named as
+/// the token and described as it is in `semantic.tokens.json`, in that file's order.
+fn color_fields(out: &Path, data: &serde_json::Value) {
+    let path = Path::new("../../packages/but-ui/tokens/json/semantic.tokens.json");
+    println!("cargo:rerun-if-changed={}", path.display());
+    let semantic =
+        fs::read_to_string(path).expect("but-ui's semantic tokens are in packages/but-ui");
+    let semantic: serde_json::Value =
+        serde_json::from_str(&semantic).expect("semantic.tokens.json is JSON");
+    let mut found = Vec::new();
+    semantic_tokens(&semantic["semantic"], &mut Vec::new(), &mut found);
+    let (mut fields, mut filled, mut named) = (String::new(), String::new(), String::new());
+    for (token, description) in &found {
+        assert!(
+            data["colors"][token].is_object(),
+            "tokens.json has the semantic colour {token}"
+        );
+        let field = token.replace('-', "_");
+        let constant = field.to_uppercase();
+        for line in description.lines() {
+            let line = line
+                .replace('[', "\\[")
+                .replace(']', "\\]")
+                .replace('<', "\\<");
+            fields += &format!("    /// {}\n", line.trim());
+        }
+        fields += &format!("    pub {field}: Hsla,\n");
+        filled += &format!("            {field}: colour({constant:?}, tokens::{constant}),\n");
+        named += &format!("            {token:?} => Some(&mut self.{field}),\n");
+    }
+    let generated = format!(
+        "/// but-ui's semantic colours, a field for each token, named as the token: `muted-foreground`\n\
+         /// is `muted_foreground`. [`Theme`] derefs to them.\n\
+         #[derive(Debug, Clone, Copy, PartialEq)]\n\
+         pub struct ColorTokens {{\n{fields}}}\n\n\
+         impl ColorTokens {{\n\
+         \x20   /// Each token as `colour` draws it, from its constant's name and `[light, dark]` value.\n\
+         \x20   fn from_tokens(colour: impl Fn(&str, [u32; 2]) -> Hsla) -> Self {{\n\
+         \x20       Self {{\n{filled}        }}\n\
+         \x20   }}\n\n\
+         \x20   /// The token as but-ui names it, `primary-soft`.\n\
+         \x20   fn named(&mut self, token: &str) -> Option<&mut Hsla> {{\n\
+         \x20       match token {{\n{named}            _ => None,\n        }}\n\
+         \x20   }}\n\
+         }}\n"
+    );
+    fs::write(out.join("color_fields.rs"), generated).expect("OUT_DIR is writable");
+}
+
+/// Each token under `node` with its description, `muted` before `muted-nested`, as the
+/// Figma export nests them: a group's own colour is its `$root`.
+fn semantic_tokens(
+    node: &serde_json::Value,
+    at: &mut Vec<String>,
+    found: &mut Vec<(String, String)>,
+) {
+    let Some(node) = node.as_object() else { return };
+    if node.contains_key("$type") {
+        let description = node["$description"].as_str().unwrap_or_default();
+        found.push((at.join("-"), description.to_owned()));
+        return;
+    }
+    for (key, child) in node {
+        match key.as_str() {
+            "$root" => semantic_tokens(child, at, found),
+            key if key.starts_with('$') => {}
+            key => {
+                at.push(key.to_owned());
+                semantic_tokens(child, at, found);
+                at.pop();
+            }
+        }
+    }
 }
 
 /// The type scale, from but-ui's text classes (`styles/text.css`, `.text-13`) and the font tokens

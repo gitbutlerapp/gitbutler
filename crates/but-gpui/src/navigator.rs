@@ -218,8 +218,8 @@ pub(super) fn card_bar(
     theme: &Theme,
 ) -> Stateful<Div> {
     let (ink, muted) = match solid {
-        true => (theme.text_inverted, theme.muted_on_solid),
-        false => (theme.text_3, theme.text_3),
+        true => (theme.inverse_foreground, theme.inverse_muted_foreground),
+        false => (theme.subtle_foreground, theme.subtle_foreground),
     };
     let fold = h_flex()
         .flex_1()
@@ -245,8 +245,8 @@ pub(super) fn card_bar(
         .pl(dp(10.))
         .pr(dp(6.))
         .gap(dp(2.))
-        .when(selected, |el| el.bg(theme.selected_unfocused))
-        .when(solid, |el| el.bg(theme.fill_gray))
+        .when(selected, |el| el.bg(theme.selected_inactive))
+        .when(solid, |el| el.bg(theme.inverse))
         .child(fold)
         .when_some(open, |el, open| {
             el.aria_expanded(open)
@@ -354,7 +354,7 @@ impl<'a> RowStyle<'a> {
             .mx(dp(3.))
             .pl(dp(8. + indent + self.inset))
             .when(self.solid, |el| {
-                el.bg(theme.fill_gray).text_color(theme.text_inverted)
+                el.bg(theme.inverse).text_color(theme.inverse_foreground)
             })
             .when(self.taken, |el| {
                 (el.opacity(0.5).border_1().border_dashed()).border_color(theme.hue(self.mark))
@@ -375,9 +375,9 @@ impl<'a> RowStyle<'a> {
 
     fn muted(&self) -> Hsla {
         if self.solid {
-            self.theme.muted_on_solid
+            self.theme.inverse_muted_foreground
         } else {
-            self.theme.text_2
+            self.theme.muted_foreground
         }
     }
 
@@ -385,7 +385,7 @@ impl<'a> RowStyle<'a> {
     fn quiet(&self) -> Hsla {
         match self.solid {
             true => self.muted(),
-            false => self.theme.text_3,
+            false => self.theme.subtle_foreground,
         }
     }
 
@@ -397,14 +397,14 @@ impl<'a> RowStyle<'a> {
 
     /// How many files are uncommitted, when any are.
     fn files(&self, n: usize) -> Option<Stateful<Div>> {
-        let color = self.meta(self.theme.warn);
+        let color = self.meta(self.theme.warning_text);
         meta_count(Icon::File, n, color, plural(n, "uncommitted file"))
     }
 
     /// What a mark on the row that can be pressed draws under the pointer.
     fn press_hover(&self) -> Hsla {
         match self.solid {
-            true => self.theme.hover_on_solid,
+            true => self.theme.inverse_ghost_hover,
             false => self.theme.hover,
         }
     }
@@ -412,7 +412,7 @@ impl<'a> RowStyle<'a> {
     /// Meaningful colours wash out on the dark selection ground; keep them legible.
     fn meta(&self, color: Hsla) -> Hsla {
         if self.solid {
-            self.theme.text_inverted
+            self.theme.inverse_foreground
         } else {
             color
         }
@@ -422,7 +422,7 @@ impl<'a> RowStyle<'a> {
     /// 3:1, on a row that only holds unread commits, so the commits stand out.
     fn unread_line(&self, own: bool) -> Div {
         unread_line(if own {
-            self.meta(self.theme.pop_mark)
+            self.meta(self.theme.primary_mark)
         } else {
             self.quiet()
         })
@@ -472,12 +472,12 @@ impl<'a> RowStyle<'a> {
     ) -> Stateful<Div> {
         let theme = self.theme;
         let (glyph, color) = if commit.conflicted {
-            (Icon::Warning, theme.warn_mark)
+            (Icon::Warning, theme.warning_mark)
         } else {
             match commit.state {
-                CommitState::Local => (Icon::Commit, theme.blue_mark),
+                CommitState::Local => (Icon::Commit, theme.info_mark),
                 CommitState::Pushed => (Icon::CommitFill, self.muted()),
-                CommitState::Integrated => (Icon::CommitFill, theme.purple_mark),
+                CommitState::Integrated => (Icon::CommitFill, theme.done_mark),
             }
         };
         let glyph = small_icon(glyph).text_color(self.meta(color));
@@ -496,7 +496,7 @@ impl<'a> RowStyle<'a> {
     /// The copy of a commit titled `title` from outside the workspace a cherry-pick would
     /// make, `id` the row's: a local commit.
     fn copy(&self, id: String, title: SharedString) -> Stateful<Div> {
-        let glyph = small_icon(Icon::Commit).text_color(self.meta(self.theme.blue_mark));
+        let glyph = small_icon(Icon::Commit).text_color(self.meta(self.theme.info_mark));
         self.commit_line(id, COMMIT_INDENT, glyph, title, false, None)
     }
 }
@@ -1292,7 +1292,7 @@ impl Navigator {
         above_drag(
             // Edged as the cards are, but while it has the keys.
             field(&self.filter, focused, theme)
-                .when(!focused, |el| el.border_color(theme.border_3)),
+                .when(!focused, |el| el.border_color(theme.border_subtle)),
         )
         .relative()
         .flex_1()
@@ -1641,7 +1641,7 @@ impl Navigator {
                         .flex_1()
                         .border_t_1()
                         .border_dashed()
-                        .border_color(theme.border_3),
+                        .border_color(theme.border_subtle),
                 )
                 .into_any_element(),
             Some(Row::Note(text, is_error)) => note_row(text, *is_error, theme),
@@ -1654,17 +1654,22 @@ impl Navigator {
                 .pr(dp(12.))
                 .gap(dp(10.))
                 .when(*slow, |el| el.opacity(0.5))
-                .child(small_icon(Icon::Commit).text_color(theme.blue_mark))
+                .child(small_icon(Icon::Commit).text_color(theme.info_mark))
                 .child(
                     div()
                         .flex_1()
                         .min_w_0()
                         .truncate()
-                        .when(title.is_empty(), |el| el.text_color(theme.text_2))
+                        .when(title.is_empty(), |el| el.text_color(theme.muted_foreground))
                         .child(commit_title(title)),
                 )
                 .when(*slow, |el| {
-                    el.child(div().text_11().text_color(theme.text_2).child("…"))
+                    el.child(
+                        div()
+                            .text_11()
+                            .text_color(theme.muted_foreground)
+                            .child("…"),
+                    )
                 })
                 .into_any_element(),
             Some(Row::NewBranch(_)) => self.new_branch_zone(ix, theme),
@@ -1742,9 +1747,9 @@ impl Navigator {
         let focused =
             (self.built.focused_card.borrow().as_ref()).is_some_and(|card| card.contains(&ix));
         let edge = match (held, focused) {
-            (true, _) => theme.pop,
+            (true, _) => theme.primary_text,
             (false, true) => theme.focus_edge(),
-            (false, false) => theme.border_3,
+            (false, false) => theme.border_subtle,
         };
         // How far row `ix` is drawn from where it's laid out: as far as a reorder slid it, but
         // not while a fold moves it, which draws it as far as the fold's open.
@@ -1849,7 +1854,7 @@ impl Navigator {
                         .top(dp(self.reorder.offset(own) - slid_at(ix)))
                         .left_0()
                         .right_0()
-                        .bg(theme.bg_1)
+                        .bg(theme.background)
                         .child(moving::ghost_row(
                             item,
                             inset,
@@ -1868,7 +1873,7 @@ impl Navigator {
         let edged = self.scope.is_none();
         let card = div()
             .relative()
-            .bg(theme.bg_1)
+            .bg(theme.background)
             .border_color(edge)
             .when(edged, |el| el.border_l_1().border_r_1())
             .when(first && edged, |el| {
@@ -1894,7 +1899,7 @@ impl Navigator {
                         true => 2.,
                         false => theme.shape.popup - CARD_PADDING,
                     };
-                    let over = (div().relative().bg(theme.bg_1).child(el))
+                    let over = (div().relative().bg(theme.background).child(el))
                         .when(first, |el| el.rounded_t(dp(corner)))
                         .when(last, |el| el.rounded_b(dp(corner)))
                         .when(crossing, |el| el.top(dp(drawn_at(ix) - slid)));
@@ -1914,7 +1919,7 @@ impl Navigator {
                 .left(dp(left))
                 .right(dp(right))
                 .h(dp(height))
-                .bg(theme.bg_1)
+                .bg(theme.background)
                 .border_color(edge)
                 .when(edged, |el| el.border_l_1().border_r_1())
                 .children(guides())
@@ -2112,8 +2117,8 @@ impl Navigator {
             return el;
         }
         let ink = match selected && solid {
-            true => theme.text_inverted,
-            false => theme.text_2,
+            true => theme.inverse_foreground,
+            false => theme.muted_foreground,
         };
         let cells = tiles.iter().map(|(tile, area)| {
             div()
@@ -2139,11 +2144,11 @@ impl Navigator {
             .gap(dp(6.))
             .rounded(dp(theme.shape.control))
             .map(|el| match (selected, solid) {
-                (true, true) => el.bg(theme.fill_gray),
-                (true, false) => el.bg(theme.selected_unfocused),
+                (true, true) => el.bg(theme.inverse),
+                (true, false) => el.bg(theme.selected_inactive),
                 (false, _) => el
                     .bg(theme.hover)
-                    .hover(|el| el.bg(theme.selected_unfocused)),
+                    .hover(|el| el.bg(theme.selected_inactive)),
             })
             .children(mark)
             .when(mapped, |el| {
@@ -2261,9 +2266,9 @@ impl Navigator {
         v_flex()
             .relative()
             .size_full()
-            .bg(theme.bg_1)
+            .bg(theme.background)
             .border_1()
-            .border_color(theme.border_3)
+            .border_color(theme.border_subtle)
             .rounded(dp(theme.shape.card))
             .child(self.drawer_bar(alone, window, theme, cx))
             .child(
@@ -2445,11 +2450,11 @@ impl Navigator {
                 .count()
         });
         let (left, right) = self.card_margins();
-        let ground = theme.bg_2;
+        let ground = theme.canvas;
         let cap = |at_top: bool, (card, shows): (usize, f32)| {
             let line = match focused == Some(card) {
                 true => theme.focus_edge(),
-                false => theme.border_3,
+                false => theme.border_subtle,
             };
             // Too little of the card shows for a corner at each of its ends: it's drawn whole,
             // as a rounded box is that's shorter than two corners, over its own corners.
@@ -2515,7 +2520,7 @@ impl Navigator {
                         for x in [x0, x1 - wide] {
                             let under =
                                 Bounds::from_corners(point(x, top), point(x + wide, bottom));
-                            window.paint_quad(fill(under, theme.bg_1));
+                            window.paint_quad(fill(under, theme.background));
                         }
                         ends.push((end, -toward));
                     }
@@ -2687,8 +2692,8 @@ impl Navigator {
             .child(
                 watch_glyph(expanded != hovered).text_color(match (hovered, style.solid) {
                     (false, _) => style.muted(),
-                    (true, true) => theme.text_inverted,
-                    (true, false) => theme.text_1,
+                    (true, true) => theme.inverse_foreground,
+                    (true, false) => theme.foreground,
                 }),
             )
             .when(!moving, |el| {
@@ -2754,10 +2759,15 @@ impl Navigator {
                         .children(target.and_then(|t| {
                             let behind = plural(t.behind, "commit");
                             let tip = format!("{behind} behind {}{}", t.name, with_merged(t));
-                            meta_count(Icon::ArrowDown, t.behind, style.meta(theme.warn), tip)
+                            meta_count(
+                                Icon::ArrowDown,
+                                t.behind,
+                                style.meta(theme.warning_text),
+                                tip,
+                            )
                         }))
                         .when(entry.is_loading(), |el| {
-                            el.child(small_icon(Icon::Clock).text_color(theme.text_3))
+                            el.child(small_icon(Icon::Clock).text_color(theme.subtle_foreground))
                         }),
                 )
                 // Only a watched project's: an unwatched one updates from its page or its menu,
@@ -2827,7 +2837,7 @@ impl Navigator {
         style
             .row(format!("uncommitted-{id}"), 6.)
             .aria_label("Editing a commit")
-            .child(icon(Icon::Diff).text_color(style.meta(style.theme.warn)))
+            .child(icon(Icon::Diff).text_color(style.meta(style.theme.warning_text)))
             .child(
                 div()
                     .flex_1()
@@ -3077,8 +3087,8 @@ impl Navigator {
         };
         // Quiet, so it doesn't read as one more branch, with "Stack" a step above the rest.
         let (word, quiet) = match style.solid {
-            true => (theme.text_inverted, style.muted()),
-            false => (theme.text_2, theme.text_3),
+            true => (theme.inverse_foreground, style.muted()),
+            false => (theme.muted_foreground, theme.subtle_foreground),
         };
         let glyph = self.fold(
             ("stack-fold", ix),
@@ -3290,7 +3300,7 @@ impl Navigator {
                 // So conflicts show while the commits are hidden too. Pressed, the first to
                 // resolve is up, unless a linked worktree resolves it.
                 .children({
-                    let warn = style.meta(theme.warn);
+                    let warn = style.meta(theme.warning_text);
                     let tip = plural(conflicted, "conflicted commit");
                     let count = |tip| meta_count(Icon::Warning, conflicted, warn, tip);
                     match conflict {
@@ -3357,7 +3367,7 @@ impl Navigator {
             Some(why) => why.to_owned(),
             None => ws.push_tooltip(ref_name?),
         };
-        let color = style.meta(style.theme.blue);
+        let color = style.meta(style.theme.info_text);
         // Padded as pressing it pads it, so it holds still while it pushes.
         let count = meta_count(Icon::ArrowUp, n, color, tip)?.px(dp(MARK_PAD));
         if pushing {
@@ -3391,7 +3401,7 @@ impl Navigator {
         style: RowStyle,
         cx: &Context<Self>,
     ) -> Option<Stateful<Div>> {
-        let warn = style.meta(style.theme.warn);
+        let warn = style.meta(style.theme.warning_text);
         let ws = self.store.read(cx).workspace(project);
         let Some(ref_name) = ref_name.filter(|r| ws.is_some_and(|ws| ws.can_pull(r))) else {
             return meta_count(Icon::ArrowDown, n, warn, tip);
@@ -3485,7 +3495,7 @@ impl Navigator {
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let (title, slow) = self.store.read(cx).pending_commit(project, op)?;
-        let glyph = small_icon(Icon::Commit).text_color(style.meta(style.theme.blue_mark));
+        let glyph = small_icon(Icon::Commit).text_color(style.meta(style.theme.info_mark));
         let ellipsis = div().text_11().text_color(style.muted()).child("…");
         Some(
             style
@@ -3527,7 +3537,7 @@ impl Navigator {
         };
         let title: SharedString = title.into();
         let unread = listed.is_some_and(|commit| store.is_unread(id, commit));
-        let warn = style.meta(style.theme.warn);
+        let warn = style.meta(style.theme.warning_text);
         // A merge folds the commits it brought in on a double-click, or by the chevron its ↓
         // turns into.
         let toggle = merge.then(|| {
@@ -3807,9 +3817,13 @@ fn note_row(text: &SharedString, is_error: bool, theme: &Theme) -> AnyElement {
         .py(dp(4.))
         .gap(dp(6.))
         .text_12()
-        .text_color(if is_error { theme.danger } else { theme.text_2 })
+        .text_color(if is_error {
+            theme.danger_text
+        } else {
+            theme.muted_foreground
+        })
         .when(is_error, |el| {
-            el.child(small_icon(Icon::Warning).text_color(theme.danger))
+            el.child(small_icon(Icon::Warning).text_color(theme.danger_text))
         })
         // A long reason, as a failing filter's command twice over, stays on the project's
         // page, and its menu copies it.
@@ -3946,11 +3960,11 @@ pub(crate) fn status_mark(status: &Status, seen: bool, style: RowStyle) -> Optio
             "Working".into(),
         ),
         Status::Blocked(reason) => (
-            glyph(Icon::Warning, style.meta(theme.warn_mark)),
+            glyph(Icon::Warning, style.meta(theme.warning_mark)),
             said(reason, "Waiting for you"),
         ),
         Status::Done => (
-            glyph(Icon::Tick, style.meta(theme.safe_mark)),
+            glyph(Icon::Tick, style.meta(theme.success_mark)),
             "Finished".into(),
         ),
         Status::Failed(reason) => (
@@ -4001,7 +4015,7 @@ fn change_counts(
     let conflicts = meta_count(
         Icon::Warning,
         conflicted,
-        style.meta(theme.warn),
+        style.meta(theme.warning_text),
         plural(conflicted, "conflicted file"),
     );
     let all = match added + removed {
@@ -4083,7 +4097,7 @@ fn branch_name(name: &str, review: Option<(&Review, ReviewState)>, style: &RowSt
         Some((review, state)) => el
             .text_color(match style.solid {
                 true if matches!(state, ReviewState::Open | ReviewState::Draft) => {
-                    style.meta(theme.text_1)
+                    style.meta(theme.foreground)
                 }
                 true => style.muted(),
                 false => review::title_color(state, theme),

@@ -7,11 +7,11 @@ use crate::*;
 
 /// A checkbox on the page's ground.
 pub fn checkbox(id: impl Into<ElementId>, check: Toggled, theme: &Theme) -> Stateful<Div> {
-    checkbox_on(id, check, theme.bg_1, theme)
+    checkbox_on(id, check, theme.background, theme)
 }
 
 /// A checkbox whose empty box shows `ground`, as React's `--checkbox-bg`, for a row with a
-/// background of its own: a solid selected row's is `theme.fill_gray`.
+/// background of its own: a solid selected row's is `theme.inverse`.
 ///
 /// Mixed is filled like a checked box: it stands for a folder with some of its files checked.
 pub fn checkbox_on(
@@ -22,8 +22,12 @@ pub fn checkbox_on(
 ) -> Stateful<Div> {
     let on = check != Toggled::False;
     let (fill, edge, hover) = match on {
-        true => (theme.pop_bg, theme.pop_bg, theme.pop_bg_hover),
-        false => (ground, theme.border_2, theme.border_1),
+        true => (
+            theme.primary,
+            theme.primary,
+            theme.derived.primary_checked_hover,
+        ),
+        false => (ground, theme.border, theme.border_hover),
     };
     frame(id, check, fill, edge, theme)
         .map(|el| match on {
@@ -42,10 +46,10 @@ pub fn checkbox_disabled(
     theme: &Theme,
 ) -> Stateful<Div> {
     let ink = match check {
-        Toggled::False => theme.border_2,
-        Toggled::True | Toggled::Mixed => theme.pop_bg,
+        Toggled::False => theme.border,
+        Toggled::True | Toggled::Mixed => theme.primary,
     };
-    let faded = Theme::disabled_on(ink, theme.bg_1);
+    let faded = Theme::disabled_on(ink, theme.background);
     frame(id, check, faded, faded, theme)
         .tooltip(Tooltip::text(why.into()))
         .map(|el| mark(el, check, 0.5, theme))
@@ -78,14 +82,14 @@ fn mark(el: Stateful<Div>, check: Toggled, strength: f32, theme: &Theme) -> Stat
     match check {
         Toggled::True => el.child(
             icon_at(Icon::Tick, 10.)
-                .text_color(theme.on_pop)
+                .text_color(theme.primary_foreground)
                 .opacity(strength),
         ),
         Toggled::Mixed => el.child(
             div()
                 .w(dp(7.))
                 .h(dp(1.5))
-                .bg(theme.on_pop)
+                .bg(theme.primary_foreground)
                 .opacity(strength),
         ),
         Toggled::False => el,

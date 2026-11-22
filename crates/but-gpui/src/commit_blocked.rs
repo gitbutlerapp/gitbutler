@@ -272,7 +272,7 @@ fn hunk_lines(hunk: &BlockedHunk, theme: &Theme) -> Div {
             div()
                 .px(dp(8.))
                 .py(dp(2.))
-                .text_color(theme.text_2)
+                .text_color(theme.muted_foreground)
                 .child(format!("{} more", plural(more, "line"))),
         )
     })

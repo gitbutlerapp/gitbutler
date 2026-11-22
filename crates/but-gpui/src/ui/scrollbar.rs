@@ -190,7 +190,7 @@ fn bar(
     if max <= Pixels::ZERO {
         return None;
     }
-    let (rest, active) = (theme.scrollbar, theme.scrollbar_hover);
+    let (rest, active) = (theme.scrollbar_thumb, theme.scrollbar_thumb_hover);
     let gap = match shows {
         Shows::WhileScrolling { middle } => Some(middle),
         Shows::OnHover | Shows::Always => None,

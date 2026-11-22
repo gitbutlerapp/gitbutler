@@ -7,7 +7,7 @@ use crate::*;
 
 /// As but-ui-react's `ToggleGroupStyles` of outline toggles.
 pub fn toggle_group(theme: &Theme, toggles: impl IntoIterator<Item = Stateful<Div>>) -> Div {
-    let line = theme.control_border;
+    let line = theme.input;
     let toggles: Vec<_> = toggles.into_iter().collect();
     let last = toggles.len().saturating_sub(1);
     h_flex()
@@ -44,8 +44,8 @@ pub fn icon_toggle(
         .flex()
         .items_center()
         .justify_center()
-        .when(pressed, |el| el.bg(theme.bg_2))
+        .when(pressed, |el| el.bg(theme.canvas))
         .when(!pressed, |el| el.hover(move |el| el.bg(hover)))
-        .child(icon(glyph).text_color(theme.text_1).opacity(0.7))
+        .child(icon(glyph).text_color(theme.foreground).opacity(0.7))
         .tooltip(Tooltip::keyed(tip, key))
 }

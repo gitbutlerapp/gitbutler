@@ -150,7 +150,7 @@ pub(super) const EXAMPLES: [Example; 7] = [
         id: "components-filelist--filter",
         name: "Filter",
         draw: |theme| {
-            let query = div().text_color(theme.text_1).child("comp");
+            let query = div().text_color(theme.foreground).child("comp");
             sized(
                 filtered("filter", Some("comp"))
                     .filter(query, true, |_, _, _| {})

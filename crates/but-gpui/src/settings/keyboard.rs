@@ -135,7 +135,7 @@ impl SettingsView {
                         .pl(dp(16.))
                         .text_12()
                         .semibold()
-                        .text_color(theme.text_3)
+                        .text_color(theme.subtle_foreground)
                         .child(*heading),
                 ),
             Line::Command {
@@ -145,8 +145,8 @@ impl SettingsView {
             } => item.child(
                 div()
                     .border_x_1()
-                    .border_color(theme.border_3)
-                    .bg(theme.bg_1)
+                    .border_color(theme.border_subtle)
+                    .bg(theme.background)
                     .overflow_hidden()
                     .when(*first, |el| {
                         el.border_t_1().rounded_t(dp(theme.shape.popup))

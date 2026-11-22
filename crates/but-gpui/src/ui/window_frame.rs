@@ -26,7 +26,7 @@ pub fn window_frame(content: Stateful<Div>, window: &mut Window, cx: &App) -> An
         .when(!tiling.bottom, |el| el.border_b_1())
         .when(!tiling.left, |el| el.border_l_1())
         .when(!tiling.right, |el| el.border_r_1())
-        .border_color(Theme::get(cx).border_2)
+        .border_color(Theme::get(cx).border)
         .when(!tiling.is_tiled(), |el| {
             el.shadow(vec![
                 BoxShadow::new(fixed(0.), fixed(0.), Theme::get(cx).shadow)

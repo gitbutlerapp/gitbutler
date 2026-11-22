@@ -106,7 +106,7 @@ impl Detail {
                 .px(dp(4.))
                 .py_0()
                 .text_h3()
-                .text_color(theme.text_1)
+                .text_color(theme.foreground)
                 .into_any_element(),
         )
     }

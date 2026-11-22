@@ -1616,7 +1616,7 @@ impl Detail {
                 h_flex()
                     .gap(dp(6.))
                     .text_12()
-                    .text_color(theme.text_2)
+                    .text_color(theme.muted_foreground)
                     .child(match amending {
                         Some(_) => "Amend",
                         None => "Commit to",
@@ -1664,8 +1664,8 @@ impl Detail {
         v_flex()
             .flex_none()
             .border_t_1()
-            .border_color(theme.border_3)
-            .bg(theme.bg_1)
+            .border_color(theme.border_subtle)
+            .bg(theme.background)
             .child(compose)
             .child(
                 super::panes::footer_bar()
@@ -1760,18 +1760,18 @@ impl Detail {
             .rounded(dp(theme.shape.control))
             .bg(theme.muted)
             .font_family(theme.mono_font.clone())
-            .text_color(theme.blue)
+            .text_color(theme.info_text)
             .child(
                 small_icon(match pickable {
                     true => Icon::Branch,
                     false => Icon::Commit,
                 })
-                .text_color(theme.blue),
+                .text_color(theme.info_text),
             )
             .child(div().min_w_0().truncate().child(label))
             .when(pickable && !self.checks_worktree.is_linked(), |el| {
-                el.hover(|el| el.bg(theme.muted_hover))
-                    .child(small_icon(Icon::ChevronDown).text_color(theme.text_2))
+                el.hover(|el| el.bg(theme.derived.muted_hover))
+                    .child(small_icon(Icon::ChevronDown).text_color(theme.muted_foreground))
                     .tooltip(Tooltip::text("Pick the branch to commit to"))
                     .on_click(
                         cx.listener(|this, _, window, cx| this.pick_commit_target(window, cx)),

@@ -261,7 +261,7 @@ pub(super) fn outline_label(label: &'static str, row: f32, hue: Hue, theme: &The
         .px(dp(6.))
         .gap(dp(4.))
         .rounded(dp(theme.shape.control))
-        .bg(theme.bg_1)
+        .bg(theme.background)
         .text_12()
         .text_color(colour)
         .child(small_icon(Icon::Stack).text_color(colour))
@@ -1916,7 +1916,7 @@ pub(super) fn new_commit_row(
     };
     (style.row(format!("new-commit-{project}"), COMMIT_INDENT))
         .gap(dp(10.))
-        .child(small_icon(Icon::Commit).text_color(style.meta(theme.blue_mark)))
+        .child(small_icon(Icon::Commit).text_color(style.meta(theme.info_mark)))
         .child(title.flex_1().min_w_0().truncate())
         .into_any_element()
 }
@@ -2004,7 +2004,7 @@ pub(super) fn stand_in(
         .px(fixed(1.))
         .child(
             on_top(
-                (div().relative().bg(theme.bg_1).opacity(*shown))
+                (div().relative().bg(theme.background).opacity(*shown))
                     .child(row)
                     .children(guides),
             )
@@ -2065,7 +2065,7 @@ pub(super) fn ghost_branch_row(
                     div()
                         .min_w_0()
                         .truncate()
-                        .text_color(theme.text_1)
+                        .text_color(theme.foreground)
                         .child(name)
                 })),
         )

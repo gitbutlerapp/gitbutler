@@ -287,7 +287,7 @@ impl Detail {
                 .gap(dp(8.))
                 .justify_end()
                 .text_12()
-                .text_color(theme.text_2)
+                .text_color(theme.muted_foreground)
                 // Left out where it would only be cut down to a letter or two.
                 .when(!short, |el| {
                     el.child(div().min_w_0().truncate().child(words))

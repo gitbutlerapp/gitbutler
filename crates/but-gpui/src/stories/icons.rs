@@ -56,7 +56,7 @@ impl Render for IconsStory {
                 cell(
                     glyph,
                     icon_at(glyph, px)
-                        .text_color(theme.text_1)
+                        .text_color(theme.foreground)
                         .into_any_element(),
                 )
             })

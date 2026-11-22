@@ -2789,9 +2789,9 @@ impl AppView {
                             .left(dp(left))
                             // Over the files as they slide, edged as they are.
                             .when(files_sliding, |el| {
-                                el.bg(theme.bg_1)
+                                el.bg(theme.background)
                                     .occlude()
-                                    .child(edge(theme.border_3).left(fixed(-1.)))
+                                    .child(edge(theme.border_subtle).left(fixed(-1.)))
                             })
                             .child(
                                 self.diff
@@ -2862,7 +2862,7 @@ impl AppView {
                 }
             }))
             // Over the navigator as it slides, taking the pointer from it.
-            .when(navigator_sliding, |el| el.bg(theme.bg_1).occlude())
+            .when(navigator_sliding, |el| el.bg(theme.background).occlude())
             .child(
                 self.detail
                     .clone()
@@ -2952,10 +2952,10 @@ impl AppView {
                 .justify_center()
                 .size(dp(72.))
                 .rounded(dp(theme.shape.popup))
-                .bg(theme.pop)
+                .bg(theme.primary_text)
                 .text_off_scale(36.)
                 .semibold()
-                .text_color(theme.bg_1)
+                .text_color(theme.background)
                 .child(SharedString::from(letter.to_ascii_uppercase().to_string()));
             Some(
                 placed(tiling.area_of(&tile)?)
@@ -2972,7 +2972,9 @@ impl AppView {
     /// keys', in pop, else the tile with the keys'.
     fn tile_edge(&self, tile: &Tile, window: &Window, theme: &Theme, cx: &App) -> Option<Div> {
         match self.arranging.as_ref() {
-            Some(arranging) if arranging.tile == *tile => Some(card_edge(theme.pop, theme.shape)),
+            Some(arranging) if arranging.tile == *tile => {
+                Some(card_edge(theme.primary_text, theme.shape))
+            }
             Some(_) => None,
             None => (self.store.read(cx).prefs.shows(Part::FocusOutline)
                 && self.has_keys(tile, window, cx))
@@ -3189,11 +3191,11 @@ impl AppView {
                     .px(dp(6.))
                     .py(dp(2.))
                     .rounded(dp(theme.shape.control))
-                    .bg(theme.bg_1)
+                    .bg(theme.background)
                     .border_1()
                     .border_color(theme.hue(hue(ix)))
                     .text_11()
-                    .text_color(theme.text_1)
+                    .text_color(theme.foreground)
                     .child(text);
                 Some((placed(biggest).flex().items_center().justify_center()).child(label))
             });
@@ -3225,11 +3227,11 @@ impl AppView {
                 .px(dp(6.))
                 .py(dp(2.))
                 .rounded(dp(theme.shape.control))
-                .bg(theme.bg_1)
+                .bg(theme.background)
                 .border_1()
                 .border_color(color)
                 .text_11()
-                .text_color(theme.text_1)
+                .text_color(theme.foreground)
                 .child(text);
             Some(
                 div()
@@ -4575,7 +4577,7 @@ impl AppView {
     /// changes, and the detail under the home tile is cached, so one there would stay up after
     /// a drag let go elsewhere or stopped with Escape.
     fn paste_outline(&self, theme: &Theme) -> Div {
-        let (store, color) = (self.store.clone(), theme.pop);
+        let (store, color) = (self.store.clone(), theme.primary_text);
         card_edge(gpui::transparent_black(), theme.shape)
             .drag_over::<Dragged>(move |style, _, _, _| style.border_1().border_color(color))
             .drag_over::<ProjectDrag>(move |style, _, _, _| style.border_1().border_color(color))
@@ -4743,7 +4745,7 @@ impl AppView {
                     Column::Alone | Column::Out => TERMINALS_MARGIN,
                 }))
                 .pb(dp(TERMINALS_MARGIN))
-                .bg(theme.bg_2)
+                .bg(theme.canvas)
                 .when(at == Column::Out, |el| el.rounded_b(dp(theme.shape.popup)))
                 .child((self.terminals.clone()).cached(StyleRefinement::default().size_full()))
                 // Folded to its bar, it has no height to drag.
@@ -4783,7 +4785,7 @@ impl AppView {
         v_flex()
             .size_full()
             .relative()
-            .bg(theme.bg_2)
+            .bg(theme.canvas)
             .when(at == Column::Out, |el| el.rounded(dp(theme.shape.popup)))
             .children(width_divider)
             .on_drag_move(move |event: &DragMoveEvent<Pane>, _, cx| {
@@ -4835,10 +4837,10 @@ impl AppView {
             .bottom(dp(PEEK_INSET))
             .left(dp(left))
             .w(dp(width))
-            .bg(theme.bg_2)
+            .bg(theme.canvas)
             .rounded(dp(theme.shape.popup))
             .border_1()
-            .border_color(theme.border_2)
+            .border_color(theme.border)
             .shadow_lg()
             // Over the detail, taking the pointer from it.
             .occlude()
@@ -4891,8 +4893,8 @@ fn tile_bar(
         .pr(dp(2.))
         .gap(dp(6.))
         .text_12()
-        .text_color(theme.text_2)
-        .child(small_icon(kind).text_color(theme.text_3))
+        .text_color(theme.muted_foreground)
+        .child(small_icon(kind).text_color(theme.subtle_foreground))
         .child(div().flex_grow(1.).min_w_0().truncate().child(title))
         .child(h_flex().flex_none().children(buttons))
         .on_mouse_down(MouseButton::Left, move |event, window, cx| {
@@ -5892,8 +5894,8 @@ impl Render for AppView {
             .size_full()
             .flex()
             .flex_col()
-            .bg(theme.bg_1)
-            .text_color(theme.text_1)
+            .bg(theme.background)
+            .text_color(theme.foreground)
             .font_family(theme.ui_font)
             // Only a font the user picks has ligatures (`liga`), so this leaves ours as they are.
             .when(!ligatures, |el| {

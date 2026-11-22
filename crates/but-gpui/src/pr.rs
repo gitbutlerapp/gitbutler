@@ -263,7 +263,12 @@ impl Render for ReviewView {
                         .track_scroll(&self.body_scroll)
                 })
         };
-        let label = |text: &'static str| div().text_12().text_color(theme.text_2).child(text);
+        let label = |text: &'static str| {
+            div()
+                .text_12()
+                .text_color(theme.muted_foreground)
+                .child(text)
+        };
         let confirm = if self.draft {
             "Create draft"
         } else {
@@ -292,7 +297,7 @@ impl Render for ReviewView {
                         div()
                             .font_family(theme.mono_font.clone())
                             .text_12()
-                            .text_color(theme.text_2)
+                            .text_color(theme.muted_foreground)
                             .child(SharedString::from(route)),
                     )
                     .children(push.map(|note| muted(note, &theme))),
@@ -378,7 +383,7 @@ impl Render for ReviewView {
                     .px(dp(20.))
                     .py(dp(12.))
                     .border_t_1()
-                    .border_color(theme.border_3)
+                    .border_color(theme.border_subtle)
                     .child(faint(crate::ui::keys_text("⌘↩ to create"), &theme).flex_1())
                     .child(
                         button("pr-cancel", "Cancel")

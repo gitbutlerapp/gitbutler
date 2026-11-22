@@ -58,10 +58,10 @@ fn draw(
     theme: &Theme,
 ) -> Stateful<Div> {
     let color = match variant {
-        SnackbarVariant::Info => theme.snackbar_muted,
-        SnackbarVariant::Warning => theme.snackbar_warn,
+        SnackbarVariant::Info => theme.snackbar_muted_foreground,
+        SnackbarVariant::Warning => theme.derived.snackbar_warning,
         SnackbarVariant::Danger => theme.snackbar_danger,
-        SnackbarVariant::Safe => theme.snackbar_safe,
+        SnackbarVariant::Safe => theme.snackbar_success,
     };
     let glyph = icon.map(|icon| (icon, color));
     h_flex()
@@ -90,8 +90,8 @@ fn draw(
         .rounded(dp(theme.shape.popup))
         .border_1()
         .border_color(theme.snackbar_border)
-        .bg(theme.snackbar_bg)
-        .text_color(theme.snackbar_text)
+        .bg(theme.snackbar)
+        .text_color(theme.snackbar_foreground)
         .text_12()
         .shadow_lg()
         .when_some(glyph, |el, (glyph, color)| {
@@ -129,5 +129,5 @@ fn snackbar_action(button: Button, theme: &Theme) -> Button {
     button
         .small()
         .style(ButtonStyle::Ghost)
-        .ink(theme.snackbar_text, theme.snackbar_hover)
+        .ink(theme.snackbar_foreground, theme.snackbar_hover)
 }

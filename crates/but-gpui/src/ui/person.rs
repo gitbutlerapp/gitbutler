@@ -37,7 +37,14 @@ pub fn account_avatar(
 
 /// `seed`'s picture: their initial on their colour, in a circle `size` across.
 pub fn person_avatar(seed: &str, size: f32, theme: &Theme) -> Div {
-    let Some(&colour) = theme.person.get(hash(seed) as usize % theme.person.len()) else {
+    let people = [
+        theme.category_1,
+        theme.category_2,
+        theme.category_3,
+        theme.category_4,
+        theme.category_5,
+    ];
+    let Some(&colour) = people.get(hash(seed) as usize % people.len()) else {
         return div();
     };
     div()
@@ -48,7 +55,7 @@ pub fn person_avatar(seed: &str, size: f32, theme: &Theme) -> Div {
         .justify_center()
         .rounded_full()
         .bg(colour)
-        .text_color(theme.text_1)
+        .text_color(theme.foreground)
         // Over half the circle, so a 14px avatar still holds a readable letter.
         .text_off_scale(size * 0.56)
         .line_height(dp(size))
@@ -119,7 +126,7 @@ pub fn byline_avatar(
             .right(dp(-small / 3.))
             .bottom(dp(-small / 3.))
             .border_1()
-            .border_color(theme.bg_1),
+            .border_color(theme.background),
     )
 }
 

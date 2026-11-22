@@ -87,7 +87,7 @@ impl RenderOnce for SwitchButton {
         // fades each layer on its own and would show the track through the knob.
         let fade = |color| match enabled {
             true => color,
-            false => Theme::disabled_on(color, theme.bg_1),
+            false => Theme::disabled_on(color, theme.background),
         };
         // A regular button's height and type, with the roomier padding and gap React gives it.
         h_flex()
@@ -111,9 +111,9 @@ impl RenderOnce for SwitchButton {
             .text_13()
             .semibold()
             .whitespace_nowrap()
-            .text_color(fade(theme.text_1))
+            .text_color(fade(theme.foreground))
             .when(self.style == SwitchButtonStyle::Outline, |el| {
-                el.border_1().border_color(fade(theme.control_border))
+                el.border_1().border_color(fade(theme.input))
             })
             .when(enabled, |el| {
                 el.hover(|el| el.bg(theme.hover))

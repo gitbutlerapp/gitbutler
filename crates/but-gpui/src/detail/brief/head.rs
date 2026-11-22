@@ -53,7 +53,7 @@ fn measure(label: &str, value: impl IntoElement, theme: &Theme) -> Div {
             div()
                 .flex_none()
                 .w(dp(LABEL_WIDTH))
-                .text_color(theme.text_3)
+                .text_color(theme.subtle_foreground)
                 .child(label.to_owned()),
         )
         .child(div().flex_1().min_w_0().child(value))
@@ -80,7 +80,7 @@ impl Detail {
             .child(
                 div()
                     .text_h2()
-                    .text_color(theme.text_1)
+                    .text_color(theme.foreground)
                     .child(title.to_owned()),
             )
             .child(
@@ -88,11 +88,11 @@ impl Detail {
                     .flex_wrap()
                     .gap_x(dp(10.))
                     .text_12()
-                    .text_color(theme.text_3)
+                    .text_color(theme.subtle_foreground)
                     .child(person_avatar(&found.author.name, 18., theme))
                     .child(
                         div()
-                            .text_color(theme.text_2)
+                            .text_color(theme.muted_foreground)
                             .child(found.author.name.clone()),
                     )
                     .children(
@@ -122,7 +122,7 @@ impl Detail {
                             ),
                     ),
             )
-            .children(status.map(|status| super::small_line(&status, theme.text_3)))
+            .children(status.map(|status| super::small_line(&status, theme.subtle_foreground)))
             .children(page.map(|page| self.brief_facts(page, state, cx)))
     }
 
@@ -174,7 +174,7 @@ impl Detail {
         let ask = (page.ask.as_ref()).filter(|_| !state.activity.answers.can_answer);
         let ask = ask
             .and_then(ask_words)
-            .map(|words| fact(div().semibold().text_color(theme.text_1).child(words)));
+            .map(|words| fact(div().semibold().text_color(theme.foreground).child(words)));
         let options = match &page.ask {
             Some(Ask::Decision { options }) => options.clone(),
             _ => Vec::new(),
@@ -193,7 +193,7 @@ impl Detail {
             fact(
                 div()
                     .semibold()
-                    .text_color(theme.warn_on_soft)
+                    .text_color(theme.warning_soft_foreground)
                     .child(words.to_owned()),
             )
         };
@@ -208,7 +208,7 @@ impl Detail {
             (true, true) => Some(fact(
                 div()
                     .semibold()
-                    .text_color(theme.text_1)
+                    .text_color(theme.foreground)
                     .child("Matches the branch's latest commit"),
             )),
             (true, false) => None,
@@ -224,10 +224,10 @@ impl Detail {
         v_flex()
             .rounded(dp(theme.shape.card))
             .border_1()
-            .border_color(theme.border_3)
+            .border_color(theme.border_subtle)
             .overflow_hidden()
             .text_12()
-            .text_color(theme.text_2)
+            .text_color(theme.muted_foreground)
             .when(!news.is_empty(), |el| {
                 el.child(
                     v_flex()
@@ -235,7 +235,7 @@ impl Detail {
                         .px(dp(10.))
                         .py(dp(7.))
                         .border_b_1()
-                        .border_color(theme.border_3)
+                        .border_color(theme.border_subtle)
                         .children(news),
                 )
             })
@@ -275,7 +275,7 @@ impl Detail {
             h_flex()
                 .flex_wrap()
                 .gap_x(dp(10.))
-                .text_color(theme.text_1)
+                .text_color(theme.foreground)
                 .children(words)
         })
     }
@@ -343,7 +343,7 @@ impl Detail {
                 .on_click(cx.listener(move |this, _, window, cx| {
                     this.brief_go_to_line(&path, hunk, line, window, cx)
                 }))
-                .child(div().text_color(theme.warn).child(match more {
+                .child(div().text_color(theme.warning_text).child(match more {
                     0 => format!("Turns off a test in {name}"),
                     more => format!("Turns off a test in {name}, and {more} more"),
                 }))
@@ -351,7 +351,7 @@ impl Detail {
                     div()
                         .truncate()
                         .font_family(theme.diff_font.clone())
-                        .text_color(theme.text_1)
+                        .text_color(theme.foreground)
                         .child(first.text.clone()),
                 )
                 .into_any_element(),
@@ -367,7 +367,7 @@ impl Detail {
         if !tests.deleted.is_empty() {
             return Some(fact(
                 div()
-                    .text_color(theme.warn)
+                    .text_color(theme.warning_text)
                     .child(format!("Deletes tests: {}", tests.deleted.join(", "))),
             ));
         }
@@ -411,30 +411,30 @@ impl Detail {
             });
             let (color, verdict) = match (page.read_back(thread), reply.is_some()) {
                 (ReadBack::Untouched, true) => (
-                    theme.warn,
+                    theme.warning_text,
                     Some(format!(
                         "But that part didn't change in version {}",
                         page.version
                     )),
                 ),
                 (ReadBack::Untouched, false) => (
-                    theme.warn,
+                    theme.warning_text,
                     Some(format!(
                         "That part didn't change in version {}",
                         page.version
                     )),
                 ),
                 (ReadBack::Changed, _) => (
-                    theme.pop,
+                    theme.primary_text,
                     Some(format!("That part changed in version {}", page.version)),
                 ),
-                (ReadBack::CannotTell, _) => (theme.text_3, None),
+                (ReadBack::CannotTell, _) => (theme.subtle_foreground, None),
             };
             v_flex()
                 .child(
                     div()
                         .truncate()
-                        .text_color(theme.text_3)
+                        .text_color(theme.subtle_foreground)
                         .child(format!("{}: {}", thread.actor.name, thread.body)),
                 )
                 .child(
@@ -443,7 +443,7 @@ impl Detail {
                         .gap_x(dp(6.))
                         .child(
                             div()
-                                .text_color(theme.text_1)
+                                .text_color(theme.foreground)
                                 .child(reply.unwrap_or_else(|| "No answer yet.".to_owned())),
                         )
                         .children(verdict.map(|verdict| div().text_color(color).child(verdict))),
@@ -484,7 +484,7 @@ impl Detail {
             div().child(
                 div()
                     .id("brief-checks-failed")
-                    .text_color(theme.warn)
+                    .text_color(theme.warning_text)
                     .hover(|el| el.underline())
                     .role(gpui::Role::Button)
                     .aria_label(SharedString::from("Show the pull request's checks"))
@@ -528,7 +528,7 @@ impl Detail {
             .gap(dp(6.))
             .role(gpui::Role::Button)
             .aria_label(SharedString::from(words.clone()))
-            .hover(|el| el.text_color(theme.text_1))
+            .hover(|el| el.text_color(theme.foreground))
             .on_click(cx.listener(|this, _, _, cx| this.toggle_brief_fold(BriefFold::Unshown, cx)))
             .child(words)
             .when(!others.is_empty(), |el| {
@@ -539,7 +539,7 @@ impl Detail {
                         Icon::ChevronDown
                     })
                     .size(dp(10.))
-                    .text_color(theme.text_3),
+                    .text_color(theme.subtle_foreground),
                 )
             });
         let listed = (open && !others.is_empty()).then(|| {
@@ -556,7 +556,7 @@ impl Detail {
                 .mt(dp(2.))
                 .rounded(dp(theme.shape.control))
                 .border_1()
-                .border_color(theme.border_3)
+                .border_color(theme.border_subtle)
                 .overflow_hidden()
                 .children(files.into_iter().take(MOST_UNSHOWN_LISTED).enumerate().map(
                     |(ix, file)| {
@@ -572,7 +572,9 @@ impl Detail {
                             None,
                             cx,
                         )
-                        .when(ix > 0, |el| el.border_t_1().border_color(theme.border_3))
+                        .when(ix > 0, |el| {
+                            el.border_t_1().border_color(theme.border_subtle)
+                        })
                     },
                 ))
                 .when(more > 0, |el| {
@@ -581,8 +583,8 @@ impl Detail {
                             .px(dp(10.))
                             .py(dp(3.))
                             .border_t_1()
-                            .border_color(theme.border_3)
-                            .text_color(theme.text_3)
+                            .border_color(theme.border_subtle)
+                            .text_color(theme.subtle_foreground)
                             .child(format!("and {more} more in Changes")),
                     )
                 })
@@ -610,7 +612,7 @@ impl Detail {
                     .gap_x(dp(5.))
                     .child(
                         div()
-                            .text_color(theme.warn)
+                            .text_color(theme.warning_text)
                             .child(match changes_data(path) {
                                 true => "Database change the brief doesn't mention:",
                                 false => "Not mentioned in the brief:",
@@ -620,10 +622,10 @@ impl Detail {
                         div()
                             .id(("brief-unnamed-file", ix))
                             .truncate()
-                            .text_color(theme.text_1)
+                            .text_color(theme.foreground)
                             .underline()
-                            .text_decoration_color(theme.text_3)
-                            .hover(|el| el.text_decoration_color(theme.text_1))
+                            .text_decoration_color(theme.subtle_foreground)
+                            .hover(|el| el.text_decoration_color(theme.foreground))
                             .role(gpui::Role::Button)
                             .aria_label(SharedString::from(format!("Show {path} in Changes")))
                             .on_click(cx.listener(move |this, _, window, cx| {
@@ -656,7 +658,7 @@ impl Detail {
             h_flex()
                 .id("brief-since-read")
                 .gap(dp(6.))
-                .text_color(theme.pop)
+                .text_color(theme.primary_text)
                 .when(!since.removed.is_empty(), |el| {
                     el.role(gpui::Role::Button)
                         .aria_label(SharedString::from(words.clone()))
@@ -673,7 +675,7 @@ impl Detail {
                             Icon::ChevronDown
                         })
                         .size(dp(10.))
-                        .text_color(theme.text_3),
+                        .text_color(theme.subtle_foreground),
                     )
                 });
         let listed = (open && !since.removed.is_empty()).then(|| {
@@ -690,7 +692,7 @@ impl Detail {
                                 .flex_1()
                                 .min_w_0()
                                 .truncate()
-                                .text_color(theme.text_2)
+                                .text_color(theme.muted_foreground)
                                 .child(gone.clone()),
                         )
                         .child(
@@ -746,7 +748,7 @@ impl Detail {
             .map(|label| {
                 let why = div()
                     .when(label.concern == Concern::Serious, |el| {
-                        el.text_color(theme.warn)
+                        el.text_color(theme.warning_text)
                     })
                     .child(label.why.clone());
                 measure(&label.name, why, theme)
@@ -804,7 +806,7 @@ fn answer_verb(answer: &str) -> &str {
 /// news, and what's moved on: each later commit, a click from it, and the files they change, a
 /// click from their diffs.
 fn standing_fact(page: &BriefPage, theme: &Theme, cx: &Context<Detail>) -> (bool, Div) {
-    let bad = |words: &str| fact(div().text_color(theme.text_1).child(words.to_owned()));
+    let bad = |words: &str| fact(div().text_color(theme.foreground).child(words.to_owned()));
     match &page.standing {
         Standing::Current if !page.uncommitted => (
             false,
@@ -830,7 +832,7 @@ fn standing_fact(page: &BriefPage, theme: &Theme, cx: &Context<Detail>) -> (bool
                     div()
                         .id(("brief-since-commit", ix))
                         .truncate()
-                        .text_color(theme.text_1)
+                        .text_color(theme.foreground)
                         .hover(|el| el.underline())
                         .role(gpui::Role::Button)
                         .aria_label(SharedString::from(format!("Show commit {}", commit.title)))

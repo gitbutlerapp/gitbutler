@@ -844,7 +844,11 @@ fn follows_links(modifiers: Modifiers) -> bool {
 /// `theme`'s terminal colours, with the app's own ground and ink for what they leave unset.
 fn colors_of(theme: &Theme) -> (Colors, RgbColor, RgbColor) {
     let terminal = theme.terminal.clone();
-    (terminal, rgb_color(theme.bg_1), rgb_color(theme.text_1))
+    (
+        terminal,
+        rgb_color(theme.background),
+        rgb_color(theme.foreground),
+    )
 }
 
 /// Whether a drag selects a block, with ⌥ on macOS and ⌃⌥ elsewhere, as in Ghostty.

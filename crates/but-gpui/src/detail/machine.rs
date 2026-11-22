@@ -276,16 +276,21 @@ impl Detail {
         ];
         let count = |keep: &dyn Fn(&Checkout) -> bool| checkouts.iter().filter(|c| keep(c)).count();
         let parts = [
-            (theme.safe, theme.safe, "active now", count(&|c| active(c))),
             (
-                theme.text_2,
-                theme.text_2,
+                theme.success_text,
+                theme.success_text,
+                "active now",
+                count(&|c| active(c)),
+            ),
+            (
+                theme.muted_foreground,
+                theme.muted_foreground,
                 "online",
                 count(&|c| c.online && !active(c)),
             ),
             (
-                theme.text_3,
-                theme.border_1,
+                theme.subtle_foreground,
+                theme.border_hover,
                 "offline",
                 count(&|c| !c.online),
             ),
@@ -300,8 +305,8 @@ impl Detail {
             glyph: Icon::Desktop,
             name: c.label(),
             tag: match (active(c), c.online) {
-                (true, _) => Some(("active".to_owned(), theme.safe)),
-                (false, false) => Some(("offline".to_owned(), theme.text_3)),
+                (true, _) => Some(("active".to_owned(), theme.success_text)),
+                (false, false) => Some(("offline".to_owned(), theme.subtle_foreground)),
                 (false, true) => None,
             },
             branches: (c.branches.iter().map(|b| b.name.as_str()))
@@ -318,8 +323,8 @@ impl Detail {
         recent.sort_by_key(|(.., commit)| std::cmp::Reverse(commit.created_at));
         let commit_rows = (recent.iter().take(SHOWN).enumerate()).map(|(ix, (c, b, commit))| {
             let (glyph, color) = match commit.pushed {
-                true => (Icon::CommitFill, theme.text_2),
-                false => (Icon::Commit, theme.blue_mark),
+                true => (Icon::CommitFill, theme.muted_foreground),
+                false => (Icon::Commit, theme.info_mark),
             };
             let pick = MeshPick::Commit(b.name.clone(), commit.id);
             let at = Selection::Mesh(project.clone(), c.id.as_str().into(), pick);

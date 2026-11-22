@@ -265,7 +265,7 @@ impl MenuBarEditor {
             .w(dp(SOURCE_WIDTH))
             .h_full()
             .border_r_1()
-            .border_color(theme.border_2)
+            .border_color(theme.border)
             .child(div().flex_none().px(dp(12.)).py(dp(10.)).child(field(
                 &self.search,
                 focused,
@@ -275,9 +275,9 @@ impl MenuBarEditor {
                 list_row("divider-source", false, theme)
                     .cursor_grab()
                     .text_13()
-                    .child(div().flex_1().h(ui::fixed(1.)).bg(theme.border_2))
+                    .child(div().flex_1().h(ui::fixed(1.)).bg(theme.border))
                     .child("Divider")
-                    .child(div().flex_1().h(ui::fixed(1.)).bg(theme.border_2))
+                    .child(div().flex_1().h(ui::fixed(1.)).bg(theme.border))
                     .on_drag(divider, drag_preview),
             )
             .child(scrolled(
@@ -325,7 +325,7 @@ impl MenuBarEditor {
                             .truncate()
                             .font_family(theme.mono_font.clone())
                             .text_12()
-                            .text_color(theme.text_2)
+                            .text_color(theme.muted_foreground)
                             .child(command.name.clone()),
                     ),
             )
@@ -334,7 +334,7 @@ impl MenuBarEditor {
                     .flex_shrink(1000.)
                     .truncate()
                     .text_12()
-                    .text_color(theme.text_2)
+                    .text_color(theme.muted_foreground)
                     .child(menu)
             }));
         h_flex().w_full().child(row).into_any_element()
@@ -360,7 +360,7 @@ impl MenuBarEditor {
             ix: menu.items.len(),
         };
         let empty = menu.items.is_empty();
-        let pop = theme.pop;
+        let pop = theme.primary_text;
         // What's dropped below the items goes last.
         let tail = div()
             .id("tail")
@@ -377,7 +377,7 @@ impl MenuBarEditor {
                     .items_center()
                     .justify_center()
                     .text_13()
-                    .text_color(theme.text_2)
+                    .text_color(theme.muted_foreground)
                     .child("Drag commands here")
             });
         v_flex()
@@ -400,8 +400,8 @@ impl MenuBarEditor {
                     .py(dp(5.))
                     .rounded(dp(theme.shape.card))
                     .border_1()
-                    .border_color(theme.border_2)
-                    .bg(theme.bg_2)
+                    .border_color(theme.border)
+                    .bg(theme.canvas)
                     .text_13()
                     .children(items)
                     .child(tail),
@@ -456,7 +456,7 @@ impl MenuBarEditor {
                     .flex_shrink(1000.)
                     .truncate()
                     .text_12()
-                    .text_color(theme.text_2)
+                    .text_color(theme.muted_foreground)
                     .child(note)
             }))
             .child(div().flex_grow(1.))
@@ -510,7 +510,7 @@ impl MenuBarEditor {
                         cx.listener(move |this, _, _, cx| this.remove_item(spot, &removed, cx)),
                     ),
             );
-        let pop = theme.pop;
+        let pop = theme.primary_text;
         let row = h_flex()
             .id(("item", spot.ix))
             .group("item")
@@ -530,12 +530,12 @@ impl MenuBarEditor {
         match item {
             BarItem::Divider => row
                 .h(dp(11.))
-                .child(div().flex_1().h(ui::fixed(1.)).bg(theme.border_2))
+                .child(div().flex_1().h(ui::fixed(1.)).bg(theme.border))
                 .child(remove),
             BarItem::Action { .. } | BarItem::System(_) => {
                 let text_color = match shown.left_out {
-                    Some(_) => theme.text_2,
-                    None => theme.text_1,
+                    Some(_) => theme.muted_foreground,
+                    None => theme.foreground,
                 };
                 row.h(dp(ITEM_HEIGHT))
                     .hover(|el| el.bg(theme.hover))
@@ -552,14 +552,14 @@ impl MenuBarEditor {
                     .children(shown.keys.as_ref().map(|keys| {
                         div()
                             .flex_shrink(1000.)
-                            .text_color(theme.text_2)
+                            .text_color(theme.muted_foreground)
                             .child(ui::keys_text(keys))
                     }))
                     .when(matches!(item, BarItem::System(_)), |el| {
                         el.child(
                             icon_at(Icon::ChevronRight, 12.)
                                 .flex_none()
-                                .text_color(theme.text_2),
+                                .text_color(theme.muted_foreground),
                         )
                     })
                     .child(remove)
@@ -575,7 +575,7 @@ impl Render for MenuBarEditor {
         let menus: Vec<AnyElement> = (self.menus.iter().enumerate())
             .map(|(ix, menu)| self.render_menu(ix, menu, &theme, cx).into_any_element())
             .collect();
-        let (pop, last) = (theme.pop, self.menus.len());
+        let (pop, last) = (theme.primary_text, self.menus.len());
         let add = button("add-menu", "Add menu")
             .icon(Icon::Plus)
             .style(ButtonStyle::Outline)
@@ -741,12 +741,12 @@ impl Render for DragPreview {
             .py(dp(4.))
             .rounded(dp(theme.shape.control))
             .border_1()
-            .border_color(theme.border_2)
-            .bg(theme.bg_1)
+            .border_color(theme.border)
+            .bg(theme.background)
             .shadow_md()
             .font_family(theme.ui_font.clone())
             .text_13()
-            .text_color(theme.text_1)
+            .text_color(theme.foreground)
             .child(self.title.clone())
     }
 }

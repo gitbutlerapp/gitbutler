@@ -58,7 +58,7 @@ pub fn illustration(which: Illustration, theme: &Theme, cx: &App) -> Img {
     let drawn = DRAWN.with_borrow_mut(|drawn| {
         let draw = || draw(&cx.svg_renderer(), which, theme);
         drawn
-            .entry((which, rgb(theme.bg_1)))
+            .entry((which, rgb(theme.background)))
             .or_insert_with(draw)
             .clone()
     });
@@ -80,11 +80,11 @@ pub fn illustration(which: Illustration, theme: &Theme, cx: &App) -> Img {
 fn draw(renderer: &SvgRenderer, which: Illustration, theme: &Theme) -> Arc<RenderImage> {
     let (svg, ..) = which.source();
     let themed = [
-        ("currentColor", theme.border_1),
-        ("var(--but-background)", theme.bg_1),
-        ("var(--but-muted)", theme.bg_2),
-        ("var(--but-border)", theme.border_2),
-        ("var(--but-muted-foreground)", theme.text_2),
+        ("currentColor", theme.border_hover),
+        ("var(--but-background)", theme.background),
+        ("var(--but-muted)", theme.canvas),
+        ("var(--but-border)", theme.border),
+        ("var(--but-muted-foreground)", theme.muted_foreground),
     ]
     .into_iter()
     .fold(svg.to_owned(), |svg, (role, color)| {

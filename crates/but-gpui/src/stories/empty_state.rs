@@ -70,6 +70,6 @@ fn pane(theme: &Theme, state: AnyElement) -> impl IntoElement {
         .h(dp(340.))
         .rounded(dp(6.))
         .border_1()
-        .border_color(theme.border_3)
+        .border_color(theme.border_subtle)
         .child(state)
 }

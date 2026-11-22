@@ -45,8 +45,13 @@ fn agent_setup(id: &'static str, store: &Entity<Store>, theme: &Theme) -> Div {
         .bg(theme.secondary)
         .font_family(theme.mono_font.clone())
         .text_12()
-        .child(div().text_color(theme.text_3).child("$"))
-        .child(div().flex_1().text_color(theme.text_1).child(AGENT_SETUP))
+        .child(div().text_color(theme.subtle_foreground).child("$"))
+        .child(
+            div()
+                .flex_1()
+                .text_color(theme.foreground)
+                .child(AGENT_SETUP),
+        )
         .child(
             icon_button(id, Icon::Copy)
                 .small()
@@ -100,8 +105,8 @@ pub fn welcome_card(store: &Entity<Store>, theme: &Theme, cx: &App) -> Option<Di
             .gap(dp(16.))
             .rounded(dp(theme.shape.popup))
             .border_1()
-            .border_color(theme.border_3)
-            .bg(theme.bg_1)
+            .border_color(theme.border_subtle)
+            .bg(theme.background)
             .child(illustration(Illustration::Terminal, theme, cx))
             .child(
                 v_flex()
@@ -112,10 +117,16 @@ pub fn welcome_card(store: &Entity<Store>, theme: &Theme, cx: &App) -> Option<Di
                         div()
                             .text_13()
                             .semibold()
-                            .text_color(theme.text_1)
+                            .text_color(theme.foreground)
                             .child(title),
                     )
-                    .child(div().text_12().body().text_color(theme.text_2).child(body))
+                    .child(
+                        div()
+                            .text_12()
+                            .body()
+                            .text_color(theme.muted_foreground)
+                            .child(body),
+                    )
                     .when(installed, |el| {
                         el.child(agent_setup("welcome-copy-setup", store, theme).mt(dp(6.)))
                     }),

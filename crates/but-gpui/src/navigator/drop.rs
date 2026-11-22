@@ -289,7 +289,7 @@ impl Navigator {
     /// Where a commit being dragged lands in a new branch of its own: a dashed box, lit while a
     /// drag is over it. Padded, not margined: a margin collapses through the card's ground.
     pub(super) fn new_branch_zone(&self, ix: usize, theme: &Theme) -> AnyElement {
-        let highlight = theme.pop;
+        let highlight = theme.primary_text;
         let wash = theme.wash(Hue::Pop);
         let zone = h_flex()
             .id(("new-branch-drop", ix))
@@ -300,10 +300,10 @@ impl Navigator {
             .rounded(dp(theme.shape.control))
             .border_1()
             .border_dashed()
-            .border_color(theme.border_2)
+            .border_color(theme.border)
             .text_12()
-            .text_color(theme.text_2)
-            .child(small_icon(Icon::Branch).text_color(theme.text_2))
+            .text_color(theme.muted_foreground)
+            .child(small_icon(Icon::Branch).text_color(theme.muted_foreground))
             .child("New independent branch")
             .drag_over::<Dragged>(move |style, _, _, _| {
                 style.bg(wash).border_color(highlight).text_color(highlight)

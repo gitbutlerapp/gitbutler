@@ -66,9 +66,9 @@ pub fn file_icon(path: &str, cx: &App) -> Img {
 /// into the mark's SVG before it's drawn, so it follows the accent and the appearance.
 pub fn folder_icon(theme: &Theme, cx: &App) -> Div {
     // `color-mix(in srgb, var(--but-primary), var(--but-primary-foreground) 60%)` and 20%, as
-    // `FolderIcon.module.css` writes them. `pop_bg` is the accent's primary, which the accent
+    // `FolderIcon.module.css` writes them. `primary` is the accent's, which the accent
     // setting replaces, so the folder follows it.
-    let stops = [0.6, 0.2].map(|part| hex(toward(theme.pop_bg, theme.on_pop, part)));
+    let stops = [0.6, 0.2].map(|part| hex(toward(theme.primary, theme.primary_foreground, part)));
     let drawn = FOLDERS.with_borrow_mut(|drawn| {
         let draw = || draw_folder(&cx.svg_renderer(), &stops);
         drawn.entry(stops.clone()).or_insert_with(draw).clone()

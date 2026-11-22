@@ -176,12 +176,12 @@ impl Group {
     /// for what it took back, and quiet for the rest.
     fn tint(self, theme: &Theme) -> gpui::Hsla {
         match self {
-            Group::Commits | Group::Updates => theme.safe,
-            Group::Rewrites => theme.blue,
-            Group::Discards => theme.danger,
-            Group::TakeBacks => theme.warn,
-            Group::Branches | Group::Snapshots => theme.text_2,
-            Group::Other => theme.text_3,
+            Group::Commits | Group::Updates => theme.success_text,
+            Group::Rewrites => theme.info_text,
+            Group::Discards => theme.danger_text,
+            Group::TakeBacks => theme.warning_text,
+            Group::Branches | Group::Snapshots => theme.muted_foreground,
+            Group::Other => theme.subtle_foreground,
         }
     }
 }
@@ -739,21 +739,21 @@ impl Detail {
         let (glyph, color, commit, text, note): (_, _, Option<CommitId>, _, _) = match change {
             Change::Added { commit, branch } => (
                 Icon::Plus,
-                theme.safe,
+                theme.success_text,
                 Some(commit.id),
                 title(commit),
                 format!("on {branch}"),
             ),
             Change::Removed { commit, .. } if integrated => (
                 Icon::Tick,
-                theme.safe,
+                theme.success_text,
                 None,
                 title(commit),
                 "now in the target".to_owned(),
             ),
             Change::Removed { commit, branch } => (
                 Icon::Cross,
-                theme.text_3,
+                theme.subtle_foreground,
                 None,
                 title(commit),
                 format!("from {branch}"),
@@ -772,39 +772,45 @@ impl Detail {
                     (true, Some(reworded)) => (Icon::Absorb, format!("amended, {reworded}")),
                     (false, reworded) => (Icon::Edit, reworded.unwrap_or_default()),
                 };
-                (glyph, theme.text_2, Some(after.id), title(after), note)
+                (
+                    glyph,
+                    theme.muted_foreground,
+                    Some(after.id),
+                    title(after),
+                    note,
+                )
             }
             Change::Moved { commit, from, to } => (
                 Icon::Commit,
-                theme.text_2,
+                theme.muted_foreground,
                 Some(commit.id),
                 title(commit),
                 format!("from {from} to {to}"),
             ),
             Change::BranchAdded(name) => (
                 Icon::Branch,
-                theme.text_2,
+                theme.muted_foreground,
                 None,
                 name.clone(),
                 "new branch".to_owned(),
             ),
             Change::BranchRemoved(name) => (
                 Icon::Branch,
-                theme.text_3,
+                theme.subtle_foreground,
                 None,
                 name.clone(),
                 "removed".to_owned(),
             ),
             Change::Renamed { from, to } => (
                 Icon::Branch,
-                theme.text_2,
+                theme.muted_foreground,
                 None,
                 to.clone(),
                 format!("was {from}"),
             ),
             Change::TargetMoved { target, commits } => (
                 Icon::ArrowLineDown,
-                theme.text_2,
+                theme.muted_foreground,
                 None,
                 plural(*commits, "commit"),
                 format!("new on {target}"),
@@ -822,7 +828,7 @@ impl Detail {
             .child(div().min_w_0().truncate().child(text))
             .child(faint(note, theme).flex_none().max_w(dp(320.)).truncate())
             .when_some(here, |el, id| {
-                el.hover(|el| el.text_color(theme.blue))
+                el.hover(|el| el.text_color(theme.info_text))
                     .tooltip(Tooltip::text("Show this commit"))
                     .on_click(move |_, _, cx| {
                         let selection = Selection::Commit(project.clone(), id);
@@ -940,7 +946,7 @@ impl Detail {
                             let selected = history.selected == Some(operation.id);
                             let on = selected && has_keys(&this.side_focus, window, cx);
                             let quiet = |color: gpui::Hsla| match on {
-                                true => theme.muted_on_solid,
+                                true => theme.inverse_muted_foreground,
                                 false => color,
                             };
                             let id = operation.id;
@@ -965,7 +971,9 @@ impl Detail {
                                         .flex_1()
                                         .min_w_0()
                                         .truncate()
-                                        .when(!said, |el| el.text_color(quiet(theme.text_3)))
+                                        .when(!said, |el| {
+                                            el.text_color(quiet(theme.subtle_foreground))
+                                        })
                                         .child(text),
                                 )
                                 .when_some(operation.agent.clone(), |el, agent| {
@@ -976,13 +984,16 @@ impl Detail {
                                             .tooltip(Tooltip::text(format!(
                                                 "Done by an AI agent: {agent}"
                                             )))
-                                            .child(icon(Icon::Ai).text_color(quiet(theme.text_3))),
+                                            .child(
+                                                icon(Icon::Ai)
+                                                    .text_color(quiet(theme.subtle_foreground)),
+                                            ),
                                     )
                                 })
                                 .child(
                                     faint(local_clock(operation.time), theme)
                                         .flex_none()
-                                        .text_color(quiet(theme.text_3)),
+                                        .text_color(quiet(theme.subtle_foreground)),
                                 )
                                 .on_click(
                                     cx.listener(move |this, _, _, cx| {
@@ -999,7 +1010,7 @@ impl Detail {
                         Row::More => {
                             let project = project.clone();
                             list_row("history-more", false, theme)
-                                .text_color(theme.text_2)
+                                .text_color(theme.muted_foreground)
                                 .child(if history.loading {
                                     "Loading…"
                                 } else {

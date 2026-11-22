@@ -1602,7 +1602,11 @@ impl Render for DragPreview {
             (None, None) => held.map(SharedString::from),
         };
         let hint = tile_hint(store).map(SharedString::from).or(hint);
-        let glyph = |icon| small_icon(icon).text_color(theme.pop).into_any_element();
+        let glyph = |icon| {
+            small_icon(icon)
+                .text_color(theme.primary_text)
+                .into_any_element()
+        };
         let named = |name: SharedString| pill_label(name).into_any_element();
         let (mark, label) = match (moved, &self.chip, &self.payload.what) {
             (Some((name, _)), ..) => (glyph(Icon::FolderCopy), named(name.to_string().into())),
@@ -1619,7 +1623,7 @@ impl Render for DragPreview {
             (_, Chip::Row(label), Moving::Commits(_) | Moving::Copies(_)) => (
                 glyph(Icon::Commit),
                 pill_label(commit_title(label))
-                    .when(label.is_empty(), |el| el.text_color(theme.text_2))
+                    .when(label.is_empty(), |el| el.text_color(theme.muted_foreground))
                     .into_any_element(),
             ),
             (_, Chip::Row(label), Moving::Branch(_)) => match stacks_with {
@@ -1726,7 +1730,7 @@ pub struct PagePreview {
 impl Render for PagePreview {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx);
-        let mark = small_icon(self.kind).text_color(theme.pop);
+        let mark = small_icon(self.kind).text_color(theme.primary_text);
         let hint = tile_hint(self.store.read(cx)).map(SharedString::from);
         let label = pill_label(self.label.clone());
         drag_pill(self.offset, mark, label, hint, 1, theme)
@@ -1824,7 +1828,7 @@ impl Render for TerminalPreview {
             return div();
         }
         let lands = moving.is_some_and(|moving| moving.lands(store));
-        let mark = small_icon(Icon::TextCode).text_color(theme.pop);
+        let mark = small_icon(Icon::TextCode).text_color(theme.primary_text);
         let label = pill_label(SharedString::from(terminal_title(store, self.id)));
         let hint = tile_hint(store).or(lands.then_some("Move"));
         drag_pill(
@@ -1865,14 +1869,19 @@ pub fn drag_pill(
         .px(dp(10.))
         .h(dp(28.))
         .max_w(dp(320.))
-        .border_color(theme.pop)
+        .border_color(theme.primary_text)
         .font_family(theme.ui_font.clone())
         .text_12()
-        .text_color(theme.text_1)
+        .text_color(theme.foreground)
         .child(mark)
         .child(label)
         .when_some(hint, |el, hint| {
-            el.child(div().flex_none().text_color(theme.text_2).child(hint))
+            el.child(
+                div()
+                    .flex_none()
+                    .text_color(theme.muted_foreground)
+                    .child(hint),
+            )
         });
     div()
         .pl(offset.x + theme.scaled(14.))
