@@ -2224,20 +2224,27 @@ impl Navigator {
         let status = status
             .and_then(|status| status_mark(status, !store.hidden(), style))
             .map(IntoElement::into_any_element);
-        if tiles.len() < 2 {
-            return RowSplit { map: None, status };
-        }
         let row = store.row_key(item);
+        // Its own split, or the one another row made that its page is pinned in, as but-ui-react
+        // marks every row a split shows.
+        let (owner, tiles) = match tiles.len() >= 2 {
+            true => (row.clone(), tiles),
+            false => match store.split_holding(item) {
+                Some(held) => held,
+                None => return RowSplit { map: None, status },
+            },
+        };
+        let here = |tile: &Tile| *tile.shows(&owner) == row;
         let cells = tiles.iter().map(|(tile, area)| SplitCell {
             left: area.left,
             top: area.top,
             width: area.width,
             height: area.height,
-            here: matches!(tile, Tile::Home),
+            here: here(tile),
         });
         let named: Vec<SplitTile> = (tiles.iter())
             .map(|(tile, _)| {
-                let shows = tile.shows(&row);
+                let shows = tile.shows(&owner);
                 let (icon, name) = crate::app::tile_label(store, shows);
                 let terminal = matches!(store.selection_of(shows), Some(Selection::Terminal(..)));
                 // As the sidebar's terminal row wears it.
@@ -2256,17 +2263,18 @@ impl Navigator {
                     icon,
                     name,
                     status,
-                    here: matches!(tile, Tile::Home),
+                    here: here(tile),
                 }
             })
             .collect();
-        let (_, home) = crate::app::tile_label(store, &row);
+        // Named after the row it was made on.
+        let (_, home) = crate::app::tile_label(store, &owner);
         let names = (named.iter())
             .map(|tile| tile.name.to_string())
             .collect::<Vec<_>>()
             .join(", ");
         let rows: Vec<crate::state::RowKey> = (tiles.iter())
-            .map(|(tile, _)| tile.shows(&row).clone())
+            .map(|(tile, _)| tile.shows(&owner).clone())
             .collect();
         let map = div()
             .id(SharedString::from(format!("tiles-{item:?}")))
