@@ -34,6 +34,10 @@ pub struct Theme {
     pub colors: ColorTokens,
     /// The colours but-ui has no token for, each worked out in one place.
     pub derived: Derived,
+    /// Every token in the other shade, for what a row selected on the solid fill (`inverse`)
+    /// draws, as but-ui-react's rows flip `color-scheme` there: its counts, statuses and
+    /// commits' glyphs stay legible and keep their meaning.
+    pub on_solid: ColorTokens,
     pub ui_font: SharedString,
     pub mono_font: SharedString,
     pub diff_font: SharedString,
@@ -513,27 +517,29 @@ impl Theme {
         let Some(dark) = self.own_colours else {
             return self;
         };
-        let pick = |[light, dark_value]: [u32; 2]| if dark { dark_value } else { light };
-        let family: Vec<(&str, u32)> = match accent {
-            Accent::Custom => custom_accent(custom, dark),
-            named => (tokens::ACCENTS.iter())
-                .find(|(name, _)| *name == named.name())
-                .map(|(_, family)| (family.iter()).map(|(token, modes)| (*token, pick(*modes))))
-                .into_iter()
-                .flatten()
-                .collect(),
-        };
-        // The soft fills are see-through, so these carry alpha.
-        for (token, value) in family {
-            if let Some(field) = self.colors.named(token) {
-                *field = rgba(value).into();
+        for (colors, dark) in [(&mut self.colors, dark), (&mut self.on_solid, !dark)] {
+            let pick = |[light, dark_value]: [u32; 2]| if dark { dark_value } else { light };
+            let family: Vec<(&str, u32)> = match accent {
+                Accent::Custom => custom_accent(custom, dark),
+                named => (tokens::ACCENTS.iter())
+                    .find(|(name, _)| *name == named.name())
+                    .map(|(_, family)| (family.iter()).map(|(token, modes)| (*token, pick(*modes))))
+                    .into_iter()
+                    .flatten()
+                    .collect(),
+            };
+            // The soft fills are see-through, so these carry alpha.
+            for (token, value) in family {
+                if let Some(field) = colors.named(token) {
+                    *field = rgba(value).into();
+                }
             }
+            // The washes are the primary at but-ui's strengths, whichever it is.
+            let [wash, strong] = WASHES;
+            let primary = colors.primary;
+            (colors.primary_wash, colors.primary_wash_strong) =
+                (primary.opacity(wash), primary.opacity(strong));
         }
-        // The washes are the primary at but-ui's strengths, whichever it is.
-        let [wash, strong] = WASHES;
-        let primary = self.colors.primary;
-        (self.colors.primary_wash, self.colors.primary_wash_strong) =
-            (primary.opacity(wash), primary.opacity(strong));
         self.derived.primary_checked_hover = primary_checked_hover(&self.colors);
         self
     }
@@ -629,12 +635,15 @@ impl Theme {
             .find(|(name, _)| *name == ground.name())
             .map_or(&[][..], |(_, colors)| *colors);
         let shade = |[light, dark_value]: [u32; 2]| if dark { dark_value } else { light };
-        let colors = ColorTokens::from_tokens(|name, gray| {
-            let value = (on_ground.iter())
-                .find(|(token, _)| *token == name)
-                .map_or(gray, |(_, colors)| *colors);
-            rgba(shade(value)).into()
-        });
+        let tokens_in = |dark: bool| {
+            ColorTokens::from_tokens(|name, gray| {
+                let [light, dark_value] = (on_ground.iter())
+                    .find(|(token, _)| *token == name)
+                    .map_or(gray, |(_, colors)| *colors);
+                rgba(if dark { dark_value } else { light }).into()
+            })
+        };
+        let (colors, on_solid) = (tokens_in(dark), tokens_in(!dark));
         let pick = |light: u32, dark_value: u32| color(shade([light, dark_value]));
         let (code_text, code_line) = code.metrics();
         let [done_light, done_dark] = tokens::DONE_TEXT;
@@ -668,6 +677,7 @@ impl Theme {
             scale: 1.,
             colors,
             derived,
+            on_solid,
             // Embedded by `ui::fonts`.
             ui_font: "Inter".into(),
             mono_font: "GeistMono Nerd Font Mono".into(),
@@ -715,261 +725,18 @@ impl Theme {
         self
     }
 
-    /// Every token worked out from a terminal palette: its background and foreground, and its
-    /// ANSI colours for the hues.
     fn painted(self, palette: Colors) -> Self {
         let (Some(bg), Some(fg)) = (palette.background, palette.foreground) else {
             return self;
         };
         let (bg, fg) = (hex(bg), hex(fg));
-        let dark = contrast(bg, 0xffffff) > contrast(bg, 0x000000);
-        let given = |index: u8| {
-            (palette.palette.iter())
-                .find(|(at, _)| *at == index)
-                .map(|(_, color)| hex(*color))
-        };
-        let ansi = |index: u8| {
-            given(index)
-                .or_else(|| GHOSTTY_ANSI.get(usize::from(index)).copied())
-                .unwrap_or(fg)
-        };
-        let canvas = mix(bg, 0x000000, if dark { 0.25 } else { 0.05 });
-        // As but-ui's opaque grays: muted, halfway on to muted-nested under the pointer.
-        let gray = |share: f32| mix(bg, fg, share);
-        let muted = gray(if dark { 0.09 } else { 0.06 });
-        let muted_hover = gray(if dark { 0.105 } else { 0.077 });
-        let muted_nested = mix(muted, muted_hover, 2.);
-        let grounds = [bg, canvas, muted, muted_hover];
-        let ink = if dark { 0xffffff } else { 0x000000 };
-        let soft = |hue: u32| mix(bg, hue, if dark { 0.18 } else { 0.12 });
-        let soft_hover = |hue: u32| mix(bg, hue, if dark { 0.22 } else { 0.17 });
-        let text_on = |from: u32, ratio: f32, also: &[u32]| {
-            let grounds: Vec<u32> = grounds.iter().chain(also).copied().collect();
-            (reaching(from, fg, &grounds, ratio))
-                .or_else(|| reaching(fg, ink, &grounds, ratio))
-                .unwrap_or(ink)
-        };
-        let text = |from: u32, ratio: f32| text_on(from, ratio, &[]);
-        let hue_text = |hue: u32| text_on(hue, 4.5, &[soft(hue), soft_hover(hue)]);
-        // A snackbar's ground is the foreground.
-        let snackbar_ink = match contrast(fg, 0xffffff) > contrast(fg, 0x000000) {
-            true => 0xffffff,
-            false => 0x000000,
-        };
-        // The first of cyan, blue, magenta and their bright ones that isn't gray, so the accent
-        // stays a colour. Not the cursor, which is often yellow or red, as warn and danger are.
-        let pop = [6, 4, 5, 14, 12, 13]
-            .map(given)
-            .into_iter()
-            .flatten()
-            .find(|&hue| chroma(hue) >= 40.)
-            .unwrap_or_else(|| ansi(6));
-        // At its own hue, as stepping toward a gray foreground would leave a pale one gray.
-        let also = [soft(pop), soft_hover(pop)];
-        let pop_text = toned(pop, ink, &[&grounds[..], &also].concat(), 4.5).unwrap_or(ink);
-        let ink_on = |fill: u32| {
-            [0xffffff, bg, 0x000000]
-                .into_iter()
-                .find(|&ink| contrast(ink, fill) >= 4.5)
-                .unwrap_or(0x000000)
-        };
-        let pressed = |fill: u32| mix(fill, 0x000000, 0.08);
-        let washed = |hue: u32, strength: usize| {
-            let share = WASHES.get(strength).copied().unwrap_or(0.);
-            color(hue).opacity(share)
-        };
-        let subtle = text(mix(bg, fg, 0.45), 3.);
-        let [red, green, yellow, blue, magenta] = [1, 2, 3, 4, 5].map(ansi);
-        let [success, info, danger, done] = [green, blue, red, magenta].map(hue_text);
-        let warning = hue_text(yellow);
-        let [added, removed] = [green, red].map(|hue| text(hue, 3.));
-        let syntax = [
-            subtle,
-            text(green, 4.5),
-            text(ansi(6), 4.5),
-            text(magenta, 4.5),
-            text(blue, 4.5),
-            text(yellow, 4.5),
-            text(red, 4.5),
-        ]
-        .map(color);
-        let category = |hue: u32| color(mix(bg, hue, 0.55));
-        let veil = |share: f32| color(fg).opacity(share);
-        let border = mix(bg, fg, 0.3);
-        // A scheme's text already reads on the soft fills too, and its soft grounds are opaque
-        // already, so they serve as its surfaces as well; its marks only need 3:1.
-        let colors = ColorTokens {
-            background: color(bg),
-            canvas: color(canvas),
-            card: color(bg),
-            card_foreground: color(fg),
-            popover: color(if dark { muted } else { bg }),
-            popover_foreground: color(fg),
-            popover_border: color(ink).opacity(if dark { 0.16 } else { 0.12 }),
-            foreground: color(fg),
-            muted_foreground: color(text(mix(bg, fg, 0.65), 4.5)),
-            subtle_foreground: color(subtle),
-            secondary: veil(0.08),
-            secondary_foreground: color(fg),
-            muted: color(muted),
-            muted_nested: color(muted_nested),
-            disabled: color(muted),
-            border_hover: color(mix(bg, fg, 0.45)),
-            border: color(border),
-            border_subtle: color(mix(bg, fg, 0.18)),
-            hover: veil(0.05),
-            selected: color(fg),
-            selected_foreground: color(bg),
-            selected_inactive: veil(0.1),
-            ring: veil(0.7),
-            input: veil(0.26),
-            scrollbar_thumb: veil(0.15),
-            scrollbar_thumb_hover: veil(0.25),
-            overlay: match dark {
-                true => color(0x000000).opacity(0.5),
-                false => color(gray(0.15)).opacity(0.45),
-            },
-            shadow: color(0x000000).opacity(if dark { 0.5 } else { 0.1 }),
-            inverse: color(fg),
-            inverse_hover: color(mix(bg, fg, 0.89)),
-            inverse_foreground: color(bg),
-            inverse_muted_foreground: color(bg).opacity(0.6),
-            inverse_subtle_foreground: color(bg).opacity(0.5),
-            inverse_ghost_hover: color(bg).opacity(0.05),
-            inverse_soft: color(bg).opacity(0.15),
-            inverse_soft_hover: color(bg).opacity(0.22),
-            neutral_soft: veil(if dark { 0.14 } else { 0.1 }),
-            primary: color(pop),
-            primary_hover: color(pressed(pop)),
-            primary_foreground: color(ink_on(pop)),
-            primary_text: color(pop_text),
-            primary_mark: color(toned(pop, ink, &grounds, 3.).unwrap_or(pop_text)),
-            primary_soft: color(soft(pop)),
-            primary_soft_hover: color(soft_hover(pop)),
-            primary_soft_foreground: color(pop_text),
-            primary_surface: color(soft(pop)),
-            primary_surface_hover: color(soft_hover(pop)),
-            primary_wash: washed(pop, 0),
-            primary_wash_strong: washed(pop, 1),
-            info: color(blue),
-            info_hover: color(pressed(blue)),
-            info_foreground: color(ink_on(blue)),
-            info_text: color(info),
-            info_mark: color(text(blue, 3.)),
-            info_soft: color(soft(blue)),
-            info_soft_hover: color(soft_hover(blue)),
-            info_soft_foreground: color(info),
-            info_surface: color(soft(blue)),
-            info_surface_hover: color(soft_hover(blue)),
-            info_outline_hover: washed(blue, 0),
-            info_wash: washed(blue, 0),
-            info_wash_strong: washed(blue, 1),
-            success: color(green),
-            success_hover: color(pressed(green)),
-            success_foreground: color(ink_on(green)),
-            success_text: color(success),
-            success_mark: color(text(green, 3.)),
-            success_soft: color(soft(green)),
-            success_soft_hover: color(soft_hover(green)),
-            success_soft_foreground: color(success),
-            success_surface: color(soft(green)),
-            success_surface_hover: color(soft_hover(green)),
-            success_outline_hover: washed(green, 0),
-            success_wash: washed(green, 0),
-            success_wash_strong: washed(green, 1),
-            warning: color(yellow),
-            warning_hover: color(pressed(yellow)),
-            warning_foreground: color(ink_on(yellow)),
-            warning_text: color(warning),
-            warning_mark: color(text(yellow, 3.)),
-            warning_soft: color(soft(yellow)),
-            warning_soft_hover: color(soft_hover(yellow)),
-            warning_soft_foreground: color(warning),
-            warning_surface: color(soft(yellow)),
-            warning_surface_hover: color(soft_hover(yellow)),
-            warning_outline_hover: washed(yellow, 0),
-            warning_wash: washed(yellow, 0),
-            warning_wash_strong: washed(yellow, 1),
-            danger: color(red),
-            danger_hover: color(pressed(red)),
-            danger_foreground: color(ink_on(red)),
-            danger_text: color(danger),
-            danger_mark: color(text(red, 3.)),
-            danger_soft: color(soft(red)),
-            danger_soft_hover: color(soft_hover(red)),
-            danger_soft_foreground: color(danger),
-            danger_surface: color(soft(red)),
-            danger_surface_hover: color(soft_hover(red)),
-            danger_wash: washed(red, 0),
-            danger_wash_strong: washed(red, 1),
-            done: color(magenta),
-            done_hover: color(pressed(magenta)),
-            done_foreground: color(ink_on(magenta)),
-            done_text: color(done),
-            done_mark: color(text(magenta, 3.)),
-            done_soft: color(soft(magenta)),
-            done_soft_hover: color(soft_hover(magenta)),
-            done_soft_foreground: color(done),
-            done_surface: color(soft(magenta)),
-            done_surface_hover: color(soft_hover(magenta)),
-            done_wash: washed(magenta, 0),
-            done_wash_strong: washed(magenta, 1),
-            snackbar: color(fg),
-            snackbar_border: gpui::transparent_black(),
-            snackbar_foreground: color(bg),
-            snackbar_muted_foreground: color(bg).opacity(0.6),
-            snackbar_danger: color(reaching(red, snackbar_ink, &[fg], 3.).unwrap_or(snackbar_ink)),
-            snackbar_success: color(
-                reaching(green, snackbar_ink, &[fg], 3.).unwrap_or(snackbar_ink),
-            ),
-            snackbar_divider: color(mix(bg, fg, 0.18)).opacity(0.3),
-            snackbar_hover: color(bg).opacity(0.05),
-            change_status_addition: color(success),
-            change_status_modification: color(info),
-            change_status_deletion: color(danger),
-            change_status_rename: color(done),
-            commit_local: color(subtle),
-            commit_remote: color(pop_text),
-            commit_upstream: color(warning),
-            commit_integrated: color(done),
-            diff_added: color(added),
-            diff_removed: color(removed),
-            diff_added_muted: color(green).opacity(0.12),
-            diff_added_emphasis: color(green).opacity(0.28),
-            diff_removed_muted: color(red).opacity(0.12),
-            diff_removed_emphasis: color(red).opacity(0.28),
-            syntax_comment: syntax[0],
-            syntax_string: syntax[1],
-            syntax_constant: syntax[2],
-            syntax_keyword: syntax[3],
-            syntax_function: syntax[4],
-            syntax_type: syntax[5],
-            syntax_tag: syntax[6],
-            category_1: category(ansi(6)),
-            category_2: category(magenta),
-            category_3: category(green),
-            category_4: category(yellow),
-            category_5: category(red),
-            category_6: category(blue),
-        };
-        let derived = Derived::new(
-            &colors,
-            dark,
-            Picked {
-                warning_edge: color(mix(bg, yellow, 0.5)),
-                info_edge: color(mix(bg, blue, 0.5)),
-                inverse_done_mark: color(readable_on(done, bg, fg)),
-                diff_added: color(added),
-                diff_removed: color(removed),
-                diff_added_line: color(soft(green)),
-                diff_removed_line: color(soft(red)),
-                diff_line_number: color(subtle),
-                syntax,
-            },
-        );
+        let (colors, derived) = palette_colors(bg, fg, &palette);
+        // The solid fill is the foreground, so on it the palette reads with the two swapped.
+        let (on_solid, _) = palette_colors(fg, bg, &palette);
         Theme {
             colors,
             derived,
+            on_solid,
             terminal: palette,
             own_colours: None,
             ..self
@@ -1135,6 +902,255 @@ impl Theme {
             Highlight::FoundHere => self.warning,
         }
     }
+}
+
+/// Every token worked out from a terminal palette, drawn on `bg` in `fg`, with its ANSI colours
+/// for the hues.
+fn palette_colors(bg: u32, fg: u32, palette: &Colors) -> (ColorTokens, Derived) {
+    let dark = contrast(bg, 0xffffff) > contrast(bg, 0x000000);
+    let given = |index: u8| {
+        (palette.palette.iter())
+            .find(|(at, _)| *at == index)
+            .map(|(_, color)| hex(*color))
+    };
+    let ansi = |index: u8| {
+        given(index)
+            .or_else(|| GHOSTTY_ANSI.get(usize::from(index)).copied())
+            .unwrap_or(fg)
+    };
+    let canvas = mix(bg, 0x000000, if dark { 0.25 } else { 0.05 });
+    // As but-ui's opaque grays: muted, halfway on to muted-nested under the pointer.
+    let gray = |share: f32| mix(bg, fg, share);
+    let muted = gray(if dark { 0.09 } else { 0.06 });
+    let muted_hover = gray(if dark { 0.105 } else { 0.077 });
+    let muted_nested = mix(muted, muted_hover, 2.);
+    let grounds = [bg, canvas, muted, muted_hover];
+    let ink = if dark { 0xffffff } else { 0x000000 };
+    let soft = |hue: u32| mix(bg, hue, if dark { 0.18 } else { 0.12 });
+    let soft_hover = |hue: u32| mix(bg, hue, if dark { 0.22 } else { 0.17 });
+    let text_on = |from: u32, ratio: f32, also: &[u32]| {
+        let grounds: Vec<u32> = grounds.iter().chain(also).copied().collect();
+        (reaching(from, fg, &grounds, ratio))
+            .or_else(|| reaching(fg, ink, &grounds, ratio))
+            .unwrap_or(ink)
+    };
+    let text = |from: u32, ratio: f32| text_on(from, ratio, &[]);
+    let hue_text = |hue: u32| text_on(hue, 4.5, &[soft(hue), soft_hover(hue)]);
+    // A snackbar's ground is the foreground.
+    let snackbar_ink = match contrast(fg, 0xffffff) > contrast(fg, 0x000000) {
+        true => 0xffffff,
+        false => 0x000000,
+    };
+    // The first of cyan, blue, magenta and their bright ones that isn't gray, so the accent
+    // stays a colour. Not the cursor, which is often yellow or red, as warn and danger are.
+    let pop = [6, 4, 5, 14, 12, 13]
+        .map(given)
+        .into_iter()
+        .flatten()
+        .find(|&hue| chroma(hue) >= 40.)
+        .unwrap_or_else(|| ansi(6));
+    // At its own hue, as stepping toward a gray foreground would leave a pale one gray.
+    let also = [soft(pop), soft_hover(pop)];
+    let pop_text = toned(pop, ink, &[&grounds[..], &also].concat(), 4.5).unwrap_or(ink);
+    let ink_on = |fill: u32| {
+        [0xffffff, bg, 0x000000]
+            .into_iter()
+            .find(|&ink| contrast(ink, fill) >= 4.5)
+            .unwrap_or(0x000000)
+    };
+    let pressed = |fill: u32| mix(fill, 0x000000, 0.08);
+    let washed = |hue: u32, strength: usize| {
+        let share = WASHES.get(strength).copied().unwrap_or(0.);
+        color(hue).opacity(share)
+    };
+    let subtle = text(mix(bg, fg, 0.45), 3.);
+    let [red, green, yellow, blue, magenta] = [1, 2, 3, 4, 5].map(ansi);
+    let [success, info, danger, done] = [green, blue, red, magenta].map(hue_text);
+    let warning = hue_text(yellow);
+    let [added, removed] = [green, red].map(|hue| text(hue, 3.));
+    let syntax = [
+        subtle,
+        text(green, 4.5),
+        text(ansi(6), 4.5),
+        text(magenta, 4.5),
+        text(blue, 4.5),
+        text(yellow, 4.5),
+        text(red, 4.5),
+    ]
+    .map(color);
+    let category = |hue: u32| color(mix(bg, hue, 0.55));
+    let veil = |share: f32| color(fg).opacity(share);
+    let border = mix(bg, fg, 0.3);
+    // A scheme's text already reads on the soft fills too, and its soft grounds are opaque
+    // already, so they serve as its surfaces as well; its marks only need 3:1.
+    let colors = ColorTokens {
+        background: color(bg),
+        canvas: color(canvas),
+        card: color(bg),
+        card_foreground: color(fg),
+        popover: color(if dark { muted } else { bg }),
+        popover_foreground: color(fg),
+        popover_border: color(ink).opacity(if dark { 0.16 } else { 0.12 }),
+        foreground: color(fg),
+        muted_foreground: color(text(mix(bg, fg, 0.65), 4.5)),
+        subtle_foreground: color(subtle),
+        secondary: veil(0.08),
+        secondary_foreground: color(fg),
+        muted: color(muted),
+        muted_nested: color(muted_nested),
+        disabled: color(muted),
+        border_hover: color(mix(bg, fg, 0.45)),
+        border: color(border),
+        border_subtle: color(mix(bg, fg, 0.18)),
+        hover: veil(0.05),
+        selected: color(fg),
+        selected_foreground: color(bg),
+        selected_inactive: veil(0.1),
+        ring: veil(0.7),
+        input: veil(0.26),
+        scrollbar_thumb: veil(0.15),
+        scrollbar_thumb_hover: veil(0.25),
+        overlay: match dark {
+            true => color(0x000000).opacity(0.5),
+            false => color(gray(0.15)).opacity(0.45),
+        },
+        shadow: color(0x000000).opacity(if dark { 0.5 } else { 0.1 }),
+        inverse: color(fg),
+        inverse_hover: color(mix(bg, fg, 0.89)),
+        inverse_foreground: color(bg),
+        inverse_muted_foreground: color(bg).opacity(0.6),
+        inverse_subtle_foreground: color(bg).opacity(0.5),
+        inverse_ghost_hover: color(bg).opacity(0.05),
+        inverse_soft: color(bg).opacity(0.15),
+        inverse_soft_hover: color(bg).opacity(0.22),
+        neutral_soft: veil(if dark { 0.14 } else { 0.1 }),
+        primary: color(pop),
+        primary_hover: color(pressed(pop)),
+        primary_foreground: color(ink_on(pop)),
+        primary_text: color(pop_text),
+        primary_mark: color(toned(pop, ink, &grounds, 3.).unwrap_or(pop_text)),
+        primary_soft: color(soft(pop)),
+        primary_soft_hover: color(soft_hover(pop)),
+        primary_soft_foreground: color(pop_text),
+        primary_surface: color(soft(pop)),
+        primary_surface_hover: color(soft_hover(pop)),
+        primary_wash: washed(pop, 0),
+        primary_wash_strong: washed(pop, 1),
+        info: color(blue),
+        info_hover: color(pressed(blue)),
+        info_foreground: color(ink_on(blue)),
+        info_text: color(info),
+        info_mark: color(text(blue, 3.)),
+        info_soft: color(soft(blue)),
+        info_soft_hover: color(soft_hover(blue)),
+        info_soft_foreground: color(info),
+        info_surface: color(soft(blue)),
+        info_surface_hover: color(soft_hover(blue)),
+        info_outline_hover: washed(blue, 0),
+        info_wash: washed(blue, 0),
+        info_wash_strong: washed(blue, 1),
+        success: color(green),
+        success_hover: color(pressed(green)),
+        success_foreground: color(ink_on(green)),
+        success_text: color(success),
+        success_mark: color(text(green, 3.)),
+        success_soft: color(soft(green)),
+        success_soft_hover: color(soft_hover(green)),
+        success_soft_foreground: color(success),
+        success_surface: color(soft(green)),
+        success_surface_hover: color(soft_hover(green)),
+        success_outline_hover: washed(green, 0),
+        success_wash: washed(green, 0),
+        success_wash_strong: washed(green, 1),
+        warning: color(yellow),
+        warning_hover: color(pressed(yellow)),
+        warning_foreground: color(ink_on(yellow)),
+        warning_text: color(warning),
+        warning_mark: color(text(yellow, 3.)),
+        warning_soft: color(soft(yellow)),
+        warning_soft_hover: color(soft_hover(yellow)),
+        warning_soft_foreground: color(warning),
+        warning_surface: color(soft(yellow)),
+        warning_surface_hover: color(soft_hover(yellow)),
+        warning_outline_hover: washed(yellow, 0),
+        warning_wash: washed(yellow, 0),
+        warning_wash_strong: washed(yellow, 1),
+        danger: color(red),
+        danger_hover: color(pressed(red)),
+        danger_foreground: color(ink_on(red)),
+        danger_text: color(danger),
+        danger_mark: color(text(red, 3.)),
+        danger_soft: color(soft(red)),
+        danger_soft_hover: color(soft_hover(red)),
+        danger_soft_foreground: color(danger),
+        danger_surface: color(soft(red)),
+        danger_surface_hover: color(soft_hover(red)),
+        danger_wash: washed(red, 0),
+        danger_wash_strong: washed(red, 1),
+        done: color(magenta),
+        done_hover: color(pressed(magenta)),
+        done_foreground: color(ink_on(magenta)),
+        done_text: color(done),
+        done_mark: color(text(magenta, 3.)),
+        done_soft: color(soft(magenta)),
+        done_soft_hover: color(soft_hover(magenta)),
+        done_soft_foreground: color(done),
+        done_surface: color(soft(magenta)),
+        done_surface_hover: color(soft_hover(magenta)),
+        done_wash: washed(magenta, 0),
+        done_wash_strong: washed(magenta, 1),
+        snackbar: color(fg),
+        snackbar_border: gpui::transparent_black(),
+        snackbar_foreground: color(bg),
+        snackbar_muted_foreground: color(bg).opacity(0.6),
+        snackbar_danger: color(reaching(red, snackbar_ink, &[fg], 3.).unwrap_or(snackbar_ink)),
+        snackbar_success: color(reaching(green, snackbar_ink, &[fg], 3.).unwrap_or(snackbar_ink)),
+        snackbar_divider: color(mix(bg, fg, 0.18)).opacity(0.3),
+        snackbar_hover: color(bg).opacity(0.05),
+        change_status_addition: color(success),
+        change_status_modification: color(info),
+        change_status_deletion: color(danger),
+        change_status_rename: color(done),
+        commit_local: color(subtle),
+        commit_remote: color(pop_text),
+        commit_upstream: color(warning),
+        commit_integrated: color(done),
+        diff_added: color(added),
+        diff_removed: color(removed),
+        diff_added_muted: color(green).opacity(0.12),
+        diff_added_emphasis: color(green).opacity(0.28),
+        diff_removed_muted: color(red).opacity(0.12),
+        diff_removed_emphasis: color(red).opacity(0.28),
+        syntax_comment: syntax[0],
+        syntax_string: syntax[1],
+        syntax_constant: syntax[2],
+        syntax_keyword: syntax[3],
+        syntax_function: syntax[4],
+        syntax_type: syntax[5],
+        syntax_tag: syntax[6],
+        category_1: category(ansi(6)),
+        category_2: category(magenta),
+        category_3: category(green),
+        category_4: category(yellow),
+        category_5: category(red),
+        category_6: category(blue),
+    };
+    let derived = Derived::new(
+        &colors,
+        dark,
+        Picked {
+            warning_edge: color(mix(bg, yellow, 0.5)),
+            info_edge: color(mix(bg, blue, 0.5)),
+            inverse_done_mark: color(readable_on(done, bg, fg)),
+            diff_added: color(added),
+            diff_removed: color(removed),
+            diff_added_line: color(soft(green)),
+            diff_removed_line: color(soft(red)),
+            diff_line_number: color(subtle),
+            syntax,
+        },
+    );
+    (colors, derived)
 }
 
 /// but-ui's `--but-opacity-wash(-strong)`, read from its primary washes' alpha.
@@ -1674,6 +1690,54 @@ mod tests {
                     ink != theme.inverse_foreground,
                     keeps_hue,
                     "{name}: {what} keeps its hue only where it can read"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_rows_marks_read_on_a_solid_selection() {
+        let catppuccin = palette(
+            0x1e1e2e,
+            0xcdd6f4,
+            [
+                0x45475a, 0xf38ba8, 0xa6e3a1, 0xf9e2af, 0x89b4fa, 0xf5c2e7, 0x94e2d5, 0xbac2de,
+            ],
+        );
+        let solarized = palette(
+            0xfdf6e3,
+            0x657b83,
+            [
+                0x073642, 0xdc322f, 0x859900, 0xb58900, 0x268bd2, 0xd33682, 0x2aa198, 0xeee8d5,
+            ],
+        );
+        let themes = [
+            ("gitbutler light", Theme::gitbutler(false, CodeSize::Medium)),
+            ("gitbutler dark", Theme::gitbutler(true, CodeSize::Medium)),
+            (
+                "gitbutler purple",
+                Theme::gitbutler(false, CodeSize::Medium).with_accent(Accent::Purple, ""),
+            ),
+            ("catppuccin", ghostty_theme(catppuccin, Shade::Dark)),
+            ("solarized", ghostty_theme(solarized, Shade::Light)),
+        ];
+        for (name, theme) in themes {
+            let fill = rgb_hex(theme.inverse);
+            let on = &theme.on_solid;
+            for (what, ink, ratio) in [
+                ("muted text", on.muted_foreground, 4.5),
+                ("subtle text", on.subtle_foreground, 3.),
+                ("info", on.info_text, 3.),
+                ("warning", on.warning_text, 3.),
+                ("success", on.success_text, 3.),
+                ("danger", on.danger_text, 3.),
+                ("done", on.done_text, 3.),
+                ("primary", on.primary_text, 3.),
+            ] {
+                let reads = contrast(rgb_hex(ink), fill);
+                assert!(
+                    reads >= ratio,
+                    "{name}: {what} reads at {reads} on a solid selection"
                 );
             }
         }
