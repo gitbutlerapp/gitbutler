@@ -14,6 +14,12 @@ The theme, the tokens, the icons, the fonts and every component with a counterpa
 there), which `ui` re-exports as `ui::button` and so on. The rest of `ui` is the app's own.
 Change a shared component there, and draw it as but-ui-react's.
 
+**Components first, always.** Whatever has a component, a row, a count, a badge, a glyph's
+colour, a selection's ink, is drawn by calling that component, never rebuilt in the app from
+`div`s, icons and theme colours. When it lacks something the app needs (a tooltip, a state, a
+slot), add that to the component and use it from there; don't work around it beside the call.
+App code keeps only what no component can know: its data, layout, handlers and moves.
+
 To use a component:
 
 - Find it in `crates/but-ui-gpui/src`, one file per component, its first doc line naming its
