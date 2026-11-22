@@ -224,7 +224,7 @@ pub(super) fn card_bar(
 ) -> Stateful<Div> {
     let (ink, muted) = match solid {
         true => (theme.inverse_foreground, theme.inverse_muted_foreground),
-        false => (theme.subtle_foreground, theme.subtle_foreground),
+        false => (theme.muted_foreground, theme.subtle_foreground),
     };
     // As but-ui-react's DrawerItem: its name, how many in a badge, then the chevron, right while
     // it's folded and turning down as it opens.
@@ -252,8 +252,8 @@ pub(super) fn card_bar(
                 muted,
             )
         }));
-    // In from its card's edges as a row is, its hover rounded as one's, so it stays inside the
-    // card's corners.
+    // Over its card, not in it, as but-ui-react's Drawer has it, its words in line with the
+    // card's rows, its hover rounded as one's.
     h_flex()
         .id(id)
         .role(Role::ListItem)
@@ -261,9 +261,9 @@ pub(super) fn card_bar(
         .aria_selected(selected)
         .flex_none()
         .h(dp(CARD_BAR_HEIGHT))
-        .m(dp(CARD_BAR_INSET))
+        .my(dp(CARD_BAR_INSET))
         .rounded(dp(theme.shape.control))
-        .pl(dp(10.))
+        .pl(dp(8.))
         .pr(dp(6.))
         .gap(dp(2.))
         .when(selected, |el| el.bg(theme.selected_inactive))
@@ -274,6 +274,18 @@ pub(super) fn card_bar(
                 .cursor_pointer()
                 .when(!selected, |el| el.hover(|el| el.bg(theme.hover)))
         })
+}
+
+/// The rule over a drawer at the navigator's foot, as but-ui-react's Drawer draws it: across the
+/// column, out of its flow, so it takes no room.
+pub(super) fn hairline(theme: &Theme) -> Div {
+    div()
+        .absolute()
+        .top_0()
+        .left_0()
+        .right_0()
+        .h(fixed(1.))
+        .bg(theme.border_subtle)
 }
 
 /// What the projects not watched go by: all of them, `alone`, with none watched.
@@ -2332,20 +2344,26 @@ impl Navigator {
         let scroll = Scroll::List(self.drawer_list.clone());
         let rows_height = self.drawer_rows_height();
         let closing = self.folds.closing(&Fold::Drawer);
+        // As but-ui-react's Drawer: a hairline over it, its bar, then its rows in a card. With
+        // none showing the card's edges still take their room, so its height adds up the same.
         v_flex()
             .relative()
             .size_full()
-            .bg(theme.background)
-            .border_1()
-            .border_color(theme.border_subtle)
-            .rounded(dp(theme.shape.card))
+            .child(hairline(theme))
             .child(self.drawer_bar(alone, theme, cx))
             .child(
                 div()
                     .relative()
                     .flex_1()
                     .min_h_0()
-                    .when(rows_height > 0., |el| el.pb(dp(DRAWER_PADDING)))
+                    .when(rows_height > 0., |el| {
+                        el.bg(theme.background)
+                            .border_1()
+                            .border_color(theme.border_subtle)
+                            .rounded(dp(theme.shape.card))
+                            .pb(dp(DRAWER_PADDING))
+                    })
+                    .when(rows_height <= 0., |el| el.max_h(dp(2.)))
                     .child(rows)
                     .when(alone, |el| {
                         el.children(scrollbar("drawer-scrollbar", scroll, theme))
@@ -2694,7 +2712,13 @@ impl Navigator {
             Some(Row::Note(text, is_error)) => note_row(text, *is_error, theme),
             _ => self.render_item(&self.built.drawer.rows, ix, 0., theme, cx),
         };
-        div().child(el).into_any_element()
+        // A hairline between one project and the next, across the card, as but-ui-react's
+        // Drawer lists them.
+        div()
+            .relative()
+            .child(el)
+            .when(ix > 0, |el| el.child(hairline(theme)))
+            .into_any_element()
     }
 
     fn project_row(
@@ -2789,7 +2813,52 @@ impl Navigator {
             .tooltip(Tooltip::text(match expanded {
                 true => "Stop watching",
                 false => "Watch this project",
-            }));
+            }))
+            // A watched card's header shows it only under the pointer or picked, as 🍑 But UI's
+            // sidebar has its cards' headers bare.
+            .when(expanded && !style.selected, |el| {
+                el.opacity(0.).group_hover(ROW_GROUP, |el| el.opacity(1.))
+            });
+        // One in the drawer is shown again by an outlined button, as but-ui-react's Drawer has it.
+        let eye = match expanded {
+            true => eye.into_any_element(),
+            false => {
+                let id = id.clone();
+                icon_button(
+                    ElementId::Name(format!("watch-{id}").into()),
+                    Icon::EyeClosed,
+                )
+                .small()
+                .style(ButtonStyle::Outline)
+                .inverted(style.solid)
+                .tooltip("Show project")
+                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                    cx.stop_propagation();
+                    this.watch_hovered = None;
+                    this.store
+                        .update(cx, |store, cx| store.set_expanded(&id, true, cx));
+                }))
+                .into_any_element()
+            }
+        };
+        // In the drawer, how many branches and worktrees it has, as the cards would list them.
+        let held = workspace.filter(|_| !expanded).map(|ws| {
+            let branches = (ws.lanes.iter()).flat_map(|lane| &lane.branches).count();
+            let worktrees = ws.worktrees.len();
+            let branches = count(
+                MetaCountType::Branch,
+                branches,
+                plural(branches, "branch"),
+                theme,
+            );
+            let worktrees = count(
+                MetaCountType::Worktrees,
+                worktrees,
+                plural(worktrees, "worktree"),
+                theme,
+            );
+            branches.into_iter().chain(worktrees)
+        });
         // However narrow the navigator, the name stays: what the row sums up gives way first,
         // a whole item at a time from its end. Each item that doesn't fit wraps to a second
         // line, which is cut off.
@@ -2807,6 +2876,7 @@ impl Navigator {
                 let tip = format!("{behind} behind {}{}", t.name, with_merged(t));
                 count(MetaCountType::Behind, t.behind, tip, theme)
             }))
+            .children(held.into_iter().flatten())
             .when(entry.is_loading(), |el| {
                 el.child(small_icon(Icon::Clock).text_color(theme.subtle_foreground))
             })

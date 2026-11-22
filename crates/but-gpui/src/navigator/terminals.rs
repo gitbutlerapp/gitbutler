@@ -827,7 +827,6 @@ impl TerminalOverview {
             false,
             theme,
         )
-        .pl(dp(BAR_PADDING))
         .when(!folded_away, |el| el.mb_0())
         .child(
             icon_button("overview-grouping", Icon::Mixer)
@@ -896,6 +895,17 @@ impl Render for TerminalOverview {
                 .flex_1()
                 .min_h_0()
                 .pb(dp(CARD_PADDING))
+                // Its rows in a card under the bar, as but-ui-react's Drawer holds them; the card
+                // under its tab is its edges.
+                .when(!in_tab, |el| {
+                    el.bg(theme.background)
+                        .border_1()
+                        .border_color(match outlined {
+                            true => theme.focus_edge(),
+                            false => theme.border_subtle,
+                        })
+                        .rounded(dp(theme.shape.card))
+                })
                 .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
                     this.hovered = *hovered;
                     // Let go, they take the order they'd have taken meanwhile.
@@ -950,17 +960,9 @@ impl Render for TerminalOverview {
                 }
             }))
             .size_full()
-            // The card under its tab is its edges.
-            .when(!in_tab, |el| {
-                el.bg(theme.background)
-                    .border_1()
-                    .border_color(match outlined {
-                        true => theme.focus_edge(),
-                        false => theme.border_subtle,
-                    })
-                    .rounded(dp(theme.shape.card))
-            })
+            .relative()
             .overflow_hidden()
+            .when(!in_tab, |el| el.child(super::hairline(theme)))
             .child(self.render_bar(cx))
             .children(rows)
     }
