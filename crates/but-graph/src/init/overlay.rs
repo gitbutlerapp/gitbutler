@@ -18,6 +18,7 @@ use crate::{
         Entrypoint, Overlay,
         walk::{RefsById, WorktreeByBranch},
     },
+    trace::trace_phase,
 };
 
 impl Overlay {
@@ -272,11 +273,14 @@ impl<'repo> OverlayRepo<'repo> {
             })
             .map(|(name, reference)| (name.as_ref(), reference))
             .collect();
-        for reference in self.inner.references()?.prefixed(prefix)? {
-            let reference = reference.map_err(|err| anyhow::anyhow!(err))?;
-            fallbacks.remove(reference.name());
-            if !self.overriding_references.contains_key(reference.name()) {
-                collect(reference)?;
+        {
+            let _phase = trace_phase!("scan refs", prefix);
+            for reference in self.inner.references()?.prefixed(prefix)? {
+                let reference = reference.map_err(|err| anyhow::anyhow!(err))?;
+                fallbacks.remove(reference.name());
+                if !self.overriding_references.contains_key(reference.name()) {
+                    collect(reference)?;
+                }
             }
         }
         for reference in fallbacks.into_values() {

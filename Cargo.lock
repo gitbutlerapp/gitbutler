@@ -1846,6 +1846,7 @@ dependencies = [
  "gitbutler-reference",
  "gix",
  "itertools",
+ "nix 0.30.1",
  "petgraph",
  "sapling-renderdag",
  "smallvec",

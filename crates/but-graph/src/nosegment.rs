@@ -12,7 +12,7 @@ use gix::refs::{FullName, FullNameRef};
 use petgraph::visit::EdgeRef as _;
 use smallvec::{SmallVec, smallvec};
 
-use crate::{CommitFlags, SegmentMetadata, init::Overlay};
+use crate::{CommitFlags, SegmentMetadata, init::Overlay, trace::trace_phase};
 
 type NodeIndex = usize;
 
@@ -59,6 +59,7 @@ fn graph<'a>(
     target_commit_id: Option<gix::ObjectId>,
     commits_limit: Option<usize>,
 ) -> Result<WorkspaceGraph<'a>> {
+    let _build_phase = trace_phase!("build commit and ref graph");
     let local_refs =
         overlay_repo.commit_refs_with_prefix("refs/heads/", ref_names, |reference| {
             Ok(reference.try_id().map(gix::Id::detach))
@@ -209,6 +210,7 @@ fn graph<'a>(
         repo.shallow_commits()?.as_ref(),
     )?;
 
+    let _placement_phase = trace_phase!("place commits and refs");
     let mut in_target: HashSet<_> = std::iter::once(target_ref)
         .chain(target_upstream_ref)
         .filter_map(ref_to_oid)
@@ -854,6 +856,7 @@ impl WorkspaceGraph<'_> {
         seen_from_commit: Option<gix::ObjectId>,
         worktree_tips: &[crate::init::WorktreeTip],
     ) -> Result<crate::Graph> {
+        let _phase = trace_phase!("assemble segments");
         let mut inner_graph = crate::init::PetGraph::default();
         let mut node_index_to_predecessor_segment_info =
             HashMap::<NodeIndex, PredecessorSegmentInfo>::new();
@@ -1762,6 +1765,7 @@ pub fn workspace(
     collect_tags: bool,
     commits_limit: Option<usize>,
 ) -> Result<crate::Workspace> {
+    let _phase = trace_phase!("build workspace");
     let Some(seen_from_commit) = seen_from_commit else {
         // The unborn branch gets an empty segment of its own, checked out in the main worktree.
         let ref_name = seen_from_ref
@@ -1868,6 +1872,7 @@ pub fn segment_graph(
     collect_tags: bool,
     commits_limit: Option<usize>,
 ) -> Result<crate::Graph> {
+    let _build_phase = trace_phase!("build segment graph");
     let (overlay_repo, overlay_meta, entrypoint) = overlay.into_parts(repo, meta);
     // Like a traversal, the branch the overlay puts `HEAD` on is checked out in this worktree.
     let worktree_by_branch = overlay_repo.worktree_branches(
@@ -1938,6 +1943,9 @@ pub fn segment_graph(
     // Like after a traversal, a linked worktree's lane lands on the commit another checkout's
     // branch names there, rather than on that branch.
     graph.land_worktree_lanes_on_commits(&overlay_meta, &worktree_by_branch)?;
-    graph.compute_generation_numbers();
+    {
+        let _phase = trace_phase!("compute generation numbers");
+        graph.compute_generation_numbers();
+    }
     Ok(graph)
 }

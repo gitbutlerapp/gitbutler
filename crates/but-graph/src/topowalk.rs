@@ -2,6 +2,8 @@ use anyhow::Context;
 use gix::{hashtable::hash_map::Entry, revwalk::graph::IdMap};
 use std::collections::{BTreeSet, BinaryHeap, HashMap, VecDeque};
 
+use crate::trace::trace_phase;
+
 pub(crate) struct Walk {
     /// The commits the walk visited, children first.
     pub order: Vec<gix::ObjectId>,
@@ -112,6 +114,7 @@ pub fn walk(
             !std::mem::replace(&mut self.pushed_to_heads, true)
         }
     }
+    let walk_phase = trace_phase!("walk commits");
     let mut visits = IdMap::<Visit>::default();
     let mut untraversed = BinaryHeap::<(i64, gix::ObjectId)>::new();
     let mut num_traversed = 0;
@@ -219,7 +222,9 @@ pub fn walk(
             }
         }
     }
+    drop(walk_phase);
 
+    let _phase = trace_phase!("topologically order commits", commits = num_traversed);
     // An excluded commit no head reaches, like a target commit its branch was rewound past,
     // starts the outcome too, or the walked commits below it would never be returned.
     for id in excludes {

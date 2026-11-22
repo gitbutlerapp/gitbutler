@@ -30,6 +30,9 @@ tracing.workspace = true
 itertools.workspace = true
 smallvec.workspace = true
 
+[target.'cfg(unix)'.dependencies]
+nix = { workspace = true, features = ["resource"] }
+
 [dev-dependencies]
 but-meta = { workspace = true, features = ["legacy"] }
 but-testsupport.workspace = true
