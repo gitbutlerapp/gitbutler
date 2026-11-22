@@ -185,6 +185,8 @@ pub(crate) struct RowStyle<'a> {
     /// The map of the split the row shows and the status of the terminals in it, which
     /// [`Self::draw`] puts in the row: see [`Navigator::split_of`].
     split: Option<&'a RefCell<RowSplit>>,
+    /// In the split whose map the pointer is over: the hover's ground, as its rows read as one.
+    linked: bool,
 }
 
 /// What a row of a split carries for it: the map in its split cell, and before its counts the
@@ -388,6 +390,7 @@ impl<'a> RowStyle<'a> {
             blink: None,
             goes_here: false,
             split: None,
+            linked: false,
         }
     }
 
@@ -414,6 +417,7 @@ impl<'a> RowStyle<'a> {
             None => row,
         };
         let el = row
+            .linked(self.linked)
             .selected(self.selected, self.solid)
             .inset(self.inset + by)
             .build(self.theme)
@@ -706,6 +710,9 @@ pub struct Navigator {
     held_order: Option<Vec<ProjectId>>,
     /// The project whose watch button the pointer is on, which shows what a click makes it.
     watch_hovered: Option<ProjectId>,
+    /// The rows of the split whose map the pointer is over, which light up together, as
+    /// but-ui-react's rows do while a SplitPreviewMap's preview is open.
+    lit_split: Option<Vec<crate::state::RowKey>>,
     /// The project whose card is held, kept once it's let go of until the cards stop sliding,
     /// so it stays over the cards it passes going back.
     held_project: Option<ProjectId>,
@@ -889,6 +896,7 @@ impl Navigator {
             detail_shown: Cell::new(1.),
             held_order: None,
             watch_hovered: None,
+            lit_split: None,
             held_project: None,
             dragged_worktree: None,
             held_worktree_name: None,
@@ -2140,6 +2148,8 @@ impl Navigator {
             },
             goes_here: self.going_row.as_ref() == Some(item),
             split: Some(&split),
+            linked: (self.lit_split.as_ref())
+                .is_some_and(|rows| rows.contains(&store.row_key(item))),
         };
         let el = match item {
             Selection::Project(id) => self.project_row(item, id, style, cx),
@@ -2255,8 +2265,16 @@ impl Navigator {
             .map(|tile| tile.name.to_string())
             .collect::<Vec<_>>()
             .join(", ");
+        let rows: Vec<crate::state::RowKey> = (tiles.iter())
+            .map(|(tile, _)| tile.shows(&row).clone())
+            .collect();
         let map = div()
             .id(SharedString::from(format!("tiles-{item:?}")))
+            // Its rows light up together while the pointer is over it, as its preview shows.
+            .on_hover(cx.listener(move |this, hovered: &bool, _, cx| {
+                this.lit_split = hovered.then(|| rows.clone());
+                cx.notify()
+            }))
             .flex()
             .role(Role::Image)
             .aria_label(format!("Split: {names}"))
