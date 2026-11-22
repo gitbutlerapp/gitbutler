@@ -69,6 +69,30 @@ impl MetaCountType {
         }
     }
 
+    /// Its colour on a row selected on the solid fill: its token's other scheme's value, as
+    /// React's flips the scheme there.
+    fn color_on_solid(self, theme: &Theme) -> Hsla {
+        let flipped = &theme.on_solid;
+        match self {
+            Self::Behind | Self::Uncommitted | Self::Conflicts | Self::AgentWaiting => {
+                flipped.warning_text
+            }
+            Self::AgentWorking | Self::Empty | Self::Head => flipped.subtle_foreground,
+            Self::Unpushed => flipped.info_text,
+            Self::Cpu => flipped.success_text,
+            Self::CpuDanger => flipped.danger_text,
+            Self::Rebased
+            | Self::Commits
+            | Self::Clean
+            | Self::Age
+            | Self::Branch
+            | Self::Worktrees
+            | Self::Repos
+            | Self::Running
+            | Self::Stack => flipped.muted_foreground,
+        }
+    }
+
     fn color(self, theme: &Theme) -> Hsla {
         match self {
             Self::Behind | Self::Uncommitted | Self::Conflicts | Self::AgentWaiting => {
@@ -116,7 +140,21 @@ fn count_box(color: Hsla, glyph: AnyElement, value: Option<SharedString>) -> Div
 /// `AgentWorking` draws the robot still, where React's waves its eyes: a gap until the robot's
 /// motion is drawn here.
 pub fn meta_count(kind: MetaCountType, value: Option<SharedString>, theme: &Theme) -> Div {
-    let color = kind.color(theme);
+    meta_count_on(kind, value, false, theme)
+}
+
+/// [`meta_count`] in a row selected on the solid fill, with `solid`: in its token's other
+/// scheme's value, as React's flips its scheme there, so it stays legible and keeps its hue.
+pub fn meta_count_on(
+    kind: MetaCountType,
+    value: Option<SharedString>,
+    solid: bool,
+    theme: &Theme,
+) -> Div {
+    let color = match solid {
+        true => kind.color_on_solid(theme),
+        false => kind.color(theme),
+    };
     let glyph = match kind {
         // The terminal's dots, in a glyph's 14px box.
         MetaCountType::Running => div()

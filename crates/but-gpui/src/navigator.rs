@@ -40,7 +40,7 @@ use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     BLINK, Button, ButtonStyle, HEADER_HEIGHT, Icon, MetaCountType, Tooltip, WINDOW_CONTROLS_WIDTH,
     above_drag, blink_once, button, commit_title, count_badge, count_mark, dp, faint, field, fixed,
-    glow_once, guide, guide_end, h_flex, icon_at, icon_button, list_row, meta_count, plural,
+    glow_once, guide, guide_end, h_flex, icon_at, icon_button, list_row, meta_count_on, plural,
     pulsing, review, section_label, small_icon, spinning, v_flex,
 };
 use crate::ui::{
@@ -463,7 +463,7 @@ impl<'a> RowStyle<'a> {
             MetaCountType::Unpushed,
             n,
             plural(n, "unpushed commit"),
-            self.theme,
+            *self,
         )
     }
 
@@ -473,7 +473,7 @@ impl<'a> RowStyle<'a> {
             MetaCountType::Uncommitted,
             n,
             plural(n, "uncommitted file"),
-            self.theme,
+            *self,
         )
     }
 
@@ -2849,13 +2849,13 @@ impl Navigator {
                 MetaCountType::Branch,
                 branches,
                 plural(branches, "branch"),
-                theme,
+                style,
             );
             let worktrees = count(
                 MetaCountType::Worktrees,
                 worktrees,
                 plural(worktrees, "worktree"),
-                theme,
+                style,
             );
             branches.into_iter().chain(worktrees)
         });
@@ -2874,19 +2874,12 @@ impl Navigator {
             .children(target.and_then(|t| {
                 let behind = plural(t.behind, "commit");
                 let tip = format!("{behind} behind {}{}", t.name, with_merged(t));
-                count(MetaCountType::Behind, t.behind, tip, theme)
+                count(MetaCountType::Behind, t.behind, tip, style)
             }))
             .children(held.into_iter().flatten())
             .when(entry.is_loading(), |el| {
                 el.child(small_icon(Icon::Clock).text_color(theme.subtle_foreground))
-            })
-            // Its age only folded or in the drawer: an open card's header drops it, as
-            // sidebar-rows.md says.
-            .children(
-                (!entry.is_loading() && (card_folded || !expanded))
-                    .then(|| age(rows::last_active(entry), theme))
-                    .flatten(),
-            );
+            });
         // Only folded, or in the drawer: open, the rows under it carry the dot.
         let row = sidebar_row(ElementId::Name(format!("project-{id}").into()))
             .glyph(glyph)
@@ -3016,11 +3009,16 @@ impl Navigator {
             }
             _ => (name.clone(), format!("No branch: on {name}'s last commit")),
         };
-        let mut meta = meta_count(MetaCountType::Head, Some(value.into()), style.theme)
-            .id(("worktree-head", ix))
-            .min_w_0()
-            .aria_label(tip.clone())
-            .tooltip(Tooltip::text(tip));
+        let mut meta = meta_count_on(
+            MetaCountType::Head,
+            Some(value.into()),
+            style.solid,
+            style.theme,
+        )
+        .id(("worktree-head", ix))
+        .min_w_0()
+        .aria_label(tip.clone())
+        .tooltip(Tooltip::text(tip));
         // Shrinks before the worktree's name does.
         meta.style().flex_shrink = Some(1000.);
         Some(meta)
@@ -3434,7 +3432,7 @@ impl Navigator {
             MetaCountType::Conflicts,
             conflicted,
             plural(conflicted, "conflicted commit"),
-            theme,
+            style,
         );
         // Folded, who and how many only its remote has; open, its New on origin row says.
         let (authors, update) = match open {
@@ -3456,10 +3454,6 @@ impl Navigator {
             .chain(brief.map(IntoElement::into_any_element))
             .chain(conflicts.map(IntoElement::into_any_element))
             .chain(authors.map(IntoElement::into_any_element))
-            .chain(
-                age(branch.commits.first().map(|c| c.time), theme)
-                    .map(IntoElement::into_any_element),
-            )
             .fold(row, SidebarRow::meta);
         // Its step, after the counts: the first conflict to resolve, unless a linked worktree
         // resolves it. Conflicts block Push, so it's the only one.
@@ -4246,12 +4240,11 @@ fn change_counts(
     (n, conflicted, (added, removed)): Tally,
     style: RowStyle,
 ) -> impl Iterator<Item = Stateful<Div>> {
-    let theme = style.theme;
     let conflicts = count(
         MetaCountType::Conflicts,
         conflicted,
         plural(conflicted, "conflicted file"),
-        theme,
+        style,
     );
     let files = plural(n, "uncommitted file");
     let tip = match added + removed {
@@ -4261,33 +4254,16 @@ fn change_counts(
             plural(added as usize, "line")
         ),
     };
-    let files = count(MetaCountType::Uncommitted, n, tip, theme);
+    let files = count(MetaCountType::Uncommitted, n, tip, style);
     conflicts.into_iter().chain(files)
-}
-
-/// How long ago `at` (seconds since the epoch) was, as but-ui-react's `MetaCount` `age` draws it,
-/// with the whole of it under the pointer: "3d", "Last changed 3d ago".
-fn age(at: Option<i64>, theme: &Theme) -> Option<Stateful<Div>> {
-    let at = at?;
-    let tip = SharedString::from(format!("Last changed {}", crate::ui::ago(at)));
-    Some(
-        meta_count(
-            MetaCountType::Age,
-            Some(crate::ui::relative_time(at).into()),
-            theme,
-        )
-        .id(ElementId::Name(tip.clone()))
-        .aria_label(tip.clone())
-        .tooltip(Tooltip::text(tip)),
-    )
 }
 
 /// `n` as but-ui-react's `MetaCount` of `kind` draws it, saying `tip` under the pointer and to a
 /// screen reader, while there are any.
-fn count(kind: MetaCountType, n: usize, tip: String, theme: &Theme) -> Option<Stateful<Div>> {
+fn count(kind: MetaCountType, n: usize, tip: String, style: RowStyle) -> Option<Stateful<Div>> {
     let tip = SharedString::from(tip);
     (n > 0).then(|| {
-        meta_count(kind, Some(n.to_string().into()), theme)
+        meta_count_on(kind, Some(n.to_string().into()), style.solid, style.theme)
             .id(ElementId::Name(tip.clone()))
             .aria_label(tip.clone())
             .tooltip(Tooltip::text(tip))
