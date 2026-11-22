@@ -13,7 +13,7 @@ use super::order::moving_terminal;
 use super::rows::{
     COMMIT_INDENT, Fold, Row, RowKey, Rows, heads, listed_with, lists_changes, span_height,
 };
-use super::{Navigator, RowStyle, row_name};
+use super::{Navigator, RowStyle};
 use crate::app::{
     MoveHere, MoveSelection, SquashIntoSelection, SquashSelection, StartAmend, UseTargetMessage,
 };
@@ -29,7 +29,8 @@ use crate::transfer::{
 use crate::ui::Text;
 use crate::ui::fold::{self, on_top};
 use crate::ui::{
-    Fold as RowFold, Icon, blink_once, dp, fixed, guide, h_flex, sidebar_row, small_icon,
+    CommitPlace, Fold as RowFold, Icon, blink_once, branch_item, commit_item, dp, fixed, guide,
+    h_flex, small_icon,
 };
 
 /// The move of commits or a branch shown in `project`, or the squash of those or files, with
@@ -1911,14 +1912,16 @@ pub(super) fn new_commit_row(
         ..RowStyle::plain(theme, inset)
     };
     let title = shown(store, project).and_then(|moving| moving.commit_title(store));
-    // Untitled till its message is written, quiet as an empty title is.
-    let title = match title {
-        Some(title) => div().child(title.to_owned()),
-        None => div().text_color(style.muted()).child("New commit"),
-    };
-    let row = sidebar_row(ElementId::Name(format!("new-commit-{project}").into()))
-        .glyph(small_icon(Icon::Commit).text_color(style.meta(theme.commit_local)))
-        .label(title.min_w_0().truncate().text_13());
+    // Untitled till its message is written.
+    let title = title.map_or("New commit".to_owned(), ToOwned::to_owned);
+    let row = commit_item(
+        ElementId::Name(format!("new-commit-{project}").into()),
+        title,
+        CommitPlace::Local,
+        false,
+        false,
+        theme,
+    );
     // Where a commit's row puts its glyph: see `RowStyle::commit_line`.
     style.draw(row, COMMIT_INDENT - 3.).into_any_element()
 }
@@ -1954,10 +1957,15 @@ pub(super) fn squash_outline(
 /// Branch `name`'s row as a copy draws it, row `id`, in `style`: folded, as its own row is,
 /// and nothing on it acts.
 fn branch_copy(id: String, name: String, style: RowStyle) -> AnyElement {
-    let row = sidebar_row(ElementId::Name(id.into()))
-        .fold(RowFold::Folded)
-        .icon(Icon::Branch, style.theme)
-        .label(row_name().child(name));
+    let row = branch_item(
+        ElementId::Name(id.into()),
+        name,
+        None,
+        false,
+        false,
+        style.theme,
+    )
+    .fold(RowFold::Folded);
     style.draw(row, 0.).into_any_element()
 }
 

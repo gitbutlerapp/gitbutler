@@ -20,8 +20,8 @@ use crate::app::{AddProject, AppHandle, UpdateFromTarget};
 use crate::backend::rebuild::Rebuild;
 use crate::backend::upstream::UpdateScope;
 use crate::backend::{
-    Branch, Checkout, Commit, CommitId, CommitState, FileChange, FullName, PushState, Review,
-    ReviewState, Target, Workspace,
+    Branch, Checkout, Commit, CommitId, CommitState, FileChange, FullName, PushState, ReviewState,
+    Target, Workspace,
 };
 use crate::detail::{ChecksChanged, Detail, oldest_conflict};
 use crate::overlays::MenuItem;
@@ -41,11 +41,13 @@ use crate::ui::{
     BLINK, Button, ButtonStyle, HEADER_HEIGHT, Icon, MetaCountType, Tooltip, WINDOW_CONTROLS_WIDTH,
     above_drag, blink_once, button, commit_title, count_badge, count_mark, dp, faint, field, fixed,
     glow_once, guide, guide_end, h_flex, icon_at, icon_button, list_row, meta_count_on, plural,
-    pulsing, review, section_label, small_icon, spinning, v_flex,
+    pulsing, review, section_label, small_icon, v_flex,
 };
 use crate::ui::{
-    BadgeSize, BadgeVariant, Fold as RowFold, SidebarRow, badge, more_item, press_in_pane,
-    sidebar_row, terminal_item, worktree_item,
+    CommitPlace, Fold as RowFold, MetaStatusVariant, PullRequestState, SidebarRow, branch_item,
+    commit_item, group_label, item_name, meta_status, more_item, press_in_pane, repo_item,
+    running_count, sidebar_row, stack_caption, terminal_item, uncommitted_item, upstream_item,
+    worktree_item,
 };
 
 mod account;
@@ -486,45 +488,54 @@ impl<'a> RowStyle<'a> {
         }
     }
 
-    /// A commit's row, `indent` in: `glyph` and its title, or `rename`, the field it's being
-    /// edited in, with the dot while it's unread. Only a missing title is quieter.
+    /// The theme the components on this row draw with: its own, or on a solid selection, as
+    /// the solid fill flips its marks' colours ([`Theme::for_solid`]).
+    fn kind_theme(&self) -> std::borrow::Cow<'a, Theme> {
+        match self.solid {
+            true => std::borrow::Cow::Owned(self.theme.for_solid()),
+            false => std::borrow::Cow::Borrowed(self.theme),
+        }
+    }
+
+    /// A commit's row, as but-ui's `commit_item`: its glyph by `place`, `title`, or `rename`,
+    /// the field it's being edited in, with the dot while it's `unread`.
+    #[expect(clippy::too_many_arguments)]
+    fn commit_kind(
+        &self,
+        id: String,
+        title: &SharedString,
+        place: CommitPlace,
+        merge: bool,
+        conflicted: bool,
+        unread: bool,
+        rename: Option<AnyElement>,
+    ) -> SidebarRow {
+        let row = commit_item(
+            ElementId::Name(id.into()),
+            commit_title(title),
+            place,
+            merge,
+            conflicted,
+            &self.kind_theme(),
+        )
+        .unread(unread);
+        match rename {
+            Some(field) => row.rename(field),
+            None => row,
+        }
+    }
+
+    /// A commit's row, `indent` in, as [`Self::commit_kind`] has it.
     fn commit_line(
         &self,
         id: String,
         indent: f32,
-        glyph: impl IntoElement,
         title: SharedString,
-        unread: bool,
+        place: CommitPlace,
         rename: Option<AnyElement>,
     ) -> Stateful<Div> {
-        let row = self.commit_parts(id, glyph, &title, unread, rename);
-        // `indent` says where its 12-point glyph starts; the row puts its 14-point box 2 on from
-        // where it steps in, the glyph a point into it.
+        let row = self.commit_kind(id, &title, place, false, false, false, rename);
         self.commit_drawn(row, indent - 3., title)
-    }
-
-    /// What [`Self::commit_line`] draws, for a row that adds a fold before drawing it.
-    fn commit_parts(
-        &self,
-        id: String,
-        glyph: impl IntoElement,
-        title: &SharedString,
-        unread: bool,
-        rename: Option<AnyElement>,
-    ) -> SidebarRow {
-        sidebar_row(ElementId::Name(id.into()))
-            .glyph(glyph)
-            .unread(unread)
-            .label(match rename {
-                Some(field) => field,
-                None => div()
-                    .min_w_0()
-                    .truncate()
-                    .text_13()
-                    .when(title.is_empty(), |el| el.text_color(self.muted()))
-                    .child(commit_title(title))
-                    .into_any_element(),
-            })
     }
 
     /// A commit's `row` drawn `by` in, saying `title`, glowing if it just showed up.
@@ -547,34 +558,24 @@ impl<'a> RowStyle<'a> {
         store: &Store,
         rename: Option<AnyElement>,
     ) -> Stateful<Div> {
-        let theme = self.theme;
-        let (glyph, color) = if commit.conflicted {
-            (Icon::Warning, theme.warning_mark)
-        } else {
-            match commit.state {
-                CommitState::Local => (Icon::Commit, theme.commit_local),
-                CommitState::Pushed => (Icon::CommitFill, theme.commit_remote),
-                CommitState::Integrated => (Icon::CommitFill, theme.commit_integrated),
-            }
+        let place = match commit.state {
+            CommitState::Local => CommitPlace::Local,
+            CommitState::Pushed => CommitPlace::Pushed,
+            CommitState::Integrated => CommitPlace::Integrated,
         };
-        let glyph = small_icon(glyph).text_color(self.meta(color));
         let (title, _) = store.message_of(project, commit);
+        let title: SharedString = title.to_owned().into();
         let unread = store.is_unread(project, commit);
-        self.commit_line(
-            id,
-            COMMIT_INDENT,
-            glyph,
-            title.to_owned().into(),
-            unread,
-            rename,
-        )
+        let row = self.commit_kind(id, &title, place, false, commit.conflicted, unread, rename);
+        // Where a commit's glyph goes: a step in from its branch, 2 on, as a row that doesn't
+        // fold puts it.
+        self.commit_drawn(row, COMMIT_INDENT - 3., title)
     }
 
     /// The copy of a commit titled `title` from outside the workspace a cherry-pick would
     /// make, `id` the row's: a local commit.
     fn copy(&self, id: String, title: SharedString) -> Stateful<Div> {
-        let glyph = small_icon(Icon::Commit).text_color(self.meta(self.theme.commit_local));
-        self.commit_line(id, COMMIT_INDENT, glyph, title, false, None)
+        self.commit_line(id, COMMIT_INDENT, title, CommitPlace::Local, None)
     }
 }
 
@@ -2881,12 +2882,16 @@ impl Navigator {
                 el.child(small_icon(Icon::Clock).text_color(theme.subtle_foreground))
             });
         // Only folded, or in the drawer: open, the rows under it carry the dot.
-        let row = sidebar_row(ElementId::Name(format!("project-{id}").into()))
-            .glyph(glyph)
-            .unread(unread && (card_folded || !expanded))
-            .label(row_name().child(entry.project.name.clone()))
-            .meta(summary)
-            .meta_gives_way();
+        // As but-ui's repo_item, wearing the project's own icon.
+        let row = repo_item(
+            ElementId::Name(format!("project-{id}").into()),
+            entry.project.name.clone(),
+            &style.kind_theme(),
+        )
+        .glyph(glyph)
+        .unread(unread && (card_folded || !expanded))
+        .meta(summary)
+        .meta_gives_way();
         let row = match expanded || filtering {
             true => self.folding(row, expanded.then_some(!card_folded), cx, {
                 let id = id.clone();
@@ -2948,10 +2953,8 @@ impl Navigator {
         let renaming = field.is_some();
         let row_id = ElementId::Name(format!("terminal-{}", id.0).into());
         let row = match field {
-            Some(field) => sidebar_row(row_id)
-                .icon(Icon::Terminal, style.theme)
-                .label(field),
-            None => terminal_item(row_id, title, None, style.theme),
+            Some(field) => terminal_item(row_id, title, None, &style.kind_theme()).rename(field),
+            None => terminal_item(row_id, title, None, &style.kind_theme()),
         };
         let row = match status.and_then(|status| status_mark(status, !store.hidden(), style)) {
             Some(mark) => row.meta(mark),
@@ -2976,7 +2979,7 @@ impl Navigator {
         let files = store.workspace(id).map_or(&[][..], |ws| &ws.uncommitted);
         let row = sidebar_row(ElementId::Name(format!("uncommitted-{id}").into()))
             .glyph(icon_at(Icon::Diff, 14.).text_color(style.meta(style.theme.warning_text)))
-            .label(row_name().child("Editing a commit"));
+            .label(item_name("Editing a commit"));
         let row = change_counts(tally(files), style).fold(row, SidebarRow::meta);
         (style.draw(row, 0.))
             .aria_label("Editing a commit")
@@ -3143,10 +3146,20 @@ impl Navigator {
         let uncommitted = store.uncommitted_shown(id, &checkout, uncommitted);
         let label = "Uncommitted changes";
         let row_id = format!("changes-{id}-{}", checkout.linked().unwrap_or_default());
-        let row = sidebar_row(ElementId::Name(row_id.into()))
-            .icon(Icon::Diff, style.theme)
-            .label(row_name().child(label));
-        let row = change_counts(tally(&uncommitted), style).fold(row, SidebarRow::meta);
+        let (n, conflicted, (added, removed)) = tally(&uncommitted);
+        let row = uncommitted_item(
+            ElementId::Name(row_id.into()),
+            n,
+            Some(files_tip(n, added, removed).into()),
+            &style.kind_theme(),
+        );
+        let conflicts = count(
+            MetaCountType::Conflicts,
+            conflicted,
+            plural(conflicted, "conflicted file"),
+            style,
+        );
+        let row = conflicts.into_iter().fold(row, SidebarRow::meta);
         let row = (style.draw(row, 0.))
             .aria_label(label)
             .map(|el| self.selectable(el, item, cx));
@@ -3239,7 +3252,6 @@ impl Navigator {
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let store = self.store.read(cx);
-        let theme = style.theme;
         let branches = store.after_deletes(id, &store.lane_for(item)?.0.branches);
         // Open even when folded while the selection's in it.
         let open = self.section_open(ix);
@@ -3250,29 +3262,21 @@ impl Navigator {
                 this.toggle_stack(caption.clone(), open, window, cx)
             }
         };
-        // Quiet, so it doesn't read as one more branch, with "Stack" a step above the rest.
-        let (word, quiet) = match style.solid {
-            true => (theme.inverse_foreground, style.muted()),
-            false => (theme.muted_foreground, theme.subtle_foreground),
-        };
         let bottom_name = bottom.map(ToString::to_string).unwrap_or_default();
-        // As but-ui-react's stack caption: how many in a badge, "Stack", and while it's folded
-        // the branch at its tip, quieter.
-        let row = sidebar_row(ElementId::Name(format!("stack-{id}-{bottom_name}").into()))
-            .glyph(icon_at(Icon::Stack, 14.).text_color(quiet))
-            .unread(!open && unread)
-            .label(count_badge(branches.len(), theme).when(style.solid, |el| {
-                el.bg(theme.inverse_soft).text_color(quiet)
-            }))
-            .label(row_name().flex_none().text_color(word).child("Stack"));
-        let row = match branches.first().filter(|_| !open) {
-            Some(top) => row.label(
-                row_name()
-                    .text_color(quiet)
-                    .child(store.label_of(id, top).to_owned()),
-            ),
-            None => row,
-        };
+        // As but-ui's stack_caption: how many, "Stack", and while it's folded the branch at
+        // its tip.
+        let tip = branches
+            .first()
+            .map(|top| store.label_of(id, top).to_owned())
+            .unwrap_or_default();
+        let row = stack_caption(
+            ElementId::Name(format!("stack-{id}-{bottom_name}").into()),
+            branches.len(),
+            tip,
+            Some(!open),
+            &style.kind_theme(),
+        )
+        .unread(!open && unread);
         let row = self.folding(row, Some(open), cx, toggle.clone());
         let row = match open {
             true => row,
@@ -3334,14 +3338,6 @@ impl Navigator {
             (None, PushState::Integrated) => Some(ReviewState::Merged),
             (None, _) => None,
         };
-        let (glyph, glyph_color) = match state {
-            Some(state) => review::state_glyph(state, theme),
-            None => (Icon::Branch, style.muted()),
-        };
-        let glyph_color = match state {
-            Some(ReviewState::Merged) => review::merged_color(style.solid, theme),
-            _ => style.meta(glyph_color),
-        };
         // Once a pull request merged, how its CI stands no longer matters.
         let checks = (branch.review.as_ref())
             .filter(|review| store.review_state(id, review) != ReviewState::Merged)
@@ -3363,56 +3359,54 @@ impl Navigator {
             }
         };
         let folds = !branch.commits.is_empty();
-        let glyph = match icon_at(glyph, 14.).text_color(glyph_color) {
-            glyph if publishing => pulsing(glyph).into_any_element(),
-            glyph => glyph.into_any_element(),
-        };
         // An unread commit marks its branch while it's folded; open, the dot is on the commit,
         // as the most folded row takes it and it never shows twice.
         let unread = !open && store.branch_unread(id, branch);
-        let review = (branch.review.as_ref()).map(|r| (r, store.review_state(id, r)));
         let rename = self.rename_field(item, theme, cx);
-        let row = sidebar_row(ElementId::Name(format!("branch-{id}-{row_id}").into()))
-            .glyph(glyph)
-            .unread(unread);
-        // Its pull request's number before its title, as but-ui-react's BranchItem says it, or
-        // that it merged without one.
-        let pr = match (review, state) {
-            _ if rename.is_some() => None,
-            (Some((review, state)), _) => Some((format!("#{}", review.number), state)),
-            (None, Some(ReviewState::Merged)) => Some(("Merged".to_owned(), ReviewState::Merged)),
-            (None, _) => None,
-        };
-        let row = match pr {
-            Some((words, state)) => {
-                let variant = match state {
-                    ReviewState::Draft => BadgeVariant::LightGray,
-                    ReviewState::Open => BadgeVariant::Safe,
-                    ReviewState::Closed => BadgeVariant::Danger,
-                    ReviewState::Merged => BadgeVariant::Purple,
-                };
-                row.label(badge(variant, BadgeSize::Regular, theme).child(words))
-            }
+        // As but-ui's branch_item: its pull request's glyph and number before its title, the
+        // request's when the forge has one, or that it merged without one; a spinner for its
+        // glyph while its request is being opened.
+        let pr = (branch.review.as_ref()).map(|review| {
+            let state = match store.review_state(id, review) {
+                ReviewState::Draft => PullRequestState::Draft,
+                ReviewState::Open => PullRequestState::Open,
+                ReviewState::Closed => PullRequestState::Closed,
+                ReviewState::Merged => PullRequestState::Merged,
+            };
+            (review.number, state)
+        });
+        let title = (branch.review.as_ref())
+            .map(|review| review.title.as_str())
+            .filter(|title| !title.is_empty())
+            .unwrap_or(name);
+        let row = branch_item(
+            ElementId::Name(format!("branch-{id}-{row_id}").into()),
+            title.to_owned(),
+            pr,
+            state == Some(ReviewState::Merged),
+            style.selected,
+            &style.kind_theme(),
+        )
+        .unread(unread)
+        .busy(publishing, None);
+        let row = match rename {
+            Some(field) => row.rename(field),
             None => row,
         };
-        let row = row.label(match rename {
-            Some(field) => field,
-            None => branch_name(name, review, &style)
-                .id(ElementId::Name(format!("name-{id}-{row_id}").into()))
-                .into_any_element(),
-        });
         let row = self.folding(row, folds.then_some(open), cx, toggle.clone());
-        // CI only while it runs or after it failed: passing is the usual state. A mark, not a
-        // button: the branch's page shows the checks.
+        // CI only while it runs or after it failed: passing is the usual state, as but-ui's
+        // MetaStatus says it. A mark, not a button: the branch's page shows the checks.
         let checks = checks
             .filter(|c| c.running > 0 || c.failed > 0)
             .map(|checks| {
-                let (glyph, color, text) = review::checks_summary(checks, theme);
+                let (_, _, text) = review::checks_summary(checks, theme);
+                let variant = match checks.running > 0 {
+                    true => MetaStatusVariant::Working,
+                    false => MetaStatusVariant::Failed,
+                };
                 let tip = SharedString::from(text);
-                div()
+                meta_status(variant, Some("CI".into()), &style.kind_theme())
                     .id(ElementId::Name(format!("checks-{row_id}").into()))
-                    .flex_none()
-                    .child(small_icon(glyph).text_color(style.meta(color)))
                     .aria_label(tip.clone())
                     .tooltip(Tooltip::text(tip))
             });
@@ -3684,16 +3678,14 @@ impl Navigator {
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let (title, slow) = self.store.read(cx).pending_commit(project, op)?;
-        let glyph = small_icon(Icon::Commit).text_color(style.meta(style.theme.commit_local));
         let ellipsis = div().text_11().text_color(style.muted()).child("…");
         Some(
             style
                 .commit_line(
                     format!("pending-{project}-{op}"),
                     COMMIT_INDENT,
-                    glyph,
                     title,
-                    false,
+                    CommitPlace::Local,
                     None,
                 )
                 .when(slow, |el| el.opacity(0.5).child(ellipsis))
@@ -3738,7 +3730,6 @@ impl Navigator {
         };
         let title: SharedString = title.into();
         let unread = listed.is_some_and(|commit| store.is_unread(id, commit));
-        let warn = style.meta(style.theme.commit_upstream);
         // A merge folds the commits it brought in on a double-click, or by the chevron its ↓
         // turns into.
         let toggle = merge.then(|| {
@@ -3747,19 +3738,16 @@ impl Navigator {
                 this.toggle_merge(&project, owner.clone(), merge_id, window, cx)
             }
         });
-        // A commit's glyph by its state, as every commit's is: upstream, or a merge among them.
-        let arrow = small_icon(match merge {
-            true => Icon::BranchMerge,
-            false => Icon::CommitFill,
-        })
-        .text_color(warn);
         let merge_open = self.open_merges.contains(commit_id)
             || matches!(&store.selection, Some(Selection::Upstream(_, _, c))
                 if store.merged_upstream(id, ref_name, *c).is_some_and(|(m, _)| m == *commit_id));
-        let row = style.commit_parts(
+        // As every commit's: upstream, or a merge among them.
+        let row = style.commit_kind(
             format!("upstream-{id}-{}", commit_id.0),
-            arrow,
             &title,
+            CommitPlace::Upstream,
+            merge,
+            false,
             unread,
             None,
         );
@@ -3994,15 +3982,15 @@ impl Navigator {
         });
         let authors = (!open).then(|| people.and_then(|people| authors_stack(people, style.theme)));
         let section = Section::Upstream(ref_name.clone());
-        let row = self.section_heading(ix, project, &section, label, style, cx);
-        let row = row
-            .when_some(full, |el, full| el.tooltip(Tooltip::text(full)))
-            .children(authors.flatten())
-            .pr(dp(8.))
-            // Folded, how many. While they can be pulled it shows open too, as what pulls them.
-            .when(!open || can_pull, |el| {
-                el.children(self.update_step(project, Some(ref_name), count, tip, style, cx))
-            });
+        // Folded, how many. While they can be pulled it shows open too, as what pulls them.
+        let step = (!open || can_pull)
+            .then(|| self.update_step(project, Some(ref_name), count, tip, style, cx))
+            .flatten();
+        let row = self.section_heading(ix, project, &section, label, style, cx, |row| {
+            let row = authors.flatten().into_iter().fold(row, SidebarRow::meta);
+            step.into_iter().fold(row, SidebarRow::action)
+        });
+        let row = row.when_some(full, |el, full| el.tooltip(Tooltip::text(full)));
         Some(row.into_any_element())
     }
 
@@ -4010,6 +3998,7 @@ impl Navigator {
     /// chevron, and `label`, quiet, the glyph in a 16-point slot as a row's icon is (see
     /// [`RowStyle::row`]). Selecting it shows what it folds on its page; the chevron, a
     /// double-click or Enter lists or folds them.
+    #[expect(clippy::too_many_arguments)]
     fn section_heading(
         &self,
         ix: usize,
@@ -4018,6 +4007,7 @@ impl Navigator {
         label: impl Into<SharedString>,
         style: RowStyle,
         cx: &Context<Self>,
+        more: impl FnOnce(SidebarRow) -> SidebarRow,
     ) -> Stateful<Div> {
         let label = label.into();
         let (indent, glyph) = match section {
@@ -4035,24 +4025,20 @@ impl Navigator {
                 this.toggle_heading(project.clone(), section.clone(), open, window, cx)
             }
         };
-        let quiet = style.quiet();
-        // The upstream heading's glyph takes its commits' colour, so the two change together.
-        let ink = match section {
-            Section::Upstream(_) => style.meta(style.theme.commit_upstream),
-            Section::Inactive | Section::Mesh => quiet,
+        let theme = style.kind_theme();
+        let id = ElementId::Name(format!("section-heading-{ix}").into());
+        // A branch's remote's as but-ui's upstream_item, its step saying how many; a group's as
+        // its group_label, quiet, so the rows under it read first.
+        let row = match section {
+            Section::Upstream(_) => {
+                let remote = label.strip_prefix("New on ").unwrap_or(&label).to_owned();
+                upstream_item(id, &remote, None, &theme)
+            }
+            Section::Inactive | Section::Mesh => {
+                group_label(id, label.clone(), Some(glyph), Some(!open), &theme).chevron_folds()
+            }
         };
-        let words = match section {
-            // A heading of its own rows, as but-ui-react's UpstreamItem, not a group's.
-            Section::Upstream(_) => row_name().text_color(style.meta(style.theme.foreground)),
-            Section::Inactive | Section::Mesh => section_label(label.clone(), style.theme)
-                .text_color(quiet)
-                .min_w_0()
-                .truncate(),
-        };
-        let row = sidebar_row(ElementId::Name(format!("section-heading-{ix}").into()))
-            .glyph(icon_at(glyph, 14.).text_color(ink))
-            .label(words.child(label.clone()));
-        let row = self.folding(row, Some(open), cx, toggle.clone());
+        let row = more(self.folding(row, Some(open), cx, toggle.clone()));
         (style.draw(row, indent))
             .aria_label(label)
             .aria_expanded(open)
@@ -4198,40 +4184,37 @@ fn tally(files: &[FileChange]) -> Tally {
 /// What a terminal's program is at, in colour only where the user is wanted, turning while
 /// it works and `seen`.
 pub(crate) fn status_mark(status: &Status, seen: bool, style: RowStyle) -> Option<Stateful<Div>> {
-    let theme = style.theme;
     let said = |reason: &str, otherwise: &str| -> SharedString {
         match reason {
             "" => otherwise.to_owned().into(),
             reason => reason.to_owned().into(),
         }
     };
-    let glyph = |glyph: Icon, color: Hsla| small_icon(glyph).text_color(color).into_any_element();
-    let (drawn, tip) = match status {
+    let theme = style.kind_theme();
+    // As but-ui's components say it: a program at work as a MetaCount's running dots, turning
+    // only while the window shows, and how it stopped as a MetaStatus.
+    let (drawn, tip): (Div, SharedString) = match status {
         Status::Idle => return None,
-        Status::Working => (
-            spinning(style.muted(), seen).into_any_element(),
-            "Working".into(),
-        ),
+        Status::Working => (running_count(seen, style.solid, &theme), "Working".into()),
         Status::Blocked(reason) => (
-            glyph(Icon::Warning, style.meta(theme.warning_mark)),
+            meta_status(MetaStatusVariant::Warning, None, &theme),
             said(reason, "Waiting for you"),
         ),
         Status::Done => (
-            glyph(Icon::Tick, style.meta(theme.success_mark)),
+            meta_status(MetaStatusVariant::Passed, None, &theme),
             "Finished".into(),
         ),
         Status::Failed(reason) => (
-            glyph(Icon::Cross, style.meta(theme.danger_mark)),
+            meta_status(MetaStatusVariant::Failed, None, &theme),
             said(reason, "Failed"),
         ),
     };
-    let mark = div()
-        .id("terminal-status")
-        .flex_none()
-        .aria_label(tip.clone())
-        .child(drawn)
-        .tooltip(Tooltip::text(tip));
-    Some(mark)
+    Some(
+        drawn
+            .id("terminal-status")
+            .aria_label(tip.clone())
+            .tooltip(Tooltip::text(tip)),
+    )
 }
 
 /// What a checkout's uncommitted files count: what a merge left conflicted, as an update can,
@@ -4246,16 +4229,21 @@ fn change_counts(
         plural(conflicted, "conflicted file"),
         style,
     );
+    let tip = files_tip(n, added, removed);
+    let files = count(MetaCountType::Uncommitted, n, tip, style);
+    conflicts.into_iter().chain(files)
+}
+
+/// What `n` uncommitted files' count says under the pointer: how many, and how many lines.
+fn files_tip(n: usize, added: u32, removed: u32) -> String {
     let files = plural(n, "uncommitted file");
-    let tip = match added + removed {
+    match added + removed {
         0 => files,
         _ => format!(
             "{files}: {} added, {removed} removed",
             plural(added as usize, "line")
         ),
-    };
-    let files = count(MetaCountType::Uncommitted, n, tip, style);
-    conflicts.into_iter().chain(files)
+    }
 }
 
 /// `n` as but-ui-react's `MetaCount` of `kind` draws it, saying `tip` under the pointer and to a
@@ -4347,37 +4335,6 @@ pub(crate) fn with_merged(target: &Target) -> String {
 /// How many commits pushing `branches` sends.
 fn unpushed<'a>(branches: impl Iterator<Item = &'a Branch>) -> usize {
     branches.map(Branch::unpushed_commits).sum()
-}
-
-/// A row's name, as but-ui-react's: 14 points, semibold, cut with an ellipsis once its row
-/// runs out of room. A commit's title is 13 points and regular instead.
-fn row_name() -> Div {
-    div()
-        .min_w_0()
-        .truncate()
-        .text_14()
-        .semibold()
-        .line_height(dp(17.))
-}
-
-/// A branch as the navigator names it: its pull request's title once the forge cache has one,
-/// toned by the request's state, or else `name`. Drawn from what the last load read, so no row
-/// waits on the network, and offline the cached title stays.
-fn branch_name(name: &str, review: Option<(&Review, ReviewState)>, style: &RowStyle) -> Div {
-    let theme = style.theme;
-    let el = row_name();
-    match review.filter(|(review, _)| !review.title.is_empty()) {
-        Some((review, state)) => el
-            .text_color(match style.solid {
-                true if matches!(state, ReviewState::Open | ReviewState::Draft) => {
-                    style.meta(theme.foreground)
-                }
-                true => style.muted(),
-                false => review::title_color(state, theme),
-            })
-            .child(review.title.clone()),
-        None => el.child(name.to_owned()),
-    }
 }
 
 impl Focusable for Navigator {

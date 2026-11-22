@@ -9,7 +9,7 @@ use gpui::{AnyElement, App, Context, ElementId, SharedString, Window, prelude::*
 
 use super::rows::{COMMIT_INDENT, Fold, Row, Rows, found, matches};
 use super::{
-    ClickOpened, Navigator, RowStyle, STEP, change_counts, click_opens, double_click, row_name,
+    ClickOpened, Navigator, RowStyle, STEP, change_counts, click_opens, count, double_click,
 };
 use crate::app::{CopyPath, CopySelection};
 use crate::backend::Workspace;
@@ -20,7 +20,8 @@ use crate::state::{
     MeshBranch, MeshPick, ProjectEntry, ProjectId, Section, Selection, Store, snack,
 };
 use crate::ui::{
-    Icon, SidebarRow, Tooltip, commit_title, faint, icon_at, review, sidebar_row, small_icon,
+    CommitPlace, Icon, MetaCountType, SidebarRow, Tooltip, branch_item, commit_title, item_name,
+    plural, sidebar_row,
 };
 
 impl Navigator {
@@ -126,11 +127,14 @@ impl Navigator {
         let open = self.mesh_open(id, cx);
         let checkouts = store.mesh_checkouts(id);
         let label = "Network worktrees";
-        let row = self.section_heading(ix, id, &Section::Mesh, label, style, cx);
-        row.when(!open, |el| {
-            el.child(faint(checkouts.len().to_string(), style.theme).text_color(style.quiet()))
-        })
-        .tooltip(Tooltip::text(
+        let n = checkouts.len();
+        let row = self.section_heading(ix, id, &Section::Mesh, label, style, cx, |row| {
+            // Folded, how many.
+            let tip = plural(n, "worktree elsewhere");
+            let n = (!open).then(|| count(MetaCountType::Worktrees, n, tip, style));
+            n.flatten().into_iter().fold(row, SidebarRow::meta)
+        });
+        row.tooltip(Tooltip::text(
             "Unfinished work on your other machines, from your mesh",
         ))
         .into_any_element()
@@ -153,14 +157,13 @@ impl Navigator {
         let theme = style.theme;
         let row = match (pick, branch, commit) {
             (MeshPick::Commit(..), _, Some(commit)) => {
-                let (glyph, color) = match commit.pushed {
-                    true => (Icon::CommitFill, theme.commit_remote),
-                    false => (Icon::Commit, theme.commit_local),
+                let place = match commit.pushed {
+                    true => CommitPlace::Pushed,
+                    false => CommitPlace::Local,
                 };
                 let id = format!("mesh-commit-{project}-{key}-{:?}", commit.id);
-                let glyph = small_icon(glyph).text_color(style.meta(color));
                 let title = commit.title.clone().into();
-                style.commit_line(id, COMMIT_INDENT, glyph, title, false, None)
+                style.commit_line(id, COMMIT_INDENT, title, place, None)
             }
             (MeshPick::Branch(name), Some(branch), _) => {
                 let fold = (project.clone(), key.clone(), name.clone());
@@ -170,23 +173,18 @@ impl Navigator {
                 let open = self.is_open(&clicked) || on_commit;
                 let n = branch.commits.len();
                 let unpushed = branch.commits.iter().filter(|c| !c.pushed).count();
-                let (glyph, color) = match branch.status {
-                    BranchStatus::Integrated => (Icon::BranchMerge, theme.done_mark),
-                    BranchStatus::Diverged => (Icon::Branch, theme.warning_mark),
-                    BranchStatus::Other => (Icon::Branch, style.muted()),
-                };
-                let color = match branch.status {
-                    BranchStatus::Integrated => review::merged_color(style.solid, theme),
-                    _ => style.meta(color),
-                };
                 let toggle = move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
                     this.toggle_mesh_branch(fold.clone(), open, window, cx)
                 };
-                let row = sidebar_row(ElementId::Name(
-                    format!("mesh-branch-{project}-{key}-{name}").into(),
-                ))
-                .glyph(icon_at(glyph, 14.).text_color(color))
-                .label(row_name().child(name.clone()));
+                // As but-ui's branch_item, merged once it's in the target.
+                let row = branch_item(
+                    ElementId::Name(format!("mesh-branch-{project}-{key}-{name}").into()),
+                    name.clone(),
+                    None,
+                    branch.status == BranchStatus::Integrated,
+                    style.selected,
+                    &style.kind_theme(),
+                );
                 let row = self.folding(row, (n > 0).then_some(open), cx, toggle.clone());
                 let row = style
                     .unpushed(unpushed)
@@ -221,14 +219,13 @@ impl Navigator {
                 let row = sidebar_row(ElementId::Name(format!("mesh-{project}-{key}").into()))
                     .icon(Icon::Desktop, theme)
                     .label(
-                        row_name()
+                        item_name(checkout.label())
                             .id(("mesh-name", ix))
                             .when(!checkout.online, |el| el.text_color(style.muted()))
                             .when(checkout.error.is_some() && !style.solid, |el| {
                                 el.text_color(theme.warning_text)
                             })
-                            .tooltip(Tooltip::text(tip))
-                            .child(checkout.label()),
+                            .tooltip(Tooltip::text(tip)),
                     );
                 let row = self.folding(row, folds.then_some(open), cx, toggle.clone());
                 let counts = change_counts((files.len(), 0, (added as u32, removed as u32)), style)
