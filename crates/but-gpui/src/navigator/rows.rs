@@ -517,22 +517,22 @@ impl Navigator {
                 let checkout = Checkout::Linked(wt.name.clone());
                 selection.is_some_and(|s| in_checkout(store, s, workspace, &checkout))
             };
-            // The inactive ones wait under a heading of their own, folded unless opened or
-            // the selection's in one.
+            // The inactive ones wait after the rest, folded behind a row that says how many
+            // unless opened or the selection's in one, as but-ui-react's MoreItem pages a list.
             let (inactive, active): (Vec<_>, Vec<_>) =
                 (worktrees.into_iter()).partition(|wt| wt.is_inactive(store.prefs.inactive_after));
             for wt in active {
                 self.worktree_rows(store, id, wt, on_branches(wt), rows);
             }
             if !inactive.is_empty() {
-                let heading = Selection::Section(id.clone(), Section::Inactive);
-                rows.push(Row::Item(heading.clone()));
+                let more = Selection::Section(id.clone(), Section::Inactive);
                 let open = inactive_open(store, id, &inactive);
-                rows.fold(Fold::Under(heading), open, &self.folds, |rows| {
+                rows.fold(Fold::Under(more.clone()), open, &self.folds, |rows| {
                     for wt in inactive {
                         self.worktree_rows(store, id, wt, on_branches(wt), rows);
                     }
                 });
+                rows.push(Row::Item(more));
             }
         }
         // Its checkouts on the user's other machines, as worktrees: none while signed out.
@@ -1051,8 +1051,8 @@ pub(super) fn in_inactive(store: &Store, id: &ProjectId, inactive: &[&Worktree])
         })
 }
 
-/// Whether project `id`'s `inactive` worktrees are listed under their heading: once it's
-/// opened, and while the selection's in one.
+/// Whether project `id`'s `inactive` worktrees are listed above the row that folds them: once
+/// it's opened, and while the selection's in one.
 pub(super) fn inactive_open(store: &Store, id: &ProjectId, inactive: &[&Worktree]) -> bool {
     in_inactive(store, id, inactive) || store.prefs.shown_inactive.contains(id.as_ref())
 }
@@ -1087,7 +1087,7 @@ fn worktrees_shown<'a>(
 
 /// Project `id`'s linked worktrees the navigator lists: all but those an operation under way
 /// takes away, in the order [`worktrees_shown`] gives but the active ones first, as the
-/// inactive ones wait under their heading after them. The rows, the tabs across the top and
+/// inactive ones wait folded after them. The rows, the tabs across the top and
 /// Go to anything all list them so.
 pub(crate) fn worktrees_listed<'a>(
     store: &Store,
@@ -1108,7 +1108,7 @@ fn active_first(worktrees: Vec<&Worktree>, after: InactiveAfter) -> Vec<&Worktre
 }
 
 /// The linked worktrees of `project` listed with `name`, as they're listed now: the active
-/// ones, or the inactive ones under their heading, which it can't leave.
+/// ones, or the inactive ones folded after them, which it can't leave.
 pub(super) fn listed_with(
     store: &Store,
     project: &ProjectId,
@@ -1299,7 +1299,7 @@ mod active_first_tests {
         assert_eq!(
             names,
             ["new", "newer", "old", "older"],
-            "each keeps its place among its own, as the rows list the inactive under their heading"
+            "each keeps its place among its own, as the rows list the inactive folded after the rest"
         );
     }
 }

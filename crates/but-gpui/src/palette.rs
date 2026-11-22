@@ -852,8 +852,8 @@ fn upstream_commit_choice(
         .commit_id(commit.id)
 }
 
-/// Go to anything's row for the heading over a loaded project's inactive worktrees, as the
-/// navigator names it, while there are any.
+/// Go to anything's row for the row a loaded project's inactive worktrees fold behind, named
+/// for them, while there are any.
 fn inactive_choice(store: &Store, entry: &ProjectEntry, several: bool) -> Option<Choice> {
     if store.inactive_worktrees(&entry.id).is_empty() {
         return None;

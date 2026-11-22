@@ -252,6 +252,47 @@ fn tree(selected: &str, solid: bool, theme: &Theme) -> [Div; 2] {
     ]
 }
 
+const INACTIVE: [(&str, &str); 2] = [
+    ("dazzling-sinoussi-031b8a", "6d"),
+    ("quirky-hopper-7f2e10", "9d"),
+];
+
+/// The stories' `InactiveWorktreesCard`: a repository whose quiet linked worktrees fold away
+/// behind a MoreItem after the active ones, shown while `open`.
+fn inactive_worktrees(open: bool, theme: &Theme) -> Div {
+    let mut rows = vec![
+        (0, repo_item("repo", "but-dev", theme).fold(Fold::Open)),
+        (
+            1,
+            worktree_item("main", "Main worktree", true, false, theme)
+                .fold(Fold::Folded)
+                .meta(age("1d", theme)),
+        ),
+        (
+            1,
+            worktree_item("archive", "mesh-archive", false, false, theme)
+                .fold(Fold::Folded)
+                .meta(age("5h", theme)),
+        ),
+    ];
+    if open {
+        rows.extend(INACTIVE.into_iter().map(|(name, since)| {
+            (
+                1,
+                worktree_item(name, name, false, false, theme)
+                    .fold(Fold::Folded)
+                    .meta(age(since, theme)),
+            )
+        }));
+    }
+    let label = match open {
+        true => "Hide inactive worktrees".to_owned(),
+        false => format!("{} inactive worktrees", INACTIVE.len()),
+    };
+    rows.push((1, more_item("inactive", label, open, theme)));
+    card(theme, [repository(theme, true, rows)])
+}
+
 /// The Unread story's tree as it opens, every branch folded: a branch with new commits inside
 /// carries their dot.
 fn unread(theme: &Theme) -> Div {
@@ -303,7 +344,7 @@ fn unread(theme: &Theme) -> Div {
 }
 
 /// The stories of `SidebarRow.stories.tsx` this client can draw so far.
-pub(super) const EXAMPLES: [Example; 2] = [
+pub(super) const EXAMPLES: [Example; 3] = [
     Example {
         id: "components-sidebarrow--selection",
         name: "Selection",
@@ -315,6 +356,20 @@ pub(super) const EXAMPLES: [Example; 2] = [
                 .gap(dp(24.))
                 .child(card(theme, tree("commit", true, theme)))
                 .child(card(theme, tree("ios-push-handoff", false, theme)))
+                .into_any_element()
+        },
+    },
+    Example {
+        id: "components-sidebarrow--inactive-worktrees",
+        name: "Inactive Worktrees",
+        draw: |theme| {
+            gpui::div()
+                .flex()
+                .flex_wrap()
+                .items_start()
+                .gap(dp(24.))
+                .child(inactive_worktrees(false, theme))
+                .child(inactive_worktrees(true, theme))
                 .into_any_element()
         },
     },

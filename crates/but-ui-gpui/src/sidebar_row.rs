@@ -46,8 +46,9 @@ pub struct SidebarRow {
     unread: bool,
     quiet: bool,
     glyph: Option<AnyElement>,
-    icon: Option<Icon>,
+    icon: Option<(Icon, f32)>,
     fold_room: bool,
+    muted_text: bool,
     label: Vec<AnyElement>,
     meta: Vec<AnyElement>,
     actions: Vec<AnyElement>,
@@ -77,6 +78,7 @@ pub fn sidebar_row(id: impl Into<ElementId>) -> SidebarRow {
         glyph: None,
         icon: None,
         fold_room: false,
+        muted_text: false,
         label: Vec::new(),
         meta: Vec::new(),
         actions: Vec::new(),
@@ -180,7 +182,20 @@ impl SidebarRow {
     /// The row's glyph from the icon set, in the row's muted ink, which on a solid selection is
     /// the inverted one, however late the row is selected.
     pub fn icon(mut self, icon: Icon, _theme: &Theme) -> Self {
-        self.icon = Some(icon);
+        self.icon = Some((icon, 14.));
+        self
+    }
+
+    /// As [`Self::icon`], 12 points, as a row that only pages a list wears it.
+    pub fn small_icon(mut self, icon: Icon) -> Self {
+        self.icon = Some((icon, 12.));
+        self
+    }
+
+    /// The row's words in its muted ink rather than its own, as a row that only pages a list
+    /// says them, still legible on a solid selection.
+    pub fn muted_text(mut self) -> Self {
+        self.muted_text = true;
         self
     }
 
@@ -234,7 +249,7 @@ impl SidebarRow {
             theme.border_subtle
         };
         let glyph = (self.glyph).or_else(|| {
-            (self.icon).map(|icon| icon_at(icon, 14.).text_color(muted).into_any_element())
+            (self.icon).map(|(icon, px)| icon_at(icon, px).text_color(muted).into_any_element())
         });
         let has_glyph = glyph.is_some() || self.busy;
         let fold_room = self.fold_room && self.fold.is_none();
@@ -339,10 +354,10 @@ impl SidebarRow {
             .pr(dp(8.))
             .gap(dp(8.))
             .rounded(dp(theme.shape.control))
-            .text_color(if self.solid {
-                theme.inverse_foreground
-            } else {
-                theme.foreground
+            .text_color(match (self.solid, self.muted_text) {
+                (true, false) => theme.inverse_foreground,
+                (false, false) => theme.foreground,
+                (_, true) => muted,
             })
             .map(|el| match (self.solid, self.selected, self.linked) {
                 (true, _, _) => el.bg(theme.inverse),
@@ -670,22 +685,16 @@ pub fn more_item(
     id: impl Into<ElementId>,
     label: impl Into<SharedString>,
     expanded: bool,
-    theme: &Theme,
+    _theme: &Theme,
 ) -> SidebarRow {
     let glyph = match expanded {
         true => Icon::ChevronUp,
         false => Icon::Kebab,
     };
     sidebar_row(id)
-        .glyph(icon_at(glyph, 12.).text_color(theme.muted_foreground))
-        .label(
-            div()
-                .min_w_0()
-                .truncate()
-                .text_13()
-                .text_color(theme.muted_foreground)
-                .child(label.into()),
-        )
+        .small_icon(glyph)
+        .muted_text()
+        .label(div().min_w_0().truncate().text_13().child(label.into()))
 }
 
 /// The label over a group of pages: its name, small and quiet, so the pages under it read first.

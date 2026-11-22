@@ -1072,7 +1072,7 @@ impl SettingsView {
             ),
             Row::new(
                 "Worktrees go inactive after",
-                "A linked worktree with nothing uncommitted moves under Inactive worktrees once \
+                "A linked worktree with nothing uncommitted folds away after the others once \
                  it's gone this long without a commit or checkout.",
                 self.choice(
                     "inactive-after",

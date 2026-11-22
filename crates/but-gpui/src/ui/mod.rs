@@ -539,7 +539,6 @@ pub fn pulsing<E: IntoElement + Styled + 'static>(el: E) -> impl IntoElement {
     )
 }
 
-
 /// A faint pop wash over a `list_row`'s ground that fades out once, as for a commit that just
 /// showed up (`Store::glows`), so an agent's commit is noticed where it lands rather than in a
 /// card. Make it the row's first child, of a `relative` row, so the row's text draws over it.

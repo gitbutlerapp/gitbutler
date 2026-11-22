@@ -1050,3 +1050,53 @@ export const Paging = meta.story({
 		</div>
 	),
 });
+
+const inactive = [
+	{ name: "dazzling-sinoussi-031b8a", age: "6d" },
+	{ name: "quirky-hopper-7f2e10", age: "9d" },
+];
+
+/** A repository whose linked worktrees nobody touched lately, folded or not by `open`. */
+const InactiveWorktreesCard: FC<{ open: boolean }> = ({ open: initial }) => {
+	const [open, setOpen] = useState(initial);
+	return (
+		<Card label="pavel--macbook-pro-2" header={machine}>
+			<Repository last>
+				<RepoItem name="but-dev" folded={false} />
+				<WorktreeItem main name="Main worktree" depth={1} folded meta={since("1d")} />
+				<WorktreeItem name="mesh-archive" depth={1} folded meta={since("5h")} />
+				{open &&
+					inactive.map((worktree) => (
+						<WorktreeItem
+							key={worktree.name}
+							name={worktree.name}
+							depth={1}
+							folded
+							meta={since(worktree.age)}
+						/>
+					))}
+				<MoreItem
+					depth={1}
+					label={open ? "Hide inactive worktrees" : `${inactive.length} inactive worktrees`}
+					expanded={open}
+					onClick={() => setOpen(!open)}
+				/>
+			</Repository>
+		</Card>
+	);
+};
+
+/**
+ * Linked worktrees with nothing uncommitted that nobody touched lately fold away behind a row at
+ * the worktrees' depth, after the active ones: "2 inactive worktrees" shows them, and "Hide
+ * inactive worktrees" folds them back. Click it to switch.
+ */
+export const InactiveWorktrees = meta.story({
+	parameters: { design: { type: "figma", url: core("2585-8164") } },
+	render: () => (
+		<div style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "flex-start" }}>
+			<InactiveWorktreesCard open={false} />
+			<InactiveWorktreesCard open />
+		</div>
+	),
+});

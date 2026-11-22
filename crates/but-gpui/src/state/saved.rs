@@ -179,7 +179,7 @@ impl Store {
         cx.notify();
     }
 
-    /// Count worktrees as inactive `after`, which can empty the heading selected.
+    /// Count worktrees as inactive `after`, which can empty the inactive row selected.
     pub fn set_inactive_after(
         &mut self,
         after: crate::backend::InactiveAfter,
@@ -646,7 +646,7 @@ pub struct Prefs {
     /// Watched projects, by id, whose work on other machines shows under its heading; it
     /// starts folded.
     pub shown_mesh: HashSet<String>,
-    /// Watched projects, by id, whose inactive worktrees show under their heading; it starts
+    /// Watched projects, by id, whose inactive worktrees show, unfolded by hand; they start
     /// folded.
     pub shown_inactive: HashSet<String>,
     pub inactive_after: crate::backend::InactiveAfter,

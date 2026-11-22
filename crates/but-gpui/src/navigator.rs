@@ -2123,9 +2123,7 @@ impl Navigator {
             Selection::Section(id, Section::Upstream(ref_name)) => {
                 self.upstream_heading(ix, id, ref_name, style, cx)
             }
-            Selection::Section(id, Section::Inactive) => {
-                Some(self.inactive_heading(ix, id, style, cx))
-            }
+            Selection::Section(id, Section::Inactive) => Some(self.inactive_row(ix, id, style, cx)),
             Selection::Section(id, Section::Mesh) => Some(self.mesh_heading(ix, id, style, cx)),
         };
         let Some(el) = el else {
@@ -3704,9 +3702,10 @@ impl Navigator {
         )
     }
 
-    /// Over `project`'s inactive worktrees, as Network worktrees is over its checkouts
-    /// elsewhere: folded, it says how many. The selection in one keeps them listed.
-    fn inactive_heading(
+    /// After `project`'s active worktrees, as but-ui-react's MoreItem: folded, how many
+    /// inactive ones wait; open, under them, a row that folds them back. A click does either,
+    /// and the selection in one keeps them listed.
+    fn inactive_row(
         &self,
         ix: usize,
         project: &ProjectId,
@@ -3717,11 +3716,32 @@ impl Navigator {
         let inactive = store.inactive_worktrees(project);
         let open = inactive_open(store, project, &inactive);
         let after = store.prefs.inactive_after;
-        let label = "Inactive worktrees";
-        self.section_heading(ix, project, &Section::Inactive, label, style, cx)
-            .when(!open, |el| {
-                el.child(faint(inactive.len().to_string(), style.theme).text_color(style.quiet()))
-            })
+        let item = Selection::Section(project.clone(), Section::Inactive);
+        let label = match open {
+            true => "Hide inactive worktrees".to_owned(),
+            false => plural(inactive.len(), "inactive worktree"),
+        };
+        let toggle = {
+            let project = project.clone();
+            move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
+                this.toggle_heading(project.clone(), Section::Inactive, open, window, cx)
+            }
+        };
+        let row = more_item(
+            ElementId::Name(format!("inactive-{ix}").into()),
+            label.clone(),
+            open,
+            style.theme,
+        );
+        (style.draw(row, 0.))
+            .aria_label(label)
+            .aria_expanded(open)
+            .map(|el| self.selectable(el, &item, cx))
+            .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                if !this.filtering(cx) {
+                    toggle(this, window, cx)
+                }
+            }))
             .tooltip(move |window, cx| Tooltip::text(after.rule())(window, cx))
             .into_any_element()
     }
@@ -4045,7 +4065,7 @@ fn parent(store: &Store, selection: &Selection) -> Option<Selection> {
 }
 
 /// The row folding hides `item` under, as ⇧← goes up to it, up to its project's: a commit's
-/// branch, an inactive worktree's heading, else as [`parent`] says.
+/// branch, the row an inactive worktree folds behind, else as [`parent`] says.
 fn holder(store: &Store, item: &Selection) -> Option<Selection> {
     let project = item.project().clone();
     let up = match item {

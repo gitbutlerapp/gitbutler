@@ -480,8 +480,8 @@ impl Navigator {
                     .and_then(|ws| ws.find_worktree(name.as_ref()))
                     .is_some_and(|wt| wt.is_inactive(store.prefs.inactive_after)) =>
             {
-                let heading = Selection::Section(project, Section::Inactive);
-                self.select(heading, window, cx)
+                let more = Selection::Section(project, Section::Inactive);
+                self.select(more, window, cx)
             }
             Some(Selection::Mesh(project, id, pick)) => {
                 self.collapse_mesh(project, id, pick, window, cx)
