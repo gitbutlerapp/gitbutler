@@ -35,6 +35,7 @@ mod segmented;
 mod select;
 mod sidebar_rows;
 mod snackbar;
+mod split_preview;
 mod switch;
 mod switch_button;
 mod toggle_group;
@@ -150,6 +151,7 @@ fn examples() -> impl Iterator<Item = Example> {
         .chain(meta_count::STATUS_EXAMPLES)
         .chain(sidebar_rows::EXAMPLES)
         .chain(sidebar_rows::TERMINAL_EXAMPLES)
+        .chain(split_preview::EXAMPLES)
 }
 
 /// An example under its name, as the docs site titles it, at its own width at the start of the
@@ -227,6 +229,7 @@ impl Gallery {
             story("Select", select::SelectStory, cx),
             story("Sidebar rows", sidebar_rows::SidebarRowsStory, cx),
             story("Snackbar", snackbar::SnackbarStory, cx),
+            story("Splits", split_preview::SplitPreviewStory, cx),
             story("Switch", switch::SwitchStory::default(), cx),
             story(
                 "Switch button",
