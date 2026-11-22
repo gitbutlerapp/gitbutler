@@ -1548,6 +1548,14 @@ impl Store {
         (self.tilings.get(row)).is_some_and(|tiling| tiling.has(tile))
     }
 
+    /// Whether `selection` has tiles pinned beside its page.
+    pub(crate) fn has_splits(&self, selection: &Selection) -> bool {
+        matches!(
+            self.tilings.get(&self.row_key(selection)),
+            Some(Tiling::Divided { .. })
+        )
+    }
+
     /// The change IDs of `project`'s commits, while its workspace is loaded.
     pub fn commit_keys(&self, project: &ProjectId) -> Option<HashSet<&str>> {
         let branches = self.workspace(project)?.all_branches();
@@ -1746,8 +1754,11 @@ impl Store {
         true
     }
 
-    /// Number the tiles made since, forget those gone, and say the tilings changed.
+    /// Update the selection and tile numbers after a layout change, then report it.
     pub(super) fn tiling_changed(&mut self, cx: &mut Context<Self>) {
+        if let Some(Selection::Uncommitted(project, _)) = &self.selection {
+            self.validate_selection(&project.clone(), cx);
+        }
         self.number_tiles();
         self.update_status_checkouts();
         cx.emit(StoreEvent::TilingChanged);
