@@ -18,27 +18,31 @@ mod button;
 mod checkbox;
 mod counts;
 mod diff_stats;
+mod drawer;
 mod dropdown_button;
 mod empty_state;
 mod file_list;
 mod file_status_badge;
 mod icons;
 mod keycap;
+mod machine_status;
+mod meta_count;
 mod popover;
 mod radio;
 mod review;
 mod rows;
 mod segmented;
 mod select;
+mod sidebar_rows;
 mod snackbar;
 mod switch;
 mod switch_button;
 mod toggle_group;
 
 use gpui::{
-    AnyElement, AnyView, App, Bounds, Context, Div, Hsla, KeyBinding, Menu, MenuItem, QuitMode,
-    SharedString, Task, TitlebarOptions, Window, WindowAppearance, WindowBounds, WindowOptions,
-    actions, div, point, prelude::*, size,
+    AnyElement, AnyView, App, Bounds, Context, Div, Entity, Focusable as _, Hsla, KeyBinding, Menu,
+    MenuItem, QuitMode, SharedString, Subscription, Task, TitlebarOptions, Window,
+    WindowAppearance, WindowBounds, WindowOptions, actions, div, point, prelude::*, size,
 };
 
 use crate::backend::{
@@ -47,8 +51,10 @@ use crate::backend::{
 };
 use crate::theme::{CodeSize, Density, Theme, UiScale};
 use crate::ui::Text;
+use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    self, ButtonStyle, button, dp, faint, fixed, h_flex, list_row, section_label, segmented, v_flex,
+    self, ButtonStyle, button, dp, faint, field, fixed, h_flex, list_row, section_label, segmented,
+    v_flex,
 };
 
 actions!(stories, [Quit]);
@@ -131,11 +137,19 @@ struct Example {
 
 /// Every story's examples.
 fn examples() -> impl Iterator<Item = Example> {
-    (badge::EXAMPLES.into_iter())
+    (avatar::EXAMPLES.into_iter())
+        .chain(badge::EXAMPLES)
         .chain(button::EXAMPLES)
         .chain(diff_stats::EXAMPLES)
+        .chain(drawer::ITEM_EXAMPLES)
+        .chain(drawer::EXAMPLES)
         .chain(file_list::EXAMPLES)
         .chain(file_status_badge::EXAMPLES)
+        .chain(machine_status::EXAMPLES)
+        .chain(meta_count::COUNT_EXAMPLES)
+        .chain(meta_count::STATUS_EXAMPLES)
+        .chain(sidebar_rows::EXAMPLES)
+        .chain(sidebar_rows::TERMINAL_EXAMPLES)
 }
 
 /// An example under its name, as the docs site titles it, at its own width at the start of the
@@ -152,6 +166,9 @@ fn example(example: Example, theme: &Theme) -> Div {
 struct Gallery {
     stories: Vec<Story>,
     shown: usize,
+    /// Narrows the list of stories to those whose name has what's typed in it.
+    filter: Entity<TextInput>,
+    _filter: Subscription,
     /// An example drawn alone, in place of the gallery, to be shot.
     solo: Option<Example>,
     dark: bool,
@@ -192,6 +209,7 @@ impl Gallery {
             story("Checkbox", checkbox::CheckboxStory::default(), cx),
             story("Counts and marks", counts::CountsStory, cx),
             story("Diff stats", diff_stats::DiffStatsStory, cx),
+            story("Drawer", drawer::DrawerStory, cx),
             story("Dropdown button", dropdown_button::DropdownButtonStory, cx),
             story("Empty state", empty_state::EmptyStateStory, cx),
             story("File list", file_list::FileListStory::default(), cx),
@@ -199,11 +217,15 @@ impl Gallery {
             story("Icons", icons::IconsStory::default(), cx),
             story("Keycap", keycap::KeycapStory, cx),
             story("List rows", rows::RowsStory::default(), cx),
+            story("MachineStatus", machine_status::MachineStatusStory, cx),
+            story("MetaCount", meta_count::MetaCountStory, cx),
+            story("MetaStatus", meta_count::MetaStatusStory, cx),
             story("Popover and modal", popover::PopoverStory, cx),
             story("Pull request state", review::ReviewStory, cx),
             story("Radio", radio::RadioStory::default(), cx),
             story("Segmented", segmented::SegmentedStory::default(), cx),
             story("Select", select::SelectStory, cx),
+            story("Sidebar rows", sidebar_rows::SidebarRowsStory, cx),
             story("Snackbar", snackbar::SnackbarStory, cx),
             story("Switch", switch::SwitchStory::default(), cx),
             story(
@@ -235,10 +257,28 @@ impl Gallery {
                 WindowAppearance::Dark | WindowAppearance::VibrantDark
             ),
         };
+        let filter = cx.new(|cx| TextInput::new("Filter", false, cx));
+        let filter_events = cx.subscribe(&filter, |this: &mut Self, input, event, cx| {
+            match event {
+                InputEvent::Changed => {}
+                // Esc empties it.
+                InputEvent::Cancel => input.update(cx, |input, cx| input.set_text("", cx)),
+                // Enter opens the first story it finds.
+                InputEvent::Submit => {
+                    let first = this.found(cx).next();
+                    if let Some(ix) = first {
+                        this.shown = ix;
+                    }
+                }
+            }
+            cx.notify();
+        });
         let gallery = Self {
             build: Build::default(),
             stories,
             shown,
+            filter,
+            _filter: filter_events,
             solo,
             dark,
             scale: UiScale::default(),
@@ -327,7 +367,17 @@ impl Gallery {
         );
     }
 
-    fn sidebar(&self, theme: &Theme, cx: &mut Context<Self>) -> Div {
+    /// Where the stories whose name has the filter's text in it are, in their order.
+    fn found<'a>(&'a self, cx: &App) -> impl Iterator<Item = usize> + 'a {
+        let typed = self.filter.read(cx).text().trim().to_lowercase();
+        (self.stories.iter().enumerate())
+            .filter(move |(_, story)| story.name.to_lowercase().contains(&typed))
+            .map(|(ix, _)| ix)
+    }
+
+    fn sidebar(&self, window: &Window, theme: &Theme, cx: &mut Context<Self>) -> Div {
+        let focused = self.filter.focus_handle(cx).is_focused(window);
+        let found: Vec<usize> = self.found(cx).collect();
         v_flex()
             .flex_none()
             .w(dp(200.))
@@ -343,14 +393,31 @@ impl Gallery {
                     .pb(dp(6.))
                     .child(section_label("Components", theme)),
             )
-            .children(self.stories.iter().enumerate().map(|(ix, story)| {
-                list_row(("story", ix), ix == self.shown, theme)
-                    .child(story.name)
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        this.shown = ix;
-                        cx.notify();
-                    }))
-            }))
+            .child(
+                div()
+                    .px(dp(10.))
+                    .pb(dp(6.))
+                    .child(field(&self.filter, focused, theme)),
+            )
+            // The stories scroll under their label once the window is shorter than the list.
+            .child(
+                v_flex()
+                    .id("story-list")
+                    .flex_1()
+                    .min_h_0()
+                    .gap(dp(2.))
+                    .overflow_y_scroll()
+                    .children(found.into_iter().filter_map(|ix| {
+                        let story = self.stories.get(ix)?;
+                        let row = list_row(("story", ix), ix == self.shown, theme)
+                            .child(story.name)
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                this.shown = ix;
+                                cx.notify();
+                            }));
+                        Some(row)
+                    })),
+            )
     }
 
     fn toolbar(&self, name: &'static str, theme: &Theme, cx: &mut Context<Self>) -> Div {
@@ -428,7 +495,7 @@ impl Render for Gallery {
             .text_13()
             .text_color(theme.foreground)
             .bg(theme.background)
-            .child(self.sidebar(&theme, cx))
+            .child(self.sidebar(window, &theme, cx))
             .child(
                 v_flex()
                     .flex_1()

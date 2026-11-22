@@ -19,6 +19,7 @@
 #![cfg_attr(not(test), deny(clippy::indexing_slicing, clippy::string_slice))]
 #![cfg_attr(test, allow(clippy::disallowed_methods))]
 
+pub mod clock;
 pub mod file_icons;
 pub mod illustration;
 pub mod modal;
@@ -28,6 +29,7 @@ pub mod modal;
 )]
 pub mod theme;
 
+mod avatar;
 mod badge;
 mod button;
 mod checkbox;
@@ -41,11 +43,13 @@ mod icon;
 mod keys;
 mod layout;
 mod list_row;
+mod machine_status;
 mod meta_count;
 mod popup;
 mod radio;
 mod segmented;
 mod select;
+mod sidebar_row;
 mod snackbar;
 mod switch;
 mod switch_button;
@@ -53,6 +57,7 @@ mod text;
 mod toggle_group;
 mod tooltip;
 
+pub use avatar::*;
 pub use badge::*;
 pub use button::*;
 pub use checkbox::*;
@@ -66,11 +71,13 @@ pub use icon::*;
 pub use keys::*;
 pub use layout::*;
 pub use list_row::*;
+pub use machine_status::*;
 pub use meta_count::*;
 pub use popup::*;
 pub use radio::*;
 pub use segmented::*;
 pub use select::*;
+pub use sidebar_row::*;
 pub use snackbar::*;
 pub use switch::*;
 pub use switch_button::*;

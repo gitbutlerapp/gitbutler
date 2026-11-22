@@ -3,7 +3,7 @@ use gpui::{Context, Window, div, prelude::*};
 use super::{framed, page, section, variant};
 use crate::theme::Theme;
 use crate::ui::{
-    Icon, age_column, count_badge, dot, dp, list_row, meta_count, now, unread_line, v_flex,
+    Icon, age_column, count_badge, count_mark, dot, dp, list_row, now, unread_line, v_flex,
 };
 
 pub struct CountsStory;
@@ -25,7 +25,7 @@ impl Render for CountsStory {
                     variant(
                         "Unpushed",
                         theme,
-                        div().children(meta_count(
+                        div().children(count_mark(
                             Icon::ArrowUp,
                             3,
                             theme.info_text,
@@ -35,7 +35,7 @@ impl Render for CountsStory {
                     variant(
                         "Waiting on you",
                         theme,
-                        div().children(meta_count(
+                        div().children(count_mark(
                             Icon::Warning,
                             2,
                             theme.warning_text,
@@ -45,7 +45,7 @@ impl Render for CountsStory {
                     variant(
                         "Nothing at zero",
                         theme,
-                        div().children(meta_count(
+                        div().children(count_mark(
                             Icon::ArrowUp,
                             0,
                             theme.info_text,

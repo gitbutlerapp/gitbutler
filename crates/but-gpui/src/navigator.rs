@@ -39,9 +39,9 @@ use crate::ui::scrollbar::{Scroll, scrollbar, scrolled_in_gap};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     BLINK, Button, ButtonStyle, HEADER_HEIGHT, Icon, Tooltip, WINDOW_CONTROLS_WIDTH, above_drag,
-    blink_once, button, commit_title, count_badge, dp, faint, field, fixed, fold_button, fold_row,
-    glow_once, guide, h_flex, icon, icon_at, icon_button, list_row, meta_count, plural, pulsing,
-    review, section_label, small_icon, spinning, unread_line, v_flex,
+    blink_once, button, commit_title, count_badge, count_mark, dp, faint, field, fixed,
+    fold_button, fold_row, glow_once, guide, h_flex, icon, icon_at, icon_button, list_row, plural,
+    pulsing, review, section_label, small_icon, spinning, unread_line, v_flex,
 };
 
 mod account;
@@ -391,13 +391,13 @@ impl<'a> RowStyle<'a> {
     /// How many of a row's commits aren't pushed, when any aren't, quiet: only a branch's own
     /// count is blue, where Push takes its place (see `Navigator::push_step`).
     fn unpushed(&self, n: usize) -> Option<Stateful<Div>> {
-        meta_count(Icon::ArrowUp, n, self.muted(), plural(n, "unpushed commit"))
+        count_mark(Icon::ArrowUp, n, self.muted(), plural(n, "unpushed commit"))
     }
 
     /// How many files are uncommitted, when any are.
     fn files(&self, n: usize) -> Option<Stateful<Div>> {
         let color = self.meta(self.theme.warning_text);
-        meta_count(Icon::File, n, color, plural(n, "uncommitted file"))
+        count_mark(Icon::File, n, color, plural(n, "uncommitted file"))
     }
 
     /// Meaningful colours wash out on the dark selection ground; keep them legible.
@@ -2767,12 +2767,7 @@ impl Navigator {
                         .children(target.and_then(|t| {
                             let behind = plural(t.behind, "commit");
                             let tip = format!("{behind} behind {}{}", t.name, with_merged(t));
-                            meta_count(
-                                Icon::ArrowDown,
-                                t.behind,
-                                style.meta(theme.warning_text),
-                                tip,
-                            )
+                            count_mark(Icon::ArrowDown, t.behind, style.meta(theme.warning_text), tip)
                         }))
                         .when(entry.is_loading(), |el| {
                             el.child(small_icon(Icon::Clock).text_color(theme.subtle_foreground))
@@ -3281,7 +3276,7 @@ impl Navigator {
                     },
                 )
                 // So conflicts show while the commits are hidden too.
-                .children(meta_count(
+                .children(count_mark(
                     Icon::Warning,
                     conflicted,
                     style.meta(theme.warning_text),
@@ -3356,7 +3351,7 @@ impl Navigator {
         let ws = store.workspace(project)?;
         if let Some(why) = ws.push_blocked(ref_name) {
             let color = style.meta(style.theme.info_text);
-            return meta_count(Icon::ArrowUp, n, color, why.to_owned())
+            return count_mark(Icon::ArrowUp, n, color, why.to_owned())
                 .map(IntoElement::into_any_element);
         }
         let ref_name = ref_name?;
@@ -3402,7 +3397,7 @@ impl Navigator {
         let warn = style.meta(style.theme.warning_text);
         let ws = self.store.read(cx).workspace(project);
         let Some(ref_name) = ref_name.filter(|r| ws.is_some_and(|ws| ws.can_pull(r))) else {
-            return meta_count(Icon::ArrowDown, n, warn, tip).map(IntoElement::into_any_element);
+            return count_mark(Icon::ArrowDown, n, warn, tip).map(IntoElement::into_any_element);
         };
         if n == 0 {
             return None;
@@ -4065,7 +4060,7 @@ fn change_counts(
     style: RowStyle,
 ) -> impl Iterator<Item = Stateful<Div>> {
     let theme = style.theme;
-    let conflicts = meta_count(
+    let conflicts = count_mark(
         Icon::Warning,
         conflicted,
         style.meta(theme.warning_text),

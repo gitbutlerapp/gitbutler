@@ -25,7 +25,7 @@ workspace = true
 
 [features]
 ## Scripted input and frame screenshots for development, see `src/dev.rs`.
-dev-script = ["gpui/test-support", "gpui_platform/test-support"]
+dev-script = ["gpui/test-support", "gpui_platform/test-support", "but-ui-gpui/dev-script"]
 ## A window of the shared controls in their states, as `gitbutler-gpui-pantry`, see
 ## `src/stories`.
 stories = []

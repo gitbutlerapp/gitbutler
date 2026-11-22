@@ -1,20 +1,17 @@
-//! A person without a picture, as GitButler's other apps draw them: their initial on a
-//! colour picked from their name. A port of `@gitbutler/but-ui-react`'s `personColour.ts`, so an
-//! author looks the same here as on but.dev. An author with a GitHub or Gravatar photo gets it
-//! on top.
+//! Where a person's photo comes from: their GitHub or Gravatar picture, drawn by
+//! [`super::avatar`] over their initial.
 
 use std::sync::{Arc, OnceLock};
 
 use gpui::{
-    AnyElement, App, Asset, Div, Image, ImageCacheError, ImageSource, SharedString, Window, div,
-    img, prelude::*,
+    AnyElement, App, Asset, Div, Image, ImageCacheError, ImageSource, SharedString, Window,
+    prelude::*,
 };
 
 use super::dp;
 use crate::backend::Agent;
 use crate::backend::accounts::GitButlerUser;
 use crate::theme::Theme;
-use crate::ui::Text;
 
 /// `user`'s `picture`, or without one their initial, as in GitButler's other apps.
 pub fn account_avatar(
@@ -23,87 +20,40 @@ pub fn account_avatar(
     size: f32,
     theme: &Theme,
 ) -> AnyElement {
-    match picture {
-        Some(picture) => img(picture)
-            .size(dp(size))
-            .rounded_full()
-            .into_any_element(),
-        None => {
-            let seed = (user.login.as_ref().or(user.email.as_ref())).unwrap_or(&user.name);
-            person_avatar(seed, size, theme).into_any_element()
-        }
-    }
+    let seed = (user.login.as_ref().or(user.email.as_ref())).unwrap_or(&user.name);
+    super::avatar(seed, size, picture.map(ImageSource::Image), theme).into_any_element()
 }
 
 /// `seed`'s picture: their initial on their colour, in a circle `size` across.
 pub fn person_avatar(seed: &str, size: f32, theme: &Theme) -> Div {
-    let people = [
-        theme.category_1,
-        theme.category_2,
-        theme.category_3,
-        theme.category_4,
-        theme.category_5,
-    ];
-    let Some(&colour) = people.get(hash(seed) as usize % people.len()) else {
-        return div();
-    };
-    div()
-        .size(dp(size))
-        .flex_none()
-        .flex()
-        .items_center()
-        .justify_center()
-        .rounded_full()
-        .bg(colour)
-        .text_color(theme.foreground)
-        // Over half the circle, so a 14px avatar still holds a readable letter.
-        .text_off_scale(size * 0.56)
-        .line_height(dp(size))
-        .semibold()
-        .child(initial(seed))
-}
-
-/// `seed`'s first letter or digit, upper-cased, as `personColour.ts`'s `personInitial` gives
-/// it: empty when it has neither.
-fn initial(seed: &str) -> String {
-    (seed.chars().find(|c| c.is_alphanumeric()))
-        .map(|c| c.to_uppercase().collect())
-        .unwrap_or_default()
+    super::avatar(seed, size, None, theme)
 }
 
 /// `name`'s picture, with the photo for `email` over their initial once it loads. Someone
 /// without one, or offline, keeps the initial.
 pub fn author_avatar(name: &str, email: &str, size: f32, theme: &Theme) -> Div {
     let email = SharedString::from(email.trim().to_lowercase());
-    with_photo::<Photo>(person_avatar(name, size, theme), email)
+    super::avatar(name, size, Some(photo::<Photo>(email)), theme)
 }
 
 /// A forge user's picture: the one at `url` over their initial once it loads.
 pub fn forge_avatar(login: &str, url: Option<&str>, size: f32, theme: &Theme) -> Div {
-    let pattern = person_avatar(login, size, theme);
-    match url {
-        Some(url) => with_photo::<Picture>(pattern, url.to_owned().into()),
-        None => pattern,
-    }
+    let picture = url.map(|url| photo::<Picture>(url.to_owned().into()));
+    super::avatar(login, size, picture, theme)
 }
 
-/// `pattern` with the photo `A` loads for `key` over it, once there is one.
-fn with_photo<A>(pattern: Div, key: SharedString) -> Div
+/// The photo `A` loads for `key`, for [`super::avatar`] to draw over the initial once there is
+/// one.
+fn photo<A>(key: SharedString) -> ImageSource
 where
     A: Asset<Source = SharedString, Output = Option<Arc<gpui::Image>>>,
 {
-    let photo = move |window: &mut Window, cx: &mut App| match window.use_asset::<A>(&key, cx)? {
-        Some(photo) => photo.use_render_image(window, cx).map(Ok),
-        None => Some(Err(ImageCacheError::Asset("No photo".into()))),
-    };
-    pattern.relative().child(
-        img(ImageSource::Custom(Arc::new(photo)))
-            .absolute()
-            .top_0()
-            .left_0()
-            .size_full()
-            .rounded_full(),
-    )
+    ImageSource::Custom(Arc::new(
+        move |window: &mut Window, cx: &mut App| match window.use_asset::<A>(&key, cx)? {
+            Some(photo) => photo.use_render_image(window, cx).map(Ok),
+            None => Some(Err(ImageCacheError::Asset("No photo".into()))),
+        },
+    ))
 }
 
 /// `name`'s picture, as [`author_avatar`] draws it, with `agent`'s small at its corner when an
@@ -206,30 +156,4 @@ fn gravatar(email: &str) -> Option<Arc<gpui::Image>> {
     let hash = md5::compute(email.as_bytes());
     let url = format!("https://www.gravatar.com/avatar/{hash:x}?s=64&r=g&d=404");
     crate::backend::accounts::avatar(&url).ok()
-}
-
-/// FNV-1a over the UTF-16 units JavaScript reads a string as.
-fn hash(seed: &str) -> u32 {
-    (seed.encode_utf16()).fold(2_166_136_261, |h, unit| {
-        (h ^ u32::from(unit)).wrapping_mul(16_777_619)
-    })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{hash, initial};
-
-    #[test]
-    fn matches_the_web_apps() {
-        // What `personColour.ts` gives for the same names.
-        for (seed, colour, letter) in [
-            ("Ada Agent", 4, "A"),
-            ("Kiril Videlov", 2, "K"),
-            ("é😀", 0, "É"),
-            ("😀", 2, ""),
-        ] {
-            assert_eq!(hash(seed) % 5, colour, "{seed} gets the same colour");
-            assert_eq!(initial(seed), letter, "{seed} gets the same initial");
-        }
-    }
 }

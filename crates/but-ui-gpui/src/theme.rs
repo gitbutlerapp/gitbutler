@@ -98,6 +98,9 @@ pub struct Derived {
     /// A quote's edge and a draft comment's: `blue-7`, a scheme's blue halfway to its
     /// background.
     pub info_edge: Hsla,
+    /// An unread row's dot: GitButler's `gray-8`, between the border and subtle text, which no
+    /// role names.
+    pub unread_dot: Hsla,
     /// `done-text` from the other shade, for glyphs on a solid selection only: it reads at 3:1,
     /// not 4.5:1.
     pub inverse_done_mark: Hsla,
@@ -122,6 +125,7 @@ pub struct Derived {
 struct Picked {
     warning_edge: Hsla,
     info_edge: Hsla,
+    unread_dot: Hsla,
     inverse_done_mark: Hsla,
     diff_added: Hsla,
     diff_removed: Hsla,
@@ -147,6 +151,7 @@ impl Derived {
         let Picked {
             warning_edge,
             info_edge,
+            unread_dot,
             inverse_done_mark,
             diff_added,
             diff_removed,
@@ -166,6 +171,7 @@ impl Derived {
             snackbar_warning: color(snackbar_warning.unwrap_or(snackbar_ink)),
             warning_edge,
             info_edge,
+            unread_dot,
             inverse_done_mark,
             diff_added,
             diff_removed,
@@ -657,6 +663,7 @@ impl Theme {
             Picked {
                 warning_edge: rgba(shade(tokens::AMBER_7)).into(),
                 info_edge: rgba(shade(tokens::BLUE_7)).into(),
+                unread_dot: rgba(shade(tokens::GRAY_8)).into(),
                 inverse_done_mark: rgba(shade([done_dark, done_light])).into(),
                 // GitHub's light and dark, which but.dev's diffs take their colours from.
                 diff_added: pick(0x28a745, 0x34d058),
@@ -1161,6 +1168,7 @@ fn palette_colors(bg: u32, fg: u32, palette: &Colors) -> (ColorTokens, Derived) 
         Picked {
             warning_edge: color(mix(bg, yellow, 0.5)),
             info_edge: color(mix(bg, blue, 0.5)),
+            unread_dot: color(mix(bg, fg, 0.4)),
             inverse_done_mark: color(readable_on(done, bg, fg)),
             diff_added: color(added),
             diff_removed: color(removed),

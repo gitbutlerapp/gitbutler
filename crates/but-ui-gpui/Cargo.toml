@@ -13,9 +13,14 @@ rust-version = "1.98"
 [lints]
 workspace = true
 
+[features]
+# A scripted run's clock, which `clock stop`, `tick` and `film` move by hand.
+dev-script = []
+
 [dependencies]
 anyhow.workspace = true
 gpui.workspace = true
+parking_lot.workspace = true
 serde.workspace = true
 # The theme takes the app's colours from a Ghostty colour scheme, and gives its terminals theirs.
 but-tty.workspace = true

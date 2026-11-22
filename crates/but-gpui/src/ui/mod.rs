@@ -539,67 +539,6 @@ pub fn pulsing<E: IntoElement + Styled + 'static>(el: E) -> impl IntoElement {
     )
 }
 
-const SPIN_STEP: std::time::Duration = std::time::Duration::from_millis(100);
-/// The dots each step of [`spinning`] shows, as braille's: the low three bits are the left
-/// column's, top down, the next three the right's. The terminal's dots spinner, ⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏.
-const SPIN_FRAMES: [u8; 10] = [0x0b, 0x19, 0x39, 0x38, 0x3c, 0x34, 0x26, 0x27, 0x07, 0x0f];
-/// A dot of [`spinning`], and how far apart their centres are, in a `small_icon`'s box.
-const SPIN_DOT: f32 = 2.;
-const SPIN_PITCH: f32 = 3.5;
-
-/// Dots running round, as a terminal's spinner does, while what it stands for is under way,
-/// `turning` only while it shows. It steps 10 times a second, each step drawing the view it's
-/// in, and with it the whole window, again: an agent's spinner turns for minutes, and drawing
-/// the window any more often kept it from going idle and WindowServer busy all that while.
-/// Dots read as stepping on purpose at that rate, where a turning glyph would look choppy.
-pub fn spinning(color: Hsla, turning: bool) -> impl IntoElement {
-    use gpui::canvas;
-    static START: std::sync::LazyLock<std::time::Instant> =
-        std::sync::LazyLock::new(crate::clock::now);
-    let since = crate::clock::now().saturating_duration_since(*START);
-    let steps = since.as_nanos() / SPIN_STEP.as_nanos();
-    #[expect(clippy::indexing_slicing, reason = "taken modulo the length")]
-    let frame = SPIN_FRAMES[(steps % SPIN_FRAMES.len() as u128) as usize];
-    let due = SPIN_STEP
-        - std::time::Duration::from_nanos((since.as_nanos() % SPIN_STEP.as_nanos()) as u64);
-    let left = (12. - SPIN_PITCH - SPIN_DOT) / 2.;
-    let top = (12. - 2. * SPIN_PITCH - SPIN_DOT) / 2.;
-    let dots = (0..6)
-        .filter(|bit| frame & (1 << bit) != 0)
-        .map(move |bit| {
-            let (column, row) = ((bit / 3) as f32, (bit % 3) as f32);
-            div()
-                .absolute()
-                .left(dp(left + column * SPIN_PITCH))
-                .top(dp(top + row * SPIN_PITCH))
-                .size(dp(SPIN_DOT))
-                .rounded_full()
-                .bg(color)
-        });
-    div()
-        .relative()
-        .flex_none()
-        .size(dp(12.))
-        .children(dots)
-        // The next step asked for as this one is drawn, so a spinner that's gone, or one in a
-        // view that isn't drawn, asks for no more.
-        .when(turning, |el| {
-            el.child(
-                canvas(
-                    |_, _, _| {},
-                    move |_, _, window, cx| {
-                        let view = window.current_view();
-                        (cx.spawn(async move |cx| {
-                            cx.background_executor().timer(due).await;
-                            cx.update(|cx| cx.notify(view));
-                        }))
-                        .detach();
-                    },
-                )
-                .absolute(),
-            )
-        })
-}
 
 /// A faint pop wash over a `list_row`'s ground that fades out once, as for a commit that just
 /// showed up (`Store::glows`), so an agent's commit is noticed where it lands rather than in a
