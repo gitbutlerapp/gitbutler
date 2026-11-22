@@ -367,7 +367,7 @@ impl StackCommit {
     pub fn from_graph_commit(commit: &crate::Commit) -> Self {
         StackCommit {
             id: commit.id,
-            parent_ids: commit.parent_ids.clone(),
+            parent_ids: commit.parent_ids.to_vec(),
             flags: StackCommitFlags::from(commit.flags),
             refs: commit.refs.clone(),
         }

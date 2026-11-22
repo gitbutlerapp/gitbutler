@@ -2830,9 +2830,9 @@ mod tests {
                 commit_id: Some(commit_id),
                 worktree: None,
             }),
-            commits: vec![Commit {
+            commits: smallvec::smallvec![Commit {
                 id: commit_id,
-                parent_ids: Vec::new(),
+                parent_ids: Default::default(),
                 flags: CommitFlags::default(),
                 refs: Vec::new(),
             }],

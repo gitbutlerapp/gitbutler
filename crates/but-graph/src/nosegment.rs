@@ -1429,9 +1429,13 @@ impl WorkspaceGraph<'_> {
                     }
                     NodeWeight::Pick { .. } | NodeWeight::ShallowPoint { .. } => None,
                 };
+                // Each remaining node can add at most one segment. Cap growth at that bound.
+                let allocated = inner_graph.capacity().0;
+                let remaining_nodes = self.nodes.len() - i;
+                if inner_graph.node_count() == allocated && remaining_nodes < allocated {
+                    inner_graph.reserve_exact_nodes(remaining_nodes);
+                }
                 let segment_index = inner_graph.add_node(crate::Segment {
-                    // A merge-heavy history has many segments containing only their starting commit.
-                    commits: Vec::with_capacity(usize::from(commit.is_some())),
                     metadata,
                     ..Default::default()
                 });
@@ -1455,7 +1459,7 @@ impl WorkspaceGraph<'_> {
                     flags.set(CommitFlags::ShallowBoundary, commit.is_shallow);
                     inner_graph[segment_index].commits.push(crate::Commit {
                         id: *oid,
-                        parent_ids: self.commits.parents(commit).to_vec(),
+                        parent_ids: SmallVec::from_slice(self.commits.parents(commit)),
                         flags,
                         refs: refs_awaiting_commit.remove(&i).unwrap_or_default(),
                     });

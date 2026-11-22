@@ -280,7 +280,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                     bail!("BUG: Listed commit does not have corresponding pick step.");
                 };
 
-                pick.preserved_parents = Some(c.parent_ids.clone());
+                pick.preserved_parents = Some(c.parent_ids.to_vec());
             };
         }
 
@@ -350,7 +350,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                 })
                 .collect();
 
-            if graph_parent_ids == c.parent_ids {
+            if graph_parent_ids.as_slice() == c.parent_ids.as_slice() {
                 continue;
             }
 

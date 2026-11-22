@@ -145,7 +145,12 @@ fn segment_construction_reuses_walked_commits_and_their_boundary_parents() -> an
     let reads = reads.0.lock().unwrap();
     for (id, parent) in [(walked, boundary), (boundary, beyond)] {
         assert_eq!(
-            commits.iter().find(|c| c.id == id).unwrap().parent_ids,
+            commits
+                .iter()
+                .find(|c| c.id == id)
+                .unwrap()
+                .parent_ids
+                .as_slice(),
             [parent]
         );
         assert_eq!(
@@ -195,8 +200,41 @@ fn shallow_clone_keeps_the_recorded_parent_without_walking_it() -> anyhow::Resul
             .flags
             .contains(but_graph::CommitFlags::ShallowBoundary)
     );
-    assert_eq!(boundary.parent_ids, [parent]);
+    assert_eq!(boundary.parent_ids.as_slice(), [parent]);
     assert!(graph.segment_id_by_commit_id(parent).is_err());
+    Ok(())
+}
+
+#[test]
+fn octopus_merge_keeps_all_parents_in_git_order() -> anyhow::Result<()> {
+    let (repo, meta, _) = read_only_in_memory_scenario("history-below-target")?;
+    let repo = repo.with_object_memory();
+    let mut octopus = repo.head_commit()?.decode()?.to_owned()?;
+    octopus.parents = ["A~2", "A", "A~1"]
+        .into_iter()
+        .map(|rev| repo.rev_parse_single(rev).map(gix::Id::detach))
+        .collect::<gix::Result<_>>()?;
+    let head = repo.write_object(&octopus)?.detach();
+    let graph = but_graph::nosegment::segment_graph(
+        &repo,
+        &*meta,
+        Default::default(),
+        Default::default(),
+        None,
+        Some(head),
+        vec![head],
+        Vec::new(),
+        None,
+        false,
+        None,
+    )?;
+    let commit = graph
+        .segment_by_commit_id(head)?
+        .commits
+        .iter()
+        .find(|commit| commit.id == head)
+        .unwrap();
+    assert_eq!(commit.parent_ids.as_slice(), octopus.parents.as_slice());
     Ok(())
 }
 
