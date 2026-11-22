@@ -3,7 +3,7 @@
 
 use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
-use std::f32::consts::PI;
+use std::f32::consts::FRAC_PI_2;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
@@ -40,8 +40,8 @@ use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     BLINK, Button, ButtonStyle, HEADER_HEIGHT, Icon, MetaCountType, Tooltip, WINDOW_CONTROLS_WIDTH,
     above_drag, blink_once, button, commit_title, count_badge, count_mark, dp, faint, field, fixed,
-    glow_once, guide, h_flex, icon_at, icon_button, list_row, meta_count, plural, pulsing, review,
-    section_label, small_icon, spinning, v_flex,
+    glow_once, guide, guide_end, h_flex, icon_at, icon_button, list_row, meta_count, plural,
+    pulsing, review, section_label, small_icon, spinning, v_flex,
 };
 use crate::ui::{
     BadgeSize, BadgeVariant, Fold as RowFold, SidebarRow, badge, more_item, press_in_pane,
@@ -81,8 +81,9 @@ pub(crate) use terminals::TerminalOverview;
 use crate::ui::Text;
 use moving::Mark;
 use rows::{
-    CARD_EDGE, CARD_PADDING, COMMIT_INDENT, Drawer, Fold, HEADING_HEIGHT, ROW_LEFT, Row, RowKey,
-    caption, card_ends, checkout_holds, in_checkout, in_inactive, inactive_open, span_height,
+    CARD_EDGE, CARD_PADDING, COMMIT_INDENT, Drawer, Fold, HEADING_HEIGHT, ROW_LEFT, ROW_MARGIN,
+    Row, RowKey, caption, card_ends, checkout_holds, in_checkout, in_inactive, inactive_open,
+    span_height,
 };
 
 /// How far apart the cards are, as the detail's are: but-ui's `gap/stack`, the one gap between
@@ -225,16 +226,32 @@ pub(super) fn card_bar(
         true => (theme.inverse_foreground, theme.inverse_muted_foreground),
         false => (theme.subtle_foreground, theme.subtle_foreground),
     };
+    // As but-ui-react's DrawerItem: its name, how many in a badge, then the chevron, right while
+    // it's folded and turning down as it opens.
     let fold = h_flex()
         .flex_1()
         .min_w_0()
         .h_full()
         .gap(dp(6.))
-        .children(
-            open.map(|open| fold::turned(format!("{id}-fold"), open, Icon::ChevronUp, PI, muted)),
-        )
         .child(section_label(title, theme).text_color(ink).truncate())
-        .children(count.map(|count| faint(count, theme).text_12().text_color(muted)));
+        .children(count.map(|count| {
+            match count.parse::<usize>() {
+                Ok(n) => count_badge(n, theme).flex_none().into_any_element(),
+                Err(_) => faint(count, theme)
+                    .text_12()
+                    .text_color(muted)
+                    .into_any_element(),
+            }
+        }))
+        .children(open.map(|open| {
+            fold::turned(
+                format!("{id}-fold"),
+                open,
+                Icon::ChevronRight,
+                FRAC_PI_2,
+                muted,
+            )
+        }));
     // In from its card's edges as a row is, its hover rounded as one's, so it stays inside the
     // card's corners.
     h_flex()
@@ -263,7 +280,7 @@ pub(super) fn card_bar(
 pub(super) fn drawer_title(alone: bool) -> &'static str {
     match alone {
         true => "All projects",
-        false => "More projects",
+        false => "Other projects",
     }
 }
 
@@ -356,7 +373,7 @@ impl<'a> RowStyle<'a> {
         let theme = self.theme;
         let el = list_row(ElementId::Name(id.into()), self.selected, theme)
             .group(ROW_GROUP)
-            .mx(dp(3.))
+            .mx(dp(ROW_MARGIN))
             .pl(dp(8. + indent + self.inset))
             .when(self.solid, |el| {
                 el.bg(theme.inverse).text_color(theme.inverse_foreground)
@@ -375,7 +392,7 @@ impl<'a> RowStyle<'a> {
             .role(Role::ListItem)
             .aria_selected(self.selected)
             .group(ROW_GROUP)
-            .mx(dp(3.));
+            .mx(dp(ROW_MARGIN));
         self.marks(el)
     }
 
@@ -1671,23 +1688,14 @@ impl Navigator {
             _ if hidden => div().into_any_element(),
             Some(Row::Item(_)) => self.render_item(&self.built.rows, ix, inset, theme, cx),
             // A dashed line, as but-ui-react's WorktreeDivider.
-            Some(Row::WorktreeDivider) => h_flex()
-                .h(dp(12.))
-                .px(dp(12.))
-                .child(
-                    div()
-                        .flex_1()
-                        .border_t_1()
-                        .border_dashed()
-                        .border_color(theme.border_subtle),
-                )
-                .into_any_element(),
+            // Nothing between worktrees, as 🍑 But UI's sidebar has them.
+            Some(Row::WorktreeDivider) => div().into_any_element(),
             Some(Row::Note(text, is_error)) => note_row(text, *is_error, theme),
             // As made at once, set in as a commit row is, a stand-in title quiet as one's;
             // dimmed, with an ellipsis, only once it's taking a while.
             Some(Row::Pending(title, slow, _)) => h_flex()
                 .min_h(dp(theme.sizes.control))
-                .mx(dp(3.))
+                .mx(dp(ROW_MARGIN))
                 .pl(dp(8. + COMMIT_INDENT))
                 .pr(dp(12.))
                 .gap(dp(10.))
@@ -1796,8 +1804,16 @@ impl Navigator {
         let (first, last) = card_ends(&self.built.rows, ix);
         // A guide for each row it's under, joining those of the rows above and below into
         // one line, as but.dev's sidebar draws them.
-        let guides =
-            || (self.built.guides.get(ix).into_iter().flatten()).map(|at| guide(*at, theme));
+        let guides = || {
+            let guides = self.built.guides.get(ix).map_or(&[][..], Vec::as_slice);
+            let ends = self.built.ends.get(ix).copied().unwrap_or(false);
+            (guides.iter().enumerate()).map(move |(level, at)| {
+                match ends && level + 1 == guides.len() {
+                    true => guide_end(*at, theme),
+                    false => guide(*at, theme),
+                }
+            })
+        };
         // The card dragged by its heading is edged as what's moving is where it would land.
         let held = (self.built.held_card.as_ref()).is_some_and(|card| card.contains(&ix));
         let held_worktree =
@@ -2793,7 +2809,12 @@ impl Navigator {
             }))
             .when(entry.is_loading(), |el| {
                 el.child(small_icon(Icon::Clock).text_color(theme.subtle_foreground))
-            });
+            })
+            .children(
+                (!entry.is_loading())
+                    .then(|| age(rows::last_active(entry), theme))
+                    .flatten(),
+            );
         let row = sidebar_row(ElementId::Name(format!("project-{id}").into()))
             .glyph(glyph)
             .unread(unread)
@@ -3005,6 +3026,12 @@ impl Navigator {
         let counts = (!open)
             .then(|| change_counts(tally(&uncommitted), style).chain(style.unpushed(unpushed_n)));
         let row = counts.into_iter().flatten().fold(row, SidebarRow::meta);
+        // When it last moved: its own reflogs, or the newest commit on its branches.
+        let newest = (branches.iter())
+            .filter_map(|b| b.commits.first().map(|c| c.time))
+            .max();
+        let at = worktree.and_then(|wt| wt.updated_at).max(newest);
+        let row = age(at, style.theme).into_iter().fold(row, SidebarRow::meta);
         let row = match head {
             Some(head) => row.meta(head).meta_gives_way(),
             None => row,
@@ -3356,6 +3383,10 @@ impl Navigator {
             .chain(brief.map(IntoElement::into_any_element))
             .chain(conflicts.map(IntoElement::into_any_element))
             .chain(authors.map(IntoElement::into_any_element))
+            .chain(
+                age(branch.commits.first().map(|c| c.time), theme)
+                    .map(IntoElement::into_any_element),
+            )
             .fold(row, SidebarRow::meta);
         // Its step, after the counts: the first conflict to resolve, unless a linked worktree
         // resolves it. Conflicts block Push, so it's the only one.
@@ -4159,6 +4190,23 @@ fn change_counts(
     };
     let files = count(MetaCountType::Uncommitted, n, tip, theme);
     conflicts.into_iter().chain(files)
+}
+
+/// How long ago `at` (seconds since the epoch) was, as but-ui-react's `MetaCount` `age` draws it,
+/// with the whole of it under the pointer: "3d", "Last changed 3d ago".
+fn age(at: Option<i64>, theme: &Theme) -> Option<Stateful<Div>> {
+    let at = at?;
+    let tip = SharedString::from(format!("Last changed {}", crate::ui::ago(at)));
+    Some(
+        meta_count(
+            MetaCountType::Age,
+            Some(crate::ui::relative_time(at).into()),
+            theme,
+        )
+        .id(ElementId::Name(tip.clone()))
+        .aria_label(tip.clone())
+        .tooltip(Tooltip::text(tip)),
+    )
 }
 
 /// `n` as but-ui-react's `MetaCount` of `kind` draws it, saying `tip` under the pointer and to a

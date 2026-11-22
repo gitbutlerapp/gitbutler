@@ -22,11 +22,14 @@ use crate::ui::fold::{Folds, MOVING_ROWS};
 /// Commits shown per branch before folding the rest into "N more".
 const FOLD_AFTER: usize = 8;
 
-/// How tall a watched project's heading is, atop its card.
-pub(super) const HEADING_HEIGHT: f32 = 32.;
+/// How tall a watched project's heading is, atop its card: a row's, as but-ui-react's RepoItem.
+pub(super) const HEADING_HEIGHT: f32 = 28.;
 
-/// The room inside a card above its first row and below its last.
-pub(super) const CARD_PADDING: f32 = 3.;
+/// The room inside a card around its rows, as 🍑 But UI's sidebar cards have it.
+pub(super) const CARD_PADDING: f32 = 8.;
+
+/// How far a row's ground sits in from its card's sides: the card's padding.
+pub(super) const ROW_MARGIN: f32 = CARD_PADDING;
 
 /// How much a card's edge adds above its first row and below its last: its padding and its
 /// 1px border.
@@ -181,7 +184,9 @@ impl Row {
         match self {
             Row::Gap => super::CARD_GAP + 2. * CARD_EDGE,
             Row::Between(_) => 0.,
-            Row::WorktreeDivider => 12.,
+            // Worktrees follow one another with nothing between, as 🍑 But UI's sidebar has
+            // them; the divider stays, for what drops and moves between them.
+            Row::WorktreeDivider => 0.,
             Row::Item(Selection::Project(_)) => HEADING_HEIGHT,
             Row::Item(_)
             | Row::More(..)
@@ -227,7 +232,14 @@ pub(super) struct Rows {
     pub(super) rows: Vec<Row>,
     pub(super) insets: Vec<f32>,
     pub(super) guides: Vec<Vec<f32>>,
+    /// Whether each row is the last under its innermost guide, which turns into it there, as
+    /// but-ui-react's tree guides end, rather than running on.
+    pub(super) ends: Vec<bool>,
     pub(super) moving: Vec<Option<Moving>>,
+    /// How many guides were open as each row was pushed: a row is under the last one of them.
+    depths: Vec<usize>,
+    /// Where the rows under each guide in `open` start.
+    starts: Vec<usize>,
     /// Each fold the rows were built through: whether it showed what it holds, and the row
     /// just above that, which says where it is.
     pub(super) folds: Vec<(Fold, bool, Option<usize>)>,
@@ -253,10 +265,10 @@ pub(super) struct Drawer {
     pub(super) total: usize,
 }
 
-/// Where an item row's content starts in its card: the row's margin, 3, and its padding, 8,
-/// as [`RowStyle::row`](super::RowStyle::row) and [`section_heading`](super::section_heading)
+/// Where an item row's content starts in its card: the row's margin and its padding, 8, as
+/// [`RowStyle::row`](super::RowStyle::row) and [`section_heading`](super::section_heading)
 /// set them.
-pub(super) const ROW_LEFT: f32 = 3. + 8.;
+pub(super) const ROW_LEFT: f32 = ROW_MARGIN + 8.;
 
 /// How far in from [`ROW_LEFT`] a commit's 12-point glyph sits: a step in from its branch and
 /// 2 on, where but-ui-react puts the glyph of a row that doesn't fold, under its branch's
@@ -288,6 +300,8 @@ impl Rows {
         self.rows.push(row);
         self.insets.push(self.inset);
         self.guides.push(self.open.clone());
+        self.ends.push(false);
+        self.depths.push(self.open.len());
         self.moving.push(None);
     }
 
@@ -341,6 +355,7 @@ impl Rows {
     fn open_at(&mut self, at: f32) {
         let under = self.insets.last().copied().unwrap_or_default();
         self.open.push(at + under);
+        self.starts.push(self.rows.len());
         self.outer.push(self.inset);
     }
 
@@ -350,8 +365,28 @@ impl Rows {
         self.inset += by;
     }
 
+    /// End the guide [`Self::open`] began: it turns into the last row right under it, and the
+    /// rows under that one go on without it, as but-ui-react's tree guides end.
     pub(super) fn close(&mut self) {
-        self.open.pop();
+        let level = self.open.len();
+        let start = self
+            .starts
+            .pop()
+            .unwrap_or(self.rows.len())
+            .min(self.rows.len());
+        if let Some(at) = self.open.pop() {
+            let last = (start..self.rows.len())
+                .rev()
+                .find(|&ix| self.depths.get(ix) == Some(&level));
+            if let Some(last) = last {
+                if let Some(end) = self.ends.get_mut(last) {
+                    *end = true;
+                }
+                for guides in self.guides.iter_mut().skip(last + 1) {
+                    guides.retain(|g| *g != at);
+                }
+            }
+        }
         self.inset = self.outer.pop().unwrap_or_default();
     }
 
@@ -383,6 +418,8 @@ impl Rows {
         self.rows.truncate(len);
         self.insets.truncate(len);
         self.guides.truncate(len);
+        self.ends.truncate(len);
+        self.depths.truncate(len);
         self.moving.truncate(len);
     }
 }
@@ -413,9 +450,12 @@ impl Navigator {
             let item = Selection::Project(entry.id.clone());
             rows.push(Row::Item(item.clone()));
             let open = !store.project_folded(&entry.id);
-            // Its rows' icons under the header's, so a worktree's name is under the project's.
+            // Its rows a step under the header's, the guide hanging from its chevron, as 🍑 But
+            // UI's sidebar has its worktrees under their repository.
             rows.fold(Fold::Under(item), open, &self.folds, |rows| {
-                self.card_rows(store, entry, rows)
+                rows.open_in(STEP);
+                self.card_rows(store, entry, rows);
+                rows.close();
             });
         }
         let listing = self.drawer_listing(store);

@@ -325,6 +325,32 @@ pub fn guide(at: f32, theme: &Theme) -> Div {
         .bg(theme.border_subtle)
 }
 
+/// A guide on the last row under it, as but-ui-react's tree guides end: from the row's top down
+/// to its middle, then round a control's corner towards the row's chevron, stopping short of it.
+pub fn guide_end(at: f32, theme: &Theme) -> Div {
+    let reach = 7.5;
+    let corner = theme.shape.control.min(reach);
+    div()
+        .absolute()
+        .top_0()
+        .bottom(relative(0.5))
+        .left(dp(at))
+        .w(dp(reach))
+        .overflow_hidden()
+        .child(
+            div()
+                .absolute()
+                .top(dp(-corner))
+                .bottom_0()
+                .left_0()
+                .right(dp(-corner))
+                .border_l_1()
+                .border_b_1()
+                .border_color(theme.border_subtle)
+                .rounded_bl(dp(corner)),
+        )
+}
+
 /// A fold's glyph in a step as wide as a branch's chevron: a chevron, down while `open` and
 /// turning as that changes (see [`fold::chevron`]), or with nothing to fold (`None`) a dot at
 /// half strength, as but-ui-react's.
