@@ -28,7 +28,7 @@ use crate::transfer::{
 };
 use crate::ui::Text;
 use crate::ui::fold::{self, on_top};
-use crate::ui::{Icon, blink_once, dp, fixed, guide, h_flex, icon, small_icon};
+use crate::ui::{Icon, blink_once, dp, fixed, guide, h_flex, icon_at, small_icon};
 
 /// The move of commits or a branch shown in `project`, or the squash of those or files, with
 /// copies where it'd land: the one under way, or one Return landed, until the reload after it
@@ -1952,8 +1952,8 @@ pub(super) fn squash_outline(
 /// Branch `name`'s row as a copy draws it, row `id`, in `style`: folded, as its own row is,
 /// and nothing on it acts.
 fn branch_copy(id: String, name: String, style: RowStyle) -> AnyElement {
-    (style.row(id, 6.))
-        .child(icon(Icon::Branch).text_color(style.muted()))
+    (style.row(id, 0.))
+        .child(icon_at(Icon::Branch, 14.).text_color(style.muted()))
         .child(div().flex_1().min_w_0().truncate().child(name))
         .into_any_element()
 }

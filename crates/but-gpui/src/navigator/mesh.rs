@@ -5,10 +5,12 @@
 
 use std::sync::Arc;
 
-use gpui::{AnyElement, App, Context, SharedString, Window, div, prelude::*};
+use gpui::{AnyElement, App, Context, SharedString, Window, prelude::*};
 
 use super::rows::{COMMIT_INDENT, Fold, Row, Rows, found, matches};
-use super::{ClickOpened, Navigator, RowStyle, STEP, change_counts, click_opens, double_click};
+use super::{
+    ClickOpened, Navigator, RowStyle, STEP, change_counts, click_opens, double_click, row_name,
+};
 use crate::app::{CopyPath, CopySelection};
 use crate::backend::Workspace;
 use crate::backend::mesh::{self, BranchStatus};
@@ -17,8 +19,7 @@ use crate::palette::{Choice, heading_choice};
 use crate::state::{
     MeshBranch, MeshPick, ProjectEntry, ProjectId, Section, Selection, Store, snack,
 };
-use crate::ui::Text;
-use crate::ui::{Icon, Tooltip, commit_title, faint, icon, review, small_icon};
+use crate::ui::{Icon, Tooltip, commit_title, faint, icon_at, review, small_icon};
 
 impl Navigator {
     /// `id`'s checkouts on other machines under their heading, unless that's folded without
@@ -180,25 +181,18 @@ impl Navigator {
                 let toggle = move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
                     this.toggle_mesh_branch(fold.clone(), open, window, cx)
                 };
-                (style.row(format!("mesh-branch-{project}-{key}-{name}"), 6.))
+                (style.row(format!("mesh-branch-{project}-{key}-{name}"), 0.))
                     .aria_label(format!("Branch {name}"))
                     .child(self.fold(
                         ("mesh-branch-fold", ix),
-                        icon(glyph).text_color(color),
+                        icon_at(glyph, 14.).text_color(color),
                         (n > 0).then_some(open),
                         style.selected,
                         quiet,
                         cx,
                         toggle.clone(),
                     ))
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w_0()
-                            .truncate()
-                            .semibold()
-                            .child(name.clone()),
-                    )
+                    .child(row_name().flex_1().child(name.clone()))
                     .children(style.unpushed(unpushed))
                     .when(n > 0, |el| el.on_click(click_opens(clicked, toggle, cx)))
             }
@@ -224,12 +218,12 @@ impl Navigator {
                     this.toggle_checkout(fold.clone(), open, window, cx)
                 };
                 let folds = !checkout.branches.is_empty();
-                (style.row(format!("mesh-{project}-{key}"), 6.))
+                (style.row(format!("mesh-{project}-{key}"), 0.))
                     .aria_label(checkout.label())
                     .aria_expanded(open)
                     .child(self.fold(
                         ("mesh-fold", ix),
-                        icon(Icon::Desktop).text_color(style.muted()),
+                        icon_at(Icon::Desktop, 14.).text_color(style.muted()),
                         folds.then_some(open),
                         style.selected,
                         quiet,
@@ -237,11 +231,9 @@ impl Navigator {
                         toggle.clone(),
                     ))
                     .child(
-                        div()
+                        row_name()
                             .id(("mesh-name", ix))
                             .flex_grow(1.)
-                            .min_w_0()
-                            .truncate()
                             .when(!checkout.online, |el| el.text_color(style.muted()))
                             .when(checkout.error.is_some() && !style.solid, |el| {
                                 el.text_color(theme.warning_text)

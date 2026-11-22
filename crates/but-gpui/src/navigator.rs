@@ -40,8 +40,8 @@ use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     BLINK, Button, ButtonStyle, HEADER_HEIGHT, Icon, MetaCountType, Tooltip, WINDOW_CONTROLS_WIDTH,
     above_drag, blink_once, button, commit_title, count_badge, count_mark, dp, faint, field, fixed,
-    fold_button, fold_row, glow_once, guide, h_flex, icon, icon_at, icon_button, list_row,
-    meta_count, plural, pulsing, review, section_label, small_icon, spinning, unread_line, v_flex,
+    fold_button, fold_row, glow_once, guide, h_flex, icon_at, icon_button, list_row, meta_count,
+    plural, pulsing, review, section_label, small_icon, spinning, v_flex,
 };
 
 mod account;
@@ -115,9 +115,10 @@ pub(super) const CARD_BAR_INSET: f32 = 3.;
 /// How tall the drawer's card is around its rows: its bar, and its edges.
 const DRAWER_CHROME: f32 = CARD_BAR_HEIGHT + 2. * CARD_BAR_INSET + 2.;
 
-/// How far the rows under a row sit in from it: its 16-point icon and the gap after it, so
-/// their icons line up under its name.
-const STEP: f32 = 16. + 8.;
+/// How far the rows under a row sit in from it, as but-ui-react's steps: a chevron's 12 points
+/// and the gap after it, so a child's chevron sits right of the guide that hangs from its
+/// parent's.
+const STEP: f32 = 12. + 4.;
 
 /// The group every item row is, so a fold's chevron shows in place of its icon while the
 /// pointer is over the row (see [`Navigator::fold`]).
@@ -336,6 +337,15 @@ impl<'a> RowStyle<'a> {
         }
     }
 
+    /// How far in a row's glyph starts when the row doesn't fold, as but-ui-react's row puts it:
+    /// in a chevron's column, a point into the padding at the card's top, 2 on under a row.
+    fn leaf(&self) -> f32 {
+        match self.inset > 0. {
+            true => 2.,
+            false => -1.,
+        }
+    }
+
     fn row(&self, id: String, indent: f32) -> Stateful<Div> {
         let theme = self.theme;
         list_row(ElementId::Name(id.into()), self.selected, theme)
@@ -409,14 +419,22 @@ impl<'a> RowStyle<'a> {
         }
     }
 
-    /// An unread row's hairline: a commit's own in pop, and in faint ink, which still reads at
-    /// 3:1, on a row that only holds unread commits, so the commits stand out.
-    fn unread_line(&self, own: bool) -> Div {
-        unread_line(if own {
-            self.meta(self.theme.primary_mark)
-        } else {
-            self.quiet()
-        })
+    /// An unread row's mark, as but-ui-react's: a 5-point dot in the row's start padding, 3 in
+    /// from its edge so it clears the row's fill, out of its flow so nothing moves when it's read.
+    /// The row must be `relative`.
+    fn unread_dot(&self) -> Div {
+        let color = match self.solid {
+            true => self.theme.inverse_muted_foreground,
+            false => self.theme.derived.unread_dot,
+        };
+        div()
+            .absolute()
+            .left(dp(3.))
+            .top_0()
+            .bottom_0()
+            .flex()
+            .items_center()
+            .child(div().size(dp(5.)).rounded_full().bg(color))
     }
 
     /// A commit's row, `indent` in: `glyph` and its title, or `rename`, the field it's being
@@ -437,7 +455,7 @@ impl<'a> RowStyle<'a> {
             .when(self.glow, |el| {
                 el.relative().child(glow_once("glow", self.theme))
             })
-            .when(unread, |el| el.relative().child(self.unread_line(true)))
+            .when(unread, |el| el.relative().child(self.unread_dot()))
             .child(glyph)
             .child(match rename {
                 Some(field) => field,
@@ -823,43 +841,41 @@ impl Navigator {
         !self.filter.read(cx).text().trim().is_empty()
     }
 
-    /// A row's `icon`, which turns into its fold's chevron, as [`fold_button`], while the
-    /// pointer is over the row, as Notion's sidebar does, so rows that fold and rows that
-    /// don't line up. A `selected` row shows the chevron too, so the keys can see what folds.
-    /// With nothing to fold (`None`), or while the filter lists what it finds, which folds
-    /// don't hide, it stays the icon.
+    /// A row's chevron in a step of its own, then its `icon` 6px after it, as but-ui-react's
+    /// row draws them, the chevron turning as [`fold_button`]'s does. With nothing to fold
+    /// (`None`) the step holds a dot at half strength, and while the filter lists what it
+    /// finds, which folds don't hide, nothing, so the rows keep their places.
     #[expect(clippy::too_many_arguments)]
     fn fold(
         &self,
         id: impl Into<ElementId>,
         icon: impl IntoElement,
         open: Option<bool>,
-        selected: bool,
+        _selected: bool,
         color: Hsla,
         cx: &Context<Self>,
         toggle: impl Fn(&mut Self, &mut Window, &mut Context<Self>) + 'static,
     ) -> AnyElement {
-        let Some(open) = open.filter(|_| !self.filtering(cx)) else {
-            return icon.into_any_element();
+        let step = h_flex().flex_none().w(dp(12.)).justify_center();
+        let step = match (open, self.filtering(cx)) {
+            (_, true) => step,
+            (None, false) => {
+                step.child(small_icon(Icon::BulletDisc).text_color(color).opacity(0.5))
+            }
+            (Some(open), false) => step.child(fold_button(
+                id,
+                Some(open),
+                color,
+                self.pressed_keys(),
+                cx,
+                toggle,
+            )),
         };
-        let chevron = fold_button(id, Some(open), color, self.pressed_keys(), cx, toggle)
-            .absolute()
-            .inset_0()
-            .flex()
-            .items_center()
-            .justify_center()
-            .when(!selected, |el| {
-                el.opacity(0.).group_hover(ROW_GROUP, |el| el.opacity(1.))
-            });
-        let icon = div().child(icon).map(|el| match selected {
-            true => el.opacity(0.),
-            false => el.group_hover(ROW_GROUP, |el| el.opacity(0.)),
-        });
-        div()
-            .relative()
+        h_flex()
             .flex_none()
+            .gap(dp(6.))
+            .child(step)
             .child(icon)
-            .child(chevron)
             .into_any_element()
     }
 
@@ -2732,7 +2748,7 @@ impl Navigator {
             }));
         Some(
             style
-                .row(format!("project-{id}"), 6.)
+                .row(format!("project-{id}"), 0.)
                 .aria_label(entry.project.name.clone())
                 .aria_expanded(expanded)
                 .h(dp(if expanded {
@@ -2740,18 +2756,12 @@ impl Navigator {
                 } else {
                     theme.sizes.control
                 }))
-                .when(unread, |el| el.relative().child(style.unread_line(false)))
+                .when(unread, |el| el.relative().child(style.unread_dot()))
                 .child(glyph)
                 // However narrow the navigator, the name stays: what the row sums up gives way
                 // first, a whole item at a time from its end. Each item that doesn't fit wraps to
                 // a second line, which is cut off.
-                .child(
-                    div()
-                        .flex_grow(1.)
-                        .min_w_0()
-                        .truncate()
-                        .child(entry.project.name.clone()),
-                )
+                .child(row_name().flex_grow(1.).child(entry.project.name.clone()))
                 .child(
                     h_flex()
                         .flex_shrink(1000.)
@@ -2814,11 +2824,11 @@ impl Navigator {
         let field = self.rename_field(item, style.theme, cx);
         let renaming = field.is_some();
         let row = style
-            .row(format!("terminal-{}", id.0), 6.)
-            .child(icon(Icon::TextCode).text_color(style.muted()))
+            .row(format!("terminal-{}", id.0), style.leaf())
+            .child(icon_at(Icon::TextCode, 14.).text_color(style.muted()))
             .child(match field {
                 Some(field) => field,
-                None => (div().flex_1().min_w_0().truncate().child(title)).into_any_element(),
+                None => (row_name().flex_1().child(title)).into_any_element(),
             })
             .children(status.and_then(|status| status_mark(status, !store.hidden(), style)))
             .when(!renaming, |el| self.terminal_drag(el, item, id, cx))
@@ -2838,16 +2848,10 @@ impl Navigator {
         let store = self.store.read(cx);
         let files = store.workspace(id).map_or(&[][..], |ws| &ws.uncommitted);
         style
-            .row(format!("uncommitted-{id}"), 6.)
+            .row(format!("uncommitted-{id}"), style.leaf())
             .aria_label("Editing a commit")
-            .child(icon(Icon::Diff).text_color(style.meta(style.theme.warning_text)))
-            .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .truncate()
-                    .child("Editing a commit"),
-            )
+            .child(icon_at(Icon::Diff, 14.).text_color(style.meta(style.theme.warning_text)))
+            .child(row_name().flex_1().child("Editing a commit"))
             .children(change_counts(tally(files), style))
             .map(|el| self.selectable(el, item, cx))
             .map(|el| self.page_drag(el, item, cx))
@@ -2965,20 +2969,18 @@ impl Navigator {
         let row = style
             .row(
                 format!("worktree-{id}-{}", checkout.linked().unwrap_or_default()),
-                6.,
+                0.,
             )
             .aria_label(label.clone())
             .when(folds, |el| el.aria_expanded(open))
             .when(!open && unread, |el| {
-                el.relative().child(style.unread_line(false))
+                el.relative().child(style.unread_dot())
             })
             .child(glyph)
             .child(
-                div()
+                row_name()
                     .id(("worktree-name", ix))
                     .flex_grow(1.)
-                    .min_w_0()
-                    .truncate()
                     .child(label.clone()),
             )
             .when(!open, |el| {
@@ -3019,11 +3021,11 @@ impl Navigator {
         let row = style
             .row(
                 format!("changes-{id}-{}", checkout.linked().unwrap_or_default()),
-                6.,
+                style.leaf(),
             )
             .aria_label(label)
-            .child(icon(Icon::FileDiff).text_color(style.muted()))
-            .child(div().flex_1().min_w_0().truncate().child(label))
+            .child(icon_at(Icon::FileDiff, 14.).text_color(style.muted()))
+            .child(row_name().flex_1().child(label))
             .children(change_counts(tally(&uncommitted), style))
             .map(|el| self.selectable(el, item, cx));
         // The checked files while they're shown, else all of them, but not conflicted ones:
@@ -3133,7 +3135,7 @@ impl Navigator {
         };
         let glyph = self.fold(
             ("stack-fold", ix),
-            icon(Icon::Stack).text_color(quiet),
+            icon_at(Icon::Stack, 14.).text_color(quiet),
             Some(open),
             style.selected,
             style.quiet(),
@@ -3156,11 +3158,11 @@ impl Navigator {
             }));
         let bottom_name = bottom.map(ToString::to_string).unwrap_or_default();
         let row = style
-            .row(format!("stack-{id}-{bottom_name}"), 6.)
+            .row(format!("stack-{id}-{bottom_name}"), 0.)
             .aria_label(format!("Stack of {}", branches.len()))
             .aria_expanded(open)
             .when(!open && unread, |el| {
-                el.relative().child(style.unread_line(false))
+                el.relative().child(style.unread_dot())
             })
             .child(glyph)
             .child(label)
@@ -3247,7 +3249,7 @@ impl Navigator {
             }
         };
         let folds = !branch.commits.is_empty();
-        let glyph = match icon(glyph).text_color(glyph_color) {
+        let glyph = match icon_at(glyph, 14.).text_color(glyph_color) {
             glyph if publishing => pulsing(glyph).into_any_element(),
             glyph => glyph.into_any_element(),
         };
@@ -3266,9 +3268,9 @@ impl Navigator {
         let rename = self.rename_field(item, theme, cx);
         Some(
             style
-                .row(format!("branch-{id}-{row_id}"), 6.)
+                .row(format!("branch-{id}-{row_id}"), 0.)
                 .aria_label(format!("Branch {name}"))
-                .when(unread, |el| el.relative().child(style.unread_line(false)))
+                .when(unread, |el| el.relative().child(style.unread_dot()))
                 .child(glyph)
                 .child(match rename {
                     Some(field) => field,
@@ -3889,7 +3891,7 @@ impl Navigator {
             Section::Inactive | Section::Mesh => quiet,
         };
         let glyph =
-            (div().w(dp(16.)).flex().justify_center()).child(small_icon(glyph).text_color(ink));
+            (div().w(dp(14.)).flex().justify_center()).child(small_icon(glyph).text_color(ink));
         (style.row(format!("section-heading-{ix}"), indent))
             .pr(dp(12.))
             .aria_label(label.clone())
@@ -4140,7 +4142,7 @@ fn worktree_icon(linked: bool, style: RowStyle) -> gpui::Svg {
         false => Icon::Folder,
         true => Icon::FolderCopy,
     };
-    icon(glyph).text_color(style.muted())
+    icon_at(glyph, 14.).text_color(style.muted())
 }
 
 /// What the heading over the commits only `ref_name`'s remote has says: where they are, how
@@ -4202,12 +4204,23 @@ fn unpushed<'a>(branches: impl Iterator<Item = &'a Branch>) -> usize {
     branches.map(Branch::unpushed_commits).sum()
 }
 
+/// A row's name, as but-ui-react's: 14 points, semibold, cut with an ellipsis once its row
+/// runs out of room. A commit's title is 13 points and regular instead.
+fn row_name() -> Div {
+    div()
+        .min_w_0()
+        .truncate()
+        .text_14()
+        .semibold()
+        .line_height(dp(17.))
+}
+
 /// A branch as the navigator names it: its pull request's title once the forge cache has one,
 /// toned by the request's state, or else `name`. Drawn from what the last load read, so no row
 /// waits on the network, and offline the cached title stays.
 fn branch_name(name: &str, review: Option<(&Review, ReviewState)>, style: &RowStyle) -> Div {
     let theme = style.theme;
-    let el = div().min_w_0().truncate();
+    let el = row_name();
     match review.filter(|(review, _)| !review.title.is_empty()) {
         Some((review, state)) => el
             .text_color(match style.solid {

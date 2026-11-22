@@ -256,14 +256,14 @@ pub(super) struct Drawer {
 /// set them.
 pub(super) const ROW_LEFT: f32 = 3. + 8.;
 
-/// How far in from [`ROW_LEFT`] a commit sits: a step in from its branch, its 12-point glyph
-/// in the middle of where a 16-point icon would be, under the branch's name, and its title
-/// past it as the branch's name is past its icon.
-pub(super) const COMMIT_INDENT: f32 = 6. + STEP + 2.;
+/// How far in from [`ROW_LEFT`] a commit's 12-point glyph sits: a step in from its branch and
+/// 2 on, where but-ui-react puts the glyph of a row that doesn't fold, under its branch's
+/// glyph, and a point into that 14-point box.
+pub(super) const COMMIT_INDENT: f32 = STEP + 2. + 1.;
 
-/// Where the middle of a row's icon sits in a row set in by nothing: the row's left edge, its
-/// indent and half the 16-point icon.
-pub(super) const GUIDE_AT: f32 = ROW_LEFT + 6. + 8.;
+/// Where the middle of a row's chevron sits in a row set in by nothing: the row's left edge
+/// and half the 12-point step, where the guide down to the rows under it hangs from.
+pub(super) const GUIDE_AT: f32 = ROW_LEFT + 6.;
 
 /// The caption over `project`'s lane of `branches`, as drawn: over two or more, by the bottom one.
 pub(super) fn caption(project: &ProjectId, branches: &[Branch]) -> Option<Selection> {
