@@ -26,11 +26,14 @@ pub fn popup_section(
     let labelled = label.is_some();
     v_flex()
         .flex_none()
+        // On one line, cut with an ellipsis, as a long name would wrap it.
         .children(label.map(|label| {
             div()
                 .pt(dp(8.))
                 .px(dp(10.))
                 .pb(dp(tokens::PADDING_MENU))
+                .min_w_0()
+                .truncate()
                 .text_12()
                 .text_color(theme.subtle_foreground)
                 .child(label)
