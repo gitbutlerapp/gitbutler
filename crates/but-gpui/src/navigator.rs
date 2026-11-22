@@ -40,8 +40,8 @@ use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     BLINK, Button, ButtonStyle, HEADER_HEIGHT, Icon, MetaCountType, Tooltip, WINDOW_CONTROLS_WIDTH,
     above_drag, blink_once, button, commit_title, count_badge, count_mark, dp, faint, field, fixed,
-    glow_once, guide, guide_end, h_flex, icon_at, icon_button, list_row, meta_count_on, plural,
-    pulsing, review, section_label, small_icon, v_flex,
+    glow_once, guide_end_in, guide_in, h_flex, icon_at, icon_button, list_row, meta_count_on,
+    plural, pulsing, review, section_label, small_icon, v_flex,
 };
 use crate::ui::{
     CommitPlace, Fold as RowFold, MetaStatusVariant, PullRequestState, SidebarRow, SplitCell,
@@ -1697,6 +1697,20 @@ impl Navigator {
     }
 
     /// The row at `ix` of the list, drawn inside its card.
+    /// Whether row `ix` is selected on the solid fill, as [`Self::render_item`] draws it.
+    fn solid_at(&self, ix: usize, cx: &Context<Self>) -> bool {
+        let Some(Row::Item(item)) = self.built.rows.get(ix) else {
+            return false;
+        };
+        let store = self.store.read(cx);
+        let shown = (self.scoped_selection.clone()).unwrap_or_else(|| store.selection.clone());
+        let lit = shown.as_ref() == Some(item)
+            || matches!(item, Selection::Commit(project, id) if store.is_picked(project, *id));
+        lit && moving::mark(store, item).is_none()
+            && store.dragging.is_none()
+            && self.keys.on_row_of(&self.list())
+    }
+
     fn row_in_card(&self, ix: usize, cx: &Context<Self>) -> AnyElement {
         let theme = Theme::get(cx);
         // Only the navigator's own rows slide, which across the top are those of the tab the
@@ -1839,13 +1853,18 @@ impl Navigator {
         let (first, last) = card_ends(&self.built.rows, ix);
         // A guide for each row it's under, joining those of the rows above and below into
         // one line, as but.dev's sidebar draws them.
+        // On a row selected on the solid fill, in the fill's own guide ink, as SidebarRow's.
+        let guide_color = match self.solid_at(ix, cx) {
+            true => theme.derived.inverse_guide,
+            false => theme.border_subtle,
+        };
         let guides = || {
             let guides = self.built.guides.get(ix).map_or(&[][..], Vec::as_slice);
             let ends = self.built.ends.get(ix).copied().unwrap_or(false);
             (guides.iter().enumerate()).map(move |(level, at)| {
                 match ends && level + 1 == guides.len() {
-                    true => guide_end(*at, theme),
-                    false => guide(*at, theme),
+                    true => guide_end_in(*at, guide_color, theme),
+                    false => guide_in(*at, guide_color),
                 }
             })
         };

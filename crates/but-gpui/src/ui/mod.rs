@@ -316,18 +316,23 @@ pub fn selected_part(
 /// A tree's line down from an open row's chevron, `at` its middle, on each row under it,
 /// where they join into one, as but.dev's sidebar draws them.
 pub fn guide(at: f32, theme: &Theme) -> Div {
+    guide_in(at, theme.border_subtle)
+}
+
+/// [`guide`] in `color`, as a row selected on the solid fill draws its guides in its own ink.
+pub fn guide_in(at: f32, color: Hsla) -> Div {
     div()
         .absolute()
         .top_0()
         .bottom_0()
         .left(dp(at))
         .w(fixed(1.))
-        .bg(theme.border_subtle)
+        .bg(color)
 }
 
 /// A guide on the last row under it, as but-ui-react's tree guides end: from the row's top down
 /// to its middle, then round a control's corner towards the row's chevron, stopping short of it.
-pub fn guide_end(at: f32, theme: &Theme) -> Div {
+pub fn guide_end_in(at: f32, color: Hsla, theme: &Theme) -> Div {
     let reach = 7.5;
     let corner = theme.shape.control.min(reach);
     div()
@@ -346,7 +351,7 @@ pub fn guide_end(at: f32, theme: &Theme) -> Div {
                 .right(dp(-corner))
                 .border_l_1()
                 .border_b_1()
-                .border_color(theme.border_subtle)
+                .border_color(color)
                 .rounded_bl(dp(corner)),
         )
 }
