@@ -22,6 +22,61 @@ pub enum Fold {
 }
 
 type Toggle = Rc<dyn Fn(&mut Window, &mut App)>;
+
+/// A colour a row's glyph or words take from the theme as the row is built, so that on a solid
+/// selection they take their token's other value, as React's rows flip their scheme there.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Ink {
+    Muted,
+    Subtle,
+    CommitLocal,
+    CommitRemote,
+    CommitUpstream,
+    CommitIntegrated,
+    Warning,
+    Success,
+    Danger,
+    /// The done hue's mark, as a merged pull request's glyph.
+    Done,
+    /// The done hue's text, as a merged branch's title.
+    DoneText,
+}
+
+impl Ink {
+    pub fn of(self, theme: &Theme) -> Hsla {
+        match self {
+            Ink::Muted => theme.muted_foreground,
+            Ink::Subtle => theme.subtle_foreground,
+            Ink::CommitLocal => theme.commit_local,
+            Ink::CommitRemote => theme.commit_remote,
+            Ink::CommitUpstream => theme.commit_upstream,
+            Ink::CommitIntegrated => theme.commit_integrated,
+            Ink::Warning => theme.warning_mark,
+            Ink::Success => theme.success_mark,
+            Ink::Danger => theme.danger_mark,
+            Ink::Done => theme.done_mark,
+            Ink::DoneText => theme.done_text,
+        }
+    }
+}
+
+/// A part of what a row says, drawn as the row is built.
+enum Part {
+    Element(AnyElement),
+    /// Words in an [`Ink`].
+    Inked(Box<Div>, Ink),
+    Badge(BadgeVariant, SharedString),
+}
+
+/// A part of a row's meta, drawn as the row is built.
+enum Meta {
+    Element(AnyElement),
+    Count {
+        kind: MetaCountType,
+        value: Option<SharedString>,
+        tip: Option<SharedString>,
+    },
+}
 type Press = Rc<dyn Fn(&MouseDownEvent, &mut Window, &mut App)>;
 
 /// The one line every sidebar item is drawn on, as React's `Row`: the name takes the line, and
@@ -46,11 +101,11 @@ pub struct SidebarRow {
     unread: bool,
     quiet: bool,
     glyph: Option<AnyElement>,
-    icon: Option<(Icon, f32)>,
+    icon: Option<(Icon, f32, Ink)>,
     fold_room: bool,
     muted_text: bool,
-    label: Vec<AnyElement>,
-    meta: Vec<AnyElement>,
+    label: Vec<Part>,
+    meta: Vec<Meta>,
     actions: Vec<AnyElement>,
     split: Option<AnyElement>,
     split_room: bool,
@@ -135,7 +190,7 @@ impl SidebarRow {
 
     /// The field its name is being edited in, in place of what it says.
     pub fn rename(mut self, field: impl IntoElement) -> Self {
-        self.label = vec![field.into_any_element()];
+        self.label = vec![Part::Element(field.into_any_element())];
         self
     }
 
@@ -194,13 +249,19 @@ impl SidebarRow {
     /// The row's glyph from the icon set, in the row's muted ink, which on a solid selection is
     /// the inverted one, however late the row is selected.
     pub fn icon(mut self, icon: Icon, _theme: &Theme) -> Self {
-        self.icon = Some((icon, 14.));
+        self.icon = Some((icon, 14., Ink::Muted));
         self
     }
 
     /// As [`Self::icon`], 12 points, as a row that only pages a list wears it.
     pub fn small_icon(mut self, icon: Icon) -> Self {
-        self.icon = Some((icon, 12.));
+        self.icon = Some((icon, 12., Ink::Muted));
+        self
+    }
+
+    /// The row's glyph from the icon set in `ink`, `px` points.
+    pub fn inked_icon(mut self, icon: Icon, px: f32, ink: Ink) -> Self {
+        self.icon = Some((icon, px, ink));
         self
     }
 
@@ -220,13 +281,37 @@ impl SidebarRow {
 
     /// What the row says, its name and any badge before it, laid out 6px apart.
     pub fn label(mut self, part: impl IntoElement) -> Self {
-        self.label.push(part.into_any_element());
+        self.label.push(Part::Element(part.into_any_element()));
+        self
+    }
+
+    /// Words in `ink`, among what the row says.
+    pub fn inked_label(mut self, words: Div, ink: Ink) -> Self {
+        self.label.push(Part::Inked(Box::new(words), ink));
+        self
+    }
+
+    /// A badge among what the row says, as a pull request's number.
+    pub fn badge(mut self, variant: BadgeVariant, words: impl Into<SharedString>) -> Self {
+        self.label.push(Part::Badge(variant, words.into()));
         self
     }
 
     /// `MetaCount`s and a `MetaStatus`, in the order the row should read them.
     pub fn meta(mut self, count: impl IntoElement) -> Self {
-        self.meta.push(count.into_any_element());
+        self.meta.push(Meta::Element(count.into_any_element()));
+        self
+    }
+
+    /// A `MetaCount` of `kind`, saying `tip` under the pointer, drawn as the row is built so it
+    /// takes the solid selection's colours.
+    pub fn count(
+        mut self,
+        kind: MetaCountType,
+        value: Option<SharedString>,
+        tip: Option<SharedString>,
+    ) -> Self {
+        self.meta.push(Meta::Count { kind, value, tip });
         self
     }
 
@@ -250,18 +335,28 @@ impl SidebarRow {
     }
 
     pub fn build(self, theme: &Theme) -> Stateful<Div> {
-        let muted = if self.solid {
-            theme.inverse_muted_foreground
-        } else {
-            theme.muted_foreground
+        // What the row's parts take their colours from: on a solid selection, each token's
+        // other value.
+        let flipped;
+        let inks = match self.solid {
+            true => {
+                flipped = theme.for_solid();
+                &flipped
+            }
+            false => theme,
         };
+        let muted = Ink::Muted.of(inks);
         let guide_color = if self.solid {
             theme.derived.inverse_guide
         } else {
             theme.border_subtle
         };
         let glyph = (self.glyph).or_else(|| {
-            (self.icon).map(|(icon, px)| icon_at(icon, px).text_color(muted).into_any_element())
+            (self.icon).map(|(icon, px, ink)| {
+                icon_at(icon, px)
+                    .text_color(ink.of(inks))
+                    .into_any_element()
+            })
         });
         let has_glyph = glyph.is_some() || self.busy;
         let fold_room = self.fold_room && self.fold.is_none();
@@ -278,7 +373,7 @@ impl SidebarRow {
                     self.on_toggle.clone(),
                     press,
                     self.row_folds,
-                    theme,
+                    inks,
                 )
             });
             let fold_step =
@@ -323,8 +418,33 @@ impl SidebarRow {
                 .child(glyph)
         });
         let gives_way = self.meta_gives_way;
-        let end = (!self.meta.is_empty() || !self.actions.is_empty() || self.split.is_some()).then(
-            || {
+        let solid = self.solid;
+        let labels = self.label.into_iter().map(|part| match part {
+            Part::Element(el) => el,
+            Part::Inked(words, ink) => (*words).text_color(ink.of(inks)).into_any_element(),
+            Part::Badge(variant, words) => badge(variant, BadgeSize::Regular, inks)
+                .child(words)
+                .into_any_element(),
+        });
+        let labels: Vec<AnyElement> = labels.collect();
+        let metas: Vec<AnyElement> = (self.meta.into_iter())
+            .map(|meta| match meta {
+                Meta::Element(el) => el,
+                Meta::Count { kind, value, tip } => {
+                    let count = meta_count_on(kind, value, solid, theme);
+                    match tip {
+                        Some(tip) => count
+                            .id(ElementId::Name(tip.clone()))
+                            .aria_label(tip.clone())
+                            .tooltip(Tooltip::text(tip))
+                            .into_any_element(),
+                        None => count.into_any_element(),
+                    }
+                }
+            })
+            .collect();
+        let end =
+            (!metas.is_empty() || !self.actions.is_empty() || self.split.is_some()).then(|| {
                 h_flex()
                     .gap(dp(4.))
                     .map(|mut el| {
@@ -336,12 +456,12 @@ impl SidebarRow {
                         }
                         el.when(gives_way, |el| el.min_w_0())
                     })
-                    .when(!self.meta.is_empty(), |el| {
+                    .when(!metas.is_empty(), |el| {
                         el.child(
                             h_flex()
                                 .when(!gives_way, |el| el.flex_none())
                                 .when(gives_way, |el| el.min_w_0())
-                                .children(self.meta),
+                                .children(metas),
                         )
                     })
                     .when(!self.actions.is_empty(), |el| {
@@ -355,8 +475,7 @@ impl SidebarRow {
                             .justify_center()
                             .child(map)
                     }))
-            },
-        );
+            });
         h_flex()
             .id(self.id)
             .relative()
@@ -389,7 +508,7 @@ impl SidebarRow {
                     .min_w_0()
                     .overflow_hidden()
                     .gap(dp(6.))
-                    .children(self.label),
+                    .children(labels),
             )
             .children(end)
             .when(self.unread, |el| {
@@ -560,7 +679,7 @@ pub fn worktree_item(
     };
     let row = sidebar_row(id).icon(glyph, theme);
     let row = match fork {
-        true => row.label(badge(BadgeVariant::LightGray, BadgeSize::Regular, theme).child("Fork")),
+        true => row.badge(BadgeVariant::LightGray, "Fork"),
         false => row,
     };
     row.label(item_name(worktree))
@@ -574,20 +693,20 @@ pub fn branch_item(
     pr: Option<(u64, PullRequestState)>,
     merged: bool,
     selected: bool,
-    theme: &Theme,
+    _theme: &Theme,
 ) -> SidebarRow {
     let state = pr
         .map(|(_, state)| state)
         .or(merged.then_some(PullRequestState::Merged));
-    let (glyph, color) = match pr.map(|(_, state)| state) {
-        Some(PullRequestState::Draft) => (Icon::PrDraft, theme.muted_foreground),
-        Some(PullRequestState::Open) => (Icon::Pr, theme.success_mark),
-        Some(PullRequestState::Closed) => (Icon::PrClose, theme.danger_mark),
-        Some(PullRequestState::Merged) => (Icon::Pr, theme.done_mark),
-        None if merged => (Icon::Branch, theme.done_mark),
-        None => (Icon::Branch, theme.muted_foreground),
+    let (glyph, ink) = match pr.map(|(_, state)| state) {
+        Some(PullRequestState::Draft) => (Icon::PrDraft, Ink::Muted),
+        Some(PullRequestState::Open) => (Icon::Pr, Ink::Success),
+        Some(PullRequestState::Closed) => (Icon::PrClose, Ink::Danger),
+        Some(PullRequestState::Merged) => (Icon::Pr, Ink::Done),
+        None if merged => (Icon::Branch, Ink::Done),
+        None => (Icon::Branch, Ink::Muted),
     };
-    let row = sidebar_row(id).glyph(icon_at(glyph, 14.).text_color(color));
+    let row = sidebar_row(id).inked_icon(glyph, 14., ink);
     let row = match (pr, state) {
         (Some((number, state)), _) => {
             let variant = match state {
@@ -596,19 +715,16 @@ pub fn branch_item(
                 PullRequestState::Closed => BadgeVariant::Danger,
                 PullRequestState::Merged => BadgeVariant::Purple,
             };
-            row.label(badge(variant, BadgeSize::Regular, theme).child(format!("#{number}")))
+            row.badge(variant, format!("#{number}"))
         }
-        (None, Some(_)) => {
-            row.label(badge(BadgeVariant::Purple, BadgeSize::Regular, theme).child("Merged"))
-        }
+        (None, Some(_)) => row.badge(BadgeVariant::Purple, "Merged"),
         (None, None) => row,
     };
     let title = item_name(title);
-    let title = match state == Some(PullRequestState::Merged) && !selected {
-        true => title.text_color(theme.done_text).opacity(0.6),
-        false => title,
-    };
-    row.label(title)
+    match state == Some(PullRequestState::Merged) && !selected {
+        true => row.inked_label(title.opacity(0.6), Ink::DoneText),
+        false => row.label(title),
+    }
 }
 
 /// A commit under its branch: the hollow glyph while it's only here, the solid one once pushed,
@@ -619,28 +735,18 @@ pub fn commit_item(
     place: CommitPlace,
     merge: bool,
     conflicted: bool,
-    theme: &Theme,
+    _theme: &Theme,
 ) -> SidebarRow {
-    let glyph = match (conflicted, merge, place) {
-        (true, _, _) => icon_at(Icon::Warning, 14.).text_color(theme.warning_mark),
-        (false, true, CommitPlace::Upstream) => {
-            icon_at(Icon::BranchMerge, 14.).text_color(theme.commit_upstream)
-        }
-        (false, true, _) => icon_at(Icon::BranchMerge, 14.).text_color(theme.muted_foreground),
-        (false, false, CommitPlace::Local) => {
-            icon_at(Icon::Commit, 14.).text_color(theme.commit_local)
-        }
-        (false, false, CommitPlace::Pushed) => {
-            icon_at(Icon::CommitFill, 14.).text_color(theme.commit_remote)
-        }
-        (false, false, CommitPlace::Upstream) => {
-            icon_at(Icon::CommitFill, 14.).text_color(theme.commit_upstream)
-        }
-        (false, false, CommitPlace::Integrated) => {
-            icon_at(Icon::CommitFill, 14.).text_color(theme.commit_integrated)
-        }
+    let (glyph, ink) = match (conflicted, merge, place) {
+        (true, _, _) => (Icon::Warning, Ink::Warning),
+        (false, true, CommitPlace::Upstream) => (Icon::BranchMerge, Ink::CommitUpstream),
+        (false, true, _) => (Icon::BranchMerge, Ink::Muted),
+        (false, false, CommitPlace::Local) => (Icon::Commit, Ink::CommitLocal),
+        (false, false, CommitPlace::Pushed) => (Icon::CommitFill, Ink::CommitRemote),
+        (false, false, CommitPlace::Upstream) => (Icon::CommitFill, Ink::CommitUpstream),
+        (false, false, CommitPlace::Integrated) => (Icon::CommitFill, Ink::CommitIntegrated),
     };
-    sidebar_row(id).glyph(glyph).label(
+    sidebar_row(id).inked_icon(glyph, 14., ink).label(
         div()
             .min_w_0()
             .truncate()
@@ -656,18 +762,14 @@ pub fn upstream_item(
     id: impl Into<ElementId>,
     remote: &str,
     count: Option<usize>,
-    theme: &Theme,
+    _theme: &Theme,
 ) -> SidebarRow {
     let row = sidebar_row(id)
-        .glyph(icon_at(Icon::ArrowInBox, 14.).text_color(theme.commit_upstream))
+        .inked_icon(Icon::ArrowInBox, 14., Ink::CommitUpstream)
         .label(item_name(format!("New on {remote}")));
     // Without one, its next step says how many.
     match count {
-        Some(count) => row.meta(meta_count(
-            MetaCountType::Behind,
-            Some(count.to_string().into()),
-            theme,
-        )),
+        Some(count) => row.count(MetaCountType::Behind, Some(count.to_string().into()), None),
         None => row,
     }
 }
@@ -683,19 +785,10 @@ pub fn uncommitted_item(
         0 => MetaCountType::Clean,
         _ => MetaCountType::Uncommitted,
     };
-    let count = meta_count(kind, Some(count.to_string().into()), theme);
-    let count = match tip {
-        Some(tip) => count
-            .id(ElementId::Name(tip.clone()))
-            .aria_label(tip.clone())
-            .tooltip(Tooltip::text(tip))
-            .into_any_element(),
-        None => count.into_any_element(),
-    };
     sidebar_row(id)
         .icon(Icon::Diff, theme)
         .label(item_name("Uncommitted changes"))
-        .meta(count)
+        .count(kind, Some(count.to_string().into()), tip)
 }
 
 /// The caption over a stack of branches: how many and "Stack", and while it's folded, the branch
@@ -705,12 +798,12 @@ pub fn stack_caption(
     count: usize,
     tip: impl Into<SharedString>,
     folded: Option<bool>,
-    theme: &Theme,
+    _theme: &Theme,
 ) -> SidebarRow {
     let row = sidebar_row(id)
-        .glyph(icon_at(Icon::Stack, 14.).text_color(theme.subtle_foreground))
-        .label(badge(BadgeVariant::LightGray, BadgeSize::Regular, theme).child(count.to_string()))
-        .label(item_name("Stack").flex_none().text_color(theme.muted_foreground));
+        .inked_icon(Icon::Stack, 14., Ink::Subtle)
+        .badge(BadgeVariant::LightGray, count.to_string())
+        .inked_label(item_name("Stack").flex_none(), Ink::Muted);
     match folded {
         Some(true) => row.fold(Fold::Folded).label(item_name(tip)),
         Some(false) => row.fold(Fold::Open),
@@ -753,14 +846,14 @@ pub fn group_label(
         Some(icon) => row.icon(icon, theme),
         None => row,
     };
-    row.label(
+    row.inked_label(
         div()
             .min_w_0()
             .truncate()
             .text_12()
             .semibold()
-            .text_color(theme.subtle_foreground)
             .child(label.into()),
+        Ink::Subtle,
     )
 }
 
@@ -775,14 +868,14 @@ pub fn terminal_item(
         .icon(Icon::Terminal, theme)
         .label(item_name(terminal));
     match place {
-        Some(place) => row.label(
+        Some(place) => row.inked_label(
             div()
                 .min_w_0()
                 .flex_shrink(100.)
                 .truncate()
                 .text_13()
-                .text_color(theme.muted_foreground)
                 .child(SharedString::from(format!("/ {place}"))),
+            Ink::Muted,
         ),
         None => row,
     }
@@ -800,10 +893,11 @@ pub fn notice_item(
         .min_w_0()
         .gap(dp(4.))
         .text_13()
-        .text_color(theme.muted_foreground)
         .child(div().min_w_0().truncate().child(message.into()))
         .children(action.map(|action| div().flex_none().underline().child(action)));
-    sidebar_row(id).icon(Icon::Warning, theme).label(words)
+    sidebar_row(id)
+        .icon(Icon::Warning, theme)
+        .inked_label(words, Ink::Muted)
 }
 
 const DRAWER: &str = "drawer";

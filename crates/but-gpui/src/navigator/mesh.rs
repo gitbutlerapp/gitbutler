@@ -183,7 +183,7 @@ impl Navigator {
                     None,
                     branch.status == BranchStatus::Integrated,
                     style.selected,
-                    &style.kind_theme(),
+                    style.theme,
                 );
                 let row = self.folding(row, (n > 0).then_some(open), cx, toggle.clone());
                 let row = style

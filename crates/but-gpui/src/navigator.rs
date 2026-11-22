@@ -516,7 +516,7 @@ impl<'a> RowStyle<'a> {
             place,
             merge,
             conflicted,
-            &self.kind_theme(),
+            self.theme,
         )
         .unread(unread);
         match rename {
@@ -2886,7 +2886,7 @@ impl Navigator {
         let row = repo_item(
             ElementId::Name(format!("project-{id}").into()),
             entry.project.name.clone(),
-            &style.kind_theme(),
+            style.theme,
         )
         .glyph(glyph)
         .unread(unread && (card_folded || !expanded))
@@ -2953,8 +2953,8 @@ impl Navigator {
         let renaming = field.is_some();
         let row_id = ElementId::Name(format!("terminal-{}", id.0).into());
         let row = match field {
-            Some(field) => terminal_item(row_id, title, None, &style.kind_theme()).rename(field),
-            None => terminal_item(row_id, title, None, &style.kind_theme()),
+            Some(field) => terminal_item(row_id, title, None, style.theme).rename(field),
+            None => terminal_item(row_id, title, None, style.theme),
         };
         let row = match status.and_then(|status| status_mark(status, !store.hidden(), style)) {
             Some(mark) => row.meta(mark),
@@ -3151,7 +3151,7 @@ impl Navigator {
             ElementId::Name(row_id.into()),
             n,
             Some(files_tip(n, added, removed).into()),
-            &style.kind_theme(),
+            style.theme,
         );
         let conflicts = count(
             MetaCountType::Conflicts,
@@ -3274,7 +3274,7 @@ impl Navigator {
             branches.len(),
             tip,
             Some(!open),
-            &style.kind_theme(),
+            style.theme,
         )
         .unread(!open && unread);
         let row = self.folding(row, Some(open), cx, toggle.clone());
@@ -3385,7 +3385,7 @@ impl Navigator {
             pr,
             state == Some(ReviewState::Merged),
             style.selected,
-            &style.kind_theme(),
+            style.theme,
         )
         .unread(unread)
         .busy(publishing, None);
@@ -4025,17 +4025,17 @@ impl Navigator {
                 this.toggle_heading(project.clone(), section.clone(), open, window, cx)
             }
         };
-        let theme = style.kind_theme();
+        let theme = style.theme;
         let id = ElementId::Name(format!("section-heading-{ix}").into());
         // A branch's remote's as but-ui's upstream_item, its step saying how many; a group's as
         // its group_label, quiet, so the rows under it read first.
         let row = match section {
             Section::Upstream(_) => {
                 let remote = label.strip_prefix("New on ").unwrap_or(&label).to_owned();
-                upstream_item(id, &remote, None, &theme)
+                upstream_item(id, &remote, None, theme)
             }
             Section::Inactive | Section::Mesh => {
-                group_label(id, label.clone(), Some(glyph), Some(!open), &theme).chevron_folds()
+                group_label(id, label.clone(), Some(glyph), Some(!open), theme).chevron_folds()
             }
         };
         let row = more(self.folding(row, Some(open), cx, toggle.clone()));
