@@ -1,7 +1,7 @@
 //! The left column: every project as a card, each listing its uncommitted changes,
 //! stacks, branches and commits as one tree of rows.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::f32::consts::FRAC_PI_2;
 use std::rc::Rc;
@@ -44,10 +44,10 @@ use crate::ui::{
     pulsing, review, section_label, small_icon, v_flex,
 };
 use crate::ui::{
-    CommitPlace, Fold as RowFold, MetaStatusVariant, PullRequestState, SidebarRow, branch_item,
-    commit_item, group_label, item_name, meta_status, more_item, press_in_pane, repo_item,
-    running_count, sidebar_row, stack_caption, terminal_item, uncommitted_item, upstream_item,
-    worktree_item,
+    CommitPlace, Fold as RowFold, MetaStatusVariant, PullRequestState, SidebarRow, SplitCell,
+    SplitPreview, SplitTile, branch_item, commit_item, group_label, item_name, meta_status,
+    more_item, press_in_pane, repo_item, running_count, sidebar_row, split_preview_map,
+    stack_caption, terminal_item, uncommitted_item, upstream_item, worktree_item,
 };
 
 mod account;
@@ -91,10 +91,6 @@ use rows::{
 /// How far apart the cards are, as the detail's are: but-ui's `gap/stack`, the one gap between
 /// cards stacked in a column on every surface.
 pub(super) const CARD_GAP: f32 = tokens::GAP_STACK;
-
-/// How wide and tall the map of a row's tiles is, and the gap between them there.
-const TILE_MAP: (f32, f32) = (20., 14.);
-const TILE_MAP_GAP: f32 = 1.5;
 
 /// How far the cards sit in from the list's sides, as far as the detail's cards are from the
 /// window's edges.
@@ -186,6 +182,17 @@ pub(crate) struct RowStyle<'a> {
     blink: Option<usize>,
     /// Where Go to anything goes: see [`Navigator::going_to`].
     goes_here: bool,
+    /// The map of the split the row shows and the status of the terminals in it, which
+    /// [`Self::draw`] puts in the row: see [`Navigator::split_of`].
+    split: Option<&'a RefCell<RowSplit>>,
+}
+
+/// What a row of a split carries for it: the map in its split cell, and before its counts the
+/// status of the terminals in it.
+#[derive(Default)]
+pub(crate) struct RowSplit {
+    map: Option<AnyElement>,
+    status: Option<AnyElement>,
 }
 
 /// What a row's blink is of: see [`Navigator::blinked`].
@@ -380,6 +387,7 @@ impl<'a> RowStyle<'a> {
             glow: false,
             blink: None,
             goes_here: false,
+            split: None,
         }
     }
 
@@ -399,6 +407,12 @@ impl<'a> RowStyle<'a> {
     /// contents set in by the style's inset and `by` inside its full-width ground, and marked as
     /// [`Self::marks`] says.
     fn draw(&self, row: SidebarRow, by: f32) -> Stateful<Div> {
+        let split = self.split.map(|split| split.take()).unwrap_or_default();
+        let row = split.status.into_iter().fold(row, SidebarRow::meta);
+        let row = match split.map {
+            Some(map) => row.split(map),
+            None => row,
+        };
         let el = row
             .selected(self.selected, self.solid)
             .inset(self.inset + by)
@@ -2099,6 +2113,7 @@ impl Navigator {
         let outlined_with = (ix > 0 && outlined_at(ix - 1), outlined_at(ix + 1));
         // Not while something's dragged, or the selection outshines what shows where it lands.
         let solid = selected && store.dragging.is_none() && self.keys.on_row_of(&self.list());
+        let split = RefCell::new(self.split_of(item, selected && solid, theme, cx));
         let style = RowStyle {
             theme,
             selected,
@@ -2124,6 +2139,7 @@ impl Navigator {
                     .filter(|_| store.selection.as_ref() == Some(item)),
             },
             goes_here: self.going_row.as_ref() == Some(item),
+            split: Some(&split),
         };
         let el = match item {
             Selection::Project(id) => self.project_row(item, id, style, cx),
@@ -2158,7 +2174,6 @@ impl Navigator {
         let Some(el) = el else {
             return div().into_any_element();
         };
-        let el = self.with_tiles(el, item, style, cx);
         let el = self.row_menu(el, item.clone(), cx);
         match outlined {
             Some(outline) => {
@@ -2175,83 +2190,86 @@ impl Navigator {
         }
     }
 
-    /// Row `el` of `item`, beside a small map of its tiles while it has others than its page,
-    /// which is the brightest: shaded with the row while it's selected, solid as it is, and
-    /// naming them in its tooltip. A click on it is one on the row. Before the map goes the
-    /// status of the terminals in the row's tilings, which a terminal's row shows itself.
-    fn with_tiles(
+    /// What `item`'s row carries for the split it shows, as but-ui's `SplitPreviewMap`: the map of
+    /// its tiles while it has others than its page, which is inked, opening the split's preview
+    /// under the pointer, and the status of the terminals in its splits, which a terminal's row
+    /// shows itself.
+    fn split_of(
         &self,
-        el: AnyElement,
         item: &Selection,
-        style: RowStyle,
+        solid: bool,
+        theme: &Theme,
         cx: &Context<Self>,
-    ) -> AnyElement {
-        let (theme, selected, solid) = (style.theme, style.selected, style.solid);
+    ) -> RowSplit {
         let store = self.store.read(cx);
         let tiles = store.tiles_of(item);
         let status = match item {
             Selection::Terminal(..) => None,
             _ => store.row_status(item),
         };
-        let mark = status.and_then(|status| status_mark(status, !store.hidden(), style));
-        let mapped = tiles.len() >= 2;
-        if !mapped && mark.is_none() {
-            return el;
-        }
-        let ink = match selected && solid {
-            true => theme.inverse_foreground,
-            false => theme.muted_foreground,
+        let style = RowStyle {
+            solid,
+            ..RowStyle::plain(theme, 0.)
         };
-        let cells = tiles.iter().map(|(tile, area)| {
-            div()
-                .absolute()
-                .left(dp(area.left * TILE_MAP.0 + TILE_MAP_GAP / 2.))
-                .top(dp(area.top * TILE_MAP.1 + TILE_MAP_GAP / 2.))
-                .w(dp((area.width * TILE_MAP.0 - TILE_MAP_GAP).max(1.)))
-                .h(dp((area.height * TILE_MAP.1 - TILE_MAP_GAP).max(1.)))
-                .rounded(dp(1.5))
-                .bg(ink)
-                .when(matches!(tile, Tile::Pinned(_)), |el| el.opacity(0.4))
+        let status = status
+            .and_then(|status| status_mark(status, !store.hidden(), style))
+            .map(IntoElement::into_any_element);
+        if tiles.len() < 2 {
+            return RowSplit { map: None, status };
+        }
+        let row = store.row_key(item);
+        let cells = tiles.iter().map(|(tile, area)| SplitCell {
+            left: area.left,
+            top: area.top,
+            width: area.width,
+            height: area.height,
+            here: matches!(tile, Tile::Home),
         });
-        let names = (tiles.iter()).filter_map(|(tile, _)| match tile {
-            Tile::Home => None,
-            Tile::Pinned(pinned) => Some(crate::app::tile_label(store, pinned).1),
-        });
-        let names = names.collect::<Vec<_>>().join("\n");
-        let map = h_flex()
+        let named: Vec<SplitTile> = (tiles.iter())
+            .map(|(tile, _)| {
+                let shows = tile.shows(&row);
+                let (icon, name) = crate::app::tile_label(store, shows);
+                let terminal = matches!(store.selection_of(shows), Some(Selection::Terminal(..)));
+                // As the sidebar's terminal row wears it.
+                let icon = if terminal { Icon::Terminal } else { icon };
+                let status = (store.selection_of(shows))
+                    .filter(|shown| matches!(shown, Selection::Terminal(..)))
+                    .and_then(|shown| store.row_status(&shown))
+                    .and_then(|status| match status {
+                        Status::Idle => None,
+                        Status::Working => Some(MetaStatusVariant::Working),
+                        Status::Blocked(_) => Some(MetaStatusVariant::Warning),
+                        Status::Done => Some(MetaStatusVariant::Passed),
+                        Status::Failed(_) => Some(MetaStatusVariant::Failed),
+                    });
+                SplitTile {
+                    icon,
+                    name,
+                    status,
+                    here: matches!(tile, Tile::Home),
+                }
+            })
+            .collect();
+        let (_, home) = crate::app::tile_label(store, &row);
+        let names = (named.iter())
+            .map(|tile| tile.name.to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let map = div()
             .id(SharedString::from(format!("tiles-{item:?}")))
-            .flex_none()
-            .mr(dp(3.))
-            .px(dp(7.))
-            .gap(dp(6.))
-            .rounded(dp(theme.shape.control))
-            .map(|el| match (selected, solid) {
-                (true, true) => el.bg(theme.inverse),
-                (true, false) => el.bg(theme.selected_inactive),
-                (false, _) => el
-                    .bg(theme.hover)
-                    .hover(|el| el.bg(theme.selected_inactive)),
+            .flex()
+            .role(Role::Image)
+            .aria_label(format!("Split: {names}"))
+            .child(split_preview_map(cells, theme))
+            .tooltip(move |_, cx| {
+                let (home, tiles) = (home.clone(), named.clone());
+                cx.new(|_| SplitPreview { home, tiles }).into()
             })
-            .children(mark)
-            .when(mapped, |el| {
-                el.child(
-                    div()
-                        .relative()
-                        .w(dp(TILE_MAP.0))
-                        .h(dp(TILE_MAP.1))
-                        .children(cells),
-                )
-                .tooltip(Tooltip::text(names))
-            })
-            .map(|el| self.selectable(el, item, cx))
-            .map(|el| self.page_drag(el, item, cx));
-        // As tall as the row, which a watched project's heading is more than the others.
-        h_flex()
-            .w_full()
-            .items_stretch()
-            .child(div().flex_grow(1.).min_w(dp(120.)).child(el))
-            .child(map)
-            .into_any_element()
+            .into_any_element();
+        RowSplit {
+            map: Some(map),
+            status,
+        }
     }
 
     /// Whether a press on a row can start dragging it: not while something is being moved,
