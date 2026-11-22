@@ -1,8 +1,16 @@
 import { stories } from "../stories/stories.ts";
 import { Icon } from "./Icon.tsx";
 import { MetaCount } from "./MetaCount.tsx";
-import { BranchItem, MachineItem, RepoItem, UncommittedItem, WorktreeItem } from "./SidebarRow.tsx";
+import {
+	BranchItem,
+	MachineItem,
+	RepoItem,
+	TerminalItem,
+	UncommittedItem,
+	WorktreeItem,
+} from "./SidebarRow.tsx";
 import { Card, Column, machine, push, Repository, update } from "./story-assets/workspaceTree.tsx";
+import { Tooltip } from "./Tooltip.tsx";
 
 const core = (node: string) =>
 	`https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=${node}`;
@@ -176,5 +184,35 @@ export const OfflineMachine = meta.story({
 				</>
 			}
 		/>
+	),
+});
+
+/**
+ * A linked worktree with no branch of its own, its HEAD on the last commit of
+ * `sidebar-unread-dot`, a branch in the Main worktree. Its meta says what it's on: `head`, the
+ * anchor and the branch's name, which gives way before the worktree's own, and the tooltip says
+ * there's no branch. Nothing is listed for the branch under it; the terminal open in it is.
+ */
+export const NoBranch = meta.story({
+	parameters: { design: { type: "figma", url: core("5464-18190") } },
+	render: () => (
+		<Card label="gitbutler" header={<RepoItem name="gitbutler" folded={false} />}>
+			<Repository last>
+				<WorktreeItem name="Main worktree" main depth={0} folded />
+				<WorktreeItem
+					name="gpui-row-buttons"
+					depth={0}
+					folded={false}
+					meta={
+						<Tooltip content="No branch: on sidebar-unread-dot's last commit">
+							<MetaCount type="head" aria-label="No branch: on sidebar-unread-dot's last commit">
+								sidebar-unread-dot
+							</MetaCount>
+						</Tooltip>
+					}
+				/>
+				<TerminalItem name="claude" depth={1} />
+			</Repository>
+		</Card>
 	),
 });

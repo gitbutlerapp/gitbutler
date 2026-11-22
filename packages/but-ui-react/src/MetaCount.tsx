@@ -33,7 +33,7 @@ const glyph: Record<MetaCountType, IconName> = {
 	rebased: "arrow-up",
 	commits: "commit",
 	empty: "commit",
-	head: "branch",
+	head: "anchor",
 	uncommitted: "diff",
 	clean: "diff",
 	age: "clock",
@@ -84,7 +84,12 @@ type MetaCountProps = { type: MetaCountType } & ComponentProps<"span">;
  * @import import { MetaCount } from "@gitbutler/but-ui-react/MetaCount.tsx";
  */
 export const MetaCount: FC<MetaCountProps> = ({ type, children, ...props }) => (
-	<span {...props} className={classes(props.className, "text-13", styles.count, styles[type])}>
+	<span
+		{...props}
+		className={classes(props.className, "text-13", styles.count, styles[type])}
+		// A name, which the row it's in lets give way before the row's own name.
+		data-meta-name={type === "head" ? "" : undefined}
+	>
 		{type === "agent-working" ? (
 			<WorkingRobot />
 		) : type === "running" ? (

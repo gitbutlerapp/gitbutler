@@ -41,6 +41,7 @@ macro_rules! icons {
 icons! {
     Absorb => "absorb",
     Ai => "ai",
+    Anchor => "anchor",
     ArrowDoubleDown => "arrow-double-down",
     ArrowDown => "arrow-down",
     ArrowInBox => "arrow-in-box",

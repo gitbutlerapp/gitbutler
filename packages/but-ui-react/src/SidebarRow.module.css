@@ -308,7 +308,6 @@ button.toggle {
 /* Counts sit flush: each carries its own side padding, so two of them are 6px apart glyph to glyph. */
 .meta {
 	display: flex;
-	flex-shrink: 0;
 	align-items: center;
 }
 
@@ -341,7 +340,10 @@ button.toggle {
 	}
 }
 
-/* The next step sits 4px after the counts, so a button in a count's place reads as one more. */
+/* The next step sits 4px after the counts, so a button in a count's place reads as one more. It
+   keeps its width, unless the meta holds a name (a MetaCount `head`): then it gives way before the
+   row's own name, the meta's name shrinking down to its glyph while the counts and the next step
+   keep their width. */
 .end {
 	display: flex;
 	column-gap: var(--but-space-sm);
@@ -349,9 +351,26 @@ button.toggle {
 	align-items: center;
 }
 
+/* Many times the name's shrink, so the name keeps every pixel while the meta's name has room to
+   give. */
+.end:has(> .meta [data-meta-name]) {
+	flex-shrink: 10000;
+	min-width: 0;
+}
+
+.meta:has([data-meta-name]) {
+	min-width: 0;
+
+	/* Only the name gives way; the counts beside it keep their width. */
+	& > :not([data-meta-name]) {
+		flex-shrink: 0;
+	}
+}
+
 .actions {
 	display: flex;
 	column-gap: var(--but-space-sm);
+	flex-shrink: 0;
 	align-items: center;
 }
 
