@@ -608,6 +608,31 @@ impl Theme {
         self.own_colours.is_some()
     }
 
+    /// This theme as a row selected on the solid fill draws its marks, as but-ui-react's rows
+    /// flip their colour scheme there: each mark colour in its token's other value
+    /// (`on_solid`). A component built with it on such a row needs nothing else to know.
+    pub fn for_solid(&self) -> Theme {
+        let (mut theme, flip) = (self.clone(), &self.on_solid);
+        let c = &mut theme.colors;
+        c.muted_foreground = flip.muted_foreground;
+        c.subtle_foreground = flip.subtle_foreground;
+        c.info_text = flip.info_text;
+        c.warning_text = flip.warning_text;
+        c.success_text = flip.success_text;
+        c.danger_text = flip.danger_text;
+        c.done_text = flip.done_text;
+        c.info_mark = flip.info_mark;
+        c.warning_mark = flip.warning_mark;
+        c.success_mark = flip.success_mark;
+        c.danger_mark = flip.danger_mark;
+        c.done_mark = flip.done_mark;
+        c.commit_local = flip.commit_local;
+        c.commit_remote = flip.commit_remote;
+        c.commit_upstream = flip.commit_upstream;
+        c.commit_integrated = flip.commit_integrated;
+        theme
+    }
+
     pub fn get(cx: &App) -> &Theme {
         cx.global::<Theme>()
     }

@@ -133,9 +133,21 @@ impl SidebarRow {
         self
     }
 
+    /// The field its name is being edited in, in place of what it says.
+    pub fn rename(mut self, field: impl IntoElement) -> Self {
+        self.label = vec![field.into_any_element()];
+        self
+    }
+
     /// The row itself is the button that folds, so the chevron only says which way it is.
     pub fn row_folds(mut self) -> Self {
         self.row_folds = true;
+        self
+    }
+
+    /// The chevron takes its own click again, after a kind that made the row the button.
+    pub fn chevron_folds(mut self) -> Self {
+        self.row_folds = false;
         self
     }
 
@@ -472,8 +484,9 @@ pub fn chevron(
         })
 }
 
-/// A row's name: 14px semibold, cut with an ellipsis once its row runs out of room.
-fn name(text: impl Into<SharedString>) -> Div {
+/// A row's name: 14px semibold, cut with an ellipsis once its row runs out of room. For a row
+/// no kind fits, as the kinds' names are.
+pub fn item_name(text: impl Into<SharedString>) -> Div {
     div()
         .min_w_0()
         .truncate()
@@ -499,6 +512,8 @@ pub enum CommitPlace {
     Local,
     /// Pushed: the solid glyph in `commit_remote`.
     Pushed,
+    /// In the target already: the solid glyph in `commit_integrated`.
+    Integrated,
     /// On the branch's remote, not here yet: the solid glyph in `commit_upstream`.
     Upstream,
 }
@@ -511,7 +526,7 @@ pub fn machine_item(
     picture: impl IntoElement,
     status: Option<AnyElement>,
 ) -> SidebarRow {
-    let row = sidebar_row(id).glyph(picture).label(name(machine));
+    let row = sidebar_row(id).glyph(picture).label(item_name(machine));
     match status {
         Some(status) => row.label(status),
         None => row,
@@ -524,7 +539,9 @@ pub fn repo_item(
     repo: impl Into<SharedString>,
     theme: &Theme,
 ) -> SidebarRow {
-    sidebar_row(id).icon(Icon::Repo, theme).label(name(repo))
+    sidebar_row(id)
+        .icon(Icon::Repo, theme)
+        .label(item_name(repo))
 }
 
 /// A worktree: the main one's folder, a linked one's doubled folder, or a fork's, which says
@@ -546,7 +563,7 @@ pub fn worktree_item(
         true => row.label(badge(BadgeVariant::LightGray, BadgeSize::Regular, theme).child("Fork")),
         false => row,
     };
-    row.label(name(worktree))
+    row.label(item_name(worktree))
 }
 
 /// A branch: its glyph, and with a pull request, the request's glyph in its state's colour and
@@ -586,7 +603,7 @@ pub fn branch_item(
         }
         (None, None) => row,
     };
-    let title = name(title);
+    let title = item_name(title);
     let title = match state == Some(PullRequestState::Merged) && !selected {
         true => title.text_color(theme.done_text).opacity(0.6),
         false => title,
@@ -619,6 +636,9 @@ pub fn commit_item(
         (false, false, CommitPlace::Upstream) => {
             icon_at(Icon::CommitFill, 14.).text_color(theme.commit_upstream)
         }
+        (false, false, CommitPlace::Integrated) => {
+            icon_at(Icon::CommitFill, 14.).text_color(theme.commit_integrated)
+        }
     };
     sidebar_row(id).glyph(glyph).label(
         div()
@@ -635,29 +655,47 @@ pub fn commit_item(
 pub fn upstream_item(
     id: impl Into<ElementId>,
     remote: &str,
-    count: usize,
+    count: Option<usize>,
     theme: &Theme,
 ) -> SidebarRow {
-    sidebar_row(id)
+    let row = sidebar_row(id)
         .glyph(icon_at(Icon::ArrowInBox, 14.).text_color(theme.commit_upstream))
-        .label(name(format!("New on {remote}")))
-        .meta(meta_count(
+        .label(item_name(format!("New on {remote}")));
+    // Without one, its next step says how many.
+    match count {
+        Some(count) => row.meta(meta_count(
             MetaCountType::Behind,
             Some(count.to_string().into()),
             theme,
-        ))
+        )),
+        None => row,
+    }
 }
 
 /// A worktree's uncommitted changes, and how many files, in amber while there are any.
-pub fn uncommitted_item(id: impl Into<ElementId>, count: usize, theme: &Theme) -> SidebarRow {
+pub fn uncommitted_item(
+    id: impl Into<ElementId>,
+    count: usize,
+    tip: Option<SharedString>,
+    theme: &Theme,
+) -> SidebarRow {
     let kind = match count {
         0 => MetaCountType::Clean,
         _ => MetaCountType::Uncommitted,
     };
+    let count = meta_count(kind, Some(count.to_string().into()), theme);
+    let count = match tip {
+        Some(tip) => count
+            .id(ElementId::Name(tip.clone()))
+            .aria_label(tip.clone())
+            .tooltip(Tooltip::text(tip))
+            .into_any_element(),
+        None => count.into_any_element(),
+    };
     sidebar_row(id)
         .icon(Icon::Diff, theme)
-        .label(name("Uncommitted changes"))
-        .meta(meta_count(kind, Some(count.to_string().into()), theme))
+        .label(item_name("Uncommitted changes"))
+        .meta(count)
 }
 
 /// The caption over a stack of branches: how many and "Stack", and while it's folded, the branch
@@ -672,9 +710,9 @@ pub fn stack_caption(
     let row = sidebar_row(id)
         .glyph(icon_at(Icon::Stack, 14.).text_color(theme.subtle_foreground))
         .label(badge(BadgeVariant::LightGray, BadgeSize::Regular, theme).child(count.to_string()))
-        .label(name("Stack").flex_none().text_color(theme.muted_foreground));
+        .label(item_name("Stack").flex_none().text_color(theme.muted_foreground));
     match folded {
-        Some(true) => row.fold(Fold::Folded).label(name(tip)),
+        Some(true) => row.fold(Fold::Folded).label(item_name(tip)),
         Some(false) => row.fold(Fold::Open),
         None => row.quiet(),
     }
@@ -735,7 +773,7 @@ pub fn terminal_item(
 ) -> SidebarRow {
     let row = sidebar_row(id)
         .icon(Icon::Terminal, theme)
-        .label(name(terminal));
+        .label(item_name(terminal));
     match place {
         Some(place) => row.label(
             div()

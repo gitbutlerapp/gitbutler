@@ -151,6 +151,22 @@ pub fn meta_count_on(
     solid: bool,
     theme: &Theme,
 ) -> Div {
+    counted(kind, value, solid, true, theme)
+}
+
+/// A program at work, as [`MetaCountType::Running`] draws it, its dots stepping round only
+/// while `turning`, as while its window shows, so a hidden one costs nothing.
+pub fn running_count(turning: bool, solid: bool, theme: &Theme) -> Div {
+    counted(MetaCountType::Running, None, solid, turning, theme)
+}
+
+fn counted(
+    kind: MetaCountType,
+    value: Option<SharedString>,
+    solid: bool,
+    turning: bool,
+    theme: &Theme,
+) -> Div {
     let color = match solid {
         true => kind.color_on_solid(theme),
         false => kind.color(theme),
@@ -163,7 +179,7 @@ pub fn meta_count_on(
             .flex()
             .items_center()
             .justify_center()
-            .child(spinning(color, true))
+            .child(spinning(color, turning))
             .into_any_element(),
         // A step quieter than its value, as 🍑 But UI draws it, so the value reads first.
         _ => icon_at(kind.glyph(), 14.)

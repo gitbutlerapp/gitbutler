@@ -92,7 +92,7 @@ fn tree(selected: &str, solid: bool, theme: &Theme) -> [Div; 2] {
         ),
         (
             2,
-            uncommitted_item("uncommitted", 19, theme).selected(is("uncommitted"), solid),
+            uncommitted_item("uncommitted", 19, None, theme).selected(is("uncommitted"), solid),
         ),
         (
             2,
@@ -211,7 +211,7 @@ fn tree(selected: &str, solid: bool, theme: &Theme) -> [Div; 2] {
                 .meta(age("5h", theme))
                 .action(update("update-archive", 2)),
         ),
-        (2, uncommitted_item("uncommitted-2", 2, theme)),
+        (2, uncommitted_item("uncommitted-2", 2, None, theme)),
         (
             2,
             branch_item("laptop", "resume-on-laptop", None, false, false, theme)
@@ -298,7 +298,7 @@ fn inactive_worktrees(open: bool, theme: &Theme) -> Div {
 fn unread(theme: &Theme) -> Div {
     let rows = vec![
         (0, repo_item("repo", "but-dev", theme).fold(Fold::Open)),
-        (1, uncommitted_item("uncommitted", 10, theme)),
+        (1, uncommitted_item("uncommitted", 10, None, theme)),
         (
             1,
             branch_item("review-cards", "review-cards", None, false, false, theme)
