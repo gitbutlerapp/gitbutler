@@ -1031,12 +1031,12 @@ impl Store {
             Selection::Checkout(_, Checkout::Linked(name)) => {
                 workspace.worktrees.iter().any(|w| w.name == *name)
             }
-            // Listed only with something uncommitted, or as a commit being edited's files.
+            // A clean worktree still has a page while it has splits beside it.
             Selection::Uncommitted(_, checkout) => {
                 (workspace.editing.is_some() && *checkout == Checkout::Main)
                     || workspace
                         .uncommitted_in(checkout)
-                        .is_some_and(|f| !f.is_empty())
+                        .is_some_and(|files| !files.is_empty() || self.has_splits(selection))
             }
             Selection::Terminal(_, id) => self.terminals.get(*id).is_some(),
             Selection::Stack(_, bottom) => workspace

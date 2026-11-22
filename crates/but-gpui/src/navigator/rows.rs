@@ -1127,15 +1127,17 @@ pub(super) fn in_checkout(
 }
 
 /// Whether `project`'s `checkout`'s uncommitted changes are listed, first under its heading:
-/// only while there are some, as with none there's nothing to show or commit.
+/// while there are changes or while their page has splits.
 pub(crate) fn lists_changes(
     store: &Store,
     workspace: &Workspace,
     project: &ProjectId,
     checkout: &Checkout,
 ) -> bool {
-    (workspace.uncommitted_in(checkout))
-        .is_some_and(|files| !store.uncommitted_shown(project, checkout, files).is_empty())
+    workspace.uncommitted_in(checkout).is_some_and(|files| {
+        !store.uncommitted_shown(project, checkout, files).is_empty()
+            || store.has_splits(&Selection::Uncommitted(project.clone(), checkout.clone()))
+    })
 }
 
 /// Whether anything is listed under `project`'s `checkout`'s heading while it's open: its
