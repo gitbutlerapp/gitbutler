@@ -58,92 +58,79 @@ pub(crate) fn graph(
     target_commit_id: Option<gix::ObjectId>,
     commits_limit: Option<usize>,
 ) -> Result<WorkspaceGraph> {
-    let (workspace_ref_name, workspace_commit, branch_refs) = {
-        let mut workspace_ref_name = None;
-        let mut workspace_commit = None;
-        let mut branches = Vec::new();
-        // The references are those the overlay sees, which may amend the repository's.
-        for reference in overlay_repo.references_with_prefix("refs/heads/")? {
+    let mut ref_names = crate::init::RefNames::default();
+    let local_refs =
+        overlay_repo.commit_refs_with_prefix("refs/heads/", &mut ref_names, |reference| {
+            Ok(reference.try_id().map(gix::Id::detach))
+        })?;
+    let remote_refs =
+        overlay_repo.commit_refs_with_prefix("refs/remotes/", &mut ref_names, |reference| {
             let Some(id) = reference.try_id() else {
-                continue;
-            };
-            let full_name = reference.detach().name;
-            if is_workspace_ref_name(full_name.as_ref()) {
-                workspace_ref_name = Some(full_name.clone());
-                let commit = repo.find_commit(id)?;
-                workspace_commit = crate::workspace::commit::is_managed_workspace_by_message(
-                    commit.message_raw()?,
-                )
-                .then_some(commit);
-            }
-            branches.push((full_name, id.detach()));
-        }
-        for reference in overlay_repo.references_with_prefix("refs/remotes/")? {
-            let Some(id) = reference.try_id() else {
-                continue;
+                return Ok(None);
             };
             // A fetch refspec can map an annotated tag into the remote-tracking namespace.
-            let id = if Some(reference.name()) == target_upstream_ref {
-                let Some(id) =
-                    but_core::ref_metadata::target_ref_commit_id(repo, reference.clone())?
-                else {
-                    continue;
-                };
-                id
+            if Some(reference.name()) == target_upstream_ref {
+                but_core::ref_metadata::target_ref_commit_id(repo, reference.clone())
             } else {
-                id.detach()
-            };
-            branches.push((reference.detach().name, id));
-        }
-        (workspace_ref_name, workspace_commit, branches)
+                Ok(Some(id.detach()))
+            }
+        })?;
+    let tag_refs = if collect_tags {
+        overlay_repo.commit_refs_with_prefix("refs/tags/", &mut ref_names, |reference| {
+            Ok(reference.peel_to_commit().ok().map(|commit| commit.id))
+        })?
+    } else {
+        Vec::new()
     };
-    let mut ref_to_oid: BTreeMap<&FullNameRef, _> = branch_refs
-        .iter()
-        .map(|(name, id)| (name.as_ref(), *id))
-        .collect();
-    let mut local_branches: HashMap<_, _> = branch_refs
-        .iter()
+    let locals = || ref_names.iter(&local_refs);
+    let remotes = || ref_names.iter(&remote_refs);
+    let tags = || ref_names.iter(&tag_refs);
+    let mut workspace_ref_name = None;
+    let mut workspace_commit = None;
+    for (name, id) in locals().filter(|(name, _)| is_workspace_ref_name(name)) {
+        workspace_ref_name = Some(name.to_owned());
+        let commit = repo.find_commit(id)?;
+        workspace_commit =
+            crate::workspace::commit::is_managed_workspace_by_message(commit.message_raw()?)
+                .then_some(commit);
+    }
+    let branch_id = |name: &FullNameRef| {
+        ref_names
+            .find_commit(&local_refs, name)
+            .or_else(|| ref_names.find_commit(&remote_refs, name))
+    };
+    let mut local_branches: BTreeMap<_, _> = locals()
         .filter(|(name, _)| name.category() == Some(gix::refs::Category::LocalBranch))
-        .map(|(name, id)| (name.shorten(), (name, *id)))
+        .map(|(name, id)| (name.shorten(), (name, id)))
         .collect();
     let mut heads_on_reaching = HashMap::<gix::ObjectId, Vec<gix::ObjectId>>::new();
-    for (name, id) in &branch_refs {
-        if let Some((_, short_name)) =
-            but_core::split_remote_branch_name(name.as_ref(), remote_names)
+    for (name, id) in remotes() {
+        if let Some((_, short_name)) = but_core::split_remote_branch_name(name, remote_names)
             && let Some(&(local, local_id)) = local_branches.get(short_name)
-            && !is_workspace_ref_name(local.as_ref())
+            && !is_workspace_ref_name(local)
         {
-            heads_on_reaching.entry(local_id).or_default().push(*id);
+            heads_on_reaching.entry(local_id).or_default().push(id);
         }
     }
     // The target's configured upstream may have a different branch name.
-    if let Some(upstream) = target_upstream_ref.and_then(|name| ref_to_oid.get(name)) {
-        if let Some(target) = ref_to_oid.get(target_ref) {
-            heads_on_reaching
-                .entry(*target)
-                .or_default()
-                .push(*upstream);
+    if let Some(upstream) = target_upstream_ref.and_then(branch_id) {
+        if let Some(target) = branch_id(target_ref) {
+            heads_on_reaching.entry(target).or_default().push(upstream);
         } else {
-            heads.push(*upstream);
+            heads.push(upstream);
         }
     }
 
-    // Peeling a symbolic tag can yield a branch name that already occurs in branch_refs.
-    // Keep both occurrences when placing refs on commits.
-    let mut tag_refs = Vec::new();
-    if collect_tags {
-        for mut reference in overlay_repo.references_with_prefix("refs/tags/")? {
-            if let Ok(commit) = reference.peel_to_commit() {
-                tag_refs.push((reference.detach().name, commit.id));
-            }
-        }
-    }
-    for (name, id) in &tag_refs {
-        ref_to_oid.insert(name.as_ref(), *id);
+    // A peeled symbolic tag can add another occurrence of the same branch.
+    let mut tag_ids = BTreeMap::new();
+    for (name, id) in tags() {
+        tag_ids.insert(name, id);
         if name.category() == Some(gix::refs::Category::LocalBranch) {
-            local_branches.insert(name.shorten(), (name, *id));
+            local_branches.insert(name.shorten(), (name, id));
         }
     }
+
+    let ref_to_oid = |name: &FullNameRef| tag_ids.get(name).copied().or_else(|| branch_id(name));
 
     /// The branches of a stack that exist, top first.
     struct Stack {
@@ -158,9 +145,9 @@ pub(crate) fn graph(
         let live_stack = |branches: Vec<FullName>, in_workspace: bool| {
             let branches: Vec<FullName> = branches
                 .into_iter()
-                .filter(|name| ref_to_oid.contains_key(name.as_ref()))
+                .filter(|name| ref_to_oid(name.as_ref()).is_some())
                 .collect();
-            let tip = *ref_to_oid.get(branches.first()?.as_ref())?;
+            let tip = ref_to_oid(branches.first()?.as_ref())?;
             Some(Stack {
                 branches,
                 tip,
@@ -190,10 +177,8 @@ pub(crate) fn graph(
             .iter()
             .flat_map(|stack| stack.branches.iter().cloned())
             .collect();
-        for &full_name in ref_to_oid.keys() {
-            if full_name.category() != Some(gix::refs::Category::LocalBranch)
-                || claimed_branches.contains(full_name)
-            {
+        for &(full_name, _) in local_branches.values() {
+            if claimed_branches.contains(full_name) {
                 continue;
             }
             if let Some(branches) = overlay_meta.branch_stack_order(full_name)?
@@ -212,7 +197,7 @@ pub(crate) fn graph(
             .iter()
             .chain(&branch_stacks)
             .flat_map(|stack| &stack.branches)
-            .filter_map(|name| ref_to_oid.get(name.as_ref())),
+            .filter_map(|name| ref_to_oid(name.as_ref())),
     );
     let walk = crate::topowalk::walk(
         repo,
@@ -225,8 +210,10 @@ pub(crate) fn graph(
 
     let mut in_target: HashSet<_> = std::iter::once(target_ref)
         .chain(target_upstream_ref)
-        .filter_map(|name| ref_to_oid.get(name).copied())
+        .filter_map(ref_to_oid)
         .collect();
+    // Branches rest on the cutoff when the target branch or its upstream points there.
+    let named_target_commit = target_commit_id.filter(|id| in_target.contains(id));
     let mut in_workspace = HashSet::new();
     if let Some(workspace) = &workspace_commit
         && workspace_stacks.iter().any(|stack| stack.in_workspace)
@@ -280,11 +267,13 @@ pub(crate) fn graph(
     }
 
     let mut oid_to_refs = gix::revwalk::graph::IdMap::<SmallVec<[FullName; 1]>>::default();
-    for (name, id) in branch_refs.iter().chain(&tag_refs) {
-        if walk.commits.by_id.contains_key(id) {
-            oid_to_refs.entry(*id).or_default().push(name.clone());
+    for (name, id) in locals().chain(remotes()).chain(tags()) {
+        if walk.commits.by_id.contains_key(&id) {
+            oid_to_refs.entry(id).or_default().push(name.to_owned());
         }
     }
+
+    drop((local_refs, remote_refs, tag_refs, tag_ids));
 
     // Sort the values of oid_to_refs for consistency and compatibility with the old implementation.
     let head_stack = head_ref.map_or(&[][..], |head_ref| stack_of_branch(&stacks, head_ref));
@@ -431,13 +420,7 @@ pub(crate) fn graph(
     let mut parent_edges = Vec::new();
     for commit_id in walk.order {
         let parent_ids = walk.commits.parents_to_walk(&commit_id);
-        // Branches rest on the target commit when the target branch, or its
-        // upstream, points there too.
-        // LEGACY why check 3 things? could there be a simpler rule (or no rule)?
-        let rests_on_target = target_commit_id == Some(commit_id)
-            && std::iter::once(target_ref)
-                .chain(target_upstream_ref)
-                .any(|name| ref_to_oid.get(name) == Some(&commit_id));
+        let rests_on_target = named_target_commit == Some(commit_id);
         let mut workspace_took_in_branch = false;
         // The branches of the stack whose branch on this commit a lane ran into, if any.
         let mut stack_run_into: Option<&[FullName]> = None;
@@ -570,7 +553,7 @@ pub(crate) fn graph(
             // Carry only names a subsequent ref can match. Remote-only names would
             // otherwise accumulate in every ancestor's lineage.
             if let Some(&(local, _)) = local_counterpart {
-                Rc::make_mut(&mut new_stack_lineage.branches).insert(local.clone());
+                Rc::make_mut(&mut new_stack_lineage.branches).insert(local.to_owned());
             } else if category != Some(gix::refs::Category::RemoteBranch) {
                 let branches = stack_of_branch(&stacks, full_name.as_ref());
                 if !branches.is_empty() {

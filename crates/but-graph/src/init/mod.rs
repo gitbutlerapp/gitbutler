@@ -24,7 +24,7 @@ use walk::*;
 pub(crate) mod types;
 use types::{EdgeOwned, Goals, Instruction, Limit, Queue};
 
-pub(crate) use crate::init::overlay::{OverlayMetadata, OverlayRepo};
+pub(crate) use crate::init::overlay::{OverlayMetadata, OverlayRepo, RefNames};
 
 pub(crate) mod remotes;
 

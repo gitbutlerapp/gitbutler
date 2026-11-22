@@ -1,11 +1,16 @@
 use std::{
     borrow::Cow,
     collections::{BTreeMap, BTreeSet, HashSet},
+    ops::Range,
 };
 
 use anyhow::bail;
+use bstr::ByteSlice;
 use but_core::{RefMetadata, ref_metadata};
-use gix::{prelude::ReferenceExt, refs::Target};
+use gix::{
+    prelude::ReferenceExt,
+    refs::{FullNameRef, Target},
+};
 
 use crate::{
     Worktree, WorktreeKind,
@@ -155,6 +160,50 @@ impl Overlay {
 
 type NameToReference = BTreeMap<gix::refs::FullName, gix::refs::Reference>;
 
+#[derive(Default)]
+pub(crate) struct RefNames(Vec<u8>);
+
+impl RefNames {
+    pub fn iter<'a>(
+        &'a self,
+        refs: &[CommitRef],
+    ) -> impl Iterator<Item = (&'a FullNameRef, gix::ObjectId)> {
+        refs.iter().map(|r| r.name_and_id(self))
+    }
+
+    pub fn find_commit(&self, refs: &[CommitRef], name: &FullNameRef) -> Option<gix::ObjectId> {
+        let index = refs
+            .binary_search_by(|r| self.0[r.name.clone()].cmp(name.as_bstr()))
+            .ok()?;
+        refs[index].commit
+    }
+
+    fn push(&mut self, name: &FullNameRef) -> Range<usize> {
+        let start = self.0.len();
+        self.0.extend_from_slice(name.as_bstr());
+        start..self.0.len()
+    }
+}
+
+pub(crate) struct CommitRef {
+    name: Range<usize>,
+    /// Peeling a symbolic tag can change its name, but it keeps its place in ref order.
+    peeled_name: Option<Range<usize>>,
+    commit: Option<gix::ObjectId>,
+}
+
+impl CommitRef {
+    fn name_and_id<'a>(&self, names: &'a RefNames) -> (&'a FullNameRef, gix::ObjectId) {
+        (
+            names.0[self.peeled_name.as_ref().unwrap_or(&self.name).clone()]
+                .as_bstr()
+                .try_into()
+                .expect("names were copied from validated gix references"),
+            self.commit.expect("non-commit refs were removed"),
+        )
+    }
+}
+
 pub(crate) struct OverlayRepo<'repo> {
     inner: &'repo gix::Repository,
     nonoverriding_references: NameToReference,
@@ -190,35 +239,63 @@ impl<'repo> OverlayRepo<'repo> {
         }
     }
 
-    /// The references whose names start with `prefix`, sorted by name, as the overlay sees them:
-    /// without those it drops, with those it overrides in place of the repository's, and with
-    /// those it adds where the repository has none of that name.
-    pub fn references_with_prefix(
+    /// Collect references with `prefix` in name order, honoring overlay precedence.
+    /// Copy names into `names` so each attached reference can be dropped before advancing.
+    pub fn commit_refs_with_prefix(
         &self,
         prefix: &str,
-    ) -> anyhow::Result<Vec<gix::Reference<'repo>>> {
-        let mut by_name = BTreeMap::new();
+        names: &mut RefNames,
+        mut resolve: impl FnMut(&mut gix::Reference<'repo>) -> anyhow::Result<Option<gix::ObjectId>>,
+    ) -> anyhow::Result<Vec<CommitRef>> {
+        let mut refs = Vec::new();
+        let mut collect = |mut reference: gix::Reference<'repo>| -> anyhow::Result<()> {
+            if self.dropped_references.contains(reference.name()) {
+                return Ok(());
+            }
+            let name = names.push(reference.name());
+            let commit = resolve(&mut reference)?;
+            let peeled_name = (names.0[name.clone()] != *reference.name().as_bstr())
+                .then(|| names.push(reference.name()));
+            refs.push(CommitRef {
+                name,
+                peeled_name,
+                commit,
+            });
+            Ok(())
+        };
+        let matches_prefix = |name: &FullNameRef| name.as_bstr().starts_with(prefix.as_bytes());
+        let mut fallbacks: BTreeMap<_, _> = self
+            .nonoverriding_references
+            .iter()
+            .filter(|(name, _)| {
+                matches_prefix(name.as_ref()) && !self.overriding_references.contains_key(*name)
+            })
+            .map(|(name, reference)| (name.as_ref(), reference))
+            .collect();
         for reference in self.inner.references()?.prefixed(prefix)? {
             let reference = reference.map_err(|err| anyhow::anyhow!(err))?;
-            by_name.insert(reference.name().to_owned(), reference);
-        }
-        let has_prefix = |name: &gix::refs::FullName| name.as_bstr().starts_with(prefix.as_bytes());
-        for (name, reference) in &self.nonoverriding_references {
-            if has_prefix(name) {
-                by_name
-                    .entry(name.clone())
-                    .or_insert_with(|| reference.clone().attach(self.inner));
+            fallbacks.remove(reference.name());
+            if !self.overriding_references.contains_key(reference.name()) {
+                collect(reference)?;
             }
+        }
+        for reference in fallbacks.into_values() {
+            collect(reference.clone().attach(self.inner))?;
         }
         for (name, reference) in &self.overriding_references {
-            if has_prefix(name) {
-                by_name.insert(name.clone(), reference.clone().attach(self.inner));
+            if matches_prefix(name.as_ref()) {
+                collect(reference.clone().attach(self.inner))?;
             }
         }
-        for name in &self.dropped_references {
-            by_name.remove(name);
-        }
-        Ok(by_name.into_values().collect())
+        // Match BTreeMap insertion semantics if the repository yields a name twice.
+        refs.sort_unstable_by(|a, b| {
+            names.0[a.name.clone()]
+                .cmp(&names.0[b.name.clone()])
+                .then_with(|| b.name.start.cmp(&a.name.start))
+        });
+        refs.dedup_by(|a, b| names.0[a.name.clone()] == names.0[b.name.clone()]);
+        refs.retain(|r| r.commit.is_some());
+        Ok(refs)
     }
 
     pub fn find_reference(
@@ -548,5 +625,78 @@ where
             return Ok(Some(branches.clone()));
         }
         self.inner.branch_stack_order(ref_name)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bstr::ByteSlice;
+
+    use super::{Overlay, RefNames, Target};
+
+    #[test]
+    fn packed_names_preserve_overlay_precedence_and_ref_order() -> anyhow::Result<()> {
+        let root = but_testsupport::gix_testtools::scripted_fixture_read_only("scenarios.sh")
+            .map_err(anyhow::Error::from_boxed)?;
+        let repo = gix::open_opts(
+            root.join("history-below-target"),
+            gix::open::Options::isolated(),
+        )?;
+        let head = repo.head_id()?.detach();
+        let main = repo.find_reference("main")?.id().detach();
+        let reference = |name: &[u8], target| -> anyhow::Result<_> {
+            Ok(gix::refs::Reference {
+                name: name.as_bstr().try_into()?,
+                target,
+                peeled: None,
+            })
+        };
+        let overlay = Overlay::default()
+            .with_references_if_new([
+                reference(b"refs/heads/A", Target::Object(main))?,
+                reference(b"refs/heads/added-\xff", Target::Object(main))?,
+                reference(b"refs/heads/dropped", Target::Object(main))?,
+            ])
+            .with_references([
+                reference(b"refs/heads/main", Target::Object(head))?,
+                reference(b"refs/tags/0-direct", Target::Object(main))?,
+                reference(
+                    b"refs/tags/1-alias",
+                    Target::Symbolic("refs/heads/main".try_into()?),
+                )?,
+            ])
+            .with_dropped_references(["refs/heads/dropped".try_into()?]);
+        let meta = but_testsupport::InMemoryRefMetadata::default();
+        let (overlay, _, _) = overlay.into_parts(&repo, &meta);
+        let mut names = RefNames::default();
+        let branches = overlay.commit_refs_with_prefix("refs/heads/", &mut names, |r| {
+            Ok(r.try_id().map(gix::Id::detach))
+        })?;
+        let tags = overlay.commit_refs_with_prefix("refs/tags/", &mut names, |r| {
+            Ok(r.peel_to_commit().ok().map(|commit| commit.id))
+        })?;
+        let entries = |refs: &[super::CommitRef]| {
+            names
+                .iter(refs)
+                .map(|(name, id)| (name.as_bstr(), id))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            entries(&branches),
+            [
+                (b"refs/heads/A".as_bstr(), head),
+                (b"refs/heads/added-\xff".as_bstr(), main),
+                (b"refs/heads/main".as_bstr(), head),
+            ]
+        );
+        assert_eq!(
+            entries(&tags),
+            [
+                (b"refs/tags/0-direct".as_bstr(), main),
+                (b"refs/heads/main".as_bstr(), main),
+            ],
+            "the alias retains its original sort position and resolves in the repository"
+        );
+        Ok(())
     }
 }
