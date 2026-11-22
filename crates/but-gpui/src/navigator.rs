@@ -2885,9 +2885,10 @@ impl Navigator {
                     .then(|| age(rows::last_active(entry), theme))
                     .flatten(),
             );
+        // Only folded, or in the drawer: open, the rows under it carry the dot.
         let row = sidebar_row(ElementId::Name(format!("project-{id}").into()))
             .glyph(glyph)
-            .unread(unread)
+            .unread(unread && (card_folded || !expanded))
             .label(row_name().child(entry.project.name.clone()))
             .meta(summary)
             .meta_gives_way();
@@ -3372,8 +3373,9 @@ impl Navigator {
             glyph if publishing => pulsing(glyph).into_any_element(),
             glyph => glyph.into_any_element(),
         };
-        // An unread commit marks its branch too, folded or not.
-        let unread = store.branch_unread(id, branch);
+        // An unread commit marks its branch while it's folded; open, the dot is on the commit,
+        // as the most folded row takes it and it never shows twice.
+        let unread = !open && store.branch_unread(id, branch);
         let review = (branch.review.as_ref()).map(|r| (r, store.review_state(id, r)));
         let rename = self.rename_field(item, theme, cx);
         let row = sidebar_row(ElementId::Name(format!("branch-{id}-{row_id}").into()))
