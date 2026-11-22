@@ -46,6 +46,8 @@ pub struct SidebarRow {
     unread: bool,
     quiet: bool,
     glyph: Option<AnyElement>,
+    icon: Option<Icon>,
+    fold_room: bool,
     label: Vec<AnyElement>,
     meta: Vec<AnyElement>,
     actions: Vec<AnyElement>,
@@ -73,6 +75,8 @@ pub fn sidebar_row(id: impl Into<ElementId>) -> SidebarRow {
         unread: false,
         quiet: false,
         glyph: None,
+        icon: None,
+        fold_room: false,
         label: Vec::new(),
         meta: Vec::new(),
         actions: Vec::new(),
@@ -173,14 +177,18 @@ impl SidebarRow {
         self
     }
 
-    /// The row's glyph from the icon set, in the row's muted ink.
-    pub fn icon(self, icon: Icon, theme: &Theme) -> Self {
-        let color = if self.solid {
-            theme.inverse_muted_foreground
-        } else {
-            theme.muted_foreground
-        };
-        self.glyph(icon_at(icon, 14.).text_color(color))
+    /// The row's glyph from the icon set, in the row's muted ink, which on a solid selection is
+    /// the inverted one, however late the row is selected.
+    pub fn icon(mut self, icon: Icon, _theme: &Theme) -> Self {
+        self.icon = Some(icon);
+        self
+    }
+
+    /// Keeps a chevron's room with no chevron in it, for a row that folds while its folds are
+    /// set aside, as while a filter lists what it finds, so the row doesn't move.
+    pub fn fold_room(mut self) -> Self {
+        self.fold_room = true;
+        self
     }
 
     /// What the row says, its name and any badge before it, laid out 6px apart.
@@ -225,11 +233,16 @@ impl SidebarRow {
         } else {
             theme.border_subtle
         };
-        let has_glyph = self.glyph.is_some() || self.busy;
+        let glyph = (self.glyph).or_else(|| {
+            (self.icon).map(|icon| icon_at(icon, 14.).text_color(muted).into_any_element())
+        });
+        let has_glyph = glyph.is_some() || self.busy;
+        let fold_room = self.fold_room && self.fold.is_none();
+        let inset = self.inset;
         // In a tree that shows splits, a row without one keeps the cell's room: the end's gap,
         // the cell's own step and its 16px.
         let split_room = self.split_room && self.split.is_none();
-        let steps = (self.depth > 0 || self.fold.is_some()).then(|| {
+        let steps = (self.depth > 0 || self.fold.is_some() || fold_room).then(|| {
             let fold_step = (self.fold).map(|fold| {
                 let press = self.on_fold_press.clone();
                 fold_step(
@@ -241,6 +254,8 @@ impl SidebarRow {
                     theme,
                 )
             });
+            let fold_step =
+                fold_step.or_else(|| fold_room.then(|| h_flex().flex_none().w(dp(12.))));
             let levels = self.depth;
             let last_step = fold_step.is_none();
             h_flex()
@@ -262,8 +277,8 @@ impl SidebarRow {
                 }))
                 .children(fold_step)
         });
-        let top_level = steps.is_none();
-        let glyph = match (self.busy, self.glyph) {
+        let unstepped = steps.is_none();
+        let glyph = match (self.busy, glyph) {
             (true, _) => Some(spinner(14., self.busy_color.unwrap_or(muted)).into_any_element()),
             (false, glyph) => glyph,
         }
@@ -274,8 +289,10 @@ impl SidebarRow {
                 .flex()
                 .items_center()
                 .justify_center()
-                // A top-level row that doesn't fold starts its glyph in a chevron's column.
-                .when(top_level, |el| el.ml(dp(-1.)))
+                // A row that doesn't fold starts its glyph in a chevron's column: a pixel into the
+                // padding at the top level, 2 on under a row a host steps it in under.
+                .when(unstepped && inset == 0., |el| el.ml(dp(-1.)))
+                .when(unstepped && inset > 0., |el| el.ml(dp(2.)))
                 .child(glyph)
         });
         let gives_way = self.meta_gives_way;
@@ -338,8 +355,10 @@ impl SidebarRow {
             .children(steps)
             .children(glyph)
             .child(
+                // Grows from its words' width rather than from nothing, so a meta that gives way
+                // has something to give way to.
                 h_flex()
-                    .flex_1()
+                    .flex_grow(1.)
                     .min_w_0()
                     .overflow_hidden()
                     .gap(dp(6.))

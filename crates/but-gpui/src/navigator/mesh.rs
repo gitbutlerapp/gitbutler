@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use gpui::{AnyElement, App, Context, SharedString, Window, prelude::*};
+use gpui::{AnyElement, App, Context, ElementId, SharedString, Window, prelude::*};
 
 use super::rows::{COMMIT_INDENT, Fold, Row, Rows, found, matches};
 use super::{
@@ -19,7 +19,9 @@ use crate::palette::{Choice, heading_choice};
 use crate::state::{
     MeshBranch, MeshPick, ProjectEntry, ProjectId, Section, Selection, Store, snack,
 };
-use crate::ui::{Icon, Tooltip, commit_title, faint, icon_at, review, small_icon};
+use crate::ui::{
+    Icon, SidebarRow, Tooltip, commit_title, faint, icon_at, review, sidebar_row, small_icon,
+};
 
 impl Navigator {
     /// `id`'s checkouts on other machines under their heading, unless that's folded without
@@ -149,7 +151,6 @@ impl Navigator {
         let store = self.store.read(cx);
         let (checkout, branch, commit) = picked(store, project, key, pick)?;
         let theme = style.theme;
-        let quiet = style.quiet();
         let row = match (pick, branch, commit) {
             (MeshPick::Commit(..), _, Some(commit)) => {
                 let (glyph, color) = match commit.pushed {
@@ -181,19 +182,18 @@ impl Navigator {
                 let toggle = move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
                     this.toggle_mesh_branch(fold.clone(), open, window, cx)
                 };
-                (style.row(format!("mesh-branch-{project}-{key}-{name}"), 0.))
+                let row = sidebar_row(ElementId::Name(
+                    format!("mesh-branch-{project}-{key}-{name}").into(),
+                ))
+                .glyph(icon_at(glyph, 14.).text_color(color))
+                .label(row_name().child(name.clone()));
+                let row = self.folding(row, (n > 0).then_some(open), cx, toggle.clone());
+                let row = style
+                    .unpushed(unpushed)
+                    .into_iter()
+                    .fold(row, SidebarRow::meta);
+                (style.draw(row, 0.))
                     .aria_label(format!("Branch {name}"))
-                    .child(self.fold(
-                        ("mesh-branch-fold", ix),
-                        icon_at(glyph, 14.).text_color(color),
-                        (n > 0).then_some(open),
-                        style.selected,
-                        quiet,
-                        cx,
-                        toggle.clone(),
-                    ))
-                    .child(row_name().flex_1().child(name.clone()))
-                    .children(style.unpushed(unpushed))
                     .when(n > 0, |el| el.on_click(click_opens(clicked, toggle, cx)))
             }
             (MeshPick::Checkout, ..) => {
@@ -218,34 +218,25 @@ impl Navigator {
                     this.toggle_checkout(fold.clone(), open, window, cx)
                 };
                 let folds = !checkout.branches.is_empty();
-                (style.row(format!("mesh-{project}-{key}"), 0.))
-                    .aria_label(checkout.label())
-                    .aria_expanded(open)
-                    .child(self.fold(
-                        ("mesh-fold", ix),
-                        icon_at(Icon::Desktop, 14.).text_color(style.muted()),
-                        folds.then_some(open),
-                        style.selected,
-                        quiet,
-                        cx,
-                        toggle.clone(),
-                    ))
-                    .child(
+                let row = sidebar_row(ElementId::Name(format!("mesh-{project}-{key}").into()))
+                    .icon(Icon::Desktop, theme)
+                    .label(
                         row_name()
                             .id(("mesh-name", ix))
-                            .flex_grow(1.)
                             .when(!checkout.online, |el| el.text_color(style.muted()))
                             .when(checkout.error.is_some() && !style.solid, |el| {
                                 el.text_color(theme.warning_text)
                             })
                             .tooltip(Tooltip::text(tip))
                             .child(checkout.label()),
-                    )
-                    .children(change_counts(
-                        (files.len(), 0, (added as u32, removed as u32)),
-                        style,
-                    ))
-                    .when(!open, |el| el.children(style.unpushed(unpushed)))
+                    );
+                let row = self.folding(row, folds.then_some(open), cx, toggle.clone());
+                let counts = change_counts((files.len(), 0, (added as u32, removed as u32)), style)
+                    .chain(style.unpushed(unpushed).filter(|_| !open));
+                let row = counts.fold(row, SidebarRow::meta);
+                (style.draw(row, 0.))
+                    .aria_label(checkout.label())
+                    .aria_expanded(open)
                     .when(folds, |el| el.on_click(double_click(toggle, cx)))
             }
             _ => return None,

@@ -6,14 +6,14 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Instant;
 
-use gpui::{AnyElement, App, Context, Div, Hsla, SharedString, Window, div, prelude::*};
+use gpui::{AnyElement, App, Context, Div, ElementId, Hsla, SharedString, Window, div, prelude::*};
 
 use super::drop::{stack_end, stack_start};
 use super::order::moving_terminal;
 use super::rows::{
     COMMIT_INDENT, Fold, Row, RowKey, Rows, heads, listed_with, lists_changes, span_height,
 };
-use super::{Navigator, RowStyle};
+use super::{Navigator, RowStyle, row_name};
 use crate::app::{
     MoveHere, MoveSelection, SquashIntoSelection, SquashSelection, StartAmend, UseTargetMessage,
 };
@@ -28,7 +28,9 @@ use crate::transfer::{
 };
 use crate::ui::Text;
 use crate::ui::fold::{self, on_top};
-use crate::ui::{Icon, blink_once, dp, fixed, guide, h_flex, icon_at, small_icon};
+use crate::ui::{
+    Fold as RowFold, Icon, blink_once, dp, fixed, guide, h_flex, sidebar_row, small_icon,
+};
 
 /// The move of commits or a branch shown in `project`, or the squash of those or files, with
 /// copies where it'd land: the one under way, or one Return landed, until the reload after it
@@ -1914,11 +1916,11 @@ pub(super) fn new_commit_row(
         Some(title) => div().child(title.to_owned()),
         None => div().text_color(style.muted()).child("New commit"),
     };
-    (style.row(format!("new-commit-{project}"), COMMIT_INDENT))
-        .gap(dp(10.))
-        .child(small_icon(Icon::Commit).text_color(style.meta(theme.commit_local)))
-        .child(title.flex_1().min_w_0().truncate())
-        .into_any_element()
+    let row = sidebar_row(ElementId::Name(format!("new-commit-{project}").into()))
+        .glyph(small_icon(Icon::Commit).text_color(style.meta(theme.commit_local)))
+        .label(title.min_w_0().truncate().text_13());
+    // Where a commit's row puts its glyph: see `RowStyle::commit_line`.
+    style.draw(row, COMMIT_INDENT - 3.).into_any_element()
 }
 
 /// Where what's moving lands outlined over its row, as dropping on it outlines it but in the
@@ -1952,10 +1954,11 @@ pub(super) fn squash_outline(
 /// Branch `name`'s row as a copy draws it, row `id`, in `style`: folded, as its own row is,
 /// and nothing on it acts.
 fn branch_copy(id: String, name: String, style: RowStyle) -> AnyElement {
-    (style.row(id, 0.))
-        .child(icon_at(Icon::Branch, 14.).text_color(style.muted()))
-        .child(div().flex_1().min_w_0().truncate().child(name))
-        .into_any_element()
+    let row = sidebar_row(ElementId::Name(id.into()))
+        .fold(RowFold::Folded)
+        .icon(Icon::Branch, style.theme)
+        .label(row_name().child(name));
+    style.draw(row, 0.).into_any_element()
 }
 
 /// What a move took away, drawn where it was below the row drawing it, as it was: inside the

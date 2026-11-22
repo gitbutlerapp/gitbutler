@@ -183,8 +183,10 @@ impl Row {
             Row::Between(_) => 0.,
             Row::WorktreeDivider => 12.,
             Row::Item(Selection::Project(_)) => HEADING_HEIGHT,
-            Row::More(..) | Row::Fewer(..) | Row::RestsOn(..) => 24.,
             Row::Item(_)
+            | Row::More(..)
+            | Row::Fewer(..)
+            | Row::RestsOn(..)
             | Row::Note(..)
             | Row::Pending(..)
             | Row::NewBranch(_)
