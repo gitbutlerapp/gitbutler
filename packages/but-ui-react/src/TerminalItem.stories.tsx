@@ -2,13 +2,12 @@ import { stories } from "../stories/stories.ts";
 import { MetaCount, MetaStatus, type MetaStatusVariant } from "./MetaCount.tsx";
 import {
 	BranchItem,
-	GroupLabel,
 	RepoItem,
 	TerminalItem,
 	UncommittedItem,
 	WorktreeItem,
 } from "./SidebarRow.tsx";
-import { Card, Column, machine, Repository } from "./story-assets/workspaceTree.tsx";
+import { Card, Column, machine, Repository, TerminalGroup } from "./story-assets/workspaceTree.tsx";
 import { Tooltip } from "./Tooltip.tsx";
 
 const core = (node: string) =>
@@ -152,25 +151,33 @@ export const InTheTerminalsDrawer = meta.story({
 	render: () => (
 		<div
 			style={{
-				display: "flex",
-				flexDirection: "column",
-				gap: 1,
-				padding: 8,
+				overflow: "hidden",
 				border: "1px solid var(--but-border-subtle)",
 				borderRadius: "var(--but-radius-card)",
 				backgroundColor: "var(--but-background)",
 			}}
 		>
-			<GroupLabel name="Blocked" folded={false} />
-			<TerminalItem name="claude" place="gitbutler / gpui-row-buttons" depth={1} meta={waiting} />
-			<GroupLabel name="Failed" folded={false} />
-			<TerminalItem name="codex" place="gitbutler / Main worktree" depth={1} meta={failed} />
-			<GroupLabel name="Done" folded={false} />
-			<TerminalItem name="cargo build" place="but-dev / Main worktree" depth={1} meta={finished} />
-			<GroupLabel name="Idle" folded={false} />
-			<TerminalItem name="Terminal" place="test-repo-3 / Main worktree" depth={1} />
-			<GroupLabel name="Cooking" folded={false} />
-			<TerminalItem name="pi" place="but-dev / review-ios" depth={1} meta={working} />
+			<TerminalGroup
+				label="Blocked"
+				terminals={[{ name: "claude", place: "gitbutler / gpui-row-buttons", meta: waiting }]}
+			/>
+			<TerminalGroup
+				label="Failed"
+				terminals={[{ name: "codex", place: "gitbutler / Main worktree", meta: failed }]}
+			/>
+			<TerminalGroup
+				label="Done"
+				terminals={[{ name: "cargo build", place: "but-dev / Main worktree", meta: finished }]}
+			/>
+			<TerminalGroup
+				label="Idle"
+				terminals={[{ name: "Terminal", place: "test-repo-3 / Main worktree" }]}
+			/>
+			<TerminalGroup
+				label="Cooking"
+				terminals={[{ name: "pi", place: "but-dev / review-ios", meta: working }]}
+				last
+			/>
 		</div>
 	),
 });

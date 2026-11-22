@@ -4,9 +4,9 @@ import { Button } from "./Button.tsx";
 import { Icon } from "./Icon.tsx";
 import { MetaCount, MetaStatus } from "./MetaCount.tsx";
 import { EmptyState } from "./EmptyState.tsx";
-import { Drawer, GroupLabel, RepoItem, TerminalItem } from "./SidebarRow.tsx";
+import { Drawer, RepoItem } from "./SidebarRow.tsx";
+import { TerminalGroup } from "./story-assets/workspaceTree.tsx";
 import { Tooltip } from "./Tooltip.tsx";
-import { treeGuides } from "./treeGuides.ts";
 
 const core = (node: string) =>
 	`https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=${node}`;
@@ -53,25 +53,6 @@ const Group: FC<{ children: ReactNode; last?: boolean }> = ({ children, last = f
 		{children}
 	</div>
 );
-
-type Terminal = { name: string; place: string; meta?: ReactNode };
-
-/** Terminals under their group's label, on the guide that ties them to its chevron. */
-const TerminalGroup: FC<{ label: string; terminals: Array<Terminal>; last?: boolean }> = ({
-	label,
-	terminals,
-	last,
-}) => {
-	const guides = treeGuides([{ depth: 0 }, ...terminals.map(() => ({ depth: 1 }))]);
-	return (
-		<Group last={last}>
-			<GroupLabel name={label} folded={false} />
-			{terminals.map((terminal, index) => (
-				<TerminalItem key={terminal.name} {...terminal} depth={1} guides={guides[index + 1]} />
-			))}
-		</Group>
-	);
-};
 
 /** A ghost icon button at a drawer's end, with its tooltip. */
 const ghost = (icon: "plus" | "mixer", label: string) => (

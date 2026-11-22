@@ -12,6 +12,7 @@ import { Tooltip } from "../Tooltip.tsx";
 import {
 	BranchItem,
 	CommitItem,
+	GroupLabel,
 	MachineItem,
 	MoreItem,
 	NoticeItem,
@@ -141,6 +142,34 @@ export const Repository: FC<{ children: ReactNode; last?: boolean }> = ({
 		{guided(children)}
 	</div>
 );
+
+type Terminal = { name: string; place: string; meta?: ReactNode };
+
+/** Terminals under their status's label in a card, ruled off from the next status, on the guide
+ * that ties them to the label's chevron. */
+export const TerminalGroup: FC<{ label: string; terminals: Array<Terminal>; last?: boolean }> = ({
+	label,
+	terminals,
+	last = false,
+}) => {
+	const guides = treeGuides([{ depth: 0 }, ...terminals.map(() => ({ depth: 1 }))]);
+	return (
+		<div
+			style={{
+				display: "flex",
+				flexDirection: "column",
+				gap: 1,
+				padding: 8,
+				borderBottom: last ? undefined : "1px solid var(--but-border-subtle)",
+			}}
+		>
+			<GroupLabel name={label} folded={false} />
+			{terminals.map((terminal, index) => (
+				<TerminalItem key={terminal.name} {...terminal} depth={1} guides={guides[index + 1]} />
+			))}
+		</div>
+	);
+};
 
 export const machine = (
 	<MachineItem name="pavel--macbook-pro-2" online folded={false} icon={<Icon name="laptop" />} />
