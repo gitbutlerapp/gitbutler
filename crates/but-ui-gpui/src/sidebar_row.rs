@@ -5,8 +5,8 @@
 use std::rc::Rc;
 
 use gpui::{
-    AnyElement, App, Div, ElementId, Hsla, SharedString, Stateful, Window, div, prelude::*,
-    relative,
+    AnimationExt as _, AnyElement, App, Div, ElementId, Hsla, MouseButton, MouseDownEvent,
+    SharedString, Stateful, Window, div, prelude::*, relative,
 };
 
 use crate::theme::Theme;
@@ -22,6 +22,7 @@ pub enum Fold {
 }
 
 type Toggle = Rc<dyn Fn(&mut Window, &mut App)>;
+type Press = Rc<dyn Fn(&MouseDownEvent, &mut Window, &mut App)>;
 
 /// The one line every sidebar item is drawn on, as React's `Row`: the name takes the line, and
 /// the state, the next step and a split's map sit at the end, where they stay. Build it with
@@ -33,7 +34,10 @@ pub struct SidebarRow {
     guides: Vec<Guide>,
     fold: Option<Fold>,
     on_toggle: Option<Toggle>,
+    on_fold_press: Option<Press>,
     row_folds: bool,
+    inset: f32,
+    meta_gives_way: bool,
     selected: bool,
     solid: bool,
     linked: bool,
@@ -57,7 +61,10 @@ pub fn sidebar_row(id: impl Into<ElementId>) -> SidebarRow {
         guides: Vec::new(),
         fold: None,
         on_toggle: None,
+        on_fold_press: None,
         row_folds: false,
+        inset: 0.,
+        meta_gives_way: false,
         selected: false,
         solid: false,
         linked: false,
@@ -92,6 +99,31 @@ impl SidebarRow {
     /// What the chevron's own click does, which takes no part in the row's click.
     pub fn on_toggle(mut self, toggle: impl Fn(&mut Window, &mut App) + 'static) -> Self {
         self.on_toggle = Some(Rc::new(toggle));
+        self
+    }
+
+    /// What a press on the chevron does before its click, for a host whose rows take the
+    /// press themselves (to select, or to start a drag) and that keeps the keys where they are.
+    pub fn on_fold_press(
+        mut self,
+        press: impl Fn(&MouseDownEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.on_fold_press = Some(Rc::new(press));
+        self
+    }
+
+    /// Sets the row's contents in by `px` inside its ground, for a host that lays out its tree's
+    /// steps and guides itself; the ground stays the row's full width.
+    pub fn inset(mut self, px: f32) -> Self {
+        self.inset = px;
+        self
+    }
+
+    /// The meta holds a name, a `MetaCount` `head`: it gives way before the row's own name, down
+    /// to its glyph, as React's row does when its meta has a `data-meta-name`. Give that count
+    /// `min_w_0` so its value can shrink.
+    pub fn meta_gives_way(mut self) -> Self {
+        self.meta_gives_way = true;
         self
     }
 
@@ -198,8 +230,17 @@ impl SidebarRow {
         // the cell's own step and its 16px.
         let split_room = self.split_room && self.split.is_none();
         let steps = (self.depth > 0 || self.fold.is_some()).then(|| {
-            let fold_step = (self.fold)
-                .map(|fold| fold_step(fold, self.on_toggle.clone(), self.row_folds, theme));
+            let fold_step = (self.fold).map(|fold| {
+                let press = self.on_fold_press.clone();
+                fold_step(
+                    &self.id,
+                    fold,
+                    self.on_toggle.clone(),
+                    press,
+                    self.row_folds,
+                    theme,
+                )
+            });
             let levels = self.depth;
             let last_step = fold_step.is_none();
             h_flex()
@@ -237,13 +278,27 @@ impl SidebarRow {
                 .when(top_level, |el| el.ml(dp(-1.)))
                 .child(glyph)
         });
+        let gives_way = self.meta_gives_way;
         let end = (!self.meta.is_empty() || !self.actions.is_empty() || self.split.is_some()).then(
             || {
                 h_flex()
-                    .flex_none()
                     .gap(dp(4.))
+                    .map(|mut el| {
+                        // Many times the name's shrink, so the name keeps every pixel while the
+                        // meta's name has room to give.
+                        match gives_way {
+                            true => el.style().flex_shrink = Some(10000.),
+                            false => el.style().flex_shrink = Some(0.),
+                        }
+                        el.when(gives_way, |el| el.min_w_0())
+                    })
                     .when(!self.meta.is_empty(), |el| {
-                        el.child(h_flex().flex_none().children(self.meta))
+                        el.child(
+                            h_flex()
+                                .when(!gives_way, |el| el.flex_none())
+                                .when(gives_way, |el| el.min_w_0())
+                                .children(self.meta),
+                        )
                     })
                     .when(!self.actions.is_empty(), |el| {
                         el.child(h_flex().flex_none().gap(dp(4.)).children(self.actions))
@@ -263,7 +318,8 @@ impl SidebarRow {
             .relative()
             .flex_none()
             .h(dp(theme.sizes.control))
-            .px(dp(8.))
+            .pl(dp(8. + self.inset))
+            .pr(dp(8.))
             .gap(dp(8.))
             .rounded(dp(theme.shape.control))
             .text_color(if self.solid {
@@ -308,7 +364,14 @@ impl SidebarRow {
 /// The chevron's step, or the dot of a row with nothing to unfold. The chevron is faded, so the
 /// glyph after it reads first; one that folds on its own click takes a ground under the pointer,
 /// wider than its step.
-fn fold_step(fold: Fold, toggle: Option<Toggle>, row_folds: bool, theme: &Theme) -> Div {
+fn fold_step(
+    id: &ElementId,
+    fold: Fold,
+    toggle: Option<Toggle>,
+    press: Option<Press>,
+    row_folds: bool,
+    theme: &Theme,
+) -> Div {
     let step = h_flex()
         .relative()
         .flex_none()
@@ -322,11 +385,11 @@ fn fold_step(fold: Fold, toggle: Option<Toggle>, row_folds: bool, theme: &Theme)
                 .opacity(0.5),
         ),
         Fold::Open | Fold::Folded => {
-            let glyph = match fold {
-                Fold::Folded => Icon::ChevronRight,
-                _ => Icon::ChevronDown,
-            };
-            let chevron = icon_at(glyph, 12.).text_color(theme.subtle_foreground).opacity(0.6);
+            let chevron = chevron(
+                (id.clone(), "chevron"),
+                fold == Fold::Open,
+                theme.subtle_foreground,
+            );
             match (toggle, row_folds) {
                 (Some(toggle), false) => step.child(
                     h_flex()
@@ -341,6 +404,11 @@ fn fold_step(fold: Fold, toggle: Option<Toggle>, row_folds: bool, theme: &Theme)
                         .rounded(dp(theme.shape.xs))
                         .hover(|el| el.bg(theme.hover))
                         .child(chevron)
+                        .when_some(press, |el, press| {
+                            el.on_mouse_down(MouseButton::Left, move |event, window, cx| {
+                                press(event, window, cx)
+                            })
+                        })
                         .on_click(move |_, window, cx| {
                             cx.stop_propagation();
                             toggle(window, cx);
@@ -350,6 +418,24 @@ fn fold_step(fold: Fold, toggle: Option<Toggle>, row_folds: bool, theme: &Theme)
             }
         }
     }
+}
+
+/// A fold's chevron, in `color` and faded so the glyph after it reads first: pointing right, or
+/// down while `open`, turning between the two on the spring a switch's knob slides on. One clicked again mid-turn turns back from where it
+/// is, and a row drawn for the first time starts where it points.
+pub fn chevron(
+    id: impl Into<ElementId>,
+    open: bool,
+    color: Hsla,
+) -> gpui::SpringAnimationElement<gpui::Svg> {
+    icon_at(Icon::ChevronRight, 12.)
+        .text_color(color)
+        .opacity(0.6)
+        .with_spring(id, switch_spring(open), move |el, phase| {
+            el.with_transformation(gpui::Transformation::rotate(gpui::radians(
+                phase.interpolate_clamped(0., std::f32::consts::FRAC_PI_2),
+            )))
+        })
 }
 
 /// A row's name: 14px semibold, cut with an ellipsis once its row runs out of room.
