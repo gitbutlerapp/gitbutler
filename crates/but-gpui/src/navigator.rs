@@ -38,10 +38,10 @@ use crate::ui::fold::{self, Folds, Reorder, clipped, curtain, inert, on_top, reo
 use crate::ui::scrollbar::{Scroll, scrollbar, scrolled_in_gap};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    BLINK, Button, ButtonStyle, HEADER_HEIGHT, Icon, Tooltip, WINDOW_CONTROLS_WIDTH, above_drag,
-    blink_once, button, commit_title, count_badge, count_mark, dp, faint, field, fixed,
-    fold_button, fold_row, glow_once, guide, h_flex, icon, icon_at, icon_button, list_row, plural,
-    pulsing, review, section_label, small_icon, spinning, unread_line, v_flex,
+    BLINK, Button, ButtonStyle, HEADER_HEIGHT, Icon, MetaCountType, Tooltip, WINDOW_CONTROLS_WIDTH,
+    above_drag, blink_once, button, commit_title, count_badge, count_mark, dp, faint, field, fixed,
+    fold_button, fold_row, glow_once, guide, h_flex, icon, icon_at, icon_button, list_row,
+    meta_count, plural, pulsing, review, section_label, small_icon, spinning, unread_line, v_flex,
 };
 
 mod account;
@@ -2854,6 +2854,40 @@ impl Navigator {
             .into_any_element()
     }
 
+    /// What a worktree with no branch of its own is on, `on`, as but-ui-react's `head`
+    /// MetaCount: the branch's name, giving way before the worktree's, and saying in its
+    /// tooltip there's no branch. A commit under the branch's tip goes by its short reference.
+    fn head_meta(
+        &self,
+        ix: usize,
+        on: &Selection,
+        style: RowStyle,
+        cx: &App,
+    ) -> Option<Stateful<Div>> {
+        let store = self.store.read(cx);
+        let (lane, at) = store.lane_for(on)?;
+        let branch = lane.branches.get(at)?;
+        let name = store.name_of(on.project(), branch).to_owned();
+        let (value, tip) = match on {
+            Selection::Commit(_, id) if branch.commits.first()?.id != *id => {
+                let short = store.short_reference(on.project(), *id);
+                (
+                    format!("{name} at {short}"),
+                    format!("No branch: on {short}, a commit in {name}"),
+                )
+            }
+            _ => (name.clone(), format!("No branch: on {name}'s last commit")),
+        };
+        let mut meta = meta_count(MetaCountType::Head, Some(value.into()), style.theme)
+            .id(("worktree-head", ix))
+            .min_w_0()
+            .aria_label(tip.clone())
+            .tooltip(Tooltip::text(tip));
+        // Shrinks before the worktree's name does.
+        meta.style().flex_shrink = Some(1000.);
+        Some(meta)
+    }
+
     fn rests_on_label(
         &self,
         item: &Selection,
@@ -2907,6 +2941,9 @@ impl Navigator {
         let branches: Vec<_> = workspace.branches_in(checkout).collect();
         let unpushed_n = unpushed(branches.iter().copied());
         let unread = (branches.iter()).any(|branch| store.branch_unread(id, branch));
+        let head = (checkout.linked())
+            .and_then(|name| rows::head_of(store, id, workspace, name))
+            .and_then(|on| self.head_meta(ix, &on, style, cx));
         // Open even when folded while the selection's in it.
         let open = self.section_open(ix);
         let folds = checkout_holds(store, workspace, id, checkout);
@@ -2948,6 +2985,7 @@ impl Navigator {
                 el.children(change_counts(tally(&uncommitted), style))
                     .children(style.unpushed(unpushed_n))
             })
+            .children(head)
             .when(running, |el| el.child(running_mark(ix, style)))
             .map(|el| self.selectable(el, item, cx))
             .on_click(double_click(toggle, cx));

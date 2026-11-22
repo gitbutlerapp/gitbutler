@@ -914,13 +914,11 @@ impl Navigator {
         terminal_rows(store, id, &Checkout::Linked(name.clone()), rows);
         let lane = workspace.and_then(|ws| ws.worktree_lane(name.as_ref()));
         self.lane_rows(store, id, lane.map_or(&[][..], |lane| &lane.branches), rows);
+        // A worktree with no branch of its own says what it's on in its heading's meta instead.
+        let lane = lane.filter(|lane| !lane.branches.is_empty());
         if let Some((workspace, lane)) = workspace.zip(lane) {
-            let listed = |branch: &Branch| {
-                !(branch.ref_name.as_ref())
-                    .is_some_and(|r| store.hides_branch(id, r) || store.deletes_branch(id, r))
-            };
             rows.extend(
-                rests_on(id, workspace, lane, listed)
+                rests_on(id, workspace, lane, listed(store, id))
                     .map(|(item, checkout)| Row::RestsOn(item, checkout)),
             );
         }
@@ -977,6 +975,31 @@ impl Navigator {
             }
             rows.close();
         });
+    }
+}
+
+/// What linked worktree `name` is on when it has no branch of its own: the commit its HEAD is
+/// at, by the branch it's in, which its heading's meta names.
+pub(super) fn head_of(
+    store: &Store,
+    id: &ProjectId,
+    workspace: &Workspace,
+    name: &bstr::BStr,
+) -> Option<Selection> {
+    let lane = workspace.worktree_lane(name)?;
+    if !lane.branches.is_empty() {
+        return None;
+    }
+    rests_on(id, workspace, lane, listed(store, id))
+        .next()
+        .map(|(item, _)| item)
+}
+
+/// Whether `branch` is listed, neither hidden nor being deleted.
+fn listed<'a>(store: &'a Store, id: &'a ProjectId) -> impl Fn(&Branch) -> bool + Copy + 'a {
+    move |branch: &Branch| {
+        !(branch.ref_name.as_ref())
+            .is_some_and(|r| store.hides_branch(id, r) || store.deletes_branch(id, r))
     }
 }
 
@@ -1149,8 +1172,7 @@ pub(super) fn checkout_holds(
 ) -> bool {
     lists_changes(store, workspace, project, checkout)
         || store.terminals.on(project, checkout).next().is_some()
-        || (workspace.lanes_in(checkout))
-            .any(|lane| !lane.branches.is_empty() || workspace.beneath(lane).next().is_some())
+        || (workspace.lanes_in(checkout)).any(|lane| !lane.branches.is_empty())
 }
 
 /// `project`'s `checkout`'s uncommitted changes' row, while [`lists_changes`] says it's listed.
