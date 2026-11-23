@@ -9,6 +9,11 @@ are in [Sidebar trees](sidebar-trees.md), [Meta lines](meta-lines.md) and
 chevron, glyph, name, then its end: counts in their order, then the next step.
 Nothing appears or swaps under the pointer.
 
+**The end sits 4px in.** A small button at a row's end is 4px from the row's
+top and bottom, so the end is 4px from its right edge too: half of what a
+control is taller than a small one, which follows the density. Every row ends
+there, with a button or not, so the end column stays one line down a tree.
+
 ## The end, row by row
 
 A row shows a count only when it isn't zero, and only what the rows under it
@@ -112,7 +117,3 @@ Check a drawing or a story against these:
 - **One count order.** Branch rows put ↓ first; repository and worktree rows put
   uncommitted first. One order for every row would let the counts line up by
   kind down a tree.
-- **The end gap of a button.** A button at a row's end sits 8px in, as counts
-  do, with 4px above and below. Setting it 4px in would make its gaps even but
-  step the end column in and out, and Figma can't draw it without a toggle on
-  every row.

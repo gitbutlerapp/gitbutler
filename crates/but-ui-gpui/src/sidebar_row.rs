@@ -476,13 +476,16 @@ impl SidebarRow {
                             .child(map)
                     }))
             });
+        // The end sits as far in from the row's edge as a small button in it does from its top
+        // and bottom, as but-ui-react's row pads its end.
+        let end_pad = (theme.sizes.control - theme.sizes.control_sm) / 2.;
         h_flex()
             .id(self.id)
             .relative()
             .flex_none()
             .h(dp(theme.sizes.control))
             .pl(dp(8. + self.inset))
-            .pr(dp(8.))
+            .pr(dp(end_pad))
             .gap(dp(8.))
             .rounded(dp(theme.shape.control))
             .text_color(match (self.solid, self.muted_text) {
@@ -497,7 +500,7 @@ impl SidebarRow {
                 (false, false, false) if self.quiet => el,
                 (false, false, false) => el.hover(|el| el.bg(theme.hover)),
             })
-            .when(split_room, |el| el.pr(dp(8. + 16. + 4. + 4.)))
+            .when(split_room, |el| el.pr(dp(end_pad + 16. + 4. + 4.)))
             .children(steps)
             .children(glyph)
             .child(

@@ -1,4 +1,7 @@
 .row {
+	/* The end sits as far in from the row's edge as a small button in it does from its top and
+	   bottom. */
+	--row-end: calc((var(--but-size-control) - var(--but-size-control-sm)) / 2);
 	--guide-color: color-mix(in srgb, var(--but-muted-foreground) 20%, transparent);
 
 	display: flex;
@@ -6,7 +9,7 @@
 	column-gap: var(--but-gap-icon-text);
 	align-items: center;
 	min-height: var(--but-size-control);
-	padding-inline: var(--but-space-lg);
+	padding-inline: var(--but-space-lg) var(--row-end);
 	border-radius: var(--but-radius-control);
 	color: var(--but-foreground);
 	text-decoration: none;
@@ -387,7 +390,7 @@ button.toggle {
 /* In a tree that shows splits, a row without one keeps the cell's room, the end's gap and the
    cell's own step, so the counts line up down the list too. */
 :where([data-split-room]) .row:not(:has(> .end > .split)) {
-	padding-inline-end: calc(var(--but-space-lg) + 16px + 2 * var(--but-space-sm));
+	padding-inline-end: calc(var(--row-end) + 16px + 2 * var(--but-space-sm));
 }
 
 /* Something changed since the row was last opened: a dot in the row's start padding, before its
