@@ -336,6 +336,41 @@ pub fn repair_target_metadata_for_migration(
     project_meta
 }
 
+/// Peel a target ref to its logical commit ID, or return `None` for a non-commit or missing object.
+/// Read tag objects since a packed ref's cached peeled ID may predate object replacements.
+pub fn target_ref_commit_id(
+    repo: &gix::Repository,
+    mut reference: gix::Reference<'_>,
+) -> Result<Option<gix::ObjectId>> {
+    let mut id = reference.follow_to_object()?.detach();
+    let mut seen_tags = std::collections::HashSet::new();
+    loop {
+        let mut object_id = id;
+        if !repo.objects.ignore_replacements {
+            // Git's lookup_replace_object() allows four successive substitutions.
+            let mut depth = 0;
+            while let Some((_, next)) = repo
+                .objects
+                .store_ref()
+                .replacements()
+                .find(|(old, _)| *old == object_id)
+            {
+                anyhow::ensure!(depth < 4, "too many replacements for {id}");
+                object_id = next;
+                depth += 1;
+            }
+        }
+        let Some(header) = repo.try_find_header(object_id)? else {
+            return Ok(None);
+        };
+        if header.kind() != gix::objs::Kind::Tag {
+            return Ok(header.kind().is_commit().then_some(id));
+        }
+        anyhow::ensure!(seen_tags.insert(object_id), "tag cycle at {object_id}");
+        id = repo.find_tag(object_id)?.target_id()?.detach();
+    }
+}
+
 impl ProjectMeta {
     /// Return [`Self::target_ref`], or a [`DefaultTargetNotFound`](but_error::Code::DefaultTargetNotFound)
     /// error if no target is configured.
@@ -369,12 +404,11 @@ impl ProjectMeta {
             Some(name) => name.as_ref(),
             None => self.target_ref_or_err()?.as_local_full_name_ref(),
         };
-        Ok(repo
+        let reference = repo
             .find_reference(selected_ref)
-            .with_context(|| format!("cutoff reference '{selected_ref}' not found"))?
-            .peel_to_commit()
-            .with_context(|| format!("failed to peel cutoff reference '{selected_ref}' to commit"))?
-            .id)
+            .with_context(|| format!("cutoff reference '{selected_ref}' not found"))?;
+        target_ref_commit_id(repo, reference)?
+            .with_context(|| format!("failed to peel cutoff reference '{selected_ref}' to commit"))
     }
 
     /// Return the target branch's configured remote-tracking ref name, if any, without checking

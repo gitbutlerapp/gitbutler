@@ -330,3 +330,84 @@ fn integration_applies_upstream_when_local_target_lags() -> Result<()> {
     );
     Ok(())
 }
+
+#[test]
+fn pull_rejects_an_upstream_advanced_while_building_the_editor() -> Result<()> {
+    use but_testsupport::CommandExt as _;
+    use std::sync::{Arc, Mutex};
+
+    #[derive(Clone)]
+    struct FetchOnHeadRead {
+        head: gix::ObjectId,
+        fetch: Arc<Mutex<Option<std::process::Command>>>,
+    }
+    impl gix::odb::pack::cache::Object for FetchOnHeadRead {
+        fn put(&mut self, _: gix::ObjectId, _: gix::objs::Kind, _: &[u8]) {}
+
+        fn get(&mut self, id: &gix::ObjectId, _: &mut Vec<u8>) -> Option<gix::objs::Kind> {
+            if *id == self.head
+                && let Some(mut fetch) = self.fetch.lock().unwrap().take()
+            {
+                fetch.run();
+            }
+            None
+        }
+    }
+
+    let (mut repo, _tmp) = but_testsupport::writable_scenario("integrate-local-target");
+    let old = repo.rev_parse_single("main")?.detach();
+    let new = repo.rev_parse_single("origin/main")?.detach();
+    let upstream = "refs/remotes/origin/main";
+    repo.reference(
+        upstream,
+        old,
+        gix::refs::transaction::PreviousValue::Any,
+        "before fetch",
+    )?;
+    let project_meta = ProjectMeta {
+        target_ref: Some(LocalRefName::new("refs/heads/main".try_into()?)?),
+        target_commit_id: Some(old),
+        ..Default::default()
+    };
+    project_meta.persist(&repo)?;
+    let mut meta = InMemoryRefMetadata::default();
+    let mut db = but_testsupport::project_db(&repo)?;
+    let mut workspace = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        &mut db,
+        but_graph::init::Options::limited(),
+    )?
+    .into_workspace()?;
+
+    // Pull reads HEAD after resolving the target and before the editor snapshots its refs.
+    let mut fetch = but_testsupport::git(&repo);
+    fetch.args(["update-ref", upstream, &new.to_string(), &old.to_string()]);
+    let hook = FetchOnHeadRead {
+        head: repo.head_id()?.detach(),
+        fetch: Arc::new(Mutex::new(Some(fetch))),
+    };
+    repo.objects
+        .set_object_cache(move || Box::new(hook.clone()));
+    let Err(err) = but_workspace::integrate_upstream(
+        &mut workspace,
+        &mut meta,
+        project_meta,
+        &repo,
+        &mut db,
+        Vec::new(),
+    ) else {
+        anyhow::bail!(
+            "expected pull to reject the old tip, which is still in the new tip's history"
+        );
+    };
+    let reason = format!("{err:#}");
+    assert!(
+        reason.contains(&old.to_string()) && reason.contains(&new.to_string()),
+        "{reason}"
+    );
+    assert_eq!(repo.find_reference(upstream)?.id().detach(), new);
+    assert_eq!(ProjectMeta::resolve(&repo)?.target_commit_id, Some(old));
+    Ok(())
+}

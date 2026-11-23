@@ -58,7 +58,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
             commit_id: None,
             worktree: None,
         }),
-        commits: vec![commit(id("c"), Some(init_commit_id), CommitFlags::empty())],
+        commits: smallvec::smallvec![commit(id("c"), Some(init_commit_id), CommitFlags::empty())],
         ..Default::default()
     };
     graph.connect_new_segment(local_target, None, remote_to_local_target, 0, None, 0);
@@ -74,7 +74,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
         remote_tracking_ref_name: Some("refs/remotes/origin/A".try_into()?),
         sibling_segment_id: None,
         remote_tracking_branch_segment_id: Some(SegmentIndex::from(1)),
-        commits: vec![
+        commits: smallvec::smallvec![
             commit(id("a"), Some(init_commit_id), CommitFlags::InWorkspace),
             commit(init_commit_id, None, CommitFlags::InWorkspace),
         ],
@@ -89,7 +89,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
             commit_id: None,
             worktree: None,
         }),
-        commits: vec![
+        commits: smallvec::smallvec![
             commit(id("b"), Some(init_commit_id), CommitFlags::empty()),
             // Note that the initial commit was assigned to the base segment already,
             // and we are connected to it.
@@ -125,7 +125,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
 fn detached_head() {
     let mut graph = Graph::default();
     graph.insert_segment_set_entrypoint(Segment {
-        commits: vec![commit(id("a"), None, CommitFlags::empty())],
+        commits: smallvec::smallvec![commit(id("a"), None, CommitFlags::empty())],
         ..Default::default()
     });
     snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["●  👉🏁🟣aaaaaaa"]);

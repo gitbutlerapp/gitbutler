@@ -533,7 +533,9 @@ fn is_clean(checkout: &gix::Repository) -> bool {
 
 /// The commit `name` points at, if it's there.
 fn ref_tip(repo: &gix::Repository, name: &gix::refs::FullNameRef) -> Option<gix::ObjectId> {
-    Some(repo.find_reference(name).ok()?.peel_to_id().ok()?.detach())
+    but_core::ref_metadata::target_ref_commit_id(repo, repo.find_reference(name).ok()?)
+        .ok()
+        .flatten()
 }
 
 fn add_worktree(

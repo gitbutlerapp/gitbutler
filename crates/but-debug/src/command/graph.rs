@@ -67,13 +67,15 @@ pub(crate) fn run(
     emit_workspace(&workspace, graph_args, out, err)
 }
 
+#[tracing::instrument(name = "emit workspace", level = "trace", skip_all)]
 fn emit_workspace(
     workspace: &but_graph::Workspace,
     graph_args: &GraphArgs,
     out: &mut dyn io::Write,
     err: &mut dyn io::Write,
 ) -> Result<()> {
-    let errors = workspace.graph.validation_errors();
+    let errors =
+        tracing::trace_span!("validate graph").in_scope(|| workspace.graph.validation_errors());
     if !errors.is_empty() {
         writeln!(err, "VALIDATION FAILED: {errors:?}")?;
     }

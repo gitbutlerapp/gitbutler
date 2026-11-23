@@ -679,7 +679,11 @@ pub fn graph_to_ref_info(
         .map(|ref_name| -> anyhow::Result<_> {
             let tip = repo
                 .try_find_reference(ref_name.as_ref())?
-                .and_then(|mut reference| reference.peel_to_id().ok().map(|id| id.detach()));
+                .and_then(|reference| {
+                    but_core::ref_metadata::target_ref_commit_id(repo, reference)
+                        .ok()
+                        .flatten()
+                });
             Ok(crate::TargetUpstream {
                 ref_name,
                 tip,

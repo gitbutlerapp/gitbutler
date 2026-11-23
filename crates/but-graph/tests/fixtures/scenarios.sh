@@ -1808,6 +1808,23 @@ EOF
     create_workspace_commit_once B
   )
 
+  cp -R single-stack single-stack-renamed-target-upstream
+  (cd single-stack-renamed-target-upstream
+    git checkout --detach A
+    commit upstream
+    git tag -am "upstream release" release main
+    git tag -am "intermediate release" intermediate main
+    git tag -am "corrected release" corrected
+    git update-ref refs/remotes/origin/trunk refs/tags/release
+    git pack-refs --all
+    # The upstream's packed, peeled ID predates the replacement tag.
+    git replace refs/tags/release refs/tags/intermediate
+    git replace refs/tags/intermediate refs/tags/corrected
+    git checkout gitbutler/workspace
+    git config --add remote.origin.fetch '+refs/tags/release:refs/remotes/origin/trunk'
+    git config branch.main.merge refs/tags/release
+  )
+
   # A workspace where the only ref on the branch commits is origin/A (remote).
   # The local branch never existed - only the remote was fetched.
   # This tests that a remote-only ref at the top of the stack still produces the

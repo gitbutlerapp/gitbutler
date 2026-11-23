@@ -1,6 +1,7 @@
 use bitflags::bitflags;
 use bstr::{BString, ByteSlice};
 use but_core::ref_metadata::MaybeDebug;
+use smallvec::SmallVec;
 
 use crate::{CommitIndex, SegmentIndex};
 
@@ -8,7 +9,7 @@ use crate::{CommitIndex, SegmentIndex};
 pub struct Commit {
     pub id: gix::ObjectId,
     /// The IDs of the parent commits, but may be empty if this is the first commit.
-    pub parent_ids: Vec<gix::ObjectId>,
+    pub parent_ids: SmallVec<[gix::ObjectId; 2]>,
     pub flags: CommitFlags,
     /// The references pointing to this commit, even after dereferencing tag objects.
     /// These can be names of tags and branches.
@@ -295,7 +296,7 @@ pub struct Segment {
     /// for that stack segment and not included in any other stack or stack segment.
     ///
     /// The list could be empty for when this is a dedicated empty segment as insertion position of commits.
-    pub commits: Vec<Commit>,
+    pub commits: SmallVec<[Commit; 1]>,
     pub metadata: Option<SegmentMetadata>,
 }
 

@@ -200,6 +200,7 @@
 pub mod nosegment;
 mod segment;
 mod topowalk;
+mod trace;
 pub use petgraph;
 pub use segment::{
     Commit, CommitFlags, RefInfo, Segment, SegmentFlags, SegmentMetadata, StopCondition, Worktree,

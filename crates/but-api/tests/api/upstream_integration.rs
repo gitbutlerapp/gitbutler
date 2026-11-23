@@ -7,6 +7,39 @@ use but_testsupport::{CommandExt, git_at_dir, open_repo};
 use crate::support::{repo_with_feature_branch, write_file};
 
 #[test]
+fn pull_rejects_a_target_tip_stripped_from_the_editor() -> anyhow::Result<()> {
+    let (repo, tmp) = repo_with_feature_branch()?;
+    let cutoff = crate::support::set_project_target_to_feature(&repo)?;
+    git_at_dir(tmp.path())
+        .args(["branch", "--unset-upstream", "main"])
+        .run();
+    git_at_dir(tmp.path())
+        .args([
+            "commit",
+            "--allow-empty",
+            "-m",
+            but_core::commit::padding::TITLE,
+        ])
+        .run();
+    let target_tip = repo.head_id()?.detach();
+    git_at_dir(tmp.path()).args(["switch", "feature"]).run();
+    let mut ctx =
+        but_ctx::Context::from_repo_for_testing(open_repo(tmp.path())?)?.with_memory_app_cache();
+    let err = but_api::workspace::workspace_integrate_upstream(
+        &mut ctx,
+        Vec::new(),
+        but_core::DryRun::No,
+    )
+    .expect_err("pulling the parent would record the wrong cutoff");
+    assert!(
+        format!("{err:#}").contains(&target_tip.to_string()),
+        "{err:#}"
+    );
+    assert_eq!(ctx.project_meta()?.target_commit_id, Some(cutoff));
+    Ok(())
+}
+
+#[test]
 #[cfg(unix)]
 fn dry_run_does_not_sign_the_commits_it_rebases() -> anyhow::Result<()> {
     let (repo, tmp) = repo_with_feature_branch()?;

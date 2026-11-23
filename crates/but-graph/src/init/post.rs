@@ -140,7 +140,7 @@ impl Graph {
 
     /// Like [`Self::rebuild_edges_in_parent_order()`], for `sidx` alone.
     fn rebuild_outgoing_edges_in_parent_order(&mut self, sidx: SegmentIndex) {
-        let mut outgoing_edges: Vec<EdgeOwned> = self
+        let mut outgoing_edges: smallvec::SmallVec<[EdgeOwned; 2]> = self
             .inner
             .edges_directed(sidx, Direction::Outgoing)
             .map(EdgeOwned::from)
@@ -2830,9 +2830,9 @@ mod tests {
                 commit_id: Some(commit_id),
                 worktree: None,
             }),
-            commits: vec![Commit {
+            commits: smallvec::smallvec![Commit {
                 id: commit_id,
-                parent_ids: Vec::new(),
+                parent_ids: Default::default(),
                 flags: CommitFlags::default(),
                 refs: Vec::new(),
             }],
