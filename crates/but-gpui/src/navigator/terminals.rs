@@ -978,11 +978,7 @@ impl Render for TerminalOverview {
             .size_full()
             .relative()
             .overflow_hidden()
-            // Under the projects' drawer open on its card, the card is the rule, as under
-            // but-ui-react's open Drawer.
-            .when(!in_tab && !projects_card_above(self.store.read(cx)), |el| {
-                el.child(super::hairline(theme))
-            })
+            .when(!in_tab, |el| el.child(super::hairline(theme)))
             .child(self.render_bar(cx))
             .children(rows)
             // The last drawer at the navigator's foot: the room under its card, and a hairline
@@ -1000,14 +996,6 @@ impl Render for TerminalOverview {
                     )
             })
     }
-}
-
-/// Whether the projects' drawer above shows its card: it lists the projects not watched, and it's
-/// open, or always is with none watched.
-fn projects_card_above(store: &crate::state::Store) -> bool {
-    let others = store.projects.iter().any(|entry| !entry.expanded);
-    let watched = store.projects.iter().any(|entry| entry.expanded);
-    others && (!store.prefs.projects_folded || !watched)
 }
 
 #[cfg(test)]

@@ -1524,34 +1524,9 @@ impl Navigator {
         }
     }
 
-    /// Scroll the drawer's row `ix`, `row` tall, into the column: the list does, as the drawer's
-    /// as tall as its rows under the cards.
-    fn reveal_in_drawer(&self, ix: usize, row: Pixels) {
-        if self.built.rows.is_empty() {
-            return;
-        }
-        let (spacer, _) = self.footer.get();
-        let scale = f32::from(row) / self.row;
-        let above = spacer + CARD_MARGIN + DRAWER_CHROME;
-        self.reveal_in_footer(fixed(above * scale) + row * ix as f32, row);
-    }
-
-    /// Scroll what's `top` down the list's last item, `height` tall, into the column.
-    fn reveal_in_footer(&self, top: Pixels, height: Pixels) {
-        let footer = self.built.rows.len();
-        let Some(bounds) = self.list.bounds_for_item(footer) else {
-            return self.list.scroll_to(ListOffset {
-                item_ix: footer,
-                offset_in_item: top,
-            });
-        };
-        let view = self.list.viewport_bounds();
-        let (from, to) = (bounds.top() + top, bounds.top() + top + height);
-        if to > view.bottom() {
-            self.list.scroll_by(to - view.bottom());
-        } else if from < view.top() {
-            self.list.scroll_by(from - view.top());
-        }
+    /// Scroll the drawer's row `ix` into view: its own list does, pinned at the column's foot.
+    fn reveal_in_drawer(&self, ix: usize, _: Pixels) {
+        self.drawer_list.scroll_to_reveal_item(ix);
     }
 
     /// How far each of the rows slides as the list goes from its rows to `rows`, keyed by `keys`,
@@ -1653,8 +1628,10 @@ impl Navigator {
     /// rows slide, those sliding into view from past its top or bottom are drawn by the first
     /// row it draws and by one near its last ([`Self::slide_edges`]).
     fn render_row(&self, ix: usize, cx: &Context<Self>) -> AnyElement {
+        // The list's last item was the drawer; it's pinned under the list now, at the column's
+        // foot as the terminals' is, and the item stays, empty, for the rows' indexes.
         if ix == self.built.rows.len() {
-            return self.drawer_footer(Theme::get(cx), cx);
+            return div().into_any_element();
         }
         let row = self.row_in_card(ix, cx);
         let Some((first, below)) = self.slide_edges else {
@@ -2522,63 +2499,35 @@ impl Navigator {
         full * self.folds.openness(&Fold::Drawer).unwrap_or(1.)
     }
 
-    /// The list's last item, after the cards: the drawer's card, as far from them as they are
-    /// apart, and while they're short of the column, pushed down to its bottom by the room
-    /// they leave, as [`Self::fit_footer`] works out.
-    fn drawer_footer(&self, theme: &Theme, cx: &Context<Self>) -> AnyElement {
+    /// The drawer, pinned under the list at the column's foot, as the terminals' drawer is under
+    /// it: as tall as it's open, up to half the column, past which its rows scroll, with the
+    /// room under it that 🍑 But UI's sidebar keeps between its drawers.
+    fn pinned_drawer(&self, theme: &Theme, cx: &Context<Self>) -> Div {
         let (left, right) = self.card_margins();
-        let (spacer, height) = self.footer.get();
-        div()
+        let height = DRAWER_CHROME + self.drawer_rows_height() + self.drawer_below();
+        v_flex()
+            .flex_none()
+            .h(dp(height + CARD_GAP))
+            .max_h(relative(0.5))
             .pl(dp(left))
             .pr(dp(right))
-            .pt(dp(spacer + CARD_MARGIN))
+            .pb(dp(CARD_GAP))
             .child(
                 div()
-                    .h(dp(height))
+                    .flex_1()
+                    .min_h_0()
                     .child(self.drawer_card(false, theme, cx)),
             )
-            .into_any_element()
     }
 
-    /// Work out how tall the drawer's card is and the room above it, before the list lays it
-    /// out: as tall as it's open, and below the cards, or at the column's bottom while they're short of it, as far as they end in this
-    /// frame, folds and all, so it moves with them. The list keeps an item's height, so it
-    /// measures this one again when it changes, and the navigator draws again, cached as it
-    /// is. Gives how tall the list is in this frame.
-    fn fit_footer(&self, window: &mut Window, cx: &mut Context<Self>) -> f32 {
+    /// How tall the list is in this frame: as it was last laid out, give or take as much as the
+    /// navigator has grown since, as the overview under it slides.
+    fn fit_footer(&self, _: &mut Window, cx: &mut Context<Self>) -> f32 {
         let scale = Theme::get(cx).scale;
         let view = self.list.viewport_bounds();
-        // The list is as tall as it was last laid out, give or take as much as the navigator
-        // has grown since, as the overview under it slides.
         let drawn = self.drawn_height.get();
         let grown = drawn - self.listed_height.replace(drawn);
-        let column = f32::from(view.size.height + grown) / scale;
-        let height = DRAWER_CHROME + self.drawer_rows_height() + self.drawer_below();
-        // Where the cards end in this frame, which the list only knows once it's drawn it.
-        let room = column - self.cards_height();
-        let spacer = (room - height - CARD_MARGIN).max(0.);
-        let (was_spacer, was) = self.footer.get();
-        if (was_spacer, was) != (spacer, height) {
-            // Opening, past the room the cards leave, the list scrolls as far as it grows, so it
-            // opens up into the column, as the drawer at the column's bottom did. Only once
-            // there's no room left, where the room it took would cancel out but for rounding,
-            // and until its bar's at the column's top, so it opens under that.
-            let opening =
-                self.folds.openness(&Fold::Drawer).is_some() && !self.folds.closing(&Fold::Drawer);
-            let past = (height - was) - (was_spacer - spacer);
-            if opening && spacer == 0. && past > 0. {
-                let past = Theme::get(cx).scaled(past);
-                let above = (self.list.bounds_for_item(self.built.rows.len()))
-                    .map_or(past, |footer| footer.top() - view.top());
-                self.list.scroll_by(past.min(above).max(fixed(0.)));
-            }
-            self.footer.set((spacer, height));
-            let at = self.built.rows.len();
-            self.list.remeasure_items(at..at + 1);
-            // After this draw, as a notify during it draws nothing.
-            cx.defer_in(window, |_, _, cx| cx.notify());
-        }
-        column
+        f32::from(view.size.height + grown) / scale
     }
 
     /// Whether `keys` are in the rows, or a row's name being edited, rather than in the filter,
@@ -2633,14 +2582,6 @@ impl Navigator {
             start..end
         });
         *self.built.focused_card.borrow_mut() = card;
-    }
-
-    /// How tall the cards are drawn in this frame, from the list's top: each row as tall as it
-    /// is, or one a fold is moving as far as the fold's open, as `row_in_card` draws them, and
-    /// the first card's top edge and the last's bottom, which no gap between two counts.
-    fn cards_height(&self) -> f32 {
-        let rows = self.drawn_heights().map(|(_, height)| height);
-        LIST_TOP + 2. * CARD_EDGE + rows.sum::<f32>()
     }
 
     /// Each row, and how tall it's drawn in this frame: as tall as it is, or one a fold is
@@ -4586,14 +4527,13 @@ impl Render for Navigator {
                         .children(self.card_caps(height, &theme, cx))
                         .children(self.drag_divider(&theme, cx))
                         // Ending level with the detail's cards, so what scrolls past is cut
-                        // where they end, unless the terminals' drawer follows its own, as
-                        // but-ui-react's drawers do, one right under the other.
-                        .when(
-                            !self.store.read(cx).prefs.shows(Part::TerminalOverview),
-                            |el| el.mb(dp(CARD_GAP)),
-                        )
+                        // where they end, and as far from the terminals' drawer under it as
+                        // 🍑 But UI's sidebar has its cards and drawers apart.
+                        .mb(dp(CARD_GAP))
                         .map(|el| on_any_drag_move(el, cx, Navigator::scroll_near_edge)),
                     )
+                    // Under the cards, at the column's foot, as the terminals' drawer is.
+                    .child(self.pinned_drawer(&theme, cx))
                 }
             })
         // A card out over the detail goes back once the pointer leaves it, so it's resized

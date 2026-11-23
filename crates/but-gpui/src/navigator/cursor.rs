@@ -5,13 +5,12 @@ use gpui::{App, Context, InteractiveElement, Window};
 
 use super::rows::{Fold, Moving, Row};
 use super::{
-    CARD_MARGIN, ClickOpened, DRAWER_CHROME, Navigator, NextSection, PreviousSection, SelectFirst,
-    SelectLast, items, parent, tabs,
+    ClickOpened, Navigator, NextSection, PreviousSection, SelectFirst, SelectLast, items, parent,
+    tabs,
 };
 use crate::app::{Collapse, Confirm, Expand, SelectNext, SelectPrevious, ToggleFold};
 use crate::backend::Checkout;
 use crate::state::{ProjectId, Section, Selection};
-use crate::theme::Theme;
 
 /// Where a step of the keys lands.
 #[derive(Debug, PartialEq, Eq)]
@@ -242,11 +241,8 @@ impl Navigator {
 
     /// Give the drawer's bar the keys, in view.
     fn enter_drawer_bar(&mut self, cx: &mut Context<Navigator>) {
+        // Pinned at the column's foot, it's always in view.
         self.off_row = Some(OffRow::DrawerBar);
-        let theme = Theme::get(cx);
-        let (spacer, _) = self.footer.get();
-        let top = theme.scaled(spacer + CARD_MARGIN);
-        self.reveal_in_footer(top, theme.scaled(DRAWER_CHROME));
         cx.notify();
     }
 
