@@ -843,13 +843,15 @@ impl Context {
     }
 }
 
+const DIRECTORY_RENAMES_OVERRIDE: &str = "merge.directoryRenames=true";
+
 impl Context {
     /// Use it for fastest-possible access, when incomplete configuration is acceptable.
     /// Note that [Self::repo].get() should be preferred.
     pub fn open_isolated_repo(&self) -> anyhow::Result<gix::Repository> {
         Ok(gix::open_opts(
             &self.gitdir,
-            gix::open::Options::isolated(),
+            gix::open::Options::isolated().config_overrides([DIRECTORY_RENAMES_OVERRIDE]),
         )?)
     }
 
@@ -877,7 +879,11 @@ fn new_ondemand_repo(gitdir: PathBuf, repo_open_mode: RepoOpenMode) -> OnDemand<
 /// A linked worktree resolves to the repository of its main worktree so that callers see the
 /// same workspace no matter which checkout they run in.
 pub fn discover_main_repo(directory: impl AsRef<Path>) -> anyhow::Result<gix::Repository> {
-    let repo = gix::discover(directory)?;
+    let repo =
+        gix::ThreadSafeRepository::discover_opts(directory, Default::default(), |options, _| {
+            options.config_overrides([DIRECTORY_RENAMES_OVERRIDE])
+        })?
+        .to_thread_local();
     if repo.git_dir() == repo.common_dir() {
         return Ok(repo);
     }
@@ -890,6 +896,7 @@ fn open_repo(gitdir: &Path, repo_open_mode: RepoOpenMode) -> anyhow::Result<gix:
         RepoOpenMode::Isolated => gix::open::Options::isolated(),
     }
     .config_overrides([
+        DIRECTORY_RENAMES_OVERRIDE.into(),
         gix::config::tree::gitoxide::Committer::NAME_FALLBACK
             .validated_assignment("GitButler".into())?,
         gix::config::tree::gitoxide::Committer::EMAIL_FALLBACK
