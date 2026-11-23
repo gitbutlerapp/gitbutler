@@ -366,7 +366,8 @@ fn taken_away(
                 | RowKey::NewCommit(_)
                 | RowKey::SquashTop
                 | RowKey::SquashBottom
-                | RowKey::After(_),
+                | RowKey::After(_)
+                | RowKey::HeaderRule(_),
             )
             | None => false,
         })

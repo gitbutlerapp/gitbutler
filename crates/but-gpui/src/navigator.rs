@@ -83,9 +83,9 @@ pub(crate) use terminals::TerminalOverview;
 use crate::ui::Text;
 use moving::Mark;
 use rows::{
-    CARD_EDGE, CARD_PADDING, COMMIT_INDENT, Drawer, Fold, HEADING_HEIGHT, ROW_LEFT, ROW_MARGIN,
-    Row, RowKey, caption, card_ends, checkout_holds, in_checkout, in_inactive, inactive_open,
-    span_height,
+    CARD_EDGE, CARD_PADDING, COMMIT_INDENT, Drawer, Fold, HEADER_RULE, HEADING_HEIGHT, ROW_LEFT,
+    ROW_MARGIN, Row, RowKey, caption, card_ends, checkout_holds, in_checkout, in_inactive,
+    inactive_open, span_height,
 };
 
 /// How far apart the cards are, as the detail's are: but-ui's `gap/stack`, the one gap between
@@ -1727,6 +1727,13 @@ impl Navigator {
             // A dashed line, as but-ui-react's WorktreeDivider.
             // Nothing between worktrees, as 🍑 But UI's sidebar has them.
             Some(Row::WorktreeDivider) => div().into_any_element(),
+            // Across the card, edge to edge, as but-ui-react's card header's border.
+            Some(Row::HeaderRule(_)) => div()
+                .h(dp(HEADER_RULE))
+                .flex()
+                .items_center()
+                .child(div().w_full().h(fixed(1.)).bg(theme.border_subtle))
+                .into_any_element(),
             Some(Row::Note(text, is_error)) => note_row(text, *is_error, theme),
             // As made at once, set in as a commit row is, a stand-in title quiet as one's;
             // dimmed, with an ellipsis, only once it's taking a while.

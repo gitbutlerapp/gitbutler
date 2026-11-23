@@ -11,6 +11,12 @@ sit one after another with nothing between them: each worktree's glyph starts
 its group, and its rows hang one level under it. A stack's branches sit one
 level under its `StackCaption`, with nothing around them either.
 
+**A card's header stands apart.** The row that heads a card, a repository's
+`RepoItem` or a machine's `MachineItem`, sits over a line across the card, with
+the card's padding on either side of it. The rows under it start at the top
+level, not a step in: the line says they belong to it, so no guide hangs from
+its chevron. Folded, the card is the header alone, with no line.
+
 **A row folds one way.** A row that holds others shows its chevron, always, in
 a column of its own before its glyph, and the guide of the rows under it hangs
 from the chevron's middle. A row that could hold others and holds nothing yet,

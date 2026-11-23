@@ -28,6 +28,10 @@ pub(super) const HEADING_HEIGHT: f32 = 28.;
 /// The room inside a card around its rows, as 🍑 But UI's sidebar cards have it.
 pub(super) const CARD_PADDING: f32 = 8.;
 
+/// How tall the line under a project's heading is with the room around it: the heading's
+/// padding below, the 1px line, and the padding above the card's rows.
+pub(super) const HEADER_RULE: f32 = 2. * CARD_PADDING + 1.;
+
 /// How far a row's ground sits in from its card's sides: the card's padding.
 pub(super) const ROW_MARGIN: f32 = CARD_PADDING;
 
@@ -80,6 +84,10 @@ pub(super) enum Row {
     /// has no caption to tell it apart.
     Between(ProjectId),
     WorktreeDivider,
+    /// The line under a watched project's heading, across its card, which sets the heading apart
+    /// from the rows under it, as 🍑 But UI's and but-ui-react's cards have their header; and
+    /// whether the main worktree's rows follow it with no heading of their own.
+    HeaderRule(bool),
     /// In a linked worktree's section, a branch its lane rests on, by the row it selects, with
     /// the checkout it's in on the first of each lane.
     RestsOn(Selection, Option<Checkout>),
@@ -112,6 +120,10 @@ pub(super) enum RowKey {
     SquashBottom,
     /// A row of no other kind, by the one before it, which it moves with.
     After(Box<RowKey>),
+    /// The line under a project's heading, by the heading's key: a key of its own, so the row
+    /// that takes its place as the card folds, the gap after the card, isn't counted as it and
+    /// slid from where it was.
+    HeaderRule(Box<RowKey>),
 }
 
 pub(super) fn row_keys(rows: &[Row], store: &Store) -> Vec<Option<RowKey>> {
@@ -139,11 +151,14 @@ pub(super) fn row_keys(rows: &[Row], store: &Store) -> Vec<Option<RowKey>> {
             Row::GhostBranch(project, _) => Some(RowKey::GhostBranch(project.clone())),
             Row::NewCommit(project) => Some(RowKey::NewCommit(project.clone())),
             Row::Pending(_, _, Some(moved)) => Some(moved.clone()),
+            Row::HeaderRule(_) => {
+                (before.clone()).map(|before| RowKey::HeaderRule(Box::new(before)))
+            }
             _ => (before.clone()).map(|before| RowKey::After(Box::new(before))),
         };
         if !matches!(
             row,
-            Row::Ghost(_) | Row::GhostBranch(..) | Row::NewCommit(_)
+            Row::Ghost(_) | Row::GhostBranch(..) | Row::NewCommit(_) | Row::HeaderRule(_)
         ) {
             before = key.clone();
         }
@@ -187,6 +202,8 @@ impl Row {
             // Worktrees follow one another with nothing between, as 🍑 But UI's sidebar has
             // them; the divider stays, for what drops and moves between them.
             Row::WorktreeDivider => 0.,
+            // The heading's padding below, the line, and the card's padding above its rows.
+            Row::HeaderRule(_) => HEADER_RULE,
             Row::Item(Selection::Project(_)) => HEADING_HEIGHT,
             Row::Item(_)
             | Row::More(..)
@@ -405,6 +422,22 @@ impl Rows {
         }
     }
 
+    /// Settle the [`Row::HeaderRule`] at `at`, under `project`'s heading: gone when no row
+    /// follows it, and saying whether the main worktree's rows follow it with no heading.
+    pub(super) fn settle_rule(&mut self, at: usize, project: &ProjectId) {
+        if self.rows.len() == at + 1 {
+            self.truncate(at);
+            return;
+        }
+        let main = matches!(
+            self.rows.get(at + 1),
+            Some(Row::Item(next)) if next.project() == project && !matches!(next, Selection::Checkout(..))
+        );
+        if let Some(rule) = self.rows.get_mut(at) {
+            *rule = Row::HeaderRule(main);
+        }
+    }
+
     /// Push `item`, the filter's first hit if it's `hit` and none came before it.
     pub(super) fn push_found(&mut self, item: Selection, hit: bool) {
         if hit && self.first_hit.is_none() {
@@ -450,12 +483,14 @@ impl Navigator {
             let item = Selection::Project(entry.id.clone());
             rows.push(Row::Item(item.clone()));
             let open = !store.project_folded(&entry.id);
-            // Its rows a step under the header's, the guide hanging from its chevron, as 🍑 But
-            // UI's sidebar has its worktrees under their repository.
+            // The heading stands apart, ruled off from its rows, which start at the card's
+            // edge rather than a step under it, as 🍑 But UI's and but-ui-react's cards have
+            // their header.
             rows.fold(Fold::Under(item), open, &self.folds, |rows| {
-                rows.open_in(STEP);
+                let rule = rows.rows.len();
+                rows.push(Row::HeaderRule(false));
                 self.card_rows(store, entry, rows);
-                rows.close();
+                rows.settle_rule(rule, &entry.id);
             });
         }
         let listing = self.drawer_listing(store);
@@ -639,6 +674,8 @@ impl Navigator {
             }
             let own = found(terms, &[&entry.project.name]);
             rows.push_found(Selection::Project(id.clone()), hit(0, own));
+            let rule = rows.rows.len();
+            rows.push(Row::HeaderRule(false));
             let project_end = rows.rows.len();
             let workspace = (entry.workspace.as_ref()).filter(|ws| ws.editing.is_none());
             if let Some(workspace) = workspace {
@@ -687,6 +724,8 @@ impl Navigator {
             self.filtered_mesh_rows(store, id, terms, own, &mut rows);
             if rows.rows.len() == project_end && !hit(0, own) {
                 rows.truncate(start);
+            } else {
+                rows.settle_rule(rule, id);
             }
         }
         let others = (store.projects.iter()).filter(|entry| !entry.expanded);
@@ -1174,6 +1213,7 @@ pub(super) fn heads(row: &Row, next: Option<&Row>) -> Option<Checkout> {
         {
             Some(Checkout::Main)
         }
+        (Row::Item(Selection::Project(_)), Some(Row::HeaderRule(true))) => Some(Checkout::Main),
         _ => None,
     }
 }
