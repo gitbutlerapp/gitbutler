@@ -55,15 +55,15 @@ count's colour.
 | --------- | ------------------ | ---------------------------------------------------- |
 | Update    | ↓, amber           | a repository, a worktree, a folded branch, a heading |
 | Push      | ↑, blue            | a branch, a stack                                    |
-| Resolve   | (after the counts) | a conflicted branch                                  |
 | Create PR | (after the counts) | a pushed branch without a request                    |
 | Merge     | (after the counts) | a branch whose checks passed                         |
 | Delete    | (after the age)    | a linked worktree whose branches all merged          |
 
 ## What overrides what
 
-- **Conflicts beat Push.** A conflicted branch keeps its ↑ as a plain count; its
-  step is Resolve.
+- **Conflicts beat Push.** A conflicted branch keeps its ↑ as a plain count,
+  beside its ⚠ conflicts, and takes no step: Resolve is on the branch's page, the
+  conflicted commit's page and the status bar, not on its row.
 - **Empty beats everything.** A branch with no commits reads `empty` and nothing
   else: no counts, no step, no unread dot.
 - **↑ or ⟜, never both.** A step in ↑'s place counts as ↑.

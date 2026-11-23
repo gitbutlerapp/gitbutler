@@ -23,7 +23,7 @@ use crate::backend::{
     Branch, Checkout, Commit, CommitId, CommitState, FileChange, FullName, PushState, ReviewState,
     Target, Workspace,
 };
-use crate::detail::{ChecksChanged, Detail, oldest_conflict};
+use crate::detail::{ChecksChanged, Detail};
 use crate::overlays::MenuItem;
 use crate::state::{
     Part, Prefs, ProjectId, Section, Selection, Store, StoreEvent, Tile, WatchedOrder,
@@ -3347,10 +3347,6 @@ impl Navigator {
         let name = store.name_of(id, branch);
         let unpushed_n = unpushed(std::iter::once(branch));
         let conflicted = branch.commits.iter().filter(|c| c.conflicted).count();
-        // The conflict to resolve first, as its page's Resolve finds it.
-        let conflict = (ref_name.zip(store.workspace(id)))
-            .and_then(|(r, ws)| oldest_conflict(ws, r))
-            .map(|(_, commit)| commit.id);
         // Its pull request shows as it's asked for, pulsing until the forge has it.
         let publishing =
             branch.review.is_none() && ref_name.is_some_and(|r| store.publishing(id, r));
@@ -3472,31 +3468,12 @@ impl Navigator {
             .chain(conflicts.map(IntoElement::into_any_element))
             .chain(authors.map(IntoElement::into_any_element))
             .fold(row, SidebarRow::meta);
-        // Its step, after the counts: the first conflict to resolve, unless a linked worktree
-        // resolves it. Conflicts block Push, so it's the only one.
-        let resolve = conflict.map(|commit| {
-            let project = id.clone();
-            let resolve = button(
-                ElementId::Name(format!("resolve-{id}-{row_id}").into()),
-                "Resolve",
-            )
-            .small()
-            .inverted(style.solid)
-            .tooltip("Resolve the first conflicted commit");
-            self.row_step(resolve, cx, move |this, window, cx| {
-                let project = project.clone();
-                this.app.update_later(window, cx, move |app, window, cx| {
-                    app.resolve_commit(project, commit, window, cx)
-                })
-            })
-        });
         let row = (update.map(IntoElement::into_any_element))
             .into_iter()
             .chain(
                 self.push_step(id, ref_name, unpushed_n, style, cx)
                     .map(IntoElement::into_any_element),
             )
-            .chain(resolve.map(IntoElement::into_any_element))
             .fold(row, SidebarRow::action);
         Some(
             (style.draw(row, 0.))

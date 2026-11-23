@@ -17,5 +17,6 @@ glyphs are larger.
 **What a conflict blocks says so at that action.** Only a few things wait on
 it: pushing, taking changes out of the conflicted commit, and committing a file
 that still has markers. Each says why where the user reaches for it, never as a
-red banner over the surface: on a conflicted branch, Resolve takes Push's place
+red banner over the surface: on a conflicted branch's row, Push gives way to the
+plain ↑ count, which says why, and Resolve waits on the branch's page
 ([Blocked states](blocked-states.md)).
