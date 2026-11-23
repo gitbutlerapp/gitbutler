@@ -24,6 +24,17 @@ pub(super) enum Step {
     Tab,
 }
 
+/// What the keys can step onto off the rows that's nothing to select, so the selection and its
+/// page stay as they were: see [`Step`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum OffRow {
+    /// The drawer's bar, which folds.
+    DrawerBar,
+    /// This tab, which the card's rows hang from, when it's one with nothing to select: More
+    /// projects'.
+    Tab(tabs::TabKey),
+}
+
 /// What a key does to the rows, which the list and the card under a tab both take: see
 /// [`row_actions`].
 #[derive(Clone, Copy)]
@@ -103,6 +114,9 @@ pub(super) struct Stops {
 pub(super) fn step_to(at: Option<usize>, items: usize, stops: Stops, delta: isize) -> Option<Step> {
     let Stops { bar, on_bar, tab } = stops;
     let count = (items + usize::from(bar.is_some())) as isize;
+    if count == 0 {
+        return None;
+    }
     let from = match (bar.filter(|_| on_bar), at) {
         (Some(bar), _) => bar as isize,
         (None, Some(ix)) if bar.is_some_and(|bar| ix >= bar) => ix as isize + 1,
@@ -151,7 +165,7 @@ impl Navigator {
         }
         // ↓ onto a fold of commits shows the rest and goes on into them, as a feed loads more:
         // the fold is no stop of its own.
-        let unfolds = delta > 0 && !self.on_drawer_bar && self.unfold_after_selection(cx);
+        let unfolds = delta > 0 && !self.off_rows() && self.unfold_after_selection(cx);
         let built = unfolds.then(|| self.build_rows(cx));
         let items = match &built {
             Some(built) => self.staying(&built.rows, &built.moving, &built.drawer.rows),
@@ -161,7 +175,10 @@ impl Navigator {
             return;
         }
         let current = self.store.read(cx).selection.clone();
-        let at = (current.as_ref()).and_then(|s| items.iter().position(|item| *item == s));
+        // On the tab, the keys are off the list, above it.
+        let at = (current.as_ref())
+            .filter(|_| !self.stepped_up())
+            .and_then(|s| items.iter().position(|item| *item == s));
         let bar = self.drawer_toggles(cx).then(|| match &built {
             Some(built) => self.staying(&built.rows, &built.moving, &[]).len(),
             None => self
@@ -174,16 +191,20 @@ impl Navigator {
             items.len(),
             Stops {
                 bar,
-                on_bar: self.on_drawer_bar,
+                on_bar: self.off_row == Some(OffRow::DrawerBar),
                 tab,
             },
             delta,
         ) {
             Some(Step::Bar) => return self.enter_drawer_bar(cx),
-            // The projects not watched and the terminals have nothing for their tab to select.
+            // The projects not watched have nothing for their tab to select, so the keys go
+            // onto it as they go onto the drawer's bar.
             Some(Step::Tab) => match self.scope.as_ref().and_then(tabs::TabKey::selection) {
                 Some(tab) => return self.select(tab, window, cx),
-                None => return,
+                None => {
+                    self.off_row = self.scope.clone().map(OffRow::Tab);
+                    return cx.notify();
+                }
             },
             Some(Step::Item(next)) => next,
             None => return,
@@ -192,8 +213,8 @@ impl Navigator {
             return;
         };
         // Back on the row it left, whose page stays as it was, not back to how it opens.
-        if self.on_drawer_bar && current.as_ref() == Some(&next) {
-            return self.leave_drawer_bar(cx);
+        if self.off_rows() && current.as_ref() == Some(&next) {
+            return self.leave_off_row(cx);
         }
         self.select(next, window, cx);
     }
@@ -207,9 +228,21 @@ impl Navigator {
             && (self.built.drawer.total > 0 && !self.built.rows.is_empty() && !self.filtering(cx))
     }
 
+    /// Whether the keys were stepped up off the rows onto the tab the card being worked on hangs
+    /// from.
+    pub(super) fn stepped_up(&self) -> bool {
+        matches!((&self.off_row, &self.scope), (Some(OffRow::Tab(on)), Some(scope)) if on == scope)
+    }
+
+    /// Whether the keys are off the rows of what's being worked on: on the drawer's bar, or
+    /// stepped up onto its tab.
+    fn off_rows(&self) -> bool {
+        self.off_row == Some(OffRow::DrawerBar) || self.stepped_up()
+    }
+
     /// Give the drawer's bar the keys, in view.
     fn enter_drawer_bar(&mut self, cx: &mut Context<Navigator>) {
-        self.on_drawer_bar = true;
+        self.off_row = Some(OffRow::DrawerBar);
         let theme = Theme::get(cx);
         let (spacer, _) = self.footer.get();
         let top = theme.scaled(spacer + CARD_MARGIN);
@@ -217,9 +250,9 @@ impl Navigator {
         cx.notify();
     }
 
-    /// Give the keys back to the selection's row, if the drawer's bar has them.
-    pub(super) fn leave_drawer_bar(&mut self, cx: &mut Context<Navigator>) {
-        if std::mem::take(&mut self.on_drawer_bar) {
+    /// Give the keys back to the selection's row, if what's off the rows has them.
+    pub(super) fn leave_off_row(&mut self, cx: &mut Context<Navigator>) {
+        if self.off_row.take().is_some() {
             cx.notify();
         }
     }
@@ -341,7 +374,7 @@ impl Navigator {
     }
 
     fn expand(&mut self, _: &Expand, window: &mut Window, cx: &mut Context<Self>) {
-        if self.on_drawer_bar {
+        if self.off_row == Some(OffRow::DrawerBar) {
             return self.set_drawer_folded(false, cx);
         }
         let store = self.store.read(cx);
@@ -385,7 +418,7 @@ impl Navigator {
     /// closed, a branch up to its stack or worktree, and anything else up to its project.
     /// While the filter lists what it finds, nothing folds, so ⇧← only goes up.
     fn collapse(&mut self, _: &Collapse, window: &mut Window, cx: &mut Context<Self>) {
-        if self.on_drawer_bar {
+        if self.off_row == Some(OffRow::DrawerBar) {
             return self.set_drawer_folded(true, cx);
         }
         let filtering = self.filtering(cx);
@@ -482,7 +515,7 @@ impl Navigator {
     pub(super) fn confirm(&mut self, _: &Confirm, window: &mut Window, cx: &mut Context<Self>) {
         let selection = self.store.read(cx).selection.clone();
         match selection {
-            Some(Selection::Uncommitted(..)) if !self.on_drawer_bar => {
+            Some(Selection::Uncommitted(..)) if !self.off_rows() => {
                 window.dispatch_action(Box::new(crate::app::StartCommit), cx)
             }
             _ => self.toggle_fold(&ToggleFold, window, cx),
@@ -507,7 +540,7 @@ impl Navigator {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.on_drawer_bar {
+        if self.off_row == Some(OffRow::DrawerBar) {
             return self.toggle_drawer(cx);
         }
         let Some(selection) = self.store.read(cx).selection.clone() else {
@@ -578,6 +611,11 @@ mod tests {
             on_bar: true,
             ..bar(items)
         }
+    }
+
+    #[test]
+    fn a_step_down_from_a_tab_with_no_rows_stays_put() {
+        assert_eq!(step_to(None, 0, UNDER_TAB, 1), None);
     }
 
     #[test]

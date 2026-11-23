@@ -24,7 +24,7 @@ use crate::backend::{
     ReviewState, Target, Workspace,
 };
 use crate::detail::{ChecksChanged, Detail, PageTab, oldest_conflict};
-use crate::overlays::{MenuItem, keys_at};
+use crate::overlays::MenuItem;
 use crate::state::{
     Part, Prefs, ProjectId, Section, Selection, Store, StoreEvent, Tile, WatchedOrder,
 };
@@ -48,6 +48,7 @@ mod account;
 mod cursor;
 mod drop;
 mod frame;
+mod keys;
 mod menu;
 pub(crate) use menu::{
     ArchiveWorktree, OpenProjectSettings, OpenRepository, Reveal, StopWatching, UnarchiveWorktree,
@@ -64,9 +65,11 @@ mod rename;
 mod rows;
 mod tabs;
 mod terminals;
-use cursor::row_actions;
+use cursor::{OffRow, row_actions};
 use drop::on_any_drag_move;
 use frame::{Built, RowsIn};
+pub(crate) use keys::find_keys;
+use keys::{List, NavigatorKeys};
 pub(crate) use rows::{lists_changes, worktrees_listed};
 pub(crate) use tabs::NavigatorTabs;
 pub(crate) use terminals::TerminalOverview;
@@ -533,9 +536,9 @@ pub struct Navigator {
     /// [`Self::fit_footer`].
     pub(crate) drawn_height: Cell<Pixels>,
     listed_height: Cell<Pixels>,
-    /// The keys stepped onto the drawer's bar, which folds but is nothing to select, so the
-    /// selection and its page stay as they were: see [`cursor::Step`].
-    on_drawer_bar: bool,
+    /// What the keys stepped onto off the rows, which is nothing to select, so the selection and
+    /// its page stay as they were.
+    off_row: Option<OffRow>,
     /// The selection changed, or where it'd be moved: scroll to it once the rows are up to
     /// date, to the copies of commits being moved where they'd land rather than to them.
     reveal_selection: bool,
@@ -590,8 +593,8 @@ pub struct Navigator {
     /// The selection the rows being drawn show in place of the store's, for a card on its way
     /// out, which stays as it was left.
     scoped_selection: Option<Option<Selection>>,
-    /// The tabs across the window's top have the keys, which stay there as rows are selected.
-    strip_has_keys: bool,
+    /// Where the keys are, as found for this frame: see [`keys::find_keys`].
+    keys: NavigatorKeys,
     /// What takes the keys for the rows across the top, which is the tabs.
     strip_keys: Option<FocusHandle>,
     /// The tab the card's down from, whose rows a drag out of it goes by, and where the first of
@@ -767,7 +770,7 @@ impl Navigator {
             footer: Cell::new((0., 0.)),
             drawn_height: Cell::new(Pixels::ZERO),
             listed_height: Cell::new(Pixels::ZERO),
-            on_drawer_bar: false,
+            off_row: None,
             reveal_selection: false,
             reveal_source: false,
             shown_op: None,
@@ -788,7 +791,7 @@ impl Navigator {
             pointer_over: false,
             scope: None,
             scoped_selection: None,
-            strip_has_keys: false,
+            keys: NavigatorKeys::Away,
             strip_keys: None,
             card_key: None,
             card_top: Rc::default(),
@@ -972,7 +975,7 @@ impl Navigator {
     /// Show the selection where it is once the rows are up to date, opening the drawer when
     /// it's one of its projects.
     fn reveal(&mut self, cx: &mut Context<Self>) {
-        self.leave_drawer_bar(cx);
+        self.leave_off_row(cx);
         self.reveal_selection = true;
         let store = self.store.read(cx);
         let in_drawer = matches!(&store.selection, Some(Selection::Project(id))
@@ -985,13 +988,14 @@ impl Navigator {
     }
 
     fn select(&mut self, selection: Selection, window: &mut Window, cx: &mut Context<Self>) {
-        self.leave_drawer_bar(cx);
+        self.leave_off_row(cx);
         // While something is being moved the selection stays on it, which goes toward what's
         // asked for instead, before the folds below follow a selection that doesn't change.
         if self.store.read(cx).moving.is_some() {
             return self.click_move(&selection, window, cx);
         }
-        match (self.strip_has_keys, self.takes_keys(cx)) {
+        let strip = (self.strip_keys.as_ref()).is_some_and(|strip| strip.is_focused(window));
+        match (strip, self.takes_keys(cx)) {
             (true, _) => {}
             (false, true) => window.focus(&self.focus, cx),
             // What the filter found, the keys go on from there, as they do here.
@@ -1258,9 +1262,13 @@ impl Navigator {
     }
 
     fn set_card_key(&mut self, key: Option<tabs::TabKey>) {
-        // A card coming shows its folds as they are, not moving from how it last showed them.
+        // A card coming shows its folds as they are, not moving from how it last showed them,
+        // and the keys on the tab it left are on another.
         if self.card_key != key {
             self.folds_seen.clear();
+            if matches!(self.off_row, Some(OffRow::Tab(_))) {
+                self.off_row = None;
+            }
         }
         self.card_key = key;
     }
@@ -1532,16 +1540,16 @@ impl Navigator {
     /// The row at `ix` of the list. The list draws only the rows laid out in view, so while
     /// rows slide, those sliding into view from past its top or bottom are drawn by the first
     /// row it draws and by one near its last ([`Self::slide_edges`]).
-    fn render_row(&self, ix: usize, window: &Window, cx: &Context<Self>) -> AnyElement {
+    fn render_row(&self, ix: usize, cx: &Context<Self>) -> AnyElement {
         if ix == self.built.rows.len() {
-            return self.drawer_footer(window, Theme::get(cx), cx);
+            return self.drawer_footer(Theme::get(cx), cx);
         }
-        let row = self.row_in_card(ix, window, cx);
+        let row = self.row_in_card(ix, cx);
         let Some((first, below)) = self.slide_edges else {
             return row;
         };
-        let above = (ix == first).then(|| self.slid_in(ix, false, window, cx));
-        let below = (ix == below).then(|| self.slid_in(ix, true, window, cx));
+        let above = (ix == first).then(|| self.slid_in(ix, false, cx));
+        let below = (ix == below).then(|| self.slid_in(ix, true, cx));
         if above.is_none() && below.is_none() {
             return row;
         }
@@ -1555,7 +1563,7 @@ impl Navigator {
     /// the list draws none, stacked on from `ix`'s edge as the list lays them out, each drawn
     /// only if the list doesn't draw it after all ([`fold::unlisted`]). Down, they start a few
     /// rows above the list's last, to be sure `ix` is drawn, so they go that much further.
-    fn slid_in(&self, ix: usize, down: bool, window: &Window, cx: &Context<Self>) -> AnyElement {
+    fn slid_in(&self, ix: usize, down: bool, cx: &Context<Self>) -> AnyElement {
         let reach = self.reorder.furthest()
             + match down {
                 true => (ABOVE_LAST_LISTED + 3) as f32 * self.row,
@@ -1583,7 +1591,7 @@ impl Navigator {
         };
         let inset = Theme::get(cx).scaled(LIST_TOP);
         let rows = rows.map(|ix| {
-            let row = self.row_in_card(ix, window, cx);
+            let row = self.row_in_card(ix, cx);
             fold::unlisted(self.list.clone(), inset, ix, row)
         });
         let stack = v_flex().absolute().left_0().right_0().children(rows);
@@ -1604,7 +1612,7 @@ impl Navigator {
     }
 
     /// The row at `ix` of the list, drawn inside its card.
-    fn row_in_card(&self, ix: usize, window: &Window, cx: &Context<Self>) -> AnyElement {
+    fn row_in_card(&self, ix: usize, cx: &Context<Self>) -> AnyElement {
         let theme = Theme::get(cx);
         // Only the navigator's own rows slide, which across the top are those of the tab the
         // selection's in.
@@ -1631,7 +1639,7 @@ impl Navigator {
         let el = match self.built.rows.get(ix) {
             None | Some(Row::Gap) => return div().h(dp(CARD_GAP)).into_any_element(),
             _ if hidden => div().into_any_element(),
-            Some(Row::Item(_)) => self.render_item(&self.built.rows, ix, inset, window, theme, cx),
+            Some(Row::Item(_)) => self.render_item(&self.built.rows, ix, inset, theme, cx),
             // A dashed line, as but-ui-react's WorktreeDivider.
             Some(Row::WorktreeDivider) => h_flex()
                 .h(dp(12.))
@@ -1959,7 +1967,6 @@ impl Navigator {
         rows: &[Row],
         ix: usize,
         inset: f32,
-        window: &Window,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
@@ -1967,7 +1974,8 @@ impl Navigator {
             return div().into_any_element();
         };
         let store = self.store.read(cx);
-        let shown = (self.scoped_selection.clone()).unwrap_or_else(|| store.selection.clone());
+        let shown = (self.scoped_selection.clone())
+            .unwrap_or_else(|| self.selection_shown_in(&self.list(), cx));
         let lit = |item: &Selection| {
             shown.as_ref() == Some(item)
                 || matches!(item, Selection::Commit(project, id) if store.is_picked(project, *id))
@@ -2011,10 +2019,7 @@ impl Navigator {
         };
         let outlined_with = (ix > 0 && outlined_at(ix - 1), outlined_at(ix + 1));
         // Not while something's dragged, or the selection outshines what shows where it lands.
-        let solid = selected
-            && store.dragging.is_none()
-            && !self.on_drawer_bar
-            && self.rows_have_keys(window, cx);
+        let solid = selected && store.dragging.is_none() && self.keys.on_row_of(&self.list());
         let style = RowStyle {
             theme,
             selected,
@@ -2240,7 +2245,7 @@ impl Navigator {
 
     /// The projects not watched, in a drawer under the cards as tall as its rows, which the
     /// list scrolls. With no cards it's the column, open, and scrolls past that.
-    fn drawer(&self, window: &Window, theme: &Theme, cx: &Context<Self>) -> impl IntoElement {
+    fn drawer(&self, theme: &Theme, cx: &Context<Self>) -> impl IntoElement {
         let (left, right) = self.card_margins();
         // The column's only card, filling it, as far from its edges as cards are apart.
         div()
@@ -2250,14 +2255,14 @@ impl Navigator {
             .pl(dp(left))
             .pr(dp(right))
             .py(dp(CARD_MARGIN))
-            .child(self.drawer_card(true, window, theme, cx))
+            .child(self.drawer_card(true, theme, cx))
     }
 
     /// The drawer's card: its bar, and under it its rows as far as it's open.
-    fn drawer_card(&self, alone: bool, window: &Window, theme: &Theme, cx: &Context<Self>) -> Div {
+    fn drawer_card(&self, alone: bool, theme: &Theme, cx: &Context<Self>) -> Div {
         let rows = list(
             self.drawer_list.clone(),
-            cx.processor(|this, ix: usize, window, cx| this.render_drawer_row(ix, window, cx)),
+            cx.processor(|this, ix: usize, _, cx| this.render_drawer_row(ix, cx)),
         )
         .size_full();
         let scroll = Scroll::List(self.drawer_list.clone());
@@ -2270,7 +2275,7 @@ impl Navigator {
             .border_1()
             .border_color(theme.border_subtle)
             .rounded(dp(theme.shape.card))
-            .child(self.drawer_bar(alone, window, theme, cx))
+            .child(self.drawer_bar(alone, theme, cx))
             .child(
                 div()
                     .relative()
@@ -2298,7 +2303,7 @@ impl Navigator {
     /// The list's last item, after the cards: the drawer's card, as far from them as they are
     /// apart, and while they're short of the column, pushed down to its bottom by the room
     /// they leave, as [`Self::fit_footer`] works out.
-    fn drawer_footer(&self, window: &Window, theme: &Theme, cx: &Context<Self>) -> AnyElement {
+    fn drawer_footer(&self, theme: &Theme, cx: &Context<Self>) -> AnyElement {
         let (left, right) = self.card_margins();
         let (spacer, height) = self.footer.get();
         div()
@@ -2308,7 +2313,7 @@ impl Navigator {
             .child(
                 div()
                     .h(dp(height))
-                    .child(self.drawer_card(false, window, theme, cx)),
+                    .child(self.drawer_card(false, theme, cx)),
             )
             .into_any_element()
     }
@@ -2354,25 +2359,44 @@ impl Navigator {
         column
     }
 
-    /// Whether the navigator has the keys, but not while typing in the filter, where they go
-    /// to it.
-    fn rows_have_keys(&self, window: &Window, cx: &App) -> bool {
-        if self.scope.is_some() {
-            // A card on its way out has left them behind.
-            return self.strip_has_keys && self.scoped_selection.is_none();
+    /// Whether `keys` are in the rows, or a row's name being edited, rather than in the filter,
+    /// which types.
+    fn holds(&self, keys: &FocusHandle, window: &Window, cx: &App) -> bool {
+        self.focus.contains(keys, window) && *keys != self.filter.focus_handle(cx)
+    }
+
+    /// Note where the keys are for this frame, drawing again after it if that moved.
+    fn set_keys(&mut self, keys: NavigatorKeys, window: &mut Window, cx: &mut Context<Self>) {
+        if self.keys != keys {
+            self.keys = keys;
+            // After this draw, as a notify during it draws nothing.
+            cx.defer_in(window, |_, _, cx| cx.notify());
         }
-        keys_at(window, cx).is_some_and(|keys| {
-            self.focus.contains(&keys, window) && keys != self.filter.focus_handle(cx)
-        })
+    }
+
+    /// The list the rows being drawn are: the cards' beside the page, or the card's down from
+    /// a tab.
+    fn list(&self) -> List {
+        List::Rows(self.scope.clone())
+    }
+
+    /// The selection `list` shows: none while the keys are on what heads it.
+    pub(in crate::navigator) fn selection_shown_in(
+        &self,
+        list: &List,
+        cx: &App,
+    ) -> Option<Selection> {
+        match self.keys.on_head_of(list) {
+            true => None,
+            false => self.store.read(cx).selection.clone(),
+        }
     }
 
     /// Note the card the selection's in while the navigator has the keys, but in its filter,
     /// for its rows to edge it as the tile with the keys is.
-    fn find_focused_card(&self, window: &Window, cx: &App) {
+    fn find_focused_card(&self, cx: &App) {
         let store = self.store.read(cx);
-        let keys = store.prefs.shows(Part::FocusOutline)
-            && !self.on_drawer_bar
-            && self.rows_have_keys(window, cx);
+        let keys = store.prefs.shows(Part::FocusOutline) && self.keys.on_row_of(&self.list());
         let selection = store.selection.as_ref();
         let at = selection.filter(|_| keys).and_then(|selection| {
             (self.built.rows.iter())
@@ -2561,13 +2585,7 @@ impl Navigator {
     /// The drawer's handle: a click opens or closes it, and it says how many projects it lists
     /// of how many there are, and has ways to add, order and find them. With the keys on it,
     /// it's drawn as a selected row is.
-    fn drawer_bar(
-        &self,
-        alone: bool,
-        window: &Window,
-        theme: &Theme,
-        cx: &Context<Self>,
-    ) -> impl IntoElement {
+    fn drawer_bar(&self, alone: bool, theme: &Theme, cx: &Context<Self>) -> impl IntoElement {
         let Drawer { listed, total, .. } = self.built.drawer;
         let title = drawer_title(alone);
         let count = match listed == total {
@@ -2575,8 +2593,10 @@ impl Navigator {
             false => format!("{listed} of {total}"),
         };
         let toggles = self.drawer_toggles(cx);
-        let selected = self.on_drawer_bar;
-        let solid = selected && self.rows_have_keys(window, cx);
+        // Beside the page only: across the top, More projects' card's bar is under its tab,
+        // which has the keys rather than it.
+        let solid = self.keys.on_head_of(&List::Rows(None));
+        let selected = solid;
         let open = toggles.then(|| !self.store.read(cx).prefs.projects_folded);
         let count = (total > 0).then_some(count);
         card_bar("drawer-bar", title, count, open, selected, solid, theme)
@@ -2604,11 +2624,11 @@ impl Navigator {
     }
 
     /// Row `ix` of the drawer, set in as a card's rows are.
-    fn render_drawer_row(&self, ix: usize, window: &Window, cx: &Context<Self>) -> AnyElement {
+    fn render_drawer_row(&self, ix: usize, cx: &Context<Self>) -> AnyElement {
         let theme = Theme::get(cx);
         let el = match self.built.drawer.rows.get(ix) {
             Some(Row::Note(text, is_error)) => note_row(text, *is_error, theme),
-            _ => self.render_item(&self.built.drawer.rows, ix, 0., window, theme, cx),
+            _ => self.render_item(&self.built.drawer.rows, ix, 0., theme, cx),
         };
         div().child(el).into_any_element()
     }
@@ -4173,12 +4193,14 @@ impl Render for Navigator {
             .id("navigator")
             // While commits move, Return lands them. On the drawer's bar, the keys that act on
             // the selection are off, as it's left the row.
-            .key_context(match (self.on_drawer_bar, moving, squashing) {
-                (true, _, _) => "DrawerBar",
-                (false, true, true) => "Navigator Moving Squashing",
-                (false, true, false) => "Navigator Moving",
-                (false, false, _) => "Navigator",
-            })
+            .key_context(
+                match (self.off_row == Some(OffRow::DrawerBar), moving, squashing) {
+                    (true, _, _) => "DrawerBar",
+                    (false, true, true) => "Navigator Moving Squashing",
+                    (false, true, false) => "Navigator Moving",
+                    (false, false, _) => "Navigator",
+                },
+            )
             .on_drag_move(cx.listener(Self::follow_project_drag))
             .on_drag_move(cx.listener(Self::follow_worktree_drag))
             .on_drag_move(cx.listener(Self::follow_terminal_drag))
@@ -4220,16 +4242,16 @@ impl Render for Navigator {
                 if empty {
                     el
                 } else if self.built.rows.is_empty() {
-                    el.child(self.drawer(window, &theme, cx))
+                    el.child(self.drawer(&theme, cx))
                 } else {
                     let rows = list(
                         self.list.clone(),
-                        cx.processor(|this, ix: usize, window, cx| this.render_row(ix, window, cx)),
+                        cx.processor(|this, ix: usize, _, cx| this.render_row(ix, cx)),
                     )
                     .size_full()
                     .pt(dp(LIST_TOP));
                     let height = self.fit_footer(window, cx);
-                    self.find_focused_card(window, cx);
+                    self.find_focused_card(cx);
                     let scroll = Scroll::List(self.list.clone());
                     el.child(
                         // Its thumb in the middle of the gap to the detail's cards, beside it

@@ -46,12 +46,21 @@ pub struct ContextMenu {
 /// took it from and gives it back to, so what the menu acts on stays solid under it.
 pub(crate) fn keys_at(window: &Window, cx: &App) -> Option<FocusHandle> {
     let focused = window.focused(cx)?;
-    let lent = window.root::<AppView>().flatten().and_then(|app| {
-        let app = app.read(cx);
-        let menu = (app.menu.as_ref()).filter(|_| focused == app.menu_focus)?;
-        menu.restore_focus.clone()
-    });
-    Some(lent.unwrap_or(focused))
+    Some(match window.root::<AppView>().flatten() {
+        Some(app) => app.read(cx).keys_lent(focused),
+        None => focused,
+    })
+}
+
+impl AppView {
+    /// `focused`, or while the open context menu has it, what the menu took the keys from: see
+    /// [`keys_at`], which can't be asked while the app draws, as it reads the app.
+    pub(crate) fn keys_lent(&self, focused: FocusHandle) -> FocusHandle {
+        (self.menu.as_ref())
+            .filter(|_| focused == self.menu_focus)
+            .and_then(|menu| menu.restore_focus.clone())
+            .unwrap_or(focused)
+    }
 }
 
 /// Whether a list drawing with `focus` draws its selection solid, as [`keys_at`] says.

@@ -329,7 +329,8 @@
     }
   },
   // On the drawer's bar, which folds but isn't the selection, the navigator's keys that move and
-  // fold and no others, as those would act on the row it left.
+  // fold and no others, as those would act on the row it left. Across the top, a tab that selects
+  // nothing, as More projects', takes these too.
   {
     "context": "DrawerBar && !TextInput",
     "bindings": {
