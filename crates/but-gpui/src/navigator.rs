@@ -2669,8 +2669,8 @@ impl Navigator {
     }
 
     /// How tall the pinned drawer is, and whether its line was dragged: as tall as its rows, or
-    /// as dragged, or sliding back from that to its rows', folding or unfolding as far as it's
-    /// open.
+    /// as dragged but never taller than its rows, or sliding back from that to its rows',
+    /// folding or unfolding as far as it's open.
     fn pinned_height(&self, cx: &App) -> (f32, bool) {
         let fits = DRAWER_CHROME + self.drawer_rows_height() + self.drawer_below();
         // Folded, its bar's.
@@ -2683,10 +2683,14 @@ impl Navigator {
             store.dragged_width(Pane::HiddenProjects),
             store.width_glide(Pane::HiddenProjects),
         ) {
-            (Some(dragged), _) => (
-                DRAWER_CHROME + (dragged - DRAWER_CHROME).max(0.) * open,
-                true,
-            ),
+            (Some(dragged), _) => {
+                let rows = DRAWER_CHROME + self.drawer_rows_full() + DRAWER_BLOCK;
+                let dragged = dragged.min(rows);
+                (
+                    DRAWER_CHROME + (dragged - DRAWER_CHROME).max(0.) * open,
+                    true,
+                )
+            }
             (None, Some(glide)) => (glide.at(fits, crate::clock::now()), true),
             (None, None) => (fits, false),
         }

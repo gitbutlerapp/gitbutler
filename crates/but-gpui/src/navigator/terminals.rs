@@ -953,6 +953,8 @@ impl Render for TerminalOverview {
                 .id("terminal-overview-rows")
                 .flex_1()
                 .min_h_0()
+                // Its line dragged lower than what it holds, what's past its card is cut.
+                .overflow_hidden()
                 .when(!empty, |el| el.pb(dp(CARD_PADDING)))
                 // Its rows in a card under the bar, as but-ui-react's Drawer holds them; the card
                 // under its tab is its edges.

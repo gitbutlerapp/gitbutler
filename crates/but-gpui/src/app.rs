@@ -4689,15 +4689,15 @@ impl AppView {
         let shown = store.prefs.shows(Part::TerminalOverview);
         let theme = Theme::get(cx);
         let terminals = shown.then(|| {
-            // As tall as its rows until its line is dragged, then as dragged, but just its bar
-            // while it's folded. Put back, it slides from where it was dragged to its rows,
-            // under the limit it had dragged.
+            // As tall as its rows until its line is dragged, then as dragged but never taller
+            // than its rows, but just its bar while it's folded. Put back, it slides from where
+            // it was dragged to its rows, under the limit it had dragged.
             let overview = self.terminals.read(cx);
             let shut = overview.is_shut();
             let dragged = (store.dragged_width(Pane::Terminals)).filter(|_| !shut);
             let glide = store.width_glide(Pane::Terminals);
             let (height, most) = match (dragged, glide) {
-                (Some(height), _) => (height, TERMINALS_MOST_DRAGGED),
+                (Some(height), _) => (height.min(overview.height(cx)), TERMINALS_MOST_DRAGGED),
                 (None, Some(glide)) => (
                     glide.at(overview.height(cx), clock::now()),
                     TERMINALS_MOST_DRAGGED,
