@@ -2010,11 +2010,30 @@ impl Navigator {
                     .pb(dp(CARD_PADDING))
             })
             .map(|card| match folding {
-                Some((height, closing)) => card.child(clipped(
-                    div().relative().child(el).children(guides()),
-                    dp(height),
-                    closing,
-                )),
+                // The card's end on a row a fold has nearly closed reaches up over the row above,
+                // so its corners keep their radius rather than shrink with the row, the box
+                // drawn taller than the room it takes. What it reaches over shows through: its
+                // ground starts at its own room.
+                Some((height, closing)) => {
+                    let own = height + CARD_PADDING + 1.;
+                    let reach = match last && edged {
+                        true => (2. * theme.shape.card - own).max(0.),
+                        false => 0.,
+                    };
+                    let from = reach / (reach + own);
+                    card.when(reach > 0., |el| {
+                        el.mt(dp(-reach)).pt(dp(reach)).bg(gpui::linear_gradient(
+                            180.,
+                            gpui::linear_color_stop(gpui::transparent_black(), from),
+                            gpui::linear_color_stop(theme.background, from + 0.0001),
+                        ))
+                    })
+                    .child(clipped(
+                        div().relative().child(el).children(guides()),
+                        dp(height),
+                        closing,
+                    ))
+                }
                 None if sliding => {
                     // Rounded at a card's ends, inside its corners, which square it'd cover a
                     // sliver of until the rows stop.
@@ -2027,9 +2046,11 @@ impl Navigator {
                         .when(last, |el| el.rounded_b(dp(corner)))
                         .when(crossing, |el| el.top(dp(drawn_at(ix) - slid)));
                     let over = self.over_rows(over.children(guides()), over_rank);
-                    card.children(guides()).child(over)
+                    card.child(div().relative().children(guides()).child(over))
                 }
-                None => card.child(el).children(guides()),
+                // The guides on the row alone, not its card's padding, so a tail turns into the
+                // middle of the last row's glyph, as it does while a fold moves the row.
+                None => card.child(div().relative().child(el).children(guides())),
             })
             .children(copy);
         let (left, right) = match edged {
