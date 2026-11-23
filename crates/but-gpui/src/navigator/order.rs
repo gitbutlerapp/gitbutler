@@ -107,7 +107,6 @@ impl Navigator {
     /// The button beside the account that opens the view menu.
     pub(super) fn view_button(&self, cx: &Context<Self>) -> AnyElement {
         icon_button("watched-view-options", Icon::Mixer)
-            .small()
             .tooltip("Order and fold watched projects")
             .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
                 this.open_menu(event.position(), |this, cx| this.view_menu(cx), cx)

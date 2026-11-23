@@ -4599,6 +4599,9 @@ impl Render for Navigator {
         let top_left = crate::menu_bar::top_left_room(window, &store.prefs, &theme);
         // Level with the location bar: the same height, from the window's top, and no rule
         // along its bottom as the cards scroll under it, as the bar has none either.
+        let filter_open = self.filter.focus_handle(cx).is_focused(window)
+            || !self.filter.read(cx).text().is_empty();
+        let ruled = !self.floating && detail_shown >= 1.;
         let header = h_flex()
             .h(dp(HEADER_HEIGHT))
             .flex_none()
@@ -4610,21 +4613,48 @@ impl Render for Navigator {
                 None => el.pl(dp(8.)),
             })
             // Clear of the window's buttons, where the app draws them over its right end, as the
-            // detail slides away from under them.
+            // detail slides away from under them. Beside the detail, its line is at its end.
             .map(
                 |el| match crate::ui::draws_window_controls(window) && detail_shown < 1. {
                     true => {
                         el.pr(theme.scaled(8.) + fixed(WINDOW_CONTROLS_WIDTH * (1. - detail_shown)))
                     }
+                    false if ruled => el,
                     false => el.pr(dp(8.)),
                 },
             )
             .when(!self.floating, crate::ui::drags_window)
-            .gap(dp(6.))
-            .child(self.filter_field(window, &theme, cx))
+            .gap(dp(4.))
+            // As 🍑 But UI's SidebarHeader: the filter is a button until it's opened, then a
+            // field in the room before the buttons for as long as it has the keys or a filter.
+            .map(|el| match filter_open {
+                true => el.child(self.filter_field(window, &theme, cx)),
+                false => el.child(div().flex_1()).child(above_drag(
+                    div().child(
+                        icon_button("open-filter", Icon::Filter)
+                            .tooltip_for("Filter", &FocusFilter)
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                window.focus(&this.filter.focus_handle(cx), cx);
+                                cx.notify();
+                            })),
+                    ),
+                )),
+            })
             .children(self.update_button(cx).map(|el| above_drag(div().child(el))))
             .child(above_drag(div().child(self.view_button(cx))))
-            .child(above_drag(div().child(self.settings_button(&theme, cx))));
+            .child(above_drag(div().child(self.settings_button(&theme, cx))))
+            // The line at the sidebar's end, setting it apart from the location bar beside it, 10
+            // from the avatar.
+            .when(ruled, |el| {
+                el.child(
+                    div()
+                        .flex_none()
+                        .ml(dp(6.))
+                        .w(fixed(1.))
+                        .h(dp(18.))
+                        .bg(theme.border),
+                )
+            });
         let store = self.store.read(cx);
         let moving = store.moving.is_some();
         let squashing =
