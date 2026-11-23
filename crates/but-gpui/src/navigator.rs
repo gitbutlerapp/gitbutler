@@ -2883,11 +2883,16 @@ impl Navigator {
                 el.children(style.files(files))
                     .children(style.unpushed(unpushed))
             })
-            .children(target.and_then(|t| {
-                let behind = plural(t.behind, "commit");
-                let tip = format!("{behind} behind {}{}", t.name, with_merged(t));
-                count(MetaCountType::Behind, t.behind, tip, style)
-            }))
+            // A watched project that can update says how far behind on its Update button.
+            .children(
+                target
+                    .filter(|_| !(expanded && needs_update))
+                    .and_then(|t| {
+                        let behind = plural(t.behind, "commit");
+                        let tip = format!("{behind} behind {}{}", t.name, with_merged(t));
+                        count(MetaCountType::Behind, t.behind, tip, style)
+                    }),
+            )
             .children(held.into_iter().flatten())
             .when(entry.is_loading(), |el| {
                 el.child(small_icon(Icon::Clock).text_color(theme.subtle_foreground))
@@ -2915,7 +2920,7 @@ impl Navigator {
         // Only a watched project's: an unwatched one updates from its page or its menu, which
         // keeps the list of the others quiet.
         let row = match expanded && needs_update {
-            true => row.action(self.target_update_button(id, style.solid, cx)),
+            true => row.action(self.target_update_button(id, target, style.solid, cx)),
             false => row,
         };
         let row = row.action(eye);
@@ -3933,23 +3938,38 @@ impl Navigator {
         });
     }
 
-    /// Update, which rebases `project`'s branches and worktrees onto its target's new commits;
-    /// `inverted` on a solid selection. Pressing it leaves the selection where it is.
-    fn target_update_button(&self, project: &ProjectId, inverted: bool, cx: &Context<Self>) -> Div {
+    /// Update, which rebases `project`'s branches and worktrees onto its target's new commits,
+    /// in place of the count it acts on, as a branch's update is: how many the target is ahead,
+    /// and ↓. `inverted` on a solid selection. Pressing it leaves the selection where it is.
+    fn target_update_button(
+        &self,
+        project: &ProjectId,
+        target: Option<&Target>,
+        inverted: bool,
+        cx: &Context<Self>,
+    ) -> Div {
         let updating = self.store.read(cx).updating(project);
         let project = project.clone();
-        let update = button(
-            ElementId::Name(format!("update-{project}").into()),
-            "Update",
-        )
+        let id = ElementId::Name(format!("update-{project}").into());
+        // Only its worktrees behind, the workspace has no count to show.
+        let update = match target.filter(|t| t.behind > 0) {
+            Some(t) => button(id, t.behind.to_string())
+                .icon_end(Icon::ArrowDown)
+                .style(ButtonStyle::Warning)
+                .tooltip_for(
+                    format!("Update with {} from {}", plural(t.behind, "commit"), t.name),
+                    &UpdateFromTarget,
+                ),
+            None => button(id, "Update")
+                .style(ButtonStyle::Outline)
+                .tooltip_for(
+                    "Rebase your worktrees onto the target's new commits",
+                    &UpdateFromTarget,
+                ),
+        }
         .small()
-        .style(ButtonStyle::Outline)
         .inverted(inverted)
-        .disabled_because(updating.then_some("Updating already"))
-        .tooltip_for(
-            "Rebase your branches and worktrees onto the target's new commits",
-            &UpdateFromTarget,
-        );
+        .disabled_because(updating.then_some("Updating already"));
         let step = self.row_step(update, cx, move |this, window, cx| {
             let project = project.clone();
             this.app.update_later(window, cx, move |app, _, cx| {
