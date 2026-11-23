@@ -223,8 +223,7 @@ impl Navigator {
     /// are, as cards don't fold.
     pub(super) fn drawer_toggles(&self, cx: &App) -> bool {
         // Under its tab the card shows it whole, with nothing to fold.
-        self.scope.is_none()
-            && (self.built.drawer.total > 0 && !self.built.rows.is_empty() && !self.filtering(cx))
+        self.scope.is_none() && (!self.built.rows.is_empty() && !self.filtering(cx))
     }
 
     /// Whether the keys were stepped up off the rows onto the tab the card being worked on hangs

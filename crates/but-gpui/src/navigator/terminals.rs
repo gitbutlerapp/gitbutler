@@ -37,13 +37,14 @@ use crate::ui::Text;
 use crate::ui::fold::{Folds, Place, clipped};
 use crate::ui::text_input::TextInput;
 use crate::ui::{
-    Button, Icon, dp, faint, field, fixed, fold_button, guide, icon_button, section_label,
-    small_icon, v_flex,
+    Button, ButtonStyle, EMPTY_TIDY_HEIGHT, Icon, button, dp, empty_state_tidy, faint, field,
+    fixed, fold_button, guide, icon_button, section_label, small_icon, v_flex,
 };
 
-/// How far the bar's 12-point chevron sits in from the bar's left edge: its middle where a
-/// navigator row's icon's is, so the overview's chevrons line up with the navigator's icons.
-const BAR_PADDING: f32 = ICON_MIDDLE - CARD_BAR_INSET - 6.;
+/// The room around a drawer's empty state in its card, above and below it and at its sides, as
+/// but-ui-react's Drawer stories give it.
+pub(super) const EMPTY_CARD_PADDING: (f32, f32) = (28., 16.);
+
 /// How far a heading sits in from where a row's content starts, its 14-point chevron's middle
 /// under the bar's.
 const HEADING_INDENT: f32 = ICON_MIDDLE - (ROW_LEFT + 7.);
@@ -325,6 +326,25 @@ impl TerminalOverview {
     }
 
     /// Whether it shows only its bar: folded to it, and not in the card under its tab.
+    /// Where a new terminal opens, as its empty card says: the project and worktree of the
+    /// selection, which the picker New terminal opens starts on, a project's being its main one.
+    fn opens_in(&self, cx: &App) -> String {
+        let store = self.store.read(cx);
+        let place = store.selection.as_ref().and_then(|selection| {
+            let checkout = crate::palette::terminal_checkout(store, selection)?;
+            let project = store.project(selection.project())?;
+            let worktree = match checkout {
+                Checkout::Main => "Main worktree".to_owned(),
+                Checkout::Linked(name) => name.to_string(),
+            };
+            Some(format!("{} / {worktree}", project.project.name))
+        });
+        match place {
+            Some(place) => format!("New ones open in {place}"),
+            None => "Pick a worktree for a new one".to_owned(),
+        }
+    }
+
     fn folded_away(&self, cx: &App) -> bool {
         self.shut && !self.in_tab(cx)
     }
@@ -347,6 +367,10 @@ impl TerminalOverview {
             true => bar,
             false => bar + DRAWER_GAP + 2. + DRAWER_BLOCK + 1.,
         };
+        // None open, a card saying so, as tall as its padding and what it says.
+        if self.items.is_empty() {
+            return bar + EMPTY_CARD_PADDING.0 * 2. + EMPTY_TIDY_HEIGHT;
+        }
         let row = Theme::get(cx).sizes.control;
         let rows = match self.folds.any() {
             true => (0..self.items.len())
@@ -890,18 +914,34 @@ impl Render for TerminalOverview {
         let outlined = self.store.read(cx).prefs.shows(Part::FocusOutline)
             && self.keys.in_list(&List::Terminals);
         let in_tab = self.in_tab(cx);
+        let empty = self.items.is_empty();
         let rows = (!folded_away).then(|| {
-            let rows = match self.items.is_empty() {
-                true => div()
-                    .h(dp(theme.sizes.control))
-                    .flex()
-                    .items_center()
-                    // Under the bar's name, past its chevron and the gap after it, if it has one.
-                    .pl(dp(CARD_BAR_INSET
-                        + BAR_PADDING
-                        + if in_tab { 0. } else { 12. + 6. }))
-                    .child(faint("No terminals open", theme))
-                    .into_any_element(),
+            let rows = match empty {
+                // As but-ui-react's Drawer with none: a tidy empty state saying where a new one
+                // opens, and a button opening one.
+                true => {
+                    let app = self.app.clone();
+                    let new_terminal = button("overview-empty-new-terminal", "New terminal")
+                        .small()
+                        .style(ButtonStyle::Gray)
+                        .icon_end(Icon::Plus)
+                        .on_click(move |_, window, cx| {
+                            app.update_later(window, cx, |app, window, cx| {
+                                app.new_terminal_in(window, cx)
+                            })
+                        })
+                        .into_any_element();
+                    div()
+                        .py(dp(EMPTY_CARD_PADDING.0))
+                        .px(dp(EMPTY_CARD_PADDING.1))
+                        .child(empty_state_tidy(
+                            "No terminals open",
+                            self.opens_in(cx),
+                            [new_terminal],
+                            theme,
+                        ))
+                        .into_any_element()
+                }
                 false => list(
                     self.list.clone(),
                     cx.processor(|this, ix: usize, _, cx| this.render_item(ix, cx)),
@@ -913,7 +953,7 @@ impl Render for TerminalOverview {
                 .id("terminal-overview-rows")
                 .flex_1()
                 .min_h_0()
-                .pb(dp(CARD_PADDING))
+                .when(!empty, |el| el.pb(dp(CARD_PADDING)))
                 // Its rows in a card under the bar, as but-ui-react's Drawer holds them; the card
                 // under its tab is its edges.
                 .when(!in_tab, |el| {

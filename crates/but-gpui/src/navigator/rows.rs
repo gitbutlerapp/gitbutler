@@ -97,6 +97,9 @@ pub(super) enum Row {
     /// In a linked worktree's section, a branch its lane rests on, by the row it selects, with
     /// the checkout it's in on the first of each lane.
     RestsOn(Selection, Option<Checkout>),
+    /// The drawer with no projects hidden in it: a card saying so, as but-ui-react's Drawer
+    /// draws it empty.
+    Empty,
 }
 
 /// What a row is across rebuilds, for a reorder to slide it from where it was.
@@ -205,6 +208,7 @@ impl Row {
         match self {
             Row::Gap => super::CARD_GAP + 2. * CARD_EDGE,
             Row::Between(_) => 0.,
+            Row::Empty => super::DRAWER_EMPTY,
             // Worktrees follow one another with nothing between, as 🍑 But UI's sidebar has
             // them; the divider stays, for what drops and moves between them.
             Row::WorktreeDivider => 0.,
@@ -596,6 +600,10 @@ impl Navigator {
             grouped.resize(cards.rows.len(), !shown);
         }
         parting.resize(cards.rows.len(), None);
+        if others.is_empty() {
+            cards.push(Row::Empty);
+            grouped.push(false);
+        }
         if listed.is_empty() && !others.is_empty() {
             cards.push(Row::Note("None active in the last 7 days".into(), false));
             grouped.push(true);

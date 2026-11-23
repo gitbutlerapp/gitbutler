@@ -1098,6 +1098,15 @@ fn terminal_choice(
         .goes_to(goes_to)
 }
 
+/// The worktree a new terminal opens in for `selection`: the one it's in, or a project's main
+/// one for the project's own row.
+pub(crate) fn terminal_checkout(store: &Store, selection: &Selection) -> Option<Checkout> {
+    match selection {
+        Selection::Project(_) => Some(Checkout::Main),
+        _ => store.checkout_of(selection),
+    }
+}
+
 /// A row of the picker the terminal overview's + opens: `checkout` of `entry`'s project, which
 /// a new terminal opens on, by its name, its branch beside it.
 fn terminal_place_choice(
@@ -1457,7 +1466,7 @@ impl AppView {
             return snack(&self.store, "No worktrees to open a terminal in", cx);
         }
         let here = (store.selection.as_ref()).and_then(|selection| {
-            let checkout = store.checkout_of(selection)?;
+            let checkout = terminal_checkout(store, selection)?;
             Some(Selection::Checkout(selection.project().clone(), checkout))
         });
         self.open_picker(None, "Open a terminal in", "Open", choices, window, cx);

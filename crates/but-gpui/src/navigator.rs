@@ -40,9 +40,10 @@ use crate::ui::scrollbar::{Scroll, scrolled_in_gap};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     BLINK, Button, ButtonStyle, HEADER_HEIGHT, Icon, MetaCountType, Tooltip, WINDOW_CONTROLS_WIDTH,
-    above_drag, blink_once, button, commit_title, count_badge, dp, faint, field, field_leading,
-    fixed, gap_divider, glow_once, guide_end_in, guide_in, h_flex, icon_at, icon_button, list_row,
-    mark_dragged, meta_count_on, plural, pulsing, review, section_label, small_icon, v_flex,
+    above_drag, blink_once, button, commit_title, count_badge, dp, empty_state_tidy, faint, field,
+    field_leading, fixed, gap_divider, glow_once, guide_end_in, guide_in, h_flex, icon_at,
+    icon_button, list_row, mark_dragged, meta_count_on, plural, pulsing, review, section_label,
+    small_icon, v_flex,
 };
 use crate::ui::{
     CommitPlace, Fold as RowFold, MetaStatusVariant, PullRequestState, SidebarRow, SplitCell,
@@ -133,6 +134,10 @@ pub(super) const DRAWER_GAP: f32 = 8.;
 /// How tall the projects' drawer is around its rows: its hairline and the room over its row, the
 /// row, the room under it, and its card's edges, which take their room folded too.
 const DRAWER_CHROME: f32 = 1. + DRAWER_BLOCK + DRAWER_ROW + DRAWER_GAP + 2.;
+/// How tall the drawer's card is with no projects hidden in it: its edges, the room around its
+/// empty state, and the state.
+pub(super) const DRAWER_EMPTY: f32 =
+    2. + 2. * terminals::EMPTY_CARD_PADDING.0 + crate::ui::EMPTY_TIDY_HEIGHT;
 /// How far a drawer's line takes a press to drag it on either side of it.
 pub(crate) const DIVIDER_REACH: f32 = 6.;
 /// The most of the column the hidden projects' drawer takes once its line is dragged, as the
@@ -1795,6 +1800,8 @@ impl Navigator {
             // A dashed line, as but-ui-react's WorktreeDivider.
             // Nothing between worktrees, as 🍑 But UI's sidebar has them.
             Some(Row::WorktreeDivider) => div().into_any_element(),
+            // Only the drawer's.
+            Some(Row::Empty) => div().into_any_element(),
             // Across the card, edge to edge, as but-ui-react's card header's border.
             Some(Row::HeaderRule(_)) => div()
                 .h(dp(HEADER_RULE))
@@ -2588,8 +2595,10 @@ impl Navigator {
         let Some(row) = drawer.rows.get(ix) else {
             return 0.;
         };
-        if matches!(row, Row::Gap) {
-            return self.drawer_gap(ix);
+        match row {
+            Row::Gap => return self.drawer_gap(ix),
+            Row::Empty => return DRAWER_EMPTY,
+            _ => {}
         }
         let (first, last) = card_ends(&drawer.rows, ix);
         let own = match row {
@@ -2912,6 +2921,31 @@ impl Navigator {
         let rows = &drawer.rows;
         if matches!(rows.get(ix), None | Some(Row::Gap)) {
             return div().h(dp(self.drawer_gap(ix))).into_any_element();
+        }
+        // None hidden, as but-ui-react's Drawer draws it empty: a card of its own saying so,
+        // and a button adding another.
+        if matches!(rows.get(ix), Some(Row::Empty)) {
+            let add = button("drawer-empty-add-project", "Add project")
+                .small()
+                .style(ButtonStyle::Gray)
+                .icon_end(Icon::Plus)
+                .dispatch(&AddProject)
+                .into_any_element();
+            return div()
+                .h(dp(DRAWER_EMPTY))
+                .py(dp(terminals::EMPTY_CARD_PADDING.0))
+                .px(dp(terminals::EMPTY_CARD_PADDING.1))
+                .bg(theme.background)
+                .border_1()
+                .border_color(theme.border_subtle)
+                .rounded(dp(theme.shape.card))
+                .child(empty_state_tidy(
+                    "Every project is showing",
+                    "Hide one and it waits here, or add another",
+                    [add],
+                    theme,
+                ))
+                .into_any_element();
         }
         let inset = drawer.insets.get(ix).copied().unwrap_or_default();
         // A row a fold is moving shows as far as it's open, as a card's rows do.
