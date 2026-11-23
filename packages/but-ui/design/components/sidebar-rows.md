@@ -12,7 +12,10 @@ Nothing appears or swaps under the pointer.
 **The end sits 4px in.** A small button at a row's end is 4px from the row's
 top and bottom, so the end is 4px from its right edge too: half of what a
 control is taller than a small one, which follows the density. Every row ends
-there, with a button or not, so the end column stays one line down a tree.
+there, with a button or not, so the end column stays one line down a tree. A
+mark with no edge or padding of its own, a split's map, sits 4px further in, as
+a count's glyph does inside its own padding, so it doesn't look stuck to the
+edge.
 
 ## The end, row by row
 

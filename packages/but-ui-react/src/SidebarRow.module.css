@@ -385,12 +385,15 @@ button.toggle {
 	justify-content: center;
 	width: 16px;
 	margin-inline-start: var(--but-space-sm);
+	/* A mark with no edge or padding of its own, so it stands as far in as a count's glyph does
+	   rather than looking stuck to the row's end. */
+	margin-inline-end: var(--but-space-sm);
 }
 
 /* In a tree that shows splits, a row without one keeps the cell's room, the end's gap and the
-   cell's own step, so the counts line up down the list too. */
+   cell's own step on either side, so the counts line up down the list too. */
 :where([data-split-room]) .row:not(:has(> .end > .split)) {
-	padding-inline-end: calc(var(--row-end) + 16px + 2 * var(--but-space-sm));
+	padding-inline-end: calc(var(--row-end) + 16px + 3 * var(--but-space-sm));
 }
 
 /* Something changed since the row was last opened: a dot in the row's start padding, before its

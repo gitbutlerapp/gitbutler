@@ -472,6 +472,9 @@ impl SidebarRow {
                             .flex_none()
                             .w(dp(16.))
                             .ml(dp(4.))
+                            // A mark with no edge or padding of its own, set in as far as a
+                            // count's glyph, so it doesn't look stuck to the row's end.
+                            .mr(dp(4.))
                             .justify_center()
                             .child(map)
                     }))
@@ -500,7 +503,7 @@ impl SidebarRow {
                 (false, false, false) if self.quiet => el,
                 (false, false, false) => el.hover(|el| el.bg(theme.hover)),
             })
-            .when(split_room, |el| el.pr(dp(end_pad + 16. + 4. + 4.)))
+            .when(split_room, |el| el.pr(dp(end_pad + 4. + 16. + 4. + 4.)))
             .children(steps)
             .children(glyph)
             .child(
