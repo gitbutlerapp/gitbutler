@@ -63,7 +63,7 @@ const Back: FC = () => (
 	</Tooltip>
 );
 
-/** The repo's other checkouts, as but.dev draws them: how many, how many differ, and a ⌃⌄ to list them. */
+/** The repo's other checkouts: how many, how many differ, and a ⌃⌄ to list them. */
 const Elsewhere: FC = () => (
 	<span style={{ display: "inline-flex", alignItems: "center", columnGap: 4 }}>
 		Also in 2 places
@@ -75,7 +75,7 @@ const Elsewhere: FC = () => (
 	</span>
 );
 
-/** The machine's state, as but.dev draws it: a dot and a word, then Refresh. */
+/** The machine's state: a dot and a word, then Refresh. */
 const Live: FC = () => (
 	<>
 		<span style={{ display: "inline-flex", alignItems: "center", columnGap: 6 }}>

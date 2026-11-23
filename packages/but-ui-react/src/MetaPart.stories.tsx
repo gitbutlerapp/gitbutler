@@ -63,7 +63,7 @@ const RepoHeader = () => (
 );
 
 /**
- * A repo's header in but.dev, MetaParts beside MetaCounts in a ViewHeader's meta line. The pane
+ * A repo's header, MetaParts beside MetaCounts in a ViewHeader's meta line. The pane
  * is a size container over 640px wide, so the words show.
  */
 export const InAHeader = meta.story({
