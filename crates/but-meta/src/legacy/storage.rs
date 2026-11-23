@@ -65,8 +65,8 @@ pub fn read_legacy_project_meta(
 
 /// Read virtual-branches state from the DB, which is the source of truth.
 ///
-/// Only an uninitialized DB reads the TOML file: it imports the TOML if it is valid, and otherwise
-/// starts empty. After that, the TOML file is a write-only copy for older clients.
+/// An uninitialized DB starts empty and never imports the TOML file, which is only written for
+/// older clients.
 pub fn read_synced_virtual_branches(path: &Path) -> anyhow::Result<VirtualBranches> {
     let mut db = db_handle_from_toml_path(path)?;
     let mut tx = db.immediate_transaction()?;
@@ -107,22 +107,10 @@ fn read_or_init_vb_storage(
 
     let mut state = snapshot.state;
     state.initialized = true;
-    match read_toml_info(path)? {
-        TomlInfo::Parsed(parsed) => {
-            parsed.update_last_seen_metadata_on(&mut state);
-            let db_snapshot = legacy_to_snapshot(&parsed.data, into_db_toml_file_info(state))?;
-            persist_snapshot(tx, db_snapshot)?;
-            Ok(parsed.data)
-        }
-        TomlInfo::Missing | TomlInfo::Invalid => {
-            let empty = VirtualBranches::default();
-            let info = write_toml(path, &empty)?;
-            info.update_last_seen_metadata_on(&mut state);
-            let db_snapshot = legacy_to_snapshot(&empty, into_db_toml_file_info(state))?;
-            persist_snapshot(tx, db_snapshot)?;
-            Ok(empty)
-        }
-    }
+    let empty = VirtualBranches::default();
+    let db_snapshot = legacy_to_snapshot(&empty, into_db_toml_file_info(state))?;
+    persist_snapshot(tx, db_snapshot)?;
+    Ok(empty)
 }
 
 /// Fail loudly when failing to open a database as this really should work, it's just the normal
@@ -136,8 +124,7 @@ fn db_handle_from_toml_path(path: &Path) -> anyhow::Result<but_db::DbHandle> {
         );
     };
 
-    // Special case: in read-only tests, the TOML file is always authoritative, don't write
-    // into read-only fixtures. It's bad we have to do this.
+    // Special case: don't write into read-only test fixtures. It's bad we have to do this.
     if path
         .iter()
         .any(|component| component == "generated-do-not-edit")
@@ -195,33 +182,6 @@ fn write_toml(path: &Path, data: &VirtualBranches) -> anyhow::Result<TomlFileSta
         mtime_ns,
         sha256_hexdigest: sha256_hex_hash(&bytes),
     })
-}
-
-/// Parse [`VirtualBranches`] from `path` with a lot of error handling.
-fn read_toml_info(path: &Path) -> anyhow::Result<TomlInfo> {
-    let (bytes, metadata) = match read_file_bytes_and_metadata(path) {
-        Ok(out) => out,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(TomlInfo::Missing),
-        Err(err) => return Err(err.into()),
-    };
-    let mtime_ns = file_mtime_ns(&metadata)?;
-    let content = match String::from_utf8(bytes.clone()) {
-        Ok(content) => content,
-        Err(_err) => {
-            return Ok(TomlInfo::Invalid);
-        }
-    };
-    match toml::from_str::<VirtualBranches>(&content) {
-        Ok(data) => {
-            let sha256 = sha256_hex_hash(&bytes);
-            Ok(TomlInfo::Parsed(ParsedToml {
-                data,
-                mtime_ns,
-                sha256_hexdigest: sha256,
-            }))
-        }
-        Err(_err) => Ok(TomlInfo::Invalid),
-    }
 }
 
 /// This should work for the case where the date is before the unix epoch,
@@ -467,25 +427,6 @@ fn snapshot_to_legacy(snapshot: &VirtualBranchesSnapshot) -> anyhow::Result<Virt
         branches,
         last_pushed_base,
     })
-}
-
-enum TomlInfo {
-    Missing,
-    Parsed(ParsedToml),
-    Invalid,
-}
-
-struct ParsedToml {
-    data: VirtualBranches,
-    mtime_ns: i64,
-    sha256_hexdigest: String,
-}
-
-impl ParsedToml {
-    fn update_last_seen_metadata_on(&self, state: &mut VbState) {
-        state.toml_last_seen_mtime_ns = Some(self.mtime_ns);
-        state.toml_last_seen_sha256 = Some(self.sha256_hexdigest.clone());
-    }
 }
 
 struct TomlFileState {

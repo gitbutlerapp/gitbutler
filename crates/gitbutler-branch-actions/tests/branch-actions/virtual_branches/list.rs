@@ -4,7 +4,8 @@ use but_testsupport::{CommandExt, git_at_dir};
 #[test]
 fn one_vbranch_in_workspace() -> Result<()> {
     init_env();
-    let list = list_branches(&project_ctx("one-vbranch-in-workspace")?, None)?;
+    let (ctx, _tmp) = project_ctx("one-vbranch-in-workspace")?;
+    let list = list_branches(&ctx, None)?;
     assert_eq!(list.len(), 1);
 
     assert_equal(
@@ -24,7 +25,7 @@ fn one_vbranch_in_workspace() -> Result<()> {
 #[test]
 fn one_vbranch_in_workspace_one_commit() -> Result<()> {
     init_env();
-    let ctx = project_ctx("one-vbranch-in-workspace-one-commit")?;
+    let (ctx, _tmp) = project_ctx("one-vbranch-in-workspace-one-commit")?;
     let list = list_branches(&ctx, None)?;
     assert_eq!(list.len(), 1);
 
@@ -163,8 +164,8 @@ mod util {
         }
     }
 
-    pub fn project_ctx(name: &str) -> Result<Context> {
-        crate::driverless::read_only_context("for-listing.sh", name)
+    pub fn project_ctx(name: &str) -> Result<(Context, tempfile::TempDir)> {
+        crate::driverless::writable_context("for-listing.sh", name)
     }
 
     pub fn list_branches(
