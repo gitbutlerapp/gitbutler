@@ -38,6 +38,8 @@ pub struct Button {
     /// Why it can't be pressed, shown in place of its tooltip.
     disabled: Option<SharedString>,
     small: bool,
+    /// 24px, as React's `medium`: a row of buttons in a dense header.
+    medium: bool,
     min_width: Option<Rems>,
     inverted: bool,
     /// The hue of the ground it sits on, as a banner's action takes its banner's.
@@ -74,6 +76,7 @@ pub fn button(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Butto
         pressed: false,
         disabled: None,
         small: false,
+        medium: false,
         min_width: None,
         inverted: false,
         tint: None,
@@ -138,6 +141,13 @@ impl Button {
 
     pub fn small(mut self) -> Self {
         self.small = true;
+        self
+    }
+
+    /// 24px, as React's `medium`: a row of buttons in a dense header, or a drawer's at the
+    /// sidebar's foot.
+    pub fn medium(mut self) -> Self {
+        self.medium = true;
         self
     }
 
@@ -295,9 +305,16 @@ impl RenderOnce for Button {
         };
         let (fg, bg, border) = (fade(fg), bg.map(fade), border.map(fade));
         // but-ui's button tokens (`packages/but-ui/components/button.tokens.json`); the heights
-        // are `size-control(-sm)`, which `theme.sizes` moves with density.
+        // are `size-control(-md|-sm)`, which `theme.sizes` moves with density.
         let sizes = theme.sizes;
         let (height, width, gap, padding, icon_size) = match self.small {
+            false if self.medium => (
+                sizes.control_md,
+                sizes.control_md + 2.,
+                tokens::BUTTON_MEDIUM_GAP,
+                tokens::BUTTON_MEDIUM_PADDING_INLINE,
+                tokens::BUTTON_MEDIUM_ICON_SIZE,
+            ),
             true => (
                 sizes.control_sm,
                 sizes.control_sm + 2.,
@@ -345,7 +362,7 @@ impl RenderOnce for Button {
             })
             .when_some(self.min_width, |el, width| el.min_w(width).justify_center())
             .map(|el| {
-                if self.small {
+                if self.small || self.medium {
                     el.text_12()
                 } else {
                     el.text_13()
@@ -466,6 +483,7 @@ pub fn dropdown_button(
     let action = Button {
         half: Some(Half::Action),
         small: false,
+        medium: false,
         ..action
     };
     h_flex()

@@ -289,6 +289,8 @@ impl Default for Shape {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Sizes {
     pub control: f32,
+    /// A medium button, a row of them in a dense header.
+    pub control_md: f32,
     /// A small button or segment is 4px taller than this.
     pub control_sm: f32,
     /// A bar inside a popup, as its search row or footer.
@@ -301,6 +303,7 @@ impl Default for Sizes {
     fn default() -> Self {
         Sizes {
             control: tokens::SIZE_CONTROL,
+            control_md: tokens::SIZE_CONTROL_MD,
             control_sm: tokens::SIZE_CONTROL_SM,
             bar: tokens::SIZE_BAR,
             padding: 0.,
@@ -584,11 +587,12 @@ impl Theme {
     }
 
     pub fn with_density(mut self, density: Density) -> Self {
-        if let Some((_, [control, control_sm, bar, padding])) =
+        if let Some((_, [control, control_md, control_sm, bar, padding])) =
             (tokens::DENSITIES.iter()).find(|(name, _)| *name == density.name())
         {
             self.sizes = Sizes {
                 control: *control,
+                control_md: *control_md,
                 control_sm: *control_sm,
                 bar: *bar,
                 padding: *padding,

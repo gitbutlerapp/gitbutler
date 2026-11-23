@@ -66,7 +66,7 @@ const PARITY = [
 		react: "Button.tsx",
 		type: "ButtonSize",
 		gpui: "button.rs",
-		values: { regular: ["default"], medium: null, small: ["fn small"] },
+		values: { regular: ["default"], medium: ["fn medium"], small: ["fn small"] },
 	},
 	{
 		component: "DropdownButton",
