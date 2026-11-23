@@ -2125,7 +2125,7 @@ pick remote-commit
 struct IntegratedBranchA {
     _tmp: TempDir,
     repo: gix::Repository,
-    meta: but_meta::VirtualBranchesTomlMetadata,
+    meta: but_meta::VirtualBranchesMetadata,
     db: but_db::DbHandle,
     labels: Vec<(gix::ObjectId, &'static str)>,
     plan: String,

@@ -5,7 +5,7 @@ use snapbox::prelude::*;
 
 pub fn head_info(
     repo: &gix::Repository,
-    meta: &but_meta::VirtualBranchesTomlMetadata,
+    meta: &but_meta::VirtualBranchesMetadata,
     db: &mut but_db::DbHandle,
     opts: but_workspace::ref_info::Options,
 ) -> anyhow::Result<RefInfo> {
@@ -14,7 +14,7 @@ pub fn head_info(
 
 pub fn head_info_and_workspace(
     repo: &gix::Repository,
-    meta: &but_meta::VirtualBranchesTomlMetadata,
+    meta: &but_meta::VirtualBranchesMetadata,
     db: &mut but_db::DbHandle,
     mut opts: but_workspace::ref_info::Options,
 ) -> anyhow::Result<(RefInfo, but_graph::Workspace)> {
@@ -72,7 +72,7 @@ pub fn head_info_and_workspace(
 
 pub fn ref_info(
     existing_ref: gix::Reference<'_>,
-    meta: &but_meta::VirtualBranchesTomlMetadata,
+    meta: &but_meta::VirtualBranchesMetadata,
     db: &mut but_db::DbHandle,
     mut opts: but_workspace::ref_info::Options,
 ) -> anyhow::Result<RefInfo> {
@@ -3979,7 +3979,7 @@ pub(crate) mod utils {
     use but_core::ref_metadata::{ProjectMeta, StackId};
     use but_graph::init::Options;
     use but_meta::{
-        VirtualBranchesTomlMetadata,
+        VirtualBranchesMetadata,
         virtual_branches_legacy_types::{Stack, StackBranch},
     };
     use but_testsupport::gix_testtools::tempfile::TempDir;
@@ -3988,7 +3988,7 @@ pub(crate) mod utils {
         name: &str,
     ) -> anyhow::Result<(
         gix::Repository,
-        std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
+        std::mem::ManuallyDrop<VirtualBranchesMetadata>,
         but_db::DbHandle,
     )> {
         named_read_only_in_memory_scenario("with-remotes-and-workspace", name)
@@ -3999,7 +3999,7 @@ pub(crate) mod utils {
     ) -> anyhow::Result<(
         TempDir,
         gix::Repository,
-        VirtualBranchesTomlMetadata,
+        VirtualBranchesMetadata,
         but_db::DbHandle,
     )> {
         let tmp = but_testsupport::gix_testtools::scripted_fixture_writable(
@@ -4007,7 +4007,7 @@ pub(crate) mod utils {
         )
         .map_err(anyhow::Error::from_boxed)?;
         let repo = but_testsupport::open_repo(&tmp.path().join(name))?;
-        let meta = VirtualBranchesTomlMetadata::from_path(repo.path())?;
+        let meta = VirtualBranchesMetadata::from_path(repo.path())?;
         project_meta(&repo)?.persist(&repo)?;
         let db = but_testsupport::project_db(&repo)?;
         Ok((tmp, repo, meta, db))
@@ -4018,7 +4018,7 @@ pub(crate) mod utils {
         name: &str,
     ) -> anyhow::Result<(
         gix::Repository,
-        std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
+        std::mem::ManuallyDrop<VirtualBranchesMetadata>,
         but_db::DbHandle,
     )> {
         crate::ref_info::utils::named_read_only_in_memory_scenario(script, name)
@@ -4040,7 +4040,7 @@ pub(crate) mod utils {
 
     pub fn graph(
         repo: &gix::Repository,
-        meta: &VirtualBranchesTomlMetadata,
+        meta: &VirtualBranchesMetadata,
         db: &mut but_db::DbHandle,
     ) -> anyhow::Result<but_graph::Graph> {
         let project_meta = project_meta(repo)?;
@@ -4050,7 +4050,7 @@ pub(crate) mod utils {
     /// Retain the fixture's stored cutoff without configuring a target branch.
     pub fn graph_with_cutoff_only(
         repo: &gix::Repository,
-        meta: &VirtualBranchesTomlMetadata,
+        meta: &VirtualBranchesMetadata,
         db: &mut but_db::DbHandle,
     ) -> anyhow::Result<but_graph::Graph> {
         let project_meta = ProjectMeta {
@@ -4073,7 +4073,7 @@ pub(crate) mod utils {
     ) -> anyhow::Result<(
         TempDir,
         gix::Repository,
-        VirtualBranchesTomlMetadata,
+        VirtualBranchesMetadata,
         String,
         but_db::DbHandle,
     )> {
@@ -4082,12 +4082,12 @@ pub(crate) mod utils {
 
     pub fn named_writable_scenario_with_description_and_graph(
         name: &str,
-        init_meta: impl FnMut(&mut VirtualBranchesTomlMetadata),
+        init_meta: impl FnMut(&mut VirtualBranchesMetadata),
     ) -> anyhow::Result<(
         TempDir,
         but_graph::Graph,
         gix::Repository,
-        VirtualBranchesTomlMetadata,
+        VirtualBranchesMetadata,
         String,
         but_db::DbHandle,
     )> {
@@ -4100,7 +4100,7 @@ pub(crate) mod utils {
     ) -> anyhow::Result<(
         TempDir,
         gix::Repository,
-        VirtualBranchesTomlMetadata,
+        VirtualBranchesMetadata,
         String,
         but_db::DbHandle,
     )> {
@@ -4123,12 +4123,12 @@ pub(crate) mod utils {
     pub fn named_writable_scenario_with_args_and_description_and_graph(
         name: &str,
         args: impl IntoIterator<Item = impl Into<String>>,
-        mut init_meta: impl FnMut(&mut VirtualBranchesTomlMetadata),
+        mut init_meta: impl FnMut(&mut VirtualBranchesMetadata),
     ) -> anyhow::Result<(
         TempDir,
         but_graph::Graph,
         gix::Repository,
-        VirtualBranchesTomlMetadata,
+        VirtualBranchesMetadata,
         String,
         but_db::DbHandle,
     )> {
@@ -4145,7 +4145,7 @@ pub(crate) mod utils {
     ) -> anyhow::Result<(
         TempDir,
         gix::Repository,
-        VirtualBranchesTomlMetadata,
+        VirtualBranchesMetadata,
         but_db::DbHandle,
     )> {
         let (a, b, c, _desc, db) = named_writable_scenario_with_description(name)?;
@@ -4157,7 +4157,7 @@ pub(crate) mod utils {
         name: &str,
     ) -> anyhow::Result<(
         gix::Repository,
-        std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
+        std::mem::ManuallyDrop<VirtualBranchesMetadata>,
         String,
         but_db::DbHandle,
     )> {
@@ -4171,7 +4171,7 @@ pub(crate) mod utils {
         Inactive,
     }
 
-    pub fn add_workspace(meta: &mut VirtualBranchesTomlMetadata) {
+    pub fn add_workspace(meta: &mut VirtualBranchesMetadata) {
         add_stack(
             meta,
             u128::MAX,
@@ -4181,7 +4181,7 @@ pub(crate) mod utils {
     }
 
     pub fn add_stack(
-        meta: &mut VirtualBranchesTomlMetadata,
+        meta: &mut VirtualBranchesMetadata,
         stack_id: u128,
         stack_name: &str,
         state: StackState,
@@ -4191,7 +4191,7 @@ pub(crate) mod utils {
 
     // Add parameters as needed.
     pub fn add_stack_with_segments(
-        meta: &mut VirtualBranchesTomlMetadata,
+        meta: &mut VirtualBranchesMetadata,
         stack_id: u128,
         stack_name: &str,
         state: StackState,

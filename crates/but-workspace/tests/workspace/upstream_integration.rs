@@ -1805,7 +1805,7 @@ fn local_only_empty_direct_checkout_is_preserved() -> Result<()> {
 fn checked_out_local_target_workspace() -> Result<(
     tempfile::TempDir,
     gix::Repository,
-    but_meta::VirtualBranchesTomlMetadata,
+    but_meta::VirtualBranchesMetadata,
     but_db::DbHandle,
     but_graph::Workspace,
 )> {
@@ -3875,12 +3875,12 @@ fn leaves_checked_out_local_target_branch_unchanged() -> Result<()> {
 fn worktree_workspace() -> Result<(
     tempfile::TempDir,
     gix::Repository,
-    but_meta::VirtualBranchesTomlMetadata,
+    but_meta::VirtualBranchesMetadata,
     but_db::DbHandle,
 )> {
     // Linked worktrees record absolute paths, so the fixture is executed rather than copied.
     let (repo, tmp) = crate::utils::writable_scenario_slow("worktree-workspace");
-    let mut meta = but_meta::VirtualBranchesTomlMetadata::from_path(repo.path())?;
+    let mut meta = but_meta::VirtualBranchesMetadata::from_path(repo.path())?;
     crate::ref_info::with_workspace_commit::utils::add_workspace(&mut meta);
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
@@ -4094,7 +4094,7 @@ fn lanes_left_out_of_an_update_are_behind_the_target() -> Result<()> {
         ])
         .run();
     let workspace = |target: &str,
-                     meta: &but_meta::VirtualBranchesTomlMetadata,
+                     meta: &but_meta::VirtualBranchesMetadata,
                      db: &mut but_db::DbHandle|
      -> Result<but_graph::Workspace> {
         but_graph::Graph::from_head(
@@ -4119,7 +4119,7 @@ fn lanes_left_out_of_an_update_are_behind_the_target() -> Result<()> {
         ))
     };
     let update = |workspace: &mut but_graph::Workspace,
-                  meta: &mut but_meta::VirtualBranchesTomlMetadata,
+                  meta: &mut but_meta::VirtualBranchesMetadata,
                   db: &mut but_db::DbHandle,
                   bottoms: &[&str]|
      -> Result<()> {

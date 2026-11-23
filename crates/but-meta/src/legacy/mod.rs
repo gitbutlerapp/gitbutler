@@ -87,7 +87,7 @@ impl Snapshot {
         }
     }
 
-    /// The vb.toml snapshot held internally is marked as changed so it will be written back to disk on drop.
+    /// The snapshot held internally is marked as changed so it will be written back to disk on drop.
     pub fn set_changed_to_necessitate_write(&mut self) {
         self.changed_at = Some(Instant::now());
     }
@@ -234,7 +234,7 @@ impl Snapshot {
     fn project_workspace(&self, repo: &gix::Repository) -> anyhow::Result<but_graph::Workspace> {
         let mut reference = repo.find_reference(INTEGRATION_BRANCH)?;
         let commit_id = reference.peel_to_commit()?.id;
-        let sideeffect_free_meta = std::mem::ManuallyDrop::new(VirtualBranchesTomlMetadata {
+        let sideeffect_free_meta = std::mem::ManuallyDrop::new(VirtualBranchesMetadata {
             snapshot: Snapshot {
                 changed_at: None,
                 ..self.clone()
@@ -261,7 +261,7 @@ impl Snapshot {
 ///
 /// The idea is that it's forgiving and easy to use, while helping to eventually migrate to a database.
 #[derive(Debug)]
-pub struct VirtualBranchesTomlMetadata {
+pub struct VirtualBranchesMetadata {
     snapshot: Snapshot,
     // Invariant: this stays `true` for normal metadata instances so `Drop` persists pending
     // changes. It is set to `false` only in consuming explicit-write paths after the final write
@@ -269,7 +269,7 @@ pub struct VirtualBranchesTomlMetadata {
     write_on_drop: bool,
 }
 
-impl VirtualBranchesTomlMetadata {
+impl VirtualBranchesMetadata {
     pub fn from_path(path: impl Into<PathBuf>) -> anyhow::Result<Self> {
         Ok(Self {
             snapshot: Snapshot::from_path(path.into())?,
@@ -341,7 +341,7 @@ impl VirtualBranchesTomlMetadata {
 }
 
 /// Mostly used in testing, and it's fine as it's intermediate, and we are very practical here.
-impl VirtualBranchesTomlMetadata {
+impl VirtualBranchesMetadata {
     /// Consider calling [Self::set_changed_to_necessitate_write()] to have the changes written back.
     pub fn data_mut(&mut self) -> &mut VirtualBranches {
         &mut self.snapshot.content
@@ -352,14 +352,14 @@ impl VirtualBranchesTomlMetadata {
         &self.snapshot.content
     }
 
-    /// The vb.toml snapshot held internally is marked as changed so it will be written back to disk on drop.
+    /// The snapshot held internally is marked as changed so it will be written back to disk on drop.
     pub fn set_changed_to_necessitate_write(&mut self) {
         self.snapshot.set_changed_to_necessitate_write();
     }
 }
 
 // Emergency-behaviour in case the application winds down, we don't want data-loss (at least a chance).
-impl Drop for VirtualBranchesTomlMetadata {
+impl Drop for VirtualBranchesMetadata {
     fn drop(&mut self) {
         if self.write_on_drop {
             self.snapshot.try_write_if_changed(None);
@@ -369,8 +369,8 @@ impl Drop for VirtualBranchesTomlMetadata {
 
 const INTEGRATION_BRANCH: &str = WORKSPACE_REF_NAME;
 
-impl RefMetadata for VirtualBranchesTomlMetadata {
-    type Handle<T> = VBTomlMetadataHandle<T>;
+impl RefMetadata for VirtualBranchesMetadata {
+    type Handle<T> = VBMetadataHandle<T>;
 
     fn iter(&self) -> impl Iterator<Item = anyhow::Result<(FullName, Box<dyn Any>)>> {
         let data = &self.snapshot.content;
@@ -406,14 +406,14 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
     fn workspace(&self, ref_name: &FullNameRef) -> anyhow::Result<Self::Handle<Workspace>> {
         if is_workspace_ref_name(ref_name) {
             let value = Self::workspace_from_data(self.data());
-            Ok(VBTomlMetadataHandle {
+            Ok(VBMetadataHandle {
                 is_default: value == default_workspace(),
                 ref_name: ref_name.to_owned(),
                 stack_id: None.into(),
                 value,
             })
         } else {
-            Ok(VBTomlMetadataHandle {
+            Ok(VBMetadataHandle {
                 is_default: true,
                 ref_name: ref_name.to_owned(),
                 stack_id: None.into(),
@@ -424,7 +424,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
 
     fn branch(&self, ref_name: &FullNameRef) -> anyhow::Result<Self::Handle<Branch>> {
         let Some((stack, branch_idx)) = find_head(self.data(), ref_name) else {
-            return Ok(VBTomlMetadataHandle {
+            return Ok(VBMetadataHandle {
                 is_default: true,
                 ref_name: ref_name.to_owned(),
                 stack_id: None.into(),
@@ -439,7 +439,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
             created_at: None,
             updated_at: None,
         };
-        Ok(VBTomlMetadataHandle {
+        Ok(VBMetadataHandle {
             is_default: false,
             ref_name: ref_name.to_owned(),
             stack_id: Some(stack.id).into(),
@@ -726,10 +726,10 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
     }
 }
 
-/// Ref metadata backed by legacy TOML for historical workspace metadata and by
+/// Ref metadata backed by [`VirtualBranchesMetadata`] for historical workspace metadata and by
 /// the project database for branch order shared with ad-hoc projections.
 pub struct BranchOrderMetadata {
-    legacy: VirtualBranchesTomlMetadata,
+    legacy: VirtualBranchesMetadata,
     db: Option<but_db::DbHandle>,
     read_only: bool,
 }
@@ -740,7 +740,7 @@ impl BranchOrderMetadata {
         db_dir: impl AsRef<Path>,
     ) -> anyhow::Result<Self> {
         Ok(Self {
-            legacy: VirtualBranchesTomlMetadata::from_path(storage_dir.as_ref().to_owned())?,
+            legacy: VirtualBranchesMetadata::from_path(storage_dir.as_ref().to_owned())?,
             db: Some(but_db::DbHandle::new_in_directory(db_dir)?),
             read_only: false,
         })
@@ -755,9 +755,7 @@ impl BranchOrderMetadata {
         db_dir: impl AsRef<Path>,
     ) -> anyhow::Result<Self> {
         Ok(Self {
-            legacy: VirtualBranchesTomlMetadata::from_path_read_only(
-                storage_dir.as_ref().to_owned(),
-            )?,
+            legacy: VirtualBranchesMetadata::from_path_read_only(storage_dir.as_ref().to_owned())?,
             db: but_db::DbHandle::open_existing_read_only_in_directory(db_dir)?,
             read_only: true,
         })
@@ -765,7 +763,7 @@ impl BranchOrderMetadata {
 }
 
 impl RefMetadata for BranchOrderMetadata {
-    type Handle<T> = VBTomlMetadataHandle<T>;
+    type Handle<T> = VBMetadataHandle<T>;
 
     fn iter(&self) -> impl Iterator<Item = anyhow::Result<(gix::refs::FullName, Box<dyn Any>)>> {
         self.legacy.iter()
@@ -930,7 +928,7 @@ impl RefMetadata for BranchOrderMetadata {
     }
 }
 
-impl VirtualBranchesTomlMetadata {
+impl VirtualBranchesMetadata {
     fn workspace_from_data(data: &VirtualBranches) -> Workspace {
         let stacks: Vec<_> = data
             .branches
@@ -988,7 +986,7 @@ impl VirtualBranchesTomlMetadata {
     }
 }
 
-pub struct VBTomlMetadataHandle<T> {
+pub struct VBMetadataHandle<T> {
     is_default: bool,
     ref_name: gix::refs::FullName,
     // Allow faster lookup next time. This is more like a PoC,
@@ -997,19 +995,19 @@ pub struct VBTomlMetadataHandle<T> {
     value: T,
 }
 
-impl<T> VBTomlMetadataHandle<T> {
+impl<T> VBMetadataHandle<T> {
     pub fn stack_id(&self) -> Option<StackId> {
         *self.stack_id.borrow()
     }
 }
 
-impl<T> AsRef<FullNameRef> for VBTomlMetadataHandle<T> {
+impl<T> AsRef<FullNameRef> for VBMetadataHandle<T> {
     fn as_ref(&self) -> &FullNameRef {
         self.ref_name.as_ref()
     }
 }
 
-impl<T> Deref for VBTomlMetadataHandle<T> {
+impl<T> Deref for VBMetadataHandle<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -1017,13 +1015,13 @@ impl<T> Deref for VBTomlMetadataHandle<T> {
     }
 }
 
-impl<T> DerefMut for VBTomlMetadataHandle<T> {
+impl<T> DerefMut for VBMetadataHandle<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.value
     }
 }
 
-impl<T> ValueInfo for VBTomlMetadataHandle<T> {
+impl<T> ValueInfo for VBMetadataHandle<T> {
     fn is_default(&self) -> bool {
         self.is_default
     }

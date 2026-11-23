@@ -1,6 +1,6 @@
 use but_core::ref_metadata::StackId;
 use but_meta::{
-    VirtualBranchesTomlMetadata,
+    VirtualBranchesMetadata,
     virtual_branches_legacy_types::{Stack, StackBranch},
 };
 use but_testsupport::StackState;
@@ -27,7 +27,7 @@ mod workspace_commit_behaviour;
 
 // Add parameters as needed.
 pub fn add_stack_with_segments(
-    meta: &mut VirtualBranchesTomlMetadata,
+    meta: &mut VirtualBranchesMetadata,
     stack_id: usize,
     stack_name: &str,
     state: StackState,

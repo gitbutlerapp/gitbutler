@@ -219,7 +219,7 @@ mod from_worktree {
     use anyhow::Result;
     use but_core::DiffSpec;
     use but_graph::Graph;
-    use but_meta::VirtualBranchesTomlMetadata;
+    use but_meta::VirtualBranchesMetadata;
     use but_rebase::graph_rebase::{Editor, LookupStep as _, mutate::InsertSide};
     use but_testsupport::{CommandExt as _, git, git_status_at_dir, visualize_commit_graph_all};
     use but_workspace::{
@@ -234,11 +234,11 @@ mod from_worktree {
     fn scenario() -> (
         gix::Repository,
         but_testsupport::gix_testtools::tempfile::TempDir,
-        std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
+        std::mem::ManuallyDrop<VirtualBranchesMetadata>,
         but_db::DbHandle,
     ) {
         let (repo, tmp) = writable_scenario_slow("worktree-amend");
-        let meta = VirtualBranchesTomlMetadata::from_path(repo.path())
+        let meta = VirtualBranchesMetadata::from_path(repo.path())
             .expect("in-memory metadata handle always opens");
         let db = but_testsupport::project_db(&repo).expect("project database always opens");
         (repo, tmp, std::mem::ManuallyDrop::new(meta), db)

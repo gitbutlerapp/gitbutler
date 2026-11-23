@@ -298,7 +298,7 @@ fn make_index_conflict(repo: &gix::Repository) -> Result<()> {
 fn upstream_conflict_fixture() -> Result<(
     but_testsupport::gix_testtools::tempfile::TempDir,
     gix::Repository,
-    but_meta::VirtualBranchesTomlMetadata,
+    but_meta::VirtualBranchesMetadata,
     String,
     but_db::DbHandle,
 )> {
@@ -311,7 +311,7 @@ fn upstream_conflict_fixture() -> Result<(
 
 fn workspace_for_stack(
     repo: &gix::Repository,
-    meta: &but_meta::VirtualBranchesTomlMetadata,
+    meta: &but_meta::VirtualBranchesMetadata,
     db: &mut but_db::DbHandle,
 ) -> Result<but_graph::Workspace> {
     let ws = but_graph::Graph::from_head(repo, meta, project_meta(repo)?, db, Options::limited())?

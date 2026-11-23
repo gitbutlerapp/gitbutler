@@ -23,7 +23,7 @@ mod with_workspace {
 
     use but_core::{RefMetadata, ref_metadata::ValueInfo};
     use but_graph::init::Options;
-    use but_meta::VirtualBranchesTomlMetadata;
+    use but_meta::VirtualBranchesMetadata;
     use but_testsupport::{graph_workspace, id_at, id_by_rev, visualize_commit_graph_all};
     use but_workspace::branch::create_reference::{Anchor, Position::*};
 
@@ -251,7 +251,7 @@ Single commit, target, no ws commit, but ws-reference
         // Finally, assure the data looks correct. Can't afford bugs in the translation.
         let path = meta.path().to_owned();
         drop(meta);
-        let meta = VirtualBranchesTomlMetadata::from_path(path)?;
+        let meta = VirtualBranchesMetadata::from_path(path)?;
         let graph = but_graph::Graph::from_head(
             &repo,
             &meta,
@@ -605,7 +605,7 @@ Single commit, target, no ws commit, but ws-reference
         // Finally, assure the data looks correct. Can't afford bugs in the translation.
         let path = meta.path().to_owned();
         drop(meta);
-        let meta = VirtualBranchesTomlMetadata::from_path(path)?;
+        let meta = VirtualBranchesMetadata::from_path(path)?;
         let graph = but_graph::Graph::from_head(
             &repo,
             &meta,
@@ -986,7 +986,7 @@ Single commit, target, no ws commit, but ws-reference
         // Finally, assure the data looks correct. Can't afford bugs in the translation.
         let path = meta.path().to_owned();
         drop(meta);
-        let meta = VirtualBranchesTomlMetadata::from_path(path)?;
+        let meta = VirtualBranchesMetadata::from_path(path)?;
         let graph = but_graph::Graph::from_head(
             &repo,
             &meta,
@@ -1377,7 +1377,7 @@ Single commit, target, no ws commit, but ws-reference
         // Assure the persisted data reproduces the same workspace.
         let path = meta.path().to_owned();
         drop(meta);
-        let meta = VirtualBranchesTomlMetadata::from_path(path)?;
+        let meta = VirtualBranchesMetadata::from_path(path)?;
         let graph = but_graph::Graph::from_head(
             &repo,
             &meta,
@@ -2548,7 +2548,7 @@ fn plain_checkout(
 ) -> anyhow::Result<(
     but_testsupport::gix_testtools::tempfile::TempDir,
     gix::Repository,
-    but_meta::VirtualBranchesTomlMetadata,
+    but_meta::VirtualBranchesMetadata,
     but_db::DbHandle,
     but_graph::Workspace,
 )> {

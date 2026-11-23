@@ -1833,7 +1833,7 @@ mod worktree_lanes {
     struct Fixture {
         _tmp: but_testsupport::gix_testtools::tempfile::TempDir,
         repo: gix::Repository,
-        meta: but_meta::VirtualBranchesTomlMetadata,
+        meta: but_meta::VirtualBranchesMetadata,
         db: but_db::DbHandle,
         ws: but_graph::Workspace,
     }

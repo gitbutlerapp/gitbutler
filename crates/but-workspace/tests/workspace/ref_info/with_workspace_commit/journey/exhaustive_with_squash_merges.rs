@@ -1,5 +1,5 @@
 //! A collection of tests that build on top of each other, like a progression of steps a user could take.
-use but_meta::VirtualBranchesTomlMetadata;
+use but_meta::VirtualBranchesMetadata;
 use but_testsupport::visualize_commit_graph_all;
 use snapbox::prelude::*;
 
@@ -1318,7 +1318,7 @@ pub fn step(
     name: &str,
 ) -> anyhow::Result<(
     gix::Repository,
-    std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
+    std::mem::ManuallyDrop<VirtualBranchesMetadata>,
     String,
     but_db::DbHandle,
 )> {
