@@ -335,7 +335,7 @@ pub(super) fn hairline(theme: &Theme) -> Div {
 pub(super) fn drawer_title(alone: bool) -> &'static str {
     match alone {
         true => "All projects",
-        false => "Other projects",
+        false => "Hidden projects",
     }
 }
 

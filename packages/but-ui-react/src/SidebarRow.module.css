@@ -675,10 +675,6 @@ button.nav {
 	border-bottom: 1px solid var(--but-border-subtle);
 }
 
-.drawerSection:has(> .drawerContent) + .drawerSection {
-	border-top: none;
-}
-
 .drawerContent {
 	margin-top: var(--but-space-lg);
 }

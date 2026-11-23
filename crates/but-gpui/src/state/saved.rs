@@ -634,11 +634,11 @@ pub struct Prefs {
     pub project_icons: HashMap<String, String>,
     /// How each project's pull requests merge, by id, as last picked beside Merge.
     pub merge_methods: HashMap<String, crate::backend::reviews::MergeMethod>,
-    /// The navigator's other projects go by when they were last active rather than by name.
+    /// The navigator's hidden projects go by when they were last active rather than by name.
     pub projects_by_activity: bool,
-    /// The navigator's other projects leave out those not active in the last 7 days.
+    /// The navigator's hidden projects leave out those not active in the last 7 days.
     pub active_projects_only: bool,
-    /// The navigator's other projects are folded away under their heading.
+    /// The navigator's hidden projects are folded away under their heading.
     pub projects_folded: bool,
     /// Watched projects, by id, whose cards are folded to their row; they're still loaded and
     /// kept current.

@@ -36,7 +36,7 @@ fn show(id: &'static str) -> AnyElement {
         .into_any_element()
 }
 
-/// The other projects, each in its own part of the card with its counts and a way back into the
+/// The hidden projects, each in its own part of the card with its counts and a way back into the
 /// sidebar.
 fn projects(theme: &Theme) -> Div {
     let count = |kind, n: &str| meta_count(kind, Some(n.to_owned().into()), theme);
@@ -129,7 +129,7 @@ pub(super) const ITEM_EXAMPLES: [Example; 2] = [
         id: "components-draweritem--default",
         name: "Default",
         draw: |theme| {
-            let mut item = drawer("drawer", "Other projects", Some(24), true);
+            let mut item = drawer("drawer", "Hidden projects", Some(24), true);
             div().w(dp(334.)).child(item.item(theme)).into_any_element()
         },
     },
@@ -137,7 +137,7 @@ pub(super) const ITEM_EXAMPLES: [Example; 2] = [
         id: "components-draweritem--with-buttons",
         name: "With Buttons",
         draw: |theme| {
-            let mut item = drawer("drawer", "Other projects", Some(24), true)
+            let mut item = drawer("drawer", "Hidden projects", Some(24), true)
                 .action(ghost("add", Icon::Plus, "Add project"))
                 .hover_action(ghost("sort", Icon::Mixer, "Sort and show"));
             div().w(dp(334.)).child(item.item(theme)).into_any_element()
@@ -153,7 +153,7 @@ pub(super) const EXAMPLES: [Example; 2] = [
         name: "Default",
         draw: |theme| {
             on_page(
-                drawer("drawer", "Other projects", Some(3), false).content(projects(theme)),
+                drawer("drawer", "Hidden projects", Some(3), false).content(projects(theme)),
                 theme,
             )
         },

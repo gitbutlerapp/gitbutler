@@ -952,7 +952,7 @@ const DRAWER: &str = "drawer";
 
 /// A drawer at the foot of the sidebar, as React's `Drawer`: its row, `DrawerItem`'s name, how
 /// many it holds (shown at zero too) and a chevron after them, and while it's open, what it holds
-/// under it, such as a card of the other projects. A press anywhere on the row opens or closes it.
+/// under it, such as a card of the hidden projects. A press anywhere on the row opens or closes it.
 /// The host keeps whether it's `folded`.
 ///
 /// Its buttons sit at the row's end and take their own clicks: [`Drawer::action`]s always show,
@@ -960,9 +960,9 @@ const DRAWER: &str = "drawer";
 /// keep their place. A ghost icon-only button each.
 ///
 /// It sits on the panel's ground under the cards, with its name muted so the cards read first.
-/// A hairline rules it off from what's above; under an open drawer its card is the rule, so the
-/// host passes `ruled(false)` to the next one. The drawer at the panel's foot takes `last`, which
-/// rules it off from the foot too.
+/// A hairline rules it off from what's above, an open drawer's card too; a host with nothing
+/// above it passes `ruled(false)`. The drawer at the panel's foot takes `last`, which rules it
+/// off from the foot too.
 pub struct Drawer {
     id: ElementId,
     name: SharedString,
@@ -1020,7 +1020,7 @@ impl Drawer {
         self
     }
 
-    /// Whether a hairline rules it off from what's above: not under an open drawer.
+    /// Whether a hairline rules it off from what's above.
     pub fn ruled(mut self, ruled: bool) -> Self {
         self.ruled = ruled;
         self

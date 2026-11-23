@@ -827,7 +827,7 @@ export const TerminalItem: FC<{ name: string; place?: string } & RowProps> = ({
 );
 
 /**
- * A drawer at the foot of the sidebar, such as the other projects or the terminals: its name, how
+ * A drawer at the foot of the sidebar, such as the hidden projects or the terminals: its name, how
  * many it holds (`count`, shown at zero too) and a chevron after them. A press anywhere on it opens
  * or closes it (`folded`, `onToggleFolded`), and what it holds opens under it.
  *
@@ -895,12 +895,12 @@ export const DrawerItem: FC<
 
 /**
  * A drawer at the foot of the sidebar and what it holds: its {@link DrawerItem}, and while it's
- * open, its `children` under it, such as a card of the other projects or of the terminals grouped
+ * open, its `children` under it, such as a card of the hidden projects or of the terminals grouped
  * by what they're at. It takes the row's props, and the host keeps whether it's `folded`.
  *
- * A `--but-border-subtle` hairline rules it off from what's above, the cards or another drawer.
- * Under an open drawer its card is the rule, so the next drawer drops its hairline. The last
- * drawer at the panel's foot takes `last`, which rules it off from the foot with a hairline under it.
+ * A `--but-border-subtle` hairline rules it off from what's above, the cards or another drawer,
+ * an open one's card too. The last drawer at the panel's foot takes `last`, which rules it off
+ * from the foot with a hairline under it.
  *
  * @figma `folded=false` shows the `content` slot: put the card in it.
  * @import import { Drawer } from "@gitbutler/but-ui-react/SidebarRow.tsx";

@@ -16,7 +16,7 @@ const meta = stories({
 
 /** A drawer, closed: its name, how many it holds and its chevron. */
 export const Default = meta.story({
-	args: { name: "Other projects", count: 24, folded: true },
+	args: { name: "Hidden projects", count: 24, folded: true },
 });
 
 /** A ghost icon button at a drawer's end, with its tooltip. */
@@ -31,7 +31,7 @@ const ghost = (icon: "plus" | "mixer", label: string) => (
 /** Its buttons: Add project always shows, Sort and show only under the pointer. */
 export const WithButtons = meta.story({
 	args: {
-		name: "Other projects",
+		name: "Hidden projects",
 		count: 24,
 		folded: true,
 		actions: ghost("plus", "Add project"),

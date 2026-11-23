@@ -78,7 +78,7 @@ const show = (name: string) => (
 	</Tooltip>
 );
 
-/** The other projects, each in its own part of the card with its counts and a way back into the
+/** The hidden projects, each in its own part of the card with its counts and a way back into the
  * sidebar. */
 const Projects: FC = () => (
 	<>
@@ -132,7 +132,7 @@ const Projects: FC = () => (
 /** A drawer, open: its row, and the card it holds under it. */
 export const Default = meta.story({
 	args: {
-		name: "Other projects",
+		name: "Hidden projects",
 		count: 3,
 		folded: false,
 		children: (
@@ -179,17 +179,17 @@ const Open: FC<
 };
 
 /**
- * The foot of the sidebar, under the cards: the other projects and the terminals, each a drawer.
+ * The foot of the sidebar, under the cards: the hidden projects and the terminals, each a drawer.
  * A press anywhere on a drawer opens what it holds under it, but not on its buttons, which show
- * only under the pointer: Sort and show, Add project and New terminal…. While the projects are
- * open their card rules them off from the terminals, so the terminals drop their hairline.
+ * only under the pointer: Sort and show, Add project and New terminal…. The terminals keep their
+ * hairline under the projects' card open.
  */
 export const SidebarDrawers = meta.story({
 	parameters: { design: { type: "figma", url: core("5376-12694") } },
 	render: () => (
 		<>
 			<Open
-				name="Other projects"
+				name="Hidden projects"
 				count={24}
 				open
 				hoverActions={
@@ -228,7 +228,7 @@ export const SidebarDrawers = meta.story({
 export const Empty = meta.story({
 	render: () => (
 		<>
-			<Open name="Other projects" count={0} open hoverActions={ghost("plus", "Add project")}>
+			<Open name="Hidden projects" count={0} open hoverActions={ghost("plus", "Add project")}>
 				<EmptyCard>
 					<EmptyState
 						variant="tidy"
