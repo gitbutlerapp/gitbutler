@@ -4,6 +4,7 @@ use gix::diff::blob::{
     platform::prepare_diff::Operation,
     unified_diff::{ConsumeBinaryHunk, ContextSize, HunkHeader},
 };
+use gix_encoding::{Detection, Encoding};
 use serde::{Deserialize, Serialize};
 
 use super::{ChangeState, UnifiedPatch};
@@ -263,19 +264,20 @@ impl UnifiedPatch {
     }
 }
 
-/// Detect the encoding of the given byte content and convert it to UTF-8, after attempting to guess its encoding.
-/// Even if decoding failed, we always return the original `content` in the wirst case.
+/// Decode a detected encoding and preserve the original hunk on ambiguity or conversion failure.
 fn detect_and_convert_to_utf8(content: BString) -> BString {
-    let mut detect = chardetng::EncodingDetector::new();
-    detect.feed(&content, true);
-    let (encoding, high_confidence) = detect.guess_assess(None, true);
-    if encoding == encoding_rs::UTF_8 || !high_confidence {
+    // The generated header and line prefixes are already ASCII, even for files forced to diff as text.
+    if content.find_byte(0).is_some() {
+        return content;
+    }
+    let Detection::Detected { encoding, .. } = gix_encoding::detect(&content) else {
+        return content;
+    };
+    if matches!(encoding, Encoding::Ascii | Encoding::Utf8) {
         return content;
     }
 
-    let (decoded, _actual_encoding, _used_replacement_chars) =
-        encoding_rs::Encoding::decode(encoding, &content);
-    decoded.into_owned().into()
+    gix_encoding::convert(&content, encoding, Encoding::Utf8).map_or(content, Into::into)
 }
 
 fn compute_line_changes(diff: &gix::diff::blob::Diff) -> (u32, u32) {

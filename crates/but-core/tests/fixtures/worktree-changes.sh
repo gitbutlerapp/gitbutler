@@ -418,5 +418,9 @@ EOF
 
 git init non-utf8-encodings
 (cd non-utf8-encodings
+  echo "windows1252-declared working-tree-encoding=WINDOWS-1252" >.gitattributes
+  git add .gitattributes && git commit -m "Declare the encoding of one file"
+  printf '\x1b\x24\x42\x46\x7c\x4b\x5c\x38\x6c\x1b\x28\x42\n' > iso2022jp
   printf '\x80\xc4\xc0' > windows1252
+  cp windows1252 windows1252-declared
 )

@@ -215,6 +215,8 @@ gix = { version = "0.91.0", default-features = false, features = [
     "sha256",
     "anyhow",
     "auto-chain-error",
+    "encoding-legacy",
+    "encoding-asian",
     "unstable", # Enables the gix::fs re-export and more
     "zlib-sirocco"
 ] }
@@ -375,7 +377,7 @@ gix-diff = { opt-level = 3 }
 gix-glob = { opt-level = 3 }
 gix-attributes = { opt-level = 3 }
 gix-ignore = { opt-level = 3 }
-chardetng = { opt-level = 3 }
+gix-encoding = { opt-level = 3 }
 gix-index = { opt-level = 3 }
 gix-odb = { opt-level = 3 }
 gix-object = { opt-level = 3 }
