@@ -59,19 +59,14 @@ fn create_edit_mode_metadata(ctx: &Context) {
 
 mod operating_modes {
     mod workspace_ref_names {
-        use gitbutler_operating_modes::{
-            INTEGRATION_BRANCH_REF, WORKSPACE_BRANCH_REF, is_well_known_workspace_ref,
-        };
+        use gitbutler_operating_modes::{WORKSPACE_BRANCH_REF, is_well_known_workspace_ref};
 
         #[test]
         fn recognizes_well_known_workspace_refs() {
             let workspace_ref: &gix::refs::FullNameRef = WORKSPACE_BRANCH_REF.try_into().unwrap();
-            let integration_ref: &gix::refs::FullNameRef =
-                INTEGRATION_BRANCH_REF.try_into().unwrap();
             let other_ref: &gix::refs::FullNameRef = "refs/heads/feature".try_into().unwrap();
 
             assert!(is_well_known_workspace_ref(workspace_ref));
-            assert!(is_well_known_workspace_ref(integration_ref));
             assert!(!is_well_known_workspace_ref(other_ref));
         }
     }

@@ -16,7 +16,7 @@ use but_oxidize::{ObjectIdExt as _, gix_to_git2_index};
 use but_rebase::graph_rebase::{Editor, Pick};
 use git2::build::CheckoutBuilder;
 use gitbutler_operating_modes::{
-    EDIT_BRANCH_REF, EditModeMetadata, INTEGRATION_BRANCH_REF, OperatingMode, WORKSPACE_BRANCH_REF,
+    EDIT_BRANCH_REF, EditModeMetadata, OperatingMode, WORKSPACE_BRANCH_REF,
     delete_edit_mode_metadata, operating_mode, read_edit_mode_metadata, write_edit_mode_metadata,
 };
 use gix::prelude::ObjectIdExt as _;
@@ -190,15 +190,9 @@ fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
 }
 
 fn open_workspace_ref<'repo>(repo: &'repo gix::Repository) -> Result<gix::Reference<'repo>> {
-    [WORKSPACE_BRANCH_REF, INTEGRATION_BRANCH_REF]
-        .iter()
-        .find_map(|&name| repo.find_reference(name).ok())
-        .with_context(|| {
-            format!(
-                "expected one of the open workspace refs to exist: {}",
-                [WORKSPACE_BRANCH_REF, INTEGRATION_BRANCH_REF].join(", ")
-            )
-        })
+    repo.find_reference(WORKSPACE_BRANCH_REF).with_context(|| {
+        format!("expected the open workspace ref to exist: {WORKSPACE_BRANCH_REF}")
+    })
 }
 
 /// TODO: This function must go away as it recreates an artificial traversal from the workspace,

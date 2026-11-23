@@ -76,11 +76,6 @@ fn seed_fixture(repo: &gix::Repository, script_name: &str, repo_name: &str) -> R
     disable_gitbutler_commit_signing(repo)?;
 
     let stacks = match (script_name, repo_name) {
-        ("for-workspace-migration.sh", "workspace-migration") => vec![StackSpec {
-            id: 1,
-            branches_base_to_top: &["virtual"],
-            in_workspace: true,
-        }],
         ("for-listing.sh", "one-vbranch-in-workspace") => vec![StackSpec {
             id: 1,
             branches_base_to_top: &["virtual"],

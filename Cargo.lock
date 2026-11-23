@@ -4847,7 +4847,6 @@ dependencies = [
  "but-testsupport",
  "but-workspace",
  "ctor 0.6.3",
- "gitbutler-operating-modes",
  "gitbutler-oplog",
  "gitbutler-project",
  "gitbutler-reference",
