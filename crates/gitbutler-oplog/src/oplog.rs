@@ -1024,9 +1024,8 @@ fn prepare_snapshot_with_target_and_refs(
         }
         // Open this read-only so there is no write-back, there should be no side-effects when
         // preparing a snapshot.
-        let mut legacy_meta = but_meta::VirtualBranchesTomlMetadata::from_path_read_only(
-            ctx.project_data_dir().join("virtual_branches.toml"),
-        )?;
+        let mut legacy_meta =
+            but_meta::VirtualBranchesTomlMetadata::from_path_read_only(ctx.project_data_dir())?;
         // Overlay *projected* workspace metadata onto the legacy snapshot format.
         // We want the metadata to represent what's actually there.
         if let Some(workspace_meta) = ws.metadata_from_projection()? {
@@ -1544,7 +1543,7 @@ fn restore_snapshot_tree(
     }
 
     but_meta::legacy_storage::write_virtual_branches(
-        &ctx.project_data_dir().join("virtual_branches.toml"),
+        &ctx.project_data_dir(),
         &restored_virtual_branches,
     )?;
     if let Some(branch_order) = restored_branch_order {

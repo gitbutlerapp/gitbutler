@@ -14,7 +14,7 @@ use crate::{
 };
 
 fn branch_order_meta(repo: &gix::Repository) -> anyhow::Result<BranchOrderMetadata> {
-    BranchOrderMetadata::from_paths(repo.path().join("virtual-branches.toml"), repo.path())
+    BranchOrderMetadata::from_paths(repo.path(), repo.path())
 }
 
 mod with_workspace {

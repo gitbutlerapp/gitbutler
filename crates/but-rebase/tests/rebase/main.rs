@@ -836,11 +836,7 @@ pub mod utils {
         but_db::DbHandle,
     )> {
         let repo = but_testsupport::read_only_in_memory_scenario(fixture_name)?;
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            repo.path()
-                .join(".git")
-                .join("should-never-be-written.toml"),
-        )?;
+        let meta = VirtualBranchesTomlMetadata::from_path(repo.path().join(".git"))?;
         // The fixture is shared and read-only, so its database cannot live on disk.
         let db = but_testsupport::in_memory_db();
         Ok((repo, std::mem::ManuallyDrop::new(meta), db))
@@ -857,11 +853,7 @@ pub mod utils {
     )> {
         // TODO: remove the need for this, impl everything in `gitoxide`, allowing this to be in-memory entirely.
         let (repo, tmp) = but_testsupport::writable_scenario(fixture_name);
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            repo.path()
-                .join(".git")
-                .join("should-never-be-written.toml"),
-        )?;
+        let meta = VirtualBranchesTomlMetadata::from_path(repo.path().join(".git"))?;
         let db = but_testsupport::project_db(&repo)?;
         Ok((repo, tmp, std::mem::ManuallyDrop::new(meta), db))
     }
@@ -876,11 +868,7 @@ pub mod utils {
         but_db::DbHandle,
     )> {
         let (repo, tmp) = but_testsupport::writable_scenario_with_ssh_key(fixture_name);
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            repo.path()
-                .join(".git")
-                .join("should-never-be-written.toml"),
-        )?;
+        let meta = VirtualBranchesTomlMetadata::from_path(repo.path().join(".git"))?;
         let db = but_testsupport::project_db(&repo)?;
         Ok((repo, tmp, std::mem::ManuallyDrop::new(meta), db))
     }

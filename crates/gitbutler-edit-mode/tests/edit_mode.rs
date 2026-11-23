@@ -42,9 +42,7 @@ fn command_ctx(folder: &str) -> Result<(Context, TempDir)> {
 }
 
 fn seed_metadata(repo: &gix::Repository) -> Result<()> {
-    let mut meta = VirtualBranchesTomlMetadata::from_path(
-        repo.gitbutler_storage_path()?.join("virtual_branches.toml"),
-    )?;
+    let mut meta = VirtualBranchesTomlMetadata::from_path(repo.gitbutler_storage_path()?)?;
     let mut ws = meta.workspace("refs/heads/gitbutler/workspace".try_into()?)?;
     ws.stacks.clear();
     ws.stacks.push(WorkspaceStack {

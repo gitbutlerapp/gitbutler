@@ -117,9 +117,7 @@ impl Context {
     }
 
     pub fn legacy_meta(&self) -> anyhow::Result<but_meta::VirtualBranchesTomlMetadata> {
-        but_meta::VirtualBranchesTomlMetadata::from_path(
-            self.project_data_dir().join("virtual_branches.toml"),
-        )
+        but_meta::VirtualBranchesTomlMetadata::from_path(self.project_data_dir())
     }
 
     // TODO: remove _exclusive as we don't need it anymore with a DB based implementation as long as the instances
@@ -129,8 +127,6 @@ impl Context {
         &mut self,
         _exclusive: &RepoExclusive,
     ) -> anyhow::Result<but_meta::VirtualBranchesTomlMetadata> {
-        but_meta::VirtualBranchesTomlMetadata::from_path(
-            self.project_data_dir().join("virtual_branches.toml"),
-        )
+        but_meta::VirtualBranchesTomlMetadata::from_path(self.project_data_dir())
     }
 }

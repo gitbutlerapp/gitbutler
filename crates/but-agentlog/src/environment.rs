@@ -332,10 +332,10 @@ fn worktree_paths(repo: &gix::Repository) -> anyhow::Result<PathList> {
 }
 
 fn workspace_snapshot(repo: &gix::Repository) -> anyhow::Result<WorkspaceObservation> {
-    let metadata_path = repo.gitbutler_storage_path()?.join("virtual_branches.toml");
-    let legacy_metadata_exists = legacy_metadata_exists(&metadata_path);
+    let storage_dir = repo.gitbutler_storage_path()?;
+    let legacy_metadata_exists = legacy_metadata_exists(&storage_dir);
     if legacy_metadata_exists
-        && let Ok(meta) = VirtualBranchesTomlMetadata::from_path_read_only(&metadata_path)
+        && let Ok(meta) = VirtualBranchesTomlMetadata::from_path_read_only(&storage_dir)
     {
         return workspace_snapshot_with_current_branch_fallback(repo, &meta);
     }
@@ -347,10 +347,8 @@ fn workspace_snapshot(repo: &gix::Repository) -> anyhow::Result<WorkspaceObserva
     Ok(observation)
 }
 
-fn legacy_metadata_exists(metadata_path: &Path) -> bool {
-    metadata_path
-        .parent()
-        .is_some_and(|storage_path| storage_path.join("but.sqlite").is_file())
+fn legacy_metadata_exists(storage_dir: &Path) -> bool {
+    storage_dir.join("but.sqlite").is_file()
 }
 
 fn workspace_snapshot_with_current_branch_fallback(

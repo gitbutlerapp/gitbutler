@@ -1221,7 +1221,7 @@ mod single_branch_mode {
     use crate::utils::r;
 
     fn branch_order_meta(repo: &gix::Repository) -> anyhow::Result<BranchOrderMetadata> {
-        BranchOrderMetadata::from_paths(repo.path().join("virtual-branches.toml"), repo.path())
+        BranchOrderMetadata::from_paths(repo.path(), repo.path())
     }
 
     fn project_meta(repo: &gix::Repository) -> but_core::ref_metadata::ProjectMeta {

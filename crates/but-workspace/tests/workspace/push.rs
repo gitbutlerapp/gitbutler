@@ -28,9 +28,7 @@ fn fixture(
         status.success(),
         "fixture remote URL should be normalized to an absolute path"
     );
-    let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
-        repo.path().join("virtual-branches.toml"),
-    )?;
+    let meta = but_meta::VirtualBranchesTomlMetadata::from_path(repo.path())?;
     Ok((tmp, repo, meta))
 }
 

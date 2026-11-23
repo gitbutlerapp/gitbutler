@@ -36,7 +36,7 @@ struct Snapshot {
 
 impl Snapshot {
     fn from_path(path: PathBuf) -> anyhow::Result<Self> {
-        let content = storage::read_synced_virtual_branches(&path)?;
+        let content = storage::read_virtual_branches(&path)?;
         Ok(Self {
             path,
             changed_at: None,
@@ -47,7 +47,7 @@ impl Snapshot {
     fn write_if_changed(&mut self, repo: Option<&gix::Repository>) -> anyhow::Result<()> {
         let discovered_repo = repo
             .is_none()
-            .then(|| gix::discover(self.path.parent().expect("at least a file")).ok())
+            .then(|| gix::discover(&self.path).ok())
             .flatten();
         let repo = repo.or(discovered_repo.as_ref());
         let mut projected_workspace = None;
@@ -277,7 +277,7 @@ impl VirtualBranchesTomlMetadata {
         })
     }
 
-    /// Initialize a store backed by the file at `path`, without writing it back on drop.
+    /// Initialize a store backed by the database in the `path` folder, without writing it back on drop.
     ///
     /// This is intended for callers that only need metadata as input for read-only projections.
     pub fn from_path_read_only(path: impl Into<PathBuf>) -> anyhow::Result<Self> {
@@ -736,11 +736,11 @@ pub struct BranchOrderMetadata {
 
 impl BranchOrderMetadata {
     pub fn from_paths(
-        toml_path: impl AsRef<Path>,
+        storage_dir: impl AsRef<Path>,
         db_dir: impl AsRef<Path>,
     ) -> anyhow::Result<Self> {
         Ok(Self {
-            legacy: VirtualBranchesTomlMetadata::from_path(toml_path.as_ref().to_owned())?,
+            legacy: VirtualBranchesTomlMetadata::from_path(storage_dir.as_ref().to_owned())?,
             db: Some(but_db::DbHandle::new_in_directory(db_dir)?),
             read_only: false,
         })
@@ -751,12 +751,12 @@ impl BranchOrderMetadata {
     /// This observes existing branch-order data when the project database already
     /// exists, but it never creates the database or runs migrations.
     pub fn from_paths_read_only(
-        toml_path: impl AsRef<Path>,
+        storage_dir: impl AsRef<Path>,
         db_dir: impl AsRef<Path>,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             legacy: VirtualBranchesTomlMetadata::from_path_read_only(
-                toml_path.as_ref().to_owned(),
+                storage_dir.as_ref().to_owned(),
             )?,
             db: but_db::DbHandle::open_existing_read_only_in_directory(db_dir)?,
             read_only: true,

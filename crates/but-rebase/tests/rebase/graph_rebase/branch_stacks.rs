@@ -701,10 +701,7 @@ fn materializing_rebuilds_the_workspace_stacks() -> Result<()> {
 #[test]
 fn materializing_persists_an_order_that_moves_no_reference() -> Result<()> {
     let (repo, _tmp, _meta, mut db) = fixture_writable("many-references")?;
-    let mut meta = BranchOrderMetadata::from_paths(
-        repo.path().join("virtual_branches.toml"),
-        repo.gitbutler_storage_path()?,
-    )?;
+    let mut meta = BranchOrderMetadata::from_paths(repo.path(), repo.gitbutler_storage_path()?)?;
     let graph = Graph::from_head(
         &repo,
         &meta,

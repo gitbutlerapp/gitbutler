@@ -4007,8 +4007,7 @@ pub(crate) mod utils {
         )
         .map_err(anyhow::Error::from_boxed)?;
         let repo = but_testsupport::open_repo(&tmp.path().join(name))?;
-        let meta =
-            VirtualBranchesTomlMetadata::from_path(repo.path().join("virtual-branches.toml"))?;
+        let meta = VirtualBranchesTomlMetadata::from_path(repo.path())?;
         project_meta(&repo)?.persist(&repo)?;
         let db = but_testsupport::project_db(&repo)?;
         Ok((tmp, repo, meta, db))

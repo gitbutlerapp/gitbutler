@@ -238,10 +238,8 @@ mod from_worktree {
         but_db::DbHandle,
     ) {
         let (repo, tmp) = writable_scenario_slow("worktree-amend");
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            repo.path().join("should-never-be-written.toml"),
-        )
-        .expect("in-memory metadata handle always opens");
+        let meta = VirtualBranchesTomlMetadata::from_path(repo.path())
+            .expect("in-memory metadata handle always opens");
         let db = but_testsupport::project_db(&repo).expect("project database always opens");
         (repo, tmp, std::mem::ManuallyDrop::new(meta), db)
     }

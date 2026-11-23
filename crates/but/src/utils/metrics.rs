@@ -636,7 +636,7 @@ pub fn add_workspace_shape(event: &mut Event, current_dir: &Path) {
 fn read_only_workspace(ctx: &but_ctx::Context) -> Option<but_graph::Workspace> {
     let repo = ctx.repo.get().ok()?;
     let meta = but_meta::BranchOrderMetadata::from_paths_read_only(
-        ctx.project_data_dir().join("virtual_branches.toml"),
+        ctx.project_data_dir(),
         ctx.project_data_dir(),
     )
     .ok()?;

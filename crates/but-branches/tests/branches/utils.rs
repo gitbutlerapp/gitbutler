@@ -14,11 +14,7 @@ pub fn named_read_only_in_memory_scenario(
     std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
 )> {
     let repo = but_testsupport::read_only_in_memory_scenario_named(name, dirname)?;
-    let meta = VirtualBranchesTomlMetadata::from_path(
-        repo.path()
-            .join(".git")
-            .join("should-never-be-written.toml"),
-    )?;
+    let meta = VirtualBranchesTomlMetadata::from_path(repo.path().join(".git"))?;
     Ok((repo, std::mem::ManuallyDrop::new(meta)))
 }
 

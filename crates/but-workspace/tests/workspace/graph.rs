@@ -34,11 +34,7 @@ fn detailed(
     target: Option<&str>,
 ) -> Result<(gix::Repository, DetailedGraphWorkspace)> {
     let repo = crate::utils::read_only_in_memory_scenario(fixture)?;
-    let mut meta = VirtualBranchesTomlMetadata::from_path(
-        repo.path()
-            .join(".git")
-            .join("should-never-be-written.toml"),
-    )?;
+    let mut meta = VirtualBranchesTomlMetadata::from_path(repo.path().join(".git"))?;
     let project_meta = ProjectMeta {
         target_ref: target
             .map(|name| but_core::ref_metadata::LocalRefName::new(name.try_into()?))
