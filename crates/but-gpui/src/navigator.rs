@@ -40,8 +40,8 @@ use crate::ui::scrollbar::{Scroll, scrolled_in_gap};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     BLINK, Button, ButtonStyle, HEADER_HEIGHT, Icon, MetaCountType, Tooltip, WINDOW_CONTROLS_WIDTH,
-    above_drag, blink_once, button, commit_title, count_badge, dp, faint, field, fixed,
-    gap_divider, glow_once, guide_end_in, guide_in, h_flex, icon_at, icon_button, list_row,
+    above_drag, blink_once, button, commit_title, count_badge, dp, faint, field, field_leading,
+    fixed, gap_divider, glow_once, guide_end_in, guide_in, h_flex, icon_at, icon_button, list_row,
     mark_dragged, meta_count_on, plural, pulsing, review, section_label, small_icon, v_flex,
 };
 use crate::ui::{
@@ -1447,6 +1447,43 @@ impl Navigator {
             )
         })
         .into_any_element()
+    }
+
+    /// The filter opened in the header, as but-ui-react's field leading with an icon: the search
+    /// glyph, then the field, and after it a button that empties it and closes it, where the
+    /// button that opened it was.
+    fn header_filter(&self, window: &Window, theme: &Theme, cx: &Context<Self>) -> Div {
+        let focused = self.filter.focus_handle(cx).is_focused(window);
+        let field = above_drag(
+            field_leading(
+                &self.filter,
+                Icon::Search,
+                focused,
+                theme.sizes.control,
+                theme,
+            )
+            // Edged as the cards are, but while it has the keys.
+            .when(!focused, |el| el.border_color(theme.border_subtle)),
+        )
+        .flex_1()
+        .min_w_0();
+        let close = above_drag(
+            div().child(
+                icon_button("close-filter", Icon::Cross)
+                    .tooltip("Close the filter")
+                    .on_click(cx.listener(|this, _, window, cx| {
+                        this.filter.update(cx, |input, cx| input.set_text("", cx));
+                        this.filter_changed(cx);
+                        this.focus_list(window, cx);
+                    })),
+            ),
+        );
+        h_flex()
+            .flex_1()
+            .min_w_0()
+            .gap(dp(4.))
+            .child(field)
+            .child(close)
     }
 
     /// Whether the filter has the keys, which across the top it has for as long as it shows.
@@ -4628,7 +4665,7 @@ impl Render for Navigator {
             // As 🍑 But UI's SidebarHeader: the filter is a button until it's opened, then a
             // field in the room before the buttons for as long as it has the keys or a filter.
             .map(|el| match filter_open {
-                true => el.child(self.filter_field(window, &theme, cx)),
+                true => el.child(self.header_filter(window, &theme, cx)),
                 false => el.child(div().flex_1()).child(above_drag(
                     div().child(
                         icon_button("open-filter", Icon::Filter)

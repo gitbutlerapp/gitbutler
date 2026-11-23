@@ -513,6 +513,38 @@ pub fn field(input: &Entity<text_input::TextInput>, focused: bool, theme: &Theme
         .child(input.clone())
 }
 
+/// [`field`] leading with `icon`, as but-ui-react's `FieldControlWithIcon`: `height` tall, the
+/// icon 8 in, in the subtle ink, and the text 8 after it.
+pub fn field_leading(
+    input: &Entity<text_input::TextInput>,
+    icon: Icon,
+    focused: bool,
+    height: f32,
+    theme: &Theme,
+) -> Div {
+    let clicked = input.clone();
+    h_flex()
+        .on_mouse_down(gpui::MouseButton::Left, move |_, window, cx| {
+            window.focus(&gpui::Focusable::focus_handle(&clicked, cx), cx);
+            window.prevent_default();
+        })
+        .h(dp(height))
+        .pl(dp(8.))
+        .pr(dp(8.))
+        .gap(dp(8.))
+        .rounded(dp(theme.shape.control))
+        .border_1()
+        .border_color(if focused { theme.ring } else { theme.border })
+        .bg(theme.background)
+        .text_13()
+        .child(
+            icon_at(icon, 16.)
+                .flex_none()
+                .text_color(theme.subtle_foreground),
+        )
+        .child(div().flex_1().min_w_0().child(input.clone()))
+}
+
 /// A small round marker: new work, or something running.
 pub fn dot(color: Hsla) -> Div {
     div().flex_none().size(dp(6.)).rounded_full().bg(color)
