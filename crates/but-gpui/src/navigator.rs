@@ -127,15 +127,6 @@ const STEP: f32 = 12. + 4.;
 /// pointer is over the row (see [`Navigator::fold`]).
 const ROW_GROUP: &str = "navigator-row";
 
-/// The eye of a project the app watches, or struck through for one it doesn't.
-fn watch_glyph(watched: bool) -> gpui::Svg {
-    let eye = match watched {
-        true => Icon::Eye,
-        false => Icon::EyeClosed,
-    };
-    crate::ui::icon_at(eye, 14.)
-}
-
 actions!(
     navigator,
     [
@@ -708,8 +699,6 @@ pub struct Navigator {
     /// list, kept until it leaves, so a project an agent wakes doesn't move the row about to
     /// be clicked.
     held_order: Option<Vec<ProjectId>>,
-    /// The project whose watch button the pointer is on, which shows what a click makes it.
-    watch_hovered: Option<ProjectId>,
     /// The rows of the split whose map the pointer is over, which light up together, as
     /// but-ui-react's rows do while a SplitPreviewMap's preview is open.
     lit_split: Option<Vec<crate::state::RowKey>>,
@@ -895,7 +884,6 @@ impl Navigator {
             floating: false,
             detail_shown: Cell::new(1.),
             held_order: None,
-            watch_hovered: None,
             lit_split: None,
             held_project: None,
             dragged_worktree: None,
@@ -2802,7 +2790,6 @@ impl Navigator {
         let filtering = self.filtering(cx);
         let card_folded = expanded && store.project_folded(id) && !filtering;
         let manual = store.prefs.watched_order == WatchedOrder::Manual;
-        let hovered = self.watch_hovered.as_ref() == Some(id);
         // Folded, the row sums up the whole card; open, it leaves out what the rows under it
         // say: their uncommitted files and unpushed commits. How far behind the target it is
         // shows either way, even while a commit is being edited.
@@ -2830,81 +2817,42 @@ impl Navigator {
         let glyph = div()
             .text_12()
             .child(project_glyph_at(store, id, style.muted(), 14., theme));
-        // Whether the app watches the project, as a watched one is loaded and kept current,
-        // and under the pointer what a click makes it. Named by what it does, so its tooltip
-        // goes with the click. Its click doesn't select the row, and while something is being
-        // moved it's only part of the row, which a press puts the move at.
+        // Whether the app watches the project, as but-ui-react's Drawer marks it: an outlined
+        // icon button with the open eye on a watched card, which stops watching it, or the
+        // closed one in the drawer, which shows it again. A watched card's header shows it only
+        // under the pointer or picked, as 🍑 But UI's sidebar has its cards' headers bare. Its
+        // press doesn't select the row, and while something is being moved it's only part of
+        // the row, which a press puts the move at.
         let moving = store.moving.is_some();
+        let (eye_icon, tooltip) = match expanded {
+            true => (Icon::Eye, "Stop watching"),
+            false => (Icon::EyeClosed, "Show project"),
+        };
+        let eye = icon_button(
+            ElementId::Name(format!("{}-{id}", if expanded { "unwatch" } else { "watch" }).into()),
+            eye_icon,
+        )
+        .small()
+        .style(ButtonStyle::Outline)
+        .inverted(style.solid)
+        .tooltip(tooltip)
+        .when(!moving, |el| {
+            let id = id.clone();
+            // The row moves to the other card, from under the pointer.
+            el.on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                this.store
+                    .update(cx, |store, cx| store.set_expanded(&id, !expanded, cx));
+            }))
+        });
         let eye = div()
-            .id(ElementId::Name(
-                format!("{}-{id}", if expanded { "unwatch" } else { "watch" }).into(),
-            ))
             .flex_none()
-            .size(dp(20.))
-            .flex()
-            .items_center()
-            .justify_center()
-            .rounded(dp(theme.shape.control))
-            .child(
-                watch_glyph(expanded != hovered).text_color(match (hovered, style.solid) {
-                    (false, _) => style.muted(),
-                    (true, true) => theme.inverse_foreground,
-                    (true, false) => theme.foreground,
-                }),
-            )
             .when(!moving, |el| {
-                let id = id.clone();
-                el.hover(|el| el.bg(theme.hover))
-                    // A button, which leaves the keys where they were.
-                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                        cx.stop_propagation();
-                        // The row moves to the other card, from under the pointer.
-                        this.watch_hovered = None;
-                        this.store.update(cx, |store, cx| {
-                            let expanded = store.project(&id).is_some_and(|p| p.expanded);
-                            store.set_expanded(&id, !expanded, cx)
-                        });
-                    }))
+                el.on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
             })
-            .on_hover(cx.listener({
-                let id = id.clone();
-                move |this, on: &bool, _, cx| {
-                    this.watch_hovered = on.then(|| id.clone());
-                    cx.notify()
-                }
-            }))
-            .tooltip(Tooltip::text(match expanded {
-                true => "Stop watching",
-                false => "Watch this project",
-            }))
-            // A watched card's header shows it only under the pointer or picked, as 🍑 But UI's
-            // sidebar has its cards' headers bare.
             .when(expanded && !style.selected, |el| {
                 el.opacity(0.).group_hover(ROW_GROUP, |el| el.opacity(1.))
-            });
-        // One in the drawer is shown again by an outlined button, as but-ui-react's Drawer has it.
-        let eye = match expanded {
-            true => eye.into_any_element(),
-            false => {
-                let id = id.clone();
-                icon_button(
-                    ElementId::Name(format!("watch-{id}").into()),
-                    Icon::EyeClosed,
-                )
-                .small()
-                .style(ButtonStyle::Outline)
-                .inverted(style.solid)
-                .tooltip("Show project")
-                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                    cx.stop_propagation();
-                    this.watch_hovered = None;
-                    this.store
-                        .update(cx, |store, cx| store.set_expanded(&id, true, cx));
-                }))
-                .into_any_element()
-            }
-        };
+            })
+            .child(eye);
         // In the drawer, how many branches and worktrees it has, as the cards would list them.
         let held = workspace.filter(|_| !expanded).map(|ws| {
             let branches = (ws.lanes.iter()).flat_map(|lane| &lane.branches).count();
