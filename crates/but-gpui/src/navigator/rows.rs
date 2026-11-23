@@ -227,12 +227,13 @@ impl Row {
 }
 
 /// What a fold in the cards holds: the rows under an item's row, a branch's commits past the
-/// first few, or the drawer's projects.
+/// first few, the drawer's projects, or the rows of a project unfolded in the drawer.
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub(super) enum Fold {
     Under(Selection),
     More(BranchKey),
     Drawer,
+    InDrawer(ProjectId),
 }
 
 /// Where a row is in the fold it moves with: how far down the fold's rows, by their heights,
@@ -295,6 +296,13 @@ pub(super) struct Drawer {
     /// Whether each row is a project folded in it, in a group of its own in a card of the
     /// projects folded next to it, rather than a row of one unfolded, a card of its own.
     pub(super) grouped: Vec<bool>,
+    /// Where each row is in the fold of a project unfolding or folding here, as [`Rows`] has it.
+    pub(super) moving: Vec<Option<Moving>>,
+    /// For a gap that parts a project's card from the folded projects only while it's unfolded,
+    /// that project's fold, which opens the gap as it opens.
+    pub(super) parting: Vec<Option<Fold>>,
+    /// The folds of the projects listed, as [`Rows::folds`] has them.
+    pub(super) folds: Vec<(Fold, bool, Option<usize>)>,
 }
 
 /// Where an item row's content starts in its card: the row's margin and its padding, 8, as
@@ -508,9 +516,16 @@ impl Navigator {
                 rows.settle_rule(rule, &entry.id);
             });
         }
-        let listing = self.drawer_listing(store);
+        let mut listing = self.drawer_listing(store);
         rows.drawer.listed = listing.listed;
         rows.drawer.total = listing.total;
+        // Its own projects' folds move wherever it's scrolled, as it's always all in view.
+        let in_drawer = std::mem::take(&mut listing.folds);
+        (rows.folds).extend(
+            in_drawer
+                .into_iter()
+                .map(|(fold, open, _)| (fold, open, None)),
+        );
         // With no cards it's always open.
         if !rows.rows.is_empty() {
             let open = !store.prefs.projects_folded;
@@ -545,24 +560,42 @@ impl Navigator {
         // Each project unfolded in it a card of its own where it is in the list, its heading
         // over its rows as a watched project's card, splitting the projects folded around it
         // into cards of their own, as 🍑 But UI's drawer has them.
+        // One unfolding or folding is a card of its own until it's folded, its rows opening or
+        // closing under its heading, as a watched card's do, and the gaps parting it from the
+        // folded projects around it opening and closing with them.
         let mut cards = Rows::new(self.row);
         let mut grouped = Vec::new();
-        let mut was_open = None;
+        let mut parting = Vec::new();
+        // Whether the project before was a card of its own, and its fold if that's moving.
+        let mut was: Option<(bool, Option<Fold>)> = None;
         for (entry, _) in &listed {
+            let fold = Fold::InDrawer(entry.id.clone());
             let open = self.drawer_open.contains(&entry.id);
-            if was_open.is_some_and(|was| was || open) {
+            let shown = self.folds.shows(&fold, open);
+            let moving = (shown && self.folds.openness(&fold).is_some()).then(|| fold.clone());
+            if let Some((was_shown, was_moving)) = &was
+                && (*was_shown || shown)
+            {
+                // Next to a card that stays open the gap stays; else it opens with the fold.
+                let parts = match (was_shown, shown) {
+                    (true, true) if was_moving.is_none() || moving.is_none() => None,
+                    _ => was_moving.clone().or_else(|| moving.clone()),
+                };
                 cards.push(Row::Gap);
+                parting.resize(cards.rows.len() - 1, None);
+                parting.push(parts);
             }
-            was_open = Some(open);
+            was = Some((shown, moving));
             cards.push(Row::Item(Selection::Project(entry.id.clone())));
-            if open {
+            cards.fold(fold, open, &self.folds, |cards| {
                 let rule = cards.rows.len();
                 cards.push(Row::HeaderRule(false));
-                self.card_rows(store, entry, &mut cards);
+                self.card_rows(store, entry, cards);
                 cards.settle_rule(rule, &entry.id);
-            }
-            grouped.resize(cards.rows.len(), !open);
+            });
+            grouped.resize(cards.rows.len(), !shown);
         }
+        parting.resize(cards.rows.len(), None);
         if listed.is_empty() && !others.is_empty() {
             cards.push(Row::Note("None active in the last 7 days".into(), false));
             grouped.push(true);
@@ -575,6 +608,9 @@ impl Navigator {
             guides: cards.guides,
             ends: cards.ends,
             grouped,
+            moving: cards.moving,
+            parting,
+            folds: cards.folds,
         }
     }
 

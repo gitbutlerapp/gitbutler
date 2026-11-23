@@ -2516,11 +2516,27 @@ impl Navigator {
         if drawer.rows.is_empty() {
             return 0.;
         }
-        let rows = (0..drawer.rows.len()).map(|ix| match drawer.rows.get(ix) {
-            Some(Row::Gap) => CARD_GAP,
-            _ => self.drawer_row_height(ix),
-        });
+        let rows = (0..drawer.rows.len()).map(|ix| self.drawer_row_height(ix));
         rows.sum::<f32>() - 2.
+    }
+
+    /// How far open the fold moving the drawer's row `ix` shows it, and whether it's closing.
+    fn drawer_folding(&self, ix: usize) -> Option<(f32, bool)> {
+        let m = self.built.drawer.moving.get(ix)?.as_ref()?;
+        let open = self.folds.openness(&m.fold)?;
+        Some((
+            curtain(open, m.extent, m.top, m.height),
+            self.folds.closing(&m.fold),
+        ))
+    }
+
+    /// How tall the drawer's gap at `ix` is: a card's gap, opening as the fold parting it does.
+    fn drawer_gap(&self, ix: usize) -> f32 {
+        let parting = self.built.drawer.parting.get(ix).and_then(Option::as_ref);
+        CARD_GAP
+            * parting
+                .and_then(|fold| self.folds.openness(fold))
+                .unwrap_or(1.)
     }
 
     /// How tall the drawer's row `ix` is drawn, its part of its card's edges and padding with it.
@@ -2529,8 +2545,12 @@ impl Navigator {
         let Some(row) = drawer.rows.get(ix) else {
             return 0.;
         };
+        if matches!(row, Row::Gap) {
+            return self.drawer_gap(ix);
+        }
         let (first, last) = card_ends(&drawer.rows, ix);
         let own = match row {
+            _ if let Some((height, _)) = self.drawer_folding(ix) => height,
             Row::Item(_) | Row::Note(..) | Row::Loading(_) | Row::More(..) | Row::Fewer(..) => {
                 self.row
             }
@@ -2684,7 +2704,7 @@ impl Navigator {
         let (mut cards, mut start, mut y) = (Vec::new(), 0., 0.);
         for (ix, row) in drawer.rows.iter().enumerate() {
             if matches!(row, Row::Gap) {
-                y += CARD_GAP;
+                y += self.drawer_gap(ix);
                 continue;
             }
             let (first, last) = card_ends(&drawer.rows, ix);
@@ -2775,10 +2795,13 @@ impl Navigator {
         let drawer = &self.built.drawer;
         let rows = &drawer.rows;
         if matches!(rows.get(ix), None | Some(Row::Gap)) {
-            return div().h(dp(CARD_GAP)).into_any_element();
+            return div().h(dp(self.drawer_gap(ix))).into_any_element();
         }
         let inset = drawer.insets.get(ix).copied().unwrap_or_default();
+        // A row a fold is moving shows as far as it's open, as a card's rows do.
+        let folding = self.drawer_folding(ix);
         let el = match rows.get(ix) {
+            _ if folding.is_some_and(|(height, _)| height <= 0.) => div().into_any_element(),
             Some(Row::Note(text, is_error)) => note_row(text, *is_error, theme),
             Some(Row::Item(_)) => {
                 self.drawing_drawer.set(true);
@@ -2839,6 +2862,10 @@ impl Navigator {
             }
         });
         let row = div().relative().child(el).children(guides);
+        let row = match folding {
+            Some((height, closing)) => clipped(row, dp(height), closing),
+            None => row,
+        };
         let (first, last) = card_ends(rows, ix);
         // The projects folded here each in a group of its own, room over and under its row,
         // and a line across the card between one and the next, as 🍑 But UI's drawer lists
@@ -2855,13 +2882,22 @@ impl Navigator {
                 .when(last, |el| el.pb(dp(CARD_PADDING)))
                 .child(row),
         };
+        // Where a gap is parting a card from the projects folded beside it, the corners at the
+        // seam round as far as the gap's open, so the card comes apart from them and back
+        // together as one.
+        let corner = |gap: Option<usize>| {
+            let open = gap.map_or(1., |gap| self.drawer_gap(gap) / CARD_GAP);
+            dp(theme.shape.card * open)
+        };
         div()
             .bg(theme.background)
             .border_color(theme.border_subtle)
             .border_l_1()
             .border_r_1()
-            .when(first, |el| el.border_t_1().rounded_t(dp(theme.shape.card)))
-            .when(last, |el| el.border_b_1().rounded_b(dp(theme.shape.card)))
+            .when(first, |el| {
+                el.border_t_1().rounded_t(corner(ix.checked_sub(1)))
+            })
+            .when(last, |el| el.border_b_1().rounded_b(corner(Some(ix + 1))))
             .child(row)
             .into_any_element()
     }
