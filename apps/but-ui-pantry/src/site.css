@@ -238,6 +238,7 @@ body[data-layout="centered"] {
    so the column doesn't shift. */
 .docs-site-main {
 	box-sizing: border-box;
+	container-type: inline-size;
 	height: calc(100% - 2 * var(--but-space-xl));
 	margin: var(--but-space-xl) var(--but-space-xl) var(--but-space-xl) 0;
 	overflow: auto;
@@ -245,6 +246,59 @@ body[data-layout="centered"] {
 	border-radius: var(--but-radius-card);
 	background-color: var(--but-background);
 	scrollbar-gutter: stable;
+}
+
+/* The page, and right beside it its menu when the card has room for both: the page's column and
+   the menu's 300px, centred together, so the menu sits just past the page's widest content rather
+   than out at the card's edge. Narrower, the menu goes, its column closes, and the page centres
+   alone as before. */
+.docs-site-body {
+	display: grid;
+	grid-template-columns:
+		minmax(0, 1fr) minmax(0, calc(var(--but-size-prose-wide) + 64px))
+		auto minmax(0, 1fr);
+	min-height: 100%;
+}
+
+.docs-site-page {
+	grid-column: 2;
+	min-width: 0;
+}
+
+.docs-site-rail {
+	box-sizing: border-box;
+	grid-column: 3;
+	width: calc(300px + var(--but-space-xl));
+	padding: var(--but-space-xl) var(--but-space-xl) var(--but-space-xl) 0;
+}
+
+@container (width < 1220px) {
+	.docs-site-rail {
+		display: none;
+	}
+}
+
+/* The menu's card stays at the top while the page scrolls under it, and scrolls itself when the
+   page lists more than fits. */
+.docs-site-rail-card {
+	display: flex;
+	position: sticky;
+	top: var(--but-space-xl);
+	flex-direction: column;
+	max-height: calc(100dvh - 4 * var(--but-space-xl) - 2px);
+	padding: var(--but-padding-list);
+	overflow-y: auto;
+	gap: 1px;
+}
+
+.docs-site-rail-section {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+
+	& + & {
+		margin-top: var(--but-gap-stack);
+	}
 }
 
 /* Every page is laid out as rendered markdown is: a column as wide as its media, with the text kept
@@ -296,6 +350,86 @@ body[data-layout="centered"] {
 .docs-page-title,
 .docs-page-prose {
 	margin: 0;
+}
+
+/* A heading or a rule that can be linked to: its link button hangs in the margin before it, out
+   of the words' line, and shows under the pointer or the keyboard. A touch screen has no pointer
+   to bring it, so it always shows there. */
+.docs-linked {
+	position: relative;
+	scroll-margin-top: var(--but-space-xl);
+}
+
+/* The gutter is the block's first line tall, since it inherits the block's line height, and the
+   button centres in it, so it sits level with the first line at any text size. */
+.docs-linked-gutter {
+	display: flex;
+	position: absolute;
+	top: 0;
+	right: 100%;
+	align-items: center;
+	height: 1lh;
+	margin-right: var(--but-space-xs);
+}
+
+.docs-linked-button {
+	color: var(--but-muted-foreground);
+	opacity: 0;
+}
+
+/* The title a link opened, a heading's words or a rule's bold lead, lit in the accent's soft tint
+   on arrival and fading out. The tint reaches a little past the words, wrapping with them. It
+   gives a little wiggle as it lands, a nudge to the eye that reduced motion turns off: the title
+   is inline, where a transform does nothing, so it shifts by its relative `left`, which carries
+   every line of a wrapped title along. A keyframe animation, with its own timing. */
+.docs-linked > :is(.docs-linked-title, strong:first-of-type) {
+	position: relative;
+	box-decoration-break: clone;
+	margin-inline: calc(-1 * var(--but-space-xs));
+	padding-inline: var(--but-space-xs);
+	border-radius: var(--but-radius-xs);
+	transition: background-color var(--but-transition-medium) ease-out;
+}
+
+.docs-linked[data-lit] > :is(.docs-linked-title, strong:first-of-type) {
+	background-color: var(--but-primary-soft-hover);
+	animation: docs-linked-wiggle 450ms ease-out;
+}
+
+@keyframes docs-linked-wiggle {
+	20% {
+		left: -3px;
+	}
+
+	40% {
+		left: 3px;
+	}
+
+	60% {
+		left: -2px;
+	}
+
+	80% {
+		left: 1px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.docs-linked[data-lit] > :is(.docs-linked-title, strong:first-of-type) {
+		animation: none;
+	}
+}
+
+.docs-linked:hover .docs-linked-button,
+.docs-linked-button:focus-visible,
+.docs-linked-button[data-popup-open] {
+	opacity: 1;
+}
+
+@media (hover: none) {
+	.docs-linked-button {
+		opacity: 1;
+	}
 }
 
 /* The component's design notes, under its description on the Specs tab. */

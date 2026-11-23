@@ -1,6 +1,7 @@
 import tokens from "../../../packages/but-ui/tokens/tokens.json";
 import { Markdown } from "@gitbutler/but-ui-react/Markdown.tsx";
 import { TextLink } from "@gitbutler/but-ui-react/TextLink.tsx";
+import { LinkedParagraph } from "./Linked.tsx";
 import { notePage } from "./pages.ts";
 import { pageLink } from "./site.ts";
 import type { FC, ReactNode } from "react";
@@ -19,7 +20,10 @@ export const DesignPage: FC<{ source: string; folder: string }> = ({ source, fol
 /** A design note's Markdown, on a page of its own or on its component's; `folder` is the one it
  * is in, where a link to a file beside it points. */
 export const DesignNote: FC<{ source: string; folder: string }> = ({ source, folder }) => (
-	<Markdown renderLink={(href, children) => designLink(folder, href, children)}>
+	<Markdown
+		renderLink={(href, children) => designLink(folder, href, children)}
+		renderParagraph={(children) => <LinkedParagraph>{children}</LinkedParagraph>}
+	>
 		{withValues(source)}
 	</Markdown>
 );

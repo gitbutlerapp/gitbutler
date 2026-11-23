@@ -10,8 +10,9 @@ import {
 	type Page,
 	type StoryEntry,
 } from "./pages.ts";
-import { pageLink } from "./site.ts";
+import { anchorOf, pageLink } from "./site.ts";
 import { GpuiView } from "./GpuiView.tsx";
+import { LinkedHeading } from "./Linked.tsx";
 import { gpuiShots, type Renderer } from "./gpui.ts";
 import { Icon } from "@gitbutler/but-ui-react/Icon.tsx";
 import { Segment, SegmentedControl } from "@gitbutler/but-ui-react/SegmentedControl.tsx";
@@ -84,11 +85,12 @@ export const ComponentPage: FC<{ page: Page; data: ComponentPageData }> = ({ pag
  */
 const Guidelines: FC<{ source: string; named: boolean }> = ({ source, named }) => {
 	const title = /^# (.+)\n/m.exec(source)?.[1];
+	const heading = named && title !== undefined ? `Guidelines: ${title}` : "Guidelines";
 	return (
 		<section className="docs-page-guidelines">
-			<h2 className="docs-page-example-title text-h3">
-				{named && title !== undefined ? `Guidelines: ${title}` : "Guidelines"}
-			</h2>
+			<LinkedHeading id={anchorOf(heading)} className="docs-page-example-title text-h3">
+				{heading}
+			</LinkedHeading>
 			<DesignNote source={source.replace(/^# .+\n/m, "")} folder="components" />
 		</section>
 	);
@@ -144,7 +146,12 @@ const Example: FC<{ entry: StoryEntry; framed: boolean; gpui: boolean }> = ({
 			: { width: `max(min(100%, var(--but-size-prose)), ${width + 48}px)`, maxWidth: "none" };
 	return (
 		<section className="docs-page-example">
-			<h2 className="docs-page-example-title text-h3">{entry.name}</h2>
+			<LinkedHeading
+				id={entry.id.split("--").at(-1) ?? anchorOf(entry.name)}
+				className="docs-page-example-title text-h3"
+			>
+				{entry.name}
+			</LinkedHeading>
 			{entry.description !== undefined && <Prose text={entry.description} />}
 			{framed || layout === "bar" ? (
 				// A window or a bar the width of one: a bordered card, the window's edge.

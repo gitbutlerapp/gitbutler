@@ -17,6 +17,7 @@ import { Table, TableCell, TableRow } from "./Table.tsx";
 import { TextLink } from "./TextLink.tsx";
 
 type LinkRenderer = (href: string, children: ReactNode) => ReactNode;
+type ParagraphRenderer = (children: ReactNode) => ReactNode;
 
 /**
  * Markdown as it is written on GitHub, tables and task lists included: a pull request description,
@@ -43,9 +44,17 @@ export const Markdown: FC<{
 	/** The markdown source. */
 	children: string;
 	renderLink?: LinkRenderer;
+	/** Draws a paragraph from its contents, as a `p`; a docs site gives one an anchor this way. */
+	renderParagraph?: ParagraphRenderer;
 	onCopy?: (code: string) => void;
 	className?: string;
-}> = ({ children, renderLink = openInNewTab, onCopy, className }) => (
+}> = ({
+	children,
+	renderLink = openInNewTab,
+	renderParagraph = plainParagraph,
+	onCopy,
+	className,
+}) => (
 	<div className={classes("text-prose", styles.markdown, className)}>
 		{/* The compiler rather than its component: the blocks go straight into this element, and the
 		    component would wrap them in one of its own. */}
@@ -61,6 +70,7 @@ export const Markdown: FC<{
 				h5: { props: { className: "text-semibold" } },
 				h6: { props: { className: "text-semibold" } },
 				a: { component: Link, props: { renderLink } },
+				p: { component: Paragraph, props: { renderParagraph } },
 				code: Code,
 				pre: { component: Pre, props: { onCopy } },
 				table: MarkdownTable,
@@ -79,6 +89,13 @@ const openInNewTab: LinkRenderer = (href, children) => (
 		{children}
 	</TextLink>
 );
+
+const plainParagraph: ParagraphRenderer = (children) => <p>{children}</p>;
+
+const Paragraph: FC<{ children?: ReactNode; renderParagraph: ParagraphRenderer }> = ({
+	children,
+	renderParagraph,
+}) => renderParagraph(children);
 
 /** A link the sanitizer emptied, an unsafe one, keeps its text without an address. */
 const Link: FC<ComponentProps<"a"> & { renderLink: LinkRenderer }> = ({

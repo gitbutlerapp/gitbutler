@@ -24,7 +24,8 @@ in GitButler repos.
 
 - "The pantry" is the design system's site: the design notes and every
   component in its states. Run it with `pnpm -F @gitbutler/but-ui-pantry dev`
-  (port 6007).
+  (port 6007). It's hosted at <https://pantry.gitbutler.com> from master, and
+  a pull request that changes it gets a Vercel preview.
 - "The GPUI pantry" is the GPUI client's window of the shared controls. Drive
   it with the `gpui-screenshots` skill (`drive.sh run --stories`).
 

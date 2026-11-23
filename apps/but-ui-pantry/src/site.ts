@@ -20,6 +20,33 @@ window.addEventListener("popstate", showPage);
 
 export const pageHref = (id: string) => `?page=${id}`;
 
+const unlight = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
+
+/**
+ * Brings a linked block into view and lights its title for a second, so whoever followed the link
+ * sees which one it meant: a link opened from elsewhere, or a row of the page's menu.
+ */
+export const reveal = (node: HTMLElement) => {
+	node.scrollIntoView();
+	delete node.dataset.lit;
+	// Read the layout between, so lighting it again restarts the wiggle.
+	void node.offsetWidth;
+	node.dataset.lit = "";
+	clearTimeout(unlight.get(node));
+	unlight.set(
+		node,
+		setTimeout(() => delete node.dataset.lit, 1000),
+	);
+};
+
+/** A heading's words as the part of an address after `#`: "Branch With Buttons" is branch-with-buttons. */
+export const anchorOf = (words: string) =>
+	words
+		.toLowerCase()
+		.replace(/['’]/g, "")
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-|-$/g, "");
+
 /**
  * A link to a page. A plain click loads the page first and then swaps it in, so the one on
  * screen stays until the next is ready; a click that opens a new tab goes where the address says.
