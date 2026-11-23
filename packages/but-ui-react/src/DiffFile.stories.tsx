@@ -27,7 +27,7 @@ const lineBackground = {
 };
 
 /**
- * Stands in for the host's diff renderer (Pierre in but.dev), which
+ * Stands in for the host's diff renderer, which
  * the library doesn't depend on.
  */
 const SampleDiff = ({ lines = sampleLines }: { lines?: Array<Line> }) => (

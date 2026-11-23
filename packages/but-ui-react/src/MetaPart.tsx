@@ -30,7 +30,7 @@ type Props = {
  * @figma `type` picks one of the parts the meta lines note describes, with its glyph, colour and
  * words; several wrap a MetaCount. `width=narrow` is a pane under 640px. There is no pull request
  * part: a branch with one is ViewHeader's `view=branch-pr`. `agent-working` and `agent-waiting`
- * are but.dev's AgentsPart around a MetaCount.
+ * are two of those.
  * @see packages/but-ui/design/components/meta-lines.md
  * @import import { MetaPart } from "@gitbutler/but-ui-react/MetaPart.tsx";
  */

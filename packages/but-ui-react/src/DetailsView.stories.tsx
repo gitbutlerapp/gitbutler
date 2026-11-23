@@ -55,7 +55,7 @@ const lineBackground = {
 	"-": "var(--but-diff-removed-muted)",
 };
 
-/** Stands in for the host's diff renderer (Pierre in but.dev). */
+/** Stands in for the host's diff renderer. */
 const SampleDiff: FC = () => (
 	<pre
 		className="text-12"

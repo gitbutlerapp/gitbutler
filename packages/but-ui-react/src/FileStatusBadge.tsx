@@ -5,7 +5,7 @@ import styles from "./FileStatusBadge.module.css";
 
 /**
  * What happened to a file: the `type` of the SDK's `TreeStatus`, written out here so an app
- * without the SDK, like but.dev, can name it too.
+ * without the SDK can name it too.
  *
  * @public
  */
