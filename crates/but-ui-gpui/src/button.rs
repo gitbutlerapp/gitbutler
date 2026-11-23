@@ -256,6 +256,12 @@ impl RenderOnce for Button {
                     None => theme.soft(tint),
                 },
             ),
+            // A coloured outline keeps its colour on a solid selection, in the other scheme's
+            // value, as but-ui-react's Button flips its colour scheme there, as Badge does.
+            None if self.inverted && coloured_hue(self.style).is_some() => {
+                let (fg, _, hover) = theme.outline_on_solid(coloured_hue(self.style));
+                (fg, bg, hover)
+            }
             None if self.inverted && self.style != ButtonStyle::Pop => (
                 theme.inverse_foreground,
                 bg.map(|_| theme.inverse_soft),
@@ -268,6 +274,9 @@ impl RenderOnce for Button {
         };
         let (fg, hover) = self.ink.unwrap_or((fg, hover));
         let border = match self.inverted && self.tint.is_none() {
+            true if coloured_hue(self.style).is_some() => {
+                Some(theme.outline_on_solid(coloured_hue(self.style)).1)
+            }
             true => border.map(|_| theme.derived.inverse_input),
             false => border,
         };
@@ -418,6 +427,16 @@ impl RenderOnce for Button {
 }
 
 /// An outline in `hue`'s text, with an edge of it, tinted under the pointer.
+/// The hue of a coloured outline: info's, warning's or success's.
+fn coloured_hue(style: ButtonStyle) -> Option<Hue> {
+    match style {
+        ButtonStyle::Info => Some(Hue::Blue),
+        ButtonStyle::Warning => Some(Hue::Warn),
+        ButtonStyle::Success => Some(Hue::Safe),
+        _ => None,
+    }
+}
+
 fn outlined(theme: &Theme, hue: Hue) -> (Hsla, Option<Hsla>, Option<Hsla>, Hsla) {
     let edge = Some(theme.outline_edge(hue));
     (theme.hue(hue), None, edge, theme.outline_hover(hue))

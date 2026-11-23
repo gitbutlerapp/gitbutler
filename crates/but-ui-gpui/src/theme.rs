@@ -896,6 +896,20 @@ impl Theme {
         self.hue(hue).opacity(0.3)
     }
 
+    /// A coloured outline button's text, edge and hover on a solid selection: its hue in the
+    /// other scheme's values, as but-ui-react's Button flips its scheme there. Only info,
+    /// success and warning are coloured; anything else takes the inverted ghost's.
+    pub fn outline_on_solid(&self, hue: Option<Hue>) -> (Hsla, Hsla, Hsla) {
+        let flip = &self.on_solid;
+        let (text, hover) = match hue {
+            Some(Hue::Blue) => (flip.info_text, flip.info_outline_hover),
+            Some(Hue::Warn) => (flip.warning_text, flip.warning_outline_hover),
+            Some(Hue::Safe) => (flip.success_text, flip.success_outline_hover),
+            _ => (self.inverse_foreground, self.inverse_ghost_hover),
+        };
+        (text, text.opacity(0.3), hover)
+    }
+
     /// Under the pointer, a coloured outline button's ground: its hue's faintest see-through
     /// tint, as Radix's outline buttons hover. Only info, success and warning draw one.
     pub fn outline_hover(&self, hue: Hue) -> Hsla {
