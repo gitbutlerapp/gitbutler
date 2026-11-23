@@ -4,7 +4,6 @@ use but_testsupport::visualize_commit_graph_all;
 
 use super::target_meta;
 use crate::init::utils::{add_workspace, read_only_in_memory_scenario, standard_options};
-use crate::support::graph_dag;
 
 #[test]
 fn with_local_target_uses_fetch_remote() -> anyhow::Result<()> {
@@ -166,18 +165,23 @@ fn target_local_tracking_ref_exists_when_other_branch_metadata_names_the_same_ti
     .validated()?
     .into_workspace()?;
     // the target remote and its local tracking branch get sibling links even when another branch owns the shared commit
-    snapbox::assert_data_eq!(
-        graph_dag(&ws.graph),
-        snapbox::str![[r#"
-◎  B
-│ ◎  👉📕gitbutler/workspace[🌳]
-│ │ ◎  origin/main
-│ │ ◎  main <> origin/main
-│ ├─╯
-│ ◎  📙A
-├─╯
-●  ✂·bce0c5e (⌂|🏘|✓)
-"#]]
+    let local = ws
+        .graph
+        .segment_by_ref_name("refs/heads/main".try_into()?)
+        .expect("main names a segment");
+    let remote = ws
+        .graph
+        .segment_by_ref_name("refs/remotes/origin/main".try_into()?)
+        .expect("origin/main names a segment");
+    assert_eq!(
+        local.remote_tracking_branch_segment_id,
+        Some(remote.id),
+        "main links to the segment of its remote-tracking branch even though A owns the shared commit"
+    );
+    assert_eq!(
+        remote.sibling_segment_id,
+        Some(local.id),
+        "origin/main links back to the segment of main even though A owns the shared commit"
     );
 
     assert_eq!(
