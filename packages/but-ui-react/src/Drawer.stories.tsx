@@ -180,8 +180,8 @@ const Open: FC<
 
 /**
  * The foot of the sidebar, under the cards: the other projects and the terminals, each a drawer.
- * A press anywhere on a drawer opens what it holds under it, but not on its buttons: Add project
- * always shows, Sort and show and New terminal… only under the pointer. While the projects are
+ * A press anywhere on a drawer opens what it holds under it, but not on its buttons, which show
+ * only under the pointer: Sort and show, Add project and New terminal…. While the projects are
  * open their card rules them off from the terminals, so the terminals drop their hairline.
  */
 export const SidebarDrawers = meta.story({
@@ -192,8 +192,12 @@ export const SidebarDrawers = meta.story({
 				name="Other projects"
 				count={24}
 				open
-				actions={ghost("plus", "Add project")}
-				hoverActions={ghost("mixer", "Sort and show")}
+				hoverActions={
+					<>
+						{ghost("mixer", "Sort and show")}
+						{ghost("plus", "Add project")}
+					</>
+				}
 			>
 				<Card>
 					<Projects />
@@ -224,7 +228,7 @@ export const SidebarDrawers = meta.story({
 export const Empty = meta.story({
 	render: () => (
 		<>
-			<Open name="Other projects" count={0} open actions={ghost("plus", "Add project")}>
+			<Open name="Other projects" count={0} open hoverActions={ghost("plus", "Add project")}>
 				<EmptyCard>
 					<EmptyState
 						variant="tidy"
