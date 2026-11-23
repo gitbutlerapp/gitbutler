@@ -168,6 +168,8 @@ pub enum DividerDrag {
     Navigator,
     /// The line over the terminal overview, under the navigator.
     Terminals,
+    /// The line over the hidden projects' drawer, under the cards.
+    HiddenProjects,
 }
 
 /// The line between two parts of a division, which dragging moves.

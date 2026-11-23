@@ -4718,8 +4718,8 @@ impl AppView {
                     }
                 }
             };
-            // The gap over its card, to the navigator's, drags its height, as the one beside
-            // the navigator drags that's width.
+            // The line over its drawer drags its height, as the gap beside the navigator drags
+            // that's width.
             let divider = gap_divider(
                 "resize-terminals",
                 Axis::Down,
@@ -4728,10 +4728,11 @@ impl AppView {
                 theme,
                 cx,
             )
+            // Over the line at its top, its middle on it, as the hidden projects' is.
             .left_0()
             .right_0()
-            .top(dp(-TERMINALS_MARGIN - 2.))
-            .h(dp(TERMINALS_MARGIN + 4.))
+            .top(dp(-crate::navigator::DIVIDER_REACH))
+            .h(dp(2. * crate::navigator::DIVIDER_REACH + 1.))
             .on_drag(Pane::Terminals, mark_dragged(&self.store, which))
             .on_click(reset);
             div()

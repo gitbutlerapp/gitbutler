@@ -220,7 +220,11 @@ impl Store {
             Pane::Navigator => (nav - (over - (list_width - list_fit))).max(MIN_NAVIGATOR.min(nav)),
             pane if pane == list => list_fit,
             // Fitted to what the list page leaves it, by `Detail::beside_files_width`.
-            Pane::Files | Pane::BesideFiles | Pane::Graph | Pane::Terminals => self.width(pane),
+            Pane::Files
+            | Pane::BesideFiles
+            | Pane::Graph
+            | Pane::Terminals
+            | Pane::HiddenProjects => self.width(pane),
         }
     }
 
@@ -337,6 +341,8 @@ pub enum Pane {
     Graph,
     /// The terminal overview under the navigator, by its height.
     Terminals,
+    /// The hidden projects' drawer under the cards, by its height.
+    HiddenProjects,
 }
 
 impl Pane {
@@ -346,8 +352,8 @@ impl Pane {
             Pane::Files => 300.,
             Pane::BesideFiles => 260.,
             Pane::Graph => 560.,
-            // Unless dragged, it fits its rows: see `dragged_width`.
-            Pane::Terminals => 240.,
+            // Unless dragged, they fit their rows: see `dragged_width`.
+            Pane::Terminals | Pane::HiddenProjects => 240.,
         }
     }
 
@@ -362,6 +368,8 @@ impl Pane {
             Pane::Graph => (320., 2000.),
             // Its bar and a row. The column's height limits it too.
             Pane::Terminals => (72., 2000.),
+            // Its bar and a project's row in its card.
+            Pane::HiddenProjects => (100., 2000.),
         }
     }
 }

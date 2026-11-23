@@ -10,10 +10,10 @@ use std::time::Instant;
 
 use but_tty::Status;
 use gpui::{
-    AnyElement, App, Bounds, ClickEvent, Context, Div, ElementId, Entity, FocusHandle, Focusable,
-    Hsla, ListAlignment, ListOffset, ListState, Modifiers, MouseButton, MouseDownEvent,
-    PathBuilder, Pixels, Point, Role, SharedString, Stateful, Subscription, Task, Window, actions,
-    canvas, div, fill, list, point, prelude::*, relative,
+    AnyElement, App, Bounds, ClickEvent, Context, Div, DragMoveEvent, ElementId, Entity,
+    FocusHandle, Focusable, Hsla, ListAlignment, ListOffset, ListState, Modifiers, MouseButton,
+    MouseDownEvent, PathBuilder, Pixels, Point, Role, SharedString, Stateful, Subscription, Task,
+    Window, actions, canvas, div, fill, list, point, prelude::*, relative,
 };
 
 use crate::app::{AddProject, AppHandle, UpdateFromTarget};
@@ -26,7 +26,8 @@ use crate::backend::{
 use crate::detail::{ChecksChanged, Detail};
 use crate::overlays::MenuItem;
 use crate::state::{
-    Part, Prefs, ProjectId, Section, Selection, Store, StoreEvent, Tile, WatchedOrder,
+    Axis, DividerDrag, Pane, Part, Prefs, ProjectId, Section, Selection, Store, StoreEvent, Tile,
+    WatchedOrder,
 };
 use crate::terminal::TerminalId;
 use crate::theme::{Hue, Theme, tokens};
@@ -39,9 +40,9 @@ use crate::ui::scrollbar::{Scroll, scrolled_in_gap};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     BLINK, Button, ButtonStyle, HEADER_HEIGHT, Icon, MetaCountType, Tooltip, WINDOW_CONTROLS_WIDTH,
-    above_drag, blink_once, button, commit_title, count_badge, dp, faint, field, fixed, glow_once,
-    guide_end_in, guide_in, h_flex, icon_at, icon_button, list_row, meta_count_on, plural, pulsing,
-    review, section_label, small_icon, v_flex,
+    above_drag, blink_once, button, commit_title, count_badge, dp, faint, field, fixed,
+    gap_divider, glow_once, guide_end_in, guide_in, h_flex, icon_at, icon_button, list_row,
+    mark_dragged, meta_count_on, plural, pulsing, review, section_label, small_icon, v_flex,
 };
 use crate::ui::{
     CommitPlace, Fold as RowFold, MetaStatusVariant, PullRequestState, SidebarRow, SplitCell,
@@ -132,6 +133,11 @@ pub(super) const DRAWER_GAP: f32 = 8.;
 /// How tall the projects' drawer is around its rows: its hairline and the room over its row, the
 /// row, the room under it, and its card's edges, which take their room folded too.
 const DRAWER_CHROME: f32 = 1. + DRAWER_BLOCK + DRAWER_ROW + DRAWER_GAP + 2.;
+/// How far a drawer's line takes a press to drag it on either side of it.
+pub(crate) const DIVIDER_REACH: f32 = 6.;
+/// The most of the column the hidden projects' drawer takes once its line is dragged, as the
+/// terminals' takes.
+const DRAWER_MOST_DRAGGED: f32 = 0.85;
 
 /// How far the rows under a row sit in from it, as but-ui-react's steps: a chevron's 12 points
 /// and the gap after it, so a child's chevron sits right of the guide that hangs from its
@@ -2566,15 +2572,45 @@ impl Navigator {
     }
 
     /// The drawer, pinned under the list at the column's foot, as the terminals' drawer is under
-    /// it: as tall as it's open, up to half the column, past which its rows scroll. The
-    /// terminals' drawer follows it right under, so the two are as tall as each other folded.
+    /// it: as tall as it's open, up to half the column, past which its rows scroll, until its
+    /// line is dragged, then as dragged. The terminals' drawer follows it right under, so the
+    /// two are as tall as each other folded.
     fn pinned_drawer(&self, theme: &Theme, cx: &Context<Self>) -> Div {
         let (left, right) = self.card_margins();
-        let height = DRAWER_CHROME + self.drawer_rows_height() + self.drawer_below();
+        let (height, dragged) = self.pinned_height(cx);
+        // Open, its line drags its height, as the terminals' drags theirs; folded to its bar,
+        // it has none to drag. A double-click puts it back to its rows'.
+        let open = !self.built.drawer.rows.is_empty() && !self.folds.closing(&Fold::Drawer);
+        let divider = open.then(|| {
+            let which = DividerDrag::HiddenProjects;
+            let store = self.store.clone();
+            // Over the line, its middle on it.
+            gap_divider(
+                "resize-hidden-projects",
+                Axis::Down,
+                which.clone(),
+                &self.store,
+                theme,
+                cx,
+            )
+            .left_0()
+            .right_0()
+            .top(dp(-DIVIDER_REACH))
+            .h(dp(2. * DIVIDER_REACH + 1.))
+            .on_drag(Pane::HiddenProjects, mark_dragged(&self.store, which))
+            .on_click(move |event, _, cx| {
+                if event.click_count() == 2 {
+                    store.update(cx, |store, cx| {
+                        store.put_back_width(Pane::HiddenProjects, height, cx)
+                    })
+                }
+            })
+        });
         v_flex()
+            .relative()
             .flex_none()
             .h(dp(height))
-            .max_h(relative(0.5))
+            .max_h(relative(if dragged { DRAWER_MOST_DRAGGED } else { 0.5 }))
             .pl(dp(left))
             .pr(dp(right))
             .child(
@@ -2583,6 +2619,49 @@ impl Navigator {
                     .min_h_0()
                     .child(self.drawer_card(false, theme, cx)),
             )
+            .children(divider)
+    }
+
+    /// How tall the pinned drawer is, and whether its line was dragged: as tall as its rows, or
+    /// as dragged, or sliding back from that to its rows', folding or unfolding as far as it's
+    /// open.
+    fn pinned_height(&self, cx: &App) -> (f32, bool) {
+        let fits = DRAWER_CHROME + self.drawer_rows_height() + self.drawer_below();
+        // Folded, its bar's.
+        if self.built.drawer.rows.is_empty() {
+            return (fits, false);
+        }
+        let store = self.store.read(cx);
+        let open = self.folds.openness(&Fold::Drawer).unwrap_or(1.);
+        match (
+            store.dragged_width(Pane::HiddenProjects),
+            store.width_glide(Pane::HiddenProjects),
+        ) {
+            (Some(dragged), _) => (
+                DRAWER_CHROME + (dragged - DRAWER_CHROME).max(0.) * open,
+                true,
+            ),
+            (None, Some(glide)) => (glide.at(fits, crate::clock::now()), true),
+            (None, None) => (fits, false),
+        }
+    }
+
+    /// The pinned drawer's height while its line is dragged, from the navigator's foot, as the
+    /// pointer has it.
+    fn drag_drawer_height(
+        &mut self,
+        event: &DragMoveEvent<Pane>,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if *event.drag(cx) != Pane::HiddenProjects {
+            return;
+        }
+        let height = f32::from(event.bounds.bottom() - event.event.position.y);
+        let height = height / Theme::get(cx).scale;
+        self.store.update(cx, |store, cx| {
+            store.set_width(Pane::HiddenProjects, Some(height), cx)
+        });
     }
 
     /// How tall the list is in this frame: as it was last laid out, give or take as much as the
@@ -4507,7 +4586,10 @@ impl Render for Navigator {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // After the rows are up to date, as a reorder of them starts sliding there, and nothing
         // else may draw the next frame, which what waits for the list's height needs too.
-        if self.prepare(RowsIn::List, window, cx) || !self.list_drawn() {
+        let drawer_gliding = (self.store.read(cx))
+            .width_glide(Pane::HiddenProjects)
+            .is_some();
+        if self.prepare(RowsIn::List, window, cx) || !self.list_drawn() || drawer_gliding {
             window.request_animation_frame();
         }
         let theme = Theme::get(cx).clone();
@@ -4564,6 +4646,7 @@ impl Render for Navigator {
             .on_drag_move(cx.listener(Self::follow_worktree_drag))
             .on_drag_move(cx.listener(Self::follow_terminal_drag))
             .on_drag_move(cx.listener(Self::follow_dragged))
+            .on_drag_move(cx.listener(Self::drag_drawer_height))
             .map(|el| {
                 on_any_drag_move(el, cx, |this, at, bounds, _, cx| {
                     this.drag_moved(bounds.contains(&at), cx)
