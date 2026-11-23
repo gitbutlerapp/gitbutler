@@ -35,7 +35,7 @@ use crate::transfer::{
 };
 use crate::ui::emoji::ProjectIcon;
 use crate::ui::fold::{self, Folds, Reorder, clipped, curtain, inert, on_top, reordered, shifted};
-use crate::ui::scrollbar::{Scroll, scrollbar, scrolled_in_gap};
+use crate::ui::scrollbar::{Scroll, scrolled_in_gap};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     BLINK, Button, ButtonStyle, HEADER_HEIGHT, Icon, MetaCountType, Tooltip, WINDOW_CONTROLS_WIDTH,
@@ -2474,10 +2474,19 @@ impl Navigator {
                     // Each row draws its part of its card: the cards, one a project unfolded
                     // here and one of the rest, have the drawer's room between them.
                     .when(rows_height <= 0., |el| el.max_h(dp(2.)))
-                    .child(rows)
-                    .when(alone, |el| {
-                        el.children(scrollbar("drawer-scrollbar", scroll, theme))
-                    })
+                    // Its rows scroll past where it's cut off, its thumb in the gap beside the
+                    // cards as the cards' is, and the cards it cuts keep their edges, as theirs.
+                    .child(
+                        scrolled_in_gap(
+                            rows,
+                            "drawer-scrollbar",
+                            scroll,
+                            -theme.scaled(self.card_margins().1 / 2.),
+                            theme,
+                        )
+                        .size_full(),
+                    )
+                    .children(self.drawer_caps(theme))
                     .map(|el| inert(el, closing)),
             )
             // Under its card, the room a drawer keeps under it, as it opens.
@@ -2507,29 +2516,33 @@ impl Navigator {
         if drawer.rows.is_empty() {
             return 0.;
         }
-        let mut height = -2.;
-        for (ix, row) in drawer.rows.iter().enumerate() {
-            if matches!(row, Row::Gap) {
-                height += CARD_GAP;
-                continue;
+        let rows = (0..drawer.rows.len()).map(|ix| match drawer.rows.get(ix) {
+            Some(Row::Gap) => CARD_GAP,
+            _ => self.drawer_row_height(ix),
+        });
+        rows.sum::<f32>() - 2.
+    }
+
+    /// How tall the drawer's row `ix` is drawn, its part of its card's edges and padding with it.
+    fn drawer_row_height(&self, ix: usize) -> f32 {
+        let drawer = &self.built.drawer;
+        let Some(row) = drawer.rows.get(ix) else {
+            return 0.;
+        };
+        let (first, last) = card_ends(&drawer.rows, ix);
+        let own = match row {
+            Row::Item(_) | Row::Note(..) | Row::Loading(_) | Row::More(..) | Row::Fewer(..) => {
+                self.row
             }
-            let (first, last) = card_ends(&drawer.rows, ix);
-            height += match row {
-                Row::Item(_) | Row::Note(..) | Row::Loading(_) | Row::More(..) | Row::Fewer(..) => {
-                    self.row
-                }
-                Row::HeaderRule(_) => HEADER_RULE,
-                _ => 0.,
-            };
-            height += match drawer.grouped.get(ix).copied().unwrap_or(true) {
-                true => 2. * DRAWER_GROUP_PADDING + if first { 0. } else { 1. },
-                false => {
-                    (if first { CARD_PADDING } else { 0. }) + if last { CARD_PADDING } else { 0. }
-                }
-            };
-            height += if first { 1. } else { 0. } + if last { 1. } else { 0. };
-        }
-        height
+            Row::HeaderRule(_) => HEADER_RULE,
+            _ => 0.,
+        };
+        let padding = match drawer.grouped.get(ix).copied().unwrap_or(true) {
+            true => 2. * DRAWER_GROUP_PADDING + if first { 0. } else { 1. },
+            false => (if first { CARD_PADDING } else { 0. }) + if last { CARD_PADDING } else { 0. },
+        };
+        let edges = if first { 1. } else { 0. } + if last { 1. } else { 0. };
+        own + padding + edges
     }
 
     /// The drawer, pinned under the list at the column's foot, as the terminals' drawer is under
@@ -2652,129 +2665,38 @@ impl Navigator {
         let (spacer, drawer) = self.footer.get();
         let drawer_top = y + CARD_EDGE + spacer + CARD_MARGIN;
         cards.push((drawer_top, drawer_top + drawer));
-        // How much of the card an edge cuts shows on the list's side of it, if it cuts one past
-        // its edge.
-        let cut = |at: f32, at_top: bool| {
-            (cards.iter())
-                .position(|&(card_top, bottom)| at > card_top + 1. && at < bottom - 1.)
-                .and_then(|ix| Some((ix, *cards.get(ix)?)))
-                .map(|(ix, (card_top, bottom))| {
-                    (ix, if at_top { bottom - at } else { at - card_top })
-                })
-        };
         // Which card the selection's, while it's edged, counting them as `cards` does.
         let focused = (self.built.focused_card.borrow().as_ref()).map(|rows| {
             (self.built.rows.iter().take(rows.start))
                 .filter(|row| matches!(row, Row::Gap))
                 .count()
         });
-        let (left, right) = self.card_margins();
-        let ground = theme.canvas;
-        let cap = |at_top: bool, (card, shows): (usize, f32)| {
-            let line = match focused == Some(card) {
-                true => theme.focus_edge(),
-                false => theme.border_subtle,
-            };
-            // Too little of the card shows for a corner at each of its ends: it's drawn whole,
-            // as a rounded box is that's shorter than two corners, over its own corners.
-            let sliver = shows < 2. * theme.shape.card;
-            let radius = if sliver { shows / 2. } else { theme.shape.card };
-            let edge = div()
-                .absolute()
-                .left(dp(left))
-                .right(dp(right))
-                .border_color(line)
-                .border_l_1()
-                .border_r_1();
-            // Otherwise its edge along the list's, two corners tall, as GPUI rounds a box no
-            // further than half its height, cut where the card's own corners start.
-            let (edge, shown) = match (sliver, at_top) {
-                (true, _) => (
-                    (edge.h(dp(shows)).border_t_1().border_b_1()).rounded(dp(radius)),
-                    shows,
-                ),
-                (false, true) => (
-                    edge.border_t_1().rounded_t(dp(theme.shape.card)),
-                    shows - theme.shape.card,
-                ),
-                (false, false) => (
-                    edge.border_b_1().rounded_b(dp(theme.shape.card)),
-                    shows - theme.shape.card,
-                ),
-            };
-            let edge = edge.when(!sliver, |el| el.h(dp(2. * theme.shape.card)));
-            let band = div()
-                .absolute()
-                .left_0()
-                .right_0()
-                .h(dp(shown.min(2. * theme.shape.card)))
-                .overflow_hidden();
-            let edge = match at_top {
-                true => band.top_0().child(edge.top_0()),
-                false => band.bottom_0().child(edge.bottom_0()),
-            };
-            // The ground past its corners, painted as their shape: GPUI rounds only a border's
-            // outer edge, so no border's inner one could cover them.
-            let corners = canvas(
-                |_, _, _| {},
-                move |bounds, _, window, cx| {
-                    let theme = Theme::get(cx);
-                    let (r, out) = (theme.scaled(radius), theme.scaled(1.));
-                    let (x0, x1) = (
-                        bounds.left() + theme.scaled(left),
-                        bounds.right() - theme.scaled(right),
-                    );
-                    // The list's edge, and the way into it.
-                    let (y, toward) = match at_top {
-                        true => (bounds.top(), r),
-                        false => (bounds.bottom(), -r),
-                    };
-                    let mut ends = vec![(y, toward)];
-                    if sliver {
-                        // The card's own end, its corners under the card's ground, rounder
-                        // than the sliver's.
-                        let end = y + toward / r * theme.scaled(shows);
-                        let (top, bottom) = (y.min(end), y.max(end));
-                        let wide = theme.scaled(theme.shape.card);
-                        for x in [x0, x1 - wide] {
-                            let under =
-                                Bounds::from_corners(point(x, top), point(x + wide, bottom));
-                            window.paint_quad(fill(under, theme.background));
-                        }
-                        ends.push((end, -toward));
-                    }
-                    // A quarter circle's control points, as a cubic Bézier draws it.
-                    let k = r * 0.5523;
-                    for (y, toward) in ends {
-                        for (x, inward) in [(x0, r), (x1, -r)] {
-                            let mut path = PathBuilder::fill();
-                            let side = |dx: Pixels, dy: Pixels| point(x + dx, y + dy);
-                            let (outward, beyond) = (-inward / r * out, -toward / r * out);
-                            path.move_to(side(outward, toward));
-                            path.line_to(side(outward, beyond));
-                            path.line_to(side(inward, beyond));
-                            path.line_to(side(inward, Pixels::ZERO));
-                            path.cubic_bezier_to(
-                                side(Pixels::ZERO, toward),
-                                side(inward - inward / r * k, Pixels::ZERO),
-                                side(Pixels::ZERO, toward - toward / r * k),
-                            );
-                            path.close();
-                            if let Ok(path) = path.build() {
-                                window.paint_path(path, ground);
-                            }
-                        }
-                    }
-                },
-            )
-            .absolute()
-            .inset_0();
-            div().absolute().inset_0().child(corners).child(edge)
-        };
-        let ends = [(cut(top, true), true), (cut(top + height, false), false)];
-        (ends.into_iter())
-            .filter_map(|(cut, at_top)| Some(cap(at_top, cut?)))
-            .collect()
+        card_caps(&cards, top, height, focused, self.card_margins(), theme)
+    }
+
+    /// [`card_caps`] for the drawer's list, pinned at the column's foot: its cards as tall as
+    /// [`Self::render_drawer_row`] draws them, as far as it's scrolled and as tall as it shows.
+    fn drawer_caps(&self, theme: &Theme) -> Vec<Div> {
+        let scale = theme.scale;
+        let top = -f32::from(self.drawer_list.scroll_px_offset_for_scrollbar().y) / scale;
+        let height = f32::from(self.drawer_list.viewport_bounds().size.height) / scale;
+        let drawer = &self.built.drawer;
+        let (mut cards, mut start, mut y) = (Vec::new(), 0., 0.);
+        for (ix, row) in drawer.rows.iter().enumerate() {
+            if matches!(row, Row::Gap) {
+                y += CARD_GAP;
+                continue;
+            }
+            let (first, last) = card_ends(&drawer.rows, ix);
+            if first {
+                start = y;
+            }
+            y += self.drawer_row_height(ix);
+            if last {
+                cards.push((start, y));
+            }
+        }
+        card_caps(&cards, top, height, None, (0., 0.), theme)
     }
 
     /// The drawer's handle: a click opens or closes it, and it says how many projects it lists
@@ -4682,6 +4604,135 @@ impl Render for Navigator {
         // A card out over the detail goes back once the pointer leaves it, so it's resized
         // only beside the detail, once it's all there.
     }
+}
+
+/// Where a list's top and bottom edges cut a card off as it's scrolled, `top` down its `cards`
+/// (each's top and bottom, from the list's top) and `height` tall: there the card's edge is
+/// drawn along the list's, rounded as its own, so it keeps its shape. GPUI cuts what a list
+/// draws to a rectangle, so the ground the cards are on is painted past the corners. The
+/// `focused` card is edged in the focus's colour, and the cards are in from the list's sides by
+/// `margins`.
+fn card_caps(
+    cards: &[(f32, f32)],
+    top: f32,
+    height: f32,
+    focused: Option<usize>,
+    (left, right): (f32, f32),
+    theme: &Theme,
+) -> Vec<Div> {
+    // How much of the card an edge cuts shows on the list's side of it, if it cuts one past
+    // its edge.
+    let cut = |at: f32, at_top: bool| {
+        (cards.iter())
+            .position(|&(card_top, bottom)| at > card_top + 1. && at < bottom - 1.)
+            .and_then(|ix| Some((ix, *cards.get(ix)?)))
+            .map(|(ix, (card_top, bottom))| (ix, if at_top { bottom - at } else { at - card_top }))
+    };
+    let ground = theme.canvas;
+    let cap = |at_top: bool, (card, shows): (usize, f32)| {
+        let line = match focused == Some(card) {
+            true => theme.focus_edge(),
+            false => theme.border_subtle,
+        };
+        // Too little of the card shows for a corner at each of its ends: it's drawn whole,
+        // as a rounded box is that's shorter than two corners, over its own corners.
+        let sliver = shows < 2. * theme.shape.card;
+        let radius = if sliver { shows / 2. } else { theme.shape.card };
+        let edge = div()
+            .absolute()
+            .left(dp(left))
+            .right(dp(right))
+            .border_color(line)
+            .border_l_1()
+            .border_r_1();
+        // Otherwise its edge along the list's, two corners tall, as GPUI rounds a box no
+        // further than half its height, cut where the card's own corners start.
+        let (edge, shown) = match (sliver, at_top) {
+            (true, _) => (
+                (edge.h(dp(shows)).border_t_1().border_b_1()).rounded(dp(radius)),
+                shows,
+            ),
+            (false, true) => (
+                edge.border_t_1().rounded_t(dp(theme.shape.card)),
+                shows - theme.shape.card,
+            ),
+            (false, false) => (
+                edge.border_b_1().rounded_b(dp(theme.shape.card)),
+                shows - theme.shape.card,
+            ),
+        };
+        let edge = edge.when(!sliver, |el| el.h(dp(2. * theme.shape.card)));
+        let band = div()
+            .absolute()
+            .left_0()
+            .right_0()
+            .h(dp(shown.min(2. * theme.shape.card)))
+            .overflow_hidden();
+        let edge = match at_top {
+            true => band.top_0().child(edge.top_0()),
+            false => band.bottom_0().child(edge.bottom_0()),
+        };
+        // The ground past its corners, painted as their shape: GPUI rounds only a border's
+        // outer edge, so no border's inner one could cover them.
+        let corners = canvas(
+            |_, _, _| {},
+            move |bounds, _, window, cx| {
+                let theme = Theme::get(cx);
+                let (r, out) = (theme.scaled(radius), theme.scaled(1.));
+                let (x0, x1) = (
+                    bounds.left() + theme.scaled(left),
+                    bounds.right() - theme.scaled(right),
+                );
+                // The list's edge, and the way into it.
+                let (y, toward) = match at_top {
+                    true => (bounds.top(), r),
+                    false => (bounds.bottom(), -r),
+                };
+                let mut ends = vec![(y, toward)];
+                if sliver {
+                    // The card's own end, its corners under the card's ground, rounder
+                    // than the sliver's.
+                    let end = y + toward / r * theme.scaled(shows);
+                    let (top, bottom) = (y.min(end), y.max(end));
+                    let wide = theme.scaled(theme.shape.card);
+                    for x in [x0, x1 - wide] {
+                        let under = Bounds::from_corners(point(x, top), point(x + wide, bottom));
+                        window.paint_quad(fill(under, theme.background));
+                    }
+                    ends.push((end, -toward));
+                }
+                // A quarter circle's control points, as a cubic Bézier draws it.
+                let k = r * 0.5523;
+                for (y, toward) in ends {
+                    for (x, inward) in [(x0, r), (x1, -r)] {
+                        let mut path = PathBuilder::fill();
+                        let side = |dx: Pixels, dy: Pixels| point(x + dx, y + dy);
+                        let (outward, beyond) = (-inward / r * out, -toward / r * out);
+                        path.move_to(side(outward, toward));
+                        path.line_to(side(outward, beyond));
+                        path.line_to(side(inward, beyond));
+                        path.line_to(side(inward, Pixels::ZERO));
+                        path.cubic_bezier_to(
+                            side(Pixels::ZERO, toward),
+                            side(inward - inward / r * k, Pixels::ZERO),
+                            side(Pixels::ZERO, toward - toward / r * k),
+                        );
+                        path.close();
+                        if let Ok(path) = path.build() {
+                            window.paint_path(path, ground);
+                        }
+                    }
+                }
+            },
+        )
+        .absolute()
+        .inset_0();
+        div().absolute().inset_0().child(corners).child(edge)
+    };
+    let ends = [(cut(top, true), true), (cut(top + height, false), false)];
+    (ends.into_iter())
+        .filter_map(|(cut, at_top)| Some(cap(at_top, cut?)))
+        .collect()
 }
 
 #[cfg(test)]
