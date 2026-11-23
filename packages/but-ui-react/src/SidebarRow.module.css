@@ -390,6 +390,21 @@ button.toggle {
 	margin-inline-end: var(--but-space-sm);
 }
 
+/* A count last on the row, a MetaCount or MetaStatus with no button or map after it: no edge of its
+   own, and its padding sets its text in less than a button's sets its label, so it stands as far
+   further in as a split's map does rather than looking stuck to the row's end. A badge has an edge,
+   and stays. */
+.end:not(:has(> .actions, > .split)) > .meta:last-child:has(> [data-meta-count]:last-child) {
+	margin-inline-end: var(--but-space-sm);
+}
+
+/* In a tree that keeps a map's room, it isn't at the row's end, and stays put. */
+:where([data-split-room])
+	.end:not(:has(> .actions, > .split))
+	> .meta:last-child:has(> [data-meta-count]:last-child) {
+	margin-inline-end: 0;
+}
+
 /* In a tree that shows splits, a row without one keeps the cell's room, the end's gap and the
    cell's own step on either side, so the counts line up down the list too. */
 :where([data-split-room]) .row:not(:has(> .end > .split)) {

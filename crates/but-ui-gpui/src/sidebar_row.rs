@@ -444,6 +444,11 @@ impl SidebarRow {
                 }
             })
             .collect();
+        // Counts last on the row, with no button or map after them, have no edge of their own,
+        // and their padding sets their text in less than a button's sets its label: they stand
+        // as far further in as a split's map does, so they don't look stuck to the row's end. In
+        // a tree that keeps a map's room they aren't at the end, and stay put.
+        let counts_last = self.actions.is_empty() && self.split.is_none() && !split_room;
         let end =
             (!metas.is_empty() || !self.actions.is_empty() || self.split.is_some()).then(|| {
                 h_flex()
@@ -462,6 +467,7 @@ impl SidebarRow {
                             h_flex()
                                 .when(!gives_way, |el| el.flex_none())
                                 .when(gives_way, |el| el.min_w_0())
+                                .when(counts_last, |el| el.mr(dp(4.)))
                                 .children(metas),
                         )
                     })

@@ -89,6 +89,8 @@ export const MetaCount: FC<MetaCountProps> = ({ type, children, ...props }) => (
 		className={classes(props.className, "text-13", styles.count, styles[type])}
 		// A name, which the row it's in lets give way before the row's own name.
 		data-meta-name={type === "head" ? "" : undefined}
+		// A mark with no edge of its own, which a row sets in further when it ends on one.
+		data-meta-count=""
 	>
 		{type === "agent-working" ? (
 			<WorkingRobot />
@@ -227,6 +229,8 @@ export const MetaStatus: FC<
 		aria-label={children === undefined ? undefined : `${children}, ${statusWord[variant]}`}
 		{...props}
 		className={classes(props.className, "text-13", styles.count, styles[variant])}
+		// A mark with no edge of its own, which a row sets in further when it ends on one.
+		data-meta-count=""
 	>
 		<Icon name={statusGlyph[variant]} size={14} className={classes(styles.glyph, styles.faded)} />
 		{children !== undefined && <span className={styles.value}>{children}</span>}

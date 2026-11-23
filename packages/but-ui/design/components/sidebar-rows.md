@@ -15,7 +15,11 @@ control is taller than a small one, which follows the density. Every row ends
 there, with a button or not, so the end column stays one line down a tree. A
 mark with no edge or padding of its own, a split's map, sits 4px further in, as
 a count's glyph does inside its own padding, so it doesn't look stuck to the
-edge.
+edge. A count last on a row, a `MetaCount` or `MetaStatus` with no button or
+map after it, sits 4px further in too: its padding sets its text in less than a
+button's sets its label, so without it the count reads as pressed to the edge.
+A `Badge` has an edge, and stays. In a tree that keeps a map's room the count
+isn't at the edge, and stays put.
 
 ## The end, row by row
 
