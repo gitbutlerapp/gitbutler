@@ -2858,10 +2858,9 @@ impl Navigator {
             .child(project_glyph_at(store, id, style.muted(), 14., theme));
         // Whether the app watches the project, as but-ui-react's Drawer marks it: an outlined
         // icon button with the open eye on a watched card, which stops watching it, or the
-        // closed one in the drawer, which shows it again. A watched card's header shows it only
-        // under the pointer or picked, as 🍑 But UI's sidebar has its cards' headers bare. Its
-        // press doesn't select the row, and while something is being moved it's only part of
-        // the row, which a press puts the move at.
+        // closed one in the drawer, which shows it again. It always shows, so what a press on it
+        // does is there before the pointer is. Its press doesn't select the row, and while
+        // something is being moved it's only part of the row, which a press puts the move at.
         let moving = store.moving.is_some();
         let (eye_icon, tooltip) = match expanded {
             true => (Icon::Eye, "Stop watching"),
@@ -2887,9 +2886,6 @@ impl Navigator {
             .flex_none()
             .when(!moving, |el| {
                 el.on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-            })
-            .when(expanded && !style.selected, |el| {
-                el.opacity(0.).group_hover(ROW_GROUP, |el| el.opacity(1.))
             })
             .child(eye);
         // In the drawer, how many branches and worktrees it has, as the cards would list them.
