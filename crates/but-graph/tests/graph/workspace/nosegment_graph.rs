@@ -1,4 +1,3 @@
-use but_graph::Graph;
 use but_testsupport::visualize_commit_graph_all;
 
 use super::target_meta;
@@ -17,7 +16,7 @@ fn walk_stops_below_the_target_commit() -> anyhow::Result<()> {
 
 "#]]
     );
-    let ws = Graph::from_head(
+    let ws = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         target_meta(&repo),

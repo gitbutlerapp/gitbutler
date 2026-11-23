@@ -1,5 +1,3 @@
-use but_graph::Graph;
-
 use crate::init::{
     StackState, add_stack_with_segments,
     utils::{default_project_meta, read_only_in_memory_scenario, standard_options},
@@ -10,7 +8,7 @@ fn worktree_segments_are_found_alongside_stack_segments() -> anyhow::Result<()> 
     let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/worktree-ref-mid-stack")?;
     add_stack_with_segments(&mut meta, 0, "foo", StackState::InWorkspace, &[]);
     db.worktree_meta_mut().mark_adopted()?;
-    let ws = Graph::from_head(
+    let ws = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         default_project_meta(&repo),
