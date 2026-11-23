@@ -189,7 +189,8 @@ pub use window_controls::WINDOW_CONTROLS_WIDTH;
 /// How tall a list row is at Balanced density. Rows are drawn at `theme.sizes.control`, which
 /// the density moves; this stays for minimums and for tests, which count at Balanced.
 pub const ROW_HEIGHT: f32 = 28.;
-pub const HEADER_HEIGHT: f32 = 48.;
+/// A header: its 28px controls with 8 above and below, as 🍑 But UI's SidebarHeader and LocationBar.
+pub const HEADER_HEIGHT: f32 = 44.;
 pub const STATUS_BAR_HEIGHT: f32 = 30.;
 
 /// Which of `len` tabs comes after the one at `at`, going round, if there's another.
