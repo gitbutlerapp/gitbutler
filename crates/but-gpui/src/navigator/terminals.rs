@@ -37,8 +37,8 @@ use crate::ui::Text;
 use crate::ui::fold::{Folds, Place, clipped};
 use crate::ui::text_input::TextInput;
 use crate::ui::{
-    Icon, dp, faint, field, fixed, fold_button, guide, icon_button, section_label, small_icon,
-    v_flex,
+    Button, Icon, dp, faint, field, fixed, fold_button, guide, icon_button, section_label,
+    small_icon, v_flex,
 };
 
 /// How far the bar's 12-point chevron sits in from the bar's left edge: its middle where a
@@ -846,15 +846,18 @@ impl TerminalOverview {
             true => bar.mb_0(),
             false => drawer_bar(bar).when(folded_away, |el| el.mb(dp(DRAWER_BLOCK))),
         };
-        let grouping = icon_button("overview-grouping", Icon::Mixer)
-            .small()
+        // A drawer's buttons are medium, as but-ui-react's Drawer's; under its tab, small.
+        let sized = |button: Button| match in_tab {
+            true => button.small(),
+            false => button.medium(),
+        };
+        let grouping = sized(icon_button("overview-grouping", Icon::Mixer))
             .tooltip("Group terminals")
             .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
                 let items = |this: &mut Self, cx: &mut Context<Self>| this.grouping_items(cx);
                 (this.app).open_menu(&cx.weak_entity(), event.position(), items, cx)
             }));
-        let new_terminal = icon_button("overview-new-terminal", Icon::Plus)
-            .small()
+        let new_terminal = sized(icon_button("overview-new-terminal", Icon::Plus))
             .tooltip("New terminal…")
             .on_click(move |_, window, cx| {
                 app.update_later(window, cx, |app, window, cx| {

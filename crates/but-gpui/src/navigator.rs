@@ -2500,18 +2500,17 @@ impl Navigator {
     }
 
     /// The drawer, pinned under the list at the column's foot, as the terminals' drawer is under
-    /// it: as tall as it's open, up to half the column, past which its rows scroll, with the
-    /// room under it that 🍑 But UI's sidebar keeps between its drawers.
+    /// it: as tall as it's open, up to half the column, past which its rows scroll. The
+    /// terminals' drawer follows it right under, so the two are as tall as each other folded.
     fn pinned_drawer(&self, theme: &Theme, cx: &Context<Self>) -> Div {
         let (left, right) = self.card_margins();
         let height = DRAWER_CHROME + self.drawer_rows_height() + self.drawer_below();
         v_flex()
             .flex_none()
-            .h(dp(height + CARD_GAP))
+            .h(dp(height))
             .max_h(relative(0.5))
             .pl(dp(left))
             .pr(dp(right))
-            .pb(dp(CARD_GAP))
             .child(
                 div()
                     .flex_1()
@@ -2767,7 +2766,7 @@ impl Navigator {
         // the keys on it.
         let sort = (total > 0).then(|| {
             icon_button("project-view-options", Icon::Mixer)
-                .small()
+                .medium()
                 .inverted(solid)
                 .tooltip("Sort and show")
                 .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
@@ -2786,7 +2785,7 @@ impl Navigator {
         .children(sort.map(|sort| on_hover(sort, selected)))
         .child(on_hover(
             icon_button("add-project", Icon::Plus)
-                .small()
+                .medium()
                 .inverted(solid)
                 .tooltip("Add project")
                 .dispatch(&AddProject),
