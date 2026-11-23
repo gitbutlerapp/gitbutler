@@ -609,11 +609,26 @@ impl Theme {
     }
 
     /// This theme as a row selected on the solid fill draws its marks, as but-ui-react's rows
-    /// flip their colour scheme there: each mark colour in its token's other value
-    /// (`on_solid`). A component built with it on such a row needs nothing else to know.
+    /// flip their colour scheme there: each mark colour, and each badge's fill and text, in
+    /// its token's other value (`on_solid`). A component built with it on such a row needs
+    /// nothing else to know.
     pub fn for_solid(&self) -> Theme {
         let (mut theme, flip) = (self.clone(), &self.on_solid);
         let c = &mut theme.colors;
+        c.foreground = flip.foreground;
+        c.neutral_soft = flip.neutral_soft;
+        c.primary_soft = flip.primary_soft;
+        c.primary_soft_foreground = flip.primary_soft_foreground;
+        c.info_soft = flip.info_soft;
+        c.info_soft_foreground = flip.info_soft_foreground;
+        c.success_soft = flip.success_soft;
+        c.success_soft_foreground = flip.success_soft_foreground;
+        c.warning_soft = flip.warning_soft;
+        c.warning_soft_foreground = flip.warning_soft_foreground;
+        c.danger_soft = flip.danger_soft;
+        c.danger_soft_foreground = flip.danger_soft_foreground;
+        c.done_soft = flip.done_soft;
+        c.done_soft_foreground = flip.done_soft_foreground;
         c.muted_foreground = flip.muted_foreground;
         c.subtle_foreground = flip.subtle_foreground;
         c.info_text = flip.info_text;
