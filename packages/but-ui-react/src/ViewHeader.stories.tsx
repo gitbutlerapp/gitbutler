@@ -8,6 +8,7 @@ import { machinePictures } from "./story-assets/machines.ts";
 import { Icon } from "./Icon.tsx";
 import { SwitchButton } from "./SwitchButton.tsx";
 import { Tab, Tabs } from "./Tabs.tsx";
+import { Tooltip } from "./Tooltip.tsx";
 import { ViewHeader, ViewHeaderButton, ViewHeaderDivider } from "./ViewHeader.tsx";
 import { MetaCount } from "./MetaCount.tsx";
 import type { FC } from "react";
@@ -39,7 +40,7 @@ const BranchTabs: FC<{ tab?: "diff" | "pr"; prDisabled?: boolean }> = ({
 	</Tabs>
 );
 
-/** but.dev's branch tabs, then the commit filter after a divider. */
+/** A branch's tabs, then the commit filter after a divider. */
 const BranchTabsAndFilter: FC = () => (
 	<>
 		<BranchTabs />
@@ -118,8 +119,9 @@ export const Branch = meta.story({
 });
 
 /**
- * but.dev's branch header without tabs: its buttons at the end, centred on the title block, the
- * meta line spelling out each count, each led by its glyph.
+ * A branch header without tabs: its buttons at the end, centred on the title block, the
+ * meta line spelling out each count, each led by its glyph. Updating is the behind count's next
+ * step, so it stands in the count's place as a small amber button, not among the header's buttons.
  */
 export const SpelledOut = meta.story({
 	args: {
@@ -128,29 +130,20 @@ export const SpelledOut = meta.story({
 		meta: (
 			<>
 				<MetaCount type="unpushed">4 unpushed</MetaCount>
-				<MetaCount type="behind">3 behind</MetaCount>
+				<Tooltip content="Update 3 commits">
+					<Button size="small" variant="warning" aria-label="Update 3 commits">
+						3
+						<Icon name="arrow-down" />
+					</Button>
+				</Tooltip>
 			</>
 		),
-		actions: (
-			<>
-				<ViewHeaderButton>
-					Update
-					<Icon name="arrow-down" />
-				</ViewHeaderButton>
-				<ViewHeaderButton>
-					Send to
-					<Icon name="arrow-corner-up-right" />
-				</ViewHeaderButton>
-				<ViewHeaderButton variant="ghost" iconOnly aria-label="More">
-					<Icon name="kebab" />
-				</ViewHeaderButton>
-			</>
-		),
+		actions: <SendAndMenu />,
 	},
 });
 
 /**
- * but.dev's branch: its tabs and the commit filter make the toolbar, and its buttons stand beside
+ * A branch: its tabs and the commit filter make the toolbar, and its buttons stand beside
  * the title, the pull request's Auto-merge first.
  */
 export const BranchWithButtons = meta.story({
@@ -196,8 +189,9 @@ export const BranchFullWindow = meta.story({
 });
 
 /**
- * The Pull Request tab: the pull request's own buttons end the tab row. Ghosts for Edit and the menu, an outline switch for Auto-merge since
- * it holds state, and Merge as the surface's one pop.
+ * The Pull Request tab: the pull request's own buttons end the tab row. Merge is its primary action
+ * and the surface's one pop, the Auto-merge switch stands before it since it holds state, and Edit
+ * goes in the ghost menu with the rest.
  */
 export const BranchPullRequestTab = meta.story({
 	args: {
@@ -207,10 +201,6 @@ export const BranchPullRequestTab = meta.story({
 		toolbar: <BranchTabs tab="pr" />,
 		actions: (
 			<>
-				<ViewHeaderButton variant="ghost">
-					Edit
-					<Icon name="edit" />
-				</ViewHeaderButton>
 				<SwitchButton label="Auto-merge" variant="outline" />
 				<DropdownButton variant="pop" menuLabel="Merge options" onMenuTrigger={() => {}}>
 					Merge
@@ -278,7 +268,7 @@ export const Uncommitted = meta.story({
 	},
 });
 
-/** but.dev's repository checkout: what it holds besides commits, and where to send it. */
+/** A repository checkout: what it holds besides commits, and where to send it. */
 export const Worktree = meta.story({
 	args: {
 		icon: "folder",
@@ -288,7 +278,7 @@ export const Worktree = meta.story({
 	},
 });
 
-/** but.dev's machine: an entity, so it wears the picture of its kind as its avatar. */
+/** A machine: an entity, so it wears the picture of its kind as its avatar. */
 export const Machine = meta.story({
 	args: {
 		avatar: <img src={machinePictures[0].src} alt="" width={38} height={38} />,
@@ -298,7 +288,7 @@ export const Machine = meta.story({
 	},
 });
 
-/** but.dev's cloud session: an avatar, the branch's tabs, and Send to… as the surface's pop. */
+/** A cloud session: an avatar, the branch's tabs, and Send to… as the surface's pop. */
 export const CloudSession = meta.story({
 	args: {
 		avatar: <Icon name="cloud" size={32} />,

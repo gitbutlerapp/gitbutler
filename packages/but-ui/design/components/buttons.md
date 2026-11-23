@@ -45,8 +45,8 @@ so a whole strip of it stays clean on any ground. Both carry
 
 **Mixing the quiet two.** Ghost and outline side by side tell kinds of control
 apart, never rank them; whichever is rarer in the group reads as distinct. In
-the pull request toolbar, Edit and the overflow menu are ghosts, the Auto-merge
-toggle is an outline because it holds state, and Merge is the single pop.
+the pull request toolbar, the overflow menu is a ghost, the Auto-merge toggle
+is an outline because it holds state, and Merge is the single pop.
 
 **Sizes.** Buttons on one row share a size, whatever their variant, so the
 row reads as one line of controls. A view header's pop action and its `⋯`
