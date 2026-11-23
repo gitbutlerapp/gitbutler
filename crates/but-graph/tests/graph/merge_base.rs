@@ -189,28 +189,35 @@ fn reachable_difference_returns_commits_in_traversal_order() -> anyhow::Result<(
 
 #[test]
 fn extra_tips_include_unnamed_revisions() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
+    let (repo, meta, _db) = read_only_in_memory_scenario("four-diamond")?;
     let merged_id = repo.rev_parse_single("merged")?.detach();
     let a_id = repo.rev_parse_single("A")?.detach();
     let c_id = repo.rev_parse_single("C")?.detach();
     let main_id = repo.rev_parse_single("main")?.detach();
 
-    let graph = Graph::from_commit_traversal_with_extra_tips(
-        merged_id.attach(&repo),
-        None,
-        [Tip::reachable(a_id, None), Tip::reachable(c_id, None)],
+    let options = standard_options();
+    let graph = but_graph::nosegment::workspace(
+        &repo,
         &*meta,
+        but_graph::init::Overlay::default(),
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
-        standard_options(),
+        None,
+        Some(merged_id),
+        [a_id, c_id],
+        Vec::new(),
+        options.collect_tags,
+        options.commits_limit_hint,
     )?
+    .graph
     .validated()?;
 
+    // Seen from a commit without a branch, the graph starts at that commit rather than at
+    // `merged`, which points at it.
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
-◎  👉merged[🌳]
-●    ·8a6c109 (⌂)
+◎  merged[🌳]
+●    👉·8a6c109 (⌂)
 ├─╮
 ◎ │  A
 ● │    ·62b409a (⌂)
