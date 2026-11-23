@@ -100,56 +100,42 @@
     <text x="498 506 514 522 530" y="222" style="fill:#CBA6F7;">final</text>
     <text x="546 554 562 570 578" y="222" style="fill:#CBA6F7;">class</text>
     <text x="594 602 610 618 626 634 642 650 658" y="222" style="fill:#CDD6F4;">AppModel:</text>
-    <text x="674 682 690 698 706 714 722 730 738 746 754 762 770 778 786 794" y="222" style="fill:#CDD6F4;">ObservableObject</text>
     <text x="802" y="222" style="fill:#555555;">█</text>
     <text x="410" y="240" style="fill:#555555;">│</text>
     <text x="434" y="240" style="fill:#555555;">┊</text>
-    <text x="458" y="240" style="fill:#00AA00;">5</text>
     <text x="474" y="240" style="fill:#555555;">│</text>
-    <text x="490" y="240" style="fill:#CCCCCC;">+</text>
-    <text x="530" y="240" style="fill:#9399B2;">@</text>
-    <text x="538 546 554 562 570 578 586 594 602" y="240" style="fill:#CBA6F7;">Published</text>
-    <text x="618 626 634 642 650 658 666 674 682 690 698 706" y="240" style="fill:#CBA6F7;">private(set)</text>
-    <text x="722 730 738" y="240" style="fill:#CBA6F7;">var</text>
-    <text x="754 762 770 778 786 794" y="240" style="fill:#CDD6F4;">isRefr</text>
+    <text x="498 506 514 522 530 538 546 554 562 570 578 586 594 602 610 618" y="240" style="fill:#CDD6F4;">ObservableObject</text>
+    <text x="634" y="240" style="fill:#CDD6F4;">{</text>
     <text x="802" y="240" style="fill:#555555;">█</text>
     <text x="410" y="258" style="fill:#555555;">│</text>
     <text x="434" y="258" style="fill:#555555;">┊</text>
-    <text x="458" y="258" style="fill:#00AA00;">6</text>
+    <text x="458" y="258" style="fill:#00AA00;">5</text>
     <text x="474" y="258" style="fill:#555555;">│</text>
     <text x="490" y="258" style="fill:#CCCCCC;">+</text>
-    <text x="530 538 546 554 562 570 578" y="258" style="fill:#CBA6F7;">private</text>
-    <text x="594 602 610" y="258" style="fill:#CBA6F7;">let</text>
-    <text x="626 634 642 650 658 666 674 682 690 698 706 714 722 730 738 746" y="258" style="fill:#CDD6F4;">refreshInterval:</text>
-    <text x="762 770 778" y="258" style="fill:#F9E2AF;">Int</text>
-    <text x="794" y="258" style="fill:#94E2D5;">=</text>
-    <text x="802" y="258" style="fill:#555555;">█</text>
+    <text x="530" y="258" style="fill:#9399B2;">@</text>
+    <text x="538 546 554 562 570 578 586 594 602" y="258" style="fill:#CBA6F7;">Published</text>
+    <text x="618 626 634 642 650 658 666 674 682 690 698 706" y="258" style="fill:#CBA6F7;">private(set)</text>
+    <text x="722 730 738" y="258" style="fill:#CBA6F7;">var</text>
     <text x="410" y="276" style="fill:#555555;">│</text>
     <text x="434" y="276" style="fill:#555555;">┊</text>
-    <text x="458" y="276" style="fill:#00AA00;">7</text>
     <text x="474" y="276" style="fill:#555555;">│</text>
-    <text x="490" y="276" style="fill:#CCCCCC;">+</text>
-    <text x="802" y="276" style="fill:#555555;">█</text>
+    <text x="498 506 514 522 530 538 546 554 562 570 578 586" y="276" style="fill:#CDD6F4;">isRefreshing</text>
+    <text x="602" y="276" style="fill:#94E2D5;">=</text>
+    <text x="618 626 634 642 650" y="276" style="fill:#CBA6F7;">false</text>
     <text x="410" y="294" style="fill:#555555;">│</text>
     <text x="434" y="294" style="fill:#555555;">┊</text>
-    <text x="458" y="294" style="fill:#00AA00;">8</text>
+    <text x="458" y="294" style="fill:#00AA00;">6</text>
     <text x="474" y="294" style="fill:#555555;">│</text>
     <text x="490" y="294" style="fill:#CCCCCC;">+</text>
-    <text x="530 538 546 554" y="294" style="fill:#CBA6F7;">func</text>
-    <text x="570 578 586 594 602 610 618" y="294" style="fill:#CDD6F4;">refresh</text>
-    <text x="626 634" y="294" style="fill:#9399B2;">()</text>
-    <text x="650 658 666 674 682" y="294" style="fill:#CDD6F4;">async</text>
-    <text x="698 706 714 722 730 738" y="294" style="fill:#CDD6F4;">throws</text>
-    <text x="754" y="294" style="fill:#9399B2;">{</text>
+    <text x="530 538 546 554 562 570 578" y="294" style="fill:#CBA6F7;">private</text>
+    <text x="594 602 610" y="294" style="fill:#CBA6F7;">let</text>
+    <text x="626 634 642 650 658 666 674 682 690 698 706 714 722 730 738 746" y="294" style="fill:#CDD6F4;">refreshInterval:</text>
+    <text x="762 770 778" y="294" style="fill:#F9E2AF;">Int</text>
     <text x="410" y="312" style="fill:#555555;">│</text>
     <text x="434" y="312" style="fill:#555555;">┊</text>
-    <text x="458" y="312" style="fill:#00AA00;">9</text>
     <text x="474" y="312" style="fill:#555555;">│</text>
-    <text x="490" y="312" style="fill:#CCCCCC;">+</text>
-    <text x="562 570 578 586 594 602" y="312" style="fill:#CDD6F4;">print(</text>
-    <text x="610 618 626 634 642 650 658 666 674 682 690" y="312" style="fill:#A6E3A1;">"Refreshing</text>
-    <text x="706 714 722 730 738" y="312" style="fill:#A6E3A1;">every</text>
-    <text x="754 762 770 778 786 794 802" y="312" style="fill:#CDD6F4;">/(refre</text>
+    <text x="498" y="312" style="fill:#94E2D5;">=</text>
+    <text x="514" y="312" style="fill:#FAB387;">5</text>
     <text x="26 34 42 50 58 66 74" y="330" style="fill:#000000;">details</text>
     <text x="106 114 122" y="330" style="fill:#0000AA;">↓/j</text>
     <text x="138 146 154 162" y="330" style="fill:#CCCCCC;opacity:0.75;">next</text>
