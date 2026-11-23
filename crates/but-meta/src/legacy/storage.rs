@@ -3,65 +3,12 @@
 use std::{collections::HashMap, io::Read as _, path::Path, str::FromStr, time::UNIX_EPOCH};
 
 use anyhow::{Context as _, anyhow, bail};
-use but_core::ref_metadata::{ProjectMeta, StackId, UnresolvedLegacyTargetRefError};
+use but_core::ref_metadata::StackId;
 use but_db::{VbStack, VbStackHead, VbState, VirtualBranchesSnapshot};
 use gitbutler_reference::{Refname, RemoteRefname};
 use sha2::{Digest, Sha256};
 
 use crate::virtual_branches_legacy_types::{Stack, StackBranch, VirtualBranches};
-
-#[derive(serde::Deserialize)]
-struct LegacyProjectMetaFile {
-    default_target: Option<LegacyTarget>,
-}
-
-#[derive(serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct LegacyTarget {
-    remote_name: String,
-    branch_name: String,
-    sha: String,
-    push_remote_name: Option<String>,
-}
-
-/// Read the project metadata that older versions stored in `virtual_branches.toml` without
-/// opening or migrating the project database.
-/// Legacy remote targets must resolve to a local tracking branch in `repo`, as
-/// [`but_core::ref_metadata::resolve_local_target`] does. If no local branch or multiple local
-/// branches match, the [`UnresolvedLegacyTargetRefError`] carries the stored cutoff and push remote.
-pub fn read_legacy_project_meta(
-    path: &Path,
-    repo: &gix::Repository,
-) -> anyhow::Result<Option<ProjectMeta>> {
-    let content = match std::fs::read_to_string(path) {
-        Ok(content) => content,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(err) => return Err(err.into()),
-    };
-    let Some(target) = toml::from_str::<LegacyProjectMetaFile>(&content)?.default_target else {
-        return Ok(None);
-    };
-    let target_commit_id = gix::ObjectId::from_str(&target.sha)?;
-    let target_commit_id = (!target_commit_id.is_null()).then_some(target_commit_id);
-    let remote_target: gix::refs::FullName =
-        format!("refs/remotes/{}/{}", target.remote_name, target.branch_name).try_into()?;
-    let target_ref =
-        match but_core::ref_metadata::resolve_local_target(remote_target.as_ref(), repo) {
-            Ok(target_ref) => target_ref,
-            Err(mut err) => {
-                if let Some(unresolved) = err.downcast_mut::<UnresolvedLegacyTargetRefError>() {
-                    unresolved.target_commit_id = target_commit_id;
-                    unresolved.push_remote = target.push_remote_name;
-                }
-                return Err(err);
-            }
-        };
-    Ok(Some(ProjectMeta {
-        target_ref: Some(target_ref),
-        target_commit_id,
-        push_remote: target.push_remote_name,
-    }))
-}
 
 /// Read virtual-branches state from the DB, which is the source of truth.
 ///

@@ -5,6 +5,24 @@ mod workspace_dependencies;
 
 mod ui;
 
+fn writable_scenario_with_target(
+    name: &str,
+) -> anyhow::Result<(
+    gix::Repository,
+    but_testsupport::gix_testtools::tempfile::TempDir,
+)> {
+    let (repo, tmpdir) = but_testsupport::writable_scenario(name);
+    but_core::ref_metadata::ProjectMeta {
+        target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+            "refs/heads/main".try_into()?,
+        )?),
+        target_commit_id: Some(repo.rev_parse_single("main")?.detach()),
+        push_remote: Some("origin".into()),
+    }
+    .persist(&repo)?;
+    Ok((repo, tmpdir))
+}
+
 fn intersect_workspace_ranges(
     repo: &gix::Repository,
     ranges: but_hunk_dependency::WorkspaceRanges,
