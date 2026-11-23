@@ -1,7 +1,7 @@
 import { stories } from "../stories/stories.ts";
 import { useState } from "react";
 import { Icon } from "./Icon.tsx";
-import { CiStatus } from "./MetaCount.tsx";
+import { MetaStatus } from "./MetaCount.tsx";
 import { Tab, Tabs } from "./Tabs.tsx";
 
 const meta = stories({
@@ -72,7 +72,7 @@ export const PullRequest = meta.story({
 			<Tab
 				value="pr"
 				icon={<Icon name="pr" style={{ color: "var(--but-success-text)" }} />}
-				status={<CiStatus status="working" />}
+				status={<MetaStatus variant="working">CI</MetaStatus>}
 			>
 				PR #512
 			</Tab>

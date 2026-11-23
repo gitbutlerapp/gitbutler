@@ -23,9 +23,11 @@ type Props = {
 	/** The actions slot: at most two buttons, and never `pop`. In `tidy`, the buttons are `small`. */
 	children?: ReactNode;
 	/**
-	 * `tidy` where the block stands in for a popup's rows — a search in a picker
-	 * or the command palette that found nothing: usually just the line and a
-	 * `small` "Clear search", closed up and centred plainly rather than lifted.
+	 * `tidy` where the block stands in for a few rows — a search in a picker
+	 * or the command palette that found nothing, or an empty card in a sidebar:
+	 * usually just the line and a `small` "Clear search", closed up and centred
+	 * plainly rather than lifted. It is as tall as its content, up to 320 wide,
+	 * with no inset of its own: the host's padding is the room around it.
 	 */
 	variant?: "default" | "tidy";
 	/**
@@ -82,7 +84,7 @@ export const EmptyState: FC<Props> = ({
 						</p>
 					)}
 					{description !== undefined && (
-						<p className={classes("text-prose", "text-balance", styles.description)}>
+						<p className={classes("text-13", "text-body", "text-balance", styles.description)}>
 							{description}
 						</p>
 					)}

@@ -56,15 +56,17 @@ impl Navigator {
     /// platform, as only macOS has a menu bar. Signed in, it shows who as its picture.
     pub(super) fn settings_button(&self, theme: &Theme, cx: &Context<Self>) -> AnyElement {
         let account = &self.store.read(cx).account;
+        // As 🍑 But UI's SidebarHeader: the 18px avatar in a 24px box, else a button as the
+        // header's others are.
         let button = match &account.user {
             Some(user) => picture_button(
                 "settings-menu",
                 account_avatar(user, account.avatar.clone(), 18., theme),
-            ),
+            )
+            .medium(),
             None => icon_button("settings-menu", Icon::Settings),
         };
         button
-            .small()
             .tooltip("Settings")
             .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
                 this.open_menu(event.position(), |this, cx| this.settings_menu(cx), cx)

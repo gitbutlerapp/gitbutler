@@ -825,7 +825,8 @@ impl FileListItem {
                 div()
                     .id("status")
                     .aria_label("Conflicted")
-                    .child(conflict_icon(14., &theme, cx)),
+                    // The size every other conflict mark takes: a count's, the banner's, the status bar's.
+                    .child(icon_at(Icon::Warning, 14.).text_color(theme.warning_mark)),
             )
         } else if self.editing {
             // Quiet, as the folder is, since nothing has happened yet.
@@ -902,8 +903,8 @@ impl FileListItem {
             // faint line across it, set in from the ends as the row's contents are.
             .when(self.selected && self.joined.0, |el| {
                 let (fill, line) = match solid {
-                    true => (theme.inverse, theme.inverse_soft),
-                    false => (theme.selected_inactive, theme.background),
+                    true => (theme.inverse, theme.derived.joined_line_on_solid),
+                    false => (theme.selected_inactive, theme.secondary),
                 };
                 el.relative()
                     .rounded_t_none()
@@ -978,7 +979,7 @@ fn centred(el: Div) -> Div {
 /// One level of the indent: the line that joins the rows under one directory, or on its last row
 /// the tail that turns into the row's glyph, `into_icon` when that is a file's icon rather than a
 /// chevron, round by `radius`.
-fn guide(kind: Guide, into_icon: bool, radius: f32, color: Hsla) -> Div {
+pub(crate) fn guide(kind: Guide, into_icon: bool, radius: f32, color: Hsla) -> Div {
     let step = div().relative().flex_none().w(dp(STEP)).h_full();
     match kind {
         Guide::None => step,

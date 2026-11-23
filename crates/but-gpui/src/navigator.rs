@@ -1,32 +1,33 @@
 //! The left column: every project as a card, each listing its uncommitted changes,
 //! stacks, branches and commits as one tree of rows.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
-use std::f32::consts::PI;
+use std::f32::consts::FRAC_PI_2;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
 
 use but_tty::Status;
 use gpui::{
-    AnyElement, App, Bounds, ClickEvent, Context, Div, ElementId, Entity, FocusHandle, Focusable,
-    Hsla, ListAlignment, ListOffset, ListState, Modifiers, MouseButton, MouseDownEvent,
-    PathBuilder, Pixels, Point, Role, SharedString, Stateful, Subscription, Task, Window, actions,
-    canvas, div, fill, list, point, prelude::*, relative,
+    AnyElement, App, Bounds, ClickEvent, Context, Div, DragMoveEvent, ElementId, Entity,
+    FocusHandle, Focusable, Hsla, ListAlignment, ListOffset, ListState, Modifiers, MouseButton,
+    MouseDownEvent, PathBuilder, Pixels, Point, Role, SharedString, Stateful, Subscription, Task,
+    Window, actions, canvas, div, fill, list, point, prelude::*, relative,
 };
 
 use crate::app::{AddProject, AppHandle, UpdateFromTarget};
 use crate::backend::rebuild::Rebuild;
 use crate::backend::upstream::UpdateScope;
 use crate::backend::{
-    Branch, Checkout, Commit, CommitId, CommitState, FileChange, FullName, PushState, Review,
-    ReviewState, Target, Workspace,
+    Branch, Checkout, Commit, CommitId, CommitState, FileChange, FullName, PushState, ReviewState,
+    Target, Workspace,
 };
-use crate::detail::{ChecksChanged, Detail, PageTab, oldest_conflict};
+use crate::detail::{ChecksChanged, Detail};
 use crate::overlays::MenuItem;
 use crate::state::{
-    Part, Prefs, ProjectId, Section, Selection, Store, StoreEvent, Tile, WatchedOrder,
+    Axis, DividerDrag, Pane, Part, Prefs, ProjectId, Section, Selection, Store, StoreEvent, Tile,
+    WatchedOrder,
 };
 use crate::terminal::TerminalId;
 use crate::theme::{Hue, Theme, tokens};
@@ -35,13 +36,21 @@ use crate::transfer::{
 };
 use crate::ui::emoji::ProjectIcon;
 use crate::ui::fold::{self, Folds, Reorder, clipped, curtain, inert, on_top, reordered, shifted};
-use crate::ui::scrollbar::{Scroll, scrollbar, scrolled_in_gap};
+use crate::ui::scrollbar::{Scroll, scrolled_in_gap};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    BLINK, ButtonStyle, HEADER_HEIGHT, Icon, Tooltip, WINDOW_CONTROLS_WIDTH, above_drag,
-    blink_once, button, commit_title, count_badge, dp, faint, field, fixed, fold_button, fold_row,
-    glow_once, guide, h_flex, icon, icon_at, icon_button, list_row, meta_count, plural, pulsing,
-    review, section_label, small_icon, spinning, unread_line, v_flex,
+    BLINK, Button, ButtonStyle, HEADER_HEIGHT, Icon, MetaCountType, Tooltip, WINDOW_CONTROLS_WIDTH,
+    above_drag, blink_once, button, commit_title, count_badge, dp, empty_state_tidy, faint, field,
+    field_leading, fixed, gap_divider, glow_once, guide_end_in, guide_in, h_flex, icon_at,
+    icon_button, list_row, mark_dragged, meta_count_on, plural, pulsing, review, section_label,
+    small_icon, v_flex,
+};
+use crate::ui::{
+    CommitPlace, Fold as RowFold, MetaStatusVariant, PullRequestState, SidebarRow, SplitCell,
+    SplitPreview, SplitTile, branch_item, commit_item, group_label, item_name, loading_item,
+    meta_status, more_item, press_in_pane, repo_item, running_count, sidebar_row,
+    split_preview_map, stack_caption, terminal_item, uncommitted_item, upstream_item,
+    worktree_item,
 };
 
 mod account;
@@ -77,21 +86,14 @@ pub(crate) use terminals::TerminalOverview;
 use crate::ui::Text;
 use moving::Mark;
 use rows::{
-    CARD_EDGE, CARD_PADDING, COMMIT_INDENT, Drawer, Fold, HEADING_HEIGHT, ROW_LEFT, Row, RowKey,
-    caption, card_ends, checkout_holds, in_checkout, in_inactive, inactive_open, span_height,
+    CARD_EDGE, CARD_PADDING, COMMIT_INDENT, Drawer, Fold, HEADER_RULE, HEADING_HEIGHT,
+    LOADING_WIDTHS, ROW_LEFT, ROW_MARGIN, Row, RowKey, caption, card_ends, checkout_holds,
+    in_checkout, in_inactive, inactive_open, span_height,
 };
-
-/// The room a pressable mark has around it for its tint under the pointer. A negative margin
-/// to keep it in place would wrap it off a project's summary.
-const MARK_PAD: f32 = 3.;
 
 /// How far apart the cards are, as the detail's are: but-ui's `gap/stack`, the one gap between
 /// cards stacked in a column on every surface.
 pub(super) const CARD_GAP: f32 = tokens::GAP_STACK;
-
-/// How wide and tall the map of a row's tiles is, and the gap between them there.
-const TILE_MAP: (f32, f32) = (20., 14.);
-const TILE_MAP_GAP: f32 = 1.5;
 
 /// How far the cards sit in from the list's sides, as far as the detail's cards are from the
 /// window's edges.
@@ -111,30 +113,45 @@ const ABOVE_LAST_LISTED: usize = 2;
 /// How tall the bar of a card at the navigator's foot is, the drawer's level with the commit
 /// footer beside it, and the space under the drawer's rows.
 pub(super) const CARD_BAR_HEIGHT: f32 = crate::detail::FOOTER_HEIGHT;
-const DRAWER_PADDING: f32 = 6.;
+/// The room around each project in the drawer's card, as 🍑 But UI's drawer has each in a
+/// group of its own: `space-lg` over and under its row.
+const DRAWER_GROUP_PADDING: f32 = 8.;
 
 /// How far that bar sits in from its card's edges, as a row from a card's.
 pub(super) const CARD_BAR_INSET: f32 = 3.;
 
-/// How tall the drawer's card is around its rows: its bar, and its edges.
-const DRAWER_CHROME: f32 = CARD_BAR_HEIGHT + 2. * CARD_BAR_INSET + 2.;
+/// A drawer's row at the navigator's foot, as but-ui-react's DrawerItem and 🍑 But UI's: a row's
+/// height.
+pub(super) const DRAWER_ROW: f32 = 28.;
 
-/// How far the rows under a row sit in from it: its 16-point icon and the gap after it, so
-/// their icons line up under its name.
-const STEP: f32 = 16. + 8.;
+/// The room a drawer keeps above its row, past its hairline, and below it while it's folded, as
+/// but-ui-react's Drawer: `space-xl`.
+pub(super) const DRAWER_BLOCK: f32 = 10.;
+
+/// The room between an open drawer's row and its card: `space-lg`.
+pub(super) const DRAWER_GAP: f32 = 8.;
+
+/// How tall the projects' drawer is around its rows: its hairline and the room over its row, the
+/// row, the room under it, and its card's edges, which take their room folded too.
+const DRAWER_CHROME: f32 = 1. + DRAWER_BLOCK + DRAWER_ROW + DRAWER_GAP + 2.;
+/// How tall the drawer's card is with no projects hidden in it: its edges, the room around its
+/// empty state, and the state.
+pub(super) const DRAWER_EMPTY: f32 =
+    2. + 2. * terminals::EMPTY_CARD_PADDING.0 + crate::ui::EMPTY_TIDY_HEIGHT;
+/// How far a drawer's line takes a press to drag it on either side of it.
+pub(crate) const DIVIDER_REACH: f32 = 6.;
+/// The most of the column the hidden projects' drawer takes once its line is dragged, as the
+/// terminals' takes.
+const DRAWER_MOST_DRAGGED: f32 = 0.85;
+
+/// How far the rows under a row sit in from it, as but-ui-react's steps: a chevron's 12 points
+/// and the gap after it, so a child's chevron sits right of the guide that hangs from its
+/// parent's.
+const STEP: f32 = 12. + 4.;
 
 /// The group every item row is, so a fold's chevron shows in place of its icon while the
 /// pointer is over the row (see [`Navigator::fold`]).
 const ROW_GROUP: &str = "navigator-row";
-
-/// The eye of a project the app watches, or struck through for one it doesn't.
-fn watch_glyph(watched: bool) -> gpui::Svg {
-    let eye = match watched {
-        true => Icon::Eye,
-        false => Icon::EyeClosed,
-    };
-    crate::ui::icon_at(eye, 14.)
-}
 
 actions!(
     navigator,
@@ -182,6 +199,19 @@ pub(crate) struct RowStyle<'a> {
     blink: Option<usize>,
     /// Where Go to anything goes: see [`Navigator::going_to`].
     goes_here: bool,
+    /// The map of the split the row shows and the status of the terminals in it, which
+    /// [`Self::draw`] puts in the row: see [`Navigator::split_of`].
+    split: Option<&'a RefCell<RowSplit>>,
+    /// In the split whose map the pointer is over: the hover's ground, as its rows read as one.
+    linked: bool,
+}
+
+/// What a row of a split carries for it: the map in its split cell, and before its counts the
+/// status of the terminals in it.
+#[derive(Default)]
+pub(crate) struct RowSplit {
+    map: Option<AnyElement>,
+    status: Option<AnyElement>,
 }
 
 /// What a row's blink is of: see [`Navigator::blinked`].
@@ -196,9 +226,9 @@ enum Blink {
 /// the branch's commit glyphs.
 const UPSTREAM_INDENT: f32 = COMMIT_INDENT + STEP;
 
-/// Where the middle of a branch's remote's heading's glyph sits: that of a 12-point glyph
-/// under the branch's commit glyphs, as a commit's is.
-const UPSTREAM_GUIDE: f32 = ROW_LEFT + COMMIT_INDENT + 6.;
+/// Where the middle of a branch's remote's heading's chevron sits, a step in from the branch's,
+/// where the guide down to its commits hangs from.
+const UPSTREAM_GUIDE: f32 = ROW_LEFT + STEP + 6.;
 
 /// Where the middle of a remote merge's glyph sits, a step in from its heading's.
 const MERGE_GUIDE: f32 = UPSTREAM_GUIDE + STEP;
@@ -222,20 +252,39 @@ pub(super) fn card_bar(
 ) -> Stateful<Div> {
     let (ink, muted) = match solid {
         true => (theme.inverse_foreground, theme.inverse_muted_foreground),
-        false => (theme.subtle_foreground, theme.subtle_foreground),
+        false => (theme.muted_foreground, theme.subtle_foreground),
     };
+    // As but-ui-react's DrawerItem: its name, how many in a badge, then the chevron, right while
+    // it's folded and turning down as it opens.
     let fold = h_flex()
         .flex_1()
         .min_w_0()
         .h_full()
         .gap(dp(6.))
-        .children(
-            open.map(|open| fold::turned(format!("{id}-fold"), open, Icon::ChevronUp, PI, muted)),
-        )
         .child(section_label(title, theme).text_color(ink).truncate())
-        .children(count.map(|count| faint(count, theme).text_12().text_color(muted)));
-    // In from its card's edges as a row is, its hover rounded as one's, so it stays inside the
-    // card's corners.
+        .children(count.map(|count| {
+            match count.parse::<usize>() {
+                Ok(n) => count_badge(n, theme).flex_none().into_any_element(),
+                Err(_) => faint(count, theme)
+                    .text_12()
+                    .text_color(muted)
+                    .into_any_element(),
+            }
+        }))
+        // Faded, and lit under the pointer, as but-ui-react's drawer's chevron.
+        .children(open.map(|open| {
+            fold::turned_in_group(
+                format!("{id}-fold"),
+                open,
+                Icon::ChevronRight,
+                FRAC_PI_2,
+                muted,
+                DRAWER_GROUP,
+                ink,
+            )
+        }));
+    // Over its card, not in it, as but-ui-react's Drawer has it, its words in line with the
+    // card's rows, its hover rounded as one's.
     h_flex()
         .id(id)
         .role(Role::ListItem)
@@ -243,42 +292,88 @@ pub(super) fn card_bar(
         .aria_selected(selected)
         .flex_none()
         .h(dp(CARD_BAR_HEIGHT))
-        .m(dp(CARD_BAR_INSET))
+        .my(dp(CARD_BAR_INSET))
         .rounded(dp(theme.shape.control))
-        .pl(dp(10.))
+        .pl(dp(8.))
         .pr(dp(6.))
         .gap(dp(2.))
         .when(selected, |el| el.bg(theme.selected_inactive))
         .when(solid, |el| el.bg(theme.inverse))
         .child(fold)
-        .when_some(open, |el, open| {
-            el.aria_expanded(open)
-                .cursor_pointer()
-                .when(!selected, |el| el.hover(|el| el.bg(theme.hover)))
+        // No ground under the pointer, as but-ui-react's drawer: it sits on the panel's ground,
+        // and its chevron says a press opens it.
+        .when_some(open, |el, open| el.aria_expanded(open).cursor_pointer())
+}
+
+/// `bar` as a drawer's row at the navigator's foot, as but-ui-react's DrawerItem: a row tall,
+/// past its hairline and the room over it, with the room under it before its card.
+pub(super) fn drawer_bar(bar: Stateful<Div>) -> Stateful<Div> {
+    bar.group(DRAWER_GROUP)
+        .h(dp(DRAWER_ROW))
+        .mt(dp(1. + DRAWER_BLOCK))
+        .mb(dp(DRAWER_GAP))
+        .pr(dp(4.))
+}
+
+/// The group a drawer's row is, so its buttons that wait for the pointer show under it.
+const DRAWER_GROUP: &str = "navigator-drawer";
+
+/// A drawer's button that shows only while the pointer's on its row or the keys are, `held`, as
+/// but-ui-react's Drawer's `hoverActions`. Laid out all along and only painted then: GPUI paints
+/// nothing it hasn't laid out, so one shown on hover from `hidden` would abort the app.
+pub(super) fn on_hover(button: impl IntoElement, held: bool) -> Div {
+    div()
+        .flex()
+        .when(!held, |el| {
+            el.invisible().group_hover(DRAWER_GROUP, |s| s.visible())
         })
+        .child(button)
+}
+
+/// The rule over a drawer at the navigator's foot, as but-ui-react's Drawer draws it: across the
+/// column, out of its flow, so it takes no room.
+pub(super) fn hairline(theme: &Theme) -> Div {
+    div()
+        .absolute()
+        .top_0()
+        .left_0()
+        .right_0()
+        .h(fixed(1.))
+        .bg(theme.border_subtle)
 }
 
 /// What the projects not watched go by: all of them, `alone`, with none watched.
 pub(super) fn drawer_title(alone: bool) -> &'static str {
     match alone {
         true => "All projects",
-        false => "More projects",
+        false => "Hidden projects",
     }
 }
 
-/// The icon project `id` wears in its row and on its tab, in 16 points: the one picked, else the
-/// glyph's outline in `color`.
+/// The icon project `id` wears on its tab, in 16 points: the one picked, else the glyph's outline
+/// in `color`.
 pub(super) fn project_glyph(
     store: &Store,
     id: &ProjectId,
     color: Hsla,
     theme: &Theme,
 ) -> AnyElement {
+    project_glyph_at(store, id, color, 16., theme)
+}
+
+/// [`project_glyph`] in `size` points, as its row wears it in a row glyph's 14.
+fn project_glyph_at(
+    store: &Store,
+    id: &ProjectId,
+    color: Hsla,
+    size: f32,
+    theme: &Theme,
+) -> AnyElement {
     match ProjectIcon::parse(store.project_icon(id)) {
-        ProjectIcon::Glyph => icon_at(Icon::Repo, 16.)
+        ProjectIcon::Glyph => icon_at(Icon::Repo, size)
             .text_color(color)
             .into_any_element(),
-        picked => picked.render(16., theme),
+        picked => picked.render(size, theme),
     }
 }
 
@@ -337,43 +432,75 @@ impl<'a> RowStyle<'a> {
             glow: false,
             blink: None,
             goes_here: false,
+            split: None,
+            linked: false,
         }
     }
 
     fn row(&self, id: String, indent: f32) -> Stateful<Div> {
         let theme = self.theme;
-        list_row(ElementId::Name(id.into()), self.selected, theme)
+        let el = list_row(ElementId::Name(id.into()), self.selected, theme)
             .group(ROW_GROUP)
-            .when_some(self.blink, |el, n| {
-                let shape = div().absolute().inset_0().rounded(dp(theme.shape.control));
-                el.relative()
-                    .child(blink_once(("blink", n), shape, theme.hue(self.mark)))
-            })
-            // A pop wash, as a commit that just showed up glows: quieter than a drop's outline.
-            .when(self.goes_here, |el| {
-                let wash = div().absolute().inset_0().rounded(dp(theme.shape.control));
-                el.relative().child(wash.bg(theme.wash(Hue::Pop)))
-            })
-            .mx(dp(3.))
+            .mx(dp(ROW_MARGIN))
             .pl(dp(8. + indent + self.inset))
             .when(self.solid, |el| {
                 el.bg(theme.inverse).text_color(theme.inverse_foreground)
-            })
-            .when(self.taken, |el| {
-                (el.opacity(0.5).border_1().border_dashed()).border_color(theme.hue(self.mark))
-            })
-            // As the copies of what's moving are drawn where it would land.
-            .when(self.held, |el| {
-                el.bg(theme.wash(self.mark))
-                    .border_1()
-                    .border_color(theme.hue(self.mark))
-            })
-            .map(|el| {
-                let (above, below) = self.outlined_with;
-                el.when(above, |el| el.border_t_0().rounded_t_none())
-                    .when(below, |el| el.border_b_0().rounded_b_none())
-            })
-            .map(|el| crate::ui::joined(el, self.joined, self.solid, theme))
+            });
+        self.marks(el)
+    }
+
+    /// `row`, a but-ui `SidebarRow`, drawn as this style draws an item: selected as it is, its
+    /// contents set in by the style's inset and `by` inside its full-width ground, and marked as
+    /// [`Self::marks`] says.
+    fn draw(&self, row: SidebarRow, by: f32) -> Stateful<Div> {
+        let split = self.split.map(|split| split.take()).unwrap_or_default();
+        let row = split.status.into_iter().fold(row, SidebarRow::meta);
+        let row = match split.map {
+            Some(map) => row.split(map),
+            None => row,
+        };
+        let el = row
+            .linked(self.linked)
+            .selected(self.selected, self.solid)
+            .inset(self.inset + by)
+            .build(self.theme)
+            .role(Role::ListItem)
+            .aria_selected(self.selected)
+            .group(ROW_GROUP)
+            .mx(dp(ROW_MARGIN));
+        self.marks(el)
+    }
+
+    /// What marks a row besides its selection: its blink, the wash where Go to anything goes,
+    /// the outline of what's being moved or where its copies would land, and the joins of a run
+    /// picked together.
+    fn marks(&self, el: Stateful<Div>) -> Stateful<Div> {
+        let theme = self.theme;
+        el.when_some(self.blink, |el, n| {
+            let shape = div().absolute().inset_0().rounded(dp(theme.shape.control));
+            el.relative()
+                .child(blink_once(("blink", n), shape, theme.hue(self.mark)))
+        })
+        // A pop wash, as a commit that just showed up glows: quieter than a drop's outline.
+        .when(self.goes_here, |el| {
+            let wash = div().absolute().inset_0().rounded(dp(theme.shape.control));
+            el.relative().child(wash.bg(theme.wash(Hue::Pop)))
+        })
+        .when(self.taken, |el| {
+            (el.opacity(0.5).border_1().border_dashed()).border_color(theme.hue(self.mark))
+        })
+        // As the copies of what's moving are drawn where it would land.
+        .when(self.held, |el| {
+            el.bg(theme.wash(self.mark))
+                .border_1()
+                .border_color(theme.hue(self.mark))
+        })
+        .map(|el| {
+            let (above, below) = self.outlined_with;
+            el.when(above, |el| el.border_t_0().rounded_t_none())
+                .when(below, |el| el.border_b_0().rounded_b_none())
+        })
+        .map(|el| crate::ui::joined(el, self.joined, self.solid, theme))
     }
 
     fn muted(&self) -> Hsla {
@@ -393,23 +520,24 @@ impl<'a> RowStyle<'a> {
     }
 
     /// How many of a row's commits aren't pushed, when any aren't, quiet: only a branch's own
-    /// count pushes, in blue (see `Navigator::push_count`).
+    /// count is blue, where Push takes its place (see `Navigator::push_step`).
     fn unpushed(&self, n: usize) -> Option<Stateful<Div>> {
-        meta_count(Icon::ArrowUp, n, self.muted(), plural(n, "unpushed commit"))
+        count(
+            MetaCountType::Unpushed,
+            n,
+            plural(n, "unpushed commit"),
+            *self,
+        )
     }
 
     /// How many files are uncommitted, when any are.
     fn files(&self, n: usize) -> Option<Stateful<Div>> {
-        let color = self.meta(self.theme.warning_text);
-        meta_count(Icon::File, n, color, plural(n, "uncommitted file"))
-    }
-
-    /// What a mark on the row that can be pressed draws under the pointer.
-    fn press_hover(&self) -> Hsla {
-        match self.solid {
-            true => self.theme.inverse_ghost_hover,
-            false => self.theme.hover,
-        }
+        count(
+            MetaCountType::Uncommitted,
+            n,
+            plural(n, "uncommitted file"),
+            *self,
+        )
     }
 
     /// Meaningful colours wash out on the dark selection ground; keep them legible.
@@ -421,45 +549,63 @@ impl<'a> RowStyle<'a> {
         }
     }
 
-    /// An unread row's hairline: a commit's own in pop, and in faint ink, which still reads at
-    /// 3:1, on a row that only holds unread commits, so the commits stand out.
-    fn unread_line(&self, own: bool) -> Div {
-        unread_line(if own {
-            self.meta(self.theme.primary_mark)
-        } else {
-            self.quiet()
-        })
+    /// The theme the components on this row draw with: its own, or on a solid selection, as
+    /// the solid fill flips its marks' colours ([`Theme::for_solid`]).
+    fn kind_theme(&self) -> std::borrow::Cow<'a, Theme> {
+        match self.solid {
+            true => std::borrow::Cow::Owned(self.theme.for_solid()),
+            false => std::borrow::Cow::Borrowed(self.theme),
+        }
     }
 
-    /// A commit's row, `indent` in: `glyph` and its title, or `rename`, the field it's being
-    /// edited in, with a hairline while it's unread. Only a missing title is quieter.
+    /// A commit's row, as but-ui's `commit_item`: its glyph by `place`, `title`, or `rename`,
+    /// the field it's being edited in, with the dot while it's `unread`.
+    #[expect(clippy::too_many_arguments)]
+    fn commit_kind(
+        &self,
+        id: String,
+        title: &SharedString,
+        place: CommitPlace,
+        merge: bool,
+        conflicted: bool,
+        unread: bool,
+        rename: Option<AnyElement>,
+    ) -> SidebarRow {
+        let row = commit_item(
+            ElementId::Name(id.into()),
+            commit_title(title),
+            place,
+            merge,
+            conflicted,
+            self.theme,
+        )
+        .unread(unread);
+        match rename {
+            Some(field) => row.rename(field),
+            None => row,
+        }
+    }
+
+    /// A commit's row, `indent` in, as [`Self::commit_kind`] has it.
     fn commit_line(
         &self,
         id: String,
         indent: f32,
-        glyph: impl IntoElement,
         title: SharedString,
-        unread: bool,
+        place: CommitPlace,
         rename: Option<AnyElement>,
     ) -> Stateful<Div> {
-        self.row(id, indent)
-            .gap(dp(10.))
-            .aria_label(title.clone())
+        let row = self.commit_kind(id, &title, place, false, false, false, rename);
+        self.commit_drawn(row, indent - 3., title)
+    }
+
+    /// A commit's `row` drawn `by` in, saying `title`, glowing if it just showed up.
+    fn commit_drawn(&self, row: SidebarRow, by: f32, title: SharedString) -> Stateful<Div> {
+        self.draw(row, by)
+            .aria_label(title)
             // Under its row's id, which goes by the commit.
             .when(self.glow, |el| {
                 el.relative().child(glow_once("glow", self.theme))
-            })
-            .when(unread, |el| el.relative().child(self.unread_line(true)))
-            .child(glyph)
-            .child(match rename {
-                Some(field) => field,
-                None => div()
-                    .flex_1()
-                    .min_w_0()
-                    .truncate()
-                    .when(title.is_empty(), |el| el.text_color(self.muted()))
-                    .child(commit_title(&title))
-                    .into_any_element(),
             })
     }
 
@@ -473,34 +619,24 @@ impl<'a> RowStyle<'a> {
         store: &Store,
         rename: Option<AnyElement>,
     ) -> Stateful<Div> {
-        let theme = self.theme;
-        let (glyph, color) = if commit.conflicted {
-            (Icon::Warning, theme.warning_mark)
-        } else {
-            match commit.state {
-                CommitState::Local => (Icon::Commit, theme.info_mark),
-                CommitState::Pushed => (Icon::CommitFill, self.muted()),
-                CommitState::Integrated => (Icon::CommitFill, theme.done_mark),
-            }
+        let place = match commit.state {
+            CommitState::Local => CommitPlace::Local,
+            CommitState::Pushed => CommitPlace::Pushed,
+            CommitState::Integrated => CommitPlace::Integrated,
         };
-        let glyph = small_icon(glyph).text_color(self.meta(color));
         let (title, _) = store.message_of(project, commit);
+        let title: SharedString = title.to_owned().into();
         let unread = store.is_unread(project, commit);
-        self.commit_line(
-            id,
-            COMMIT_INDENT,
-            glyph,
-            title.to_owned().into(),
-            unread,
-            rename,
-        )
+        let row = self.commit_kind(id, &title, place, false, commit.conflicted, unread, rename);
+        // Where a commit's glyph goes: a step in from its branch, 2 on, as a row that doesn't
+        // fold puts it.
+        self.commit_drawn(row, COMMIT_INDENT - 3., title)
     }
 
     /// The copy of a commit titled `title` from outside the workspace a cherry-pick would
     /// make, `id` the row's: a local commit.
     fn copy(&self, id: String, title: SharedString) -> Stateful<Div> {
-        let glyph = small_icon(Icon::Commit).text_color(self.meta(self.theme.info_mark));
-        self.commit_line(id, COMMIT_INDENT, glyph, title, false, None)
+        self.commit_line(id, COMMIT_INDENT, title, CommitPlace::Local, None)
     }
 }
 
@@ -531,6 +667,11 @@ pub struct Navigator {
     /// The room above the drawer at the list's end, and its card's height, as last worked out:
     /// see [`Self::fit_footer`].
     footer: Cell<(f32, f32)>,
+    /// The projects unfolded in the drawer, each in a card of its own there.
+    pub(super) drawer_open: HashSet<ProjectId>,
+    /// Whether the row being drawn is the drawer's, so what reads a row's place by its index
+    /// reads it there.
+    drawing_drawer: Cell<bool>,
     /// How tall it's drawn in this frame, which the app sets once the window's laid out and
     /// before this draws, and how tall it was when the list was last laid out: see
     /// [`Self::fit_footer`].
@@ -615,8 +756,9 @@ pub struct Navigator {
     /// list, kept until it leaves, so a project an agent wakes doesn't move the row about to
     /// be clicked.
     held_order: Option<Vec<ProjectId>>,
-    /// The project whose watch button the pointer is on, which shows what a click makes it.
-    watch_hovered: Option<ProjectId>,
+    /// The rows of the split whose map the pointer is over, which light up together, as
+    /// but-ui-react's rows do while a SplitPreviewMap's preview is open.
+    lit_split: Option<Vec<crate::state::RowKey>>,
     /// The project whose card is held, kept once it's let go of until the cards stop sliding,
     /// so it stays over the cards it passes going back.
     held_project: Option<ProjectId>,
@@ -768,6 +910,8 @@ impl Navigator {
             list: ListState::new(1, ListAlignment::Top, fixed(56.)),
             drawer_list: ListState::new(0, ListAlignment::Top, fixed(56.)),
             footer: Cell::new((0., 0.)),
+            drawer_open: HashSet::new(),
+            drawing_drawer: Cell::new(false),
             drawn_height: Cell::new(Pixels::ZERO),
             listed_height: Cell::new(Pixels::ZERO),
             off_row: None,
@@ -799,7 +943,7 @@ impl Navigator {
             floating: false,
             detail_shown: Cell::new(1.),
             held_order: None,
-            watch_hovered: None,
+            lit_split: None,
             held_project: None,
             dragged_worktree: None,
             held_worktree_name: None,
@@ -835,44 +979,32 @@ impl Navigator {
         !self.filter.read(cx).text().trim().is_empty()
     }
 
-    /// A row's `icon`, which turns into its fold's chevron, as [`fold_button`], while the
-    /// pointer is over the row, as Notion's sidebar does, so rows that fold and rows that
-    /// don't line up. A `selected` row shows the chevron too, so the keys can see what folds.
-    /// With nothing to fold (`None`), or while the filter lists what it finds, which folds
-    /// don't hide, it stays the icon.
-    #[expect(clippy::too_many_arguments)]
-    fn fold(
+    /// `row`'s fold, as but-ui's `SidebarRow` draws it: the chevron, down while `open`, whose
+    /// click runs `toggle` without selecting the row and whose press keeps the keys in the
+    /// list; the dot with nothing to fold (`None`); and while the filter lists what it finds,
+    /// which folds don't hide, the chevron's room alone, so the row doesn't move.
+    fn folding(
         &self,
-        id: impl Into<ElementId>,
-        icon: impl IntoElement,
+        row: SidebarRow,
         open: Option<bool>,
-        selected: bool,
-        color: Hsla,
         cx: &Context<Self>,
         toggle: impl Fn(&mut Self, &mut Window, &mut Context<Self>) + 'static,
-    ) -> AnyElement {
-        let Some(open) = open.filter(|_| !self.filtering(cx)) else {
-            return icon.into_any_element();
+    ) -> SidebarRow {
+        if self.filtering(cx) {
+            return row.fold_room();
+        }
+        let Some(open) = open else {
+            return row.fold(RowFold::Empty);
         };
-        let chevron = fold_button(id, Some(open), color, self.pressed_keys(), cx, toggle)
-            .absolute()
-            .inset_0()
-            .flex()
-            .items_center()
-            .justify_center()
-            .when(!selected, |el| {
-                el.opacity(0.).group_hover(ROW_GROUP, |el| el.opacity(1.))
-            });
-        let icon = div().child(icon).map(|el| match selected {
-            true => el.opacity(0.),
-            false => el.group_hover(ROW_GROUP, |el| el.opacity(0.)),
-        });
-        div()
-            .relative()
-            .flex_none()
-            .child(icon)
-            .child(chevron)
-            .into_any_element()
+        let this = cx.entity().downgrade();
+        row.fold(match open {
+            true => RowFold::Open,
+            false => RowFold::Folded,
+        })
+        .on_fold_press(press_in_pane(self.pressed_keys()))
+        .on_toggle(move |window, cx| {
+            this.update(cx, |this, cx| toggle(this, window, cx)).ok();
+        })
     }
 
     /// Whether `event` is a double-click that acts on its row, as a folder opens: not when
@@ -1322,6 +1454,43 @@ impl Navigator {
         .into_any_element()
     }
 
+    /// The filter opened in the header, as but-ui-react's field leading with an icon: the search
+    /// glyph, then the field, and after it a button that empties it and closes it, where the
+    /// button that opened it was.
+    fn header_filter(&self, window: &Window, theme: &Theme, cx: &Context<Self>) -> Div {
+        let focused = self.filter.focus_handle(cx).is_focused(window);
+        let field = above_drag(
+            field_leading(
+                &self.filter,
+                Icon::Search,
+                focused,
+                theme.sizes.control,
+                theme,
+            )
+            // Edged as the cards are, but while it has the keys.
+            .when(!focused, |el| el.border_color(theme.border_subtle)),
+        )
+        .flex_1()
+        .min_w_0();
+        let close = above_drag(
+            div().child(
+                icon_button("close-filter", Icon::Cross)
+                    .tooltip("Close the filter")
+                    .on_click(cx.listener(|this, _, window, cx| {
+                        this.filter.update(cx, |input, cx| input.set_text("", cx));
+                        this.filter_changed(cx);
+                        this.focus_list(window, cx);
+                    })),
+            ),
+        );
+        h_flex()
+            .flex_1()
+            .min_w_0()
+            .gap(dp(4.))
+            .child(field)
+            .child(close)
+    }
+
     /// Whether the filter has the keys, which across the top it has for as long as it shows.
     pub(super) fn filter_has_keys(&self, window: &Window, cx: &App) -> bool {
         self.filter.focus_handle(cx).is_focused(window)
@@ -1412,34 +1581,9 @@ impl Navigator {
         }
     }
 
-    /// Scroll the drawer's row `ix`, `row` tall, into the column: the list does, as the drawer's
-    /// as tall as its rows under the cards.
-    fn reveal_in_drawer(&self, ix: usize, row: Pixels) {
-        if self.built.rows.is_empty() {
-            return;
-        }
-        let (spacer, _) = self.footer.get();
-        let scale = f32::from(row) / self.row;
-        let above = spacer + CARD_MARGIN + DRAWER_CHROME;
-        self.reveal_in_footer(fixed(above * scale) + row * ix as f32, row);
-    }
-
-    /// Scroll what's `top` down the list's last item, `height` tall, into the column.
-    fn reveal_in_footer(&self, top: Pixels, height: Pixels) {
-        let footer = self.built.rows.len();
-        let Some(bounds) = self.list.bounds_for_item(footer) else {
-            return self.list.scroll_to(ListOffset {
-                item_ix: footer,
-                offset_in_item: top,
-            });
-        };
-        let view = self.list.viewport_bounds();
-        let (from, to) = (bounds.top() + top, bounds.top() + top + height);
-        if to > view.bottom() {
-            self.list.scroll_by(to - view.bottom());
-        } else if from < view.top() {
-            self.list.scroll_by(from - view.top());
-        }
+    /// Scroll the drawer's row `ix` into view: its own list does, pinned at the column's foot.
+    fn reveal_in_drawer(&self, ix: usize, _: Pixels) {
+        self.drawer_list.scroll_to_reveal_item(ix);
     }
 
     /// How far each of the rows slides as the list goes from its rows to `rows`, keyed by `keys`,
@@ -1541,8 +1685,10 @@ impl Navigator {
     /// rows slide, those sliding into view from past its top or bottom are drawn by the first
     /// row it draws and by one near its last ([`Self::slide_edges`]).
     fn render_row(&self, ix: usize, cx: &Context<Self>) -> AnyElement {
+        // The list's last item was the drawer; it's pinned under the list now, at the column's
+        // foot as the terminals' is, and the item stays, empty, for the rows' indexes.
         if ix == self.built.rows.len() {
-            return self.drawer_footer(Theme::get(cx), cx);
+            return div().into_any_element();
         }
         let row = self.row_in_card(ix, cx);
         let Some((first, below)) = self.slide_edges else {
@@ -1612,6 +1758,20 @@ impl Navigator {
     }
 
     /// The row at `ix` of the list, drawn inside its card.
+    /// Whether row `ix` is selected on the solid fill, as [`Self::render_item`] draws it.
+    fn solid_at(&self, ix: usize, cx: &Context<Self>) -> bool {
+        let Some(Row::Item(item)) = self.built.rows.get(ix) else {
+            return false;
+        };
+        let store = self.store.read(cx);
+        let shown = (self.scoped_selection.clone()).unwrap_or_else(|| store.selection.clone());
+        let lit = shown.as_ref() == Some(item)
+            || matches!(item, Selection::Commit(project, id) if store.is_picked(project, *id));
+        lit && moving::mark(store, item).is_none()
+            && store.dragging.is_none()
+            && self.keys.on_row_of(&self.list())
+    }
+
     fn row_in_card(&self, ix: usize, cx: &Context<Self>) -> AnyElement {
         let theme = Theme::get(cx);
         // Only the navigator's own rows slide, which across the top are those of the tab the
@@ -1630,39 +1790,46 @@ impl Navigator {
             ))
         });
         let hidden = folding.is_some_and(|(height, _)| height <= 0.);
-        // A fold row at the end of commits: its glyph under theirs, its words under their
-        // titles, past the glyph and the commit row's gap.
-        let under_commits = |id: &'static str, glyph| {
-            let at = ROW_LEFT + COMMIT_INDENT;
-            fold_row((id, ix), glyph, at, at + 12. + 10., theme)
-        };
+        // A row at the end of commits, as but-ui-react's MoreItem: its glyph under theirs, its
+        // words under their titles.
+        let under_commits = |row: SidebarRow| RowStyle::plain(theme, inset).draw(row, STEP);
         let el = match self.built.rows.get(ix) {
             None | Some(Row::Gap) => return div().h(dp(CARD_GAP)).into_any_element(),
             _ if hidden => div().into_any_element(),
             Some(Row::Item(_)) => self.render_item(&self.built.rows, ix, inset, theme, cx),
             // A dashed line, as but-ui-react's WorktreeDivider.
-            Some(Row::WorktreeDivider) => h_flex()
-                .h(dp(12.))
-                .px(dp(12.))
-                .child(
-                    div()
-                        .flex_1()
-                        .border_t_1()
-                        .border_dashed()
-                        .border_color(theme.border_subtle),
-                )
+            // Nothing between worktrees, as 🍑 But UI's sidebar has them.
+            Some(Row::WorktreeDivider) => div().into_any_element(),
+            // Only the drawer's.
+            Some(Row::Empty) => div().into_any_element(),
+            // Across the card, edge to edge, as but-ui-react's card header's border.
+            Some(Row::HeaderRule(_)) => div()
+                .h(dp(HEADER_RULE))
+                .flex()
+                .items_center()
+                .child(div().w_full().h(fixed(1.)).bg(theme.border_subtle))
                 .into_any_element(),
             Some(Row::Note(text, is_error)) => note_row(text, *is_error, theme),
+            // A row still loading, as but-ui-react's LoadingItem.
+            Some(Row::Loading(n)) => RowStyle::plain(theme, inset)
+                .draw(
+                    loading_item(
+                        ("loading", ix),
+                        LOADING_WIDTHS.get(*n).copied().unwrap_or(120.),
+                    ),
+                    0.,
+                )
+                .into_any_element(),
             // As made at once, set in as a commit row is, a stand-in title quiet as one's;
             // dimmed, with an ellipsis, only once it's taking a while.
             Some(Row::Pending(title, slow, _)) => h_flex()
                 .min_h(dp(theme.sizes.control))
-                .mx(dp(3.))
+                .mx(dp(ROW_MARGIN))
                 .pl(dp(8. + COMMIT_INDENT))
                 .pr(dp(12.))
                 .gap(dp(10.))
                 .when(*slow, |el| el.opacity(0.5))
-                .child(small_icon(Icon::Commit).text_color(theme.info_mark))
+                .child(small_icon(Icon::Commit).text_color(theme.commit_local))
                 .child(
                     div()
                         .flex_1()
@@ -1701,8 +1868,17 @@ impl Navigator {
                 match self.rests_on_label(item, checkout.as_ref(), cx) {
                     Some(label) => {
                         let item = item.clone();
-                        under_commits("rests-on", Icon::Branch)
-                            .child(div().min_w_0().truncate().child(label))
+                        let row = sidebar_row(("rests-on", ix))
+                            .glyph(icon_at(Icon::Branch, 12.).text_color(theme.muted_foreground))
+                            .label(
+                                div()
+                                    .min_w_0()
+                                    .truncate()
+                                    .text_13()
+                                    .text_color(theme.muted_foreground)
+                                    .child(label),
+                            );
+                        under_commits(row)
                             .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
                                 this.select(item.clone(), window, cx)
                             }))
@@ -1713,18 +1889,21 @@ impl Navigator {
             }
             Some(Row::More(project, ref_name, hidden)) => {
                 let key = (project.clone(), ref_name.clone());
-                under_commits("more", Icon::Kebab)
-                    .child(format!("{hidden} more"))
-                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                        this.set_unfolded(key.clone(), true);
-                        cx.notify();
-                    }))
-                    .into_any_element()
+                under_commits(more_item(
+                    ("more", ix),
+                    format!("{hidden} more"),
+                    false,
+                    theme,
+                ))
+                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                    this.set_unfolded(key.clone(), true);
+                    cx.notify();
+                }))
+                .into_any_element()
             }
             Some(Row::Fewer(project, ref_name)) => {
                 let key = (project.clone(), ref_name.clone());
-                under_commits("fewer", Icon::ChevronUp)
-                    .child("Show fewer")
+                under_commits(more_item(("fewer", ix), "Show fewer", true, theme))
                     .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                         this.set_unfolded(key.clone(), false);
                         this.hold_still = true;
@@ -1737,7 +1916,15 @@ impl Navigator {
         // full width; the rest as a whole.
         let full_width = matches!(
             self.built.rows.get(ix),
-            Some(Row::Item(_) | Row::Ghost(..) | Row::GhostBranch(..) | Row::NewCommit(_))
+            Some(
+                Row::Item(_)
+                    | Row::Ghost(..)
+                    | Row::GhostBranch(..)
+                    | Row::NewCommit(_)
+                    | Row::More(..)
+                    | Row::Fewer(..)
+                    | Row::RestsOn(..)
+            )
         );
         let el = match inset > 0. && !full_width {
             true => div().pl(dp(inset)).child(el).into_any_element(),
@@ -1746,8 +1933,21 @@ impl Navigator {
         let (first, last) = card_ends(&self.built.rows, ix);
         // A guide for each row it's under, joining those of the rows above and below into
         // one line, as but.dev's sidebar draws them.
-        let guides =
-            || (self.built.guides.get(ix).into_iter().flatten()).map(|at| guide(*at, theme));
+        // On a row selected on the solid fill, in the fill's own guide ink, as SidebarRow's.
+        let guide_color = match self.solid_at(ix, cx) {
+            true => theme.derived.inverse_guide,
+            false => theme.border_subtle,
+        };
+        let guides = || {
+            let guides = self.built.guides.get(ix).map_or(&[][..], Vec::as_slice);
+            let ends = self.built.ends.get(ix).copied().unwrap_or(false);
+            (guides.iter().enumerate()).map(move |(level, at)| {
+                match ends && level + 1 == guides.len() {
+                    true => guide_end_in(*at, guide_color, theme),
+                    false => guide_in(*at, guide_color),
+                }
+            })
+        };
         // The card dragged by its heading is edged as what's moving is where it would land.
         let held = (self.built.held_card.as_ref()).is_some_and(|card| card.contains(&ix));
         let held_worktree =
@@ -1895,11 +2095,30 @@ impl Navigator {
                     .pb(dp(CARD_PADDING))
             })
             .map(|card| match folding {
-                Some((height, closing)) => card.child(clipped(
-                    div().relative().child(el).children(guides()),
-                    dp(height),
-                    closing,
-                )),
+                // The card's end on a row a fold has nearly closed reaches up over the row above,
+                // so its corners keep their radius rather than shrink with the row, the box
+                // drawn taller than the room it takes. What it reaches over shows through: its
+                // ground starts at its own room.
+                Some((height, closing)) => {
+                    let own = height + CARD_PADDING + 1.;
+                    let reach = match last && edged {
+                        true => (2. * theme.shape.card - own).max(0.),
+                        false => 0.,
+                    };
+                    let from = reach / (reach + own);
+                    card.when(reach > 0., |el| {
+                        el.mt(dp(-reach)).pt(dp(reach)).bg(gpui::linear_gradient(
+                            180.,
+                            gpui::linear_color_stop(gpui::transparent_black(), from),
+                            gpui::linear_color_stop(theme.background, from + 0.0001),
+                        ))
+                    })
+                    .child(clipped(
+                        div().relative().child(el).children(guides()),
+                        dp(height),
+                        closing,
+                    ))
+                }
                 None if sliding => {
                     // Rounded at a card's ends, inside its corners, which square it'd cover a
                     // sliver of until the rows stop.
@@ -1912,9 +2131,11 @@ impl Navigator {
                         .when(last, |el| el.rounded_b(dp(corner)))
                         .when(crossing, |el| el.top(dp(drawn_at(ix) - slid)));
                     let over = self.over_rows(over.children(guides()), over_rank);
-                    card.children(guides()).child(over)
+                    card.child(div().relative().children(guides()).child(over))
                 }
-                None => card.child(el).children(guides()),
+                // The guides on the row alone, not its card's padding, so a tail turns into the
+                // middle of the last row's glyph, as it does while a fold moves the row.
+                None => card.child(div().relative().child(el).children(guides())),
             })
             .children(copy);
         let (left, right) = match edged {
@@ -2020,6 +2241,7 @@ impl Navigator {
         let outlined_with = (ix > 0 && outlined_at(ix - 1), outlined_at(ix + 1));
         // Not while something's dragged, or the selection outshines what shows where it lands.
         let solid = selected && store.dragging.is_none() && self.keys.on_row_of(&self.list());
+        let split = RefCell::new(self.split_of(item, selected && solid, theme, cx));
         let style = RowStyle {
             theme,
             selected,
@@ -2045,6 +2267,9 @@ impl Navigator {
                     .filter(|_| store.selection.as_ref() == Some(item)),
             },
             goes_here: self.going_row.as_ref() == Some(item),
+            split: Some(&split),
+            linked: (self.lit_split.as_ref())
+                .is_some_and(|rows| rows.contains(&store.row_key(item))),
         };
         let el = match item {
             Selection::Project(id) => self.project_row(item, id, style, cx),
@@ -2073,15 +2298,12 @@ impl Navigator {
             Selection::Section(id, Section::Upstream(ref_name)) => {
                 self.upstream_heading(ix, id, ref_name, style, cx)
             }
-            Selection::Section(id, Section::Inactive) => {
-                Some(self.inactive_heading(ix, id, style, cx))
-            }
+            Selection::Section(id, Section::Inactive) => Some(self.inactive_row(ix, id, style, cx)),
             Selection::Section(id, Section::Mesh) => Some(self.mesh_heading(ix, id, style, cx)),
         };
         let Some(el) = el else {
             return div().into_any_element();
         };
-        let el = self.with_tiles(el, item, style, cx);
         let el = self.row_menu(el, item.clone(), cx);
         match outlined {
             Some(outline) => {
@@ -2098,83 +2320,102 @@ impl Navigator {
         }
     }
 
-    /// Row `el` of `item`, beside a small map of its tiles while it has others than its page,
-    /// which is the brightest: shaded with the row while it's selected, solid as it is, and
-    /// naming them in its tooltip. A click on it is one on the row. Before the map goes the
-    /// status of the terminals in the row's tilings, which a terminal's row shows itself.
-    fn with_tiles(
+    /// What `item`'s row carries for the split it shows, as but-ui's `SplitPreviewMap`: the map of
+    /// its tiles while it has others than its page, which is inked, opening the split's preview
+    /// under the pointer, and the status of the terminals in its splits, which a terminal's row
+    /// shows itself.
+    fn split_of(
         &self,
-        el: AnyElement,
         item: &Selection,
-        style: RowStyle,
+        solid: bool,
+        theme: &Theme,
         cx: &Context<Self>,
-    ) -> AnyElement {
-        let (theme, selected, solid) = (style.theme, style.selected, style.solid);
+    ) -> RowSplit {
         let store = self.store.read(cx);
         let tiles = store.tiles_of(item);
         let status = match item {
             Selection::Terminal(..) => None,
             _ => store.row_status(item),
         };
-        let mark = status.and_then(|status| status_mark(status, !store.hidden(), style));
-        let mapped = tiles.len() >= 2;
-        if !mapped && mark.is_none() {
-            return el;
-        }
-        let ink = match selected && solid {
-            true => theme.inverse_foreground,
-            false => theme.muted_foreground,
+        let style = RowStyle {
+            solid,
+            ..RowStyle::plain(theme, 0.)
         };
-        let cells = tiles.iter().map(|(tile, area)| {
-            div()
-                .absolute()
-                .left(dp(area.left * TILE_MAP.0 + TILE_MAP_GAP / 2.))
-                .top(dp(area.top * TILE_MAP.1 + TILE_MAP_GAP / 2.))
-                .w(dp((area.width * TILE_MAP.0 - TILE_MAP_GAP).max(1.)))
-                .h(dp((area.height * TILE_MAP.1 - TILE_MAP_GAP).max(1.)))
-                .rounded(dp(1.5))
-                .bg(ink)
-                .when(matches!(tile, Tile::Pinned(_)), |el| el.opacity(0.4))
+        let status = status
+            .and_then(|status| status_mark(status, !store.hidden(), style))
+            .map(IntoElement::into_any_element);
+        let row = store.row_key(item);
+        // Its own split, or the one another row made that its page is pinned in, as but-ui-react
+        // marks every row a split shows.
+        let (owner, tiles) = match tiles.len() >= 2 {
+            true => (row.clone(), tiles),
+            false => match store.split_holding(item) {
+                Some(held) => held,
+                None => return RowSplit { map: None, status },
+            },
+        };
+        let here = |tile: &Tile| *tile.shows(&owner) == row;
+        let cells = tiles.iter().map(|(tile, area)| SplitCell {
+            left: area.left,
+            top: area.top,
+            width: area.width,
+            height: area.height,
+            here: here(tile),
         });
-        let names = (tiles.iter()).filter_map(|(tile, _)| match tile {
-            Tile::Home => None,
-            Tile::Pinned(pinned) => Some(crate::app::tile_label(store, pinned).1),
-        });
-        let names = names.collect::<Vec<_>>().join("\n");
-        let map = h_flex()
+        let named: Vec<SplitTile> = (tiles.iter())
+            .map(|(tile, _)| {
+                let shows = tile.shows(&owner);
+                let (icon, name) = crate::app::tile_label(store, shows);
+                let terminal = matches!(store.selection_of(shows), Some(Selection::Terminal(..)));
+                // As the sidebar's terminal row wears it.
+                let icon = if terminal { Icon::Terminal } else { icon };
+                let status = (store.selection_of(shows))
+                    .filter(|shown| matches!(shown, Selection::Terminal(..)))
+                    .and_then(|shown| store.row_status(&shown))
+                    .and_then(|status| match status {
+                        Status::Idle => None,
+                        Status::Working => Some(MetaStatusVariant::Working),
+                        Status::Blocked(_) => Some(MetaStatusVariant::Warning),
+                        Status::Done => Some(MetaStatusVariant::Passed),
+                        Status::Failed(_) => Some(MetaStatusVariant::Failed),
+                    });
+                SplitTile {
+                    icon,
+                    name,
+                    status,
+                    here: here(tile),
+                }
+            })
+            .collect();
+        // Named after the row it was made on.
+        let (_, home) = crate::app::tile_label(store, &owner);
+        let names = (named.iter())
+            .map(|tile| tile.name.to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let rows: Vec<crate::state::RowKey> = (tiles.iter())
+            .map(|(tile, _)| tile.shows(&owner).clone())
+            .collect();
+        let map = div()
             .id(SharedString::from(format!("tiles-{item:?}")))
-            .flex_none()
-            .mr(dp(3.))
-            .px(dp(7.))
-            .gap(dp(6.))
-            .rounded(dp(theme.shape.control))
-            .map(|el| match (selected, solid) {
-                (true, true) => el.bg(theme.inverse),
-                (true, false) => el.bg(theme.selected_inactive),
-                (false, _) => el
-                    .bg(theme.hover)
-                    .hover(|el| el.bg(theme.selected_inactive)),
+            // Its rows light up together while the pointer is over it, as its preview shows.
+            .on_hover(cx.listener(move |this, hovered: &bool, _, cx| {
+                this.lit_split = hovered.then(|| rows.clone());
+                cx.notify()
+            }))
+            .flex()
+            .role(Role::Image)
+            .aria_label(format!("Split: {names}"))
+            .child(split_preview_map(cells, theme))
+            .tooltip(move |_, cx| {
+                let (home, tiles) = (home.clone(), named.clone());
+                cx.new(|_| SplitPreview { home, tiles }).into()
             })
-            .children(mark)
-            .when(mapped, |el| {
-                el.child(
-                    div()
-                        .relative()
-                        .w(dp(TILE_MAP.0))
-                        .h(dp(TILE_MAP.1))
-                        .children(cells),
-                )
-                .tooltip(Tooltip::text(names))
-            })
-            .map(|el| self.selectable(el, item, cx))
-            .map(|el| self.page_drag(el, item, cx));
-        // As tall as the row, which a watched project's heading is more than the others.
-        h_flex()
-            .w_full()
-            .items_stretch()
-            .child(div().flex_grow(1.).min_w(dp(120.)).child(el))
-            .child(map)
-            .into_any_element()
+            .into_any_element();
+        RowSplit {
+            map: Some(map),
+            status,
+        }
     }
 
     /// Whether a press on a row can start dragging it: not while something is being moved,
@@ -2268,95 +2509,219 @@ impl Navigator {
         let scroll = Scroll::List(self.drawer_list.clone());
         let rows_height = self.drawer_rows_height();
         let closing = self.folds.closing(&Fold::Drawer);
+        // As but-ui-react's Drawer: a hairline over it, its bar, then its rows in a card. With
+        // none showing the card's edges still take their room, so its height adds up the same.
         v_flex()
             .relative()
             .size_full()
-            .bg(theme.background)
-            .border_1()
-            .border_color(theme.border_subtle)
-            .rounded(dp(theme.shape.card))
+            .child(hairline(theme))
             .child(self.drawer_bar(alone, theme, cx))
             .child(
                 div()
                     .relative()
                     .flex_1()
                     .min_h_0()
-                    .when(rows_height > 0., |el| el.pb(dp(DRAWER_PADDING)))
-                    .child(rows)
-                    .when(alone, |el| {
-                        el.children(scrollbar("drawer-scrollbar", scroll, theme))
-                    })
+                    // Each row draws its part of its card: the cards, one a project unfolded
+                    // here and one of the rest, have the drawer's room between them.
+                    .when(rows_height <= 0., |el| el.max_h(dp(2.)))
+                    // Its rows scroll past where it's cut off, its thumb in the gap beside the
+                    // cards as the cards' is, and the cards it cuts keep their edges, as theirs.
+                    .child(
+                        scrolled_in_gap(
+                            rows,
+                            "drawer-scrollbar",
+                            scroll,
+                            -theme.scaled(self.card_margins().1 / 2.),
+                            theme,
+                        )
+                        .size_full(),
+                    )
+                    .children(self.drawer_caps(theme))
                     .map(|el| inert(el, closing)),
             )
+            // Under its card, the room a drawer keeps under it, as it opens.
+            .child(div().flex_none().h(dp(self.drawer_below())))
+    }
+
+    /// The room under the drawer's card while it shows one, as far as it's open: folded, the room
+    /// between its row and the card's edges is all it keeps under it.
+    fn drawer_below(&self) -> f32 {
+        match self.built.drawer.rows.is_empty() {
+            true => 0.,
+            false => DRAWER_BLOCK * self.folds.openness(&Fold::Drawer).unwrap_or(1.),
+        }
     }
 
     /// How tall the drawer's rows are: each one row tall, and opening or closing, as tall as
     /// it's open.
     fn drawer_rows_height(&self) -> f32 {
-        let full = match self.built.drawer.rows.len() {
-            0 => 0.,
-            n => n as f32 * self.row + DRAWER_PADDING,
-        };
-        full * self.folds.openness(&Fold::Drawer).unwrap_or(1.)
+        self.drawer_rows_full() * self.folds.openness(&Fold::Drawer).unwrap_or(1.)
     }
 
-    /// The list's last item, after the cards: the drawer's card, as far from them as they are
-    /// apart, and while they're short of the column, pushed down to its bottom by the room
-    /// they leave, as [`Self::fit_footer`] works out.
-    fn drawer_footer(&self, theme: &Theme, cx: &Context<Self>) -> AnyElement {
+    /// How tall the drawer's rows are open, as [`Self::render_drawer_row`] draws them: each card's
+    /// edges and padding, the folded projects' groups and the lines between them, and the gaps
+    /// between cards, less the one card's edges the drawer's chrome counts.
+    fn drawer_rows_full(&self) -> f32 {
+        let drawer = &self.built.drawer;
+        if drawer.rows.is_empty() {
+            return 0.;
+        }
+        let rows = (0..drawer.rows.len()).map(|ix| self.drawer_row_height(ix));
+        rows.sum::<f32>() - 2.
+    }
+
+    /// How far open the fold moving the drawer's row `ix` shows it, and whether it's closing.
+    fn drawer_folding(&self, ix: usize) -> Option<(f32, bool)> {
+        let m = self.built.drawer.moving.get(ix)?.as_ref()?;
+        let open = self.folds.openness(&m.fold)?;
+        Some((
+            curtain(open, m.extent, m.top, m.height),
+            self.folds.closing(&m.fold),
+        ))
+    }
+
+    /// How tall the drawer's gap at `ix` is: a card's gap, opening as the fold parting it does.
+    fn drawer_gap(&self, ix: usize) -> f32 {
+        let parting = self.built.drawer.parting.get(ix).and_then(Option::as_ref);
+        CARD_GAP
+            * parting
+                .and_then(|fold| self.folds.openness(fold))
+                .unwrap_or(1.)
+    }
+
+    /// How tall the drawer's row `ix` is drawn, its part of its card's edges and padding with it.
+    fn drawer_row_height(&self, ix: usize) -> f32 {
+        let drawer = &self.built.drawer;
+        let Some(row) = drawer.rows.get(ix) else {
+            return 0.;
+        };
+        match row {
+            Row::Gap => return self.drawer_gap(ix),
+            Row::Empty => return DRAWER_EMPTY,
+            _ => {}
+        }
+        let (first, last) = card_ends(&drawer.rows, ix);
+        let own = match row {
+            _ if let Some((height, _)) = self.drawer_folding(ix) => height,
+            Row::Item(_) | Row::Note(..) | Row::Loading(_) | Row::More(..) | Row::Fewer(..) => {
+                self.row
+            }
+            Row::HeaderRule(_) => HEADER_RULE,
+            _ => 0.,
+        };
+        let padding = match drawer.grouped.get(ix).copied().unwrap_or(true) {
+            true => 2. * DRAWER_GROUP_PADDING + if first { 0. } else { 1. },
+            false => (if first { CARD_PADDING } else { 0. }) + if last { CARD_PADDING } else { 0. },
+        };
+        let edges = if first { 1. } else { 0. } + if last { 1. } else { 0. };
+        own + padding + edges
+    }
+
+    /// The drawer, pinned under the list at the column's foot, as the terminals' drawer is under
+    /// it: as tall as it's open, up to half the column, past which its rows scroll, until its
+    /// line is dragged, then as dragged. The terminals' drawer follows it right under, so the
+    /// two are as tall as each other folded.
+    fn pinned_drawer(&self, theme: &Theme, cx: &Context<Self>) -> Div {
         let (left, right) = self.card_margins();
-        let (spacer, height) = self.footer.get();
-        div()
+        let (height, dragged) = self.pinned_height(cx);
+        // Open, its line drags its height, as the terminals' drags theirs; folded to its bar,
+        // it has none to drag. A double-click puts it back to its rows'.
+        let open = !self.built.drawer.rows.is_empty() && !self.folds.closing(&Fold::Drawer);
+        let divider = open.then(|| {
+            let which = DividerDrag::HiddenProjects;
+            let store = self.store.clone();
+            // Over the line, its middle on it.
+            gap_divider(
+                "resize-hidden-projects",
+                Axis::Down,
+                which.clone(),
+                &self.store,
+                theme,
+                cx,
+            )
+            .left_0()
+            .right_0()
+            .top(dp(-DIVIDER_REACH))
+            .h(dp(2. * DIVIDER_REACH + 1.))
+            .on_drag(Pane::HiddenProjects, mark_dragged(&self.store, which))
+            .on_click(move |event, _, cx| {
+                if event.click_count() == 2 {
+                    store.update(cx, |store, cx| {
+                        store.put_back_width(Pane::HiddenProjects, height, cx)
+                    })
+                }
+            })
+        });
+        v_flex()
+            .relative()
+            .flex_none()
+            .h(dp(height))
+            .max_h(relative(if dragged { DRAWER_MOST_DRAGGED } else { 0.5 }))
             .pl(dp(left))
             .pr(dp(right))
-            .pt(dp(spacer + CARD_MARGIN))
             .child(
                 div()
-                    .h(dp(height))
+                    .flex_1()
+                    .min_h_0()
                     .child(self.drawer_card(false, theme, cx)),
             )
-            .into_any_element()
+            .children(divider)
     }
 
-    /// Work out how tall the drawer's card is and the room above it, before the list lays it
-    /// out: as tall as it's open, and below the cards, or at the column's bottom while they're short of it, as far as they end in this
-    /// frame, folds and all, so it moves with them. The list keeps an item's height, so it
-    /// measures this one again when it changes, and the navigator draws again, cached as it
-    /// is. Gives how tall the list is in this frame.
-    fn fit_footer(&self, window: &mut Window, cx: &mut Context<Self>) -> f32 {
+    /// How tall the pinned drawer is, and whether its line was dragged: as tall as its rows, or
+    /// as dragged but never taller than its rows, or sliding back from that to its rows',
+    /// folding or unfolding as far as it's open.
+    fn pinned_height(&self, cx: &App) -> (f32, bool) {
+        let fits = DRAWER_CHROME + self.drawer_rows_height() + self.drawer_below();
+        // Folded, its bar's.
+        if self.built.drawer.rows.is_empty() {
+            return (fits, false);
+        }
+        let store = self.store.read(cx);
+        let open = self.folds.openness(&Fold::Drawer).unwrap_or(1.);
+        match (
+            store.dragged_width(Pane::HiddenProjects),
+            store.width_glide(Pane::HiddenProjects),
+        ) {
+            (Some(dragged), _) => {
+                let rows = DRAWER_CHROME + self.drawer_rows_full() + DRAWER_BLOCK;
+                let dragged = dragged.min(rows);
+                (
+                    DRAWER_CHROME + (dragged - DRAWER_CHROME).max(0.) * open,
+                    true,
+                )
+            }
+            (None, Some(glide)) => (glide.at(fits, crate::clock::now()), true),
+            (None, None) => (fits, false),
+        }
+    }
+
+    /// The pinned drawer's height while its line is dragged, from the navigator's foot, as the
+    /// pointer has it.
+    fn drag_drawer_height(
+        &mut self,
+        event: &DragMoveEvent<Pane>,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if *event.drag(cx) != Pane::HiddenProjects {
+            return;
+        }
+        let height = f32::from(event.bounds.bottom() - event.event.position.y);
+        let height = height / Theme::get(cx).scale;
+        self.store.update(cx, |store, cx| {
+            store.set_width(Pane::HiddenProjects, Some(height), cx)
+        });
+    }
+
+    /// How tall the list is in this frame: as it was last laid out, give or take as much as the
+    /// navigator has grown since, as the overview under it slides.
+    fn fit_footer(&self, _: &mut Window, cx: &mut Context<Self>) -> f32 {
         let scale = Theme::get(cx).scale;
         let view = self.list.viewport_bounds();
-        // The list is as tall as it was last laid out, give or take as much as the navigator
-        // has grown since, as the overview under it slides.
         let drawn = self.drawn_height.get();
         let grown = drawn - self.listed_height.replace(drawn);
-        let column = f32::from(view.size.height + grown) / scale;
-        let height = DRAWER_CHROME + self.drawer_rows_height();
-        // Where the cards end in this frame, which the list only knows once it's drawn it.
-        let room = column - self.cards_height();
-        let spacer = (room - height - CARD_MARGIN).max(0.);
-        let (was_spacer, was) = self.footer.get();
-        if (was_spacer, was) != (spacer, height) {
-            // Opening, past the room the cards leave, the list scrolls as far as it grows, so it
-            // opens up into the column, as the drawer at the column's bottom did. Only once
-            // there's no room left, where the room it took would cancel out but for rounding,
-            // and until its bar's at the column's top, so it opens under that.
-            let opening =
-                self.folds.openness(&Fold::Drawer).is_some() && !self.folds.closing(&Fold::Drawer);
-            let past = (height - was) - (was_spacer - spacer);
-            if opening && spacer == 0. && past > 0. {
-                let past = Theme::get(cx).scaled(past);
-                let above = (self.list.bounds_for_item(self.built.rows.len()))
-                    .map_or(past, |footer| footer.top() - view.top());
-                self.list.scroll_by(past.min(above).max(fixed(0.)));
-            }
-            self.footer.set((spacer, height));
-            let at = self.built.rows.len();
-            self.list.remeasure_items(at..at + 1);
-            // After this draw, as a notify during it draws nothing.
-            cx.defer_in(window, |_, _, cx| cx.notify());
-        }
-        column
+        f32::from(view.size.height + grown) / scale
     }
 
     /// Whether `keys` are in the rows, or a row's name being edited, rather than in the filter,
@@ -2413,14 +2778,6 @@ impl Navigator {
         *self.built.focused_card.borrow_mut() = card;
     }
 
-    /// How tall the cards are drawn in this frame, from the list's top: each row as tall as it
-    /// is, or one a fold is moving as far as the fold's open, as `row_in_card` draws them, and
-    /// the first card's top edge and the last's bottom, which no gap between two counts.
-    fn cards_height(&self) -> f32 {
-        let rows = self.drawn_heights().map(|(_, height)| height);
-        LIST_TOP + 2. * CARD_EDGE + rows.sum::<f32>()
-    }
-
     /// Each row, and how tall it's drawn in this frame: as tall as it is, or one a fold is
     /// moving as far as the fold's open.
     fn drawn_heights(&self) -> impl Iterator<Item = (&Row, f32)> {
@@ -2457,129 +2814,38 @@ impl Navigator {
         let (spacer, drawer) = self.footer.get();
         let drawer_top = y + CARD_EDGE + spacer + CARD_MARGIN;
         cards.push((drawer_top, drawer_top + drawer));
-        // How much of the card an edge cuts shows on the list's side of it, if it cuts one past
-        // its edge.
-        let cut = |at: f32, at_top: bool| {
-            (cards.iter())
-                .position(|&(card_top, bottom)| at > card_top + 1. && at < bottom - 1.)
-                .and_then(|ix| Some((ix, *cards.get(ix)?)))
-                .map(|(ix, (card_top, bottom))| {
-                    (ix, if at_top { bottom - at } else { at - card_top })
-                })
-        };
         // Which card the selection's, while it's edged, counting them as `cards` does.
         let focused = (self.built.focused_card.borrow().as_ref()).map(|rows| {
             (self.built.rows.iter().take(rows.start))
                 .filter(|row| matches!(row, Row::Gap))
                 .count()
         });
-        let (left, right) = self.card_margins();
-        let ground = theme.canvas;
-        let cap = |at_top: bool, (card, shows): (usize, f32)| {
-            let line = match focused == Some(card) {
-                true => theme.focus_edge(),
-                false => theme.border_subtle,
-            };
-            // Too little of the card shows for a corner at each of its ends: it's drawn whole,
-            // as a rounded box is that's shorter than two corners, over its own corners.
-            let sliver = shows < 2. * theme.shape.card;
-            let radius = if sliver { shows / 2. } else { theme.shape.card };
-            let edge = div()
-                .absolute()
-                .left(dp(left))
-                .right(dp(right))
-                .border_color(line)
-                .border_l_1()
-                .border_r_1();
-            // Otherwise its edge along the list's, two corners tall, as GPUI rounds a box no
-            // further than half its height, cut where the card's own corners start.
-            let (edge, shown) = match (sliver, at_top) {
-                (true, _) => (
-                    (edge.h(dp(shows)).border_t_1().border_b_1()).rounded(dp(radius)),
-                    shows,
-                ),
-                (false, true) => (
-                    edge.border_t_1().rounded_t(dp(theme.shape.card)),
-                    shows - theme.shape.card,
-                ),
-                (false, false) => (
-                    edge.border_b_1().rounded_b(dp(theme.shape.card)),
-                    shows - theme.shape.card,
-                ),
-            };
-            let edge = edge.when(!sliver, |el| el.h(dp(2. * theme.shape.card)));
-            let band = div()
-                .absolute()
-                .left_0()
-                .right_0()
-                .h(dp(shown.min(2. * theme.shape.card)))
-                .overflow_hidden();
-            let edge = match at_top {
-                true => band.top_0().child(edge.top_0()),
-                false => band.bottom_0().child(edge.bottom_0()),
-            };
-            // The ground past its corners, painted as their shape: GPUI rounds only a border's
-            // outer edge, so no border's inner one could cover them.
-            let corners = canvas(
-                |_, _, _| {},
-                move |bounds, _, window, cx| {
-                    let theme = Theme::get(cx);
-                    let (r, out) = (theme.scaled(radius), theme.scaled(1.));
-                    let (x0, x1) = (
-                        bounds.left() + theme.scaled(left),
-                        bounds.right() - theme.scaled(right),
-                    );
-                    // The list's edge, and the way into it.
-                    let (y, toward) = match at_top {
-                        true => (bounds.top(), r),
-                        false => (bounds.bottom(), -r),
-                    };
-                    let mut ends = vec![(y, toward)];
-                    if sliver {
-                        // The card's own end, its corners under the card's ground, rounder
-                        // than the sliver's.
-                        let end = y + toward / r * theme.scaled(shows);
-                        let (top, bottom) = (y.min(end), y.max(end));
-                        let wide = theme.scaled(theme.shape.card);
-                        for x in [x0, x1 - wide] {
-                            let under =
-                                Bounds::from_corners(point(x, top), point(x + wide, bottom));
-                            window.paint_quad(fill(under, theme.background));
-                        }
-                        ends.push((end, -toward));
-                    }
-                    // A quarter circle's control points, as a cubic Bézier draws it.
-                    let k = r * 0.5523;
-                    for (y, toward) in ends {
-                        for (x, inward) in [(x0, r), (x1, -r)] {
-                            let mut path = PathBuilder::fill();
-                            let side = |dx: Pixels, dy: Pixels| point(x + dx, y + dy);
-                            let (outward, beyond) = (-inward / r * out, -toward / r * out);
-                            path.move_to(side(outward, toward));
-                            path.line_to(side(outward, beyond));
-                            path.line_to(side(inward, beyond));
-                            path.line_to(side(inward, Pixels::ZERO));
-                            path.cubic_bezier_to(
-                                side(Pixels::ZERO, toward),
-                                side(inward - inward / r * k, Pixels::ZERO),
-                                side(Pixels::ZERO, toward - toward / r * k),
-                            );
-                            path.close();
-                            if let Ok(path) = path.build() {
-                                window.paint_path(path, ground);
-                            }
-                        }
-                    }
-                },
-            )
-            .absolute()
-            .inset_0();
-            div().absolute().inset_0().child(corners).child(edge)
-        };
-        let ends = [(cut(top, true), true), (cut(top + height, false), false)];
-        (ends.into_iter())
-            .filter_map(|(cut, at_top)| Some(cap(at_top, cut?)))
-            .collect()
+        card_caps(&cards, top, height, focused, self.card_margins(), theme)
+    }
+
+    /// [`card_caps`] for the drawer's list, pinned at the column's foot: its cards as tall as
+    /// [`Self::render_drawer_row`] draws them, as far as it's scrolled and as tall as it shows.
+    fn drawer_caps(&self, theme: &Theme) -> Vec<Div> {
+        let scale = theme.scale;
+        let top = -f32::from(self.drawer_list.scroll_px_offset_for_scrollbar().y) / scale;
+        let height = f32::from(self.drawer_list.viewport_bounds().size.height) / scale;
+        let drawer = &self.built.drawer;
+        let (mut cards, mut start, mut y) = (Vec::new(), 0., 0.);
+        for (ix, row) in drawer.rows.iter().enumerate() {
+            if matches!(row, Row::Gap) {
+                y += self.drawer_gap(ix);
+                continue;
+            }
+            let (first, last) = card_ends(&drawer.rows, ix);
+            if first {
+                start = y;
+            }
+            y += self.drawer_row_height(ix);
+            if last {
+                cards.push((start, y));
+            }
+        }
+        card_caps(&cards, top, height, None, (0., 0.), theme)
     }
 
     /// The drawer's handle: a click opens or closes it, and it says how many projects it lists
@@ -2598,39 +2864,196 @@ impl Navigator {
         let solid = self.keys.on_head_of(&List::Rows(None));
         let selected = solid;
         let open = toggles.then(|| !self.store.read(cx).prefs.projects_folded);
-        let count = (total > 0).then_some(count);
-        card_bar("drawer-bar", title, count, open, selected, solid, theme)
-            .child(
-                icon_button("add-project", Icon::Plus)
-                    .small()
-                    .inverted(solid)
-                    .tooltip("Add project")
-                    .dispatch(&AddProject),
-            )
-            .when(total > 0, |el| {
-                el.child(
-                    icon_button("project-view-options", Icon::Kebab)
-                        .small()
-                        .inverted(solid)
-                        .tooltip("Sort and show")
-                        .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
-                            this.open_menu(event.position(), |this, cx| this.view_options(cx), cx)
-                        })),
-                )
-            })
-            .when(toggles, |el| {
-                el.on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.toggle_drawer(cx)))
-            })
+        // How many, at zero too, as but-ui-react's DrawerItem.
+        let count = Some(count);
+        // As but-ui-react's Drawer: Sort and show and Add project only under the pointer or with
+        // the keys on it.
+        let sort = (total > 0).then(|| {
+            icon_button("project-view-options", Icon::Mixer)
+                .medium()
+                .inverted(solid)
+                .tooltip("Sort and show")
+                .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
+                    this.open_menu(event.position(), |this, cx| this.view_options(cx), cx)
+                }))
+        });
+        drawer_bar(card_bar(
+            "drawer-bar",
+            title,
+            count,
+            open,
+            selected,
+            solid,
+            theme,
+        ))
+        .children(sort.map(|sort| on_hover(sort, selected)))
+        .child(on_hover(
+            icon_button("add-project", Icon::Plus)
+                .medium()
+                .inverted(solid)
+                .tooltip("Add project")
+                .dispatch(&AddProject),
+            selected,
+        ))
+        .when(toggles, |el| {
+            el.on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.toggle_drawer(cx)))
+        })
+    }
+
+    /// Unfold project `id` in the drawer, a card of its own there over the rest, or fold it back.
+    /// Not watched, it isn't loaded, so unfolding it loads it, once.
+    fn toggle_in_drawer(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
+        if !self.drawer_open.remove(id) {
+            self.drawer_open.insert(id.clone());
+            let id = id.clone();
+            self.store.update(cx, |store, cx| {
+                if store
+                    .project(&id)
+                    .is_some_and(|entry| entry.workspace.is_none())
+                {
+                    store.reload(&id, cx);
+                }
+            });
+        }
+        cx.notify();
     }
 
     /// Row `ix` of the drawer, set in as a card's rows are.
     fn render_drawer_row(&self, ix: usize, cx: &Context<Self>) -> AnyElement {
         let theme = Theme::get(cx);
-        let el = match self.built.drawer.rows.get(ix) {
+        let drawer = &self.built.drawer;
+        let rows = &drawer.rows;
+        if matches!(rows.get(ix), None | Some(Row::Gap)) {
+            return div().h(dp(self.drawer_gap(ix))).into_any_element();
+        }
+        // None hidden, as but-ui-react's Drawer draws it empty: a card of its own saying so,
+        // and a button adding another.
+        if matches!(rows.get(ix), Some(Row::Empty)) {
+            let add = button("drawer-empty-add-project", "Add project")
+                .small()
+                .style(ButtonStyle::Gray)
+                .icon_end(Icon::Plus)
+                .dispatch(&AddProject)
+                .into_any_element();
+            return div()
+                .h(dp(DRAWER_EMPTY))
+                .py(dp(terminals::EMPTY_CARD_PADDING.0))
+                .px(dp(terminals::EMPTY_CARD_PADDING.1))
+                .bg(theme.background)
+                .border_1()
+                .border_color(theme.border_subtle)
+                .rounded(dp(theme.shape.card))
+                .child(empty_state_tidy(
+                    "Every project is showing",
+                    "Hide one and it waits here, or add another",
+                    [add],
+                    theme,
+                ))
+                .into_any_element();
+        }
+        let inset = drawer.insets.get(ix).copied().unwrap_or_default();
+        // A row a fold is moving shows as far as it's open, as a card's rows do.
+        let folding = self.drawer_folding(ix);
+        let el = match rows.get(ix) {
+            _ if folding.is_some_and(|(height, _)| height <= 0.) => div().into_any_element(),
             Some(Row::Note(text, is_error)) => note_row(text, *is_error, theme),
-            _ => self.render_item(&self.built.drawer.rows, ix, 0., theme, cx),
+            Some(Row::Item(_)) => {
+                self.drawing_drawer.set(true);
+                let item = self.render_item(rows, ix, inset, theme, cx);
+                self.drawing_drawer.set(false);
+                item
+            }
+            Some(Row::Loading(n)) => RowStyle::plain(theme, inset)
+                .draw(
+                    loading_item(
+                        ("drawer-loading", ix),
+                        LOADING_WIDTHS.get(*n).copied().unwrap_or(120.),
+                    ),
+                    0.,
+                )
+                .into_any_element(),
+            Some(Row::HeaderRule(_)) => div()
+                .h(dp(HEADER_RULE))
+                .flex()
+                .items_center()
+                .child(div().w_full().h(fixed(1.)).bg(theme.border_subtle))
+                .into_any_element(),
+            Some(Row::More(project, ref_name, hidden)) => {
+                let key = (project.clone(), ref_name.clone());
+                RowStyle::plain(theme, inset)
+                    .draw(
+                        more_item(("drawer-more", ix), format!("{hidden} more"), false, theme),
+                        STEP,
+                    )
+                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                        this.set_unfolded(key.clone(), true);
+                        cx.notify();
+                    }))
+                    .into_any_element()
+            }
+            Some(Row::Fewer(project, ref_name)) => {
+                let key = (project.clone(), ref_name.clone());
+                RowStyle::plain(theme, inset)
+                    .draw(
+                        more_item(("drawer-fewer", ix), "Show fewer", true, theme),
+                        STEP,
+                    )
+                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                        this.set_unfolded(key.clone(), false);
+                        cx.notify();
+                    }))
+                    .into_any_element()
+            }
+            _ => div().into_any_element(),
         };
-        div().child(el).into_any_element()
+        // The guides of a project's rows unfolded here, on the row alone, as a card's.
+        let levels = drawer.guides.get(ix).map_or(&[][..], Vec::as_slice);
+        let ends = drawer.ends.get(ix).copied().unwrap_or(false);
+        let guides = (levels.iter().enumerate()).map(|(level, at)| {
+            match ends && level + 1 == levels.len() {
+                true => guide_end_in(*at, theme.border_subtle, theme),
+                false => guide_in(*at, theme.border_subtle),
+            }
+        });
+        let row = div().relative().child(el).children(guides);
+        let row = match folding {
+            Some((height, closing)) => clipped(row, dp(height), closing),
+            None => row,
+        };
+        let (first, last) = card_ends(rows, ix);
+        // The projects folded here each in a group of its own, room over and under its row,
+        // and a line across the card between one and the next, as 🍑 But UI's drawer lists
+        // them; one unfolded, a card of its own, its rows in the card's padding.
+        let row = match drawer.grouped.get(ix).copied().unwrap_or(true) {
+            true => div()
+                .py(dp(DRAWER_GROUP_PADDING))
+                .when(!first, |el| {
+                    el.border_t_1().border_color(theme.border_subtle)
+                })
+                .child(row),
+            false => div()
+                .when(first, |el| el.pt(dp(CARD_PADDING)))
+                .when(last, |el| el.pb(dp(CARD_PADDING)))
+                .child(row),
+        };
+        // Where a gap is parting a card from the projects folded beside it, the corners at the
+        // seam round as far as the gap's open, so the card comes apart from them and back
+        // together as one.
+        let corner = |gap: Option<usize>| {
+            let open = gap.map_or(1., |gap| self.drawer_gap(gap) / CARD_GAP);
+            dp(theme.shape.card * open)
+        };
+        div()
+            .bg(theme.background)
+            .border_color(theme.border_subtle)
+            .border_l_1()
+            .border_r_1()
+            .when(first, |el| {
+                el.border_t_1().rounded_t(corner(ix.checked_sub(1)))
+            })
+            .when(last, |el| el.border_b_1().rounded_b(corner(Some(ix + 1))))
+            .child(row)
+            .into_any_element()
     }
 
     fn project_row(
@@ -2649,13 +3072,17 @@ impl Navigator {
         // folded or not.
         let filtering = self.filtering(cx);
         let card_folded = expanded && store.project_folded(id) && !filtering;
+        // One not watched, unfolded in the drawer: a card's heading there, over its rows.
+        let open_here = !expanded && !filtering && self.drawer_open.contains(id);
         let manual = store.prefs.watched_order == WatchedOrder::Manual;
-        let hovered = self.watch_hovered.as_ref() == Some(id);
         // Folded, the row sums up the whole card; open, it leaves out what the rows under it
         // say: their uncommitted files and unpushed commits. How far behind the target it is
         // shows either way, even while a commit is being edited.
         let summary = workspace.filter(|ws| ws.editing.is_none()).map(|ws| {
-            let folded = |n: usize| if expanded && !card_folded { 0 } else { n };
+            let folded = |n: usize| match (expanded && !card_folded) || open_here {
+                true => 0,
+                false => n,
+            };
             let shown = |checkout, files| store.uncommitted_shown(id, &checkout, files).len();
             let in_worktrees = (ws.worktrees.iter())
                 .map(|w| shown(Checkout::Linked(w.name.clone()), &w.uncommitted));
@@ -2673,78 +3100,125 @@ impl Navigator {
         });
         let needs_update = target.is_some_and(|t| t.needs_update());
         // Every project wears one, the glyph's outline until one's picked, so their names line
-        // up, over the icons of the rows under it. In an icon's 16 points, an emoji a little
-        // smaller than the text. A watched project's card folds from it, still watched.
+        // up, as but-ui-react's RepoItem: in a row glyph's 14 points, an emoji a little smaller
+        // than the text. A watched project's card folds from it, still watched.
         let glyph = div()
+            .text_12()
+            .child(project_glyph_at(store, id, style.muted(), 14., theme));
+        // Whether the app watches the project, as but-ui-react's Drawer marks it: an outlined
+        // icon button with the open eye on a watched card, which stops watching it, or the
+        // closed one in the drawer, which shows it again. It always shows, so what a press on it
+        // does is there before the pointer is. Its press doesn't select the row, and while
+        // something is being moved it's only part of the row, which a press puts the move at.
+        let moving = store.moving.is_some();
+        let (eye_icon, tooltip) = match expanded {
+            true => (Icon::Eye, "Stop watching"),
+            false => (Icon::EyeClosed, "Show project"),
+        };
+        let eye = icon_button(
+            ElementId::Name(format!("{}-{id}", if expanded { "unwatch" } else { "watch" }).into()),
+            eye_icon,
+        )
+        .small()
+        .style(ButtonStyle::Outline)
+        .inverted(style.solid)
+        .tooltip(tooltip)
+        .when(!moving, |el| {
+            let id = id.clone();
+            // The row moves to the other card, from under the pointer.
+            el.on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                this.store
+                    .update(cx, |store, cx| store.set_expanded(&id, !expanded, cx));
+            }))
+        });
+        let eye = div()
             .flex_none()
-            .w(dp(16.))
-            .flex()
-            .justify_center()
-            .text_13()
-            .child(project_glyph(store, id, style.muted(), theme));
-        let glyph = self.fold(
-            ElementId::Name(format!("fold-project-{id}").into()),
-            glyph,
-            expanded.then_some(!card_folded),
-            style.selected,
-            style.quiet(),
-            cx,
-            {
+            .when(!moving, |el| {
+                el.on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            })
+            .child(eye);
+        // In the drawer, how many branches and worktrees it has, as the cards would list them.
+        let held = workspace.filter(|_| !expanded && !open_here).map(|ws| {
+            let branches = (ws.lanes.iter()).flat_map(|lane| &lane.branches).count();
+            let worktrees = ws.worktrees.len();
+            let branches = count(
+                MetaCountType::Branch,
+                branches,
+                plural(branches, "branch"),
+                style,
+            );
+            let worktrees = count(
+                MetaCountType::Worktrees,
+                worktrees,
+                plural(worktrees, "worktree"),
+                style,
+            );
+            branches.into_iter().chain(worktrees)
+        });
+        // However narrow the navigator, the name stays: what the row sums up gives way first,
+        // a whole item at a time from its end. Each item that doesn't fit wraps to a second
+        // line, which is cut off.
+        let summary = h_flex()
+            .min_w_0()
+            .h(dp(20.))
+            .flex_wrap()
+            .overflow_hidden()
+            .when_some(summary, |el, (files, unpushed)| {
+                el.children(style.files(files))
+                    .children(style.unpushed(unpushed))
+            })
+            // A watched project that can update says how far behind on its Update button.
+            .children(
+                target
+                    .filter(|_| !(expanded && needs_update))
+                    .and_then(|t| {
+                        let behind = plural(t.behind, "commit");
+                        let tip = format!("{behind} behind {}{}", t.name, with_merged(t));
+                        count(MetaCountType::Behind, t.behind, tip, style)
+                    }),
+            )
+            .children(held.into_iter().flatten())
+            // Loading, a clock, unless the card's open, where its rows of bones say so.
+            .when(
+                entry.is_loading() && !(expanded && !card_folded && !filtering) && !open_here,
+                |el| el.child(small_icon(Icon::Clock).text_color(theme.subtle_foreground)),
+            );
+        // Only folded, or in the drawer: open, the rows under it carry the dot.
+        // As but-ui's repo_item, wearing the project's own icon.
+        let row = repo_item(
+            ElementId::Name(format!("project-{id}").into()),
+            entry.project.name.clone(),
+            style.theme,
+        )
+        .glyph(glyph)
+        .unread(unread && (card_folded || !expanded) && !open_here)
+        .meta(summary)
+        .meta_gives_way();
+        let row = match expanded || filtering {
+            true => self.folding(row, expanded.then_some(!card_folded), cx, {
                 let id = id.clone();
                 move |this, _, cx| this.toggle_project(&id, cx)
-            },
-        );
-        // Whether the app watches the project, as a watched one is loaded and kept current,
-        // and under the pointer what a click makes it. Named by what it does, so its tooltip
-        // goes with the click. Its click doesn't select the row, and while something is being
-        // moved it's only part of the row, which a press puts the move at.
-        let moving = store.moving.is_some();
-        let eye = div()
-            .id(ElementId::Name(
-                format!("{}-{id}", if expanded { "unwatch" } else { "watch" }).into(),
-            ))
-            .flex_none()
-            .size(dp(20.))
-            .flex()
-            .items_center()
-            .justify_center()
-            .rounded(dp(theme.shape.control))
-            .child(
-                watch_glyph(expanded != hovered).text_color(match (hovered, style.solid) {
-                    (false, _) => style.muted(),
-                    (true, true) => theme.inverse_foreground,
-                    (true, false) => theme.foreground,
-                }),
-            )
-            .when(!moving, |el| {
+            }),
+            // In the drawer, as but-ui-react's Drawer lists its projects: its chevron unfolds it
+            // there, a card of its own over the rest, and its button shows it among the cards.
+            false => self.folding(row, Some(open_here), cx, {
                 let id = id.clone();
-                el.hover(|el| el.bg(theme.hover))
-                    // A button, which leaves the keys where they were.
-                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                        cx.stop_propagation();
-                        // The row moves to the other card, from under the pointer.
-                        this.watch_hovered = None;
-                        this.store.update(cx, |store, cx| {
-                            let expanded = store.project(&id).is_some_and(|p| p.expanded);
-                            store.set_expanded(&id, !expanded, cx)
-                        });
-                    }))
-            })
-            .on_hover(cx.listener({
-                let id = id.clone();
-                move |this, on: &bool, _, cx| {
-                    this.watch_hovered = on.then(|| id.clone());
-                    cx.notify()
-                }
-            }))
-            .tooltip(Tooltip::text(match expanded {
-                true => "Stop watching",
-                false => "Watch this project",
-            }));
+                move |this, _, cx| this.toggle_in_drawer(&id, cx)
+            }),
+        };
+        // Only a watched project's: an unwatched one updates from its page or its menu, which
+        // keeps the list of the others quiet.
+        let row = match expanded && needs_update {
+            true => row.action(self.target_update_button(id, target, style.solid, cx)),
+            false => row,
+        };
+        // Unfolded in the drawer, its heading's bare, as 🍑 But UI's.
+        let row = match open_here {
+            true => row,
+            false => row.action(eye),
+        };
         Some(
-            style
-                .row(format!("project-{id}"), 6.)
+            (style.draw(row, 0.))
                 .aria_label(entry.project.name.clone())
                 .aria_expanded(expanded)
                 .h(dp(if expanded {
@@ -2752,50 +3226,6 @@ impl Navigator {
                 } else {
                     theme.sizes.control
                 }))
-                .when(unread, |el| el.relative().child(style.unread_line(false)))
-                .child(glyph)
-                // However narrow the navigator, the name stays: what the row sums up gives way
-                // first, a whole item at a time from its end. Each item that doesn't fit wraps to
-                // a second line, which is cut off.
-                .child(
-                    div()
-                        .flex_grow(1.)
-                        .min_w_0()
-                        .truncate()
-                        .child(entry.project.name.clone()),
-                )
-                .child(
-                    h_flex()
-                        .flex_shrink(1000.)
-                        .min_w_0()
-                        .h(dp(16.))
-                        .flex_wrap()
-                        .overflow_hidden()
-                        .gap(dp(8.))
-                        .when_some(summary, |el, (files, unpushed)| {
-                            el.children(style.files(files))
-                                .children(style.unpushed(unpushed))
-                        })
-                        .children(target.and_then(|t| {
-                            let behind = plural(t.behind, "commit");
-                            let tip = format!("{behind} behind {}{}", t.name, with_merged(t));
-                            meta_count(
-                                Icon::ArrowDown,
-                                t.behind,
-                                style.meta(theme.warning_text),
-                                tip,
-                            )
-                        }))
-                        .when(entry.is_loading(), |el| {
-                            el.child(small_icon(Icon::Clock).text_color(theme.subtle_foreground))
-                        }),
-                )
-                // Only a watched project's: an unwatched one updates from its page or its menu,
-                // which keeps the list of the others quiet.
-                .when(expanded && needs_update, |el| {
-                    el.child(self.target_update_button(id, style.solid, cx))
-                })
-                .child(eye)
                 .map(|el| self.selectable(el, item, cx))
                 // Under the filter too, where `toggle_project` leaves a card open but still
                 // watches a project the filter found.
@@ -2830,14 +3260,16 @@ impl Navigator {
         let status = store.row_status(item);
         let field = self.rename_field(item, style.theme, cx);
         let renaming = field.is_some();
-        let row = style
-            .row(format!("terminal-{}", id.0), 6.)
-            .child(icon(Icon::TextCode).text_color(style.muted()))
-            .child(match field {
-                Some(field) => field,
-                None => (div().flex_1().min_w_0().truncate().child(title)).into_any_element(),
-            })
-            .children(status.and_then(|status| status_mark(status, !store.hidden(), style)))
+        let row_id = ElementId::Name(format!("terminal-{}", id.0).into());
+        let row = match field {
+            Some(field) => terminal_item(row_id, title, None, style.theme).rename(field),
+            None => terminal_item(row_id, title, None, style.theme),
+        };
+        let row = match status.and_then(|status| status_mark(status, !store.hidden(), style)) {
+            Some(mark) => row.meta(mark),
+            None => row,
+        };
+        let row = (style.draw(row, 0.))
             .when(!renaming, |el| self.terminal_drag(el, item, id, cx))
             .map(|el| self.selectable(el, item, cx));
         Some(row.into_any_element())
@@ -2854,21 +3286,54 @@ impl Navigator {
     ) -> AnyElement {
         let store = self.store.read(cx);
         let files = store.workspace(id).map_or(&[][..], |ws| &ws.uncommitted);
-        style
-            .row(format!("uncommitted-{id}"), 6.)
+        let row = sidebar_row(ElementId::Name(format!("uncommitted-{id}").into()))
+            .glyph(icon_at(Icon::Diff, 14.).text_color(style.meta(style.theme.warning_text)))
+            .label(item_name("Editing a commit"));
+        let row = change_counts(tally(files), style).fold(row, SidebarRow::meta);
+        (style.draw(row, 0.))
             .aria_label("Editing a commit")
-            .child(icon(Icon::Diff).text_color(style.meta(style.theme.warning_text)))
-            .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .truncate()
-                    .child("Editing a commit"),
-            )
-            .children(change_counts(tally(files), style))
             .map(|el| self.selectable(el, item, cx))
             .map(|el| self.page_drag(el, item, cx))
             .into_any_element()
+    }
+
+    /// What a worktree with no branch of its own is on, `on`, as but-ui-react's `head`
+    /// MetaCount: the branch's name, giving way before the worktree's, and saying in its
+    /// tooltip there's no branch. A commit under the branch's tip goes by its short reference.
+    fn head_meta(
+        &self,
+        ix: usize,
+        on: &Selection,
+        style: RowStyle,
+        cx: &App,
+    ) -> Option<Stateful<Div>> {
+        let store = self.store.read(cx);
+        let (lane, at) = store.lane_for(on)?;
+        let branch = lane.branches.get(at)?;
+        let name = store.name_of(on.project(), branch).to_owned();
+        let (value, tip) = match on {
+            Selection::Commit(_, id) if branch.commits.first()?.id != *id => {
+                let short = store.short_reference(on.project(), *id);
+                (
+                    format!("{name} at {short}"),
+                    format!("No branch: on {short}, a commit in {name}"),
+                )
+            }
+            _ => (name.clone(), format!("No branch: on {name}'s last commit")),
+        };
+        let mut meta = meta_count_on(
+            MetaCountType::Head,
+            Some(value.into()),
+            style.solid,
+            style.theme,
+        )
+        .id(("worktree-head", ix))
+        .min_w_0()
+        .aria_label(tip.clone())
+        .tooltip(Tooltip::text(tip));
+        // Shrinks before the worktree's name does.
+        meta.style().flex_shrink = Some(1000.);
+        Some(meta)
     }
 
     fn rests_on_label(
@@ -2924,6 +3389,9 @@ impl Navigator {
         let branches: Vec<_> = workspace.branches_in(checkout).collect();
         let unpushed_n = unpushed(branches.iter().copied());
         let unread = (branches.iter()).any(|branch| store.branch_unread(id, branch));
+        let head = (checkout.linked())
+            .and_then(|name| rows::head_of(store, id, workspace, name))
+            .and_then(|on| self.head_meta(ix, &on, style, cx));
         // Open even when folded while the selection's in it.
         let open = self.section_open(ix);
         let folds = checkout_holds(store, workspace, id, checkout);
@@ -2933,39 +3401,30 @@ impl Navigator {
                 this.toggle_section(&project, checkout.clone(), open, window, cx)
             }
         };
-        let glyph = self.fold(
-            ("worktree-fold", ix),
-            worktree_icon(checkout.is_linked(), style),
-            folds.then_some(open),
-            style.selected,
-            style.quiet(),
-            cx,
-            toggle.clone(),
-        );
-        let row = style
-            .row(
-                format!("worktree-{id}-{}", checkout.linked().unwrap_or_default()),
-                6.,
-            )
+        let row_id = format!("worktree-{id}-{}", checkout.linked().unwrap_or_default());
+        let row = worktree_item(
+            ElementId::Name(row_id.into()),
+            label.clone(),
+            !checkout.is_linked(),
+            false,
+            style.theme,
+        )
+        .unread(!open && unread);
+        let row = self.folding(row, folds.then_some(open), cx, toggle.clone());
+        let counts = (!open)
+            .then(|| change_counts(tally(&uncommitted), style).chain(style.unpushed(unpushed_n)));
+        let row = counts.into_iter().flatten().fold(row, SidebarRow::meta);
+        let row = match head {
+            Some(head) => row.meta(head).meta_gives_way(),
+            None => row,
+        };
+        let row = match running {
+            true => row.meta(running_mark(ix, style)),
+            false => row,
+        };
+        let row = (style.draw(row, 0.))
             .aria_label(label.clone())
             .when(folds, |el| el.aria_expanded(open))
-            .when(!open && unread, |el| {
-                el.relative().child(style.unread_line(false))
-            })
-            .child(glyph)
-            .child(
-                div()
-                    .id(("worktree-name", ix))
-                    .flex_grow(1.)
-                    .min_w_0()
-                    .truncate()
-                    .child(label.clone()),
-            )
-            .when(!open, |el| {
-                el.children(change_counts(tally(&uncommitted), style))
-                    .children(style.unpushed(unpushed_n))
-            })
-            .when(running, |el| el.child(running_mark(ix, style)))
             .map(|el| self.selectable(el, item, cx))
             .on_click(double_click(toggle, cx));
         // A linked worktree drags itself, its changes going with it.
@@ -2995,15 +3454,23 @@ impl Navigator {
         };
         let uncommitted = store.uncommitted_shown(id, &checkout, uncommitted);
         let label = "Uncommitted changes";
-        let row = style
-            .row(
-                format!("changes-{id}-{}", checkout.linked().unwrap_or_default()),
-                6.,
-            )
+        let row_id = format!("changes-{id}-{}", checkout.linked().unwrap_or_default());
+        let (n, conflicted, (added, removed)) = tally(&uncommitted);
+        let row = uncommitted_item(
+            ElementId::Name(row_id.into()),
+            n,
+            Some(files_tip(n, added, removed).into()),
+            style.theme,
+        );
+        let conflicts = count(
+            MetaCountType::Conflicts,
+            conflicted,
+            plural(conflicted, "conflicted file"),
+            style,
+        );
+        let row = conflicts.into_iter().fold(row, SidebarRow::meta);
+        let row = (style.draw(row, 0.))
             .aria_label(label)
-            .child(icon(Icon::FileDiff).text_color(style.muted()))
-            .child(div().flex_1().min_w_0().truncate().child(label))
-            .children(change_counts(tally(&uncommitted), style))
             .map(|el| self.selectable(el, item, cx));
         // The checked files while they're shown, else all of them, but not conflicted ones:
         // with only those, there's nothing to drag.
@@ -3076,8 +3543,12 @@ impl Navigator {
 
     /// Whether row `ix` heads rows stepped in under it that show: an open worktree or stack.
     fn section_open(&self, ix: usize) -> bool {
-        let next = self.built.insets.get(ix + 1);
-        (next.zip(self.built.insets.get(ix))).is_some_and(|(next, this)| next > this)
+        let insets = match self.drawing_drawer.get() {
+            true => &self.built.drawer.insets,
+            false => &self.built.insets,
+        };
+        let next = insets.get(ix + 1);
+        (next.zip(insets.get(ix))).is_some_and(|(next, this)| next > this)
     }
 
     /// Over a stack of two or more branches, as ui-react's StackCaption: its glyph, which folds
@@ -3094,7 +3565,6 @@ impl Navigator {
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let store = self.store.read(cx);
-        let theme = style.theme;
         let branches = store.after_deletes(id, &store.lane_for(item)?.0.branches);
         // Open even when folded while the selection's in it.
         let open = self.section_open(ix);
@@ -3105,47 +3575,31 @@ impl Navigator {
                 this.toggle_stack(caption.clone(), open, window, cx)
             }
         };
-        // Quiet, so it doesn't read as one more branch, with "Stack" a step above the rest.
-        let (word, quiet) = match style.solid {
-            true => (theme.inverse_foreground, style.muted()),
-            false => (theme.muted_foreground, theme.subtle_foreground),
-        };
-        let glyph = self.fold(
-            ("stack-fold", ix),
-            icon(Icon::Stack).text_color(quiet),
-            Some(open),
-            style.selected,
-            style.quiet(),
-            cx,
-            toggle.clone(),
-        );
-        let label = h_flex()
-            .id(("stack-name", ix))
-            .flex_grow(1.)
-            .min_w_0()
-            .gap(dp(6.))
-            .child(count_badge(branches.len(), theme).when(style.solid, |el| {
-                el.bg(theme.inverse_soft).text_color(quiet)
-            }))
-            .child(div().flex_none().text_color(word).child("Stack"))
-            .children(branches.first().filter(|_| !open).map(|top| {
-                (div().min_w_0().truncate())
-                    .text_color(quiet)
-                    .child(store.label_of(id, top).to_owned())
-            }));
         let bottom_name = bottom.map(ToString::to_string).unwrap_or_default();
-        let row = style
-            .row(format!("stack-{id}-{bottom_name}"), 6.)
+        // As but-ui's stack_caption: how many, "Stack", and while it's folded the branch at
+        // its tip.
+        let tip = branches
+            .first()
+            .map(|top| store.label_of(id, top).to_owned())
+            .unwrap_or_default();
+        let row = stack_caption(
+            ElementId::Name(format!("stack-{id}-{bottom_name}").into()),
+            branches.len(),
+            tip,
+            Some(!open),
+            style.theme,
+        )
+        .unread(!open && unread);
+        let row = self.folding(row, Some(open), cx, toggle.clone());
+        let row = match open {
+            true => row,
+            false => (style.unpushed(unpushed(branches.iter())))
+                .into_iter()
+                .fold(row, SidebarRow::meta),
+        };
+        let row = (style.draw(row, 0.))
             .aria_label(format!("Stack of {}", branches.len()))
             .aria_expanded(open)
-            .when(!open && unread, |el| {
-                el.relative().child(style.unread_line(false))
-            })
-            .child(glyph)
-            .child(label)
-            .when(!open, |el| {
-                el.children(style.unpushed(unpushed(branches.iter())))
-            })
             .map(|el| self.selectable(el, item, cx))
             .on_click(double_click(toggle, cx));
         Some(row.into_any_element())
@@ -3177,17 +3631,12 @@ impl Navigator {
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let store = self.store.read(cx);
-        let moving = store.moving.is_some();
         let row_id = ref_name.map(ToString::to_string).unwrap_or_default();
         let theme = style.theme;
         let branch = store.branch_for(item)?;
         let name = store.name_of(id, branch);
         let unpushed_n = unpushed(std::iter::once(branch));
         let conflicted = branch.commits.iter().filter(|c| c.conflicted).count();
-        // The conflict to resolve first, as its page's Resolve finds it.
-        let conflict = (ref_name.zip(store.workspace(id)))
-            .and_then(|(r, ws)| oldest_conflict(ws, r))
-            .map(|(_, commit)| commit.id);
         // Its pull request shows as it's asked for, pulsing until the forge has it.
         let publishing =
             branch.review.is_none() && ref_name.is_some_and(|r| store.publishing(id, r));
@@ -3197,14 +3646,6 @@ impl Navigator {
             // Merged without a pull request, as one that merged with one shows.
             (None, PushState::Integrated) => Some(ReviewState::Merged),
             (None, _) => None,
-        };
-        let (glyph, glyph_color) = match state {
-            Some(state) => review::state_glyph(state, theme),
-            None => (Icon::Branch, style.muted()),
-        };
-        let glyph_color = match state {
-            Some(ReviewState::Merged) => review::merged_color(style.solid, theme),
-            _ => style.meta(glyph_color),
         };
         // Once a pull request merged, how its CI stands no longer matters.
         let checks = (branch.review.as_ref())
@@ -3227,124 +3668,106 @@ impl Navigator {
             }
         };
         let folds = !branch.commits.is_empty();
-        let glyph = match icon(glyph).text_color(glyph_color) {
-            glyph if publishing => pulsing(glyph).into_any_element(),
-            glyph => glyph.into_any_element(),
-        };
-        let glyph = self.fold(
-            ElementId::Name(format!("fold-{id}-{row_id}").into()),
-            glyph,
-            folds.then_some(open),
-            style.selected,
-            style.quiet(),
-            cx,
-            toggle.clone(),
-        );
-        // An unread commit marks its branch too, folded or not.
-        let unread = store.branch_unread(id, branch);
-        let review = (branch.review.as_ref()).map(|r| (r, store.review_state(id, r)));
+        // An unread commit marks its branch while it's folded; open, the dot is on the commit,
+        // as the most folded row takes it and it never shows twice.
+        let unread = !open && store.branch_unread(id, branch);
         let rename = self.rename_field(item, theme, cx);
+        // As but-ui's branch_item: its pull request's glyph and number before its title, the
+        // request's when the forge has one, or that it merged without one; a spinner for its
+        // glyph while its request is being opened.
+        let pr = (branch.review.as_ref()).map(|review| {
+            let state = match store.review_state(id, review) {
+                ReviewState::Draft => PullRequestState::Draft,
+                ReviewState::Open => PullRequestState::Open,
+                ReviewState::Closed => PullRequestState::Closed,
+                ReviewState::Merged => PullRequestState::Merged,
+            };
+            (review.number, state)
+        });
+        let title = (branch.review.as_ref())
+            .map(|review| review.title.as_str())
+            .filter(|title| !title.is_empty())
+            .unwrap_or(name);
+        let row = branch_item(
+            ElementId::Name(format!("branch-{id}-{row_id}").into()),
+            title.to_owned(),
+            pr,
+            state == Some(ReviewState::Merged),
+            style.selected,
+            style.theme,
+        )
+        .unread(unread)
+        .busy(publishing, None);
+        let row = match rename {
+            Some(field) => row.rename(field),
+            None => row,
+        };
+        let row = self.folding(row, folds.then_some(open), cx, toggle.clone());
+        // CI only while it runs or after it failed: passing is the usual state, as but-ui's
+        // MetaStatus says it. A mark, not a button: the branch's page shows the checks.
+        let checks = checks
+            .filter(|c| c.running > 0 || c.failed > 0)
+            .map(|checks| {
+                let (_, _, text) = review::checks_summary(checks, theme);
+                let variant = match checks.running > 0 {
+                    true => MetaStatusVariant::Working,
+                    false => MetaStatusVariant::Failed,
+                };
+                let tip = SharedString::from(text);
+                meta_status(variant, Some("CI".into()), &style.kind_theme())
+                    .id(ElementId::Name(format!("checks-{row_id}").into()))
+                    .aria_label(tip.clone())
+                    .tooltip(Tooltip::text(tip))
+            });
+        // That someone wrote a brief for it, quietly; its page has it to read.
+        let brief = (store.briefs
+            && (store.brief_at(id, &branch.name)).is_some_and(|known| known.found.is_some()))
+        .then(|| {
+            div()
+                .id(ElementId::Name(format!("brief-{row_id}").into()))
+                .flex_none()
+                .child(small_icon(Icon::Docs).text_color(style.meta(style.muted())))
+                .aria_label("Has a brief")
+                .tooltip(Tooltip::text("Has a brief"))
+        });
+        // So conflicts show while the commits are hidden too.
+        let conflicts = count(
+            MetaCountType::Conflicts,
+            conflicted,
+            plural(conflicted, "conflicted commit"),
+            style,
+        );
+        // Folded, who and how many only its remote has; open, its New on origin row says.
+        let (authors, update) = match open {
+            true => (None, None),
+            false => {
+                let n = branch.incoming.len();
+                let remote = branch.remote.as_deref().unwrap_or("the remote");
+                let tip = format!("{} only on {remote}", plural(n, "commit"));
+                let people =
+                    (branch.incoming.iter()).map(|c| (c.author.as_str(), c.email.as_str()));
+                (
+                    authors_stack(people, theme),
+                    self.update_step(id, ref_name, n, tip, style, cx),
+                )
+            }
+        };
+        let row = (checks.map(IntoElement::into_any_element))
+            .into_iter()
+            .chain(brief.map(IntoElement::into_any_element))
+            .chain(conflicts.map(IntoElement::into_any_element))
+            .chain(authors.map(IntoElement::into_any_element))
+            .fold(row, SidebarRow::meta);
+        let row = (update.map(IntoElement::into_any_element))
+            .into_iter()
+            .chain(
+                self.push_step(id, ref_name, unpushed_n, style, cx)
+                    .map(IntoElement::into_any_element),
+            )
+            .fold(row, SidebarRow::action);
         Some(
-            style
-                .row(format!("branch-{id}-{row_id}"), 6.)
+            (style.draw(row, 0.))
                 .aria_label(format!("Branch {name}"))
-                .when(unread, |el| el.relative().child(style.unread_line(false)))
-                .child(glyph)
-                .child(match rename {
-                    Some(field) => field,
-                    None => branch_name(name, review, &style)
-                        .id(ElementId::Name(format!("name-{id}-{row_id}").into()))
-                        .flex_1()
-                        .into_any_element(),
-                })
-                // CI only while it runs or after it failed: passing is the usual state. Pressed,
-                // the branch's pull request shows, its checks asked for again.
-                .when_some(
-                    checks.filter(|c| c.running > 0 || c.failed > 0),
-                    |el, checks| {
-                        let (glyph, color, text) = review::checks_summary(checks, theme);
-                        let color = style.meta(color);
-                        let shown = Selection::Branch(id.clone(), ref_name.cloned());
-                        let tip = SharedString::from(format!("{text}, click to see the checks"));
-                        let mark = div()
-                            .id(ElementId::Name(format!("checks-{row_id}").into()))
-                            .child(small_icon(glyph).text_color(color))
-                            .aria_label(tip.clone())
-                            .tooltip(Tooltip::text(tip));
-                        el.child(pressable(
-                            theme.shape,
-                            mark,
-                            style.press_hover(),
-                            moving,
-                            cx.listener(move |this, _, window, cx| {
-                                this.select(shown.clone(), window, cx);
-                                (this.detail).update(cx, |detail, cx| {
-                                    detail.follow_selection(window, cx);
-                                    detail.set_page_tab(PageTab::Review, window, cx)
-                                });
-                                (this.store)
-                                    .update(cx, |store, _| store.refresh_forge(shown.project()))
-                            }),
-                        ))
-                    },
-                )
-                // That someone wrote a brief for it, quietly. Pressed, it's up to read.
-                .when(
-                    store.briefs
-                        && store
-                            .brief_at(id, &branch.name)
-                            .is_some_and(|known| known.found.is_some()),
-                    |el| {
-                        let color = style.meta(style.muted());
-                        let shown = Selection::Branch(id.clone(), ref_name.cloned());
-                        let mark = div()
-                            .id(ElementId::Name(format!("brief-{row_id}").into()))
-                            .child(small_icon(Icon::Docs).text_color(color))
-                            .aria_label("Read the brief")
-                            .tooltip(Tooltip::text("Read the brief"));
-                        el.child(pressable(
-                            theme.shape,
-                            mark,
-                            style.press_hover(),
-                            moving,
-                            cx.listener(move |this, _, window, cx| {
-                                this.select(shown.clone(), window, cx);
-                                (this.detail).update(cx, |detail, cx| {
-                                    detail.follow_selection(window, cx);
-                                    detail.set_page_tab(PageTab::Brief, window, cx)
-                                });
-                            }),
-                        ))
-                    },
-                )
-                // So conflicts show while the commits are hidden too. Pressed, the first to
-                // resolve is up, unless a linked worktree resolves it.
-                .children({
-                    let warn = style.meta(theme.warning_text);
-                    let tip = plural(conflicted, "conflicted commit");
-                    let count = |tip| meta_count(Icon::Warning, conflicted, warn, tip);
-                    match conflict {
-                        None => count(tip),
-                        Some(commit) => count(tip + ", click to resolve").map(|count| {
-                            let project = id.clone();
-                            let resolve = cx.listener(move |this, _, window, cx| {
-                                let project = project.clone();
-                                this.app.update_later(window, cx, move |app, window, cx| {
-                                    app.resolve_commit(project, commit, window, cx)
-                                })
-                            });
-                            pressable(theme.shape, count, style.press_hover(), moving, resolve)
-                        }),
-                    }
-                })
-                // Folded, how many only its remote has; open, its On origin/… row says.
-                .when(!open, |el| {
-                    let n = branch.incoming.len();
-                    let remote = branch.remote.as_deref().unwrap_or("the remote");
-                    let tip = format!("{} only on {remote}", plural(n, "commit"));
-                    el.children(self.pull_count(id, ref_name, n, tip, style, cx))
-                })
-                .children(self.push_count(id, ref_name, unpushed_n, style, cx))
                 .map(|el| self.selectable(el, item, cx))
                 // A click looks inside, opening its commits; the chevron, a double-click, ⇧←
                 // and ⇧→ fold them.
@@ -3368,9 +3791,10 @@ impl Navigator {
         )
     }
 
-    /// How many of the branch's `n` commits aren't pushed, pressed to push them without
-    /// selecting the branch. It pulses while they go; while they can't, its tooltip says why.
-    fn push_count(
+    /// Push, in place of the ↑ count of the branch's `n` unpushed commits: the number and its
+    /// glyph in a blue button, which pushes them without selecting the branch and pulses while
+    /// they go. While they can't go, as with conflicts, it's the plain count, saying why.
+    fn push_step(
         &self,
         project: &ProjectId,
         ref_name: Option<&FullName>,
@@ -3380,39 +3804,42 @@ impl Navigator {
     ) -> Option<AnyElement> {
         let store = self.store.read(cx);
         let ws = store.workspace(project)?;
-        let pushing = ref_name.is_some_and(|r| store.pushing(project, r));
-        let blocked = ws.push_blocked(ref_name);
-        let tip = match blocked {
-            _ if pushing => "Pushing".to_owned(),
-            Some(why) => why.to_owned(),
-            None => ws.push_tooltip(ref_name?),
-        };
-        let color = style.meta(style.theme.info_text);
-        // Padded as pressing it pads it, so it holds still while it pushes.
-        let count = meta_count(Icon::ArrowUp, n, color, tip)?.px(dp(MARK_PAD));
-        if pushing {
-            return Some(pulsing(count).into_any_element());
+        if let Some(why) = ws.push_blocked(ref_name) {
+            return count(MetaCountType::Unpushed, n, why.to_owned(), style)
+                .map(IntoElement::into_any_element);
         }
-        if blocked.is_some() {
-            return Some(count.into_any_element());
+        let ref_name = ref_name?;
+        if n == 0 {
+            return None;
         }
-        let pushed = (project.clone(), ref_name.cloned());
-        let push = cx.listener(move |this, _, window, cx| {
+        let pushing = store.pushing(project, ref_name);
+        let push = button(
+            ElementId::Name(format!("push-{project}-{}", ref_name.as_bstr()).into()),
+            n.to_string(),
+        )
+        .icon_end(Icon::ArrowUp)
+        .style(ButtonStyle::Info)
+        .small()
+        .inverted(style.solid)
+        .tooltip(ws.push_tooltip(ref_name))
+        .disabled_because(pushing.then_some("Pushing"));
+        let pushed = (project.clone(), ref_name.clone());
+        let step = self.row_step(push, cx, move |this, window, cx| {
             let (project, ref_name) = pushed.clone();
             this.app.update_later(window, cx, move |app, window, cx| {
-                app.push_branch(project, ref_name, window, cx)
+                app.push_branch(project, Some(ref_name), window, cx)
             });
         });
-        let moving = self.store.read(cx).moving.is_some();
-        Some(
-            pressable(style.theme.shape, count, style.press_hover(), moving, push)
-                .into_any_element(),
-        )
+        Some(match pushing {
+            true => pulsing(step).into_any_element(),
+            false => step.into_any_element(),
+        })
     }
 
-    /// How many of `n` commits only `ref_name`'s remote has, pressed to pull them when it can,
-    /// which leaves the selection where it is. When it can't, it says `tip`.
-    fn pull_count(
+    /// Update, in place of the ↓ count of the `n` commits only `ref_name`'s remote has: the
+    /// number and its glyph in an amber button, which brings them in and leaves the selection
+    /// where it is. When they can't come in, it's the plain count, saying `tip`.
+    fn update_step(
         &self,
         project: &ProjectId,
         ref_name: Option<&FullName>,
@@ -3420,33 +3847,57 @@ impl Navigator {
         tip: String,
         style: RowStyle,
         cx: &Context<Self>,
-    ) -> Option<Stateful<Div>> {
-        let warn = style.meta(style.theme.warning_text);
+    ) -> Option<AnyElement> {
         let ws = self.store.read(cx).workspace(project);
         let Some(ref_name) = ref_name.filter(|r| ws.is_some_and(|ws| ws.can_pull(r))) else {
-            return meta_count(Icon::ArrowDown, n, warn, tip);
+            return count(MetaCountType::Behind, n, tip, style).map(IntoElement::into_any_element);
         };
-        let count = meta_count(
-            Icon::ArrowDown,
-            n,
-            warn,
-            format!("Pull {}", plural(n, "commit")),
-        )?;
+        if n == 0 {
+            return None;
+        }
+        let remote = (ws.and_then(|ws| ws.find_branch(Some(ref_name))))
+            .and_then(|branch| branch.remote.clone())
+            .unwrap_or_else(|| "the remote".to_owned());
+        let update = button(
+            ElementId::Name(format!("update-{project}-{}", ref_name.as_bstr()).into()),
+            n.to_string(),
+        )
+        .icon_end(Icon::ArrowDown)
+        .style(ButtonStyle::Warning)
+        .small()
+        .inverted(style.solid)
+        .tooltip(format!("Update with {} from {remote}", plural(n, "commit")));
         let (project, ref_name) = (project.clone(), ref_name.clone());
-        let pull = cx.listener(move |this, _, _, cx| {
+        let step = self.row_step(update, cx, move |this, _, cx| {
             let ref_name = ref_name.clone();
             (this.store).update(cx, |store, cx| {
                 store.pull_remote(&project, ref_name, None, cx)
             })
         });
+        Some(step.into_any_element())
+    }
+
+    /// `step` as a row's next step: pressing it does `press` and leaves its row as it was,
+    /// unselected and unfolded. While something is being moved it's only part of its row, which
+    /// a press puts the move at, so it does nothing of its own then.
+    fn row_step(
+        &self,
+        step: Button,
+        cx: &Context<Self>,
+        press: impl Fn(&mut Self, &mut Window, &mut Context<Self>) + 'static,
+    ) -> Div {
         let moving = self.store.read(cx).moving.is_some();
-        Some(pressable(
-            style.theme.shape,
-            count,
-            style.press_hover(),
-            moving,
-            pull,
-        ))
+        div()
+            .flex_none()
+            .child(match moving {
+                true => step,
+                false => {
+                    step.on_click(cx.listener(move |this, _, window, cx| press(this, window, cx)))
+                }
+            })
+            .when(!moving, |el| {
+                el.on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            })
     }
 
     fn commit_row(
@@ -3515,16 +3966,14 @@ impl Navigator {
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let (title, slow) = self.store.read(cx).pending_commit(project, op)?;
-        let glyph = small_icon(Icon::Commit).text_color(style.meta(style.theme.info_mark));
         let ellipsis = div().text_11().text_color(style.muted()).child("…");
         Some(
             style
                 .commit_line(
                     format!("pending-{project}-{op}"),
                     COMMIT_INDENT,
-                    glyph,
                     title,
-                    false,
+                    CommitPlace::Local,
                     None,
                 )
                 .when(slow, |el| el.opacity(0.5).child(ellipsis))
@@ -3548,16 +3997,27 @@ impl Navigator {
         let workspace = store.workspace(id)?;
         let listed = (workspace.upstream(ref_name).iter()).find(|c| c.id == *commit_id);
         // One a merge listed brought in sits a step in under it.
-        let (title, merge, nested) = match listed {
-            Some(commit) => (commit.title.clone(), commit.merge, false),
+        let (title, merge, nested, author, email) = match listed {
+            Some(commit) => (
+                commit.title.clone(),
+                commit.merge,
+                false,
+                commit.author.clone(),
+                commit.email.clone(),
+            ),
             None => {
                 let (_, commit) = store.merged_upstream(id, ref_name, *commit_id)?;
-                (commit.title.clone(), false, true)
+                (
+                    commit.title.clone(),
+                    false,
+                    true,
+                    commit.author.clone(),
+                    commit.email.clone(),
+                )
             }
         };
         let title: SharedString = title.into();
         let unread = listed.is_some_and(|commit| store.is_unread(id, commit));
-        let warn = style.meta(style.theme.warning_text);
         // A merge folds the commits it brought in on a double-click, or by the chevron its ↓
         // turns into.
         let toggle = merge.then(|| {
@@ -3566,38 +4026,60 @@ impl Navigator {
                 this.toggle_merge(&project, owner.clone(), merge_id, window, cx)
             }
         });
-        let arrow = small_icon(Icon::ArrowDown).text_color(warn);
-        let glyph = match toggle.clone() {
-            None => arrow.into_any_element(),
-            Some(toggle) => {
-                let open = self.open_merges.contains(commit_id)
-                    || matches!(&store.selection, Some(Selection::Upstream(_, _, c))
-                        if store.merged_upstream(id, ref_name, *c).is_some_and(|(m, _)| m == *commit_id));
-                let fold = ElementId::Name(format!("merge-fold-{}", commit_id.0).into());
-                self.fold(fold, arrow, Some(open), style.selected, warn, cx, toggle)
+        let merge_open = self.open_merges.contains(commit_id)
+            || matches!(&store.selection, Some(Selection::Upstream(_, _, c))
+                if store.merged_upstream(id, ref_name, *c).is_some_and(|(m, _)| m == *commit_id));
+        // As every commit's: upstream, or a merge among them.
+        let row = style.commit_kind(
+            format!("upstream-{id}-{}", commit_id.0),
+            &title,
+            CommitPlace::Upstream,
+            merge,
+            false,
+            unread,
+            None,
+        );
+        // Under its heading's words, as a branch's commits are under its name: its glyph where
+        // a commit's is, or a merge's chevron there, its glyph after it.
+        let indent = UPSTREAM_INDENT + if nested { STEP } else { 0. };
+        let by = indent - 3.;
+        let row = match toggle.clone() {
+            None => row,
+            Some(toggle) => self.folding(row, Some(merge_open), cx, toggle),
+        };
+        // Who it's from at its end; a folded merge, who the commits it brought in are from, once
+        // they're read. Open, its commits carry the faces.
+        let end = match merge {
+            false => {
+                Some(crate::ui::person::author_avatar(&author, &email, 14., style.theme).mx(dp(3.)))
             }
+            true if !merge_open => store.merged.get(commit_id).and_then(|read| {
+                let (merged, _) = read.as_ref()?;
+                let people = merged.iter().map(|c| (c.author.as_str(), c.email.as_str()));
+                authors_stack(people, style.theme)
+            }),
+            true => None,
         };
         Some(
-            style
-                // Under its heading's words, as a branch's commits are under its name.
-                .commit_line(
-                    format!("upstream-{id}-{}", commit_id.0),
-                    UPSTREAM_INDENT + if nested { STEP } else { 0. },
-                    glyph,
-                    title,
-                    unread,
-                    None,
-                )
-                .map(|el| self.selectable(el, item, cx))
-                .map(|el| self.page_drag(el, item, cx))
-                .when_some(toggle, |el, toggle| el.on_click(double_click(toggle, cx)))
-                .into_any_element(),
+            (style.commit_drawn(
+                match end {
+                    Some(end) => row.meta(end),
+                    None => row,
+                },
+                by,
+                title,
+            ))
+            .map(|el| self.selectable(el, item, cx))
+            .map(|el| self.page_drag(el, item, cx))
+            .when_some(toggle, |el, toggle| el.on_click(double_click(toggle, cx)))
+            .into_any_element(),
         )
     }
 
-    /// Over `project`'s inactive worktrees, as Network worktrees is over its checkouts
-    /// elsewhere: folded, it says how many. The selection in one keeps them listed.
-    fn inactive_heading(
+    /// After `project`'s active worktrees, as but-ui-react's MoreItem: folded, how many
+    /// inactive ones wait; open, under them, a row that folds them back. A click does either,
+    /// and the selection in one keeps them listed.
+    fn inactive_row(
         &self,
         ix: usize,
         project: &ProjectId,
@@ -3608,11 +4090,32 @@ impl Navigator {
         let inactive = store.inactive_worktrees(project);
         let open = inactive_open(store, project, &inactive);
         let after = store.prefs.inactive_after;
-        let label = "Inactive worktrees";
-        self.section_heading(ix, project, &Section::Inactive, label, style, cx)
-            .when(!open, |el| {
-                el.child(faint(inactive.len().to_string(), style.theme).text_color(style.quiet()))
-            })
+        let item = Selection::Section(project.clone(), Section::Inactive);
+        let label = match open {
+            true => "Hide inactive worktrees".to_owned(),
+            false => plural(inactive.len(), "inactive worktree"),
+        };
+        let toggle = {
+            let project = project.clone();
+            move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
+                this.toggle_heading(project.clone(), Section::Inactive, open, window, cx)
+            }
+        };
+        let row = more_item(
+            ElementId::Name(format!("inactive-{ix}").into()),
+            label.clone(),
+            open,
+            style.theme,
+        );
+        (style.draw(row, 0.))
+            .aria_label(label)
+            .aria_expanded(open)
+            .map(|el| self.selectable(el, &item, cx))
+            .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                if !this.filtering(cx) {
+                    toggle(this, window, cx)
+                }
+            }))
             .tooltip(move |window, cx| Tooltip::text(after.rule())(window, cx))
             .into_any_element()
     }
@@ -3707,48 +4210,54 @@ impl Navigator {
         });
     }
 
-    /// Update, which rebases `project`'s branches and worktrees onto its target's new commits;
-    /// `inverted` on a solid selection. Pressing it leaves the selection where it is.
-    fn target_update_button(&self, project: &ProjectId, inverted: bool, cx: &Context<Self>) -> Div {
+    /// Update, which rebases `project`'s branches and worktrees onto its target's new commits,
+    /// in place of the count it acts on, as a branch's update is: how many the target is ahead,
+    /// and ↓. `inverted` on a solid selection. Pressing it leaves the selection where it is.
+    fn target_update_button(
+        &self,
+        project: &ProjectId,
+        target: Option<&Target>,
+        inverted: bool,
+        cx: &Context<Self>,
+    ) -> Div {
         let updating = self.store.read(cx).updating(project);
         let project = project.clone();
-        let update = button(
-            ElementId::Name(format!("update-{project}").into()),
-            "Update",
-        )
+        let id = ElementId::Name(format!("update-{project}").into());
+        // Only its worktrees behind, the workspace has no count to show.
+        let update = match target.filter(|t| t.behind > 0) {
+            Some(t) => button(id, t.behind.to_string())
+                .icon_end(Icon::ArrowDown)
+                .style(ButtonStyle::Warning)
+                .tooltip_for(
+                    format!("Update with {} from {}", plural(t.behind, "commit"), t.name),
+                    &UpdateFromTarget,
+                ),
+            None => button(id, "Update")
+                .style(ButtonStyle::Outline)
+                .tooltip_for(
+                    "Rebase your worktrees onto the target's new commits",
+                    &UpdateFromTarget,
+                ),
+        }
         .small()
-        .style(ButtonStyle::Outline)
         .inverted(inverted)
-        .disabled_because(updating.then_some("Updating already"))
-        .tooltip_for(
-            "Rebase your branches and worktrees onto the target's new commits",
-            &UpdateFromTarget,
-        )
-        .on_click(cx.listener(move |this, _, window, cx| {
-            // Only part of its row while something is being moved, which the press put there.
-            if this.store.read(cx).moving.is_some() {
-                return;
-            }
+        .disabled_because(updating.then_some("Updating already"));
+        let step = self.row_step(update, cx, move |this, window, cx| {
             let project = project.clone();
             this.app.update_later(window, cx, move |app, _, cx| {
                 app.update_from_target(project, UpdateScope::All, cx)
             });
-        }));
-        let moving = self.store.read(cx).moving.is_some();
-        div()
-            .when(!moving, |el| {
-                el.on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-            })
-            // Pulsing while it updates, rather than a longer label moving what's beside it.
-            .child(match updating {
-                true => pulsing(div().child(update)).into_any_element(),
-                false => update.into_any_element(),
-            })
+        });
+        // Pulsing while it updates, rather than a longer label moving what's beside it.
+        div().child(match updating {
+            true => pulsing(step).into_any_element(),
+            false => step.into_any_element(),
+        })
     }
 
-    /// Over the commits only branch `ref_name`'s remote has, a section heading as Network
-    /// worktrees has: where they are, how many while folded, and Pull. The branch's own row
-    /// says when any is unread.
+    /// Over the commits only branch `ref_name`'s remote has, as but-ui-react's UpstreamItem:
+    /// "New on origin", the whole ref on hover, who they're from and how many while folded, and
+    /// Update. The branch's own row says when any is unread.
     fn upstream_heading(
         &self,
         ix: usize,
@@ -3761,15 +4270,30 @@ impl Navigator {
         let workspace = store.workspace(project);
         let can_pull = workspace.is_some_and(|ws| ws.can_pull(ref_name));
         let open = self.upstream_open(store, project, ref_name);
-        let (label, count, tip) = upstream_label(workspace, ref_name);
+        let (_, count, tip) = upstream_label(workspace, ref_name);
+        let branch = workspace.and_then(|ws| ws.find_branch(Some(ref_name)));
+        let full = branch.and_then(|b| b.remote.clone());
+        // The remote alone, as but-ui-react's UpstreamItem names it; the whole ref on hover.
+        let label = match full.as_deref().and_then(|full| full.split_once('/')) {
+            Some((remote, _)) => format!("New on {remote}"),
+            None => "New on the remote".to_owned(),
+        };
+        let people = branch.map(|b| {
+            b.incoming
+                .iter()
+                .map(|c| (c.author.as_str(), c.email.as_str()))
+        });
+        let authors = (!open).then(|| people.and_then(|people| authors_stack(people, style.theme)));
         let section = Section::Upstream(ref_name.clone());
-        let row = self.section_heading(ix, project, &section, label, style, cx);
-        let row = row
-            .pr(dp(8.))
-            // Folded, how many. While they can be pulled it shows open too, as what pulls them.
-            .when(!open || can_pull, |el| {
-                el.children(self.pull_count(project, Some(ref_name), count, tip, style, cx))
-            });
+        // Folded, how many. While they can be pulled it shows open too, as what pulls them.
+        let step = (!open || can_pull)
+            .then(|| self.update_step(project, Some(ref_name), count, tip, style, cx))
+            .flatten();
+        let row = self.section_heading(ix, project, &section, label, style, cx, |row| {
+            let row = authors.flatten().into_iter().fold(row, SidebarRow::meta);
+            step.into_iter().fold(row, SidebarRow::action)
+        });
+        let row = row.when_some(full, |el, full| el.tooltip(Tooltip::text(full)));
         Some(row.into_any_element())
     }
 
@@ -3777,6 +4301,7 @@ impl Navigator {
     /// chevron, and `label`, quiet, the glyph in a 16-point slot as a row's icon is (see
     /// [`RowStyle::row`]). Selecting it shows what it folds on its page; the chevron, a
     /// double-click or Enter lists or folds them.
+    #[expect(clippy::too_many_arguments)]
     fn section_heading(
         &self,
         ix: usize,
@@ -3785,13 +4310,15 @@ impl Navigator {
         label: impl Into<SharedString>,
         style: RowStyle,
         cx: &Context<Self>,
+        more: impl FnOnce(SidebarRow) -> SidebarRow,
     ) -> Stateful<Div> {
         let label = label.into();
         let (indent, glyph) = match section {
             // A branch's remote's under its commit glyphs, its label under their titles.
-            Section::Upstream(_) => (UPSTREAM_GUIDE - 8. - ROW_LEFT, Icon::ArrowDoubleDown),
-            Section::Inactive => (6., Icon::Clock),
-            Section::Mesh => (6., Icon::Globe),
+            // A branch's remote's among its commits, a step in from the branch.
+            Section::Upstream(_) => (STEP, Icon::ArrowInBox),
+            Section::Inactive => (0., Icon::Clock),
+            Section::Mesh => (0., Icon::Globe),
         };
         let open = self.heading_open(project, section, cx);
         let item = Selection::Section(project.clone(), section.clone());
@@ -3801,28 +4328,23 @@ impl Navigator {
                 this.toggle_heading(project.clone(), section.clone(), open, window, cx)
             }
         };
-        let quiet = style.quiet();
-        let glyph =
-            (div().w(dp(16.)).flex().justify_center()).child(small_icon(glyph).text_color(quiet));
-        (style.row(format!("section-heading-{ix}"), indent))
-            .pr(dp(12.))
-            .aria_label(label.clone())
+        let theme = style.theme;
+        let id = ElementId::Name(format!("section-heading-{ix}").into());
+        // A branch's remote's as but-ui's upstream_item, its step saying how many; a group's as
+        // its group_label, quiet, so the rows under it read first.
+        let row = match section {
+            Section::Upstream(_) => {
+                let remote = label.strip_prefix("New on ").unwrap_or(&label).to_owned();
+                upstream_item(id, &remote, None, theme)
+            }
+            Section::Inactive | Section::Mesh => {
+                group_label(id, label.clone(), Some(glyph), Some(!open), theme).chevron_folds()
+            }
+        };
+        let row = more(self.folding(row, Some(open), cx, toggle.clone()));
+        (style.draw(row, indent))
+            .aria_label(label)
             .aria_expanded(open)
-            .child(self.fold(
-                ("section-fold", ix),
-                glyph,
-                Some(open),
-                style.selected,
-                quiet,
-                cx,
-                toggle.clone(),
-            ))
-            .child(
-                (section_label(label, style.theme).text_color(quiet))
-                    .flex_1()
-                    .min_w_0()
-                    .truncate(),
-            )
             .map(|el| self.selectable(el, &item, cx))
             .map(|el| self.page_drag(el, &item, cx))
             .on_click(double_click(toggle, cx))
@@ -3930,7 +4452,7 @@ fn parent(store: &Store, selection: &Selection) -> Option<Selection> {
 }
 
 /// The row folding hides `item` under, as ⇧← goes up to it, up to its project's: a commit's
-/// branch, an inactive worktree's heading, else as [`parent`] says.
+/// branch, the row an inactive worktree folds behind, else as [`parent`] says.
 fn holder(store: &Store, item: &Selection) -> Option<Selection> {
     let project = item.project().clone();
     let up = match item {
@@ -3965,64 +4487,37 @@ fn tally(files: &[FileChange]) -> Tally {
 /// What a terminal's program is at, in colour only where the user is wanted, turning while
 /// it works and `seen`.
 pub(crate) fn status_mark(status: &Status, seen: bool, style: RowStyle) -> Option<Stateful<Div>> {
-    let theme = style.theme;
     let said = |reason: &str, otherwise: &str| -> SharedString {
         match reason {
             "" => otherwise.to_owned().into(),
             reason => reason.to_owned().into(),
         }
     };
-    let glyph = |glyph: Icon, color: Hsla| small_icon(glyph).text_color(color).into_any_element();
-    let (drawn, tip) = match status {
+    let theme = style.kind_theme();
+    // As but-ui's components say it: a program at work as a MetaCount's running dots, turning
+    // only while the window shows, and how it stopped as a MetaStatus.
+    let (drawn, tip): (Div, SharedString) = match status {
         Status::Idle => return None,
-        Status::Working => (
-            spinning(style.muted(), seen).into_any_element(),
-            "Working".into(),
-        ),
+        Status::Working => (running_count(seen, style.solid, &theme), "Working".into()),
         Status::Blocked(reason) => (
-            glyph(Icon::Warning, style.meta(theme.warning_mark)),
+            meta_status(MetaStatusVariant::Warning, None, &theme),
             said(reason, "Waiting for you"),
         ),
         Status::Done => (
-            glyph(Icon::Tick, style.meta(theme.success_mark)),
+            meta_status(MetaStatusVariant::Passed, None, &theme),
             "Finished".into(),
         ),
         Status::Failed(reason) => (
-            glyph(Icon::Cross, style.meta(theme.danger_mark)),
+            meta_status(MetaStatusVariant::Failed, None, &theme),
             said(reason, "Failed"),
         ),
     };
-    let mark = div()
-        .id("terminal-status")
-        .flex_none()
-        .aria_label(tip.clone())
-        .child(drawn)
-        .tooltip(Tooltip::text(tip));
-    Some(mark)
-}
-
-/// `mark` as a button, its tooltip read as its name: padded with `MARK_PAD` and `hover`
-/// under the pointer. Pressing it does `press` and leaves its row as it was, unselected and
-/// unfolded. While something is `moving` it's only part of its row, which a press puts the move
-/// at, so it does nothing of its own then.
-fn pressable(
-    shape: crate::theme::Shape,
-    mark: Stateful<Div>,
-    hover: Hsla,
-    moving: bool,
-    press: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
-) -> Stateful<Div> {
-    let mark = mark.px(dp(MARK_PAD)).rounded(dp(shape.control));
-    if moving {
-        return mark;
-    }
-    mark.role(Role::Button)
-        .hover(move |el| el.bg(hover))
-        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-        .on_click(move |event, window, cx| {
-            cx.stop_propagation();
-            press(event, window, cx)
-        })
+    Some(
+        drawn
+            .id("terminal-status")
+            .aria_label(tip.clone())
+            .tooltip(Tooltip::text(tip)),
+    )
 }
 
 /// What a checkout's uncommitted files count: what a merge left conflicted, as an update can,
@@ -4031,30 +4526,39 @@ fn change_counts(
     (n, conflicted, (added, removed)): Tally,
     style: RowStyle,
 ) -> impl Iterator<Item = Stateful<Div>> {
-    let theme = style.theme;
-    let conflicts = meta_count(
-        Icon::Warning,
+    let conflicts = count(
+        MetaCountType::Conflicts,
         conflicted,
-        style.meta(theme.warning_text),
         plural(conflicted, "conflicted file"),
+        style,
     );
-    let all = match added + removed {
-        0 => style.files(n),
-        _ => {
-            let tip = format!(
-                "{}: {} added, {removed} removed",
-                plural(n, "uncommitted file"),
-                plural(added as usize, "line"),
-            );
-            Some(
-                div()
-                    .id(ElementId::Name(tip.clone().into()))
-                    .child(crate::ui::diff_stats(added, removed, style.solid, theme))
-                    .tooltip(Tooltip::text(tip)),
-            )
-        }
-    };
-    conflicts.into_iter().chain(all)
+    let tip = files_tip(n, added, removed);
+    let files = count(MetaCountType::Uncommitted, n, tip, style);
+    conflicts.into_iter().chain(files)
+}
+
+/// What `n` uncommitted files' count says under the pointer: how many, and how many lines.
+fn files_tip(n: usize, added: u32, removed: u32) -> String {
+    let files = plural(n, "uncommitted file");
+    match added + removed {
+        0 => files,
+        _ => format!(
+            "{files}: {} added, {removed} removed",
+            plural(added as usize, "line")
+        ),
+    }
+}
+
+/// `n` as but-ui-react's `MetaCount` of `kind` draws it, saying `tip` under the pointer and to a
+/// screen reader, while there are any.
+fn count(kind: MetaCountType, n: usize, tip: String, style: RowStyle) -> Option<Stateful<Div>> {
+    let tip = SharedString::from(tip);
+    (n > 0).then(|| {
+        meta_count_on(kind, Some(n.to_string().into()), style.solid, style.theme)
+            .id(ElementId::Name(tip.clone()))
+            .aria_label(tip.clone())
+            .tooltip(Tooltip::text(tip))
+    })
 }
 
 /// A flask at the end of a worktree heading, on the checkout the running client was built from.
@@ -4074,7 +4578,7 @@ fn worktree_icon(linked: bool, style: RowStyle) -> gpui::Svg {
         false => Icon::Folder,
         true => Icon::FolderCopy,
     };
-    icon(glyph).text_color(style.muted())
+    icon_at(glyph, 14.).text_color(style.muted())
 }
 
 /// What the heading over the commits only `ref_name`'s remote has says: where they are, how
@@ -4092,6 +4596,35 @@ pub(crate) fn upstream_label(
     (label, count, plural(count, "commit"))
 }
 
+/// Who `people` (name, email) are, each once, as overlapping pictures: the first three, as
+/// but-ui-react's rows stack them on a folded row. Set in 3 points, as one picture is.
+fn authors_stack<'a>(
+    people: impl Iterator<Item = (&'a str, &'a str)>,
+    theme: &Theme,
+) -> Option<Div> {
+    let mut shown: Vec<(&str, &str)> = Vec::new();
+    for (name, email) in people {
+        if shown.len() == 3 {
+            break;
+        }
+        if !shown
+            .iter()
+            .any(|(_, known)| known.eq_ignore_ascii_case(email))
+        {
+            shown.push((name, email));
+        }
+    }
+    (!shown.is_empty()).then(|| {
+        h_flex()
+            .flex_none()
+            .px(dp(3.))
+            .children(shown.into_iter().enumerate().map(|(ix, (name, email))| {
+                crate::ui::person::author_avatar(name, email, 14., theme)
+                    .when(ix > 0, |el| el.ml(dp(-4.)))
+            }))
+    })
+}
+
 /// How many commits the target's merges brought in besides, as " (N counting merged
 /// commits)" after its count, which counts each merge once as the project's page lists them,
 /// or nothing when they brought in none.
@@ -4105,26 +4638,6 @@ pub(crate) fn with_merged(target: &Target) -> String {
 /// How many commits pushing `branches` sends.
 fn unpushed<'a>(branches: impl Iterator<Item = &'a Branch>) -> usize {
     branches.map(Branch::unpushed_commits).sum()
-}
-
-/// A branch as the navigator names it: its pull request's title once the forge cache has one,
-/// toned by the request's state, or else `name`. Drawn from what the last load read, so no row
-/// waits on the network, and offline the cached title stays.
-fn branch_name(name: &str, review: Option<(&Review, ReviewState)>, style: &RowStyle) -> Div {
-    let theme = style.theme;
-    let el = div().min_w_0().truncate();
-    match review.filter(|(review, _)| !review.title.is_empty()) {
-        Some((review, state)) => el
-            .text_color(match style.solid {
-                true if matches!(state, ReviewState::Open | ReviewState::Draft) => {
-                    style.meta(theme.foreground)
-                }
-                true => style.muted(),
-                false => review::title_color(state, theme),
-            })
-            .child(review.title.clone()),
-        None => el.child(name.to_owned()),
-    }
 }
 
 impl Focusable for Navigator {
@@ -4148,7 +4661,10 @@ impl Render for Navigator {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // After the rows are up to date, as a reorder of them starts sliding there, and nothing
         // else may draw the next frame, which what waits for the list's height needs too.
-        if self.prepare(RowsIn::List, window, cx) || !self.list_drawn() {
+        let drawer_gliding = (self.store.read(cx))
+            .width_glide(Pane::HiddenProjects)
+            .is_some();
+        if self.prepare(RowsIn::List, window, cx) || !self.list_drawn() || drawer_gliding {
             window.request_animation_frame();
         }
         let theme = Theme::get(cx).clone();
@@ -4158,6 +4674,9 @@ impl Render for Navigator {
         let top_left = crate::menu_bar::top_left_room(window, &store.prefs, &theme);
         // Level with the location bar: the same height, from the window's top, and no rule
         // along its bottom as the cards scroll under it, as the bar has none either.
+        let filter_open = self.filter.focus_handle(cx).is_focused(window)
+            || !self.filter.read(cx).text().is_empty();
+        let ruled = !self.floating && detail_shown >= 1.;
         let header = h_flex()
             .h(dp(HEADER_HEIGHT))
             .flex_none()
@@ -4169,21 +4688,48 @@ impl Render for Navigator {
                 None => el.pl(dp(8.)),
             })
             // Clear of the window's buttons, where the app draws them over its right end, as the
-            // detail slides away from under them.
+            // detail slides away from under them. Beside the detail, its line is at its end.
             .map(
                 |el| match crate::ui::draws_window_controls(window) && detail_shown < 1. {
                     true => {
                         el.pr(theme.scaled(8.) + fixed(WINDOW_CONTROLS_WIDTH * (1. - detail_shown)))
                     }
+                    false if ruled => el,
                     false => el.pr(dp(8.)),
                 },
             )
             .when(!self.floating, crate::ui::drags_window)
-            .gap(dp(6.))
-            .child(self.filter_field(window, &theme, cx))
+            .gap(dp(4.))
+            // As 🍑 But UI's SidebarHeader: the filter is a button until it's opened, then a
+            // field in the room before the buttons for as long as it has the keys or a filter.
+            .map(|el| match filter_open {
+                true => el.child(self.header_filter(window, &theme, cx)),
+                false => el.child(div().flex_1()).child(above_drag(
+                    div().child(
+                        icon_button("open-filter", Icon::Filter)
+                            .tooltip_for("Filter", &FocusFilter)
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                window.focus(&this.filter.focus_handle(cx), cx);
+                                cx.notify();
+                            })),
+                    ),
+                )),
+            })
             .children(self.update_button(cx).map(|el| above_drag(div().child(el))))
             .child(above_drag(div().child(self.view_button(cx))))
-            .child(above_drag(div().child(self.settings_button(&theme, cx))));
+            .child(above_drag(div().child(self.settings_button(&theme, cx))))
+            // The line at the sidebar's end, setting it apart from the location bar beside it, 10
+            // from the avatar.
+            .when(ruled, |el| {
+                el.child(
+                    div()
+                        .flex_none()
+                        .ml(dp(6.))
+                        .w(fixed(1.))
+                        .h(dp(18.))
+                        .bg(theme.border),
+                )
+            });
         let store = self.store.read(cx);
         let moving = store.moving.is_some();
         let squashing =
@@ -4205,6 +4751,7 @@ impl Render for Navigator {
             .on_drag_move(cx.listener(Self::follow_worktree_drag))
             .on_drag_move(cx.listener(Self::follow_terminal_drag))
             .on_drag_move(cx.listener(Self::follow_dragged))
+            .on_drag_move(cx.listener(Self::drag_drawer_height))
             .map(|el| {
                 on_any_drag_move(el, cx, |this, at, bounds, _, cx| {
                     this.drag_moved(bounds.contains(&at), cx)
@@ -4269,15 +4816,147 @@ impl Render for Navigator {
                         .children(self.card_caps(height, &theme, cx))
                         .children(self.drag_divider(&theme, cx))
                         // Ending level with the detail's cards, so what scrolls past is cut
-                        // where they end.
+                        // where they end, and as far from the terminals' drawer under it as
+                        // 🍑 But UI's sidebar has its cards and drawers apart.
                         .mb(dp(CARD_GAP))
                         .map(|el| on_any_drag_move(el, cx, Navigator::scroll_near_edge)),
                     )
+                    // Under the cards, at the column's foot, as the terminals' drawer is.
+                    .child(self.pinned_drawer(&theme, cx))
                 }
             })
         // A card out over the detail goes back once the pointer leaves it, so it's resized
         // only beside the detail, once it's all there.
     }
+}
+
+/// Where a list's top and bottom edges cut a card off as it's scrolled, `top` down its `cards`
+/// (each's top and bottom, from the list's top) and `height` tall: there the card's edge is
+/// drawn along the list's, rounded as its own, so it keeps its shape. GPUI cuts what a list
+/// draws to a rectangle, so the ground the cards are on is painted past the corners. The
+/// `focused` card is edged in the focus's colour, and the cards are in from the list's sides by
+/// `margins`.
+fn card_caps(
+    cards: &[(f32, f32)],
+    top: f32,
+    height: f32,
+    focused: Option<usize>,
+    (left, right): (f32, f32),
+    theme: &Theme,
+) -> Vec<Div> {
+    // How much of the card an edge cuts shows on the list's side of it, if it cuts one past
+    // its edge.
+    let cut = |at: f32, at_top: bool| {
+        (cards.iter())
+            .position(|&(card_top, bottom)| at > card_top + 1. && at < bottom - 1.)
+            .and_then(|ix| Some((ix, *cards.get(ix)?)))
+            .map(|(ix, (card_top, bottom))| (ix, if at_top { bottom - at } else { at - card_top }))
+    };
+    let ground = theme.canvas;
+    let cap = |at_top: bool, (card, shows): (usize, f32)| {
+        let line = match focused == Some(card) {
+            true => theme.focus_edge(),
+            false => theme.border_subtle,
+        };
+        // Too little of the card shows for a corner at each of its ends: it's drawn whole,
+        // as a rounded box is that's shorter than two corners, over its own corners.
+        let sliver = shows < 2. * theme.shape.card;
+        let radius = if sliver { shows / 2. } else { theme.shape.card };
+        let edge = div()
+            .absolute()
+            .left(dp(left))
+            .right(dp(right))
+            .border_color(line)
+            .border_l_1()
+            .border_r_1();
+        // Otherwise its edge along the list's, two corners tall, as GPUI rounds a box no
+        // further than half its height, cut where the card's own corners start.
+        let (edge, shown) = match (sliver, at_top) {
+            (true, _) => (
+                (edge.h(dp(shows)).border_t_1().border_b_1()).rounded(dp(radius)),
+                shows,
+            ),
+            (false, true) => (
+                edge.border_t_1().rounded_t(dp(theme.shape.card)),
+                shows - theme.shape.card,
+            ),
+            (false, false) => (
+                edge.border_b_1().rounded_b(dp(theme.shape.card)),
+                shows - theme.shape.card,
+            ),
+        };
+        let edge = edge.when(!sliver, |el| el.h(dp(2. * theme.shape.card)));
+        let band = div()
+            .absolute()
+            .left_0()
+            .right_0()
+            .h(dp(shown.min(2. * theme.shape.card)))
+            .overflow_hidden();
+        let edge = match at_top {
+            true => band.top_0().child(edge.top_0()),
+            false => band.bottom_0().child(edge.bottom_0()),
+        };
+        // The ground past its corners, painted as their shape: GPUI rounds only a border's
+        // outer edge, so no border's inner one could cover them.
+        let corners = canvas(
+            |_, _, _| {},
+            move |bounds, _, window, cx| {
+                let theme = Theme::get(cx);
+                let (r, out) = (theme.scaled(radius), theme.scaled(1.));
+                let (x0, x1) = (
+                    bounds.left() + theme.scaled(left),
+                    bounds.right() - theme.scaled(right),
+                );
+                // The list's edge, and the way into it.
+                let (y, toward) = match at_top {
+                    true => (bounds.top(), r),
+                    false => (bounds.bottom(), -r),
+                };
+                let mut ends = vec![(y, toward)];
+                if sliver {
+                    // The card's own end, its corners under the card's ground, rounder
+                    // than the sliver's.
+                    let end = y + toward / r * theme.scaled(shows);
+                    let (top, bottom) = (y.min(end), y.max(end));
+                    let wide = theme.scaled(theme.shape.card);
+                    for x in [x0, x1 - wide] {
+                        let under = Bounds::from_corners(point(x, top), point(x + wide, bottom));
+                        window.paint_quad(fill(under, theme.background));
+                    }
+                    ends.push((end, -toward));
+                }
+                // A quarter circle's control points, as a cubic Bézier draws it.
+                let k = r * 0.5523;
+                for (y, toward) in ends {
+                    for (x, inward) in [(x0, r), (x1, -r)] {
+                        let mut path = PathBuilder::fill();
+                        let side = |dx: Pixels, dy: Pixels| point(x + dx, y + dy);
+                        let (outward, beyond) = (-inward / r * out, -toward / r * out);
+                        path.move_to(side(outward, toward));
+                        path.line_to(side(outward, beyond));
+                        path.line_to(side(inward, beyond));
+                        path.line_to(side(inward, Pixels::ZERO));
+                        path.cubic_bezier_to(
+                            side(Pixels::ZERO, toward),
+                            side(inward - inward / r * k, Pixels::ZERO),
+                            side(Pixels::ZERO, toward - toward / r * k),
+                        );
+                        path.close();
+                        if let Ok(path) = path.build() {
+                            window.paint_path(path, ground);
+                        }
+                    }
+                }
+            },
+        )
+        .absolute()
+        .inset_0();
+        div().absolute().inset_0().child(corners).child(edge)
+    };
+    let ends = [(cut(top, true), true), (cut(top + height, false), false)];
+    (ends.into_iter())
+        .filter_map(|(cut, at_top)| Some(cap(at_top, cut?)))
+        .collect()
 }
 
 #[cfg(test)]

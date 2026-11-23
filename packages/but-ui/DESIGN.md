@@ -45,18 +45,19 @@ for what you are building, not all of them; each stands on its own.
 
 Rules for one component that its docs don't carry yet.
 
-| Page                                                | Read it when                                  |
-| --------------------------------------------------- | --------------------------------------------- |
-| [Buttons](design/components/buttons.md)             | Picking a `Button` variant or size            |
-| [Badges](design/components/badges.md)               | Picking a `Badge`'s colour                    |
-| [Banners](design/components/banners.md)             | A condition that holds until it clears        |
-| [Meta lines](design/components/meta-lines.md)       | The facts under a header's title, or in a row |
-| [View headers](design/components/view-headers.md)   | A details view's header: its buttons and tabs |
-| [Location bars](design/components/location-bars.md) | The bar above a view's header                 |
-| [Links](design/components/links.md)                 | A link, or text that opens something          |
-| [Tooltips](design/components/tooltips.md)           | A hover hint                                  |
-| [Fields](design/components/fields.md)               | A form, a settings row, a search box          |
-| [Sidebar trees](design/components/sidebar-trees.md) | The sidebar's rows, how they fold and nest    |
+| Page                                                          | Read it when                                  |
+| ------------------------------------------------------------- | --------------------------------------------- |
+| [Buttons](design/components/buttons.md)                       | Picking a `Button` variant or size            |
+| [Badges](design/components/badges.md)                         | Picking a `Badge`'s colour                    |
+| [Banners](design/components/banners.md)                       | A condition that holds until it clears        |
+| [Meta lines](design/components/meta-lines.md)                 | The facts under a header's title, or in a row |
+| [View headers](design/components/view-headers.md)             | A details view's header: its buttons and tabs |
+| [Location bars](design/components/location-bars.md)           | The bar above a view's header                 |
+| [Links](design/components/links.md)                           | A link, or text that opens something          |
+| [Tooltips](design/components/tooltips.md)                     | A hover hint                                  |
+| [Fields](design/components/fields.md)                         | A form, a settings row, a search box          |
+| [Sidebar trees](design/components/sidebar-trees.md)           | The sidebar's rows, how they fold and nest    |
+| [What a sidebar row shows](design/components/sidebar-rows.md) | Checking what a row's end shows, and when     |
 
 ## Patterns
 
@@ -66,5 +67,7 @@ Rules for one component that its docs don't carry yet.
 | [Context menus](design/patterns/context-menus.md)               | A row's actions, or a right-click menu           |
 | [Empty states](design/patterns/empty-states.md)                 | Nothing to show yet, or a filter matched nothing |
 | [Blocked states](design/patterns/blocked-states.md)             | Something the user can't do yet                  |
+| [Conflicts](design/patterns/conflicts.md)                       | A conflicted commit, file or branch              |
 | [Toasts and snackbars](design/patterns/toasts-and-snackbars.md) | Telling the user something happened              |
 | [Markdown](design/patterns/markdown.md)                         | Rendering a description or a comment             |
+| [Work under way](design/patterns/work-under-way.md)             | Showing that something runs: which spinner       |

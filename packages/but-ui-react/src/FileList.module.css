@@ -174,7 +174,7 @@
 
 	/* After hover, so a selected row reads the same under the pointer. */
 	&[data-selected] {
-		--joined-line: var(--but-background);
+		--joined-line: var(--but-secondary);
 
 		background-color: var(--but-selected-inactive);
 	}
@@ -220,7 +220,7 @@
 	.item[data-selected] {
 	--checkbox-bg: var(--but-inverse);
 	--guide-color: color-mix(in srgb, var(--but-inverse-muted-foreground) 40%, transparent);
-	--joined-line: var(--but-inverse-soft);
+	--joined-line: color-mix(in srgb, var(--but-inverse-foreground) 8%, transparent);
 
 	background-color: var(--but-selected);
 	color: var(--but-selected-foreground);
@@ -481,6 +481,13 @@
 		& {
 		color: var(--but-inverse-muted-foreground);
 	}
+}
+
+/* Conflicted: the warning in amber, as a conflicted commit's glyph is: a conflict waits on the
+   user, it hasn't failed (but-ui's Conflicts note). */
+.conflicted {
+	display: flex;
+	color: var(--but-warning-mark);
 }
 
 /* Open to edit with nothing changed yet: quiet, as the folder is, since nothing has happened. */

@@ -852,8 +852,8 @@ fn upstream_commit_choice(
         .commit_id(commit.id)
 }
 
-/// Go to anything's row for the heading over a loaded project's inactive worktrees, as the
-/// navigator names it, while there are any.
+/// Go to anything's row for the row a loaded project's inactive worktrees fold behind, named
+/// for them, while there are any.
 fn inactive_choice(store: &Store, entry: &ProjectEntry, several: bool) -> Option<Choice> {
     if store.inactive_worktrees(&entry.id).is_empty() {
         return None;
@@ -1096,6 +1096,15 @@ fn terminal_choice(
         .details(details)
         .status_of(goes_to.clone())
         .goes_to(goes_to)
+}
+
+/// The worktree a new terminal opens in for `selection`: the one it's in, or a project's main
+/// one for the project's own row.
+pub(crate) fn terminal_checkout(store: &Store, selection: &Selection) -> Option<Checkout> {
+    match selection {
+        Selection::Project(_) => Some(Checkout::Main),
+        _ => store.checkout_of(selection),
+    }
 }
 
 /// A row of the picker the terminal overview's + opens: `checkout` of `entry`'s project, which
@@ -1457,7 +1466,7 @@ impl AppView {
             return snack(&self.store, "No worktrees to open a terminal in", cx);
         }
         let here = (store.selection.as_ref()).and_then(|selection| {
-            let checkout = store.checkout_of(selection)?;
+            let checkout = terminal_checkout(store, selection)?;
             Some(Selection::Checkout(selection.project().clone(), checkout))
         });
         self.open_picker(None, "Open a terminal in", "Open", choices, window, cx);

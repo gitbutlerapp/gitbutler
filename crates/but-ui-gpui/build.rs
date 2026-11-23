@@ -290,12 +290,19 @@ fn shapes(tokens: &serde_json::Value) -> String {
     };
     let corners = steps(
         "radius",
-        &["radius-xs", "radius-control", "radius-card", "radius-popup"],
+        &[
+            "radius-xs",
+            "radius-sm",
+            "radius-control",
+            "radius-card",
+            "radius-popup",
+        ],
     );
     let densities = steps(
         "density",
         &[
             "size-control",
+            "size-control-md",
             "size-control-sm",
             "size-bar",
             "density-padding",
@@ -320,8 +327,8 @@ fn shapes(tokens: &serde_json::Value) -> String {
         })
         .collect();
     format!(
-        "pub const CORNERS: &[(&str, [f32; 4])] = &[\n{corners}];\n\
-         pub const DENSITIES: &[(&str, [f32; 4])] = &[\n{densities}];\n\
+        "pub const CORNERS: &[(&str, [f32; 5])] = &[\n{corners}];\n\
+         pub const DENSITIES: &[(&str, [f32; 5])] = &[\n{densities}];\n\
          pub const PRESETS: &[(&str, &str, &str, &str)] = &[\n{presets}];\n"
     )
 }

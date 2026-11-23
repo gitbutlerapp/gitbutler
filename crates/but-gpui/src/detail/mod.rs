@@ -39,7 +39,7 @@ pub(crate) use graph::GraphWindow;
 pub(crate) use key_panes::{KeyMove, KeyPane};
 pub use page::KeptPages;
 pub(crate) use page::{PageTab, has_tabs, shows_its_diff};
-pub use resolve::{ResolveConflicts, oldest_conflict};
+pub use resolve::ResolveConflicts;
 
 use std::cell::Cell;
 use std::collections::{HashMap, HashSet};

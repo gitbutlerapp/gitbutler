@@ -19,14 +19,25 @@ use crate::terminal::TerminalId;
 use crate::transfer::{self, Dragged, Stop};
 use crate::ui::fold::{Folds, MOVING_ROWS};
 
+/// How wide each loading row's name is, as 🍑 But UI's loading card draws them: names of the
+/// lengths a card's rows often have.
+pub(super) const LOADING_WIDTHS: [f32; 4] = [156., 76., 199., 116.];
+
 /// Commits shown per branch before folding the rest into "N more".
 const FOLD_AFTER: usize = 8;
 
-/// How tall a watched project's heading is, atop its card.
-pub(super) const HEADING_HEIGHT: f32 = 32.;
+/// How tall a watched project's heading is, atop its card: a row's, as but-ui-react's RepoItem.
+pub(super) const HEADING_HEIGHT: f32 = 28.;
 
-/// The room inside a card above its first row and below its last.
-pub(super) const CARD_PADDING: f32 = 3.;
+/// The room inside a card around its rows, as 🍑 But UI's sidebar cards have it.
+pub(super) const CARD_PADDING: f32 = 8.;
+
+/// How tall the line under a project's heading is with the room around it: the heading's
+/// padding below, the 1px line, and the padding above the card's rows.
+pub(super) const HEADER_RULE: f32 = 2. * CARD_PADDING + 1.;
+
+/// How far a row's ground sits in from its card's sides: the card's padding.
+pub(super) const ROW_MARGIN: f32 = CARD_PADDING;
 
 /// How much a card's edge adds above its first row and below its last: its padding and its
 /// 1px border.
@@ -55,6 +66,8 @@ pub(super) enum Row {
     /// one of a project's pages, a section's heading, or one of these on another machine.
     Item(Selection),
     Note(SharedString, bool),
+    /// A row still loading, the `n`th of a card's, in the card's rows' place until they land.
+    Loading(usize),
     /// A branch's commits folded away, and how many.
     More(ProjectId, Option<FullName>, usize),
     /// The end of a branch's commits unfolded, which folds them again.
@@ -77,9 +90,16 @@ pub(super) enum Row {
     /// has no caption to tell it apart.
     Between(ProjectId),
     WorktreeDivider,
+    /// The line under a watched project's heading, across its card, which sets the heading apart
+    /// from the rows under it, as 🍑 But UI's and but-ui-react's cards have their header; and
+    /// whether the main worktree's rows follow it with no heading of their own.
+    HeaderRule(bool),
     /// In a linked worktree's section, a branch its lane rests on, by the row it selects, with
     /// the checkout it's in on the first of each lane.
     RestsOn(Selection, Option<Checkout>),
+    /// The drawer with no projects hidden in it: a card saying so, as but-ui-react's Drawer
+    /// draws it empty.
+    Empty,
 }
 
 /// What a row is across rebuilds, for a reorder to slide it from where it was.
@@ -109,6 +129,10 @@ pub(super) enum RowKey {
     SquashBottom,
     /// A row of no other kind, by the one before it, which it moves with.
     After(Box<RowKey>),
+    /// The line under a project's heading, by the heading's key: a key of its own, so the row
+    /// that takes its place as the card folds, the gap after the card, isn't counted as it and
+    /// slid from where it was.
+    HeaderRule(Box<RowKey>),
 }
 
 pub(super) fn row_keys(rows: &[Row], store: &Store) -> Vec<Option<RowKey>> {
@@ -136,11 +160,14 @@ pub(super) fn row_keys(rows: &[Row], store: &Store) -> Vec<Option<RowKey>> {
             Row::GhostBranch(project, _) => Some(RowKey::GhostBranch(project.clone())),
             Row::NewCommit(project) => Some(RowKey::NewCommit(project.clone())),
             Row::Pending(_, _, Some(moved)) => Some(moved.clone()),
+            Row::HeaderRule(_) => {
+                (before.clone()).map(|before| RowKey::HeaderRule(Box::new(before)))
+            }
             _ => (before.clone()).map(|before| RowKey::After(Box::new(before))),
         };
         if !matches!(
             row,
-            Row::Ghost(_) | Row::GhostBranch(..) | Row::NewCommit(_)
+            Row::Ghost(_) | Row::GhostBranch(..) | Row::NewCommit(_) | Row::HeaderRule(_)
         ) {
             before = key.clone();
         }
@@ -181,11 +208,19 @@ impl Row {
         match self {
             Row::Gap => super::CARD_GAP + 2. * CARD_EDGE,
             Row::Between(_) => 0.,
-            Row::WorktreeDivider => 12.,
+            Row::Empty => super::DRAWER_EMPTY,
+            // Worktrees follow one another with nothing between, as 🍑 But UI's sidebar has
+            // them; the divider stays, for what drops and moves between them.
+            Row::WorktreeDivider => 0.,
+            // The heading's padding below, the line, and the card's padding above its rows.
+            Row::HeaderRule(_) => HEADER_RULE,
             Row::Item(Selection::Project(_)) => HEADING_HEIGHT,
-            Row::More(..) | Row::Fewer(..) | Row::RestsOn(..) => 24.,
             Row::Item(_)
+            | Row::More(..)
+            | Row::Fewer(..)
+            | Row::RestsOn(..)
             | Row::Note(..)
+            | Row::Loading(_)
             | Row::Pending(..)
             | Row::NewBranch(_)
             | Row::Ghost(..)
@@ -196,12 +231,13 @@ impl Row {
 }
 
 /// What a fold in the cards holds: the rows under an item's row, a branch's commits past the
-/// first few, or the drawer's projects.
+/// first few, the drawer's projects, or the rows of a project unfolded in the drawer.
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub(super) enum Fold {
     Under(Selection),
     More(BranchKey),
     Drawer,
+    InDrawer(ProjectId),
 }
 
 /// Where a row is in the fold it moves with: how far down the fold's rows, by their heights,
@@ -225,7 +261,14 @@ pub(super) struct Rows {
     pub(super) rows: Vec<Row>,
     pub(super) insets: Vec<f32>,
     pub(super) guides: Vec<Vec<f32>>,
+    /// Whether each row is the last under its innermost guide, which turns into it there, as
+    /// but-ui-react's tree guides end, rather than running on.
+    pub(super) ends: Vec<bool>,
     pub(super) moving: Vec<Option<Moving>>,
+    /// How many guides were open as each row was pushed: a row is under the last one of them.
+    depths: Vec<usize>,
+    /// Where the rows under each guide in `open` start.
+    starts: Vec<usize>,
     /// Each fold the rows were built through: whether it showed what it holds, and the row
     /// just above that, which says where it is.
     pub(super) folds: Vec<(Fold, bool, Option<usize>)>,
@@ -249,21 +292,36 @@ pub(super) struct Drawer {
     pub(super) rows: Vec<Row>,
     pub(super) listed: usize,
     pub(super) total: usize,
+    /// How far in each row sits, the guides it draws, and whether it ends its innermost one,
+    /// as [`Rows`] has them: the rows of a project unfolded in the drawer step in as a card's.
+    pub(super) insets: Vec<f32>,
+    pub(super) guides: Vec<Vec<f32>>,
+    pub(super) ends: Vec<bool>,
+    /// Whether each row is a project folded in it, in a group of its own in a card of the
+    /// projects folded next to it, rather than a row of one unfolded, a card of its own.
+    pub(super) grouped: Vec<bool>,
+    /// Where each row is in the fold of a project unfolding or folding here, as [`Rows`] has it.
+    pub(super) moving: Vec<Option<Moving>>,
+    /// For a gap that parts a project's card from the folded projects only while it's unfolded,
+    /// that project's fold, which opens the gap as it opens.
+    pub(super) parting: Vec<Option<Fold>>,
+    /// The folds of the projects listed, as [`Rows::folds`] has them.
+    pub(super) folds: Vec<(Fold, bool, Option<usize>)>,
 }
 
-/// Where an item row's content starts in its card: the row's margin, 3, and its padding, 8,
-/// as [`RowStyle::row`](super::RowStyle::row) and [`section_heading`](super::section_heading)
+/// Where an item row's content starts in its card: the row's margin and its padding, 8, as
+/// [`RowStyle::row`](super::RowStyle::row) and [`section_heading`](super::section_heading)
 /// set them.
-pub(super) const ROW_LEFT: f32 = 3. + 8.;
+pub(super) const ROW_LEFT: f32 = ROW_MARGIN + 8.;
 
-/// How far in from [`ROW_LEFT`] a commit sits: a step in from its branch, its 12-point glyph
-/// in the middle of where a 16-point icon would be, under the branch's name, and its title
-/// past it as the branch's name is past its icon.
-pub(super) const COMMIT_INDENT: f32 = 6. + STEP + 2.;
+/// How far in from [`ROW_LEFT`] a commit's 12-point glyph sits: a step in from its branch and
+/// 2 on, where but-ui-react puts the glyph of a row that doesn't fold, under its branch's
+/// glyph, and a point into that 14-point box.
+pub(super) const COMMIT_INDENT: f32 = STEP + 2. + 1.;
 
-/// Where the middle of a row's icon sits in a row set in by nothing: the row's left edge, its
-/// indent and half the 16-point icon.
-pub(super) const GUIDE_AT: f32 = ROW_LEFT + 6. + 8.;
+/// Where the middle of a row's chevron sits in a row set in by nothing: the row's left edge
+/// and half the 12-point step, where the guide down to the rows under it hangs from.
+pub(super) const GUIDE_AT: f32 = ROW_LEFT + 6.;
 
 /// The caption over `project`'s lane of `branches`, as drawn: over two or more, by the bottom one.
 pub(super) fn caption(project: &ProjectId, branches: &[Branch]) -> Option<Selection> {
@@ -286,6 +344,8 @@ impl Rows {
         self.rows.push(row);
         self.insets.push(self.inset);
         self.guides.push(self.open.clone());
+        self.ends.push(false);
+        self.depths.push(self.open.len());
         self.moving.push(None);
     }
 
@@ -339,6 +399,7 @@ impl Rows {
     fn open_at(&mut self, at: f32) {
         let under = self.insets.last().copied().unwrap_or_default();
         self.open.push(at + under);
+        self.starts.push(self.rows.len());
         self.outer.push(self.inset);
     }
 
@@ -348,8 +409,28 @@ impl Rows {
         self.inset += by;
     }
 
+    /// End the guide [`Self::open`] began: it turns into the last row right under it, and the
+    /// rows under that one go on without it, as but-ui-react's tree guides end.
     pub(super) fn close(&mut self) {
-        self.open.pop();
+        let level = self.open.len();
+        let start = self
+            .starts
+            .pop()
+            .unwrap_or(self.rows.len())
+            .min(self.rows.len());
+        if let Some(at) = self.open.pop() {
+            let last = (start..self.rows.len())
+                .rev()
+                .find(|&ix| self.depths.get(ix) == Some(&level));
+            if let Some(last) = last {
+                if let Some(end) = self.ends.get_mut(last) {
+                    *end = true;
+                }
+                for guides in self.guides.iter_mut().skip(last + 1) {
+                    guides.retain(|g| *g != at);
+                }
+            }
+        }
         self.inset = self.outer.pop().unwrap_or_default();
     }
 
@@ -368,6 +449,22 @@ impl Rows {
         }
     }
 
+    /// Settle the [`Row::HeaderRule`] at `at`, under `project`'s heading: gone when no row
+    /// follows it, and saying whether the main worktree's rows follow it with no heading.
+    pub(super) fn settle_rule(&mut self, at: usize, project: &ProjectId) {
+        if self.rows.len() == at + 1 {
+            self.truncate(at);
+            return;
+        }
+        let main = matches!(
+            self.rows.get(at + 1),
+            Some(Row::Item(next)) if next.project() == project && !matches!(next, Selection::Checkout(..))
+        );
+        if let Some(rule) = self.rows.get_mut(at) {
+            *rule = Row::HeaderRule(main);
+        }
+    }
+
     /// Push `item`, the filter's first hit if it's `hit` and none came before it.
     pub(super) fn push_found(&mut self, item: Selection, hit: bool) {
         if hit && self.first_hit.is_none() {
@@ -381,6 +478,8 @@ impl Rows {
         self.rows.truncate(len);
         self.insets.truncate(len);
         self.guides.truncate(len);
+        self.ends.truncate(len);
+        self.depths.truncate(len);
         self.moving.truncate(len);
     }
 }
@@ -411,14 +510,26 @@ impl Navigator {
             let item = Selection::Project(entry.id.clone());
             rows.push(Row::Item(item.clone()));
             let open = !store.project_folded(&entry.id);
-            // Its rows' icons under the header's, so a worktree's name is under the project's.
+            // The heading stands apart, ruled off from its rows, which start at the card's
+            // edge rather than a step under it, as 🍑 But UI's and but-ui-react's cards have
+            // their header.
             rows.fold(Fold::Under(item), open, &self.folds, |rows| {
-                self.card_rows(store, entry, rows)
+                let rule = rows.rows.len();
+                rows.push(Row::HeaderRule(false));
+                self.card_rows(store, entry, rows);
+                rows.settle_rule(rule, &entry.id);
             });
         }
-        let listing = self.drawer_listing(store);
+        let mut listing = self.drawer_listing(store);
         rows.drawer.listed = listing.listed;
         rows.drawer.total = listing.total;
+        // Its own projects' folds move wherever it's scrolled, as it's always all in view.
+        let in_drawer = std::mem::take(&mut listing.folds);
+        (rows.folds).extend(
+            in_drawer
+                .into_iter()
+                .map(|(fold, open, _)| (fold, open, None)),
+        );
         // With no cards it's always open.
         if !rows.rows.is_empty() {
             let open = !store.prefs.projects_folded;
@@ -427,7 +538,7 @@ impl Navigator {
                 return rows;
             }
         }
-        rows.drawer.rows = listing.rows;
+        rows.drawer = listing;
         rows
     }
 
@@ -450,16 +561,64 @@ impl Navigator {
         if prefs.projects_by_activity {
             listed.sort_by_key(|(_, at)| std::cmp::Reverse(*at));
         }
-        let mut rows: Vec<Row> = (listed.iter())
-            .map(|(entry, _)| Row::Item(Selection::Project(entry.id.clone())))
-            .collect();
+        // Each project unfolded in it a card of its own where it is in the list, its heading
+        // over its rows as a watched project's card, splitting the projects folded around it
+        // into cards of their own, as 🍑 But UI's drawer has them.
+        // One unfolding or folding is a card of its own until it's folded, its rows opening or
+        // closing under its heading, as a watched card's do, and the gaps parting it from the
+        // folded projects around it opening and closing with them.
+        let mut cards = Rows::new(self.row);
+        let mut grouped = Vec::new();
+        let mut parting = Vec::new();
+        // Whether the project before was a card of its own, and its fold if that's moving.
+        let mut was: Option<(bool, Option<Fold>)> = None;
+        for (entry, _) in &listed {
+            let fold = Fold::InDrawer(entry.id.clone());
+            let open = self.drawer_open.contains(&entry.id);
+            let shown = self.folds.shows(&fold, open);
+            let moving = (shown && self.folds.openness(&fold).is_some()).then(|| fold.clone());
+            if let Some((was_shown, was_moving)) = &was
+                && (*was_shown || shown)
+            {
+                // Next to a card that stays open the gap stays; else it opens with the fold.
+                let parts = match (was_shown, shown) {
+                    (true, true) if was_moving.is_none() || moving.is_none() => None,
+                    _ => was_moving.clone().or_else(|| moving.clone()),
+                };
+                cards.push(Row::Gap);
+                parting.resize(cards.rows.len() - 1, None);
+                parting.push(parts);
+            }
+            was = Some((shown, moving));
+            cards.push(Row::Item(Selection::Project(entry.id.clone())));
+            cards.fold(fold, open, &self.folds, |cards| {
+                let rule = cards.rows.len();
+                cards.push(Row::HeaderRule(false));
+                self.card_rows(store, entry, cards);
+                cards.settle_rule(rule, &entry.id);
+            });
+            grouped.resize(cards.rows.len(), !shown);
+        }
+        parting.resize(cards.rows.len(), None);
+        if others.is_empty() {
+            cards.push(Row::Empty);
+            grouped.push(false);
+        }
         if listed.is_empty() && !others.is_empty() {
-            rows.push(Row::Note("None active in the last 7 days".into(), false));
+            cards.push(Row::Note("None active in the last 7 days".into(), false));
+            grouped.push(true);
         }
         Drawer {
-            rows,
+            rows: cards.rows,
             listed: listed.len(),
             total: others.len(),
+            insets: cards.insets,
+            guides: cards.guides,
+            ends: cards.ends,
+            grouped,
+            moving: cards.moving,
+            parting,
+            folds: cards.folds,
         }
     }
 
@@ -468,10 +627,12 @@ impl Navigator {
     pub(super) fn card_rows(&self, store: &Store, entry: &ProjectEntry, rows: &mut Rows) {
         let id = &entry.id;
         let Some(workspace) = &entry.workspace else {
-            rows.push(match &entry.error {
-                Some(err) => Row::Note(err.clone(), true),
-                None => Row::Note("Loading…".into(), false),
-            });
+            match &entry.error {
+                Some(err) => rows.push(Row::Note(err.clone(), true)),
+                // Rows of bones, as many as a card often holds, so it keeps its shape while the
+                // workspace loads, as 🍑 But UI's loading card.
+                None => rows.extend((0..LOADING_WIDTHS.len()).map(Row::Loading)),
+            }
             return;
         };
         if let Some(err) = &entry.error {
@@ -515,22 +676,22 @@ impl Navigator {
                 let checkout = Checkout::Linked(wt.name.clone());
                 selection.is_some_and(|s| in_checkout(store, s, workspace, &checkout))
             };
-            // The inactive ones wait under a heading of their own, folded unless opened or
-            // the selection's in one.
+            // The inactive ones wait after the rest, folded behind a row that says how many
+            // unless opened or the selection's in one, as but-ui-react's MoreItem pages a list.
             let (inactive, active): (Vec<_>, Vec<_>) =
                 (worktrees.into_iter()).partition(|wt| wt.is_inactive(store.prefs.inactive_after));
             for wt in active {
                 self.worktree_rows(store, id, wt, on_branches(wt), rows);
             }
             if !inactive.is_empty() {
-                let heading = Selection::Section(id.clone(), Section::Inactive);
-                rows.push(Row::Item(heading.clone()));
+                let more = Selection::Section(id.clone(), Section::Inactive);
                 let open = inactive_open(store, id, &inactive);
-                rows.fold(Fold::Under(heading), open, &self.folds, |rows| {
+                rows.fold(Fold::Under(more.clone()), open, &self.folds, |rows| {
                     for wt in inactive {
                         self.worktree_rows(store, id, wt, on_branches(wt), rows);
                     }
                 });
+                rows.push(Row::Item(more));
             }
         }
         // Its checkouts on the user's other machines, as worktrees: none while signed out.
@@ -597,6 +758,8 @@ impl Navigator {
             }
             let own = found(terms, &[&entry.project.name]);
             rows.push_found(Selection::Project(id.clone()), hit(0, own));
+            let rule = rows.rows.len();
+            rows.push(Row::HeaderRule(false));
             let project_end = rows.rows.len();
             let workspace = (entry.workspace.as_ref()).filter(|ws| ws.editing.is_none());
             if let Some(workspace) = workspace {
@@ -645,6 +808,8 @@ impl Navigator {
             self.filtered_mesh_rows(store, id, terms, own, &mut rows);
             if rows.rows.len() == project_end && !hit(0, own) {
                 rows.truncate(start);
+            } else {
+                rows.settle_rule(rule, id);
             }
         }
         let others = (store.projects.iter()).filter(|entry| !entry.expanded);
@@ -662,6 +827,7 @@ impl Navigator {
             listed: listed.len(),
             total,
             rows: listed,
+            ..Drawer::default()
         };
         if rows.rows.is_empty() && rows.drawer.rows.is_empty() {
             rows.push(Row::Note("Nothing matches".into(), false));
@@ -914,13 +1080,11 @@ impl Navigator {
         terminal_rows(store, id, &Checkout::Linked(name.clone()), rows);
         let lane = workspace.and_then(|ws| ws.worktree_lane(name.as_ref()));
         self.lane_rows(store, id, lane.map_or(&[][..], |lane| &lane.branches), rows);
+        // A worktree with no branch of its own says what it's on in its heading's meta instead.
+        let lane = lane.filter(|lane| !lane.branches.is_empty());
         if let Some((workspace, lane)) = workspace.zip(lane) {
-            let listed = |branch: &Branch| {
-                !(branch.ref_name.as_ref())
-                    .is_some_and(|r| store.hides_branch(id, r) || store.deletes_branch(id, r))
-            };
             rows.extend(
-                rests_on(id, workspace, lane, listed)
+                rests_on(id, workspace, lane, listed(store, id))
                     .map(|(item, checkout)| Row::RestsOn(item, checkout)),
             );
         }
@@ -980,6 +1144,31 @@ impl Navigator {
     }
 }
 
+/// What linked worktree `name` is on when it has no branch of its own: the commit its HEAD is
+/// at, by the branch it's in, which its heading's meta names.
+pub(super) fn head_of(
+    store: &Store,
+    id: &ProjectId,
+    workspace: &Workspace,
+    name: &bstr::BStr,
+) -> Option<Selection> {
+    let lane = workspace.worktree_lane(name)?;
+    if !lane.branches.is_empty() {
+        return None;
+    }
+    rests_on(id, workspace, lane, listed(store, id))
+        .next()
+        .map(|(item, _)| item)
+}
+
+/// Whether `branch` is listed, neither hidden nor being deleted.
+fn listed<'a>(store: &'a Store, id: &'a ProjectId) -> impl Fn(&Branch) -> bool + Copy + 'a {
+    move |branch: &Branch| {
+        !(branch.ref_name.as_ref())
+            .is_some_and(|r| store.hides_branch(id, r) || store.deletes_branch(id, r))
+    }
+}
+
 fn rests_on<'a>(
     id: &'a ProjectId,
     workspace: &'a Workspace,
@@ -1026,8 +1215,8 @@ pub(super) fn in_inactive(store: &Store, id: &ProjectId, inactive: &[&Worktree])
         })
 }
 
-/// Whether project `id`'s `inactive` worktrees are listed under their heading: once it's
-/// opened, and while the selection's in one.
+/// Whether project `id`'s `inactive` worktrees are listed above the row that folds them: once
+/// it's opened, and while the selection's in one.
 pub(super) fn inactive_open(store: &Store, id: &ProjectId, inactive: &[&Worktree]) -> bool {
     in_inactive(store, id, inactive) || store.prefs.shown_inactive.contains(id.as_ref())
 }
@@ -1062,7 +1251,7 @@ fn worktrees_shown<'a>(
 
 /// Project `id`'s linked worktrees the navigator lists: all but those an operation under way
 /// takes away, in the order [`worktrees_shown`] gives but the active ones first, as the
-/// inactive ones wait under their heading after them. The rows, the tabs across the top and
+/// inactive ones wait folded after them. The rows, the tabs across the top and
 /// Go to anything all list them so.
 pub(crate) fn worktrees_listed<'a>(
     store: &Store,
@@ -1083,7 +1272,7 @@ fn active_first(worktrees: Vec<&Worktree>, after: InactiveAfter) -> Vec<&Worktre
 }
 
 /// The linked worktrees of `project` listed with `name`, as they're listed now: the active
-/// ones, or the inactive ones under their heading, which it can't leave.
+/// ones, or the inactive ones folded after them, which it can't leave.
 pub(super) fn listed_with(
     store: &Store,
     project: &ProjectId,
@@ -1109,6 +1298,7 @@ pub(super) fn heads(row: &Row, next: Option<&Row>) -> Option<Checkout> {
         {
             Some(Checkout::Main)
         }
+        (Row::Item(Selection::Project(_)), Some(Row::HeaderRule(true))) => Some(Checkout::Main),
         _ => None,
     }
 }
@@ -1149,8 +1339,7 @@ pub(super) fn checkout_holds(
 ) -> bool {
     lists_changes(store, workspace, project, checkout)
         || store.terminals.on(project, checkout).next().is_some()
-        || (workspace.lanes_in(checkout))
-            .any(|lane| !lane.branches.is_empty() || workspace.beneath(lane).next().is_some())
+        || (workspace.lanes_in(checkout)).any(|lane| !lane.branches.is_empty())
 }
 
 /// `project`'s `checkout`'s uncommitted changes' row, while [`lists_changes`] says it's listed.
@@ -1275,7 +1464,7 @@ mod active_first_tests {
         assert_eq!(
             names,
             ["new", "newer", "old", "older"],
-            "each keeps its place among its own, as the rows list the inactive under their heading"
+            "each keeps its place among its own, as the rows list the inactive folded after the rest"
         );
     }
 }

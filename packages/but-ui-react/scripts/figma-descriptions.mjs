@@ -120,6 +120,7 @@ const FRAMES = new Set([
 	"Menu",
 	"Modal",
 	"Snackbars",
+	"SplitPreview",
 ]);
 
 /**

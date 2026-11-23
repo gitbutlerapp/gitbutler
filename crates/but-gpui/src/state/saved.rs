@@ -179,7 +179,7 @@ impl Store {
         cx.notify();
     }
 
-    /// Count worktrees as inactive `after`, which can empty the heading selected.
+    /// Count worktrees as inactive `after`, which can empty the inactive row selected.
     pub fn set_inactive_after(
         &mut self,
         after: crate::backend::InactiveAfter,
@@ -220,7 +220,11 @@ impl Store {
             Pane::Navigator => (nav - (over - (list_width - list_fit))).max(MIN_NAVIGATOR.min(nav)),
             pane if pane == list => list_fit,
             // Fitted to what the list page leaves it, by `Detail::beside_files_width`.
-            Pane::Files | Pane::BesideFiles | Pane::Graph | Pane::Terminals => self.width(pane),
+            Pane::Files
+            | Pane::BesideFiles
+            | Pane::Graph
+            | Pane::Terminals
+            | Pane::HiddenProjects => self.width(pane),
         }
     }
 
@@ -337,6 +341,8 @@ pub enum Pane {
     Graph,
     /// The terminal overview under the navigator, by its height.
     Terminals,
+    /// The hidden projects' drawer under the cards, by its height.
+    HiddenProjects,
 }
 
 impl Pane {
@@ -346,8 +352,8 @@ impl Pane {
             Pane::Files => 300.,
             Pane::BesideFiles => 260.,
             Pane::Graph => 560.,
-            // Unless dragged, it fits its rows: see `dragged_width`.
-            Pane::Terminals => 240.,
+            // Unless dragged, they fit their rows: see `dragged_width`.
+            Pane::Terminals | Pane::HiddenProjects => 240.,
         }
     }
 
@@ -362,6 +368,8 @@ impl Pane {
             Pane::Graph => (320., 2000.),
             // Its bar and a row. The column's height limits it too.
             Pane::Terminals => (72., 2000.),
+            // Its bar and a project's row in its card.
+            Pane::HiddenProjects => (100., 2000.),
         }
     }
 }
@@ -634,11 +642,11 @@ pub struct Prefs {
     pub project_icons: HashMap<String, String>,
     /// How each project's pull requests merge, by id, as last picked beside Merge.
     pub merge_methods: HashMap<String, crate::backend::reviews::MergeMethod>,
-    /// The navigator's other projects go by when they were last active rather than by name.
+    /// The navigator's hidden projects go by when they were last active rather than by name.
     pub projects_by_activity: bool,
-    /// The navigator's other projects leave out those not active in the last 7 days.
+    /// The navigator's hidden projects leave out those not active in the last 7 days.
     pub active_projects_only: bool,
-    /// The navigator's other projects are folded away under their heading.
+    /// The navigator's hidden projects are folded away under their heading.
     pub projects_folded: bool,
     /// Watched projects, by id, whose cards are folded to their row; they're still loaded and
     /// kept current.
@@ -646,7 +654,7 @@ pub struct Prefs {
     /// Watched projects, by id, whose work on other machines shows under its heading; it
     /// starts folded.
     pub shown_mesh: HashSet<String>,
-    /// Watched projects, by id, whose inactive worktrees show under their heading; it starts
+    /// Watched projects, by id, whose inactive worktrees show, unfolded by hand; they start
     /// folded.
     pub shown_inactive: HashSet<String>,
     pub inactive_after: crate::backend::InactiveAfter,

@@ -21,6 +21,7 @@ export type MetaCountType =
 	| "repos"
 	| "agent-working"
 	| "agent-waiting"
+	| "running"
 	| "stack"
 	| "cpu"
 	| "cpu-danger";
@@ -32,7 +33,7 @@ const glyph: Record<MetaCountType, IconName> = {
 	rebased: "arrow-up",
 	commits: "commit",
 	empty: "commit",
-	head: "branch",
+	head: "anchor",
 	uncommitted: "diff",
 	clean: "diff",
 	age: "clock",
@@ -41,6 +42,7 @@ const glyph: Record<MetaCountType, IconName> = {
 	repos: "repo",
 	"agent-working": "robot",
 	"agent-waiting": "robot",
+	running: "spinner",
 	stack: "stack",
 	cpu: "cpu",
 	"cpu-danger": "cpu-danger",
@@ -50,13 +52,15 @@ type MetaCountProps = { type: MetaCountType } & ComponentProps<"span">;
 
 /**
  * A glyph and a short value in a row's meta: a count, an age, a branch's name. The type sets both.
- * Amber is work waiting on you (`behind`, `uncommitted`, `agent-waiting`), blue is work to send
- * (`unpushed`), green is an agent at work (`agent-working`); the rest are neutral, `stack` among
- * them: where a branch sits in its stack, "1/3 in stack". `rebased` is the unpushed arrow in that
- * neutral grey: commits that were pushed and have been rewritten since, most often by a rebase onto
- * the target, so a push replaces them rather than sending new work. Red is what can't go on until
- * you step in: `conflicts`, how many of a branch's commits are conflicted. Quietest of all
- * are `empty`, a branch with no commits yet, and `head`, what a worktree with nothing to list is on
+ * Amber is work waiting on you (`behind`, `uncommitted`, `agent-waiting`, and `conflicts`, how
+ * many of a branch's commits are conflicted: a conflict waits on you, it hasn't failed), blue is
+ * work to send
+ * (`unpushed`); the rest are neutral. An agent at work (`agent-working`) is among them: it needs
+ * nothing from you, and its robot moving says it's at work. So is `running`, any other program at
+ * work in a terminal, as the terminal's own dots spinner, and `stack`: where a branch sits in its
+ * stack, "1/3 in stack". `rebased` is the unpushed arrow in that neutral grey: commits that were
+ * pushed and have been rewritten since, most often by a rebase onto the target, so a push replaces
+ * them rather than sending new work. Quietest of all are `empty`, a branch with no commits yet, and `head`, what a worktree with nothing to list is on
  * (`empty`, `detached`); a row shows either first, ahead of its counts. `cpu` is a process's CPU
  * use while it stays low, in green; `cpu-danger` is the same use once it runs high, in red with a
  * warning on the chip.
@@ -73,18 +77,57 @@ type MetaCountProps = { type: MetaCountType } & ComponentProps<"span">;
  * the count's colour beside the counts, or in its place, as an `info` Push is for ↑ `unpushed` and
  * a `warning` Update for ↓ `behind`.
  *
+ * @figma `value` turns the value off, as children left out do, for a robot or the running dots alone.
+ * `running` draws the dots' first step.
  * @see packages/but-ui/design/components/meta-lines.md
+ * @see packages/but-ui/design/patterns/work-under-way.md
  * @import import { MetaCount } from "@gitbutler/but-ui-react/MetaCount.tsx";
  */
 export const MetaCount: FC<MetaCountProps> = ({ type, children, ...props }) => (
-	<span {...props} className={classes(props.className, "text-13", styles.count, styles[type])}>
+	<span
+		{...props}
+		className={classes(props.className, "text-13", styles.count, styles[type])}
+		// A name, which the row it's in lets give way before the row's own name.
+		data-meta-name={type === "head" ? "" : undefined}
+		// A mark with no edge of its own, which a row sets in further when it ends on one.
+		data-meta-count=""
+	>
 		{type === "agent-working" ? (
 			<WorkingRobot />
+		) : type === "running" ? (
+			<RunningDots />
 		) : (
-			<Icon name={glyph[type]} size={14} className={styles.glyph} />
+			<Icon name={glyph[type]} size={14} className={classes(styles.glyph, styles.faded)} />
 		)}
-		<span className={styles.value}>{children}</span>
+		{children !== undefined && <span className={styles.value}>{children}</span>}
 	</span>
+);
+
+/** Where each of the six dots of {@link RunningDots} sits: two columns of three, top down. */
+const runningDots = [0, 1, 2, 3, 4, 5].map((bit) => ({
+	bit,
+	cx: 5.25 + Math.floor(bit / 3) * 3.5,
+	cy: 3.5 + (bit % 3) * 3.5,
+}));
+
+/**
+ * A program at work in a terminal, as the terminal's own spinner draws it: six dots, braille's,
+ * stepping round ten times a second. Drawn here rather than as an icon, as its dots change from
+ * step to step; it holds still under reduced motion.
+ */
+const RunningDots: FC = () => (
+	<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" className={styles.glyph}>
+		{runningDots.map(({ bit, cx, cy }) => (
+			<circle
+				key={bit}
+				className={classes(styles["spin-dot"], styles[`spin-dot-${bit}`])}
+				cx={cx}
+				cy={cy}
+				r="1"
+				fill="currentColor"
+			/>
+		))}
+	</svg>
 );
 
 /**
@@ -99,7 +142,7 @@ const WorkingRobot: FC = () => (
 		viewBox="0 0 12 12"
 		fill="none"
 		aria-hidden="true"
-		className={styles.glyph}
+		className={classes(styles.glyph, styles.faded)}
 	>
 		<rect x="1.5" y="1.5" width="9" height="9" stroke="currentColor" strokeWidth="1.5" />
 		<rect x="0" y="3.75" width="1.5" height="3.75" fill="currentColor" />
@@ -130,47 +173,66 @@ const WorkingRobot: FC = () => (
 	</svg>
 );
 
-/** The state of a branch's checks, as {@link CiStatus} shows it. */
-export type CiStatusType = "working" | "passed" | "failed";
+/** Where the thing a {@link MetaStatus} names has got to, which sets its glyph and its colour. */
+export type MetaStatusVariant =
+	/** Amber spinner: under way, as checks that are running. */
+	| "working"
+	/** Green tick: done and fine, as checks that passed. */
+	| "passed"
+	/** Red cross: done and broken, as a check that failed. */
+	| "failed"
+	/** Amber warning: stopped until you act, as a check that needs approval. */
+	| "warning"
+	/** Grey dashed ring: no result yet, as checks that are pending, queued, cancelled or unknown. */
+	| "neutral";
 
-const ciGlyph: Record<CiStatusType, IconName> = {
+const statusGlyph: Record<MetaStatusVariant, IconName> = {
 	working: "spinner",
 	passed: "tick",
 	failed: "cross",
+	warning: "warning",
+	neutral: "pending",
 };
 
-const ciLabel: Record<CiStatusType, string> = {
-	working: "Checks running",
-	passed: "Checks passed",
-	failed: "Checks failed",
+const statusWord: Record<MetaStatusVariant, string> = {
+	working: "running",
+	passed: "passed",
+	failed: "failed",
+	warning: "needs you",
+	neutral: "no result",
 };
 
 /**
- * The state of a branch's pull request checks, as "CI" in amber while they run, green once they
- * pass and red if one fails. It sits in a row's meta beside the {@link MetaCount}s.
+ * Where something that runs has got to, as a glyph and a short label in its state's colour: a
+ * pull request's checks as "CI", a deploy, a sync. It sits in a row's meta beside the
+ * {@link MetaCount}s, or after a tab's label.
  *
- * Its words are "CI" unless given others: where there is room, as a pull request's tab, how far
- * the checks got, "CI 2/14".
+ * The label names the thing, not its state, which the glyph and colour say: "CI", not
+ * "CI passed". Where there is room, as a pull request's tab, it can say how far it got,
+ * "CI 2/14". A screen reader hears the label and the state, "CI, running".
  *
- * @import import { CiStatus } from "@gitbutler/but-ui-react/MetaCount.tsx";
+ * Without a label it is the glyph alone, where what it is about is already plain, as beside a
+ * pull request's title. Give it an `aria-label` then that names both, "Checks running".
+ *
+ * @figma `label` turns the label off; `label text` is its words.
+ *
+ * @see packages/but-ui/design/patterns/work-under-way.md
+ * @import import { MetaStatus } from "@gitbutler/but-ui-react/MetaCount.tsx";
  */
-export const CiStatus: FC<{ status: CiStatusType } & ComponentProps<"span">> = ({
-	status,
-	children = "CI",
-	...props
-}) => (
+export const MetaStatus: FC<
+	{ variant: MetaStatusVariant } & Omit<ComponentProps<"span">, "children"> &
+		({ children: string } | { children?: undefined; "aria-label": string })
+> = ({ variant, children, ...props }) => (
 	<span
 		// oxlint-disable-next-line jsx_a11y/prefer-tag-over-role -- A glyph and a word with one name, not a picture with a source.
 		role="img"
-		aria-label={
-			typeof children === "string" && children !== "CI"
-				? `${ciLabel[status]}, ${children}`
-				: ciLabel[status]
-		}
+		aria-label={children === undefined ? undefined : `${children}, ${statusWord[variant]}`}
 		{...props}
-		className={classes(props.className, "text-13", styles.count, styles[status])}
+		className={classes(props.className, "text-13", styles.count, styles[variant])}
+		// A mark with no edge of its own, which a row sets in further when it ends on one.
+		data-meta-count=""
 	>
-		<Icon name={ciGlyph[status]} size={14} className={styles.glyph} />
-		<span className={styles.value}>{children}</span>
+		<Icon name={statusGlyph[variant]} size={14} className={classes(styles.glyph, styles.faded)} />
+		{children !== undefined && <span className={styles.value}>{children}</span>}
 	</span>
 );

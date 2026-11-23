@@ -12,26 +12,26 @@ const meta = stories({
 		},
 	},
 	args: {
-		variant: "conflict",
+		variant: "plus",
 		size: 16,
 	},
 });
 
 export const Default = meta.story({
 	args: {
-		variant: "conflict",
+		variant: "plus",
 		size: 16,
 	},
 });
 
 export const AllVariants = meta.story({
 	args: {
-		variant: "conflict",
+		variant: "plus",
 		size: 16,
 	},
 	render: (args) => (
 		<div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-			{(["conflict", "plus", "minus"] as const).map((variant) => (
+			{(["plus", "minus"] as const).map((variant) => (
 				<div
 					key={variant}
 					style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}

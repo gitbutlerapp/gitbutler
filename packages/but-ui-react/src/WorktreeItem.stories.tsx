@@ -1,16 +1,16 @@
 import { stories } from "../stories/stories.ts";
 import { Icon } from "./Icon.tsx";
 import { MetaCount } from "./MetaCount.tsx";
-import { BranchItem, MachineItem, RepoItem, UncommittedItem, WorktreeItem } from "./SidebarRow.tsx";
 import {
-	Card,
-	Column,
-	machine,
-	menu,
-	push,
-	Repository,
-	update,
-} from "./story-assets/workspaceTree.tsx";
+	BranchItem,
+	MachineItem,
+	RepoItem,
+	TerminalItem,
+	UncommittedItem,
+	WorktreeItem,
+} from "./SidebarRow.tsx";
+import { Card, Column, machine, push, Repository, update } from "./story-assets/workspaceTree.tsx";
+import { Tooltip } from "./Tooltip.tsx";
 
 const core = (node: string) =>
 	`https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=${node}`;
@@ -25,21 +25,11 @@ const meta = stories({
 
 /**
  * A worktree: how far it is behind its target and its age at the row's end, and Update as its next
- * step. Under the pointer the next step and the menu take their place.
+ * step. Under the pointer the next step takes their place.
  */
 export const Default = meta.story({
 	render: (args) => (
-		<WorktreeItem
-			{...args}
-			meta={
-				<>
-					<MetaCount type="behind">2</MetaCount>
-					<MetaCount type="age">5h</MetaCount>
-				</>
-			}
-			actions={update}
-			menu={menu("Worktree")}
-		/>
+		<WorktreeItem {...args} meta={<MetaCount type="age">5h</MetaCount>} actions={update(2)} />
 	),
 });
 
@@ -61,9 +51,8 @@ export const UncommittedChanges = meta.story({
 						<MetaCount type="age">2h</MetaCount>
 					</>
 				}
-				menu={menu("Repository")}
 			/>
-			<UncommittedItem count={12} depth={1} menu={menu("Uncommitted changes")} />
+			<UncommittedItem count={12} depth={1} />
 			<BranchItem
 				title="cursor-unique-names"
 				depth={1}
@@ -74,9 +63,8 @@ export const UncommittedChanges = meta.story({
 						<MetaCount type="age">2h</MetaCount>
 					</>
 				}
-				menu={menu("Branch")}
 			/>
-			<RepoItem name="but-dev" folded={false} menu={menu("Repository")} />
+			<RepoItem name="but-dev" folded={false} />
 			<WorktreeItem
 				name="review-ios"
 				depth={1}
@@ -87,15 +75,13 @@ export const UncommittedChanges = meta.story({
 						<MetaCount type="age">40m</MetaCount>
 					</>
 				}
-				menu={menu("Worktree")}
 			/>
-			<UncommittedItem count={17} depth={2} selected menu={menu("Uncommitted changes")} />
+			<UncommittedItem count={17} depth={2} selected />
 			<BranchItem
 				title="ios-push-handoff"
 				depth={2}
 				folded
 				meta={<MetaCount type="unpushed">4</MetaCount>}
-				menu={menu("Branch")}
 			/>
 		</Column>
 	),
@@ -103,7 +89,7 @@ export const UncommittedChanges = meta.story({
 
 /**
  * Any row at work, here a worktree updating from its target: `busy` turns a spinner in its glyph's
- * place, as on a merging branch, so what it holds and its menu stay where they were.
+ * place, as on a merging branch, so what it holds stays where it was.
  */
 export const Updating = meta.story({
 	render: () => (
@@ -113,13 +99,8 @@ export const Updating = meta.story({
 			busy
 			depth={1}
 			folded={false}
-			meta={
-				<>
-					<MetaCount type="behind">3</MetaCount>
-					<MetaCount type="age">12m</MetaCount>
-				</>
-			}
-			actions={update}
+			meta={<MetaCount type="age">12m</MetaCount>}
+			actions={update(3)}
 		/>
 	),
 });
@@ -134,34 +115,22 @@ export const Fork = meta.story({
 	render: () => (
 		<Card label="pavel--macbook-pro-2" header={machine}>
 			<Repository last>
-				<RepoItem name="but-dev" folded={false} menu={menu("Repository")} />
+				<RepoItem name="but-dev" folded={false} />
 				<WorktreeItem
 					main
 					name="Main worktree"
 					depth={1}
 					folded={false}
-					meta={
-						<>
-							<MetaCount type="behind">4</MetaCount>
-							<MetaCount type="age">3d</MetaCount>
-						</>
-					}
-					actions={update}
-					menu={menu("Worktree")}
+					meta={<MetaCount type="age">3d</MetaCount>}
+					actions={update(4)}
 				/>
-				<UncommittedItem count={19} depth={2} menu={menu("Uncommitted changes")} />
+				<UncommittedItem count={19} depth={2} />
 				<BranchItem
 					title="ios-push-handoff"
 					depth={2}
 					folded
-					meta={
-						<>
-							<MetaCount type="unpushed">7</MetaCount>
-							<MetaCount type="age">1d</MetaCount>
-						</>
-					}
-					actions={push}
-					menu={menu("Branch")}
+					meta={<MetaCount type="age">1d</MetaCount>}
+					actions={push(7)}
 				/>
 				<WorktreeItem
 					main
@@ -169,28 +138,16 @@ export const Fork = meta.story({
 					name="pavellaptev"
 					depth={1}
 					folded={false}
-					meta={
-						<>
-							<MetaCount type="behind">1</MetaCount>
-							<MetaCount type="age">3d</MetaCount>
-						</>
-					}
-					actions={update}
-					menu={menu("Worktree")}
+					meta={<MetaCount type="age">3d</MetaCount>}
+					actions={update(1)}
 				/>
-				<UncommittedItem count={22} depth={2} menu={menu("Uncommitted changes")} />
+				<UncommittedItem count={22} depth={2} />
 				<BranchItem
 					title="review-cards"
 					depth={2}
 					folded
-					meta={
-						<>
-							<MetaCount type="unpushed">8</MetaCount>
-							<MetaCount type="age">12m</MetaCount>
-						</>
-					}
-					actions={push}
-					menu={menu("Branch")}
+					meta={<MetaCount type="age">12m</MetaCount>}
+					actions={push(8)}
 				/>
 				<WorktreeItem
 					name="mesh-archive"
@@ -204,7 +161,6 @@ export const Fork = meta.story({
 							<MetaCount type="age">3d</MetaCount>
 						</>
 					}
-					menu={menu("Worktree")}
 				/>
 			</Repository>
 		</Card>
@@ -228,5 +184,35 @@ export const OfflineMachine = meta.story({
 				</>
 			}
 		/>
+	),
+});
+
+/**
+ * A linked worktree with no branch of its own, its HEAD on the last commit of
+ * `sidebar-unread-dot`, a branch in the Main worktree. Its meta says what it's on: `head`, the
+ * anchor and the branch's name, which gives way before the worktree's own, and the tooltip says
+ * there's no branch. Nothing is listed for the branch under it; the terminal open in it is.
+ */
+export const NoBranch = meta.story({
+	parameters: { design: { type: "figma", url: core("5464-18190") } },
+	render: () => (
+		<Card label="gitbutler" header={<RepoItem name="gitbutler" folded={false} />}>
+			<Repository last>
+				<WorktreeItem name="Main worktree" main depth={0} folded />
+				<WorktreeItem
+					name="gpui-row-buttons"
+					depth={0}
+					folded={false}
+					meta={
+						<Tooltip content="No branch: on sidebar-unread-dot's last commit">
+							<MetaCount type="head" aria-label="No branch: on sidebar-unread-dot's last commit">
+								sidebar-unread-dot
+							</MetaCount>
+						</Tooltip>
+					}
+				/>
+				<TerminalItem name="claude" depth={1} />
+			</Repository>
+		</Card>
 	),
 });

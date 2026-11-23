@@ -1,7 +1,7 @@
 import { stories } from "../stories/stories.ts";
 import { useState, type FC, type ReactNode } from "react";
 import { Button } from "./Button.tsx";
-import { CiStatus, MetaCount } from "./MetaCount.tsx";
+import { MetaCount, MetaStatus } from "./MetaCount.tsx";
 import {
 	BranchItem,
 	CommitItem,
@@ -10,7 +10,7 @@ import {
 	UncommittedItem,
 	WorktreeItem,
 } from "./SidebarRow.tsx";
-import { Card, Column, machine, menu, push, Repository } from "./story-assets/workspaceTree.tsx";
+import { Card, Column, machine, push, Repository } from "./story-assets/workspaceTree.tsx";
 
 const core = (node: string) =>
 	`https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=${node}`;
@@ -25,17 +25,10 @@ const meta = stories({
 
 /**
  * A branch with no pull request: its name as `title`, and what is still to push at the row's end.
- * Under the pointer the next step and the menu take their place.
+ * Under the pointer the next step takes their place.
  */
 export const Default = meta.story({
-	render: (args) => (
-		<BranchItem
-			{...args}
-			meta={<MetaCount type="unpushed">7</MetaCount>}
-			actions={push}
-			menu={menu("Branch")}
-		/>
-	),
+	render: (args) => <BranchItem {...args} actions={push(7)} />,
 });
 
 /** A stack's caption over its branches, which it hides while folded and sums up instead. */
@@ -60,7 +53,6 @@ const stack = ({
 			folded={folded}
 			onToggleFolded={onToggleFolded}
 			meta={folded && summary}
-			menu={menu("Stack")}
 		/>
 		{!folded && branches}
 	</>
@@ -71,20 +63,14 @@ const Stacks: FC<{ folded: [boolean, boolean] }> = ({ folded: initiallyFolded })
 	const [folded, setFolded] = useState(initiallyFolded);
 	return (
 		<Repository last>
-			<RepoItem name="but-dev" folded={false} menu={menu("Repository")} />
-			<UncommittedItem count={10} depth={1} menu={menu("Uncommitted changes")} />
+			<RepoItem name="but-dev" folded={false} />
+			<UncommittedItem count={10} depth={1} />
 			<BranchItem
 				title="mesh-archive"
 				depth={1}
 				folded
-				meta={
-					<>
-						<MetaCount type="unpushed">2</MetaCount>
-						<MetaCount type="age">1d</MetaCount>
-					</>
-				}
-				actions={push}
-				menu={menu("Branch")}
+				meta={<MetaCount type="age">1d</MetaCount>}
+				actions={push(2)}
 			/>
 			{stack({
 				tip: "feat: archive UI",
@@ -105,27 +91,19 @@ const Stacks: FC<{ folded: [boolean, boolean] }> = ({ folded: initiallyFolded })
 						folded
 						meta={
 							<>
-								<CiStatus status="working" />
-								<MetaCount type="unpushed">2</MetaCount>
+								<MetaStatus variant="working">CI</MetaStatus>
 								<MetaCount type="age">12m</MetaCount>
 							</>
 						}
-						actions={push}
-						menu={menu("Branch")}
+						actions={push(2)}
 					/>,
 					<BranchItem
 						key="api"
 						title="archive-api"
 						depth={2}
 						folded
-						meta={
-							<>
-								<MetaCount type="unpushed">3</MetaCount>
-								<MetaCount type="age">1h</MetaCount>
-							</>
-						}
-						actions={push}
-						menu={menu("Branch")}
+						meta={<MetaCount type="age">1h</MetaCount>}
+						actions={push(3)}
 					/>,
 					<BranchItem
 						key="schema"
@@ -135,11 +113,10 @@ const Stacks: FC<{ folded: [boolean, boolean] }> = ({ folded: initiallyFolded })
 						folded
 						meta={
 							<>
-								<CiStatus status="working" />
+								<MetaStatus variant="working">CI</MetaStatus>
 								<MetaCount type="age">5h</MetaCount>
 							</>
 						}
-						menu={menu("Branch")}
 					/>,
 				],
 			})}
@@ -150,13 +127,11 @@ const Stacks: FC<{ folded: [boolean, boolean] }> = ({ folded: initiallyFolded })
 				folded
 				meta={
 					<>
-						<CiStatus status="working" />
-						<MetaCount type="unpushed">3</MetaCount>
+						<MetaStatus variant="working">CI</MetaStatus>
 						<MetaCount type="age">8m</MetaCount>
 					</>
 				}
-				actions={push}
-				menu={menu("Branch")}
+				actions={push(3)}
 			/>
 			{stack({
 				tip: "feat: unique cursor names",
@@ -177,13 +152,11 @@ const Stacks: FC<{ folded: [boolean, boolean] }> = ({ folded: initiallyFolded })
 						folded
 						meta={
 							<>
-								<CiStatus status="working" />
-								<MetaCount type="unpushed">1</MetaCount>
+								<MetaStatus variant="working">CI</MetaStatus>
 								<MetaCount type="age">35m</MetaCount>
 							</>
 						}
-						actions={push}
-						menu={menu("Branch")}
+						actions={push(1)}
 					/>,
 					<BranchItem
 						key="api"
@@ -196,7 +169,6 @@ const Stacks: FC<{ folded: [boolean, boolean] }> = ({ folded: initiallyFolded })
 								<MetaCount type="age">2d</MetaCount>
 							</>
 						}
-						menu={menu("Branch")}
 					/>,
 				],
 			})}
@@ -236,8 +208,8 @@ export const Empty = meta.story({
 		<div style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "flex-start" }}>
 			<Card label="pavel--macbook-pro-2" header={machine}>
 				<Repository last>
-					<RepoItem name="but-dev" folded={false} menu={menu("Repository")} />
-					<UncommittedItem count={10} depth={1} menu={menu("Uncommitted changes")} />
+					<RepoItem name="but-dev" folded={false} />
+					<UncommittedItem count={10} depth={1} />
 					<BranchItem
 						title="redact-remote-creds"
 						depth={1}
@@ -248,35 +220,31 @@ export const Empty = meta.story({
 								<MetaCount type="age">1d</MetaCount>
 							</>
 						}
-						menu={menu("Branch")}
 					/>
 					<BranchItem
 						title="offline-cache"
 						depth={1}
 						folded="empty"
 						meta={<MetaCount type="empty">empty</MetaCount>}
-						menu={menu("Branch")}
 					/>
 				</Repository>
 			</Card>
 			<Card label="pavel--macbook-pro-2" header={machine}>
 				<Repository last>
-					<RepoItem name="but-dev" folded={false} menu={menu("Repository")} />
+					<RepoItem name="but-dev" folded={false} />
 					<WorktreeItem
 						main
 						name="Main worktree"
 						depth={1}
 						folded={false}
 						meta={<MetaCount type="behind">2</MetaCount>}
-						menu={menu("Worktree")}
 					/>
-					<UncommittedItem count={9} depth={2} menu={menu("Uncommitted changes")} />
+					<UncommittedItem count={9} depth={2} />
 					<BranchItem
 						title="ios-push-handoff"
 						depth={2}
 						folded
 						meta={<MetaCount type="unpushed">9</MetaCount>}
-						menu={menu("Branch")}
 					/>
 					<WorktreeItem
 						name="scratch"
@@ -288,20 +256,18 @@ export const Empty = meta.story({
 								<MetaCount type="age">3d</MetaCount>
 							</>
 						}
-						menu={menu("Worktree")}
 					/>
 				</Repository>
 			</Card>
 			<Card label="pavel--macbook-pro-2" header={machine}>
 				<Repository>
-					<RepoItem name="but-dev" folded={false} menu={menu("Repository")} />
-					<UncommittedItem count={12} depth={1} menu={menu("Uncommitted changes")} />
+					<RepoItem name="but-dev" folded={false} />
+					<UncommittedItem count={12} depth={1} />
 					<BranchItem
 						title="ios-push-handoff"
 						depth={1}
 						folded
 						meta={<MetaCount type="unpushed">4</MetaCount>}
-						menu={menu("Branch")}
 					/>
 				</Repository>
 				<Repository last>
@@ -315,7 +281,6 @@ export const Empty = meta.story({
 								<MetaCount type="age">3d</MetaCount>
 							</>
 						}
-						menu={menu("Repository")}
 					/>
 				</Repository>
 			</Card>
@@ -349,7 +314,7 @@ export const Merging = meta.story({
 /**
  * Merged work reads as merged whether or not its pull request is known: a request shows its number,
  * and a branch with none known says Merged beside its name. A worktree whose only branch merged is
- * done with: it shows its age, and Delete under the pointer.
+ * done with: it shows its age, and Delete.
  */
 export const Merged = meta.story({
 	parameters: { design: { type: "figma", url: core("2572-3458") } },
@@ -360,7 +325,6 @@ export const Merged = meta.story({
 				depth={1}
 				folded={false}
 				meta={<MetaCount type="age">2h</MetaCount>}
-				menu={menu("Worktree")}
 			/>
 			<BranchItem
 				title="feat: archive old worktrees"
@@ -368,7 +332,6 @@ export const Merged = meta.story({
 				depth={2}
 				folded
 				meta={<MetaCount type="age">3d</MetaCount>}
-				menu={menu("Branch")}
 			/>
 			<BranchItem
 				title="tidy-sidebar-rows"
@@ -376,7 +339,6 @@ export const Merged = meta.story({
 				depth={2}
 				folded
 				meta={<MetaCount type="age">5d</MetaCount>}
-				menu={menu("Branch")}
 			/>
 			<WorktreeItem
 				name="retry-transfers"
@@ -384,7 +346,6 @@ export const Merged = meta.story({
 				folded={false}
 				meta={<MetaCount type="age">1d</MetaCount>}
 				actions={<Button size="small">Delete</Button>}
-				menu={menu("Worktree")}
 			/>
 			<BranchItem
 				title="retry-transfers"
@@ -392,7 +353,6 @@ export const Merged = meta.story({
 				depth={2}
 				folded
 				meta={<MetaCount type="age">1d</MetaCount>}
-				menu={menu("Branch")}
 			/>
 		</Column>
 	),
@@ -407,16 +367,15 @@ const ConflictsTree: FC<{ selected?: boolean }> = ({ selected = false }) => {
 	);
 	return (
 		<Repository last>
-			<RepoItem name="but-dev" folded={false} menu={menu("Repository")} />
+			<RepoItem name="but-dev" folded={false} />
 			<WorktreeItem
 				main
 				name="Main worktree"
 				depth={1}
 				folded={false}
 				meta={<MetaCount type="age">3d</MetaCount>}
-				menu={menu("Worktree")}
 			/>
-			<UncommittedItem count={22} depth={2} menu={menu("Uncommitted changes")} />
+			<UncommittedItem count={22} depth={2} />
 			<BranchItem
 				title="fix: unique cursor names"
 				pr={{ number: 454, state: "open" }}
@@ -425,12 +384,11 @@ const ConflictsTree: FC<{ selected?: boolean }> = ({ selected = false }) => {
 				meta={
 					<>
 						<MetaCount type="conflicts">2</MetaCount>
-						<CiStatus status="working" />
+						<MetaStatus variant="working">CI</MetaStatus>
 						<MetaCount type="unpushed">5</MetaCount>
 					</>
 				}
 				actions={resolve}
-				menu={menu("Branch")}
 			/>
 			<BranchItem
 				title="perf: cheaper status polling"
@@ -439,33 +397,20 @@ const ConflictsTree: FC<{ selected?: boolean }> = ({ selected = false }) => {
 				folded={false}
 				meta={
 					<>
-						<CiStatus status="working" />
+						<MetaStatus variant="working">CI</MetaStatus>
 						<MetaCount type="unpushed">5</MetaCount>
 					</>
 				}
 				actions={resolve}
-				menu={menu("Branch")}
 			/>
-			<CommitItem
-				message="docs: handoff notes"
-				conflicted
-				depth={3}
-				selected={selected}
-				menu={menu("Commit")}
-			/>
+			<CommitItem message="docs: handoff notes" conflicted depth={3} selected={selected} />
 			<CommitItem
 				message="feat: 28px hunk separator"
 				pushed={false}
 				conflicted={selected}
 				depth={3}
-				menu={menu("Commit")}
 			/>
-			<CommitItem
-				message="chore: separator tokens"
-				pushed={false}
-				depth={3}
-				menu={menu("Commit")}
-			/>
+			<CommitItem message="chore: separator tokens" pushed={false} depth={3} />
 		</Repository>
 	);
 };

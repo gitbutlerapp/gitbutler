@@ -1,7 +1,10 @@
+import type { FC, ReactNode } from "react";
 import { stories } from "../stories/stories.ts";
 import { Button } from "./Button.tsx";
+import { Code } from "./Code.tsx";
+import { DescriptionList, DescriptionListItem } from "./DescriptionList.tsx";
 import { Icon } from "./Icon.tsx";
-import { CiStatus, MetaCount, type MetaCountType } from "./MetaCount.tsx";
+import { MetaCount, type MetaCountType, MetaStatus } from "./MetaCount.tsx";
 import { Tooltip } from "./Tooltip.tsx";
 
 const types: Array<MetaCountType> = [
@@ -20,6 +23,7 @@ const types: Array<MetaCountType> = [
 	"repos",
 	"agent-working",
 	"agent-waiting",
+	"running",
 	"stack",
 	"cpu",
 	"cpu-danger",
@@ -57,34 +61,70 @@ const sample: Record<MetaCountType, string> = {
 	repos: "4",
 	"agent-working": "12m",
 	"agent-waiting": "2m",
+	running: "cargo build",
 	stack: "1/3",
 	cpu: "14%",
 	"cpu-danger": "84%",
 };
 
-/** Every kind of count, as rows show them, and the three states of a branch's checks. */
+/** Every kind of count, as rows show them. */
 export const Kinds = meta.story({
-	parameters: {
-		design: {
-			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2572-3595",
-		},
-	},
 	render: () => (
-		<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-			<div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-				{types.map((type) => (
-					<MetaCount key={type} type={type}>
-						{sample[type]}
-					</MetaCount>
-				))}
-			</div>
-			<div style={{ display: "flex", gap: 12 }}>
-				<CiStatus status="working" />
-				<CiStatus status="passed" />
-				<CiStatus status="failed" />
-			</div>
+		<div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+			{types.map((type) => (
+				<MetaCount key={type} type={type}>
+					{sample[type]}
+				</MetaCount>
+			))}
 		</div>
+	),
+});
+
+/** A mark that says something is running, and the code that draws it. */
+const Mark: FC<{ children: ReactNode; code: string }> = ({ children, code }) => (
+	<span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+		{children}
+		<Code>{code}</Code>
+	</span>
+);
+
+/**
+ * Every mark that says something is running, side by side, picked by who is at work: the ring for
+ * your own action, in the row's glyph or a loading snackbar; the amber ring for a check or a deploy,
+ * a result you'll look at; the robot for an agent; the dots for any other program in a terminal.
+ * Only the amber one asks anything of you. The Work under way note has the rules.
+ */
+export const WorkUnderWay = meta.story({
+	render: () => (
+		<DescriptionList>
+			<DescriptionListItem label="Your action">
+				<Mark code="busy">
+					<Icon name="spinner" aria-label="Working" />
+				</Mark>
+			</DescriptionListItem>
+			<DescriptionListItem label="Out of sight">
+				<Mark code={'type: "loading"'}>
+					<Icon name="spinner" aria-label="Working" />
+				</Mark>
+			</DescriptionListItem>
+			<DescriptionListItem label="A check">
+				<Mark code={'<MetaStatus variant="working">'}>
+					<MetaStatus variant="working" aria-label="Checks running" />
+				</Mark>
+			</DescriptionListItem>
+			<DescriptionListItem label="An agent">
+				<Mark code={'<MetaCount type="agent-working">'}>
+					{/* oxlint-disable-next-line jsx_a11y/prefer-tag-over-role -- A drawn glyph with a name, as MetaStatus alone is. */}
+					<MetaCount type="agent-working" role="img" aria-label="Agent working" />
+				</Mark>
+			</DescriptionListItem>
+			<DescriptionListItem label="A program">
+				<Mark code={'<MetaCount type="running">'}>
+					{/* oxlint-disable-next-line jsx_a11y/prefer-tag-over-role -- A drawn glyph with a name, as MetaStatus alone is. */}
+					<MetaCount type="running" role="img" aria-label="Working" />
+				</Mark>
+			</DescriptionListItem>
+		</DescriptionList>
 	),
 });
 
@@ -97,24 +137,13 @@ export const Kinds = meta.story({
 export const WithNextStep = meta.story({
 	render: () => (
 		<div style={{ display: "flex", columnGap: 4, alignItems: "center" }}>
-			<CiStatus status="working" />
+			<MetaStatus variant="working">CI</MetaStatus>
 			<Tooltip content="Push 5 commits">
 				<Button size="small" variant="info" aria-label="Push 5 commits">
 					5
 					<Icon name="arrow-up" />
 				</Button>
 			</Tooltip>
-		</div>
-	),
-});
-
-/** Checks with how far they got, as a pull request's tab shows them: 2 of 14 done, or failed. */
-export const CiProgress = meta.story({
-	render: () => (
-		<div style={{ display: "flex", gap: 12 }}>
-			<CiStatus status="working">CI 2/14</CiStatus>
-			<CiStatus status="failed">CI 2/14</CiStatus>
-			<CiStatus status="passed" />
 		</div>
 	),
 });

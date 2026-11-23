@@ -5,13 +5,12 @@ use gpui::{App, Context, InteractiveElement, Window};
 
 use super::rows::{Fold, Moving, Row};
 use super::{
-    CARD_MARGIN, ClickOpened, DRAWER_CHROME, Navigator, NextSection, PreviousSection, SelectFirst,
-    SelectLast, items, parent, tabs,
+    ClickOpened, Navigator, NextSection, PreviousSection, SelectFirst, SelectLast, items, parent,
+    tabs,
 };
 use crate::app::{Collapse, Confirm, Expand, SelectNext, SelectPrevious, ToggleFold};
 use crate::backend::Checkout;
 use crate::state::{ProjectId, Section, Selection};
-use crate::theme::Theme;
 
 /// Where a step of the keys lands.
 #[derive(Debug, PartialEq, Eq)]
@@ -224,8 +223,7 @@ impl Navigator {
     /// are, as cards don't fold.
     pub(super) fn drawer_toggles(&self, cx: &App) -> bool {
         // Under its tab the card shows it whole, with nothing to fold.
-        self.scope.is_none()
-            && (self.built.drawer.total > 0 && !self.built.rows.is_empty() && !self.filtering(cx))
+        self.scope.is_none() && (!self.built.rows.is_empty() && !self.filtering(cx))
     }
 
     /// Whether the keys were stepped up off the rows onto the tab the card being worked on hangs
@@ -242,11 +240,8 @@ impl Navigator {
 
     /// Give the drawer's bar the keys, in view.
     fn enter_drawer_bar(&mut self, cx: &mut Context<Navigator>) {
+        // Pinned at the column's foot, it's always in view.
         self.off_row = Some(OffRow::DrawerBar);
-        let theme = Theme::get(cx);
-        let (spacer, _) = self.footer.get();
-        let top = theme.scaled(spacer + CARD_MARGIN);
-        self.reveal_in_footer(top, theme.scaled(DRAWER_CHROME));
         cx.notify();
     }
 
@@ -480,8 +475,8 @@ impl Navigator {
                     .and_then(|ws| ws.find_worktree(name.as_ref()))
                     .is_some_and(|wt| wt.is_inactive(store.prefs.inactive_after)) =>
             {
-                let heading = Selection::Section(project, Section::Inactive);
-                self.select(heading, window, cx)
+                let more = Selection::Section(project, Section::Inactive);
+                self.select(more, window, cx)
             }
             Some(Selection::Mesh(project, id, pick)) => {
                 self.collapse_mesh(project, id, pick, window, cx)

@@ -1,4 +1,7 @@
 .row {
+	/* The end sits as far in from the row's edge as a small button in it does from its top and
+	   bottom. */
+	--row-end: calc((var(--but-size-control) - var(--but-size-control-sm)) / 2);
 	--guide-color: color-mix(in srgb, var(--but-muted-foreground) 20%, transparent);
 
 	display: flex;
@@ -6,8 +9,7 @@
 	column-gap: var(--but-gap-icon-text);
 	align-items: center;
 	min-height: var(--but-size-control);
-	/* Less on the end: a menu button sets itself in from the edge already. */
-	padding-inline: var(--but-space-lg) var(--but-space-sm);
+	padding-inline: var(--but-space-lg) var(--row-end);
 	border-radius: var(--but-radius-control);
 	color: var(--but-foreground);
 	text-decoration: none;
@@ -15,7 +17,8 @@
 
 	/* No transition: hover and selection share this ground, and selection moves with the arrow
 	   keys (design/foundations/states.md, "List rows snap"). */
-	&:where(:hover) {
+	/* A linked row takes the hover's ground: the pointer is on what it goes with. */
+	&:where(:hover, [data-linked]) {
 		background-color: var(--but-hover);
 	}
 
@@ -42,7 +45,8 @@
 
 	.icon,
 	.toggle,
-	.empty {
+	.empty,
+	.place {
 		color: var(--but-inverse-muted-foreground);
 	}
 
@@ -58,6 +62,10 @@
 	   light-dark() colours resolve to their inverted values, as Badge and MetaCount do. */
 	.branchGlyph,
 	.conflicted,
+	.unread,
+	.local,
+	.remote,
+	.upstream,
 	.title {
 		color-scheme: dark;
 
@@ -166,6 +174,12 @@
    than its step, on top of the row's. Behind the glyph, so the box doesn't cover it. */
 button.toggle {
 	isolation: isolate;
+
+	/* Out of the tab order, as the tree moves with the arrow keys, so it never needs a ring of its
+	   own: the row rings. A click focuses it, and the browser would draw its default ring. */
+	&:focus-visible {
+		outline: none;
+	}
 
 	&::before {
 		z-index: -1;
@@ -297,20 +311,22 @@ button.toggle {
 /* Counts sit flush: each carries its own side padding, so two of them are 6px apart glyph to glyph. */
 .meta {
 	display: flex;
-	flex-shrink: 0;
 	align-items: center;
 }
 
-/* A TargetItem keeps Update beside its count rather than in its place: a gap on top of the count's
-   own padding tells the button from the count. */
-.target .meta {
-	column-gap: var(--but-space-sm);
+/* A commit's author at the row's end, set in like a count's glyph, so the picture lines up with
+   the counts above it. */
+.author {
+	display: flex;
+	padding-inline: 3px;
 }
 
 /* Each picture tucks under the one before it, cut where that one sits with a sliver of gap, rather
-   than ringed in a ground colour: the row's ground changes under the pointer and on selection. */
+   than ringed in a ground colour: the row's ground changes under the pointer and on selection. Set
+   in like a single author's picture, so the stacks and the pictures line up down the list. */
 .authors {
 	display: flex;
+	padding-inline: 3px;
 
 	& > * + * {
 		margin-left: -4px;
@@ -318,83 +334,96 @@ button.toggle {
 	}
 }
 
-/* compact: the name takes the line and the state sits at the end, where it stays: the menu follows
-   it under the pointer, on keyboard focus and on a selected row, and the name gives way. The
-   actions, a next step for what the state counts (Update for ↓, Push for ↑), take the state's
-   place under the pointer and on keyboard focus only, so a selected row still says where it stands.
-   Keyboard focus only: a click focuses what it lands on (the chevron too), and the actions would
-   stay up after it. Also while the row's menu is open: the popup takes the pointer and the focus
-   away from the row, and its button must stay put. */
+/* compact: the name takes the line, and the state and then the next step sit at the end, where
+   they stay: nothing on the row shows or gives way under the pointer. There is no ⋯: the row's
+   menu opens with a right-click. */
 .compact {
 	.label {
 		flex-grow: 1;
 	}
 }
 
+/* The next step sits 4px after the counts, so a button in a count's place reads as one more. It
+   keeps its width, unless the meta holds a name (a MetaCount `head`): then it gives way before the
+   row's own name, the meta's name shrinking down to its glyph while the counts and the next step
+   keep their width. */
 .end {
-	display: grid;
-	flex-shrink: 0;
-	justify-items: end;
-
-	& > * {
-		grid-area: 1 / 1;
-	}
-}
-
-.hover {
 	display: flex;
-	visibility: hidden;
 	column-gap: var(--but-space-sm);
-	align-items: center;
-
-	.row:is(:hover, :focus-visible, :has(:focus-visible), :has([aria-haspopup][aria-expanded="true"]))
-		& {
-		visibility: visible;
-	}
-}
-
-/* The hidden state gives up its width too, so the name runs on up to the actions rather than
-   stopping where the wider state began. The actions stay put at the end. */
-.endSwaps .meta {
-	.row:is(:hover, :focus-visible, :has(:focus-visible), :has([aria-haspopup][aria-expanded="true"]))
-		& {
-		visibility: hidden;
-		max-width: 0;
-		overflow: hidden;
-	}
-}
-
-/* With no state to swap with, the actions keep no room while hidden: the name takes the line, and
-   gives the end back only while they show, as the menu does. */
-.endBare {
-	.row:not(
-			:hover,
-			:focus-visible,
-			:has(:focus-visible),
-			:has([aria-haspopup][aria-expanded="true"])
-		)
-		& {
-		display: none;
-	}
-}
-
-/* The menu takes the row's end only while it shows, so the name keeps the width the rest of the
-   time. */
-.menu {
-	display: none;
 	flex-shrink: 0;
-	margin-inline-start: auto;
+	align-items: center;
+}
 
-	.row:is(
-			:hover,
-			:focus-visible,
-			:has(:focus-visible),
-			[data-selected],
-			:has([aria-haspopup][aria-expanded="true"])
-		)
-		& {
-		display: flex;
+/* Many times the name's shrink, so the name keeps every pixel while the meta's name has room to
+   give. */
+.end:has(> .meta [data-meta-name]) {
+	flex-shrink: 10000;
+	min-width: 0;
+}
+
+.meta:has([data-meta-name]) {
+	min-width: 0;
+
+	/* Only the name gives way; the counts beside it keep their width. */
+	& > :not([data-meta-name]) {
+		flex-shrink: 0;
 	}
+}
+
+.actions {
+	display: flex;
+	column-gap: var(--but-space-sm);
+	flex-shrink: 0;
+	align-items: center;
+}
+
+/* A split's map, last on the row and an icon wide, so the maps line up down the list. It stands a
+   step further off than the counts sit from each other, so it reads as its own mark. */
+.split {
+	display: flex;
+	flex-shrink: 0;
+	justify-content: center;
+	width: 16px;
+	margin-inline-start: var(--but-space-sm);
+	/* A mark with no edge or padding of its own, so it stands as far in as a count's glyph does
+	   rather than looking stuck to the row's end. */
+	margin-inline-end: var(--but-space-sm);
+}
+
+/* A count last on the row, a MetaCount or MetaStatus with no button or map after it: no edge of its
+   own, and its padding sets its text in less than a button's sets its label, so it stands as far
+   further in as a split's map does rather than looking stuck to the row's end. A badge has an edge,
+   and stays. */
+.end:not(:has(> .actions, > .split)) > .meta:last-child:has(> [data-meta-count]:last-child) {
+	margin-inline-end: var(--but-space-sm);
+}
+
+/* In a tree that keeps a map's room, it isn't at the row's end, and stays put. */
+:where([data-split-room])
+	.end:not(:has(> .actions, > .split))
+	> .meta:last-child:has(> [data-meta-count]:last-child) {
+	margin-inline-end: 0;
+}
+
+/* In a tree that shows splits, a row without one keeps the cell's room, the end's gap and the
+   cell's own step on either side, so the counts line up down the list too. */
+:where([data-split-room]) .row:not(:has(> .end > .split)) {
+	padding-inline-end: calc(var(--row-end) + 16px + 3 * var(--but-space-sm));
+}
+
+/* Something changed since the row was last opened: a dot in the row's start padding, before its
+   guides, where it moves nothing, so the counts line up down the list whether a row has one or not.
+   In quiet neutral ink, never a state's colour: unread says something changed, not what it is,
+   and a list can hold many. Gray 8, between the border and subtle text, which no role names. */
+.unread {
+	position: absolute;
+	width: 5px;
+	height: 5px;
+	inset-block-start: calc(50% - 2.5px);
+	/* 3px in from the row's edge, so it clears the edge of the row's fill. */
+	inset-inline-start: 3px;
+	border-radius: var(--but-radius-full);
+	background-color: var(--but-gray-8);
 }
 
 /* A pull request's state in its glyph, a mark with no words of its own. */
@@ -411,10 +440,25 @@ button.toggle {
 }
 
 /* A conflicted commit's warning, in its glyph's place. Flex, so the wrapper that names it takes
-   no line box of its own, which would sit the icon on a text baseline above the row's centre. */
+   no line box of its own, which would sit the icon on a text baseline above the row's centre.
+   Amber: a conflict waits on the user, it hasn't failed (but-ui's Conflicts note). */
 .conflicted {
 	display: flex;
-	color: var(--but-danger-mark);
+	color: var(--but-warning-mark);
+}
+
+/* A commit's glyph by where it stands, from its state's token and never a colour of its own, so a
+   state's colour changes in one place for every client (but-ui's Sidebar trees note). */
+.local {
+	color: var(--but-commit-local);
+}
+
+.remote {
+	color: var(--but-commit-remote);
+}
+
+.upstream {
+	color: var(--but-commit-upstream);
 }
 
 .badge {
@@ -435,8 +479,8 @@ button.toggle {
 	display: flex;
 }
 
-/* A stack's caption names what follows; it doesn't open, so alone it doesn't answer the pointer
-   beyond showing its menu. */
+/* A stack's caption names what follows; it doesn't open, so alone it doesn't answer the
+   pointer. */
 .caption {
 	color: var(--but-subtle-foreground);
 	cursor: default;
@@ -459,18 +503,19 @@ button.toggle {
 	}
 }
 
+/* Where a terminal is open reads under its name and gives way before it does. */
+.place {
+	flex-shrink: 100;
+	color: var(--but-muted-foreground);
+}
+
 /* "Stack" keeps its width, a step above the muted tip after it, which gives way. */
 .word {
 	flex-shrink: 0;
 	color: var(--but-muted-foreground);
 }
 
-/* A page's value at its end ("Light", "Teal") reads two steps under its name. A NavItem has no menu
-   to set itself in from the edge, so the end keeps the start's inset. */
-.nav:has(.meta) {
-	padding-inline-end: var(--but-space-lg);
-}
-
+/* A page's value at its end ("Light", "Teal") reads two steps under its name. */
 .nav .meta {
 	color: var(--but-subtle-foreground);
 	font-size: 13px;
@@ -561,5 +606,99 @@ button.nav {
 
 	&:hover {
 		background-color: var(--but-hover);
+	}
+}
+
+/* A drawer's name stays muted on the panel's ground, under the cards. It holds nothing of its own,
+   only opens or closes, so it takes no tint under the pointer: its chevron comes up instead. Its
+   fold is a button stretched over the whole row, so a press anywhere folds it; its end sits above
+   the stretch, so its buttons take their own clicks. The row rings, rather than the button. */
+.drawer {
+	color: var(--but-muted-foreground);
+
+	&:where(:hover) {
+		background-color: transparent;
+	}
+
+	&:hover .toggle {
+		color: var(--but-muted-foreground);
+		opacity: 1;
+	}
+
+	&:has(.drawerToggle:focus-visible) {
+		outline: var(--but-focus-ring);
+		outline-offset: -1px;
+	}
+
+	.end {
+		position: relative;
+	}
+
+	/* After the name and the count rather than before, as the drawer has no indent to hang it in. */
+	.toggle {
+		display: flex;
+		flex-shrink: 0;
+	}
+}
+
+.drawerToggle {
+	display: flex;
+	column-gap: var(--but-gap-icon-text);
+	flex-grow: 1;
+	align-items: center;
+	align-self: stretch;
+	min-width: 0;
+	padding: 0;
+	border: none;
+	background: none;
+	color: inherit;
+	font: inherit;
+	text-align: start;
+	cursor: var(--control-cursor);
+
+	&::after {
+		position: absolute;
+		inset: 0;
+		border-radius: var(--but-radius-control);
+		content: "";
+	}
+
+	&:focus-visible {
+		outline: none;
+	}
+}
+
+/* Out of the row until the pointer is on it or the keys are in it, which they reach through the
+   fold before them. */
+.hoverActions {
+	display: none;
+	column-gap: var(--but-space-sm);
+	align-items: center;
+
+	.drawer:hover &,
+	.drawer:focus-within & {
+		display: flex;
+	}
+}
+
+.drawerSection {
+	padding-block: var(--but-space-xl);
+	border-top: 1px solid var(--but-border-subtle);
+}
+
+.drawerLast {
+	border-bottom: 1px solid var(--but-border-subtle);
+}
+
+.drawerContent {
+	margin-top: var(--but-space-lg);
+}
+
+/* A row still loading: no ground under the pointer, as there's nothing yet to press. */
+.loading {
+	cursor: default;
+
+	&:hover {
+		background-color: transparent;
 	}
 }

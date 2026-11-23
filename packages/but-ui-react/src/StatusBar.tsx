@@ -38,9 +38,9 @@ export const StatusBar: FC<StatusBarProps> = ({ start, end, ...props }) => (
 
 type StatusNoteProps = {
 	/**
-	 * `warning` for what an action would leave conflicted (With conflicts, while committing or
-	 * amending). `danger` for something broken (CI failed, Couldn't fetch) and for the counts in a
-	 * {@link StatusAlert}. @default "default"
+	 * `warning` for conflicts: what an action would leave conflicted (With conflicts, while
+	 * committing or amending) and the counts in a {@link StatusAlert}. `danger` for something broken
+	 * (CI failed, Couldn't fetch). @default "default"
 	 */
 	tone?: "default" | "warning" | "danger";
 	/** The glyph before the label. */
@@ -82,8 +82,9 @@ export const StatusNote: FC<StatusNoteProps> = ({
 );
 
 /**
- * What needs resolving, behind one danger badge so its counts read as one problem: the conflicts.
- * Its children are danger {@link StatusNote}s, one per place, as "3 commits" and "2 uncommitted
+ * What needs resolving, behind one warning badge so its counts read as one thing to do: the
+ * conflicts, in amber, since they wait on the user rather than having failed. Its children are
+ * warning {@link StatusNote}s, one per place, as "3 commits" and "2 uncommitted
  * files". Leave out a note whose count is 0, and the whole alert when both are.
  *
  * @import import { StatusAlert } from "@gitbutler/but-ui-react/StatusBar.tsx";

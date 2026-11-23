@@ -456,7 +456,7 @@ export const PopupSearch: FC<{ onClear?: () => void } & useRender.ComponentProps
 
 /**
  * What a popup's list shows when it has no rows: the "Empty state" block in its `tidy` variant,
- * sized for a list rather than a panel.
+ * as wide as the list and 5:2 as tall, so the popup keeps its proportions however wide it opens.
  *
  * A search that came up empty reports the miss in `nothingFound` with a small "Clear search" under
  * it, which calls `onClearSearch` — the same clear the search row's own button does, so pass that —
@@ -481,9 +481,14 @@ export const PopupEmpty: FC<{
 	onClearSearch: () => void;
 }> = ({ query, nothingFound, nothingToList, onClearSearch }) =>
 	query === "" ? (
-		<EmptyState variant="tidy" illustration="cactus" description={nothingToList} />
+		<EmptyState
+			variant="tidy"
+			illustration="cactus"
+			description={nothingToList}
+			className={styles.empty}
+		/>
 	) : (
-		<EmptyState variant="tidy" description={nothingFound}>
+		<EmptyState variant="tidy" description={nothingFound} className={styles.empty}>
 			<Button
 				variant="outline"
 				size="small"
@@ -566,11 +571,16 @@ export const PopupItem: FC<
 		leading?: ReactNode;
 		/** Closes the row — a tick for the current choice, a chevron for a step further in. */
 		trailing?: IconName;
+		/**
+		 * Closes the row where a glyph from the icon set is not the right mark — a `MetaStatus` in
+		 * its own colour, say. Sits before any shortcut and `trailing` glyph.
+		 */
+		end?: ReactNode;
 		/** The shortcut that does what the row does, sat before any trailing glyph. */
 		kbd?: string | HotkeySequence;
 		children: ReactNode;
 	} & useRender.ComponentProps<"button">
-> = ({ icon, leading, trailing, kbd, children, render, ...props }) =>
+> = ({ icon, leading, trailing, end, kbd, children, render, ...props }) =>
 	useRender({
 		// oxlint-disable-next-line jsx_a11y/control-has-associated-label -- Labelled by its children.
 		render: render ?? <button type="button" />,
@@ -581,6 +591,7 @@ export const PopupItem: FC<
 					{icon !== undefined && <Icon name={icon} className={styles.itemIcon} />}
 					{leading}
 					<span className={styles.itemLabel}>{children}</span>
+					{end !== undefined && <span className={styles.itemEnd}>{end}</span>}
 					{kbd !== undefined && <Kbd hotkey={kbd} className={styles.itemKbd} />}
 					{trailing !== undefined && <Icon name={trailing} className={styles.itemIcon} />}
 				</>

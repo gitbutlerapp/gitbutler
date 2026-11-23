@@ -168,6 +168,16 @@
 	--button-bg: transparent;
 	--button-icon-opacity: 0.8;
 	--button-hover-icon-opacity: 0.9;
+
+	/* Inside a selected row on the solid fill, the opposite scheme keeps the colour: every
+	   light-dark() colour resolves to its inverted value, as Badge and MetaCount do. */
+	@container style(--selection-inverted: true) {
+		color-scheme: dark;
+
+		@container style(--scheme-dark: true) {
+			color-scheme: light;
+		}
+	}
 }
 
 :where(.info) {

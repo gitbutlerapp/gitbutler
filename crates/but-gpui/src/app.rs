@@ -4689,15 +4689,15 @@ impl AppView {
         let shown = store.prefs.shows(Part::TerminalOverview);
         let theme = Theme::get(cx);
         let terminals = shown.then(|| {
-            // As tall as its rows until its line is dragged, then as dragged, but just its bar
-            // while it's folded. Put back, it slides from where it was dragged to its rows,
-            // under the limit it had dragged.
+            // As tall as its rows until its line is dragged, then as dragged but never taller
+            // than its rows, but just its bar while it's folded. Put back, it slides from where
+            // it was dragged to its rows, under the limit it had dragged.
             let overview = self.terminals.read(cx);
             let shut = overview.is_shut();
             let dragged = (store.dragged_width(Pane::Terminals)).filter(|_| !shut);
             let glide = store.width_glide(Pane::Terminals);
             let (height, most) = match (dragged, glide) {
-                (Some(height), _) => (height, TERMINALS_MOST_DRAGGED),
+                (Some(height), _) => (height.min(overview.height(cx)), TERMINALS_MOST_DRAGGED),
                 (None, Some(glide)) => (
                     glide.at(overview.height(cx), clock::now()),
                     TERMINALS_MOST_DRAGGED,
@@ -4718,8 +4718,8 @@ impl AppView {
                     }
                 }
             };
-            // The gap over its card, to the navigator's, drags its height, as the one beside
-            // the navigator drags that's width.
+            // The line over its drawer drags its height, as the gap beside the navigator drags
+            // that's width.
             let divider = gap_divider(
                 "resize-terminals",
                 Axis::Down,
@@ -4728,10 +4728,11 @@ impl AppView {
                 theme,
                 cx,
             )
+            // Over the line at its top, its middle on it, as the hidden projects' is.
             .left_0()
             .right_0()
-            .top(dp(-TERMINALS_MARGIN - 2.))
-            .h(dp(TERMINALS_MARGIN + 4.))
+            .top(dp(-crate::navigator::DIVIDER_REACH))
+            .h(dp(2. * crate::navigator::DIVIDER_REACH + 1.))
             .on_drag(Pane::Terminals, mark_dragged(&self.store, which))
             .on_click(reset);
             div()

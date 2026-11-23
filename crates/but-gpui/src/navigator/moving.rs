@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Instant;
 
-use gpui::{AnyElement, App, Context, Div, Hsla, SharedString, Window, div, prelude::*};
+use gpui::{AnyElement, App, Context, Div, ElementId, Hsla, SharedString, Window, div, prelude::*};
 
 use super::drop::{stack_end, stack_start};
 use super::order::moving_terminal;
@@ -28,7 +28,10 @@ use crate::transfer::{
 };
 use crate::ui::Text;
 use crate::ui::fold::{self, on_top};
-use crate::ui::{Icon, blink_once, dp, fixed, guide, h_flex, icon, small_icon};
+use crate::ui::{
+    CommitPlace, Fold as RowFold, Icon, blink_once, branch_item, commit_item, dp, fixed, guide,
+    h_flex, small_icon,
+};
 
 /// The move of commits or a branch shown in `project`, or the squash of those or files, with
 /// copies where it'd land: the one under way, or one Return landed, until the reload after it
@@ -363,7 +366,8 @@ fn taken_away(
                 | RowKey::NewCommit(_)
                 | RowKey::SquashTop
                 | RowKey::SquashBottom
-                | RowKey::After(_),
+                | RowKey::After(_)
+                | RowKey::HeaderRule(_),
             )
             | None => false,
         })
@@ -1909,16 +1913,18 @@ pub(super) fn new_commit_row(
         ..RowStyle::plain(theme, inset)
     };
     let title = shown(store, project).and_then(|moving| moving.commit_title(store));
-    // Untitled till its message is written, quiet as an empty title is.
-    let title = match title {
-        Some(title) => div().child(title.to_owned()),
-        None => div().text_color(style.muted()).child("New commit"),
-    };
-    (style.row(format!("new-commit-{project}"), COMMIT_INDENT))
-        .gap(dp(10.))
-        .child(small_icon(Icon::Commit).text_color(style.meta(theme.info_mark)))
-        .child(title.flex_1().min_w_0().truncate())
-        .into_any_element()
+    // Untitled till its message is written.
+    let title = title.map_or("New commit".to_owned(), ToOwned::to_owned);
+    let row = commit_item(
+        ElementId::Name(format!("new-commit-{project}").into()),
+        title,
+        CommitPlace::Local,
+        false,
+        false,
+        theme,
+    );
+    // Where a commit's row puts its glyph: see `RowStyle::commit_line`.
+    style.draw(row, COMMIT_INDENT - 3.).into_any_element()
 }
 
 /// Where what's moving lands outlined over its row, as dropping on it outlines it but in the
@@ -1937,8 +1943,8 @@ pub(super) fn squash_outline(
         .absolute()
         .top(dp(top))
         .bottom(dp(-bottom))
-        .left(dp(3.))
-        .right(dp(3.))
+        .left(dp(super::rows::ROW_MARGIN))
+        .right(dp(super::rows::ROW_MARGIN))
         .rounded(dp(shape.control))
         .border_1()
         .border_color(colour)
@@ -1952,10 +1958,16 @@ pub(super) fn squash_outline(
 /// Branch `name`'s row as a copy draws it, row `id`, in `style`: folded, as its own row is,
 /// and nothing on it acts.
 fn branch_copy(id: String, name: String, style: RowStyle) -> AnyElement {
-    (style.row(id, 6.))
-        .child(icon(Icon::Branch).text_color(style.muted()))
-        .child(div().flex_1().min_w_0().truncate().child(name))
-        .into_any_element()
+    let row = branch_item(
+        ElementId::Name(id.into()),
+        name,
+        None,
+        false,
+        false,
+        style.theme,
+    )
+    .fold(RowFold::Folded);
+    style.draw(row, 0.).into_any_element()
 }
 
 /// What a move took away, drawn where it was below the row drawing it, as it was: inside the
@@ -2041,7 +2053,7 @@ pub(super) fn ghost_branch_row(
     };
     h_flex()
         .min_h(dp(theme.sizes.control))
-        .mx(dp(3.))
+        .mx(dp(super::rows::ROW_MARGIN))
         .pl(dp(8. + inset))
         .pr(dp(12.))
         .gap(dp(8.))

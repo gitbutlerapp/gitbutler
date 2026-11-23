@@ -22,7 +22,7 @@ use crate::ui::Text;
 use crate::ui::conflict::{self, Actions, Kept, Name, Part, Pick};
 use crate::ui::diff::{DiffRow, Layout, OnToggle};
 use crate::ui::text_input::{InputEvent, TextInput};
-use crate::ui::{ButtonStyle, Icon, Tooltip, button, commit_title, dp, h_flex, plural, small_icon};
+use crate::ui::{ButtonStyle, Icon, Tooltip, button, commit_title, dp, h_flex, icon_at, plural};
 
 actions!(
     conflict,
@@ -967,7 +967,7 @@ pub(super) fn warn_banner(
         .bg(theme.surface(Hue::Warn))
         .text_color(theme.warning_soft_foreground)
         .tooltip(Tooltip::text(detail))
-        .child(small_icon(Icon::Warning).text_color(theme.warning_soft_foreground))
+        .child(icon_at(Icon::Warning, 14.).text_color(theme.warning_soft_foreground))
         .child(
             div()
                 .flex_1()

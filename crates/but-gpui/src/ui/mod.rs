@@ -189,7 +189,8 @@ pub use window_controls::WINDOW_CONTROLS_WIDTH;
 /// How tall a list row is at Balanced density. Rows are drawn at `theme.sizes.control`, which
 /// the density moves; this stays for minimums and for tests, which count at Balanced.
 pub const ROW_HEIGHT: f32 = 28.;
-pub const HEADER_HEIGHT: f32 = 40.;
+/// A header: its 28px controls with 8 above and below, as 🍑 But UI's SidebarHeader and LocationBar.
+pub const HEADER_HEIGHT: f32 = 44.;
 pub const STATUS_BAR_HEIGHT: f32 = 30.;
 
 /// Which of `len` tabs comes after the one at `at`, going round, if there's another.
@@ -316,13 +317,44 @@ pub fn selected_part(
 /// A tree's line down from an open row's chevron, `at` its middle, on each row under it,
 /// where they join into one, as but.dev's sidebar draws them.
 pub fn guide(at: f32, theme: &Theme) -> Div {
+    guide_in(at, theme.border_subtle)
+}
+
+/// [`guide`] in `color`, as a row selected on the solid fill draws its guides in its own ink.
+pub fn guide_in(at: f32, color: Hsla) -> Div {
     div()
         .absolute()
         .top_0()
         .bottom_0()
         .left(dp(at))
         .w(fixed(1.))
-        .bg(theme.border_subtle)
+        .bg(color)
+}
+
+/// A guide on the last row under it, as but-ui-react's tree guides end: from the row's top down
+/// to its middle, then round a control's corner towards the row's chevron, stopping short of it.
+pub fn guide_end_in(at: f32, color: Hsla, theme: &Theme) -> Div {
+    let reach = 7.5;
+    let corner = theme.shape.control.min(reach);
+    div()
+        .absolute()
+        .top_0()
+        .bottom(relative(0.5))
+        .left(dp(at))
+        .w(dp(reach))
+        .overflow_hidden()
+        .child(
+            div()
+                .absolute()
+                .top(dp(-corner))
+                .bottom_0()
+                .left_0()
+                .right(dp(-corner))
+                .border_l_1()
+                .border_b_1()
+                .border_color(color)
+                .rounded_bl(dp(corner)),
+        )
 }
 
 /// A fold's glyph in a step as wide as a branch's chevron: a chevron, down while `open` and
@@ -445,8 +477,8 @@ pub fn joined(
     theme: &Theme,
 ) -> Stateful<Div> {
     let line = match solid {
-        true => theme.inverse_soft,
-        false => theme.background,
+        true => theme.derived.joined_line_on_solid,
+        false => theme.secondary,
     };
     row.when(above, |el| {
         el.relative().rounded_t_none().child(
@@ -480,6 +512,38 @@ pub fn field(input: &Entity<text_input::TextInput>, focused: bool, theme: &Theme
         .bg(theme.background)
         .text_13()
         .child(input.clone())
+}
+
+/// [`field`] leading with `icon`, as but-ui-react's `FieldControlWithIcon`: `height` tall, the
+/// icon 8 in, in the subtle ink, and the text 8 after it.
+pub fn field_leading(
+    input: &Entity<text_input::TextInput>,
+    icon: Icon,
+    focused: bool,
+    height: f32,
+    theme: &Theme,
+) -> Div {
+    let clicked = input.clone();
+    h_flex()
+        .on_mouse_down(gpui::MouseButton::Left, move |_, window, cx| {
+            window.focus(&gpui::Focusable::focus_handle(&clicked, cx), cx);
+            window.prevent_default();
+        })
+        .h(dp(height))
+        .pl(dp(8.))
+        .pr(dp(8.))
+        .gap(dp(8.))
+        .rounded(dp(theme.shape.control))
+        .border_1()
+        .border_color(if focused { theme.ring } else { theme.border })
+        .bg(theme.background)
+        .text_13()
+        .child(
+            icon_at(icon, 16.)
+                .flex_none()
+                .text_color(theme.subtle_foreground),
+        )
+        .child(div().flex_1().min_w_0().child(input.clone()))
 }
 
 /// A small round marker: new work, or something running.
@@ -537,68 +601,6 @@ pub fn pulsing<E: IntoElement + Styled + 'static>(el: E) -> impl IntoElement {
             .with_easing(gpui::pulsating_between(0.35, 1.)),
         |el, delta| el.opacity(delta),
     )
-}
-
-const SPIN_STEP: std::time::Duration = std::time::Duration::from_millis(100);
-/// The dots each step of [`spinning`] shows, as braille's: the low three bits are the left
-/// column's, top down, the next three the right's. The terminal's dots spinner, ⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏.
-const SPIN_FRAMES: [u8; 10] = [0x0b, 0x19, 0x39, 0x38, 0x3c, 0x34, 0x26, 0x27, 0x07, 0x0f];
-/// A dot of [`spinning`], and how far apart their centres are, in a `small_icon`'s box.
-const SPIN_DOT: f32 = 2.;
-const SPIN_PITCH: f32 = 3.5;
-
-/// Dots running round, as a terminal's spinner does, while what it stands for is under way,
-/// `turning` only while it shows. It steps 10 times a second, each step drawing the view it's
-/// in, and with it the whole window, again: an agent's spinner turns for minutes, and drawing
-/// the window any more often kept it from going idle and WindowServer busy all that while.
-/// Dots read as stepping on purpose at that rate, where a turning glyph would look choppy.
-pub fn spinning(color: Hsla, turning: bool) -> impl IntoElement {
-    use gpui::canvas;
-    static START: std::sync::LazyLock<std::time::Instant> =
-        std::sync::LazyLock::new(crate::clock::now);
-    let since = crate::clock::now().saturating_duration_since(*START);
-    let steps = since.as_nanos() / SPIN_STEP.as_nanos();
-    #[expect(clippy::indexing_slicing, reason = "taken modulo the length")]
-    let frame = SPIN_FRAMES[(steps % SPIN_FRAMES.len() as u128) as usize];
-    let due = SPIN_STEP
-        - std::time::Duration::from_nanos((since.as_nanos() % SPIN_STEP.as_nanos()) as u64);
-    let left = (12. - SPIN_PITCH - SPIN_DOT) / 2.;
-    let top = (12. - 2. * SPIN_PITCH - SPIN_DOT) / 2.;
-    let dots = (0..6)
-        .filter(|bit| frame & (1 << bit) != 0)
-        .map(move |bit| {
-            let (column, row) = ((bit / 3) as f32, (bit % 3) as f32);
-            div()
-                .absolute()
-                .left(dp(left + column * SPIN_PITCH))
-                .top(dp(top + row * SPIN_PITCH))
-                .size(dp(SPIN_DOT))
-                .rounded_full()
-                .bg(color)
-        });
-    div()
-        .relative()
-        .flex_none()
-        .size(dp(12.))
-        .children(dots)
-        // The next step asked for as this one is drawn, so a spinner that's gone, or one in a
-        // view that isn't drawn, asks for no more.
-        .when(turning, |el| {
-            el.child(
-                canvas(
-                    |_, _, _| {},
-                    move |_, _, window, cx| {
-                        let view = window.current_view();
-                        (cx.spawn(async move |cx| {
-                            cx.background_executor().timer(due).await;
-                            cx.update(|cx| cx.notify(view));
-                        }))
-                        .detach();
-                    },
-                )
-                .absolute(),
-            )
-        })
 }
 
 /// A faint pop wash over a `list_row`'s ground that fades out once, as for a commit that just

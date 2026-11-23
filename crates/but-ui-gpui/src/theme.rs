@@ -81,6 +81,9 @@ pub struct Derived {
     /// `inverse-muted-foreground` at 40%: a tree's guide on a solid selection, as
     /// but-ui-react's `--guide-color` there.
     pub inverse_guide: Hsla,
+    /// `inverse-foreground` at 8%: the line between two rows of a run of selected ones on a
+    /// solid selection, as but-ui-react's `--joined-line` there.
+    pub joined_line_on_solid: Hsla,
     /// `success-text` stepped toward `inverse-foreground` until it reads at 4.5:1 on `inverse`:
     /// an added line count on a solid selection.
     pub inverse_success_text: Hsla,
@@ -95,6 +98,9 @@ pub struct Derived {
     /// A quote's edge and a draft comment's: `blue-7`, a scheme's blue halfway to its
     /// background.
     pub info_edge: Hsla,
+    /// An unread row's dot: GitButler's `gray-8`, between the border and subtle text, which no
+    /// role names.
+    pub unread_dot: Hsla,
     /// `done-text` from the other shade, for glyphs on a solid selection only: it reads at 3:1,
     /// not 4.5:1.
     pub inverse_done_mark: Hsla,
@@ -119,6 +125,7 @@ pub struct Derived {
 struct Picked {
     warning_edge: Hsla,
     info_edge: Hsla,
+    unread_dot: Hsla,
     inverse_done_mark: Hsla,
     diff_added: Hsla,
     diff_removed: Hsla,
@@ -144,6 +151,7 @@ impl Derived {
         let Picked {
             warning_edge,
             info_edge,
+            unread_dot,
             inverse_done_mark,
             diff_added,
             diff_removed,
@@ -157,11 +165,13 @@ impl Derived {
             primary_checked_hover: primary_checked_hover(c),
             inverse_input: c.inverse_foreground.opacity(0.26),
             inverse_guide: c.inverse_muted_foreground.opacity(0.4),
+            joined_line_on_solid: c.inverse_foreground.opacity(0.08),
             inverse_success_text: on_inverse(c.success_text),
             inverse_danger_text: on_inverse(c.danger_text),
             snackbar_warning: color(snackbar_warning.unwrap_or(snackbar_ink)),
             warning_edge,
             info_edge,
+            unread_dot,
             inverse_done_mark,
             diff_added,
             diff_removed,
@@ -257,6 +267,7 @@ pub enum Shade {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Shape {
     pub xs: f32,
+    pub sm: f32,
     pub control: f32,
     pub card: f32,
     pub popup: f32,
@@ -266,6 +277,7 @@ impl Default for Shape {
     fn default() -> Self {
         Shape {
             xs: tokens::RADIUS_XS,
+            sm: tokens::RADIUS_SM,
             control: tokens::RADIUS_CONTROL,
             card: tokens::RADIUS_CARD,
             popup: tokens::RADIUS_POPUP,
@@ -277,6 +289,8 @@ impl Default for Shape {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Sizes {
     pub control: f32,
+    /// A medium button, a row of them in a dense header.
+    pub control_md: f32,
     /// A small button or segment is 4px taller than this.
     pub control_sm: f32,
     /// A bar inside a popup, as its search row or footer.
@@ -289,6 +303,7 @@ impl Default for Sizes {
     fn default() -> Self {
         Sizes {
             control: tokens::SIZE_CONTROL,
+            control_md: tokens::SIZE_CONTROL_MD,
             control_sm: tokens::SIZE_CONTROL_SM,
             bar: tokens::SIZE_BAR,
             padding: 0.,
@@ -557,11 +572,12 @@ impl Theme {
     }
 
     pub fn with_corners(mut self, corners: Corners) -> Self {
-        if let Some((_, [xs, control, card, popup])) =
+        if let Some((_, [xs, sm, control, card, popup])) =
             (tokens::CORNERS.iter()).find(|(name, _)| *name == corners.name())
         {
             self.shape = Shape {
                 xs: *xs,
+                sm: *sm,
                 control: *control,
                 card: *card,
                 popup: *popup,
@@ -571,11 +587,12 @@ impl Theme {
     }
 
     pub fn with_density(mut self, density: Density) -> Self {
-        if let Some((_, [control, control_sm, bar, padding])) =
+        if let Some((_, [control, control_md, control_sm, bar, padding])) =
             (tokens::DENSITIES.iter()).find(|(name, _)| *name == density.name())
         {
             self.sizes = Sizes {
                 control: *control,
+                control_md: *control_md,
                 control_sm: *control_sm,
                 bar: *bar,
                 padding: *padding,
@@ -596,6 +613,46 @@ impl Theme {
     /// Whether these are GitButler's own colours, which an accent and ground apply to.
     pub fn own_colours(&self) -> bool {
         self.own_colours.is_some()
+    }
+
+    /// This theme as a row selected on the solid fill draws its marks, as but-ui-react's rows
+    /// flip their colour scheme there: each mark colour, and each badge's fill and text, in
+    /// its token's other value (`on_solid`). A component built with it on such a row needs
+    /// nothing else to know.
+    pub fn for_solid(&self) -> Theme {
+        let (mut theme, flip) = (self.clone(), &self.on_solid);
+        let c = &mut theme.colors;
+        c.foreground = flip.foreground;
+        c.neutral_soft = flip.neutral_soft;
+        c.primary_soft = flip.primary_soft;
+        c.primary_soft_foreground = flip.primary_soft_foreground;
+        c.info_soft = flip.info_soft;
+        c.info_soft_foreground = flip.info_soft_foreground;
+        c.success_soft = flip.success_soft;
+        c.success_soft_foreground = flip.success_soft_foreground;
+        c.warning_soft = flip.warning_soft;
+        c.warning_soft_foreground = flip.warning_soft_foreground;
+        c.danger_soft = flip.danger_soft;
+        c.danger_soft_foreground = flip.danger_soft_foreground;
+        c.done_soft = flip.done_soft;
+        c.done_soft_foreground = flip.done_soft_foreground;
+        c.muted_foreground = flip.muted_foreground;
+        c.subtle_foreground = flip.subtle_foreground;
+        c.info_text = flip.info_text;
+        c.warning_text = flip.warning_text;
+        c.success_text = flip.success_text;
+        c.danger_text = flip.danger_text;
+        c.done_text = flip.done_text;
+        c.info_mark = flip.info_mark;
+        c.warning_mark = flip.warning_mark;
+        c.success_mark = flip.success_mark;
+        c.danger_mark = flip.danger_mark;
+        c.done_mark = flip.done_mark;
+        c.commit_local = flip.commit_local;
+        c.commit_remote = flip.commit_remote;
+        c.commit_upstream = flip.commit_upstream;
+        c.commit_integrated = flip.commit_integrated;
+        theme
     }
 
     pub fn get(cx: &App) -> &Theme {
@@ -653,6 +710,7 @@ impl Theme {
             Picked {
                 warning_edge: rgba(shade(tokens::AMBER_7)).into(),
                 info_edge: rgba(shade(tokens::BLUE_7)).into(),
+                unread_dot: rgba(shade(tokens::GRAY_8)).into(),
                 inverse_done_mark: rgba(shade([done_dark, done_light])).into(),
                 // GitHub's light and dark, which but.dev's diffs take their colours from.
                 diff_added: pick(0x28a745, 0x34d058),
@@ -837,6 +895,36 @@ impl Theme {
             Hue::Danger => self.danger_soft_hover,
             Hue::Purple => self.done_soft_hover,
             Hue::Gray => self.derived.muted_hover,
+        }
+    }
+
+    /// A coloured outline button's edge: its hue's text at 30%.
+    pub fn outline_edge(&self, hue: Hue) -> Hsla {
+        self.hue(hue).opacity(0.3)
+    }
+
+    /// A coloured outline button's text, edge and hover on a solid selection: its hue in the
+    /// other scheme's values, as but-ui-react's Button flips its scheme there. Only info,
+    /// success and warning are coloured; anything else takes the inverted ghost's.
+    pub fn outline_on_solid(&self, hue: Option<Hue>) -> (Hsla, Hsla, Hsla) {
+        let flip = &self.on_solid;
+        let (text, hover) = match hue {
+            Some(Hue::Blue) => (flip.info_text, flip.info_outline_hover),
+            Some(Hue::Warn) => (flip.warning_text, flip.warning_outline_hover),
+            Some(Hue::Safe) => (flip.success_text, flip.success_outline_hover),
+            _ => (self.inverse_foreground, self.inverse_ghost_hover),
+        };
+        (text, text.opacity(0.3), hover)
+    }
+
+    /// Under the pointer, a coloured outline button's ground: its hue's faintest see-through
+    /// tint, as Radix's outline buttons hover. Only info, success and warning draw one.
+    pub fn outline_hover(&self, hue: Hue) -> Hsla {
+        match hue {
+            Hue::Blue => self.info_outline_hover,
+            Hue::Safe => self.success_outline_hover,
+            Hue::Warn => self.warning_outline_hover,
+            _ => self.hover,
         }
     }
 
@@ -1141,6 +1229,7 @@ fn palette_colors(bg: u32, fg: u32, palette: &Colors) -> (ColorTokens, Derived) 
         Picked {
             warning_edge: color(mix(bg, yellow, 0.5)),
             info_edge: color(mix(bg, blue, 0.5)),
+            unread_dot: color(mix(bg, fg, 0.4)),
             inverse_done_mark: color(readable_on(done, bg, fg)),
             diff_added: color(added),
             diff_removed: color(removed),

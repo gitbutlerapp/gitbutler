@@ -168,6 +168,8 @@ pub enum DividerDrag {
     Navigator,
     /// The line over the terminal overview, under the navigator.
     Terminals,
+    /// The line over the hidden projects' drawer, under the cards.
+    HiddenProjects,
 }
 
 /// The line between two parts of a division, which dragging moves.
@@ -1915,6 +1917,25 @@ impl Store {
         (self.tilings.get(&self.row_key(selection)).iter())
             .flat_map(|tiling| tiling.areas())
             .collect()
+    }
+
+    /// The split another row's page made that `selection`'s page is pinned in: that row's key
+    /// and the split's tiles, in the order they're laid out. Its row carries the split's map too.
+    pub fn split_holding(&self, selection: &Selection) -> Option<(RowKey, Vec<(Tile, Area)>)> {
+        // Before looking a commit's change ID up, as the navigator asks for each row it draws.
+        if self.tilings.is_empty() {
+            return None;
+        }
+        let key = self.row_key(selection);
+        let mut holding: Vec<_> = (self.tilings.iter())
+            .filter(|(_, tiling)| {
+                (tiling.areas().into_iter()).any(|(tile, _)| tile == Tile::Pinned(key.clone()))
+            })
+            .collect();
+        // The same one whichever order the map keeps them in, if more than one pins it.
+        holding.sort_by_key(|(owner, _)| format!("{owner:?}"));
+        let (owner, tiling) = holding.into_iter().next()?;
+        Some((owner.clone(), tiling.areas().into_iter().collect()))
     }
 
     /// The status `selection`'s row shows of the terminals it has, the most urgent: its own, if

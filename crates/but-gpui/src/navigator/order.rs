@@ -107,7 +107,6 @@ impl Navigator {
     /// The button beside the account that opens the view menu.
     pub(super) fn view_button(&self, cx: &Context<Self>) -> AnyElement {
         icon_button("watched-view-options", Icon::Mixer)
-            .small()
             .tooltip("Order and fold watched projects")
             .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
                 this.open_menu(event.position(), |this, cx| this.view_menu(cx), cx)
@@ -718,9 +717,12 @@ fn worktree_slot(
     if depth >= home_top && depth < home_top + own {
         return None;
     }
-    let off = |top: f32| (top + row / 2. - depth).abs();
+    // Its own place by half a row more, so it doesn't leave it the moment the pointer leaves its
+    // rows, with no divider between worktrees to give it room.
+    let off =
+        |k: usize, top: f32| (top + row / 2. - depth).abs() - if k == home { row / 2. } else { 0. };
     let (nearest, _) =
-        (tops.iter().enumerate()).min_by(|(_, a), (_, b)| off(**a).total_cmp(&off(**b)))?;
+        (tops.iter().enumerate()).min_by(|(i, a), (j, b)| off(*i, **a).total_cmp(&off(*j, **b)))?;
     Some(match others.get(nearest) {
         Some((before, _)) => Slot::Before((*before).clone()),
         None => Slot::End,

@@ -16,6 +16,12 @@ pub enum ButtonStyle {
     /// The one primary action of a surface.
     Pop,
     Danger,
+    /// An outline in blue, for work to send: a branch's Push, with its unpushed count.
+    Info,
+    /// An outline in amber, for work waiting on you: Update for what's behind, Resolve.
+    Warning,
+    /// An outline in green, for what an agent or a check finished: Merge once it's green.
+    Success,
 }
 
 #[derive(IntoElement)]
@@ -23,6 +29,8 @@ pub struct Button {
     id: ElementId,
     label: Option<SharedString>,
     icon: Option<Icon>,
+    /// An icon after the label, as a count's glyph follows its number.
+    icon_end: Option<Icon>,
     picture: Option<AnyElement>,
     style: ButtonStyle,
     /// Held down, as a toggle that's on: React's `data-pressed`.
@@ -30,6 +38,8 @@ pub struct Button {
     /// Why it can't be pressed, shown in place of its tooltip.
     disabled: Option<SharedString>,
     small: bool,
+    /// 24px, as React's `medium`: a row of buttons in a dense header.
+    medium: bool,
     min_width: Option<Rems>,
     inverted: bool,
     /// The hue of the ground it sits on, as a banner's action takes its banner's.
@@ -60,11 +70,13 @@ pub fn button(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Butto
         id: id.into(),
         label: Some(label.into()),
         icon: None,
+        icon_end: None,
         picture: None,
         style: ButtonStyle::Outline,
         pressed: false,
         disabled: None,
         small: false,
+        medium: false,
         min_width: None,
         inverted: false,
         tint: None,
@@ -104,6 +116,12 @@ impl Button {
         self
     }
 
+    /// `icon` after the label, as a count's next step draws its count's glyph after its number.
+    pub fn icon_end(mut self, icon: Icon) -> Self {
+        self.icon_end = Some(icon);
+        self
+    }
+
     pub fn style(mut self, style: ButtonStyle) -> Self {
         self.style = style;
         self
@@ -123,6 +141,13 @@ impl Button {
 
     pub fn small(mut self) -> Self {
         self.small = true;
+        self
+    }
+
+    /// 24px, as React's `medium`: a row of buttons in a dense header, or a drawer's at the
+    /// sidebar's foot.
+    pub fn medium(mut self) -> Self {
+        self.medium = true;
         self
     }
 
@@ -223,6 +248,11 @@ impl RenderOnce for Button {
                 None,
                 theme.danger_soft_hover,
             ),
+            // The colour's text and an edge of it at 30%, and under the pointer its faintest
+            // see-through tint, as React's coloured outlines draw them.
+            ButtonStyle::Info => outlined(theme, Hue::Blue),
+            ButtonStyle::Warning => outlined(theme, Hue::Warn),
+            ButtonStyle::Success => outlined(theme, Hue::Safe),
         };
         let (fg, bg, hover) = match self.tint {
             Some(tint) => (
@@ -236,6 +266,12 @@ impl RenderOnce for Button {
                     None => theme.soft(tint),
                 },
             ),
+            // A coloured outline keeps its colour on a solid selection, in the other scheme's
+            // value, as but-ui-react's Button flips its colour scheme there, as Badge does.
+            None if self.inverted && coloured_hue(self.style).is_some() => {
+                let (fg, _, hover) = theme.outline_on_solid(coloured_hue(self.style));
+                (fg, bg, hover)
+            }
             None if self.inverted && self.style != ButtonStyle::Pop => (
                 theme.inverse_foreground,
                 bg.map(|_| theme.inverse_soft),
@@ -248,6 +284,9 @@ impl RenderOnce for Button {
         };
         let (fg, hover) = self.ink.unwrap_or((fg, hover));
         let border = match self.inverted && self.tint.is_none() {
+            true if coloured_hue(self.style).is_some() => {
+                Some(theme.outline_on_solid(coloured_hue(self.style)).1)
+            }
             true => border.map(|_| theme.derived.inverse_input),
             false => border,
         };
@@ -266,9 +305,16 @@ impl RenderOnce for Button {
         };
         let (fg, bg, border) = (fade(fg), bg.map(fade), border.map(fade));
         // but-ui's button tokens (`packages/but-ui/components/button.tokens.json`); the heights
-        // are `size-control(-sm)`, which `theme.sizes` moves with density.
+        // are `size-control(-md|-sm)`, which `theme.sizes` moves with density.
         let sizes = theme.sizes;
         let (height, width, gap, padding, icon_size) = match self.small {
+            false if self.medium => (
+                sizes.control_md,
+                sizes.control_md + 2.,
+                tokens::BUTTON_MEDIUM_GAP,
+                tokens::BUTTON_MEDIUM_PADDING_INLINE,
+                tokens::BUTTON_MEDIUM_ICON_SIZE,
+            ),
             true => (
                 sizes.control_sm,
                 sizes.control_sm + 2.,
@@ -285,6 +331,15 @@ impl RenderOnce for Button {
             ),
         };
         let has_label = self.label.is_some();
+        // Colour loses an icon at 0.7, so a coloured outline's glyph keeps a step up.
+        let coloured = matches!(
+            self.style,
+            ButtonStyle::Info | ButtonStyle::Warning | ButtonStyle::Success
+        );
+        let icon_opacity = match (has_label, coloured) {
+            (true, false) => 0.7,
+            _ => 0.8,
+        };
         let shrinks = self.shrinks;
         let name = self.label.clone().or_else(|| self.tooltip.clone());
         h_flex()
@@ -307,7 +362,7 @@ impl RenderOnce for Button {
             })
             .when_some(self.min_width, |el, width| el.min_w(width).justify_center())
             .map(|el| {
-                if self.small {
+                if self.small || self.medium {
                     el.text_12()
                 } else {
                     el.text_13()
@@ -357,13 +412,15 @@ impl RenderOnce for Button {
             })
             .when(self.disabled.is_some() && pictured, |el| el.opacity(0.5))
             .when_some(self.icon, |el, kind| {
-                let opacity = if has_label { 0.7 } else { 0.8 };
-                el.child((icon_at(kind, icon_size).text_color(fg)).opacity(opacity))
+                el.child((icon_at(kind, icon_size).text_color(fg)).opacity(icon_opacity))
             })
             .children(self.picture)
             .when_some(self.label, |el, label| match shrinks {
                 true => el.child(div().min_w_0().truncate().child(label)),
                 false => el.child(label),
+            })
+            .when_some(self.icon_end, |el, kind| {
+                el.child((icon_at(kind, icon_size).text_color(fg)).opacity(icon_opacity))
             })
             .when_some(self.disabled.clone().or(self.tooltip), |el, tooltip| {
                 let enabled = self.disabled.is_none();
@@ -384,6 +441,22 @@ impl RenderOnce for Button {
                 },
             )
     }
+}
+
+/// An outline in `hue`'s text, with an edge of it, tinted under the pointer.
+/// The hue of a coloured outline: info's, warning's or success's.
+fn coloured_hue(style: ButtonStyle) -> Option<Hue> {
+    match style {
+        ButtonStyle::Info => Some(Hue::Blue),
+        ButtonStyle::Warning => Some(Hue::Warn),
+        ButtonStyle::Success => Some(Hue::Safe),
+        _ => None,
+    }
+}
+
+fn outlined(theme: &Theme, hue: Hue) -> (Hsla, Option<Hsla>, Option<Hsla>, Hsla) {
+    let edge = Some(theme.outline_edge(hue));
+    (theme.hue(hue), None, edge, theme.outline_hover(hue))
 }
 
 const DROPDOWN_GROUP: &str = "dropdown-button";
@@ -410,6 +483,7 @@ pub fn dropdown_button(
     let action = Button {
         half: Some(Half::Action),
         small: false,
+        medium: false,
         ..action
     };
     h_flex()

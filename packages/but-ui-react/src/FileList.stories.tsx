@@ -116,6 +116,47 @@ export const States = meta.story({
 	),
 });
 
+/**
+ * Picked rows next to one another read as one block, rounded only where the run starts and ends,
+ * with a faint line between two of its rows. The first list has lost the selection focus; the
+ * second holds it, so the run is solid.
+ */
+export const SelectedRun = meta.story({
+	render: () => (
+		<div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+			{[false, true].map((focused) => (
+				<FileList
+					key={String(focused)}
+					title="Changes"
+					count={4}
+					added={52}
+					removed={11}
+					focused={focused}
+				>
+					<FileListItem name="useAuthHook.ts" directory="src/hooks" status="Addition" added={24} />
+					<FileListItem
+						selected
+						name="Button.tsx"
+						directory="src/components"
+						status="Modification"
+						added={18}
+						removed={9}
+					/>
+					<FileListItem
+						selected
+						name="apiService.ts"
+						directory="src/services"
+						status="Modification"
+						added={4}
+						removed={2}
+					/>
+					<FileListItem selected name="routes.ts" directory="src" status="Modification" added={6} />
+				</FileList>
+			))}
+		</div>
+	),
+});
+
 const changes: Array<{ name: string; directory: string; status: FileStatusType }> = [
 	{ name: "useAuthHook.ts", directory: "src/hooks", status: "Addition" },
 	{ name: "Button.tsx", directory: "src/components", status: "Modification" },

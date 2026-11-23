@@ -55,21 +55,21 @@ fn commits_split(commits: &[Made], theme: &Theme) -> gpui::AnyElement {
         [
             (
                 Icon::CommitFill,
-                theme.done_text,
+                theme.commit_integrated,
                 theme.done_text,
                 "merged".to_owned(),
                 count(CommitState::Integrated),
             ),
             (
                 Icon::CommitFill,
-                theme.muted_foreground,
+                theme.commit_remote,
                 theme.border_hover,
                 "pushed".to_owned(),
                 count(CommitState::Pushed),
             ),
             (
                 Icon::Commit,
-                theme.info_text,
+                theme.commit_local,
                 theme.muted_foreground,
                 "not pushed".to_owned(),
                 count(CommitState::Local),

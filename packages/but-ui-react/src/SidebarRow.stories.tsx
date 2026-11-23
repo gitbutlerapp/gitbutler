@@ -2,26 +2,22 @@ import { stories } from "../stories/stories.ts";
 import { Fragment, useState, type FC, type ReactNode } from "react";
 import { Button } from "./Button.tsx";
 import { Icon } from "./Icon.tsx";
-import { CiStatus, MetaCount } from "./MetaCount.tsx";
+import { ContextMenu, MenuItem, MenuSection } from "./Menu.tsx";
+import { MetaCount, MetaStatus } from "./MetaCount.tsx";
 import {
 	BranchItem,
 	CommitItem,
+	LoadingItem,
 	MachineItem,
 	MoreItem,
+	NoticeItem,
 	RepoItem,
 	StackCaption,
 	UncommittedItem,
+	UpstreamItem,
 	WorktreeItem,
 } from "./SidebarRow.tsx";
-import {
-	Card,
-	machine,
-	menu,
-	push,
-	Repository,
-	update,
-	viewPr,
-} from "./story-assets/workspaceTree.tsx";
+import { Card, machine, push, Repository, update } from "./story-assets/workspaceTree.tsx";
 import { treeGuides, type Guides } from "./treeGuides.ts";
 
 const core = (node: string) =>
@@ -44,27 +40,31 @@ const meta = stories({
 
 /**
  * A branch with an open pull request: its checks and what is still to push at the row's end. Under
- * the pointer the next step and the menu take their place.
+ * the pointer the next step takes their place. Its menu opens with a right-click, or Shift-F10 on
+ * the focused row: the row is a `ContextMenu`'s `trigger`.
  */
 export const Default = meta.story({
 	args: { title: "fix: retry stalled transfers" },
 	render: (args) => (
-		<BranchItem
-			{...args}
-			meta={
-				<>
-					<CiStatus status="working" />
-					<MetaCount type="unpushed">4</MetaCount>
-				</>
+		<ContextMenu
+			aria-label="Branch actions"
+			trigger={
+				<BranchItem
+					{...args}
+					meta={<MetaStatus variant="working">CI</MetaStatus>}
+					actions={<>{push(4)}</>}
+				/>
 			}
-			actions={
-				<>
-					{push}
-					{viewPr}
-				</>
-			}
-			menu={menu("Branch")}
-		/>
+		>
+			<MenuSection>
+				<MenuItem>Push</MenuItem>
+				<MenuItem>Open pull request</MenuItem>
+				<MenuItem>Copy branch name</MenuItem>
+			</MenuSection>
+			<MenuSection>
+				<MenuItem>Delete branch</MenuItem>
+			</MenuSection>
+		</ContextMenu>
 	),
 });
 
@@ -75,40 +75,22 @@ const Tree: FC<{ selected?: string }> = ({ selected }) => {
 	return (
 		<>
 			<Repository>
-				<RepoItem name="but-dev" folded={false} menu={menu("Repository")} />
+				<RepoItem name="but-dev" folded={false} />
 				<WorktreeItem
 					main
 					name="Main worktree"
 					depth={1}
 					folded={false}
-					meta={
-						<>
-							<MetaCount type="behind">4</MetaCount>
-							{age("1d")}
-						</>
-					}
-					actions={update}
-					menu={menu("Worktree")}
+					meta={<>{age("1d")}</>}
+					actions={update(4)}
 				/>
-				<UncommittedItem
-					count={19}
-					depth={2}
-					selected={selected === "uncommitted"}
-					menu={menu("Uncommitted changes")}
-				/>
+				<UncommittedItem count={19} depth={2} selected={selected === "uncommitted"} />
 				<BranchItem
 					title="ios-push-handoff"
 					depth={2}
 					folded
 					selected={selected === "ios-push-handoff"}
-					meta={
-						<>
-							<MetaCount type="unpushed">7</MetaCount>
-							{age("1d")}
-						</>
-					}
-					actions={push}
-					menu={menu("Branch")}
+					actions={push(7)}
 				/>
 				<StackCaption
 					count={2}
@@ -116,15 +98,8 @@ const Tree: FC<{ selected?: string }> = ({ selected }) => {
 					depth={2}
 					folded={stackFolded}
 					onToggleFolded={() => setStackFolded(!stackFolded)}
-					meta={
-						stackFolded && (
-							<>
-								<MetaCount type="unpushed">11</MetaCount>
-								<MetaCount type="age">8m</MetaCount>
-							</>
-						)
-					}
-					menu={menu("Stack")}
+					meta={stackFolded && <MetaCount type="age">8m</MetaCount>}
+					actions={stackFolded && push(11)}
 				/>
 				{!stackFolded && (
 					<>
@@ -135,51 +110,27 @@ const Tree: FC<{ selected?: string }> = ({ selected }) => {
 							folded
 							meta={
 								<>
-									<CiStatus status="working" />
-									<MetaCount type="unpushed">4</MetaCount>
+									<MetaStatus variant="working">CI</MetaStatus>
 									{age("8m")}
 								</>
 							}
-							actions={
-								<>
-									{push}
-									{viewPr}
-								</>
-							}
-							menu={menu("Branch")}
+							actions={<>{push(4)}</>}
 						/>
 						<BranchItem
 							title="feat: resume work on another machine"
 							pr={{ number: 280, state: "open" }}
 							depth={3}
 							folded={false}
-							meta={
-								<>
-									<CiStatus status="working" />
-									<MetaCount type="unpushed">7</MetaCount>
-								</>
-							}
-							actions={
-								<>
-									{push}
-									{viewPr}
-								</>
-							}
-							menu={menu("Branch")}
+							meta={<MetaStatus variant="working">CI</MetaStatus>}
+							actions={<>{push(7)}</>}
 						/>
-						<CommitItem
-							message="chore: separator tokens"
-							pushed={false}
-							depth={4}
-							menu={menu("Commit")}
-						/>
+						<CommitItem message="chore: separator tokens" pushed={false} depth={4} />
 						<CommitItem
 							message="feat: 28px hunk separator"
 							depth={4}
 							selected={selected === "commit"}
-							menu={menu("Commit")}
 						/>
-						<CommitItem message="feat: elapsed time for agents" depth={4} menu={menu("Commit")} />
+						<CommitItem message="feat: elapsed time for agents" depth={4} />
 					</>
 				)}
 				<BranchItem
@@ -193,56 +144,30 @@ const Tree: FC<{ selected?: string }> = ({ selected }) => {
 							<MetaCount type="age">8m</MetaCount>
 						</>
 					}
-					menu={menu("Branch")}
 				/>
 				<MoreItem label="3 more" depth={2} />
 				<WorktreeItem
 					name="mesh-archive"
 					depth={1}
 					folded={false}
-					meta={
-						<>
-							<MetaCount type="behind">2</MetaCount>
-							{age("5h")}
-						</>
-					}
-					actions={update}
-					menu={menu("Worktree")}
+					meta={<>{age("5h")}</>}
+					actions={update(2)}
 				/>
-				<UncommittedItem count={2} depth={2} menu={menu("Uncommitted changes")} />
-				<BranchItem
-					title="resume-on-laptop"
-					depth={2}
-					folded
-					meta={
-						<>
-							<MetaCount type="unpushed">9</MetaCount>
-							{age("5h")}
-						</>
-					}
-					actions={push}
-					menu={menu("Branch")}
-				/>
+				<UncommittedItem count={2} depth={2} />
+				<BranchItem title="resume-on-laptop" depth={2} folded actions={push(9)} />
 				<BranchItem
 					title="offline-cache"
 					depth={2}
 					folded="empty"
 					meta={<MetaCount type="empty">empty</MetaCount>}
-					menu={menu("Branch")}
 				/>
 			</Repository>
 			<Repository last>
 				<RepoItem
 					name="berlin-brutalism"
 					folded={false}
-					meta={
-						<>
-							<MetaCount type="behind">8</MetaCount>
-							{age("2h")}
-						</>
-					}
-					actions={update}
-					menu={menu("Repository")}
+					meta={<>{age("2h")}</>}
+					actions={update(8)}
 				/>
 				<BranchItem
 					title="daemon-idle-cpu"
@@ -255,7 +180,6 @@ const Tree: FC<{ selected?: string }> = ({ selected }) => {
 						</>
 					}
 					actions={<Button size="small">Create PR</Button>}
-					menu={menu("Branch")}
 				/>
 			</Repository>
 		</>
@@ -263,8 +187,9 @@ const Tree: FC<{ selected?: string }> = ({ selected }) => {
 };
 
 /**
- * Grouped by machine: one line a row, its state at the end. Under the pointer, on focus and on a
- * selected row, the actions and the menu take the state's place.
+ * Grouped by machine: one line a row, its state at the end, and its next step after it, always:
+ * Push and Update in place of the count they act on. The time is optional: a branch as fresh as its
+ * worktree leaves it out.
  */
 export const ByMachine = meta.story({
 	parameters: { design: { type: "figma", url: core("2594-15724") } },
@@ -296,7 +221,6 @@ const ByRepositoryTree: FC<{ open: boolean }> = ({ open }) => {
 						</>
 					)
 				}
-				menu={menu("Machine")}
 			/>
 			{open && (
 				<>
@@ -305,28 +229,16 @@ const ByRepositoryTree: FC<{ open: boolean }> = ({ open }) => {
 						name="Main worktree"
 						depth={1}
 						folded={false}
-						meta={
-							<>
-								<MetaCount type="behind">3</MetaCount>
-								{age("8m")}
-							</>
-						}
-						actions={update}
-						menu={menu("Worktree")}
+						meta={<>{age("8m")}</>}
+						actions={update(3)}
 					/>
-					<UncommittedItem count={12} depth={2} menu={menu("Uncommitted changes")} />
+					<UncommittedItem count={12} depth={2} />
 					<BranchItem
 						title="mesh-archive"
 						depth={2}
 						folded
-						meta={
-							<>
-								<MetaCount type="unpushed">4</MetaCount>
-								<MetaCount type="agent-working">12m</MetaCount>
-							</>
-						}
-						actions={push}
-						menu={menu("Branch")}
+						meta={<MetaCount type="agent-working">12m</MetaCount>}
+						actions={push(4)}
 					/>
 					<BranchItem
 						title="fix: redact remote credentials"
@@ -335,25 +247,17 @@ const ByRepositoryTree: FC<{ open: boolean }> = ({ open }) => {
 						folded
 						meta={
 							<>
-								<CiStatus status="working" />
-								<MetaCount type="unpushed">4</MetaCount>
+								<MetaStatus variant="working">CI</MetaStatus>
 								{age("3d")}
 							</>
 						}
-						actions={
-							<>
-								{push}
-								{viewPr}
-							</>
-						}
-						menu={menu("Branch")}
+						actions={<>{push(4)}</>}
 					/>
 					<WorktreeItem
 						name="review-ios"
 						depth={1}
 						folded
 						meta={<MetaCount type="age">1d</MetaCount>}
-						menu={menu("Worktree")}
 					/>
 				</>
 			)}
@@ -371,29 +275,15 @@ const ByRepositoryTree: FC<{ open: boolean }> = ({ open }) => {
 					) : (
 						<>
 							<MetaCount type="unpushed">4</MetaCount>
-							<MetaCount type="behind">3</MetaCount>
 							<MetaCount type="age">2d</MetaCount>
 						</>
 					)
 				}
-				actions={update}
-				menu={menu("Machine")}
+				actions={update(3)}
 			/>
 			{open && (
 				<>
-					<BranchItem
-						title="resume-on-laptop"
-						depth={1}
-						folded
-						meta={
-							<>
-								<MetaCount type="unpushed">4</MetaCount>
-								{age("2d")}
-							</>
-						}
-						actions={push}
-						menu={menu("Branch")}
-					/>
+					<BranchItem title="resume-on-laptop" depth={1} folded actions={push(4)} />
 					<BranchItem
 						title="feat: archive old worktrees"
 						pr={{ number: 31, state: "merged" }}
@@ -405,7 +295,6 @@ const ByRepositoryTree: FC<{ open: boolean }> = ({ open }) => {
 								<MetaCount type="age">3d</MetaCount>
 							</>
 						}
-						menu={menu("Branch")}
 					/>
 				</>
 			)}
@@ -420,13 +309,12 @@ const ByRepositoryTree: FC<{ open: boolean }> = ({ open }) => {
 						<MetaCount type="agent-waiting">2m</MetaCount>
 					</>
 				}
-				menu={menu("Machine")}
 			/>
 		</Repository>
 	);
 };
 
-const repository = <RepoItem name="but-dev" folded={false} menu={menu("Repository")} />;
+const repository = <RepoItem name="but-dev" folded={false} />;
 
 /**
  * Grouped by repository: the repository heads the card and its machines are rows inside it, each
@@ -493,18 +381,14 @@ const since = (value: string) => <MetaCount type="age">{value}</MetaCount>;
 const commits = (id: string, messages: ReadonlyArray<string>, unpushed = 0): Array<TreeNode> =>
 	messages.map((message, index) => ({
 		id: `${id}-${index}`,
-		row: (place) => (
-			<CommitItem {...place} message={message} pushed={index >= unpushed} menu={menu("Commit")} />
-		),
+		row: (place) => <CommitItem {...place} message={message} pushed={index >= unpushed} />,
 	}));
 
 /** The same machine as the tree above, as data, so every row with something under it folds. */
 const repositories: ReadonlyArray<TreeNode> = [
 	{
 		id: "but-dev",
-		row: (place, fold) => (
-			<RepoItem {...place} {...fold} name="but-dev" menu={menu("Repository")} />
-		),
+		row: (place, fold) => <RepoItem {...place} {...fold} name="but-dev" />,
 		children: [
 			{
 				id: "main",
@@ -514,22 +398,14 @@ const repositories: ReadonlyArray<TreeNode> = [
 						{...fold}
 						main
 						name="Main worktree"
-						meta={
-							<>
-								<MetaCount type="behind">4</MetaCount>
-								{since("1d")}
-							</>
-						}
-						actions={update}
-						menu={menu("Worktree")}
+						meta={<>{since("1d")}</>}
+						actions={update(4)}
 					/>
 				),
 				children: [
 					{
 						id: "main-uncommitted",
-						row: (place) => (
-							<UncommittedItem {...place} count={19} menu={menu("Uncommitted changes")} />
-						),
+						row: (place) => <UncommittedItem {...place} count={19} />,
 					},
 					{
 						id: "ios-push-handoff",
@@ -538,14 +414,8 @@ const repositories: ReadonlyArray<TreeNode> = [
 								{...place}
 								{...fold}
 								title="ios-push-handoff"
-								meta={
-									<>
-										<MetaCount type="unpushed">7</MetaCount>
-										{since("1d")}
-									</>
-								}
-								actions={push}
-								menu={menu("Branch")}
+								meta={<>{since("1d")}</>}
+								actions={push(7)}
 							/>
 						),
 						children: commits(
@@ -570,7 +440,6 @@ const repositories: ReadonlyArray<TreeNode> = [
 										</>
 									)
 								}
-								menu={menu("Stack")}
 							/>
 						),
 						children: [
@@ -584,18 +453,11 @@ const repositories: ReadonlyArray<TreeNode> = [
 										pr={{ number: 377, state: "open" }}
 										meta={
 											<>
-												<CiStatus status="working" />
-												<MetaCount type="unpushed">4</MetaCount>
+												<MetaStatus variant="working">CI</MetaStatus>
 												{since("8m")}
 											</>
 										}
-										actions={
-											<>
-												{push}
-												{viewPr}
-											</>
-										}
-										menu={menu("Branch")}
+										actions={<>{push(4)}</>}
 									/>
 								),
 								children: commits(
@@ -612,19 +474,8 @@ const repositories: ReadonlyArray<TreeNode> = [
 										{...fold}
 										title="feat: resume work on another machine"
 										pr={{ number: 280, state: "open" }}
-										meta={
-											<>
-												<CiStatus status="working" />
-												<MetaCount type="unpushed">7</MetaCount>
-											</>
-										}
-										actions={
-											<>
-												{push}
-												{viewPr}
-											</>
-										}
-										menu={menu("Branch")}
+										meta={<MetaStatus variant="working">CI</MetaStatus>}
+										actions={<>{push(7)}</>}
 									/>
 								),
 								children: commits(
@@ -653,7 +504,6 @@ const repositories: ReadonlyArray<TreeNode> = [
 										{since("8m")}
 									</>
 								}
-								menu={menu("Branch")}
 							/>
 						),
 						children: commits("pr-292", ["chore: bump vite", "chore: bump react"]),
@@ -668,22 +518,14 @@ const repositories: ReadonlyArray<TreeNode> = [
 						{...place}
 						{...fold}
 						name="mesh-archive"
-						meta={
-							<>
-								<MetaCount type="behind">2</MetaCount>
-								{since("5h")}
-							</>
-						}
-						actions={update}
-						menu={menu("Worktree")}
+						meta={<>{since("5h")}</>}
+						actions={update(2)}
 					/>
 				),
 				children: [
 					{
 						id: "mesh-uncommitted",
-						row: (place) => (
-							<UncommittedItem {...place} count={2} menu={menu("Uncommitted changes")} />
-						),
+						row: (place) => <UncommittedItem {...place} count={2} />,
 					},
 					{
 						id: "resume-on-laptop",
@@ -692,14 +534,8 @@ const repositories: ReadonlyArray<TreeNode> = [
 								{...place}
 								{...fold}
 								title="resume-on-laptop"
-								meta={
-									<>
-										<MetaCount type="unpushed">9</MetaCount>
-										{since("5h")}
-									</>
-								}
-								actions={push}
-								menu={menu("Branch")}
+								meta={<>{since("5h")}</>}
+								actions={push(9)}
 							/>
 						),
 						children: commits(
@@ -716,7 +552,6 @@ const repositories: ReadonlyArray<TreeNode> = [
 								title="offline-cache"
 								folded="empty"
 								meta={<MetaCount type="empty">empty</MetaCount>}
-								menu={menu("Branch")}
 							/>
 						),
 					},
@@ -731,14 +566,8 @@ const repositories: ReadonlyArray<TreeNode> = [
 				{...place}
 				{...fold}
 				name="berlin-brutalism"
-				meta={
-					<>
-						<MetaCount type="behind">8</MetaCount>
-						{since("2h")}
-					</>
-				}
-				actions={update}
-				menu={menu("Repository")}
+				meta={<>{since("2h")}</>}
+				actions={update(8)}
 			/>
 		),
 		children: [
@@ -756,7 +585,6 @@ const repositories: ReadonlyArray<TreeNode> = [
 							</>
 						}
 						actions={<Button size="small">Create PR</Button>}
-						menu={menu("Branch")}
 					/>
 				),
 				children: commits("daemon-idle-cpu", [
@@ -790,7 +618,6 @@ const FoldingCard: FC = () => {
 					folded={machineFolded}
 					onToggleFolded={() => setMachineFolded(!machineFolded)}
 					icon={<Icon name="laptop" />}
-					menu={menu("Machine")}
 				/>
 			}
 		>
@@ -815,8 +642,8 @@ export const Folding = meta.story({
 
 /**
  * A selected row: the solid fill while the list holds the selection focus, inverting what it
- * shows, and the quiet one in a list that has lost it. A selected row shows its menu, as the
- * pointer would.
+ * shows, and the quiet one in a list that has lost it. A selected row keeps its state at its
+ * end.
  */
 export const Selection = meta.story({
 	parameters: { design: { type: "figma", url: core("2594-15770") } },
@@ -864,8 +691,8 @@ const PagedBranches: FC = () => {
 	return (
 		<Card label="pavel--macbook-pro-2" header={machine}>
 			<Repository last>
-				<RepoItem name="but-dev" folded={false} menu={menu("Repository")} />
-				<UncommittedItem count={10} depth={1} menu={menu("Uncommitted changes")} />
+				<RepoItem name="but-dev" folded={false} />
+				<UncommittedItem count={10} depth={1} />
 				{tail.slice(0, shown).map((title, i) => (
 					<BranchItem
 						key={title}
@@ -878,7 +705,6 @@ const PagedBranches: FC = () => {
 								<MetaCount type="age">{i + 1}h</MetaCount>
 							</>
 						}
-						menu={menu("Branch")}
 					/>
 				))}
 				<MoreItem
@@ -915,8 +741,8 @@ const PagedRepos: FC = () => {
 	return (
 		<Card label="pavel--macbook-pro-2" header={machine}>
 			<Repository>
-				<RepoItem name="but-dev" folded={false} menu={menu("Repository")} />
-				<UncommittedItem count={10} depth={1} menu={menu("Uncommitted changes")} />
+				<RepoItem name="but-dev" folded={false} />
+				<UncommittedItem count={10} depth={1} />
 				<BranchItem
 					title="mesh-archive"
 					depth={1}
@@ -927,7 +753,6 @@ const PagedRepos: FC = () => {
 							<MetaCount type="age">8m</MetaCount>
 						</>
 					}
-					menu={menu("Branch")}
 				/>
 			</Repository>
 			<Repository>
@@ -940,9 +765,8 @@ const PagedRepos: FC = () => {
 							<MetaCount type="age">1h</MetaCount>
 						</>
 					}
-					menu={menu("Repository")}
 				/>
-				<UncommittedItem count={6} depth={1} menu={menu("Uncommitted changes")} />
+				<UncommittedItem count={6} depth={1} />
 				<BranchItem
 					title="Upgrade to Next 16, React 19 and three r186; reduce GPU usage"
 					pr={{ number: 1, state: "merged" }}
@@ -954,17 +778,11 @@ const PagedRepos: FC = () => {
 							<MetaCount type="age">1d</MetaCount>
 						</>
 					}
-					menu={menu("Branch")}
 				/>
 			</Repository>
 			{moreRepos.slice(0, shown).map((name, i) => (
 				<Repository key={name}>
-					<RepoItem
-						name={name}
-						folded
-						meta={<MetaCount type="age">{i + 2}d</MetaCount>}
-						menu={menu("Repository")}
-					/>
+					<RepoItem name={name} folded meta={<MetaCount type="age">{i + 2}d</MetaCount>} />
 				</Repository>
 			))}
 			<Repository last>
@@ -977,6 +795,246 @@ const PagedRepos: FC = () => {
 		</Card>
 	);
 };
+
+/** A branch in {@link Unread}: its commits, newest first, and which of them are new to the reader. */
+type UnreadBranch = {
+	id: string;
+	title: string;
+	pr?: { number: number; state: "open" | "merged" };
+	pushed: boolean;
+	commits: ReadonlyArray<{ message: string; unread?: boolean }>;
+	push?: number;
+};
+
+const unreadBranches: ReadonlyArray<UnreadBranch> = [
+	{
+		id: "review-cards",
+		title: "review-cards",
+		pushed: false,
+		push: 3,
+		commits: [
+			{ message: "feat: review card layout", unread: true },
+			{ message: "fix: card hover ground", unread: true },
+			{ message: "chore: card tokens" },
+		],
+	},
+	{
+		id: "454",
+		title: "fix: unique cursor names",
+		pr: { number: 454, state: "open" },
+		pushed: false,
+		push: 2,
+		commits: [{ message: "fix: unique cursor names" }, { message: "test: cursor names" }],
+	},
+	{
+		id: "cursor-api",
+		title: "cursor-api",
+		pushed: true,
+		commits: [
+			{ message: "feat: cursor endpoint", unread: true },
+			{ message: "feat: cursor paging" },
+			{ message: "docs: cursor api" },
+		],
+	},
+	{
+		id: "132",
+		title: "feat: archive old worktrees",
+		pr: { number: 132, state: "merged" },
+		pushed: true,
+		commits: [{ message: "feat: archive old worktrees" }, { message: "test: archive" }],
+	},
+];
+
+/**
+ * {@link Unread}'s rows. A folded branch carries the dot for any commit inside it that's new;
+ * open, the dot moves to those commits. Selecting a commit reads it, and once none inside is new,
+ * the branch has no dot, folded or not.
+ */
+const UnreadTree: FC = () => {
+	const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
+	const [read, setRead] = useState<ReadonlySet<string>>(new Set());
+	const [selected, setSelected] = useState<string | undefined>();
+	const isNew = (branch: UnreadBranch, message: string) =>
+		branch.commits.some((c) => c.message === message && c.unread) && !read.has(message);
+	const anyNew = (branch: UnreadBranch) => branch.commits.some((c) => isNew(branch, c.message));
+	const toggle = (id: string) => () => {
+		const next = new Set(open);
+		if (next.has(id)) next.delete(id);
+		else next.add(id);
+		setOpen(next);
+	};
+	return (
+		<Repository last>
+			<RepoItem name="but-dev" folded={false} />
+			<UncommittedItem count={10} depth={1} />
+			{unreadBranches.map((branch) => {
+				const isOpen = open.has(branch.id);
+				return (
+					<Fragment key={branch.id}>
+						<BranchItem
+							title={branch.title}
+							pr={branch.pr}
+							depth={1}
+							folded={!isOpen}
+							onToggleFolded={toggle(branch.id)}
+							unread={!isOpen && anyNew(branch)}
+							meta={
+								branch.pushed &&
+								!isOpen && <MetaCount type="commits">{branch.commits.length}</MetaCount>
+							}
+							actions={branch.push !== undefined && push(branch.push)}
+						/>
+						{isOpen &&
+							branch.commits.map((commit) => (
+								<CommitItem
+									key={commit.message}
+									message={commit.message}
+									pushed={branch.pushed}
+									depth={2}
+									unread={isNew(branch, commit.message)}
+									selected={selected === commit.message}
+									onClick={() => {
+										setSelected(commit.message);
+										setRead(new Set(read).add(commit.message));
+									}}
+								/>
+							))}
+					</Fragment>
+				);
+			})}
+		</Repository>
+	);
+};
+
+/**
+ * Rows that changed since they were last opened take a dot (`unread`) in their start padding,
+ * before the guides, where it moves nothing, so the counts line up whether a row has one or not.
+ * A folded branch carries the dot for its new commits; open it and the dot moves to them. Select a
+ * commit to read it: once a branch has none new, its dot goes.
+ */
+export const Unread = meta.story({
+	render: () => (
+		<Card label="pavel--macbook-pro-2" header={machine}>
+			<UnreadTree />
+		</Card>
+	),
+});
+
+const pavel = { seed: "pavel@gitbutler.com" };
+const kiril = { seed: "kiril@gitbutler.com" };
+
+/** {@link Upstream}'s rows, the heading and a merge folding as the sidebar's do. */
+const UpstreamTree: FC = () => {
+	const [branch, setBranch] = useState(true);
+	const [open, setOpen] = useState(true);
+	const [merge, setMerge] = useState(true);
+	return (
+		<Repository last>
+			<RepoItem name="but-dev" folded={false} />
+			<BranchItem
+				title="perf: cheaper status polling"
+				depth={1}
+				folded={!branch}
+				onToggleFolded={() => setBranch(!branch)}
+				meta={<MetaStatus variant="working">CI</MetaStatus>}
+				authors={[pavel, kiril]}
+				actions={!branch && update(3, "origin")}
+			/>
+			{branch && (
+				<>
+					<UpstreamItem
+						remote="origin"
+						count={3}
+						authors={[pavel, kiril]}
+						tooltip="3 new commits on origin/perf-cheaper-status-polling, from Pavel Laptev and Kiril Videlov"
+						depth={2}
+						folded={!open}
+						onToggleFolded={() => setOpen(!open)}
+						actions={update(3, "origin")}
+					/>
+					{open && (
+						<>
+							<CommitItem
+								message="Merge #12: retry on timeout"
+								upstream
+								merge
+								authors={[kiril]}
+								tooltip="Kiril Videlov · 1h ago"
+								depth={3}
+								folded={!merge}
+								onToggleFolded={() => setMerge(!merge)}
+							/>
+							{merge && (
+								<CommitItem
+									message="fix: retry on timeout"
+									upstream
+									author={kiril}
+									tooltip="Kiril Videlov · 1h ago"
+									depth={4}
+								/>
+							)}
+							<CommitItem
+								message="test: cover a stalled transfer"
+								upstream
+								author={pavel}
+								tooltip="Pavel Laptev · 2h ago"
+								depth={3}
+							/>
+						</>
+					)}
+					<CommitItem message="docs: handoff notes" depth={2} />
+					<CommitItem message="feat: 28px hunk separator" pushed={false} depth={2} />
+					<CommitItem message="chore: separator tokens" pushed={false} depth={2} />
+				</>
+			)}
+		</Repository>
+	);
+};
+
+/**
+ * What a branch's remote has that the branch doesn't, as GPUI shows it: a "New on origin" heading
+ * one level under the branch, over its own commits, with who the commits come from and Update in
+ * place of the count. Open, the commits sit under it, `upstream` and amber, each with its author's
+ * picture at its end, a merge folding to the commits it brought in. Fold the heading and its
+ * pictures say who; fold the branch and it says both, the pictures and Update in place of its ↓.
+ */
+export const Upstream = meta.story({
+	render: () => (
+		<Card label="pavel--macbook-pro-2" header={machine}>
+			<UpstreamTree />
+		</Card>
+	),
+});
+
+/**
+ * A remote whose commits couldn't load: a NoticeItem says so in their place, with the reason over
+ * it and Try again after it.
+ */
+export const UpstreamFailed = meta.story({
+	render: () => (
+		<Card label="pavel--macbook-pro-2" header={machine}>
+			<Repository last>
+				<RepoItem name="but-dev" folded={false} />
+				<BranchItem title="perf: cheaper status polling" depth={1} folded={false} />
+				<UpstreamItem
+					remote="origin"
+					count={2}
+					tooltip="2 new commits on origin/perf-cheaper-status-polling"
+					depth={2}
+					folded={false}
+					actions={update(2, "origin")}
+				/>
+				<NoticeItem
+					message="Can’t show the commits."
+					tooltip="The machine didn’t answer"
+					action={{ label: "Try again", onClick: () => {} }}
+					depth={3}
+				/>
+				<CommitItem message="feat: 28px hunk separator" pushed={false} depth={2} />
+			</Repository>
+		</Card>
+	),
+});
 
 /**
  * A long list ends in a row that pages through the rest: "12 more" opens the next twelve, and once
@@ -991,5 +1049,74 @@ export const Paging = meta.story({
 			<PagedBranches />
 			<PagedRepos />
 		</div>
+	),
+});
+
+const inactive = [
+	{ name: "dazzling-sinoussi-031b8a", age: "6d" },
+	{ name: "quirky-hopper-7f2e10", age: "9d" },
+];
+
+/** A repository whose linked worktrees nobody touched lately, folded or not by `open`. */
+const InactiveWorktreesCard: FC<{ open: boolean }> = ({ open: initial }) => {
+	const [open, setOpen] = useState(initial);
+	return (
+		<Card label="pavel--macbook-pro-2" header={machine}>
+			<Repository last>
+				<RepoItem name="but-dev" folded={false} />
+				<WorktreeItem main name="Main worktree" depth={1} folded meta={since("1d")} />
+				<WorktreeItem name="mesh-archive" depth={1} folded meta={since("5h")} />
+				{open &&
+					inactive.map((worktree) => (
+						<WorktreeItem
+							key={worktree.name}
+							name={worktree.name}
+							depth={1}
+							folded
+							meta={since(worktree.age)}
+						/>
+					))}
+				<MoreItem
+					depth={1}
+					label={open ? "Hide inactive worktrees" : `${inactive.length} inactive worktrees`}
+					expanded={open}
+					onClick={() => setOpen(!open)}
+				/>
+			</Repository>
+		</Card>
+	);
+};
+
+/**
+ * Linked worktrees with nothing uncommitted that nobody touched lately fold away behind a row at
+ * the worktrees' depth, after the active ones: "2 inactive worktrees" shows them, and "Hide
+ * inactive worktrees" folds them back. Click it to switch.
+ */
+export const InactiveWorktrees = meta.story({
+	parameters: { design: { type: "figma", url: core("2585-8164") } },
+	render: () => (
+		<div style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "flex-start" }}>
+			<InactiveWorktreesCard open={false} />
+			<InactiveWorktreesCard open />
+		</div>
+	),
+});
+
+/**
+ * A repository's card while its rows load: the header as it will be, over rows of bones, each a
+ * glyph and a name, so the card holds its place and nothing moves as the rows land.
+ */
+export const Loading = meta.story({
+	parameters: { design: { type: "figma", url: core("5500-237409") } },
+	render: () => (
+		<Card label="but-dev" header={<RepoItem name="but-dev" folded={false} />}>
+			<Repository last>
+				<div aria-busy style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+					{[156, 76, 199, 116].map((width) => (
+						<LoadingItem key={width} width={width} />
+					))}
+				</div>
+			</Repository>
+		</Card>
 	),
 });

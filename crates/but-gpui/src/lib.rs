@@ -26,7 +26,7 @@ mod app;
 #[expect(clippy::disallowed_methods, reason = "its work runs off the UI thread")]
 mod backend;
 mod clipboard;
-mod clock;
+use but_ui_gpui::clock;
 mod command_editor;
 mod commands;
 mod commit_blocked;

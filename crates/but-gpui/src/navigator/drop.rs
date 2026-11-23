@@ -294,7 +294,7 @@ impl Navigator {
         let zone = h_flex()
             .id(("new-branch-drop", ix))
             .h(dp(30.))
-            .mx(dp(3.))
+            .mx(dp(super::rows::ROW_MARGIN))
             .justify_center()
             .gap(dp(6.))
             .rounded(dp(theme.shape.control))
@@ -874,7 +874,9 @@ mod tests {
 
     #[test]
     fn the_pointer_over_no_stop_sends_what_is_dragged_back() {
-        let rows = Vec::from([branch("ui"), commit(3), Row::WorktreeDivider, branch("api")]);
+        // A note takes nothing dropped, as a divider between worktrees did while it had room.
+        let note = Row::Note("Loading…".into(), false);
+        let rows = Vec::from([branch("ui"), commit(3), note, branch("api")]);
         let line = 2. * ROW_HEIGHT + 6.;
         assert_eq!(
             drag_zone(&rows, &project(), &commits(&[id(9)]), aim(line), |_, _| {

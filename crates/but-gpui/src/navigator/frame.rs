@@ -27,6 +27,8 @@ pub(super) struct Built {
     pub(super) rows: Vec<Row>,
     pub(super) insets: Vec<f32>,
     pub(super) guides: Vec<Vec<f32>>,
+    /// Whether each row's innermost guide ends at it: see [`Rows::ends`].
+    pub(super) ends: Vec<bool>,
     /// Each row's place in the fold it moves with, while one does.
     pub(super) moving: Vec<Option<Moving>>,
     /// Each row's key, to tell which rows a reorder moved.
@@ -277,6 +279,7 @@ impl Navigator {
             rows,
             insets,
             guides,
+            ends,
             moving,
             drawer,
             first_hit,
@@ -286,6 +289,7 @@ impl Navigator {
         self.sync_list(rows, drawer, window, cx);
         self.built.insets = insets;
         self.built.guides = guides;
+        self.built.ends = ends;
         self.first_hit = first_hit;
     }
 

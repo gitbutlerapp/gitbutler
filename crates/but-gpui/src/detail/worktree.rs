@@ -682,7 +682,7 @@ impl Detail {
                         Made::Here(branch, commit) => (
                             match commit.conflicted {
                                 true => (Icon::Warning, theme.warning_mark),
-                                false => (Icon::Commit, theme.info_mark),
+                                false => (Icon::Commit, theme.commit_local),
                             },
                             branch_said(store, project, branch, theme),
                             store.is_unread(project, commit),

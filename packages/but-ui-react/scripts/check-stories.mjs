@@ -52,7 +52,8 @@ const FIRST_STORY = /^export const (\w+)\s*=/m;
 /** @param {string} exportName */
 const storyName = (exportName) =>
 	exportName.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z])([A-Z][a-z])/g, "$1 $2");
-const PAGE_ID = /\bid: "([a-z0-9-]+)"/;
+// The page's own id, in its `stories({ … })`, not a story's data that comes before it.
+const PAGE_ID = /\bstories\(\{[^}]*?\bid: "([a-z0-9-]+)"/;
 const STORY = /^export const (\w+)\s*=\s*meta\.story\(/gm;
 /** @type {Map<string, string>} */
 const storyNames = new Map();

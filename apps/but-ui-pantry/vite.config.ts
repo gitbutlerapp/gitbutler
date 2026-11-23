@@ -34,11 +34,12 @@ const designFolders = [
 	["../../packages/but-ui/design", "patterns"],
 ] as const;
 
-/** The component notes a JSDoc block names in its `@see` tags, as paths from this package. */
+/** The notes a JSDoc block names in its `@see` tags, as paths from this package: a component's own
+ * note, or a pattern the component takes part in, which keeps its own page too. */
 const componentNotes = (jsdoc: string) =>
-	[...jsdoc.matchAll(/@see packages\/but-ui\/(design\/components\/[a-z-]+\.md)/g)].flatMap(
-		([, note]) => (note === undefined ? [] : [`../../packages/but-ui/${note}`]),
-	);
+	[
+		...jsdoc.matchAll(/@see packages\/but-ui\/(design\/(?:components|patterns)\/[a-z-]+\.md)/g),
+	].flatMap(([, note]) => (note === undefined ? [] : [`../../packages/but-ui/${note}`]));
 
 /** Where the GPUI client's design system is, whose components the docs site marks GPUI. */
 const gpuiSource = "../../crates/but-ui-gpui/src";
@@ -81,6 +82,26 @@ const capitalise = (words: string) =>
  */
 const docsPages = (): Plugin => ({
 	name: "docs-pages",
+	// The list is read once, so a note or stories file added or removed while the server runs needs
+	// the list read again: the folders it comes from are watched, and a file coming or going there
+	// throws the list away and reloads the site.
+	configureServer(server) {
+		const folders = [
+			...designFolders.map(([dir, folder]) => `${dir}/${folder}`),
+			"../../packages/but-ui/design/components",
+			"../../packages/but-ui-react/src",
+			gpuiSource,
+		].map((folder) => resolve(folder));
+		server.watcher.add(folders);
+		const relist = (file: string) => {
+			if (!folders.some((folder) => file.startsWith(`${folder}/`))) return;
+			for (const page of server.moduleGraph.getModulesByFile(resolve("src/page-list.ts")) ?? [])
+				server.moduleGraph.invalidateModule(page);
+			server.ws.send({ type: "full-reload" });
+		};
+		server.watcher.on("add", relist);
+		server.watcher.on("unlink", relist);
+	},
 	load(id) {
 		if (!id.endsWith("/but-ui-pantry/src/page-list.ts")) return undefined;
 		const read = (file: string) => {

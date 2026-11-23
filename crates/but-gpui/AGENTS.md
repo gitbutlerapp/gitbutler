@@ -14,6 +14,12 @@ The theme, the tokens, the icons, the fonts and every component with a counterpa
 there), which `ui` re-exports as `ui::button` and so on. The rest of `ui` is the app's own.
 Change a shared component there, and draw it as but-ui-react's.
 
+**Components first, always.** Whatever has a component, a row, a count, a badge, a glyph's
+colour, a selection's ink, is drawn by calling that component, never rebuilt in the app from
+`div`s, icons and theme colours. When it lacks something the app needs (a tooltip, a state, a
+slot), add that to the component and use it from there; don't work around it beside the call.
+App code keeps only what no component can know: its data, layout, handlers and moves.
+
 To use a component:
 
 - Find it in `crates/but-ui-gpui/src`, one file per component, its first doc line naming its
@@ -287,6 +293,10 @@ and tests it.
 
 - Match the rules in `packages/but-ui/design/`. Adapt Tauri and but.dev rather than copy
   them, and leave out what GPUI has no data for.
+- A commit's glyph takes `theme.commit_local`, `commit_remote`, `commit_upstream` or
+  `commit_integrated` by its state, never a hue, so its colour changes in but-ui's token for
+  every client (the Sidebar trees note). The upstream heading's glyph takes `commit_upstream`
+  too.
 - Conflicts are `warning`, never danger red. One accent button per surface. Controls keep the
   arrow cursor, as the desktop does, and a focused field rings in gray (`ring`), not
   the primary. A disabled control says why in its tooltip. Tooltips are a few words, with the shortcut

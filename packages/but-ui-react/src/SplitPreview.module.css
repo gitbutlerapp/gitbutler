@@ -1,0 +1,61 @@
+/* The card: Popup's surface at the tooltip's width, so it is one size whatever the row. It reads,
+   never acts, as a tooltip: the pointer passes through it, so it closes once the pointer leaves the
+   map and its items take no hover or press. */
+.preview {
+	width: var(--but-size-tooltip-max);
+	pointer-events: none;
+}
+
+/* What places the card passes the pointer through too, or the card would count as hovered and stay
+   open over it. */
+.positioner {
+	pointer-events: none;
+}
+
+.trigger {
+	display: inline-flex;
+	flex-shrink: 0;
+}
+
+/* The map: the split's layout at 16 by 12, an icon's width, a hairline between tiles, the tile of
+   the row it's on inked and the rest faint. A row's `split` cell places it. */
+.map {
+	display: inline-flex;
+	flex-shrink: 0;
+	width: 16px;
+	height: 12px;
+}
+
+.across {
+	flex-direction: row;
+}
+
+.down {
+	flex-direction: column;
+}
+
+.part {
+	display: flex;
+	flex-basis: 0;
+	min-width: 0;
+	min-height: 0;
+}
+
+.cells {
+	display: flex;
+	flex: 1;
+	min-width: 0;
+	min-height: 0;
+	gap: 1px;
+}
+
+.cell {
+	flex: 1;
+	border-radius: var(--but-radius-xs);
+	background-color: var(--but-subtle-foreground);
+	opacity: 0.45;
+}
+
+.here {
+	opacity: 1;
+}

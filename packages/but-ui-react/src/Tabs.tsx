@@ -41,7 +41,7 @@ export const Tabs: FC<
  * the label. Faded until it is hovered or selected.
  *
  * `status` follows the label, unfaded, for a state the tab's contents are in: a pull request's
- * checks as a `CiStatus`. When something in the tab needs the user, give `count` instead.
+ * checks as a `MetaStatus`. When something in the tab needs the user, give `count` instead.
  *
  * @public
  */
