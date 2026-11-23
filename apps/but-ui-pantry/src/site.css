@@ -298,6 +298,86 @@ body[data-layout="centered"] {
 	margin: 0;
 }
 
+/* A heading or a rule that can be linked to: its link button hangs in the margin before it, out
+   of the words' line, and shows under the pointer or the keyboard. A touch screen has no pointer
+   to bring it, so it always shows there. */
+.docs-linked {
+	position: relative;
+	scroll-margin-top: var(--but-space-xl);
+}
+
+/* The gutter is the block's first line tall, since it inherits the block's line height, and the
+   button centres in it, so it sits level with the first line at any text size. */
+.docs-linked-gutter {
+	display: flex;
+	position: absolute;
+	top: 0;
+	right: 100%;
+	align-items: center;
+	height: 1lh;
+	margin-right: var(--but-space-xs);
+}
+
+.docs-linked-button {
+	color: var(--but-muted-foreground);
+	opacity: 0;
+}
+
+/* The title a link opened, a heading's words or a rule's bold lead, lit in the accent's soft tint
+   on arrival and fading out. The tint reaches a little past the words, wrapping with them. It
+   gives a little wiggle as it lands, a nudge to the eye that reduced motion turns off: the title
+   is inline, where a transform does nothing, so it shifts by its relative `left`, which carries
+   every line of a wrapped title along. A keyframe animation, with its own timing. */
+.docs-linked > :is(.docs-linked-title, strong:first-of-type) {
+	position: relative;
+	box-decoration-break: clone;
+	margin-inline: calc(-1 * var(--but-space-xs));
+	padding-inline: var(--but-space-xs);
+	border-radius: var(--but-radius-xs);
+	transition: background-color var(--but-transition-medium) ease-out;
+}
+
+.docs-linked[data-lit] > :is(.docs-linked-title, strong:first-of-type) {
+	background-color: var(--but-primary-soft-hover);
+	animation: docs-linked-wiggle 450ms ease-out;
+}
+
+@keyframes docs-linked-wiggle {
+	20% {
+		left: -3px;
+	}
+
+	40% {
+		left: 3px;
+	}
+
+	60% {
+		left: -2px;
+	}
+
+	80% {
+		left: 1px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.docs-linked[data-lit] > :is(.docs-linked-title, strong:first-of-type) {
+		animation: none;
+	}
+}
+
+.docs-linked:hover .docs-linked-button,
+.docs-linked-button:focus-visible,
+.docs-linked-button[data-popup-open] {
+	opacity: 1;
+}
+
+@media (hover: none) {
+	.docs-linked-button {
+		opacity: 1;
+	}
+}
+
 /* The component's design notes, under its description on the Specs tab. */
 .docs-page-guidelines {
 	display: flex;

@@ -2,6 +2,8 @@ import tokens from "../../../packages/but-ui/tokens/tokens.json";
 import { Code } from "@gitbutler/but-ui-react/Code.tsx";
 import { Table, TableCell, TableRow } from "@gitbutler/but-ui-react/Table.tsx";
 import { Tooltip } from "@gitbutler/but-ui-react/Tooltip.tsx";
+import { LinkedHeading } from "./Linked.tsx";
+import { anchorOf } from "./site.ts";
 import type { CSSProperties, FC } from "react";
 
 type Token = { name: string; description: string; alias: string | undefined };
@@ -190,13 +192,17 @@ export const ColoursPage: FC<{ source: string }> = ({ source }) => {
 				accent and the gray ground, Figma’s. Point at a swatch for its token.
 			</p>
 			<section className="docs-colours-section">
-				<h2 className="docs-page-prose text-h2">Ramps</h2>
+				<LinkedHeading id="ramps" className="docs-page-prose text-h2">
+					Ramps
+				</LinkedHeading>
 				<RampGrid hues={hues} found={found} scheme="light" />
 				<RampGrid hues={hues} found={found} scheme="dark" />
 			</section>
 			{semanticGroups(found, hues).map(([name, group]) => (
 				<section key={name} className="docs-colours-section">
-					<h2 className="docs-page-prose text-h2">{name}</h2>
+					<LinkedHeading id={anchorOf(name)} className="docs-page-prose text-h2">
+						{name}
+					</LinkedHeading>
 					<Table
 						header={
 							<TableRow>

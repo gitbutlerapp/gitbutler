@@ -20,6 +20,14 @@ window.addEventListener("popstate", showPage);
 
 export const pageHref = (id: string) => `?page=${id}`;
 
+/** A heading's words as the part of an address after `#`: "Branch With Buttons" is branch-with-buttons. */
+export const anchorOf = (words: string) =>
+	words
+		.toLowerCase()
+		.replace(/['’]/g, "")
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-|-$/g, "");
+
 /**
  * A link to a page. A plain click loads the page first and then swaps it in, so the one on
  * screen stays until the next is ready; a click that opens a new tab goes where the address says.
