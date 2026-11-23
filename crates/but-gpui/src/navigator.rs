@@ -111,7 +111,9 @@ const ABOVE_LAST_LISTED: usize = 2;
 /// How tall the bar of a card at the navigator's foot is, the drawer's level with the commit
 /// footer beside it, and the space under the drawer's rows.
 pub(super) const CARD_BAR_HEIGHT: f32 = crate::detail::FOOTER_HEIGHT;
-const DRAWER_PADDING: f32 = 6.;
+/// The room around each project in the drawer's card, as 🍑 But UI's drawer has each in a
+/// group of its own: `space-lg` over and under its row.
+const DRAWER_GROUP_PADDING: f32 = 8.;
 
 /// How far that bar sits in from its card's edges, as a row from a card's.
 pub(super) const CARD_BAR_INSET: f32 = 3.;
@@ -2467,7 +2469,6 @@ impl Navigator {
                             .border_1()
                             .border_color(theme.border_subtle)
                             .rounded(dp(theme.shape.card))
-                            .pb(dp(DRAWER_PADDING))
                     })
                     .when(rows_height <= 0., |el| el.max_h(dp(2.)))
                     .child(rows)
@@ -2494,7 +2495,9 @@ impl Navigator {
     fn drawer_rows_height(&self) -> f32 {
         let full = match self.built.drawer.rows.len() {
             0 => 0.,
-            n => n as f32 * self.row + DRAWER_PADDING,
+            // Each in its group, the room over and under its row, a line between each and the
+            // next.
+            n => n as f32 * (self.row + 2. * DRAWER_GROUP_PADDING) + (n - 1) as f32,
         };
         full * self.folds.openness(&Fold::Drawer).unwrap_or(1.)
     }
@@ -2803,12 +2806,15 @@ impl Navigator {
             Some(Row::Note(text, is_error)) => note_row(text, *is_error, theme),
             _ => self.render_item(&self.built.drawer.rows, ix, 0., theme, cx),
         };
-        // A hairline between one project and the next, across the card, as but-ui-react's
-        // Drawer lists them.
+        // Each project in a group of its own, room over and under its row, and a line across
+        // the card between one and the next, as 🍑 But UI's drawer lists them.
         div()
             .relative()
+            .py(dp(DRAWER_GROUP_PADDING))
+            .when(ix > 0, |el| {
+                el.border_t_1().border_color(theme.border_subtle)
+            })
             .child(el)
-            .when(ix > 0, |el| el.child(hairline(theme)))
             .into_any_element()
     }
 
