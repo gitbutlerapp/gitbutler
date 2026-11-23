@@ -361,7 +361,7 @@ fn find_base_tree(
         ))
     } else {
         merged_tree_from_commits(
-            target.id.repo,
+            target.id.repo(),
             &target.parents,
             tree_merge_mode,
             TreeKind::AutoResolution,
@@ -464,7 +464,7 @@ fn find_real_tree<'repo>(
     side: TreeKind,
 ) -> anyhow::Result<gix::Id<'repo>> {
     Ok(if commit.is_conflicted() {
-        let tree = commit.id.repo.find_tree(commit.tree)?;
+        let tree = commit.id.repo().find_tree(commit.tree)?;
         let conflicted_side = tree
             .find_entry(side.as_tree_entry_name())
             .context("Failed to get conflicted side of commit")?;
@@ -480,7 +480,7 @@ fn commit_from_unconflicted_tree<'repo>(
     resolved_tree_id: gix::Id<'repo>,
     sign_commit: SignCommit,
 ) -> anyhow::Result<(gix::ObjectId, ChangeId)> {
-    let repo = to_rebase.id.repo;
+    let repo = to_rebase.id.repo();
 
     let change_id = to_rebase.change_id();
     let mut new_commit = to_rebase.inner;
@@ -520,14 +520,9 @@ fn commit_from_conflicted_tree<'repo>(
     theirs_tree_id: gix::ObjectId,
     sign_commit: SignCommit,
 ) -> anyhow::Result<(gix::ObjectId, ChangeId)> {
-    let repo = resolved_tree_id.repo;
+    let repo = resolved_tree_id.repo();
 
-    let conflicted_files = conflict_entries_from_merge_outcome(
-        repo,
-        resolved_tree_id.detach(),
-        &cherry_pick,
-        treat_as_unresolved,
-    )?;
+    let conflicted_files = conflict_entries_from_merge_outcome(&cherry_pick, treat_as_unresolved)?;
 
     let conflicted_files_string = toml::to_string(&conflicted_files)?;
     let conflicted_files_blob = repo.write_blob(conflicted_files_string.as_bytes())?;

@@ -256,10 +256,9 @@ pub(crate) fn set_base_branch(
         );
     }
     let head_has_local_work = !head_is_workspace
-        && repo
-            .merge_base(current_head_commit, target_commit_oid)
-            .context("failed to compare HEAD with the selected cutoff")?
-            .is_none_or(|base| base.detach() != current_head_commit);
+        && !repo
+            .is_ancestor(current_head_commit, target_commit_oid)
+            .context("failed to compare HEAD with the selected cutoff")?;
     ctx.set_project_meta(project_meta)?;
 
     let mut workspace_to_initialize = None;

@@ -29,7 +29,7 @@ but_schemars::register_sdk_type!(LineStats);
 impl CommitDetails {
     /// Compute the tree-diff for `commit_id` with its first parent and optionally calculate `line_stats`.
     pub fn from_commit_id(commit_id: gix::Id, line_stats: bool) -> anyhow::Result<Self> {
-        let repo = commit_id.repo;
+        let repo = commit_id.repo();
         let commit = repo.find_commit(commit_id)?;
         let first_parent_commit_id = commit.parent_ids().map(|id| id.detach()).next();
 

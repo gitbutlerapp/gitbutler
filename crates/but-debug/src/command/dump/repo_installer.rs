@@ -25,13 +25,13 @@ pub(super) fn run(
     err: &mut dyn io::Write,
 ) -> Result<()> {
     let current_dir = effective_current_dir(args)?;
-    let repo = setup::repo_from_args(args).with_context(|| {
+    let mut repo = setup::repo_from_args(args).with_context(|| {
         format!(
             "Could not discover Git repository at '{}'",
             current_dir.display()
         )
     })?;
-    let repo = gix::open_opts(repo.git_dir().canonicalize()?, repo.open_options().clone())?;
+    repo.make_paths_absolute()?;
     let workdir = repo
         .workdir()
         .context("Repository installers require a non-bare repository")?;

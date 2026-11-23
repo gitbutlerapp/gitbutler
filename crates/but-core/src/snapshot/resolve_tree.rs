@@ -62,7 +62,7 @@ pub(super) mod function {
             merge_base_override,
         }: Options,
     ) -> anyhow::Result<Outcome<'_>> {
-        let repo = snapshot_tree.repo;
+        let repo = snapshot_tree.repo();
         let snapshot_tree = snapshot_tree.object()?.try_into_tree()?;
         let head_tree = snapshot_tree.lookup_entry_by_path("HEAD")?;
         let worktree = snapshot_tree.lookup_entry_by_path("worktree")?;

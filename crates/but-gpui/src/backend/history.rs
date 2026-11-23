@@ -538,13 +538,18 @@ impl Intent for Restore {
         run.locked(|ctx, perm| {
             let repo = ctx.repo.get()?;
             super::ops::refuse_unfinished(&repo, false)?;
-            // Each snapshot is made on the one before, so one taken since `snapshot` has it as
-            // its base.
-            let since = |later: &SnapshotId| {
-                super::is_ancestor(&repo, snapshot.0, later.0).unwrap_or(false)
-            };
-            if kept.iter().any(since) {
-                but_error::bail_precondition!("{UNRECORDED}");
+            if !kept.is_empty()
+                && let Ok(cache) = repo.commit_graph_if_enabled()
+            {
+                let mut graph = repo.revision_graph(cache.as_ref());
+                // Each snapshot is made on the one before, so one taken since `snapshot` has it as
+                // its base.
+                if kept.iter().any(|later| {
+                    repo.is_ancestor_with_graph(snapshot.0, later.0, &mut graph)
+                        .unwrap_or(false)
+                }) {
+                    but_error::bail_precondition!("{UNRECORDED}");
+                }
             }
             drop(repo);
             let kind = RestoreKind::ExplicitRestoreFromSnapshot;
@@ -597,11 +602,7 @@ impl Intent for UncommitAboveWorkspace {
             let tip = workspace.peel_to_id()?.detach();
             // Only commits on top of it go, never ones it was moved away from since.
             anyhow::ensure!(
-                tip != self.workspace_commit
-                    && repo
-                        .merge_base(tip, self.workspace_commit)?
-                        .map(gix::Id::detach)
-                        == Some(self.workspace_commit),
+                tip != self.workspace_commit && repo.is_ancestor(self.workspace_commit, tip)?,
                 "The workspace changed since. Read the project again and try once more."
             );
             but_oplog::UnmaterializedOplogSnapshot::prepare_checkpoint(
@@ -737,7 +738,7 @@ fn undo_snapshot(
     super::ops::refuse_unfinished(&*ctx.repo.get()?, false)?;
     // With nothing left to undo, or only what came before it, something undid it already.
     let before_it = |target: gix::ObjectId| -> Result<bool> {
-        Ok(target != snapshot.0 && super::is_ancestor(&*ctx.repo.get()?, target, snapshot.0)?)
+        Ok(target != snapshot.0 && ctx.repo.get()?.is_ancestor(target, snapshot.0)?)
     };
     let target = match oplog::get_undo_target_snapshot(ctx)? {
         Some(target) if !before_it(target.commit_id)? => target,

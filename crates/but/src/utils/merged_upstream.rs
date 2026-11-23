@@ -124,6 +124,8 @@ impl MergedUpstream {
             .target_commit
             .as_ref()
             .map(|target| target.commit_id);
+        let cache = std::cell::OnceCell::new();
+        let mut graph = None;
 
         for stack in &head_info.stacks {
             let Some(segment) = stack
@@ -149,11 +151,13 @@ impl MergedUpstream {
             if stored_target_base == Some(remote_tip) && remote_tip != target_tip {
                 continue;
             }
+            let Ok(cache) = cache.get_or_init(|| repo.commit_graph_if_enabled()) else {
+                return;
+            };
+            let graph = graph.get_or_insert_with(|| repo.revision_graph(cache.as_ref()));
             if repo
-                .merge_base(remote_tip, target_tip)
-                .is_ok_and(|merge_base| {
-                    merge_base.is_some_and(|merge_base| merge_base == remote_tip)
-                })
+                .is_ancestor_with_graph(remote_tip, target_tip, graph)
+                .unwrap_or(false)
             {
                 self.merged_branches.insert(ref_info.ref_name.clone());
             }

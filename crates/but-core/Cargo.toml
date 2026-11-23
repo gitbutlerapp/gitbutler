@@ -34,10 +34,10 @@ gix = { workspace = true, features = [
     "merge",
     "worktree-mutation",
 ] }
+gix-encoding = { version = "0.1.0", default-features = false }
 smallvec.workspace = true
 # for V1 conflict commits
 toml.workspace = true
-chardetng = "0.1.17"
 
 # for `id`
 uuid.workspace = true

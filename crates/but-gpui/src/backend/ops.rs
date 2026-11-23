@@ -1695,9 +1695,17 @@ fn refuse_buried_merges(repo: &gix::Repository, commits: &[CommitId]) -> Result<
         }
         Ok(false)
     };
+    let Ok(cache) = repo.commit_graph_if_enabled() else {
+        // Like a failed ancestry query, a failed cache setup can't establish that a merge is buried.
+        return Ok(());
+    };
+    let mut graph = repo.revision_graph(cache.as_ref());
     for merge in merges {
         let buried = (tips.iter().filter(|tip| **tip != merge.0))
-            .filter(|tip| super::is_ancestor(repo, merge.0, **tip).unwrap_or(false))
+            .filter(|tip| {
+                repo.is_ancestor_with_graph(merge.0, **tip, &mut graph)
+                    .unwrap_or(false)
+            })
             .any(|tip| stays_above(*tip, merge.0).unwrap_or(true));
         if buried {
             but_error::bail_precondition!(
@@ -2587,6 +2595,19 @@ pub(super) mod tests {
         assert!(
             refuse_buried_merges(&repo, &[merge]).is_ok(),
             "at the top of what's checked out, a backup no checkout has doesn't keep it in"
+        );
+
+        git(path, &["checkout", "-q", "main"]);
+        git(
+            path,
+            &["worktree", "add", "-q", "--detach", "linked", "backup"],
+        );
+        git(path, &["commit-graph", "write", "--reachable"]);
+        let repo = gix::open(path).unwrap();
+        assert!(
+            refuse_buried_merges(&repo, &[merge])
+                .is_err_and(|err| err.to_string().contains("commits above it")),
+            "the merge is buried in the linked checkout even though main does not reach it"
         );
     }
 

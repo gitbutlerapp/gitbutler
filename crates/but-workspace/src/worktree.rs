@@ -163,6 +163,6 @@ pub fn resolve_worktree_conflicts(
     }
 
     edit.finish();
-    index.write(Default::default())?;
+    index.write(Default::default(), gix::fs::SharedPermissions::Umask)?;
     Ok(())
 }

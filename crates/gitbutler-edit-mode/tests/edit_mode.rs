@@ -256,7 +256,7 @@ fn assert_locked_index_rejects_enter_edit_mode(symlink_index: bool) -> Result<()
         &locked_index_path,
         gix::lock::acquire::Fail::Immediately,
         None,
-        0,
+        gix::fs::SharedPermissions::Umask,
     )?;
     let mut guard = ctx.exclusive_worktree_access();
     let stack_id = {

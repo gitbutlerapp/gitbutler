@@ -1126,47 +1126,37 @@ WorktreeChanges {
 #[test]
 fn non_utf8_decoding() -> Result<()> {
     let repo = repo("non-utf8-encodings")?;
-    let actual = diff::worktree_changes(&repo)?;
-    // Let's have one sample file per codepage with reasonable amounts of text for inference.
-    snapbox::assert_data_eq!(
-        actual.to_debug(),
-        snapbox::str![[r#"
-WorktreeChanges {
-    changes: [
-        TreeChange {
-            path: "windows1252",
-            status: Addition {
-                state: ChangeState {
-                    id: Sha1(0000000000000000000000000000000000000000),
-                    kind: Blob,
-                },
-                is_untracked: true,
-            },
-        },
-    ],
-    ignored_changes: [],
-}
-
-"#]]
-    );
-    snapbox::assert_data_eq!(
-        unified_patches(actual, &repo)?.to_debug(),
-        snapbox::str![[r#"
-[
-    Patch {
-        hunks: [
-            DiffHunk("@@ -1,0 +1,1 @@
-            +€ÄÀ
-            "),
-        ],
-        is_result_of_binary_to_text_conversion: false,
-        lines_added: 1,
-        lines_removed: 0,
-    },
-]
-
-"#]]
-    );
+    let changes = diff::worktree_changes(&repo)?.changes;
+    let cases = [
+        (
+            "iso2022jp",
+            "+日本語\n".as_bytes(),
+            "ISO-2022-JP escape sequences identify the encoding, so the hunk is decoded to UTF-8",
+        ),
+        (
+            "windows1252",
+            b"+\x80\xc4\xc0\n".as_slice(),
+            "without an encoding declaration, these bytes are ambiguous and kept as-is",
+        ),
+        (
+            "windows1252-declared",
+            "+€ÄÀ\n".as_bytes(),
+            "working-tree-encoding in .gitattributes tells Gitoxide to convert the same bytes to UTF-8 before diffing",
+        ),
+    ];
+    assert_eq!(changes.len(), cases.len(), "only the sample files changed");
+    for (change, (path, expected, reason)) in changes.iter().zip(cases) {
+        assert_eq!(change.path, path, "the expected sample is being checked");
+        let Some(UnifiedPatch::Patch { hunks, .. }) = change.unified_patch(&repo, 3)? else {
+            panic!("{path} should produce a text patch");
+        };
+        assert_eq!(hunks.len(), 1, "{path} has one new line");
+        assert_eq!(
+            hunks[0].diff.strip_prefix(b"@@ -1,0 +1,1 @@\n"),
+            Some(expected),
+            "{path}: {reason}"
+        );
+    }
     Ok(())
 }
 

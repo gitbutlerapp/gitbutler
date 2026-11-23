@@ -301,13 +301,13 @@ impl<'repo> OverlayRepo<'repo> {
                     return None;
                 }
                 let id = r.try_id()?;
-                let (id, name) =
-                    if matches!(r.name().category(), Some(gix::reference::Category::Tag)) {
-                        // TODO: also make use of the tag name (the tag object has its own name)
-                        (id.object().ok()?.peel_tags_to_end().ok()?.id, r.inner.name)
-                    } else {
-                        (id.detach(), r.inner.name)
-                    };
+                let id = if matches!(r.name().category(), Some(gix::reference::Category::Tag)) {
+                    // TODO: also make use of the tag name (the tag object has its own name)
+                    id.object().ok()?.peel_tags_to_end().ok()?.id
+                } else {
+                    id.detach()
+                };
+                let name = r.detach().name;
                 // This is only for overrides.
                 seen.insert(name.clone()).then_some((id, name))
             };
@@ -380,7 +380,7 @@ impl<'repo> OverlayRepo<'repo> {
             let Some(head) = head else {
                 return Ok(());
             };
-            let Some(wt) = head.repo.worktree() else {
+            let Some(wt) = head.repo().worktree() else {
                 return Ok(());
             };
             let wd = Worktree {
@@ -399,7 +399,7 @@ impl<'repo> OverlayRepo<'repo> {
             let mut cursor = if let Some(head_name) = main_head_referent {
                 overriding
                     .get(head_name)
-                    .map(|overridden_head| overridden_head.clone().attach(head.repo))
+                    .map(|overridden_head| overridden_head.clone().attach(head.repo()))
                     .or_else(|| head.try_into_referent())
             } else {
                 head.try_into_referent()

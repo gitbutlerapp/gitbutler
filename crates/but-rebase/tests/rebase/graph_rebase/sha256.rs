@@ -248,7 +248,7 @@ Sha256
 
     let inner_merge = editor.repo().rev_parse_single("HEAD~")?.detach();
     let a = editor.repo().rev_parse_single("A")?.detach();
-    let b_refname = editor.repo().find_reference("B")?.inner.name;
+    let b_refname = editor.repo().find_reference("B")?.detach().name;
 
     let (inner_merge_selector, _) = editor.find_selectable_commit(inner_merge)?;
     let (a_selector, _) = editor.find_selectable_commit(a)?;

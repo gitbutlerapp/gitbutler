@@ -149,12 +149,9 @@ fn target_contains_commit(
     if repo.try_find_object(commit)?.is_none() {
         return Ok(false);
     }
-    match repo.merge_base(commit, target_head) {
-        Ok(id) => Ok(id.is_some_and(|id| id.detach() == commit)),
-        Err(err) => Err(err).context(format!(
-            "Failed to validate existing target commit {commit} against {target_head}"
-        )),
-    }
+    repo.is_ancestor(commit, target_head).with_context(|| {
+        format!("Failed to validate existing target commit {commit} against {target_head}")
+    })
 }
 
 /// Resolve the cutoff when explicitly changing targets, using stable tip snapshots.
@@ -404,7 +401,7 @@ pub fn publish_first_commit(
     edit.finish();
 
     // Persist the index before publishing the commit, so an index-write failure leaves HEAD unborn.
-    index.write(Default::default())?;
+    index.write(Default::default(), gix::fs::SharedPermissions::Umask)?;
 
     repo.reference(
         branch,

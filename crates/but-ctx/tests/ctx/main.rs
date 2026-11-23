@@ -5,12 +5,69 @@ use std::{
 };
 
 use but_core::ref_metadata::{LocalRefName, ProjectMeta};
-use but_ctx::{Context, ProjectHandle};
+use but_ctx::{Context, ProjectHandle, RepoOpenMode};
 use but_path::AppChannel;
 use but_testsupport::{
     CommandExt as _, git, git_at_dir, gix_testtools::tempfile::TempDir, graph_tree, open_repo,
     writable_scenario_slow,
 };
+
+#[test]
+fn repository_opens_enable_directory_renames_for_conflict_reduction() -> anyhow::Result<()> {
+    use gix::merge::plumbing::tree::{DirectoryRenames, Options};
+
+    but_testsupport::isolated_app_data_dir(|| {
+        let (_tmp, repo, _) = run_fixture("project-meta-base")?;
+        git(&repo).args(["config", "merge.renames", "true"]).run();
+        git(&repo)
+            .args(["config", "merge.directoryRenames", "false"])
+            .run();
+        let workdir = repo.workdir().expect("fixture has a worktree");
+        let linked_dir = workdir.join("linked");
+        git(&repo)
+            .args(["worktree", "add", "--detach"])
+            .arg(&linked_dir)
+            .run();
+
+        let standard = Context::open(workdir)?;
+        let isolated = Context::open_with_repo_open_mode(workdir, RepoOpenMode::Isolated)?;
+        let mut reloaded = standard.repo.get()?.clone();
+        reloaded.reload()?;
+        let linked = standard
+            .repo
+            .get()?
+            .worktrees()?
+            .pop()
+            .expect("fixture has one linked worktree")
+            .into_repo()?;
+        for (source, opened) in [
+            ("standard context", standard.repo.get()?.clone()),
+            ("isolated context", isolated.repo.get()?.clone()),
+            ("isolated open", standard.open_isolated_repo()?),
+            (
+                "discovery from a linked worktree",
+                but_ctx::discover_main_repo(&linked_dir)?,
+            ),
+            ("linked worktree", linked),
+            ("reload", reloaded),
+        ] {
+            let options: Options = opened.tree_merge_options()?.into();
+            assert_eq!(
+                options.directory_renames,
+                DirectoryRenames::Enabled,
+                "{source} enables directory renames"
+            );
+        }
+        assert_eq!(
+            open_repo(workdir)?
+                .config_snapshot()
+                .boolean(gix::config::tree::Merge::DIRECTORY_RENAMES),
+            Some(false),
+            "opening repositories leaves the on-disk setting alone"
+        );
+        Ok(())
+    })
+}
 
 #[test]
 fn new_from_project_handle_uses_repo_gitdir() -> anyhow::Result<()> {

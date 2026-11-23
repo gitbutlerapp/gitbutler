@@ -838,20 +838,22 @@ fn worktrees_behind_target(
     let Some(target_tip) = target_tip else {
         return Ok(HashMap::new());
     };
-    worktrees
+    let mut outside_worktrees = worktrees
         .iter()
         .filter_map(|worktree| match worktree.base? {
             WorktreeBase::Outside(base) => Some((worktree, base)),
             WorktreeBase::InWorkspace(_) => None,
         })
+        .peekable();
+    if outside_worktrees.peek().is_none() {
+        return Ok(HashMap::new());
+    }
+    let cache = repo.commit_graph_if_enabled()?;
+    let mut graph = repo.revision_graph(cache.as_ref());
+    outside_worktrees
         .map(|(worktree, base)| {
-            let behind = repo
-                .rev_walk([target_tip])
-                .with_hidden([base])
-                .all()?
-                .collect::<Result<Vec<_>, _>>()?
-                .len();
-            Ok((worktree.name.clone(), behind))
+            let counts = repo.ahead_behind_counts_with_graph(base, target_tip, &mut graph)?;
+            Ok((worktree.name.clone(), counts.behind))
         })
         .collect()
 }
@@ -1126,8 +1128,8 @@ fn empty_branch_is_merged_upstream(
         return false;
     }
 
-    repo.merge_base(remote_tip_id, target_tip_id)
-        .is_ok_and(|merge_base| merge_base.is_some_and(|merge_base| merge_base == remote_tip_id))
+    repo.is_ancestor(remote_tip_id, target_tip_id)
+        .unwrap_or(false)
 }
 
 fn remote_tracking_ref_is_target_branch(

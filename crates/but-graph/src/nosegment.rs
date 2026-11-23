@@ -132,22 +132,26 @@ pub(crate) fn graph(
         .chain(target_upstream_ref)
         .filter_map(|name| ref_to_oid.get(name).copied())
         .collect();
-    let is_in_target = |id: gix::ObjectId| {
-        Some(id) == target_commit_id
-            || target_tips.iter().any(|&tip| {
-                repo.merge_base(id, tip)
-                    .is_ok_and(|base| base.is_some_and(|base| base.detach() == id))
-            })
+    let cache = repo.commit_graph_if_enabled().ok();
+    let mut revision_graph = cache
+        .as_ref()
+        .map(|cache| repo.revision_graph(cache.as_ref()));
+    let is_ancestor = |id, tip, graph: &mut Option<_>| {
+        graph
+            .as_mut()
+            .is_some_and(|graph| repo.is_ancestor_with_graph(id, tip, graph).unwrap_or(false))
+    };
+    let is_in_target = |id, graph: &mut _| {
+        Some(id) == target_commit_id || target_tips.iter().any(|&tip| is_ancestor(id, tip, graph))
     };
     // Whether the workspace's lanes meet the target at the commit `id`: it's the target commit,
     // or the target and the managed workspace commit both have it.
-    let is_workspace_base = |id: gix::ObjectId| {
+    let is_workspace_base = |id, graph: &mut _| {
         Some(id) == target_commit_id
-            || (is_in_target(id)
-                && workspace_commit.as_ref().is_some_and(|workspace_commit| {
-                    repo.merge_base(id, workspace_commit.id)
-                        .is_ok_and(|base| base.is_some_and(|base| base.detach() == id))
-                }))
+            || (is_in_target(id, graph)
+                && workspace_commit
+                    .as_ref()
+                    .is_some_and(|workspace_commit| is_ancestor(id, workspace_commit.id, graph)))
     };
     let (stacks, unstacked_workspace_branches) = {
         let live_stack = |branches: Vec<FullName>, in_workspace: bool| {
@@ -190,7 +194,7 @@ pub(crate) fn graph(
                 let is_stack_underneath_another = workspace_commit_parent_ids
                     .as_ref()
                     .is_some_and(|parent_ids| !parent_ids.contains(&stack.tip))
-                    && !is_workspace_base(stack.tip);
+                    && !is_workspace_base(stack.tip, &mut revision_graph);
                 // Like after a traversal, a parent of the managed workspace commit is one lane
                 // however many stacks rest on it, that of the first of them, unless the target
                 // already has it, where each is an empty lane. The branches of the others then
@@ -199,7 +203,7 @@ pub(crate) fn graph(
                     && stacks
                         .iter()
                         .any(|other| other.in_workspace && other.tip == stack.tip)
-                    && !is_in_target(stack.tip);
+                    && !is_in_target(stack.tip, &mut revision_graph);
                 // Seen from the workspace, a stack outside of it is no lane, so like after a
                 // traversal its branches belong to whichever lane reaches them.
                 let is_outside_seen_from_workspace =
@@ -483,7 +487,7 @@ pub(crate) fn graph(
                 })
             };
             let own_lane_reaches_it = workspace_commit.is_some()
-                && !is_in_target(commit_id)
+                && !is_in_target(commit_id, &mut revision_graph)
                 && stacks
                     .iter()
                     .any(|stack| stack.in_workspace && stack.branches.contains(&full_name))
@@ -590,18 +594,19 @@ pub(crate) fn graph(
             // Like the edges of a workspace commit, it also leads to each stack of the workspace
             // resting where the workspace's lanes meet the target, which without a workspace
             // commit is the target commit, as an empty lane of its own.
-            let stacks_on_workspace_base: Vec<&Stack> = if is_workspace_ref_name(full_name.as_ref())
-                && workspace_commit.is_none()
-            {
-                stacks
-                    .iter()
-                    .filter(|stack| {
-                        stack.in_workspace && stack.tip != commit_id && is_workspace_base(stack.tip)
-                    })
-                    .collect()
-            } else {
-                Vec::new()
-            };
+            let stacks_on_workspace_base: Vec<&Stack> =
+                if is_workspace_ref_name(full_name.as_ref()) && workspace_commit.is_none() {
+                    stacks
+                        .iter()
+                        .filter(|stack| {
+                            stack.in_workspace
+                                && stack.tip != commit_id
+                                && is_workspace_base(stack.tip, &mut revision_graph)
+                        })
+                        .collect()
+                } else {
+                    Vec::new()
+                };
             for (offset, stack) in stacks_on_workspace_base.iter().enumerate() {
                 unassigned_oid_map
                     .entry(stack.tip)
@@ -660,7 +665,9 @@ pub(crate) fn graph(
         let mut stack_edges = Vec::<(gix::ObjectId, StackLineage)>::new();
         if is_managed_workspace_commit {
             for stack in stacks.iter().filter(|stack| stack.in_workspace) {
-                if parent_ids.contains(&stack.tip) || is_workspace_base(stack.tip) {
+                if parent_ids.contains(&stack.tip)
+                    || is_workspace_base(stack.tip, &mut revision_graph)
+                {
                     stack_edges.push((
                         stack.tip,
                         StackLineage {

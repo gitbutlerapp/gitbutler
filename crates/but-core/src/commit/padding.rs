@@ -28,7 +28,7 @@ pub fn create(conflicted: &crate::Commit<'_>) -> anyhow::Result<gix::ObjectId> {
     }
     Ok(conflicted
         .id
-        .repo
+        .repo()
         .write_object(gix::objs::Commit {
             tree: conflicted.tree_id_or_auto_resolution()?.detach(),
             parents: [conflicted.id.detach()].into(),

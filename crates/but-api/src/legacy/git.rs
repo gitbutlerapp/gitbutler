@@ -10,8 +10,9 @@ use tracing::instrument;
 #[instrument(err(Debug))]
 pub fn git_remote_branches(ctx: &but_ctx::Context) -> Result<Vec<RemoteRefname>> {
     let repo = ctx.repo.get()?;
-    repo.references()?
-        .remote_branches()?
+    let references = repo.references()?;
+    let remote_branches = references.remote_branches()?;
+    remote_branches
         .filter_map(Result::ok)
         .filter(|reference| !reference.name().as_bstr().ends_with_str("/HEAD"))
         .filter(|reference| {

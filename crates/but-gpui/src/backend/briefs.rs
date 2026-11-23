@@ -362,13 +362,7 @@ fn standing_of(head: Option<&str>, anchor: &BriefAnchor) -> Result<Standing> {
     if repo.find_commit(head).is_err() {
         return Ok(Standing::Rewritten);
     }
-    if repo
-        .merge_base(head, tip.0)
-        .ok()
-        .flatten()
-        .map(|base| base.detach())
-        != Some(head)
-    {
+    if !repo.is_ancestor(head, tip.0).unwrap_or(false) {
         return Ok(Standing::Rewritten);
     }
     let commits = (repo.rev_walk([tip.0]).with_hidden([head]).all()?)

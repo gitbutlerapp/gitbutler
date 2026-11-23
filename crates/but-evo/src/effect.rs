@@ -60,7 +60,7 @@ fn tracked_headers<'a>(commit: &'a Commit<'_>) -> Vec<&'a (BString, BString)> {
 }
 
 fn introduces_same_change(prec: &Commit<'_>, succ: &Commit<'_>) -> Result<bool> {
-    let repo = prec.id.repo;
+    let repo = prec.id.repo();
     let changeset =
         |commit: &Commit<'_>| id_for_tree_diff(repo, commit.first_parent_id(), commit.id.detach());
     if changeset(prec)? == changeset(succ)? {

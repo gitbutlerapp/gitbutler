@@ -1411,9 +1411,9 @@ new file mode 100644
             );
             let latin1 = file("latin1").patch(None).unwrap();
             assert!(
-                latin1.contains("-Le café du matin") && !latin1.contains('\u{FFFD}'),
-                "a file that isn't UTF-8 copies as the diff shows it, if not as git applies it: \
-                 {latin1}"
+                latin1.contains("-Le caf\u{FFFD} du matin")
+                    && latin1.contains("+Le caf\u{FFFD} du soir"),
+                "the copied patch uses the same replacement characters as the ambiguous diff: {latin1}"
             );
 
             // The index is still at HEAD, so each applies to it as it applies to the commit.
