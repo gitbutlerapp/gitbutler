@@ -4,8 +4,9 @@ use super::sidebar_rows::repository;
 use super::{Example, example, page};
 use crate::theme::Theme;
 use crate::ui::{
-    ButtonStyle, Drawer, Fold, Icon, MetaCountType, MetaStatusVariant, dp, drawer, group_label,
-    icon_button, meta_count, meta_status, repo_item, terminal_item, tree_guides, v_flex,
+    ButtonStyle, Drawer, Fold, Icon, MetaCountType, MetaStatusVariant, button, dp, drawer,
+    empty_state_tidy, group_label, icon_button, meta_count, meta_status, repo_item, terminal_item,
+    tree_guides, v_flex,
 };
 
 /// The card a drawer holds, on the panel's ground under its row.
@@ -145,9 +146,25 @@ pub(super) const ITEM_EXAMPLES: [Example; 2] = [
     },
 ];
 
-/// The stories of `Drawer.stories.tsx` this client can draw. `SidebarDrawers` and `Empty` hold
-/// an `EmptyState`, whose drawing needs the app, so they aren't here yet.
-pub(super) const EXAMPLES: [Example; 2] = [
+/// A drawer's card with nothing in it, saying so, and its one step: as the stories' `EmptyCard`,
+/// 28 above and below and 16 at the sides.
+fn empty_card(title: &'static str, detail: &'static str, step: &'static str, theme: &Theme) -> Div {
+    let step = button(step, step)
+        .small()
+        .style(ButtonStyle::Gray)
+        .icon_end(Icon::Plus)
+        .into_any_element();
+    card(
+        theme,
+        [div()
+            .py(dp(28.))
+            .px(dp(16.))
+            .child(empty_state_tidy(title, detail, [step], theme))],
+    )
+}
+
+/// The stories of `Drawer.stories.tsx` this client can draw. `SidebarDrawers` isn't here yet.
+pub(super) const EXAMPLES: [Example; 3] = [
     Example {
         id: "components-drawer--default",
         name: "Default",
@@ -189,6 +206,34 @@ pub(super) const EXAMPLES: [Example; 2] = [
                     .content(terminals),
                 theme,
             )
+        },
+    },
+    Example {
+        id: "components-drawer--empty",
+        name: "Empty",
+        draw: |theme| {
+            let projects = drawer("projects", "Hidden projects", Some(0), false)
+                .hover_action(ghost("add", Icon::Plus, "Add project"))
+                .content(empty_card(
+                    "Every project is showing",
+                    "Hide one and it waits here, or add another",
+                    "Add project",
+                    theme,
+                ));
+            let terminals = drawer("terminals", "Terminals", Some(0), false)
+                .hover_action(ghost("new", Icon::Plus, "New terminal…"))
+                .last()
+                .content(empty_card(
+                    "No terminals open",
+                    "New ones open in gitbutler / Main worktree",
+                    "New terminal",
+                    theme,
+                ));
+            v_flex()
+                .w(dp(334.))
+                .child(projects.build(theme))
+                .child(terminals.build(theme))
+                .into_any_element()
         },
     },
 ];
