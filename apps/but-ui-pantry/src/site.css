@@ -238,6 +238,7 @@ body[data-layout="centered"] {
    so the column doesn't shift. */
 .docs-site-main {
 	box-sizing: border-box;
+	container-type: inline-size;
 	height: calc(100% - 2 * var(--but-space-xl));
 	margin: var(--but-space-xl) var(--but-space-xl) var(--but-space-xl) 0;
 	overflow: auto;
@@ -245,6 +246,59 @@ body[data-layout="centered"] {
 	border-radius: var(--but-radius-card);
 	background-color: var(--but-background);
 	scrollbar-gutter: stable;
+}
+
+/* The page, and right beside it its menu when the card has room for both: the page's column and
+   the menu's 300px, centred together, so the menu sits just past the page's widest content rather
+   than out at the card's edge. Narrower, the menu goes, its column closes, and the page centres
+   alone as before. */
+.docs-site-body {
+	display: grid;
+	grid-template-columns:
+		minmax(0, 1fr) minmax(0, calc(var(--but-size-prose-wide) + 64px))
+		auto minmax(0, 1fr);
+	min-height: 100%;
+}
+
+.docs-site-page {
+	grid-column: 2;
+	min-width: 0;
+}
+
+.docs-site-rail {
+	box-sizing: border-box;
+	grid-column: 3;
+	width: calc(300px + var(--but-space-xl));
+	padding: var(--but-space-xl) var(--but-space-xl) var(--but-space-xl) 0;
+}
+
+@container (width < 1220px) {
+	.docs-site-rail {
+		display: none;
+	}
+}
+
+/* The menu's card stays at the top while the page scrolls under it, and scrolls itself when the
+   page lists more than fits. */
+.docs-site-rail-card {
+	display: flex;
+	position: sticky;
+	top: var(--but-space-xl);
+	flex-direction: column;
+	max-height: calc(100dvh - 4 * var(--but-space-xl) - 2px);
+	padding: var(--but-padding-list);
+	overflow-y: auto;
+	gap: 1px;
+}
+
+.docs-site-rail-section {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+
+	& + & {
+		margin-top: var(--but-gap-stack);
+	}
 }
 
 /* Every page is laid out as rendered markdown is: a column as wide as its media, with the text kept

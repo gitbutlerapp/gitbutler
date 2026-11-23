@@ -9,6 +9,7 @@ import { AdoptionPage } from "./AdoptionPage.tsx";
 import { ColoursPage } from "./ColoursPage.tsx";
 import { ComponentPage } from "./ComponentPage.tsx";
 import { DesignPage } from "./DesignPage.tsx";
+import { OnThisPage } from "./OnThisPage.tsx";
 import type { IconName } from "@gitbutler/but-ui-react/iconNames.ts";
 import {
 	findPage,
@@ -69,7 +70,12 @@ export const Site: FC = () => {
 			<ResizeHandle gap className="docs-site-handle" />
 			<Panel id="page">
 				<main className="docs-site-main">
-					<Suspense>{page !== undefined && <PageView key={page.id} page={page} />}</Suspense>
+					<div className="docs-site-body">
+						<div className="docs-site-page">
+							<Suspense>{page !== undefined && <PageView key={page.id} page={page} />}</Suspense>
+						</div>
+						<OnThisPage />
+					</div>
 				</main>
 			</Panel>
 		</Group>

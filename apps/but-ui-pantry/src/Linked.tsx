@@ -2,7 +2,7 @@ import { Button } from "@gitbutler/but-ui-react/Button.tsx";
 import { Icon } from "@gitbutler/but-ui-react/Icon.tsx";
 import { Tooltip } from "@gitbutler/but-ui-react/Tooltip.tsx";
 import { Children, isValidElement, useRef, useState, type FC, type ReactNode } from "react";
-import { anchorOf } from "./site.ts";
+import { anchorOf, reveal } from "./site.ts";
 
 /** The page's address with `#id` on the end, its tab and all. */
 const addressOf = (id: string) => {
@@ -18,10 +18,7 @@ const addressOf = (id: string) => {
 const scrollIfNamed = (id: string) => (node: HTMLElement | null) => {
 	if (node === null || node.dataset.scrolled !== undefined) return;
 	node.dataset.scrolled = "";
-	if (decodeURIComponent(window.location.hash.slice(1)) !== id) return;
-	node.scrollIntoView();
-	node.dataset.lit = "";
-	setTimeout(() => delete node.dataset.lit, 1000);
+	if (decodeURIComponent(window.location.hash.slice(1)) === id) reveal(node);
 };
 
 /**
