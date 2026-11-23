@@ -19,6 +19,10 @@ use crate::terminal::TerminalId;
 use crate::transfer::{self, Dragged, Stop};
 use crate::ui::fold::{Folds, MOVING_ROWS};
 
+/// How wide each loading row's name is, as 🍑 But UI's loading card draws them: names of the
+/// lengths a card's rows often have.
+pub(super) const LOADING_WIDTHS: [f32; 4] = [156., 76., 199., 116.];
+
 /// Commits shown per branch before folding the rest into "N more".
 const FOLD_AFTER: usize = 8;
 
@@ -62,6 +66,8 @@ pub(super) enum Row {
     /// one of a project's pages, a section's heading, or one of these on another machine.
     Item(Selection),
     Note(SharedString, bool),
+    /// A row still loading, the `n`th of a card's, in the card's rows' place until they land.
+    Loading(usize),
     /// A branch's commits folded away, and how many.
     More(ProjectId, Option<FullName>, usize),
     /// The end of a branch's commits unfolded, which folds them again.
@@ -210,6 +216,7 @@ impl Row {
             | Row::Fewer(..)
             | Row::RestsOn(..)
             | Row::Note(..)
+            | Row::Loading(_)
             | Row::Pending(..)
             | Row::NewBranch(_)
             | Row::Ghost(..)
@@ -545,10 +552,12 @@ impl Navigator {
     pub(super) fn card_rows(&self, store: &Store, entry: &ProjectEntry, rows: &mut Rows) {
         let id = &entry.id;
         let Some(workspace) = &entry.workspace else {
-            rows.push(match &entry.error {
-                Some(err) => Row::Note(err.clone(), true),
-                None => Row::Note("Loading…".into(), false),
-            });
+            match &entry.error {
+                Some(err) => rows.push(Row::Note(err.clone(), true)),
+                // Rows of bones, as many as a card often holds, so it keeps its shape while the
+                // workspace loads, as 🍑 But UI's loading card.
+                None => rows.extend((0..LOADING_WIDTHS.len()).map(Row::Loading)),
+            }
             return;
         };
         if let Some(err) = &entry.error {

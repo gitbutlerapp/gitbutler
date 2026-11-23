@@ -4,9 +4,9 @@ use super::{Example, example, page};
 use crate::theme::Theme;
 use crate::ui::{
     ButtonStyle, CommitPlace, Fold, Icon, MetaCountType, MetaStatusVariant, PullRequestState,
-    SidebarRow, branch_item, button, commit_item, dp, icon_at, machine_item, machine_status,
-    meta_count, meta_status, more_item, repo_item, stack_caption, terminal_item, tree_guides,
-    uncommitted_item, v_flex, worktree_item,
+    SidebarRow, branch_item, button, commit_item, dp, icon_at, loading_item, machine_item,
+    machine_status, meta_count, meta_status, more_item, repo_item, stack_caption, terminal_item,
+    tree_guides, uncommitted_item, v_flex, worktree_item,
 };
 
 /// A sidebar card, as the Workspace tree stories' `Card`: a machine's header over its
@@ -344,7 +344,7 @@ fn unread(theme: &Theme) -> Div {
 }
 
 /// The stories of `SidebarRow.stories.tsx` this client can draw so far.
-pub(super) const EXAMPLES: [Example; 3] = [
+pub(super) const EXAMPLES: [Example; 4] = [
     Example {
         id: "components-sidebarrow--selection",
         name: "Selection",
@@ -378,7 +378,44 @@ pub(super) const EXAMPLES: [Example; 3] = [
         name: "Unread",
         draw: |theme| unread(theme).into_any_element(),
     },
+    Example {
+        id: "components-sidebarrow--loading",
+        name: "Loading",
+        draw: |theme| loading(theme).into_any_element(),
+    },
 ];
+
+/// A repository's card while its rows load, as the `Loading` story: the header as it will be, over
+/// rows of bones, each a glyph and a name.
+fn loading(theme: &Theme) -> Div {
+    v_flex()
+        .w(dp(334.))
+        .flex_none()
+        .overflow_hidden()
+        .border_1()
+        .border_color(theme.border_subtle)
+        .rounded(dp(theme.shape.card))
+        .bg(theme.background)
+        .child(
+            div()
+                .p(dp(8.))
+                .border_b_1()
+                .border_color(theme.border_subtle)
+                .child(
+                    repo_item("repo", "but-dev", theme)
+                        .fold(Fold::Open)
+                        .build(theme),
+                ),
+        )
+        .child(
+            v_flex().gap(dp(1.)).p(dp(8.)).children(
+                [156., 76., 199., 116.]
+                    .into_iter()
+                    .enumerate()
+                    .map(|(ix, width)| loading_item(("loading", ix), width).build(theme)),
+            ),
+        )
+}
 
 /// What a terminal's program is at, as `TerminalItem.stories.tsx`'s `Statuses` gives each.
 fn statuses(theme: &Theme) -> Div {

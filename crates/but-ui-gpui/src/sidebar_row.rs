@@ -817,6 +817,16 @@ pub fn stack_caption(
     }
 }
 
+/// A row still loading, as but-ui-react's `LoadingItem`: a bone where its glyph goes and one for
+/// its name, `width` wide, at a row's height, so the card holds its shape and nothing moves as the
+/// rows land. It takes no pointer: nothing's there yet to press.
+pub fn loading_item(id: impl Into<ElementId>, width: f32) -> SidebarRow {
+    sidebar_row(id)
+        .quiet()
+        .glyph(skeleton_circle("bone-glyph", 14.))
+        .label(skeleton_text("bone-name", TEXT_11, width))
+}
+
 /// The last row of a long list: "12 more", or "Show fewer" once everything shows.
 pub fn more_item(
     id: impl Into<ElementId>,

@@ -45,9 +45,10 @@ use crate::ui::{
 };
 use crate::ui::{
     CommitPlace, Fold as RowFold, MetaStatusVariant, PullRequestState, SidebarRow, SplitCell,
-    SplitPreview, SplitTile, branch_item, commit_item, group_label, item_name, meta_status,
-    more_item, press_in_pane, repo_item, running_count, sidebar_row, split_preview_map,
-    stack_caption, terminal_item, uncommitted_item, upstream_item, worktree_item,
+    SplitPreview, SplitTile, branch_item, commit_item, group_label, item_name, loading_item,
+    meta_status, more_item, press_in_pane, repo_item, running_count, sidebar_row,
+    split_preview_map, stack_caption, terminal_item, uncommitted_item, upstream_item,
+    worktree_item,
 };
 
 mod account;
@@ -83,9 +84,9 @@ pub(crate) use terminals::TerminalOverview;
 use crate::ui::Text;
 use moving::Mark;
 use rows::{
-    CARD_EDGE, CARD_PADDING, COMMIT_INDENT, Drawer, Fold, HEADER_RULE, HEADING_HEIGHT, ROW_LEFT,
-    ROW_MARGIN, Row, RowKey, caption, card_ends, checkout_holds, in_checkout, in_inactive,
-    inactive_open, span_height,
+    CARD_EDGE, CARD_PADDING, COMMIT_INDENT, Drawer, Fold, HEADER_RULE, HEADING_HEIGHT,
+    LOADING_WIDTHS, ROW_LEFT, ROW_MARGIN, Row, RowKey, caption, card_ends, checkout_holds,
+    in_checkout, in_inactive, inactive_open, span_height,
 };
 
 /// How far apart the cards are, as the detail's are: but-ui's `gap/stack`, the one gap between
@@ -1735,6 +1736,16 @@ impl Navigator {
                 .child(div().w_full().h(fixed(1.)).bg(theme.border_subtle))
                 .into_any_element(),
             Some(Row::Note(text, is_error)) => note_row(text, *is_error, theme),
+            // A row still loading, as but-ui-react's LoadingItem.
+            Some(Row::Loading(n)) => RowStyle::plain(theme, inset)
+                .draw(
+                    loading_item(
+                        ("loading", ix),
+                        LOADING_WIDTHS.get(*n).copied().unwrap_or(120.),
+                    ),
+                    0.,
+                )
+                .into_any_element(),
             // As made at once, set in as a commit row is, a stand-in title quiet as one's;
             // dimmed, with an ellipsis, only once it's taking a while.
             Some(Row::Pending(title, slow, _)) => h_flex()
@@ -2922,9 +2933,11 @@ impl Navigator {
                     }),
             )
             .children(held.into_iter().flatten())
-            .when(entry.is_loading(), |el| {
-                el.child(small_icon(Icon::Clock).text_color(theme.subtle_foreground))
-            });
+            // Loading, a clock, unless the card's open, where its rows of bones say so.
+            .when(
+                entry.is_loading() && !(expanded && !card_folded && !filtering),
+                |el| el.child(small_icon(Icon::Clock).text_color(theme.subtle_foreground)),
+            );
         // Only folded, or in the drawer: open, the rows under it carry the dot.
         // As but-ui's repo_item, wearing the project's own icon.
         let row = repo_item(
