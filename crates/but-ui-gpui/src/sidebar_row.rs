@@ -1085,8 +1085,11 @@ impl Drawer {
                             el.child(
                                 h_flex()
                                     .gap(dp(4.))
-                                    .hidden()
-                                    .group_hover(DRAWER, |s| s.flex())
+                                    // Laid out all along and only painted under the
+                                    // pointer: GPUI paints nothing it hasn't laid out, so
+                                    // one shown on hover from `hidden` would abort the app.
+                                    .invisible()
+                                    .group_hover(DRAWER, |s| s.visible())
                                     .children(hover_actions),
                             )
                         })
