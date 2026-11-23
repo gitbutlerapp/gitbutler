@@ -135,7 +135,7 @@ fn returns_none_when_no_target_and_no_push_remote() -> anyhow::Result<()> {
 #[test]
 fn target_local_tracking_ref_exists_when_other_branch_metadata_names_the_same_tip()
 -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
+    let (repo, mut meta, _db) =
         read_only_in_memory_scenario("ws/no-ws-ref-no-ws-commit-two-branches")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -155,15 +155,19 @@ fn target_local_tracking_ref_exists_when_other_branch_metadata_names_the_same_ti
     branch.update_times(false);
     meta.set_branch(&branch)?;
 
-    let ws = Graph::from_head(
+    let head_ref = repo.head_name()?;
+    let ws = but_graph::nosegment::workspace(
         &repo,
         &*meta,
+        but_graph::init::Overlay::default(),
         target_meta(&repo),
-        &mut db,
-        standard_options(),
-    )?
-    .validated()?
-    .into_workspace()?;
+        head_ref.as_ref().map(|name| name.as_ref()),
+        Some(repo.head_id()?.detach()),
+        [],
+        Vec::new(),
+        false,
+        None,
+    )?;
     // the target remote and its local tracking branch get sibling links even when another branch owns the shared commit
     let local = ws
         .graph

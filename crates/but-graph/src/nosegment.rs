@@ -1566,6 +1566,8 @@ impl WorkspaceGraph {
                 let segment = &mut inner_graph[segment_index];
                 segment.remote_tracking_branch_segment_id = Some(remote_tracking_segment_index);
                 segment.remote_tracking_ref_name = Some(remote_tracking_branch_name);
+                // Like after a traversal, the remote-tracking branch links back to the local one.
+                inner_graph[remote_tracking_segment_index].sibling_segment_id = Some(segment_index);
             }
         }
 
