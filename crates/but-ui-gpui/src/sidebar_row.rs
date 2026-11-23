@@ -876,8 +876,10 @@ pub fn more_item(
         true => Icon::ChevronUp,
         false => Icon::Kebab,
     };
+    // Its glyph a step quieter than its words, as React's, so the tail reads quieter still
+    // than the rows it hides.
     sidebar_row(id)
-        .small_icon(glyph)
+        .inked_icon(glyph, 12., Ink::Subtle)
         .muted_text()
         .label(div().min_w_0().truncate().text_13().child(label.into()))
 }
