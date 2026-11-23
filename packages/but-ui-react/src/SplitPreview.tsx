@@ -42,7 +42,8 @@ const Miniature: FC<{ tiling: Tiling; here: string | undefined }> = ({ tiling, h
  * nothing of their content.
  *
  * A {@link SplitPreviewMap} opens it under the pointer. On its own it is the card, for a place
- * that shows it open.
+ * that shows it open. It reads, never acts, as a tooltip does: the pointer passes through it, so it
+ * closes once the pointer leaves the map, and its items take no hover or press.
  *
  * @figma The examples are the layouts drawn open; the map's hover opens them in the app.
  * @import import { SplitPreview } from "@gitbutler/but-ui-react/SplitPreview.tsx";
@@ -134,7 +135,12 @@ export const SplitPreviewMap: FC<
 				<Miniature tiling={tiling} here={here} />
 			</PreviewCard.Trigger>
 			<PreviewCard.Portal>
-				<PreviewCard.Positioner anchor={besideEdge} side="right" sideOffset={8}>
+				<PreviewCard.Positioner
+					anchor={besideEdge}
+					side="right"
+					sideOffset={8}
+					className={styles.positioner}
+				>
 					<PreviewCard.Popup render={<SplitPreview tiling={tiling} here={here} anchored />} />
 				</PreviewCard.Positioner>
 			</PreviewCard.Portal>

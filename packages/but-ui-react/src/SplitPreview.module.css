@@ -1,6 +1,15 @@
-/* The card: Popup's surface at the tooltip's width, so it is one size whatever the row. */
+/* The card: Popup's surface at the tooltip's width, so it is one size whatever the row. It reads,
+   never acts, as a tooltip: the pointer passes through it, so it closes once the pointer leaves the
+   map and its items take no hover or press. */
 .preview {
 	width: var(--but-size-tooltip-max);
+	pointer-events: none;
+}
+
+/* What places the card passes the pointer through too, or the card would count as hovered and stay
+   open over it. */
+.positioner {
+	pointer-events: none;
 }
 
 .trigger {
