@@ -8,6 +8,7 @@ import { MachineStatus } from "./MachineStatus.tsx";
 import type { IconName } from "./iconNames.ts";
 import { MetaCount } from "./MetaCount.tsx";
 import styles from "./SidebarRow.module.css";
+import { SkeletonBone } from "./SkeletonBone.tsx";
 import { Tooltip } from "./Tooltip.tsx";
 import type { Guides } from "./treeGuides.ts";
 
@@ -1009,6 +1010,27 @@ export const NavItem: FC<
 		/>
 	);
 };
+
+/**
+ * A row still loading, in its place: a bone where its glyph goes and one for its name (`width`),
+ * at a row's height, so the card holds its shape and nothing moves as the rows land. Draw a few, of
+ * different widths, as the rows a card usually holds. It takes no pointer and says nothing to a
+ * screen reader: mark what holds the rows `aria-busy`.
+ *
+ * @import import { LoadingItem } from "@gitbutler/but-ui-react/SidebarRow.tsx";
+ */
+export const LoadingItem: FC<
+	{ width: number } & Pick<RowProps, "depth" | "guides"> & Omit<ComponentProps<"div">, "children">
+> = ({ width, ...props }) => (
+	<Row
+		{...props}
+		aria-hidden
+		name=""
+		icon={<SkeletonBone shape="circle" size={14} />}
+		label={<SkeletonBone className="text-11" width={width} />}
+		rowClassName={styles.loading}
+	/>
+);
 
 /**
  * Where rows should be and can't show, in their place: what failed (`message`, one sentence) under

@@ -682,3 +682,12 @@ button.nav {
 .drawerContent {
 	margin-top: var(--but-space-lg);
 }
+
+/* A row still loading: no ground under the pointer, as there's nothing yet to press. */
+.loading {
+	cursor: default;
+
+	&:hover {
+		background-color: transparent;
+	}
+}

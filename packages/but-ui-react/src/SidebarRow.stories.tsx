@@ -7,6 +7,7 @@ import { MetaCount, MetaStatus } from "./MetaCount.tsx";
 import {
 	BranchItem,
 	CommitItem,
+	LoadingItem,
 	MachineItem,
 	MoreItem,
 	NoticeItem,
@@ -1098,5 +1099,24 @@ export const InactiveWorktrees = meta.story({
 			<InactiveWorktreesCard open={false} />
 			<InactiveWorktreesCard open />
 		</div>
+	),
+});
+
+/**
+ * A repository's card while its rows load: the header as it will be, over rows of bones, each a
+ * glyph and a name, so the card holds its place and nothing moves as the rows land.
+ */
+export const Loading = meta.story({
+	parameters: { design: { type: "figma", url: core("5500-237409") } },
+	render: () => (
+		<Card label="but-dev" header={<RepoItem name="but-dev" folded={false} />}>
+			<Repository last>
+				<div aria-busy style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+					{[156, 76, 199, 116].map((width) => (
+						<LoadingItem key={width} width={width} />
+					))}
+				</div>
+			</Repository>
+		</Card>
 	),
 });
