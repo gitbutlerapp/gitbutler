@@ -110,16 +110,12 @@ fn edit_mode_workspace_ref(repo: &gix::Repository) -> anyhow::Result<Option<gix:
     if !is_edit_mode {
         return Ok(None);
     }
-    for name in [
-        gitbutler_operating_modes::WORKSPACE_BRANCH_REF,
-        gitbutler_operating_modes::INTEGRATION_BRANCH_REF,
-    ] {
-        let ref_name: gix::refs::FullName = name.try_into()?;
-        if repo.try_find_reference(ref_name.as_ref())?.is_some() {
-            return Ok(Some(ref_name));
-        }
-    }
-    Ok(None)
+    let ref_name: gix::refs::FullName =
+        gitbutler_operating_modes::WORKSPACE_BRANCH_REF.try_into()?;
+    Ok(repo
+        .try_find_reference(ref_name.as_ref())?
+        .is_some()
+        .then_some(ref_name))
 }
 
 pub fn applied_stacks(ctx: &Context) -> anyhow::Result<Vec<HeadInfoStack>> {

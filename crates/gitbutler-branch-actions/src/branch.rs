@@ -617,7 +617,6 @@ fn should_list_git_branch(identity: &BranchIdentity) -> bool {
     const TECHNICAL_IDENTITIES: &[&[u8]] = &[
         b"gitbutler/edit",
         b"gitbutler/workspace",
-        b"gitbutler/integration", // Remove me after transition.
         b"gitbutler/target",
         b"gitbutler/oplog",
         b"HEAD",

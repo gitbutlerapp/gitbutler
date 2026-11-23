@@ -424,7 +424,7 @@ fn read_only() -> anyhow::Result<()> {
     );
 
     // Asking for the workspace
-    let ws = store.workspace("refs/heads/gitbutler/integration".try_into()?)?;
+    let ws = store.workspace("refs/heads/gitbutler/workspace".try_into()?)?;
     assert!(
         ws.is_default(),
         "The workspace was deleted so it doesn't exist anymore"
@@ -1139,7 +1139,7 @@ Workspace {
 #[test]
 fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
     let (mut store, _tmp) = empty_vb_store_rw()?;
-    let workspace_name = "refs/heads/gitbutler/integration".try_into()?;
+    let workspace_name = "refs/heads/gitbutler/workspace".try_into()?;
     let mut ws = store.workspace(workspace_name)?;
     ws.stacks.push(WorkspaceStack {
         id: StackId::from_number_for_testing(1),

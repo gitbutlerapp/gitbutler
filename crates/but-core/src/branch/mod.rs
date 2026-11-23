@@ -67,7 +67,6 @@ pub fn is_technical_branch_name(identity: &bstr::BStr) -> bool {
     const TECHNICAL_IDENTITIES: &[&[u8]] = &[
         b"HEAD",
         b"gitbutler/edit",
-        b"gitbutler/integration",
         b"gitbutler/oplog",
         b"gitbutler/target",
         b"gitbutler/workspace",

@@ -11,10 +11,9 @@ use gix::bstr::{BStr, BString};
 use crate::DbHandle;
 
 /// Kept in sync with `but_core::is_workspace_ref_name()` by hand: depending on but-core here would
-/// pull libgit2 into every crate that reaches but-db, for two string comparisons.
+/// pull libgit2 into every crate that reaches but-db, for one string comparison.
 fn is_workspace_ref(ref_name: &gix::refs::FullName) -> bool {
-    let name = ref_name.as_bstr();
-    name == "refs/heads/gitbutler/workspace" || name == "refs/heads/gitbutler/integration"
+    ref_name.as_bstr() == "refs/heads/gitbutler/workspace"
 }
 
 /// A linked worktree whose checkout exists on disk, with its archived state.

@@ -31,7 +31,6 @@ but-meta = { workspace = true, features = ["legacy"] }
 gitbutler-oplog.workspace = true
 gitbutler-repo.workspace = true
 gitbutler-reference.workspace = true
-gitbutler-operating-modes.workspace = true
 gitbutler-project.workspace = true
 
 tracing.workspace = true
