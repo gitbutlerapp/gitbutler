@@ -685,45 +685,6 @@ impl RefMetadata for VirtualBranchesMetadata {
             Ok(self.remove_branch(ref_name).is_some())
         }
     }
-
-    fn rename(
-        &mut self,
-        old_ref_name: &FullNameRef,
-        new_ref_name: &FullNameRef,
-    ) -> anyhow::Result<()> {
-        if old_ref_name == new_ref_name {
-            return Ok(());
-        }
-        // Rename the branch in place within its stack, preserving its position and all its other
-        // metadata (pr number, archived, review id). This avoids the generic trait default, which
-        // would copy the branch into a brand-new standalone stack and tear it out of this one.
-        let Some((stack_id, branch_idx)) =
-            find_head(self.data(), old_ref_name).map(|(stack, branch_idx)| (stack.id, branch_idx))
-        else {
-            // No managed metadata for this ref (e.g. an ad-hoc branch); nothing to rename here.
-            return Ok(());
-        };
-
-        // Refuse to rename onto a name that already exists in managed metadata: it would create
-        // duplicate `refs/heads/<name>` heads, which the rest of the code treats as an invariant
-        // violation (see the "There shouldn't be duplication" note in `find_head()`).
-        if find_head(self.data(), new_ref_name).is_some() {
-            bail!(
-                "Cannot rename to '{}': a branch with that name already exists",
-                new_ref_name.shorten()
-            );
-        }
-
-        let new_short_name = new_ref_name.shorten().to_string();
-        let stack = self
-            .data_mut()
-            .branches
-            .get_mut(&stack_id)
-            .expect("stack was just found");
-        stack.heads[branch_idx].name = new_short_name;
-        self.snapshot.set_changed_to_necessitate_write();
-        Ok(())
-    }
 }
 
 /// Ref metadata backed by [`VirtualBranchesMetadata`] for historical workspace metadata and by
@@ -829,24 +790,6 @@ impl RefMetadata for BranchOrderMetadata {
         self.db.is_some() && !self.read_only
     }
 
-    fn rename_branch_stack_order_reference(
-        &mut self,
-        old_ref_name: &FullNameRef,
-        new_ref_name: &FullNameRef,
-    ) -> anyhow::Result<()> {
-        if self.read_only {
-            bail!("Read-only metadata can't rename branch stack order references");
-        }
-        let Some(db) = self.db.as_mut() else {
-            return Ok(());
-        };
-        db.branch_order_mut()?.rename_reference(
-            old_ref_name.as_bstr().to_str()?,
-            new_ref_name.as_bstr().to_str()?,
-        )?;
-        Ok(())
-    }
-
     fn remove_missing_branch_stack_order_references(
         &mut self,
         existing_ref_names: &[FullName],
@@ -876,51 +819,6 @@ impl RefMetadata for BranchOrderMetadata {
                 .remove_reference(ref_name.as_bstr().to_str()?)?;
         }
         Ok(self.legacy.remove(ref_name)? || removed_branch_order)
-    }
-
-    fn rename(
-        &mut self,
-        old_ref_name: &FullNameRef,
-        new_ref_name: &FullNameRef,
-    ) -> anyhow::Result<()> {
-        if old_ref_name == new_ref_name {
-            return Ok(());
-        }
-        // Rename the managed (TOML) branch metadata in place, then move the ad-hoc branch-order
-        // entry. Both are no-ops when the respective metadata isn't present for this ref.
-        //
-        // Reject a destination that already exists in *either* layer up front, before mutating
-        // *either* of them. Each layer's own rename guards against a conflict on its own, but doing
-        // the checks first is what keeps the two writes from diverging: without the DB pre-check
-        // here, a name that exists only in the branch-order DB would let `legacy.rename` mutate the
-        // TOML before `rename_reference` failed, leaving the two layers half-renamed.
-        //
-        // This makes the rename conflict-atomic, not fully atomic: if the branch-order DB write
-        // still fails for an unrelated reason (I/O, a lock) after the in-memory TOML rename applied,
-        // the layers can diverge. Closing that window would require a single cross-layer transaction.
-        if !self.read_only
-            && let Some(db) = self.db.as_ref()
-            && db
-                .branch_order()
-                .order_for_reference(new_ref_name.as_bstr().to_str()?)?
-                .is_some()
-        {
-            bail!(
-                "Cannot rename to '{}': a branch with that name already exists",
-                new_ref_name.shorten()
-            );
-        }
-
-        self.legacy.rename(old_ref_name, new_ref_name)?;
-        if !self.read_only
-            && let Some(db) = self.db.as_mut()
-        {
-            db.branch_order_mut()?.rename_reference(
-                old_ref_name.as_bstr().to_str()?,
-                new_ref_name.as_bstr().to_str()?,
-            )?;
-        }
-        Ok(())
     }
 }
 

@@ -153,45 +153,6 @@ impl but_core::RefMetadata for InMemoryRefMetadata {
         };
         Ok(res)
     }
-
-    fn rename(
-        &mut self,
-        old_ref_name: &gix::refs::FullNameRef,
-        new_ref_name: &gix::refs::FullNameRef,
-    ) -> anyhow::Result<()> {
-        if old_ref_name == new_ref_name {
-            return Ok(());
-        }
-        // Refuse to rename onto an existing key rather than creating a duplicate entry: readers
-        // match the first entry, so a duplicate would make later reads/updates/removals act on the
-        // wrong one.
-        let new_exists = self
-            .branches
-            .iter()
-            .any(|(rn, _)| rn.as_ref() == new_ref_name)
-            || self
-                .workspaces
-                .iter()
-                .any(|(rn, _)| rn.as_ref() == new_ref_name);
-        if new_exists {
-            anyhow::bail!(
-                "Cannot rename to '{}': metadata for that ref already exists",
-                new_ref_name.shorten()
-            );
-        }
-        // Rename in place, keeping each entry's value and position.
-        for (rn, _v) in self.branches.iter_mut() {
-            if rn.as_ref() == old_ref_name {
-                *rn = new_ref_name.to_owned();
-            }
-        }
-        for (rn, _v) in self.workspaces.iter_mut() {
-            if rn.as_ref() == old_ref_name {
-                *rn = new_ref_name.to_owned();
-            }
-        }
-        Ok(())
-    }
 }
 
 pub enum StackState {

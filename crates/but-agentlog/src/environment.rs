@@ -778,14 +778,6 @@ impl RefMetadata for EmptyRefMetadata {
     fn remove(&mut self, _ref_name: &gix::refs::FullNameRef) -> anyhow::Result<bool> {
         Ok(false)
     }
-
-    fn rename(
-        &mut self,
-        _old_ref_name: &gix::refs::FullNameRef,
-        _new_ref_name: &gix::refs::FullNameRef,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
 }
 
 #[cfg(test)]

@@ -161,8 +161,8 @@ pub struct TransactionOptions<'a> {
     pub snapshot_refs: &'a [&'a FullNameRef],
     pub dry_run: DryRun,
     /// References outside the workspace that the transaction may rewrite, along with what they
-    /// reach, as it may what `HEAD` reaches. The snapshot preserves them as it does
-    /// [`Self::snapshot_refs`].
+    /// reach, as it may what `HEAD` reaches. Undo restores them only if they are among
+    /// [`Self::snapshot_refs`] too.
     pub extra_mutable_refs: Vec<FullName>,
     /// References outside the workspace that the transaction sees but leaves as they are.
     pub extra_immutable_refs: Vec<FullName>,
@@ -192,13 +192,10 @@ where
         extra_immutable_refs,
     } = options;
     let maybe_oplog_entry = snapshot_details.and_then(|snapshot_details| {
-        let snapshot_refs: Vec<_> = (snapshot_refs.iter().copied())
-            .chain(extra_mutable_refs.iter().map(|name| name.as_ref()))
-            .collect();
         but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
             ctx,
             snapshot_details,
-            &snapshot_refs,
+            snapshot_refs,
             perm.read_permission(),
             dry_run,
         )
@@ -514,6 +511,17 @@ where
     pub fn remove_reference(&mut self, ref_name: &FullNameRef) -> anyhow::Result<()> {
         self.rebase(|editor, _| {
             let rebase = but_workspace::branch::drop_reference(editor, ref_name)?;
+            Ok(((), rebase))
+        })
+    }
+
+    pub fn rename_reference(
+        &mut self,
+        ref_name: &FullNameRef,
+        new_name: &FullNameRef,
+    ) -> anyhow::Result<()> {
+        self.rebase(|editor, _| {
+            let rebase = but_workspace::branch::rename_reference(editor, ref_name, new_name)?;
             Ok(((), rebase))
         })
     }

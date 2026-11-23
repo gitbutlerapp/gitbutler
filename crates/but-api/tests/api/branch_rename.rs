@@ -274,7 +274,7 @@ fn branch_rename_rejects_a_destination_that_exists_only_in_metadata() -> anyhow:
 
     // Give `other` workspace metadata (a branch-order entry), then simulate it being deleted
     // externally by dropping only its git ref. This leaves the name free at the git level but still
-    // occupied in metadata — the state where `meta.rename()` would reject *after* refs moved.
+    // occupied in metadata, which a branch renamed to it would otherwise take on.
     create_empty_branch_above(&mut ctx, &other, &main)?;
     but_api::branch::branch_checkout(&mut ctx, main.clone())?;
     ctx.repo.get()?.find_reference(other.as_ref())?.delete()?;
@@ -309,7 +309,7 @@ fn branch_rename_rejects_a_destination_that_exists_only_in_metadata() -> anyhow:
     );
     assert!(
         repo.try_find_reference(other.as_ref())?.is_none(),
-        "no destination ref must be created when the metadata rename can't proceed"
+        "no destination ref must be created when the destination is still occupied in metadata"
     );
 
     Ok(())
@@ -373,56 +373,6 @@ fn branch_rename_keeps_a_managed_stack_branch_applied() -> anyhow::Result<()> {
     assert!(
         after.contains("renamed-feature"),
         "renamed branch should still be applied in the managed workspace:\n{after}"
-    );
-
-    Ok(())
-}
-
-#[test]
-fn branch_rename_then_new_pr_updates_metadata_under_the_new_name() -> anyhow::Result<()> {
-    let (repo, _tmp) = writable_scenario("checkout-head-info");
-    persist_default_target(&repo)?;
-    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-    let feature = gix::refs::FullName::try_from("refs/heads/feature")?;
-    let renamed = gix::refs::FullName::try_from("refs/heads/renamed-feature")?;
-
-    // Apply `feature` and associate it with PR #42, as if it had been published.
-    but_api::branch::apply_only(&mut ctx, feature.as_ref())?;
-    {
-        let mut meta = ctx.meta()?;
-        let mut branch = meta.branch(feature.as_ref())?;
-        branch.review.pull_request = Some(42);
-        meta.set_branch(&branch)?;
-    }
-
-    // Rename the published branch. The PR association follows the rename in place (it's stored on the
-    // head, keyed by position, not derived from the name), without any push.
-    but_api::branch::branch_rename(&mut ctx, feature.clone(), "renamed-feature".into())?;
-    assert_eq!(
-        ctx.meta()?.branch(renamed.as_ref())?.review.pull_request,
-        Some(42),
-        "the existing PR number must travel with the rename"
-    );
-
-    // Now create a *new* PR for the renamed branch. The writeback keys off the current name, so it
-    // finds the renamed head and overwrites the carried-over number instead of losing or duplicating
-    // it.
-    {
-        let mut meta = ctx.meta()?;
-        let mut branch = meta.branch(renamed.as_ref())?;
-        branch.review.pull_request = Some(99);
-        meta.set_branch(&branch)?;
-    }
-
-    let meta = ctx.meta()?;
-    assert_eq!(
-        meta.branch(renamed.as_ref())?.review.pull_request,
-        Some(99),
-        "creating a new PR after the rename must update the metadata under the new name"
-    );
-    assert!(
-        meta.branch_opt(feature.as_ref())?.is_none(),
-        "no branch metadata should linger under the old name"
     );
 
     Ok(())

@@ -631,12 +631,6 @@ export class StackService {
 					);
 				}
 			},
-			onError: (_, args) => {
-				if (!args.laneId || !args.branchName) return;
-				const state = this.uiState.lane(args.laneId);
-				const previewOpen = state.selection.current?.previewOpen ?? false;
-				state.selection.set({ branchName: args.branchName, previewOpen });
-			},
 		});
 	}
 

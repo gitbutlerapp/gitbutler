@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use bstr::{BStr, BString};
+use bstr::BString;
 use but_api::{
     WorkspaceState,
     diff::ComputeLineStats,
@@ -15,10 +15,10 @@ use gix::{prelude::ObjectIdExt as _, refs::FullName};
 use serde::Serialize;
 
 use crate::{
-    CliError, CliResult, IdMap,
+    CliResult, IdMap,
     args::{
         OutputFormat,
-        atoms::{BranchOrCommit, MessageFileArg, Purpose},
+        atoms::{BranchArg, BranchOrCommit, MessageFileArg, Purpose},
         reword2::Platform,
     },
     bad_input,
@@ -509,27 +509,15 @@ fn reword_branch(
             get_branch_name_from_editor(current.as_deref().unwrap_or(&current_name))?
         }
     };
-    let new_name = validate_branch_name(new_name)?;
+    let new_name = BranchArg(new_name);
+    new_name.require_normalized()?;
 
-    let result = but_api::branch::branch_rename_with_perm(ctx, ref_name.clone(), new_name, perm)?;
+    let result = but_api::branch::branch_rename_with_perm(ctx, ref_name.clone(), new_name.0, perm)?;
     if result.new_ref == ref_name {
         Ok(BranchRename::Unchanged)
     } else {
         Ok(BranchRename::Renamed(result.new_ref.shorten().to_string()))
     }
-}
-
-fn validate_branch_name(name: String) -> CliResult<String> {
-    let normalized = but_core::branch::normalize_short_name(name.as_str()).map_err(|err| {
-        CliError::from(bad_input(format!("Invalid branch name: {err}")).arg_value(&name))
-    })?;
-    if normalized != <&BStr>::from(name.as_str()) {
-        return Err(bad_input("Invalid branch name")
-            .arg_value(&name)
-            .hint(format!("Try '{normalized}' instead"))
-            .into());
-    }
-    Ok(name)
 }
 
 #[derive(Debug)]

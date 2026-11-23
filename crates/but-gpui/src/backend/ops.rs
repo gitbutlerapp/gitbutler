@@ -1545,7 +1545,7 @@ impl Intent for CherryPick {
     }
 }
 
-/// Rename `branch` to `name`, its description going with it, and return its new full ref name.
+/// Rename `branch` to `name` and return its new full ref name.
 pub struct RenameBranch {
     pub branch: FullName,
     pub name: String,
@@ -1557,18 +1557,7 @@ impl Intent for RenameBranch {
     fn apply(self, run: &mut Run) -> Result<FullName> {
         let Self { branch, name } = self;
         run.locked(|ctx, perm| {
-            let outcome =
-                but_api::branch::branch_rename_with_perm(ctx, branch.clone(), name, perm)?;
-            // Its description goes with it, as Git keeps it by the name.
-            let moved = super::branches::move_description(
-                &*ctx.repo.get()?,
-                branch.shorten(),
-                outcome.new_ref.shorten(),
-            );
-            if let Err(err) = moved {
-                tracing::warn!(?err, "couldn't move the renamed branch's description");
-            }
-            Ok(outcome.new_ref)
+            Ok(but_api::branch::branch_rename_with_perm(ctx, branch, name, perm)?.new_ref)
         })
     }
 }
@@ -2798,9 +2787,9 @@ pub(super) mod tests {
     }
 
     #[test]
-    fn a_description_is_listed_and_follows_its_branch() {
+    fn a_description_is_listed_and_goes_with_its_branch() {
         but_testsupport::isolated_app_data_dir(|| {
-            use crate::backend::branches::{DescribeBranch, all_branches, move_description};
+            use crate::backend::branches::{DescribeBranch, all_branches};
             let describe = |path, branch, description: &str| {
                 crate::backend::apply(
                     path,
@@ -2836,13 +2825,6 @@ pub(super) mod tests {
                     .string(format!("branch.{name}.description").as_str())
                     .map(|d| d.to_string())
             };
-            move_description(&repo, "topic".into(), "renamed".into()).unwrap();
-            assert_eq!(
-                (kept("topic"), kept("renamed").as_deref()),
-                (None, Some("Why it's there")),
-                "it moves to the new name, as `git branch -m` moves it"
-            );
-            move_description(&repo, "renamed".into(), "topic".into()).unwrap();
             let delete = DeleteBranchAndCommits {
                 branch: full("refs/heads/topic"),
                 tip: Some(topic),
@@ -2851,7 +2833,7 @@ pub(super) mod tests {
             assert_eq!(
                 kept("topic"),
                 None,
-                "and goes with the branch, as `git branch -d` drops it"
+                "it goes with the branch, as `git branch -d` drops it"
             );
             assert!(
                 describe(path, "refs/heads/topic", "Lost?").is_err(),

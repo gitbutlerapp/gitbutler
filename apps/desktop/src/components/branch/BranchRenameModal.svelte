@@ -42,8 +42,6 @@
 	bind:this={modal}
 	onSubmit={async (close) => {
 		if (normalizedRefName) {
-			// The backend re-normalizes; we pass the client-normalized name so the optimistic
-			// selection update lands on the name the branch will actually have.
 			await branchRename({
 				projectId,
 				refName: [...new TextEncoder().encode(`refs/heads/${branchName}`)],

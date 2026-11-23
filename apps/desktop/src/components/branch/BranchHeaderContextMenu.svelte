@@ -174,15 +174,11 @@
 			branchTemplate: prompt,
 		});
 
-		if (newBranchName) {
-			// Keep the optimistic selection aligned with the normalized ref returned by the backend.
-			const normalized = await stackService.normalizeBranchName(newBranchName);
-			if (!normalized || normalized === branchName) return;
-
+		if (newBranchName && newBranchName !== branchName) {
 			await renameReference({
 				projectId,
 				refName: [...new TextEncoder().encode(refName)],
-				newName: normalized,
+				newName: newBranchName,
 				laneId,
 				branchName,
 			});
