@@ -18,7 +18,10 @@ use super::cursor::{Step, Stops, step_to};
 use super::keys::{List, NavigatorKeys};
 use super::rename::{on_terminal_name, terminal_name_input};
 use super::rows::{CARD_PADDING, GUIDE_AT as ICON_MIDDLE, ROW_LEFT};
-use super::{CARD_BAR_HEIGHT, CARD_BAR_INSET, RowStyle, card_bar, status_mark};
+use super::{
+    CARD_BAR_HEIGHT, CARD_BAR_INSET, DRAWER_BLOCK, DRAWER_GAP, DRAWER_ROW, RowStyle, card_bar,
+    drawer_bar, on_hover, status_mark,
+};
 use crate::app::{
     AppHandle, AppView, Cancel, Confirm, FocusNavigator, SelectNext, SelectPrevious, SplitBelow,
     SplitRight,
@@ -329,11 +332,21 @@ impl TerminalOverview {
     /// How tall it is with every row showing, as far as a fold moving shows them, in design
     /// pixels, or folded, its bar's.
     pub fn height(&self, cx: &App) -> f32 {
-        let edges = if self.in_tab(cx) { 0. } else { 2. };
-        let bar = edges + CARD_BAR_HEIGHT + CARD_BAR_INSET;
+        let in_tab = self.in_tab(cx);
+        // At the navigator's foot, a drawer: its hairline and the room over its row, the row,
+        // and the room under it, then its card's edges, the room under the card, and the
+        // hairline under the last drawer. Under its tab, the bar and its card's.
+        let bar = match in_tab {
+            true => CARD_BAR_HEIGHT + CARD_BAR_INSET,
+            false => 1. + DRAWER_BLOCK + DRAWER_ROW,
+        };
         if self.folded_away(cx) {
-            return bar + CARD_BAR_INSET;
+            return bar + DRAWER_BLOCK + 1.;
         }
+        let bar = match in_tab {
+            true => bar,
+            false => bar + DRAWER_GAP + 2. + DRAWER_BLOCK + 1.,
+        };
         let row = Theme::get(cx).sizes.control;
         let rows = match self.folds.any() {
             true => (0..self.items.len())
@@ -818,7 +831,7 @@ impl TerminalOverview {
         let in_tab = self.in_tab(cx);
         let open = (!in_tab).then_some(!self.shut);
         let folded_away = self.folded_away(cx);
-        card_bar(
+        let bar = card_bar(
             "overview-bar",
             "Terminals",
             Some(count.to_string()),
@@ -826,30 +839,33 @@ impl TerminalOverview {
             false,
             false,
             theme,
-        )
-        .when(!folded_away, |el| el.mb_0())
-        .child(
-            icon_button("overview-grouping", Icon::Mixer)
-                .small()
-                .tooltip("Group terminals")
-                .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
-                    let items = |this: &mut Self, cx: &mut Context<Self>| this.grouping_items(cx);
-                    (this.app).open_menu(&cx.weak_entity(), event.position(), items, cx)
-                })),
-        )
-        .child(
-            icon_button("overview-new-terminal", Icon::Plus)
-                .small()
-                .tooltip("New terminal…")
-                .on_click(move |_, window, cx| {
-                    app.update_later(window, cx, |app, window, cx| {
-                        app.new_terminal_in(window, cx)
-                    })
-                }),
-        )
-        .when(!in_tab, |el| {
-            el.on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.toggle_card(cx)))
-        })
+        );
+        // At the navigator's foot a drawer, as but-ui-react's: its buttons only under the
+        // pointer, and folded, the room under its row. Under its tab, its rows go right under it.
+        let bar = match in_tab {
+            true => bar.mb_0(),
+            false => drawer_bar(bar).when(folded_away, |el| el.mb(dp(DRAWER_BLOCK))),
+        };
+        let grouping = icon_button("overview-grouping", Icon::Mixer)
+            .small()
+            .tooltip("Group terminals")
+            .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
+                let items = |this: &mut Self, cx: &mut Context<Self>| this.grouping_items(cx);
+                (this.app).open_menu(&cx.weak_entity(), event.position(), items, cx)
+            }));
+        let new_terminal = icon_button("overview-new-terminal", Icon::Plus)
+            .small()
+            .tooltip("New terminal…")
+            .on_click(move |_, window, cx| {
+                app.update_later(window, cx, |app, window, cx| {
+                    app.new_terminal_in(window, cx)
+                })
+            });
+        bar.child(on_hover(grouping, in_tab))
+            .child(on_hover(new_terminal, in_tab))
+            .when(!in_tab, |el| {
+                el.on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.toggle_card(cx)))
+            })
     }
 }
 
@@ -962,10 +978,36 @@ impl Render for TerminalOverview {
             .size_full()
             .relative()
             .overflow_hidden()
-            .when(!in_tab, |el| el.child(super::hairline(theme)))
+            // Under the projects' drawer open on its card, the card is the rule, as under
+            // but-ui-react's open Drawer.
+            .when(!in_tab && !projects_card_above(self.store.read(cx)), |el| {
+                el.child(super::hairline(theme))
+            })
             .child(self.render_bar(cx))
             .children(rows)
+            // The last drawer at the navigator's foot: the room under its card, and a hairline
+            // under it, as but-ui-react's Drawer's `last`.
+            .when(!in_tab, |el| {
+                el.pb(dp(if folded_away { 0. } else { DRAWER_BLOCK } + 1.))
+                    .child(
+                        div()
+                            .absolute()
+                            .bottom_0()
+                            .left_0()
+                            .right_0()
+                            .h(fixed(1.))
+                            .bg(theme.border_subtle),
+                    )
+            })
     }
+}
+
+/// Whether the projects' drawer above shows its card: it lists the projects not watched, and it's
+/// open, or always is with none watched.
+fn projects_card_above(store: &crate::state::Store) -> bool {
+    let others = store.projects.iter().any(|entry| !entry.expanded);
+    let watched = store.projects.iter().any(|entry| entry.expanded);
+    others && (!store.prefs.projects_folded || !watched)
 }
 
 #[cfg(test)]

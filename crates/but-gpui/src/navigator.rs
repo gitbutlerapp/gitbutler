@@ -116,8 +116,20 @@ const DRAWER_PADDING: f32 = 6.;
 /// How far that bar sits in from its card's edges, as a row from a card's.
 pub(super) const CARD_BAR_INSET: f32 = 3.;
 
-/// How tall the drawer's card is around its rows: its bar, and its edges.
-const DRAWER_CHROME: f32 = CARD_BAR_HEIGHT + 2. * CARD_BAR_INSET + 2.;
+/// A drawer's row at the navigator's foot, as but-ui-react's DrawerItem and 🍑 But UI's: a row's
+/// height.
+pub(super) const DRAWER_ROW: f32 = 28.;
+
+/// The room a drawer keeps above its row, past its hairline, and below it while it's folded, as
+/// but-ui-react's Drawer: `space-xl`.
+pub(super) const DRAWER_BLOCK: f32 = 10.;
+
+/// The room between an open drawer's row and its card: `space-lg`.
+pub(super) const DRAWER_GAP: f32 = 8.;
+
+/// How tall the projects' drawer is around its rows: its hairline and the room over its row, the
+/// row, the room under it, and its card's edges, which take their room folded too.
+const DRAWER_CHROME: f32 = 1. + DRAWER_BLOCK + DRAWER_ROW + DRAWER_GAP + 2.;
 
 /// How far the rows under a row sit in from it, as but-ui-react's steps: a chevron's 12 points
 /// and the gap after it, so a child's chevron sits right of the guide that hangs from its
@@ -277,6 +289,31 @@ pub(super) fn card_bar(
                 .cursor_pointer()
                 .when(!selected, |el| el.hover(|el| el.bg(theme.hover)))
         })
+}
+
+/// `bar` as a drawer's row at the navigator's foot, as but-ui-react's DrawerItem: a row tall,
+/// past its hairline and the room over it, with the room under it before its card.
+pub(super) fn drawer_bar(bar: Stateful<Div>) -> Stateful<Div> {
+    bar.group(DRAWER_GROUP)
+        .h(dp(DRAWER_ROW))
+        .mt(dp(1. + DRAWER_BLOCK))
+        .mb(dp(DRAWER_GAP))
+        .pr(dp(4.))
+}
+
+/// The group a drawer's row is, so its buttons that wait for the pointer show under it.
+const DRAWER_GROUP: &str = "navigator-drawer";
+
+/// A drawer's button that shows only while the pointer's on its row or the keys are, `held`, as
+/// but-ui-react's Drawer's `hoverActions`. Laid out all along and only painted then: GPUI paints
+/// nothing it hasn't laid out, so one shown on hover from `hidden` would abort the app.
+pub(super) fn on_hover(button: impl IntoElement, held: bool) -> Div {
+    div()
+        .flex()
+        .when(!held, |el| {
+            el.invisible().group_hover(DRAWER_GROUP, |s| s.visible())
+        })
+        .child(button)
 }
 
 /// The rule over a drawer at the navigator's foot, as but-ui-react's Drawer draws it: across the
@@ -2461,6 +2498,17 @@ impl Navigator {
                     })
                     .map(|el| inert(el, closing)),
             )
+            // Under its card, the room a drawer keeps under it, as it opens.
+            .child(div().flex_none().h(dp(self.drawer_below())))
+    }
+
+    /// The room under the drawer's card while it shows one, as far as it's open: folded, the room
+    /// between its row and the card's edges is all it keeps under it.
+    fn drawer_below(&self) -> f32 {
+        match self.built.drawer.rows.is_empty() {
+            true => 0.,
+            false => DRAWER_BLOCK * self.folds.openness(&Fold::Drawer).unwrap_or(1.),
+        }
     }
 
     /// How tall the drawer's rows are: each one row tall, and opening or closing, as tall as
@@ -2504,7 +2552,7 @@ impl Navigator {
         let drawn = self.drawn_height.get();
         let grown = drawn - self.listed_height.replace(drawn);
         let column = f32::from(view.size.height + grown) / scale;
-        let height = DRAWER_CHROME + self.drawer_rows_height();
+        let height = DRAWER_CHROME + self.drawer_rows_height() + self.drawer_below();
         // Where the cards end in this frame, which the list only knows once it's drawn it.
         let room = column - self.cards_height();
         let spacer = (room - height - CARD_MARGIN).max(0.);
@@ -2771,29 +2819,39 @@ impl Navigator {
         let solid = self.keys.on_head_of(&List::Rows(None));
         let selected = solid;
         let open = toggles.then(|| !self.store.read(cx).prefs.projects_folded);
-        let count = (total > 0).then_some(count);
-        card_bar("drawer-bar", title, count, open, selected, solid, theme)
-            .child(
-                icon_button("add-project", Icon::Plus)
-                    .small()
-                    .inverted(solid)
-                    .tooltip("Add project")
-                    .dispatch(&AddProject),
-            )
-            .when(total > 0, |el| {
-                el.child(
-                    icon_button("project-view-options", Icon::Kebab)
-                        .small()
-                        .inverted(solid)
-                        .tooltip("Sort and show")
-                        .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
-                            this.open_menu(event.position(), |this, cx| this.view_options(cx), cx)
-                        })),
-                )
-            })
-            .when(toggles, |el| {
-                el.on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.toggle_drawer(cx)))
-            })
+        // How many, at zero too, as but-ui-react's DrawerItem.
+        let count = Some(count);
+        // As but-ui-react's Drawer: Add project always, Sort and show only under the pointer or
+        // with the keys on it, before it, so Add project keeps its place.
+        let sort = (total > 0).then(|| {
+            icon_button("project-view-options", Icon::Mixer)
+                .small()
+                .inverted(solid)
+                .tooltip("Sort and show")
+                .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
+                    this.open_menu(event.position(), |this, cx| this.view_options(cx), cx)
+                }))
+        });
+        drawer_bar(card_bar(
+            "drawer-bar",
+            title,
+            count,
+            open,
+            selected,
+            solid,
+            theme,
+        ))
+        .children(sort.map(|sort| on_hover(sort, selected)))
+        .child(
+            icon_button("add-project", Icon::Plus)
+                .small()
+                .inverted(solid)
+                .tooltip("Add project")
+                .dispatch(&AddProject),
+        )
+        .when(toggles, |el| {
+            el.on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.toggle_drawer(cx)))
+        })
     }
 
     /// Row `ix` of the drawer, set in as a card's rows are.
@@ -4526,8 +4584,12 @@ impl Render for Navigator {
                         .children(self.card_caps(height, &theme, cx))
                         .children(self.drag_divider(&theme, cx))
                         // Ending level with the detail's cards, so what scrolls past is cut
-                        // where they end.
-                        .mb(dp(CARD_GAP))
+                        // where they end, unless the terminals' drawer follows its own, as
+                        // but-ui-react's drawers do, one right under the other.
+                        .when(
+                            !self.store.read(cx).prefs.shows(Part::TerminalOverview),
+                            |el| el.mb(dp(CARD_GAP)),
+                        )
                         .map(|el| on_any_drag_move(el, cx, Navigator::scroll_near_edge)),
                     )
                 }
