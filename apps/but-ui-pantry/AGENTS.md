@@ -24,3 +24,8 @@ $ pnpm -F @gitbutler/but-ui-pantry dev
 ```
 
 `pnpm -F @gitbutler/but-ui-pantry check` typechecks it.
+
+It's hosted at <https://pantry.gitbutler.com>, a Vercel project rooted here
+that builds master; a pull request that changes the pantry or what it draws
+from gets a preview of its own. `vercel.json` says what that is, and skips the
+build when none of it changed.
