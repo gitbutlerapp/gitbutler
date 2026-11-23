@@ -458,9 +458,10 @@ export const BranchItem: FC<
 /**
  * A commit under an expanded branch: the hollow glyph while it is only here, the solid one once it
  * is pushed. The glyph takes its state's `--but-commit-*` token, never a colour of its own: blue
- * `commit-local` while only here, muted `commit-remote` once pushed, and amber `commit-upstream`
- * for an `upstream` commit, one on its branch's remote the workspace doesn't have yet. A state's
- * colour changes in that token, for every client at once (but-ui's Sidebar trees note).
+ * `commit-local` while only here, muted `commit-remote` once pushed, amber `commit-upstream` for
+ * an `upstream` commit, one on its branch's remote the workspace doesn't have yet, and purple
+ * `commit-integrated` for an `integrated` one, in the target already, as a merged branch's are. A
+ * state's colour changes in that token, for every client at once (but-ui's Sidebar trees note).
  *
  * A `conflicted` commit takes the warning in amber in its glyph's place, pushed or not, so the
  * commits to resolve stand out of the list. Its branch counts them in `conflicts` while folded;
@@ -479,6 +480,9 @@ export const CommitItem: FC<
 		message: string;
 		pushed?: boolean;
 		upstream?: boolean;
+		/** In the target already, as a merged branch's commits are: pushed, so the solid glyph, in
+		 * `--but-commit-integrated`. */
+		integrated?: boolean;
 		merge?: boolean;
 		conflicted?: boolean;
 		author?: CommitAuthor;
@@ -489,6 +493,7 @@ export const CommitItem: FC<
 	message,
 	pushed = true,
 	upstream = false,
+	integrated = false,
 	merge = false,
 	conflicted = false,
 	author,
@@ -529,9 +534,19 @@ export const CommitItem: FC<
 				</span>
 			) : (
 				<Icon
-					name={merge ? "branch-merge" : pushed || upstream ? "commit-fill" : "commit"}
+					name={
+						merge ? "branch-merge" : pushed || upstream || integrated ? "commit-fill" : "commit"
+					}
 					className={
-						upstream ? styles.upstream : merge ? undefined : pushed ? styles.remote : styles.local
+						upstream
+							? styles.upstream
+							: merge
+								? undefined
+								: integrated
+									? styles.integrated
+									: pushed
+										? styles.remote
+										: styles.local
 					}
 				/>
 			)
