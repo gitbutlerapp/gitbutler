@@ -849,7 +849,10 @@ pub fn stack_caption(
         .badge(BadgeVariant::LightGray, count.to_string())
         .inked_label(item_name("Stack").flex_none(), Ink::Muted);
     match folded {
-        Some(true) => row.fold(Fold::Folded).label(item_name(tip)),
+        // The tip in the caption's own subtle ink, a step under "Stack", as React's.
+        Some(true) => row
+            .fold(Fold::Folded)
+            .inked_label(item_name(tip), Ink::Subtle),
         Some(false) => row.fold(Fold::Open),
         None => row.quiet(),
     }
