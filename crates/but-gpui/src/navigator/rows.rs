@@ -287,6 +287,14 @@ pub(super) struct Drawer {
     pub(super) rows: Vec<Row>,
     pub(super) listed: usize,
     pub(super) total: usize,
+    /// How far in each row sits, the guides it draws, and whether it ends its innermost one,
+    /// as [`Rows`] has them: the rows of a project unfolded in the drawer step in as a card's.
+    pub(super) insets: Vec<f32>,
+    pub(super) guides: Vec<Vec<f32>>,
+    pub(super) ends: Vec<bool>,
+    /// Whether each row is a project folded in it, in a group of its own in a card of the
+    /// projects folded next to it, rather than a row of one unfolded, a card of its own.
+    pub(super) grouped: Vec<bool>,
 }
 
 /// Where an item row's content starts in its card: the row's margin and its padding, 8, as
@@ -511,7 +519,7 @@ impl Navigator {
                 return rows;
             }
         }
-        rows.drawer.rows = listing.rows;
+        rows.drawer = listing;
         rows
     }
 
@@ -534,16 +542,39 @@ impl Navigator {
         if prefs.projects_by_activity {
             listed.sort_by_key(|(_, at)| std::cmp::Reverse(*at));
         }
-        let mut rows: Vec<Row> = (listed.iter())
-            .map(|(entry, _)| Row::Item(Selection::Project(entry.id.clone())))
-            .collect();
+        // Each project unfolded in it a card of its own where it is in the list, its heading
+        // over its rows as a watched project's card, splitting the projects folded around it
+        // into cards of their own, as 🍑 But UI's drawer has them.
+        let mut cards = Rows::new(self.row);
+        let mut grouped = Vec::new();
+        let mut was_open = None;
+        for (entry, _) in &listed {
+            let open = self.drawer_open.contains(&entry.id);
+            if was_open.is_some_and(|was| was || open) {
+                cards.push(Row::Gap);
+            }
+            was_open = Some(open);
+            cards.push(Row::Item(Selection::Project(entry.id.clone())));
+            if open {
+                let rule = cards.rows.len();
+                cards.push(Row::HeaderRule(false));
+                self.card_rows(store, entry, &mut cards);
+                cards.settle_rule(rule, &entry.id);
+            }
+            grouped.resize(cards.rows.len(), !open);
+        }
         if listed.is_empty() && !others.is_empty() {
-            rows.push(Row::Note("None active in the last 7 days".into(), false));
+            cards.push(Row::Note("None active in the last 7 days".into(), false));
+            grouped.push(true);
         }
         Drawer {
-            rows,
+            rows: cards.rows,
             listed: listed.len(),
             total: others.len(),
+            insets: cards.insets,
+            guides: cards.guides,
+            ends: cards.ends,
+            grouped,
         }
     }
 
@@ -752,6 +783,7 @@ impl Navigator {
             listed: listed.len(),
             total,
             rows: listed,
+            ..Drawer::default()
         };
         if rows.rows.is_empty() && rows.drawer.rows.is_empty() {
             rows.push(Row::Note("Nothing matches".into(), false));

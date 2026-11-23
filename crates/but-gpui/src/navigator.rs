@@ -656,6 +656,11 @@ pub struct Navigator {
     /// The room above the drawer at the list's end, and its card's height, as last worked out:
     /// see [`Self::fit_footer`].
     footer: Cell<(f32, f32)>,
+    /// The projects unfolded in the drawer, each in a card of its own there.
+    pub(super) drawer_open: HashSet<ProjectId>,
+    /// Whether the row being drawn is the drawer's, so what reads a row's place by its index
+    /// reads it there.
+    drawing_drawer: Cell<bool>,
     /// How tall it's drawn in this frame, which the app sets once the window's laid out and
     /// before this draws, and how tall it was when the list was last laid out: see
     /// [`Self::fit_footer`].
@@ -894,6 +899,8 @@ impl Navigator {
             list: ListState::new(1, ListAlignment::Top, fixed(56.)),
             drawer_list: ListState::new(0, ListAlignment::Top, fixed(56.)),
             footer: Cell::new((0., 0.)),
+            drawer_open: HashSet::new(),
+            drawing_drawer: Cell::new(false),
             drawn_height: Cell::new(Pixels::ZERO),
             listed_height: Cell::new(Pixels::ZERO),
             off_row: None,
@@ -2464,12 +2471,8 @@ impl Navigator {
                     .relative()
                     .flex_1()
                     .min_h_0()
-                    .when(rows_height > 0., |el| {
-                        el.bg(theme.background)
-                            .border_1()
-                            .border_color(theme.border_subtle)
-                            .rounded(dp(theme.shape.card))
-                    })
+                    // Each row draws its part of its card: the cards, one a project unfolded
+                    // here and one of the rest, have the drawer's room between them.
                     .when(rows_height <= 0., |el| el.max_h(dp(2.)))
                     .child(rows)
                     .when(alone, |el| {
@@ -2493,13 +2496,40 @@ impl Navigator {
     /// How tall the drawer's rows are: each one row tall, and opening or closing, as tall as
     /// it's open.
     fn drawer_rows_height(&self) -> f32 {
-        let full = match self.built.drawer.rows.len() {
-            0 => 0.,
-            // Each in its group, the room over and under its row, a line between each and the
-            // next.
-            n => n as f32 * (self.row + 2. * DRAWER_GROUP_PADDING) + (n - 1) as f32,
-        };
-        full * self.folds.openness(&Fold::Drawer).unwrap_or(1.)
+        self.drawer_rows_full() * self.folds.openness(&Fold::Drawer).unwrap_or(1.)
+    }
+
+    /// How tall the drawer's rows are open, as [`Self::render_drawer_row`] draws them: each card's
+    /// edges and padding, the folded projects' groups and the lines between them, and the gaps
+    /// between cards, less the one card's edges the drawer's chrome counts.
+    fn drawer_rows_full(&self) -> f32 {
+        let drawer = &self.built.drawer;
+        if drawer.rows.is_empty() {
+            return 0.;
+        }
+        let mut height = -2.;
+        for (ix, row) in drawer.rows.iter().enumerate() {
+            if matches!(row, Row::Gap) {
+                height += CARD_GAP;
+                continue;
+            }
+            let (first, last) = card_ends(&drawer.rows, ix);
+            height += match row {
+                Row::Item(_) | Row::Note(..) | Row::Loading(_) | Row::More(..) | Row::Fewer(..) => {
+                    self.row
+                }
+                Row::HeaderRule(_) => HEADER_RULE,
+                _ => 0.,
+            };
+            height += match drawer.grouped.get(ix).copied().unwrap_or(true) {
+                true => 2. * DRAWER_GROUP_PADDING + if first { 0. } else { 1. },
+                false => {
+                    (if first { CARD_PADDING } else { 0. }) + if last { CARD_PADDING } else { 0. }
+                }
+            };
+            height += if first { 1. } else { 0. } + if last { 1. } else { 0. };
+        }
+        height
     }
 
     /// The drawer, pinned under the list at the column's foot, as the terminals' drawer is under
@@ -2799,22 +2829,118 @@ impl Navigator {
         })
     }
 
+    /// Unfold project `id` in the drawer, a card of its own there over the rest, or fold it back.
+    /// Not watched, it isn't loaded, so unfolding it loads it, once.
+    fn toggle_in_drawer(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
+        if !self.drawer_open.remove(id) {
+            self.drawer_open.insert(id.clone());
+            let id = id.clone();
+            self.store.update(cx, |store, cx| {
+                if store
+                    .project(&id)
+                    .is_some_and(|entry| entry.workspace.is_none())
+                {
+                    store.reload(&id, cx);
+                }
+            });
+        }
+        cx.notify();
+    }
+
     /// Row `ix` of the drawer, set in as a card's rows are.
     fn render_drawer_row(&self, ix: usize, cx: &Context<Self>) -> AnyElement {
         let theme = Theme::get(cx);
-        let el = match self.built.drawer.rows.get(ix) {
+        let drawer = &self.built.drawer;
+        let rows = &drawer.rows;
+        if matches!(rows.get(ix), None | Some(Row::Gap)) {
+            return div().h(dp(CARD_GAP)).into_any_element();
+        }
+        let inset = drawer.insets.get(ix).copied().unwrap_or_default();
+        let el = match rows.get(ix) {
             Some(Row::Note(text, is_error)) => note_row(text, *is_error, theme),
-            _ => self.render_item(&self.built.drawer.rows, ix, 0., theme, cx),
+            Some(Row::Item(_)) => {
+                self.drawing_drawer.set(true);
+                let item = self.render_item(rows, ix, inset, theme, cx);
+                self.drawing_drawer.set(false);
+                item
+            }
+            Some(Row::Loading(n)) => RowStyle::plain(theme, inset)
+                .draw(
+                    loading_item(
+                        ("drawer-loading", ix),
+                        LOADING_WIDTHS.get(*n).copied().unwrap_or(120.),
+                    ),
+                    0.,
+                )
+                .into_any_element(),
+            Some(Row::HeaderRule(_)) => div()
+                .h(dp(HEADER_RULE))
+                .flex()
+                .items_center()
+                .child(div().w_full().h(fixed(1.)).bg(theme.border_subtle))
+                .into_any_element(),
+            Some(Row::More(project, ref_name, hidden)) => {
+                let key = (project.clone(), ref_name.clone());
+                RowStyle::plain(theme, inset)
+                    .draw(
+                        more_item(("drawer-more", ix), format!("{hidden} more"), false, theme),
+                        STEP,
+                    )
+                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                        this.set_unfolded(key.clone(), true);
+                        cx.notify();
+                    }))
+                    .into_any_element()
+            }
+            Some(Row::Fewer(project, ref_name)) => {
+                let key = (project.clone(), ref_name.clone());
+                RowStyle::plain(theme, inset)
+                    .draw(
+                        more_item(("drawer-fewer", ix), "Show fewer", true, theme),
+                        STEP,
+                    )
+                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                        this.set_unfolded(key.clone(), false);
+                        cx.notify();
+                    }))
+                    .into_any_element()
+            }
+            _ => div().into_any_element(),
         };
-        // Each project in a group of its own, room over and under its row, and a line across
-        // the card between one and the next, as 🍑 But UI's drawer lists them.
+        // The guides of a project's rows unfolded here, on the row alone, as a card's.
+        let levels = drawer.guides.get(ix).map_or(&[][..], Vec::as_slice);
+        let ends = drawer.ends.get(ix).copied().unwrap_or(false);
+        let guides = (levels.iter().enumerate()).map(|(level, at)| {
+            match ends && level + 1 == levels.len() {
+                true => guide_end_in(*at, theme.border_subtle, theme),
+                false => guide_in(*at, theme.border_subtle),
+            }
+        });
+        let row = div().relative().child(el).children(guides);
+        let (first, last) = card_ends(rows, ix);
+        // The projects folded here each in a group of its own, room over and under its row,
+        // and a line across the card between one and the next, as 🍑 But UI's drawer lists
+        // them; one unfolded, a card of its own, its rows in the card's padding.
+        let row = match drawer.grouped.get(ix).copied().unwrap_or(true) {
+            true => div()
+                .py(dp(DRAWER_GROUP_PADDING))
+                .when(!first, |el| {
+                    el.border_t_1().border_color(theme.border_subtle)
+                })
+                .child(row),
+            false => div()
+                .when(first, |el| el.pt(dp(CARD_PADDING)))
+                .when(last, |el| el.pb(dp(CARD_PADDING)))
+                .child(row),
+        };
         div()
-            .relative()
-            .py(dp(DRAWER_GROUP_PADDING))
-            .when(ix > 0, |el| {
-                el.border_t_1().border_color(theme.border_subtle)
-            })
-            .child(el)
+            .bg(theme.background)
+            .border_color(theme.border_subtle)
+            .border_l_1()
+            .border_r_1()
+            .when(first, |el| el.border_t_1().rounded_t(dp(theme.shape.card)))
+            .when(last, |el| el.border_b_1().rounded_b(dp(theme.shape.card)))
+            .child(row)
             .into_any_element()
     }
 
@@ -2834,12 +2960,17 @@ impl Navigator {
         // folded or not.
         let filtering = self.filtering(cx);
         let card_folded = expanded && store.project_folded(id) && !filtering;
+        // One not watched, unfolded in the drawer: a card's heading there, over its rows.
+        let open_here = !expanded && !filtering && self.drawer_open.contains(id);
         let manual = store.prefs.watched_order == WatchedOrder::Manual;
         // Folded, the row sums up the whole card; open, it leaves out what the rows under it
         // say: their uncommitted files and unpushed commits. How far behind the target it is
         // shows either way, even while a commit is being edited.
         let summary = workspace.filter(|ws| ws.editing.is_none()).map(|ws| {
-            let folded = |n: usize| if expanded && !card_folded { 0 } else { n };
+            let folded = |n: usize| match (expanded && !card_folded) || open_here {
+                true => 0,
+                false => n,
+            };
             let shown = |checkout, files| store.uncommitted_shown(id, &checkout, files).len();
             let in_worktrees = (ws.worktrees.iter())
                 .map(|w| shown(Checkout::Linked(w.name.clone()), &w.uncommitted));
@@ -2895,7 +3026,7 @@ impl Navigator {
             })
             .child(eye);
         // In the drawer, how many branches and worktrees it has, as the cards would list them.
-        let held = workspace.filter(|_| !expanded).map(|ws| {
+        let held = workspace.filter(|_| !expanded && !open_here).map(|ws| {
             let branches = (ws.lanes.iter()).flat_map(|lane| &lane.branches).count();
             let worktrees = ws.worktrees.len();
             let branches = count(
@@ -2937,7 +3068,7 @@ impl Navigator {
             .children(held.into_iter().flatten())
             // Loading, a clock, unless the card's open, where its rows of bones say so.
             .when(
-                entry.is_loading() && !(expanded && !card_folded && !filtering),
+                entry.is_loading() && !(expanded && !card_folded && !filtering) && !open_here,
                 |el| el.child(small_icon(Icon::Clock).text_color(theme.subtle_foreground)),
             );
         // Only folded, or in the drawer: open, the rows under it carry the dot.
@@ -2948,7 +3079,7 @@ impl Navigator {
             style.theme,
         )
         .glyph(glyph)
-        .unread(unread && (card_folded || !expanded))
+        .unread(unread && (card_folded || !expanded) && !open_here)
         .meta(summary)
         .meta_gives_way();
         let row = match expanded || filtering {
@@ -2956,9 +3087,12 @@ impl Navigator {
                 let id = id.clone();
                 move |this, _, cx| this.toggle_project(&id, cx)
             }),
-            // In the drawer, folded, as but-ui-react's Drawer lists its projects: the chevron
-            // says so, and its button shows it among the cards.
-            false => row.fold(RowFold::Folded),
+            // In the drawer, as but-ui-react's Drawer lists its projects: its chevron unfolds it
+            // there, a card of its own over the rest, and its button shows it among the cards.
+            false => self.folding(row, Some(open_here), cx, {
+                let id = id.clone();
+                move |this, _, cx| this.toggle_in_drawer(&id, cx)
+            }),
         };
         // Only a watched project's: an unwatched one updates from its page or its menu, which
         // keeps the list of the others quiet.
@@ -2966,7 +3100,11 @@ impl Navigator {
             true => row.action(self.target_update_button(id, target, style.solid, cx)),
             false => row,
         };
-        let row = row.action(eye);
+        // Unfolded in the drawer, its heading's bare, as 🍑 But UI's.
+        let row = match open_here {
+            true => row,
+            false => row.action(eye),
+        };
         Some(
             (style.draw(row, 0.))
                 .aria_label(entry.project.name.clone())
@@ -3293,8 +3431,12 @@ impl Navigator {
 
     /// Whether row `ix` heads rows stepped in under it that show: an open worktree or stack.
     fn section_open(&self, ix: usize) -> bool {
-        let next = self.built.insets.get(ix + 1);
-        (next.zip(self.built.insets.get(ix))).is_some_and(|(next, this)| next > this)
+        let insets = match self.drawing_drawer.get() {
+            true => &self.built.drawer.insets,
+            false => &self.built.insets,
+        };
+        let next = insets.get(ix + 1);
+        (next.zip(insets.get(ix))).is_some_and(|(next, this)| next > this)
     }
 
     /// Over a stack of two or more branches, as ui-react's StackCaption: its glyph, which folds
