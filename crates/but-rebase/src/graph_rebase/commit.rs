@@ -1,6 +1,6 @@
 use anyhow::{Context, Result, bail};
+use but_core::commit::Headers;
 use but_core::commit::SignCommit;
-use but_core::{RefMetadata, commit::Headers};
 use gix::prelude::ObjectIdExt;
 
 use crate::graph_rebase::util::OrderedParentKind;
@@ -12,7 +12,7 @@ use crate::{
     },
 };
 
-impl<M: RefMetadata> Editor<'_, '_, M> {
+impl Editor<'_, '_> {
     /// Returns a reference to the in-memory repository.
     pub fn repo(&self) -> &gix::Repository {
         &self.repo

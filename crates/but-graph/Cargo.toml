@@ -31,10 +31,8 @@ itertools.workspace = true
 smallvec.workspace = true
 
 [dev-dependencies]
-but-meta = { workspace = true, features = ["legacy"] }
 but-testsupport.workspace = true
 
-gitbutler-reference.workspace = true
 snapbox.workspace = true
 sapling-renderdag.workspace = true
 

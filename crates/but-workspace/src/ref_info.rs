@@ -477,7 +477,7 @@ use tracing::instrument;
 use crate::{AncestorWorkspaceCommit, RefInfo, WorkspaceCommit, branch, ui::PushStatus};
 
 /// Gather information about the current `HEAD` and the workspace that might be associated with it,
-/// based on data in `repo` and `meta`. Use `options` to further configure the call.
+/// based on data in `repo` and `db`. Use `options` to further configure the call.
 ///
 /// `db` lets the walk discover the linked worktrees, whose `HEAD`s it also walks if
 /// `opts.traversal.worktrees` is set.
@@ -485,53 +485,42 @@ use crate::{AncestorWorkspaceCommit, RefInfo, WorkspaceCommit, branch, ui::PushS
 /// For details, see [`ref_info()`].
 pub fn head_info(
     repo: &gix::Repository,
-    meta: &impl but_core::RefMetadata,
     db: &mut but_db::DbHandle,
     opts: Options<'_>,
 ) -> anyhow::Result<RefInfo> {
-    head_info_and_workspace(repo, meta, db, opts).map(|a| a.0)
+    head_info_and_workspace(repo, db, opts).map(|a| a.0)
 }
 
 /// Gather information about the current `HEAD` and the workspace that might be associated with it,
-/// based on data in `repo` and `meta`. Use `options` to further configure the call.
+/// based on data in `repo` and `db`. Use `options` to further configure the call.
 ///
 /// For details, see [`ref_info()`] and [`head_info()`].
 pub fn head_info_and_workspace(
     repo: &gix::Repository,
-    meta: &impl but_core::RefMetadata,
     db: &mut but_db::DbHandle,
     opts: Options<'_>,
 ) -> anyhow::Result<(RefInfo, but_graph::Workspace)> {
-    let ws = workspace(
-        repo,
-        meta,
-        db,
-        opts.project_meta.clone(),
-        &opts.traversal,
-        None,
-    )?;
+    let ws = workspace(repo, db, opts.project_meta.clone(), &opts.traversal, None)?;
     Ok((graph_to_ref_info(&ws, repo, opts)?, ws))
 }
 
 /// Gather information about the commit at `existing_ref` and the workspace that might be associated with it,
-/// based on data in `repo` and `meta`.
+/// based on data in `repo` and `db`.
 ///
 /// Use `options` to further configure the call.
 ///
 /// ### Performance
 ///
 /// Make sure the `repo` is initialized with a decently sized Object cache so querying the same commit multiple times will be cheap(er).
-#[instrument(level = "debug", skip(meta), err(Debug))]
+#[instrument(level = "debug", skip(db), err(Debug))]
 pub fn ref_info(
     existing_ref: gix::Reference<'_>,
-    meta: &impl but_core::RefMetadata,
     db: &mut but_db::DbHandle,
     opts: Options<'_>,
 ) -> anyhow::Result<RefInfo> {
     let repo = existing_ref.repo;
     let ws = workspace(
         repo,
-        meta,
         db,
         opts.project_meta.clone(),
         &opts.traversal,
@@ -544,12 +533,11 @@ pub fn ref_info(
 /// from `seen_from` if given, for callers that turn it into a [`RefInfo`] themselves.
 ///
 /// It's projected from the [nosegment graph](but_graph::nosegment::workspace()), which is also
-/// walked from the workspaces known to `meta` and, if `traversal` asks for
+/// walked from the workspaces stored in `db` and, if `traversal` asks for
 /// [worktrees](but_graph::init::Options::worktrees), from the linked worktrees discovered through
 /// `db`. Of `traversal`, only that, the collection of tags and the commit limit apply.
 pub fn workspace(
     repo: &gix::Repository,
-    meta: &impl but_core::RefMetadata,
     db: &mut but_db::DbHandle,
     project_meta: but_core::ref_metadata::ProjectMeta,
     traversal: &but_graph::init::Options,
@@ -571,7 +559,7 @@ pub fn workspace(
     };
     but_graph::nosegment::workspace(
         repo,
-        meta,
+        &db.meta(),
         but_graph::init::Overlay::default(),
         project_meta,
         seen_from_ref.as_ref().map(|name| name.as_ref()),
@@ -637,8 +625,7 @@ fn ancestor_workspace_commit_if_outside(
     })
 }
 
-/// Gather information about graph and the workspace that might be associated with it,
-/// based on data in `repo` and `meta`. Use `options` to further configure the call.
+/// Describe the projected workspace and its graph using repository data.
 ///
 /// For details, see [`ref_info()`].
 pub fn graph_to_ref_info(

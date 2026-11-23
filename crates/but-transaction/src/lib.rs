@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use anyhow::Context as _;
 use bstr::BStr;
 use but_core::{
-    ChangeId, DiffSpec, DryRun, RefMetadata, commit::CommitIdentifiers, sync::RepoExclusive,
+    ChangeId, DiffSpec, DryRun, commit::CommitIdentifiers, sync::RepoExclusive,
     tree::create_tree::RejectionReason,
 };
 use but_ctx::Context;
@@ -91,23 +91,20 @@ pub struct WorkspaceState {
 /// continue using the source commits.
 ///
 /// Commits can still manually be mapped using [`Transaction::get_mapped_commit`] if necessary.
-pub fn with_transaction<M, F, T>(
+pub fn with_transaction<F, T>(
     ctx: &mut Context,
-    meta: &mut M,
     snapshot_details: SnapshotDetails,
     dry_run: DryRun,
     f: F,
 ) -> anyhow::Result<T::Outcome>
 where
-    F: FnOnce(Transaction<'_, '_, M>) -> anyhow::Result<T>,
-    M: RefMetadata,
+    F: FnOnce(Transaction<'_, '_>) -> anyhow::Result<T>,
     T: TransactionOutcome,
 {
     let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
     with_transaction_options(
         ctx,
-        meta,
         perm,
         TransactionOptions {
             snapshot_details: Some(snapshot_details),
@@ -120,9 +117,8 @@ where
 
 /// Like [`with_transaction`] but allows the caller to provide the lock, and records
 /// `snapshot_refs` as [`TransactionOptions::snapshot_refs`] does.
-pub fn with_transaction_with_perm<M, F, T>(
+pub fn with_transaction_with_perm<F, T>(
     ctx: &mut Context,
-    meta: &mut M,
     perm: &mut RepoExclusive,
     snapshot_details: SnapshotDetails,
     snapshot_refs: &[&FullNameRef],
@@ -130,13 +126,11 @@ pub fn with_transaction_with_perm<M, F, T>(
     f: F,
 ) -> anyhow::Result<T::Outcome>
 where
-    F: FnOnce(Transaction<'_, '_, M>) -> anyhow::Result<T>,
-    M: RefMetadata,
+    F: FnOnce(Transaction<'_, '_>) -> anyhow::Result<T>,
     T: TransactionOutcome,
 {
     with_transaction_options(
         ctx,
-        meta,
         perm,
         TransactionOptions {
             snapshot_details: Some(snapshot_details),
@@ -172,16 +166,14 @@ pub struct TransactionOptions<'a> {
 ///
 /// Operations only see the workspace and what `options` add to it. See
 /// [`but_graph::init::Options::extra_refs`] for how those references join it.
-pub fn with_transaction_options<M, F, T>(
+pub fn with_transaction_options<F, T>(
     ctx: &mut Context,
-    meta: &mut M,
     perm: &mut RepoExclusive,
     options: TransactionOptions<'_>,
     f: F,
 ) -> anyhow::Result<T::Outcome>
 where
-    F: FnOnce(Transaction<'_, '_, M>) -> anyhow::Result<T>,
-    M: RefMetadata,
+    F: FnOnce(Transaction<'_, '_>) -> anyhow::Result<T>,
     T: TransactionOutcome,
 {
     let TransactionOptions {
@@ -206,7 +198,6 @@ where
 
     let (should_rollback, outcome) = run_transaction(
         ctx,
-        meta,
         perm,
         dry_run,
         extra_mutable_refs,
@@ -224,24 +215,21 @@ where
     Ok(outcome)
 }
 
-pub fn with_transaction_with_perm_only<M, F, T>(
+pub fn with_transaction_with_perm_only<F, T>(
     ctx: &mut Context,
-    meta: &mut M,
     perm: &mut RepoExclusive,
     dry_run: DryRun,
     f: F,
 ) -> anyhow::Result<(bool, T::Outcome)>
 where
-    F: FnOnce(Transaction<'_, '_, M>) -> anyhow::Result<T>,
-    M: RefMetadata,
+    F: FnOnce(Transaction<'_, '_>) -> anyhow::Result<T>,
     T: TransactionOutcome,
 {
-    run_transaction(ctx, meta, perm, dry_run, Vec::new(), Vec::new(), f)
+    run_transaction(ctx, perm, dry_run, Vec::new(), Vec::new(), f)
 }
 
-fn run_transaction<M, F, T>(
+fn run_transaction<F, T>(
     ctx: &mut Context,
-    meta: &mut M,
     perm: &mut RepoExclusive,
     dry_run: DryRun,
     extra_mutable_refs: Vec<FullName>,
@@ -249,8 +237,7 @@ fn run_transaction<M, F, T>(
     f: F,
 ) -> anyhow::Result<(bool, T::Outcome)>
 where
-    F: FnOnce(Transaction<'_, '_, M>) -> anyhow::Result<T>,
-    M: RefMetadata,
+    F: FnOnce(Transaction<'_, '_>) -> anyhow::Result<T>,
     T: TransactionOutcome,
 {
     let (should_rollback, outcome) = {
@@ -263,11 +250,10 @@ where
                 .cloned()
                 .collect();
             let project_meta = ws.graph.project_meta.clone();
-            ws.refresh_from_head(&repo, &*meta, project_meta, &mut db)?;
+            ws.refresh_from_head(&repo, project_meta, &mut db)?;
         }
         let editor = Editor::create_with_opts(
             &mut ws,
-            meta,
             &repo,
             &mut db,
             &GraphEditorOptions {
@@ -307,23 +293,17 @@ where
 /// fail together.
 ///
 /// See [`with_transaction`] for more details.
-pub struct Transaction<'inner, 'rebase, M>
-where
-    M: RefMetadata,
-{
+pub struct Transaction<'inner, 'rebase> {
     // Store a mutable reference so the callback for `with_transaction` can get an owned
     // `Transaction`. It needs to be owned to verify statically that `Transaction::rollback` is
     // only called once.
-    inner: &'inner mut Inner<'rebase, M>,
+    inner: &'inner mut Inner<'rebase>,
 }
 
-struct Inner<'rebase, M>
-where
-    M: RefMetadata,
-{
+struct Inner<'rebase> {
     // an Option so we can "take" the rebase, convert it into an editor, perform another rebase,
     // and put the result back.
-    rebase: Option<SuccessfulRebase<'rebase, 'rebase, M>>,
+    rebase: Option<SuccessfulRebase<'rebase, 'rebase>>,
     // Commits given to `squash_commits`, `reword_commit`, etc are allowed to be the original
     // commits from live repo. This is used to map those to the rebased in-memory commits.
     //
@@ -333,10 +313,7 @@ where
     context_lines: u32,
 }
 
-impl<'rebase, M> Transaction<'_, 'rebase, M>
-where
-    M: RefMetadata,
-{
+impl<'rebase> Transaction<'_, 'rebase> {
     /// Rollback the transaction, without returning an error.
     ///
     /// If the transaction needs to be rolled back conditionally use [`DynamicOutcome::Rollback`].
@@ -939,9 +916,9 @@ where
     fn rebase<F, T>(&mut self, f: F) -> anyhow::Result<T>
     where
         F: FnOnce(
-            Editor<'rebase, 'rebase, M>,
+            Editor<'rebase, 'rebase>,
             &CommitMappings,
-        ) -> anyhow::Result<(T, SuccessfulRebase<'rebase, 'rebase, M>)>,
+        ) -> anyhow::Result<(T, SuccessfulRebase<'rebase, 'rebase>)>,
     {
         let editor = self
             .inner

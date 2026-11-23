@@ -1,6 +1,6 @@
 use anyhow::{Context, Result, bail};
 use but_core::{
-    ObjectStorageExt as _, RefMetadata,
+    ObjectStorageExt as _,
     worktree::{checkout::Options, safe_checkout_from_head},
 };
 use gix::{
@@ -299,7 +299,7 @@ fn head_checkout(checkouts: &[PaddedCheckout<'_>]) -> Result<Option<HeadCheckout
     }))
 }
 
-impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
+impl<'ws, 'graph> SuccessfulRebase<'ws, 'graph> {
     fn refresh_workspace(&mut self, repo: &gix::Repository) -> Result<()> {
         self.workspace.graph.options.extra_refs = self.extra_refs_after_rebase()?;
         let project_meta = self.workspace.graph.project_meta.clone();
@@ -312,15 +312,17 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                 extra_heads.push(reference.peel_to_commit()?.id);
             }
         }
+        let worktree_tips =
+            but_graph::init::discover_worktree_tips(repo, self.db, options.worktrees)?;
         let mut workspace = but_graph::nosegment::workspace(
             repo,
-            &*self.meta,
+            &self.db.meta(),
             but_graph::init::Overlay::default(),
             project_meta,
             head.referent_name(),
             head.id().map(|id| id.detach()),
             extra_heads,
-            but_graph::init::discover_worktree_tips(repo, &mut *self.db, options.worktrees)?,
+            worktree_tips,
             options.collect_tags,
             options.commits_limit_hint,
         )?;
@@ -338,20 +340,19 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
     pub fn materialize(
         mut self,
         materialize_options: MaterializeOptions,
-    ) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
+    ) -> Result<MaterializeOutcome<'ws, 'graph>> {
         let branch_stacks = self.branch_stacks()?;
         let mut repo = self.repo.clone();
         let checkouts = self.padded_checkouts()?;
         let mut ref_edits = self.padded_ref_edits(&checkouts)?;
         if !self.updates_references(&checkouts, &ref_edits) {
-            if branch_stacks.persist(self.meta)? {
+            if branch_stacks.persist(self.db)? {
                 self.refresh_workspace(&repo)?;
             }
             return Ok(MaterializeOutcome {
                 graph: self.graph,
                 history: self.history,
                 workspace: self.workspace,
-                meta: self.meta,
                 db: self.db,
                 conflicted_checkouts: Vec::new(),
             });
@@ -440,20 +441,19 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         if let Err(err) = repo.delete_local_branches(deleted_branches) {
             tracing::warn!(?err, "deleted branches kept their local configuration");
         }
-        branch_stacks.persist(self.meta)?;
+        branch_stacks.persist(self.db)?;
         self.refresh_workspace(&repo)?;
 
         Ok(MaterializeOutcome {
             graph: self.graph,
             history: self.history,
             workspace: self.workspace,
-            meta: self.meta,
             db: self.db,
             conflicted_checkouts,
         })
     }
 
-    pub fn materialize_without_checkout(self) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
+    pub fn materialize_without_checkout(self) -> Result<MaterializeOutcome<'ws, 'graph>> {
         self.materialize(MaterializeOptions {
             without_checkout: true,
         })

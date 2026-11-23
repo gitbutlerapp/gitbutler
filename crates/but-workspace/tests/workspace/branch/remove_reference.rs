@@ -10,7 +10,7 @@ use crate::{
 
 #[test]
 fn dropping_an_empty_lane_leaves_the_workspace() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description, mut db) =
+    let (_tmp, graph, repo, _description, mut db) =
         named_writable_scenario_with_description_and_graph("ws-with-empty-stack", |meta| {
             add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
             add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
@@ -29,7 +29,7 @@ fn dropping_an_empty_lane_leaves_the_workspace() -> anyhow::Result<()> {
     );
 
     let mut ws = graph.into_workspace()?;
-    let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &repo, &mut db)?;
     but_workspace::branch::drop_reference(editor, r("refs/heads/B"))?
         .materialize(Default::default())?;
 
@@ -47,7 +47,7 @@ fn dropping_an_empty_lane_leaves_the_workspace() -> anyhow::Result<()> {
 
 #[test]
 fn dropping_a_branch_another_worktree_has_checked_out_is_refused() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description, mut db) =
+    let (_tmp, graph, repo, _description, mut db) =
         named_writable_scenario_with_description_and_graph("ws-with-empty-stack", |meta| {
             add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
             add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
@@ -57,7 +57,7 @@ fn dropping_a_branch_another_worktree_has_checked_out_is_refused() -> anyhow::Re
         .run();
 
     let mut ws = graph.into_workspace()?;
-    let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &repo, &mut db)?;
     let err = but_workspace::branch::drop_reference(editor, r("refs/heads/B"))?
         .materialize(Default::default())
         .expect_err("the graph was made before the worktree, so the edit can't move it off B");
@@ -70,14 +70,14 @@ fn dropping_a_branch_another_worktree_has_checked_out_is_refused() -> anyhow::Re
 
 #[test]
 fn dropping_an_empty_lane_takes_it_out_of_the_workspace_commit() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description, mut db) =
+    let (_tmp, graph, repo, _description, mut db) =
         named_writable_scenario_with_description_and_graph("ws-with-empty-stack", |meta| {
             add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
             add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
         })?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &repo, &mut db)?;
     let with_c = but_workspace::branch::create_reference(editor, r("refs/heads/C"), None, None)?;
     but_workspace::branch::drop_reference(with_c.into_editor(), r("refs/heads/B"))?
         .materialize(Default::default())?;

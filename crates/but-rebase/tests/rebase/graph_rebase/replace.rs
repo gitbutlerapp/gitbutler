@@ -9,7 +9,7 @@ use crate::utils::{fixture_writable, standard_options};
 
 #[test]
 fn reword_a_commit() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-in-the-middle")?;
+    let (repo, _tmpdir, mut db) = fixture_writable("merge-in-the-middle")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -31,7 +31,6 @@ fn reword_a_commit() -> Result<()> {
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -39,7 +38,7 @@ fn reword_a_commit() -> Result<()> {
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, &mut db)?;
 
     // get the original a
     let a = repo.rev_parse_single("A")?.detach();
@@ -114,7 +113,7 @@ fn reword_a_commit() -> Result<()> {
 
 #[test]
 fn amend_a_commit() -> Result<()> {
-    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-in-the-middle")?;
+    let (repo, _tmpdir, mut db) = fixture_writable("merge-in-the-middle")?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -143,7 +142,6 @@ f766d1f
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -151,7 +149,7 @@ f766d1f
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, &mut db)?;
 
     // get the original a
     let a = repo.rev_parse_single("A")?;

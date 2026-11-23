@@ -1,10 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use anyhow::{Context, Result, bail};
-use but_core::{
-    RefMetadata,
-    commit::{SignCommit, padding},
-};
+use but_core::commit::{SignCommit, padding};
 use but_graph::{Commit, CommitFlags, SegmentIndex};
 use petgraph::{Direction, visit::EdgeRef as _};
 
@@ -35,21 +32,19 @@ impl Default for GraphEditorOptions {
     }
 }
 
-impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
+impl<'ws, 'db> Editor<'ws, 'db> {
     pub fn create(
         workspace: &'ws mut but_graph::Workspace,
-        meta: &'meta mut M,
         repo: &gix::Repository,
-        db: &'meta mut but_db::DbHandle,
+        db: &'db mut but_db::DbHandle,
     ) -> Result<Self> {
-        Self::create_with_opts(workspace, meta, repo, db, &GraphEditorOptions::default())
+        Self::create_with_opts(workspace, repo, db, &GraphEditorOptions::default())
     }
 
     pub fn create_with_opts(
         workspace: &'ws mut but_graph::Workspace,
-        meta: &'meta mut M,
         repo: &gix::Repository,
-        db: &'meta mut but_db::DbHandle,
+        db: &'db mut but_db::DbHandle,
         options: &GraphEditorOptions,
     ) -> Result<Self> {
         // This first creates runs of nodes and associates them with the
@@ -86,7 +81,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             }
         }
         let segment_graph =
-            but_graph::nosegment::workspace_segment_graph(workspace, repo, &*meta, heads)?;
+            but_graph::nosegment::workspace_segment_graph(workspace, repo, &db.meta(), heads)?;
 
         let mut mutable_entrypoints = Vec::new();
         if let Some(entrypoint_commit_id) = entrypoint_commit_id {
@@ -450,19 +445,18 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             repo: repo.clone().with_object_memory(),
             history: RevisionHistory::new(),
             workspace,
-            meta,
             db,
         })
     }
 }
 
-impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
+impl<'ws, 'db> SuccessfulRebase<'ws, 'db> {
     /// Converts a SuccessfulRebase back into another editor for multi-step operations.
     ///
     /// This is the normalization path for callers that want to chain
     /// additional editor-based operations and need the editor graph plus
     /// in-memory repository to agree on ancestry.
-    pub fn into_editor(mut self) -> Editor<'ws, 'meta, M> {
+    pub fn into_editor(mut self) -> Editor<'ws, 'db> {
         self.history.conflicted_commits.clear();
         Editor {
             graph: self.graph,
@@ -472,7 +466,6 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
             history: self.history,
             extra_refs: self.extra_refs,
             workspace: self.workspace,
-            meta: self.meta,
             db: self.db,
         }
     }

@@ -53,10 +53,9 @@ pub fn commit_squash_with_perm(
     if subject_commit_ids.is_empty() {
         anyhow::bail!("No commits were provided to squash")
     }
-    let mut meta = ctx.meta()?;
+
     let (new_commit, workspace) = with_transaction_with_perm(
         ctx,
-        &mut meta,
         perm,
         SnapshotDetails::new(OperationKind::SquashCommit),
         &[],

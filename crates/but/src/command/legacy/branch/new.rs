@@ -1,6 +1,6 @@
 use anyhow::Context as _;
 use but_core::{
-    DryRun, RefMetadata,
+    DryRun,
     sync::{RepoExclusive, RepoShared},
 };
 use but_ctx::Context;
@@ -46,8 +46,7 @@ pub fn new(
         )?
     };
 
-    let mut meta = ctx.meta()?;
-    Ok(run(ctx, &mut meta, guard.write_permission(), operation)?)
+    Ok(run(ctx, guard.write_permission(), operation)?)
 }
 
 fn resolve(
@@ -172,23 +171,17 @@ pub enum NewStackedBranchTarget {
 
 pub fn run(
     ctx: &mut Context,
-    meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     operation: NewOperation,
 ) -> anyhow::Result<NewOutcome> {
     match operation {
-        NewOperation::NewUnstackedBranch(op) => op.execute(ctx, meta, perm),
-        NewOperation::NewStackedBranch(op) => op.execute(ctx, meta, perm),
+        NewOperation::NewUnstackedBranch(op) => op.execute(ctx, perm),
+        NewOperation::NewStackedBranch(op) => op.execute(ctx, perm),
     }
 }
 
 impl NewUnstackedBranchOperation {
-    fn execute(
-        self,
-        ctx: &mut Context,
-        meta: &mut impl RefMetadata,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<NewOutcome> {
+    fn execute(self, ctx: &mut Context, perm: &mut RepoExclusive) -> anyhow::Result<NewOutcome> {
         let NewUnstackedBranchOperation { mut name, switch } = self;
         if switch {
             refuse_switch_with_detached_head(&*ctx.repo.get()?)?;
@@ -199,7 +192,6 @@ impl NewUnstackedBranchOperation {
         // Named so undo deletes it again.
         but_transaction::with_transaction_with_perm(
             ctx,
-            meta,
             perm,
             snapshot_details,
             &[new_ref.as_ref()],
@@ -218,12 +210,7 @@ impl NewUnstackedBranchOperation {
 }
 
 impl NewStackedBranchOperation {
-    fn execute(
-        self,
-        ctx: &mut Context,
-        meta: &mut impl RefMetadata,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<NewOutcome> {
+    fn execute(self, ctx: &mut Context, perm: &mut RepoExclusive) -> anyhow::Result<NewOutcome> {
         let NewStackedBranchOperation {
             mut name,
             target,
@@ -240,7 +227,6 @@ impl NewStackedBranchOperation {
         // Named so undo deletes it again.
         but_transaction::with_transaction_with_perm(
             ctx,
-            meta,
             perm,
             snapshot_details,
             &[new_ref.as_ref()],

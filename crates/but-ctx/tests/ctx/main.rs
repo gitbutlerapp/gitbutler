@@ -303,10 +303,10 @@ fn project_meta_observes_changes_made_through_other_repository_handles() -> anyh
 }
 
 #[test]
-fn context_creation_ports_legacy_toml_before_cleanup() -> anyhow::Result<()> {
-    let (_tmp, repo, target_commit_id) = run_fixture("project-meta-toml")?;
+fn context_creation_ignores_legacy_toml() -> anyhow::Result<()> {
+    let (_tmp, repo, _target_commit_id) = run_fixture("project-meta-toml")?;
     let ctx = Context::from_repo_for_testing(repo)?;
-    let expected = project_meta(target_commit_id, "refs/heads/main", "fork")?;
+    let expected = ProjectMeta::default();
 
     assert_eq!(ctx.project_meta()?, expected);
 
@@ -320,8 +320,8 @@ fn context_creation_ports_legacy_toml_before_cleanup() -> anyhow::Result<()> {
 }
 
 #[test]
-fn concurrent_context_creation_ports_legacy_toml() -> anyhow::Result<()> {
-    let (_tmp, repo, target_commit_id) = run_fixture("project-meta-toml")?;
+fn concurrent_context_creation_ignores_legacy_toml() -> anyhow::Result<()> {
+    let (_tmp, repo, _target_commit_id) = run_fixture("project-meta-toml")?;
     let gitdir = repo.git_dir().to_owned();
     let barrier = Arc::new(Barrier::new(9));
     let repos = (0..8)
@@ -346,8 +346,8 @@ fn concurrent_context_creation_ports_legacy_toml() -> anyhow::Result<()> {
     }
     assert_eq!(
         ProjectMeta::resolve(&repo)?,
-        project_meta(target_commit_id, "refs/heads/main", "fork")?,
-        "legacy project metadata is ported"
+        ProjectMeta::default(),
+        "the compatibility file is never a source of project metadata"
     );
     Ok(())
 }

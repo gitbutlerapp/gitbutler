@@ -4,7 +4,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use anyhow::{Context as _, Result};
-use but_core::{RefMetadata, WORKSPACE_REF_NAME, is_workspace_ref_name};
+use but_core::{WORKSPACE_REF_NAME, is_workspace_ref_name};
 use gix::refs::{FullName, FullNameRef};
 use petgraph::visit::EdgeRef as _;
 
@@ -41,7 +41,7 @@ const UNKNOWN_PARENT_NODE_INDEX: NodeIndex = usize::MAX;
 pub(crate) fn graph(
     repo: &gix::Repository,
     overlay_repo: &crate::init::OverlayRepo<'_>,
-    overlay_meta: &crate::init::OverlayMetadata<'_, impl RefMetadata>,
+    overlay_meta: &crate::init::OverlayMetadata<'_, '_>,
     remote_names: &gix::remote::Names,
     forked_branches: &BTreeSet<FullName>,
     head_ref: Option<&FullNameRef>,
@@ -837,7 +837,7 @@ impl WorkspaceGraph {
         &self,
         repo: &gix::Repository,
         overlay_repo: &crate::init::OverlayRepo,
-        overlay_meta: &crate::init::OverlayMetadata<'_, impl RefMetadata>,
+        overlay_meta: &crate::init::OverlayMetadata<'_, '_>,
         worktree_by_branch: &crate::init::walk::WorktreeByBranch,
         project_meta: but_core::ref_metadata::ProjectMeta,
         seen_from_ref: Option<&FullNameRef>,
@@ -1705,7 +1705,7 @@ impl WorkspaceGraph {
 pub fn workspace_segment_graph(
     workspace: &crate::Workspace,
     repo: &gix::Repository,
-    meta: &impl RefMetadata,
+    meta: &but_db::Meta<'_>,
     mut heads: Vec<gix::ObjectId>,
 ) -> Result<crate::Graph> {
     let entrypoint = workspace.graph.entrypoint()?;
@@ -1753,7 +1753,7 @@ pub fn workspace_segment_graph(
 #[expect(clippy::too_many_arguments)]
 pub fn workspace(
     repo: &gix::Repository,
-    meta: &impl RefMetadata,
+    meta: &but_db::Meta<'_>,
     overlay: Overlay,
     project_meta: but_core::ref_metadata::ProjectMeta,
     seen_from_ref: Option<&FullNameRef>,
@@ -1857,7 +1857,7 @@ pub fn workspace(
 #[expect(clippy::too_many_arguments)]
 pub fn segment_graph(
     repo: &gix::Repository,
-    meta: &impl RefMetadata,
+    meta: &but_db::Meta<'_>,
     overlay: Overlay,
     project_meta: but_core::ref_metadata::ProjectMeta,
     seen_from_ref: Option<&FullNameRef>,

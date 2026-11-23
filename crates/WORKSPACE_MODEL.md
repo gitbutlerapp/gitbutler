@@ -42,7 +42,7 @@ Prefer acquiring permissions/handles once at the boundary, then passing explicit
 
 - repo access
 - workspace/projection, only for presentation/compatibility helpers or existing workspace-shaped boundaries
-- metadata (`but_core::RefMetadata`)
+- metadata (`but_db::DbHandle::meta()`)
 - database handles
 - graph or graph editor state for relationship/mutation decisions
 - permission-taking helper variants such as `_with_perm`
@@ -51,7 +51,7 @@ Avoid lower-level helpers reacquiring `Context` or repository write guards while
 
 ## Metadata and target refs
 
-`but_core::ref_metadata::ProjectMeta` holds the configured target and cutoff. Workspace metadata is exposed through `but_core::RefMetadata` and `but_core::ref_metadata::Workspace`.
+`but_core::ref_metadata::ProjectMeta` holds the configured target and cutoff. Workspace metadata is exposed through `but_db::Meta` and `but_core::ref_metadata::Workspace`.
 
 Keep these concepts separate:
 
@@ -157,15 +157,15 @@ The graph editor is not merely “a rebase command.” It is the in-memory graph
 
 ### What the editor borrows
 
-`Editor::create(workspace, meta, repo, db)` takes the workspace projection, the metadata handle, and the project database handle **mutably**, and holds all three for the life of the editor, the `SuccessfulRebase` it rebases into, and the `MaterializeOutcome` that materializing produces. The database handle is carriage only — the editor never reads it — but it travels the whole chain so that code after the rewrite can get it back:
+`Editor::create(workspace, repo, db)` borrows the workspace projection and project database mutably for the life of the editor, its `SuccessfulRebase`, and its `MaterializeOutcome`. Metadata reads use `db.meta()`. Materialization persists metadata in one database transaction, whose commit also updates the legacy TOML compatibility mirror. The handle remains available afterward:
 
 - `SuccessfulRebase::db()` — shared, for reads such as the forge review cache.
-- `SuccessfulRebase::repo_meta_and_db_mut()` — for the dry-run path, which never materializes.
+- `SuccessfulRebase::repo_and_db_mut()` — for the dry-run path, which never materializes.
 - `MaterializeOutcome::db` — for the real path.
 
 That exclusivity is the part worth remembering. `but_ctx::Context` hands out its database handle through a runtime-checked cell, so **asking `Context` for another database handle while an editor chain is alive fails at run time, not at compile time** (`RefCell already mutably borrowed`). Take the handle once, thread it through the editor, and pull it back off the rebase or the materialize outcome instead of re-borrowing from `Context`. If later work in the same function needs `Context` again, drop the editor chain and the handle first.
 
-The same applies to the workspace and metadata borrows: an operation that wants to hand `Context` to a helper after materializing must release the editor's borrows before it does.
+The same applies to the workspace borrow: an operation that wants to hand `Context` to a helper after materializing must release the editor's borrows before it does.
 
 ### Transactions compose editor operations
 
@@ -211,7 +211,7 @@ When touching code that should work in normal Git mode:
 
 Editor-backed `but_workspace` operations put `HEAD` on the workspace reference when their result needs a workspace commit, and take it off again when it no longer does. Callers, `but-transaction` included, don't set a workspace up beforehand or tidy one up afterwards.
 
-- **Entering** (`editor_workspace::enter_workspace`): an operation that makes a second stack beside the checked-out one, as `create_reference` without an anchor and `tear_off_branch` do. `apply_stack` enters even for one stack, as that's what it's asked for.
+- **Entering** (`editor_workspace::enter_workspace`): an operation that makes a second stack beside the checked-out one, as `create_reference` without an anchor and `tear_off_branch` do. Creating that second stack also reapplies saved stacks. If they conflict, the edit fails before materialization. `apply_stack` enters even for one stack, as that's what it's asked for.
 - **Leaving** (`editor_workspace::leave_unnecessary_workspace`): an operation that can take a tip away from the workspace commit leaves the workspace whenever at most one tip is left when it's done, whether or not it took one away. It checks that tip's branch out, or the local target once none is left. Discarding, moving and squashing commits do this, as do moving and dropping a branch and integrating upstream.
 - **Switching** (`editor_workspace::switch_to_branch`): a checkout that was asked for is recorded in the editor too. Materializing refuses this checkout if it overwrites uncommitted changes or checks out a conflicted commit. It refuses before it changes `HEAD`, the worktree, the index, or any reference.
 
