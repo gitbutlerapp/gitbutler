@@ -497,7 +497,7 @@ mod from_worktree {
         let outcome = commit_amend(
             editor,
             d1_id,
-            whole_file_spec("a-file"),
+            whole_file_spec("new-file"),
             0,
             ChangeSource::Worktree {
                 repo: &wt_repo,
