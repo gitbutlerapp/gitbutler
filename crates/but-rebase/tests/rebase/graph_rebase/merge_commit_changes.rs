@@ -1,7 +1,6 @@
 use anyhow::Result;
 use bstr::ByteSlice as _;
 use but_core::RepositoryExt;
-use but_graph::Graph;
 use but_rebase::{
     commit::DateMode,
     graph_rebase::{Editor, LookupStep as _},
@@ -34,7 +33,7 @@ fn matches_clean_octopus_merge() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -85,7 +84,7 @@ fn excludes_unselected_parent_changes() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -160,7 +159,7 @@ fn reports_conflicts() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -233,7 +232,7 @@ fn stops_folding_after_first_conflict() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -296,7 +295,7 @@ fn preserves_noncontiguous_selected_changes() -> Result<()> {
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -368,7 +367,7 @@ fn preserves_first_selected_commit_tree_while_applying_later_selected_ranges() -
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -424,7 +423,7 @@ fn preserves_first_selected_commit_tree_while_applying_later_selected_ranges() -
 fn planning_preserves_noncontiguous_selected_changes() -> Result<()> {
     let (repo, mut meta, mut db) =
         fixture("merge-commits-preserve-noncontiguous-selected-changes-visible")?;
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -582,7 +581,7 @@ main-3 <- main-1
 #[test]
 fn uses_editor_visible_commits_not_only_original_workspace_graph() -> Result<()> {
     let (repo, _tmp, mut meta, mut db) = fixture_writable("four-commits")?;
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -618,7 +617,7 @@ fn uses_editor_visible_commits_not_only_original_workspace_graph() -> Result<()>
 #[test]
 fn planning_prunes_subjects_reachable_from_target_first_parent_lineage() -> Result<()> {
     let (repo, mut meta, mut db) = fixture("merge-commits-preserve-anchor-tree-visible")?;
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -647,7 +646,7 @@ fn planning_prunes_subjects_reachable_from_target_first_parent_lineage() -> Resu
 #[test]
 fn planning_prunes_subjects_reachable_from_target_merge_parent_lineage() -> Result<()> {
     let (repo, mut meta, mut db) = fixture("three-branches-merged")?;
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -710,7 +709,7 @@ left-3 <- left-2
 #[test]
 fn planning_uses_pruned_selected_first_parent_tree_as_base_boundary() -> Result<()> {
     let (repo, _tmpdir, mut meta, mut db) = fixture_writable("two-branches-shared-bottom-two")?;
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -741,7 +740,7 @@ left: head <- shared
 #[test]
 fn planning_works_after_normalizing_chained_editor_mutations() -> Result<()> {
     let (repo, _tmp, mut meta, mut db) = fixture_writable("four-commits")?;
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -792,7 +791,7 @@ struct SimplifyFixture {
 
 fn simplify_fixture() -> Result<SimplifyFixture> {
     let (repo, meta, mut db) = fixture("three-branches-three-commits-visible")?;
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),

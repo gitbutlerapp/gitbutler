@@ -268,7 +268,7 @@ fn can_discard_conflicted_commit() -> Result<()> {
     );
 
     // A plain single-branch repository without a target.
-    let graph = but_graph::Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),

@@ -47,7 +47,7 @@ fn workspace_with_an_unnamed_lane() -> anyhow::Result<(
 "#]]
         .raw()
     );
-    let graph = but_graph::Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &meta,
         project_meta(&repo)?,
@@ -91,7 +91,7 @@ mod from_new_merge_with_metadata {
 
         let stacks = ["add-A"];
         add_stacks(&mut meta, stacks);
-        let graph = but_graph::Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
@@ -160,7 +160,7 @@ f53c910
 
         let stacks = ["add-D", "add-A", "add-C", "add-B"];
         add_stacks(&mut meta, stacks);
-        let graph = but_graph::Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
@@ -265,7 +265,7 @@ https://docs.gitbutler.com/features/branch-management/integration-branch
 "#]]
         );
         add_stacks(&mut meta, ["add-A", "add-B", "add-C"]);
-        let graph = but_graph::Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
@@ -351,7 +351,7 @@ Outcome {
             "clean-A",
         ];
         add_stacks(&mut meta, stacks);
-        let graph = but_graph::Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
@@ -484,7 +484,8 @@ Outcome {
         let stacks = ["tip-conflicted", "unrelated"];
         add_stacks(&mut meta, stacks);
 
-        graph = graph.redo_traversal_with_overlay(
+        // Seen from `main` again, like the graph made before the branches moved.
+        graph = but_graph::nosegment::workspace(
             &repo,
             &meta,
             Overlay::default().with_references_if_new([
@@ -497,7 +498,15 @@ Outcome {
                     peeled: None,
                 },
             ]),
-        )?;
+            graph.project_meta.clone(),
+            Some("refs/heads/main".try_into()?),
+            Some(repo.rev_parse_single("main")?.detach()),
+            [],
+            Vec::new(),
+            graph.options.collect_tags,
+            graph.options.commits_limit_hint,
+        )?
+        .graph;
 
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
@@ -565,7 +574,7 @@ Outcome {
         // NOTE: the caller would be expected to have prepared a graph that contains these branches.
         let stacks = ["clean-A", "conflict-C1", "clean-B", "conflict-C2"];
         add_stacks(&mut meta, stacks);
-        let graph = but_graph::Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),

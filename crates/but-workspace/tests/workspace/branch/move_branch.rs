@@ -78,7 +78,14 @@ fn move_top_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize(Default::default())?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws = but_testsupport::graph_from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut db,
+        ws.graph.options.clone(),
+    )?
+    .into_workspace()?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -200,7 +207,14 @@ fn move_bottom_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize(Default::default())?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws = but_testsupport::graph_from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut db,
+        ws.graph.options.clone(),
+    )?
+    .into_workspace()?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -288,7 +302,14 @@ fn move_single_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize(Default::default())?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws = but_testsupport::graph_from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut db,
+        ws.graph.options.clone(),
+    )?
+    .into_workspace()?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -371,7 +392,14 @@ fn reorder_branch_in_stack() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize(Default::default())?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws = but_testsupport::graph_from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut db,
+        ws.graph.options.clone(),
+    )?
+    .into_workspace()?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -459,7 +487,14 @@ fn insert_branch_in_the_middle_of_a_stack() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize(Default::default())?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws = but_testsupport::graph_from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut db,
+        ws.graph.options.clone(),
+    )?
+    .into_workspace()?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -534,7 +569,14 @@ fn move_empty_branch() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize(Default::default())?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws = but_testsupport::graph_from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut db,
+        ws.graph.options.clone(),
+    )?
+    .into_workspace()?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -602,7 +644,14 @@ fn move_branch_on_top_of_empty_branch() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize(Default::default())?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws = but_testsupport::graph_from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut db,
+        ws.graph.options.clone(),
+    )?
+    .into_workspace()?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -640,7 +689,7 @@ fn move_empty_branch_on_top_of_empty_branch_in_same_stack() -> anyhow::Result<()
 
     let project_meta = project_meta(&repo)?;
     let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
+        but_testsupport::graph_from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
 
     let mut ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
@@ -664,7 +713,14 @@ fn move_empty_branch_on_top_of_empty_branch_in_same_stack() -> anyhow::Result<()
 
     rebase.materialize(Default::default())?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws = but_testsupport::graph_from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut db,
+        ws.graph.options.clone(),
+    )?
+    .into_workspace()?;
 
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -695,7 +751,7 @@ fn move_empty_branch_on_top_of_empty_branch_across_stacks() -> anyhow::Result<()
 
     let project_meta = project_meta(&repo)?;
     let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
+        but_testsupport::graph_from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
 
     let mut ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
@@ -718,7 +774,14 @@ fn move_empty_branch_on_top_of_empty_branch_across_stacks() -> anyhow::Result<()
 
     rebase.materialize(Default::default())?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws = but_testsupport::graph_from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut db,
+        ws.graph.options.clone(),
+    )?
+    .into_workspace()?;
 
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -810,7 +873,14 @@ fn non_empty_move_updates_metadata_and_keeps_display_order_aligned() -> anyhow::
 "#]]
     );
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws = but_testsupport::graph_from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut db,
+        ws.graph.options.clone(),
+    )?
+    .into_workspace()?;
     // Reading the operation's own metadata back changes nothing.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -892,7 +962,14 @@ fn empty_move_keeps_display_order_aligned_with_metadata() -> anyhow::Result<()> 
 
     rebase.materialize(Default::default())?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws = but_testsupport::graph_from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut db,
+        ws.graph.options.clone(),
+    )?
+    .into_workspace()?;
 
     let after_display_order = stack_display_order(&ws);
 
@@ -987,7 +1064,14 @@ fn move_branch_when_base_segment_has_no_ref_name() -> anyhow::Result<()> {
 
     rebase.materialize(Default::default())?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws = but_testsupport::graph_from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut db,
+        ws.graph.options.clone(),
+    )?
+    .into_workspace()?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -1074,7 +1158,14 @@ fn move_empty_branch_onto_non_empty_branch_with_advanced_target() -> anyhow::Res
 
     rebase.materialize(Default::default())?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws = but_testsupport::graph_from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut db,
+        ws.graph.options.clone(),
+    )?
+    .into_workspace()?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -1150,7 +1241,14 @@ fn move_non_empty_branch_onto_empty_branch_with_advanced_target() -> anyhow::Res
 
     rebase.materialize(Default::default())?;
     let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
+    ws = but_testsupport::graph_from_head(
+        &repo,
+        &meta,
+        project_meta,
+        &mut db,
+        ws.graph.options.clone(),
+    )?
+    .into_workspace()?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -1261,8 +1359,9 @@ mod single_branch_mode {
         subject: &gix::refs::FullNameRef,
         target: &gix::refs::FullNameRef,
     ) -> anyhow::Result<()> {
-        let mut ws = but_graph::Graph::from_head(repo, meta, project_meta, db, Options::limited())?
-            .into_workspace()?;
+        let mut ws =
+            but_testsupport::graph_from_head(repo, meta, project_meta, db, Options::limited())?
+                .into_workspace()?;
         let editor = Editor::create(&mut ws, meta, repo, db)?;
         let rebase = move_branch_above(editor, subject, target)?;
         rebase.materialize(Default::default())?;
@@ -1275,8 +1374,9 @@ mod single_branch_mode {
         project_meta: but_core::ref_metadata::ProjectMeta,
         db: &mut but_db::DbHandle,
     ) -> anyhow::Result<String> {
-        let ws = but_graph::Graph::from_head(repo, meta, project_meta, db, Options::limited())?
-            .into_workspace()?;
+        let ws =
+            but_testsupport::graph_from_head(repo, meta, project_meta, db, Options::limited())?
+                .into_workspace()?;
         Ok(graph_workspace(&ws).to_string())
     }
 
@@ -1360,7 +1460,7 @@ mod single_branch_mode {
         let mut meta = branch_order_meta(&repo)?;
 
         let main_ref = r("refs/heads/main");
-        let mut ws = but_graph::Graph::from_head(
+        let mut ws = but_testsupport::graph_from_head(
             &repo,
             &meta,
             project_meta.clone(),
@@ -1396,7 +1496,7 @@ mod single_branch_mode {
             ad_hoc_workspace_with_two_empty_branches()?;
         let main_ref = r("refs/heads/main");
 
-        let mut ws = but_graph::Graph::from_head(
+        let mut ws = but_testsupport::graph_from_head(
             &repo,
             &meta,
             project_meta.clone(),
@@ -1436,9 +1536,14 @@ mod single_branch_mode {
         let (_tmp, repo, mut meta, project_meta, mut db) =
             ad_hoc_workspace_with_two_empty_branches()?;
 
-        let mut ws =
-            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?
-                .into_workspace()?;
+        let mut ws = but_testsupport::graph_from_head(
+            &repo,
+            &meta,
+            project_meta,
+            &mut db,
+            Options::limited(),
+        )?
+        .into_workspace()?;
         let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
         let rebase = move_branch_above(
             editor,
@@ -1460,7 +1565,7 @@ mod single_branch_mode {
         let (_tmp, repo, mut meta, project_meta, mut db) =
             ad_hoc_workspace_with_two_empty_branches()?;
 
-        let mut ws = but_graph::Graph::from_head(
+        let mut ws = but_testsupport::graph_from_head(
             &repo,
             &meta,
             project_meta.clone(),
@@ -1726,7 +1831,7 @@ mod single_branch_mode {
         let (_tmp, repo, mut meta, project_meta, mut db) =
             ad_hoc_workspace_with_two_empty_branches()?;
 
-        let mut ws = but_graph::Graph::from_head(
+        let mut ws = but_testsupport::graph_from_head(
             &repo,
             &meta,
             project_meta.clone(),
@@ -1768,7 +1873,7 @@ mod single_branch_mode {
         repo.reference(r("refs/heads/x"), tip, PreviousValue::Any, "test")?;
         repo.reference(r("refs/heads/y"), tip, PreviousValue::Any, "test")?;
 
-        let mut ws = but_graph::Graph::from_head(
+        let mut ws = but_testsupport::graph_from_head(
             &repo,
             &meta,
             project_meta.clone(),
@@ -1859,7 +1964,7 @@ git worktree add -q -b wt wt-dir A
             &repo,
         );
         db.worktree_meta_mut().mark_adopted()?;
-        let ws = but_graph::Graph::from_head(
+        let ws = but_testsupport::graph_from_head(
             &repo,
             &meta,
             project_meta(&repo)?,
@@ -1908,8 +2013,15 @@ git worktree add -q -b wt wt-dir A
             )?;
             rebase.materialize(Default::default())?;
             let project_meta = self.ws.graph.project_meta.clone();
-            self.ws
-                .refresh_from_head(&self.repo, &self.meta, project_meta, &mut self.db)
+            self.ws = but_testsupport::graph_from_head(
+                &self.repo,
+                &self.meta,
+                project_meta,
+                &mut self.db,
+                self.ws.graph.options.clone(),
+            )?
+            .into_workspace()?;
+            Ok(())
         }
 
         fn worktree_status(&self) -> anyhow::Result<String> {
@@ -2114,12 +2226,14 @@ git worktree add -q -b wt wt-dir A
         let mut meta =
             but_meta::BranchOrderMetadata::from_paths(fixture.meta.path(), fixture.repo.path())?;
         let project_meta = fixture.ws.graph.project_meta.clone();
-        fixture.ws.refresh_from_head(
+        fixture.ws = but_testsupport::graph_from_head(
             &fixture.repo,
             &meta,
             project_meta.clone(),
             &mut fixture.db,
-        )?;
+            fixture.ws.graph.options.clone(),
+        )?
+        .into_workspace()?;
 
         let editor = Editor::create(&mut fixture.ws, &mut meta, &fixture.repo, &mut fixture.db)?;
         let (relative_to, side) = above("wt-lower")?;
@@ -2130,9 +2244,14 @@ git worktree add -q -b wt wt-dir A
             side,
         )?
         .materialize(Default::default())?;
-        fixture
-            .ws
-            .refresh_from_head(&fixture.repo, &meta, project_meta, &mut fixture.db)?;
+        fixture.ws = but_testsupport::graph_from_head(
+            &fixture.repo,
+            &meta,
+            project_meta,
+            &mut fixture.db,
+            fixture.ws.graph.options.clone(),
+        )?
+        .into_workspace()?;
 
         // `empty` left its stack and sits between the worktree's branches, as its order says.
         snapbox::assert_data_eq!(

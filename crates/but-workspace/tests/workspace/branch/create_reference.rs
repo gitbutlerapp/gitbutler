@@ -55,7 +55,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 "#]]
         );
 
-        let graph = but_graph::Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &meta,
             but_core::ref_metadata::ProjectMeta {
@@ -85,8 +85,13 @@ Single commit, no main remote/target, no ws commit, but ws-reference
             ..project_meta(&repo)?
         };
         project_meta.target_commit_id = None;
-        let graph =
-            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
+        let graph = but_testsupport::graph_from_head(
+            &repo,
+            &meta,
+            project_meta,
+            &mut db,
+            Options::limited(),
+        )?;
         let mut ws = graph.into_workspace()?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
@@ -134,7 +139,7 @@ Single commit, target, no ws commit, but ws-reference
 "#]]
         );
 
-        let graph = but_graph::Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &meta,
             project_meta(&repo)?,
@@ -252,7 +257,7 @@ Single commit, target, no ws commit, but ws-reference
         let path = meta.path().to_owned();
         drop(meta);
         let meta = VirtualBranchesTomlMetadata::from_path(path)?;
-        let graph = but_graph::Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &meta,
             project_meta(&repo)?,
@@ -302,7 +307,7 @@ Single commit, target, no ws commit, but ws-reference
 "#]]
         );
 
-        let graph = but_graph::Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &meta,
             project_meta(&repo)?,
@@ -606,7 +611,7 @@ Single commit, target, no ws commit, but ws-reference
         let path = meta.path().to_owned();
         drop(meta);
         let meta = VirtualBranchesTomlMetadata::from_path(path)?;
-        let graph = but_graph::Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &meta,
             project_meta(&repo)?,
@@ -668,7 +673,7 @@ Single commit, target, no ws commit, but ws-reference
 
         add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
 
-        let graph = but_graph::Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &meta,
             project_meta(&repo)?,
@@ -987,7 +992,7 @@ Single commit, target, no ws commit, but ws-reference
         let path = meta.path().to_owned();
         drop(meta);
         let meta = VirtualBranchesTomlMetadata::from_path(path)?;
-        let graph = but_graph::Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &meta,
             project_meta(&repo)?,
@@ -1048,7 +1053,7 @@ Single commit, target, no ws commit, but ws-reference
 
         add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
 
-        let graph = but_graph::Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &meta,
             project_meta(&repo)?,
@@ -1120,7 +1125,7 @@ Single commit, target, no ws commit, but ws-reference
         add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
         add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &[]);
 
-        let graph = but_graph::Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &meta,
             project_meta(&repo)?,
@@ -1222,7 +1227,7 @@ Single commit, target, no ws commit, but ws-reference
 
         add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
 
-        let graph = but_graph::Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &meta,
             project_meta(&repo)?,
@@ -1378,7 +1383,7 @@ Single commit, target, no ws commit, but ws-reference
         let path = meta.path().to_owned();
         drop(meta);
         let meta = VirtualBranchesTomlMetadata::from_path(path)?;
-        let graph = but_graph::Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &meta,
             project_meta(&repo)?,
@@ -1421,7 +1426,7 @@ Single commit, target, no ws commit, but ws-reference
         for position in [Above, Below] {
             let (_tmp, repo, mut meta, mut db) =
                 named_writable_scenario("single-branch-no-ws-commit")?;
-            let mut ws = but_graph::Graph::from_head(
+            let mut ws = but_testsupport::graph_from_head(
                 &repo,
                 &meta,
                 project_meta(&repo)?,
@@ -1463,7 +1468,7 @@ Single commit, target, no ws commit, but ws-reference
 "#]]
         );
 
-        let graph = but_graph::Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &meta,
             project_meta(&repo)?,
@@ -1560,8 +1565,13 @@ Single commit, target, no ws commit, but ws-reference
             ..project_meta(&repo)?
         };
         project_meta.target_commit_id = None;
-        let graph =
-            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
+        let graph = but_testsupport::graph_from_head(
+            &repo,
+            &meta,
+            project_meta,
+            &mut db,
+            Options::limited(),
+        )?;
         let mut ws = graph.into_workspace()?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
@@ -1631,7 +1641,7 @@ Single commit, target, no ws commit, but ws-reference
         add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
         add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &[]);
 
-        let graph = but_graph::Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &meta,
             project_meta(&repo)?,
@@ -1688,7 +1698,7 @@ Single commit, target, no ws commit, but ws-reference
     #[test]
     fn at_reference_errors() -> anyhow::Result<()> {
         let (_tmp, repo, mut meta, mut db) = named_writable_scenario("single-branch-4-commits")?;
-        let graph = but_graph::Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &meta,
             project_meta(&repo)?,
@@ -1757,7 +1767,7 @@ Single commit, target, no ws commit, but ws-reference
 "#]]
         );
 
-        let graph = but_graph::Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &*meta,
             project_meta(&repo)?,
@@ -1777,8 +1787,8 @@ Single commit, target, no ws commit, but ws-reference
         );
         assert_eq!(
             ws.incoming_target_commit_ids(&repo)?,
-            Vec::from([repo.rev_parse_single("origin/main")?.detach()]),
-            "incoming upstream commits must remain visible independently of the local target count"
+            Vec::<gix::ObjectId>::new(),
+            "origin/main is the parent of the workspace base, so none of its commits are incoming"
         );
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
@@ -1842,7 +1852,7 @@ Single commit, target, no ws commit, but ws-reference
 
         add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
 
-        let graph = but_graph::Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &*meta,
             project_meta(&repo)?,
@@ -2005,7 +2015,7 @@ Single commit, target, no ws commit, but ws-reference
         // `A` is applied (in the workspace), based at M1.
         add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
 
-        let graph = but_graph::Graph::from_head(
+        let graph = but_testsupport::graph_from_head(
             &repo,
             &meta,
             project_meta(&repo)?,
@@ -2093,7 +2103,7 @@ Single commit, target, no ws commit, but ws-reference
             );
             add_stack_with_segments(&mut meta, 0, "older", StackState::InWorkspace, &[]);
             add_stack_with_segments(&mut meta, 1, "newer", StackState::InWorkspace, &[]);
-            let graph = but_graph::Graph::from_head(
+            let graph = but_testsupport::graph_from_head(
                 &repo,
                 &meta,
                 project_meta(&repo)?,
@@ -2134,7 +2144,7 @@ Single commit, target, no ws commit, but ws-reference
 #[test]
 fn errors() -> anyhow::Result<()> {
     let (repo, mut meta, mut db) = named_read_only_in_memory_scenario("unborn-empty", "")?;
-    let graph = but_graph::Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -2181,7 +2191,7 @@ fn errors() -> anyhow::Result<()> {
 "#]]
     );
 
-    let graph = but_graph::Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta {
@@ -2276,7 +2286,7 @@ fn errors() -> anyhow::Result<()> {
         );
     }
 
-    let graph = but_graph::Graph::from_commit_traversal(
+    let graph = but_testsupport::graph_from_commit_traversal(
         a_id,
         a_ref,
         &*meta,
@@ -2334,7 +2344,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
 "#]]
     );
 
-    let graph = but_graph::Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -2446,7 +2456,7 @@ fn journey_with_commits() -> anyhow::Result<()> {
 #[test]
 fn existing_git_ref_is_rejected() -> anyhow::Result<()> {
     let (_tmp, repo, mut meta, mut db) = named_writable_scenario("single-branch-4-commits")?;
-    let graph = but_graph::Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &meta,
         project_meta(&repo)?,
@@ -2495,7 +2505,7 @@ fn detached_head() -> anyhow::Result<()> {
         PreviousValue::Any,
         "detach below main",
     )?;
-    let graph = but_graph::Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &meta,
         project_meta(&repo)?,
@@ -2562,7 +2572,7 @@ fn plain_checkout(
     but_testsupport::git(&repo)
         .args(["update-ref", "-d", "refs/heads/gitbutler/workspace"])
         .run();
-    let ws = but_graph::Graph::from_head(
+    let ws = but_testsupport::graph_from_head(
         &repo,
         &meta,
         project_meta(&repo)?,
@@ -2659,7 +2669,7 @@ mod ad_hoc_at_reference {
             ..Default::default()
         };
         let meta = branch_order_meta(&repo)?;
-        let ws = but_graph::Graph::from_head(
+        let ws = but_testsupport::graph_from_head(
             &repo,
             &meta,
             project_meta.clone(),
@@ -2745,9 +2755,14 @@ mod ad_hoc_at_reference {
             &repo, &mut ws, &mut meta, &mut db, bottom_ref, main_ref, Below,
         )?;
 
-        let ws =
-            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?
-                .into_workspace()?;
+        let ws = but_testsupport::graph_from_head(
+            &repo,
+            &meta,
+            project_meta,
+            &mut db,
+            Options::limited(),
+        )?
+        .into_workspace()?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
@@ -2800,9 +2815,14 @@ mod ad_hoc_at_reference {
             ],
         );
 
-        let ws =
-            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?
-                .into_workspace()?;
+        let ws = but_testsupport::graph_from_head(
+            &repo,
+            &meta,
+            project_meta,
+            &mut db,
+            Options::limited(),
+        )?
+        .into_workspace()?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
@@ -2882,9 +2902,14 @@ mod ad_hoc_at_reference {
         assert_order(&meta, main_ref, &expected);
 
         // ...and the workspace re-projects identically from the reloaded metadata.
-        let ws =
-            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?
-                .into_workspace()?;
+        let ws = but_testsupport::graph_from_head(
+            &repo,
+            &meta,
+            project_meta,
+            &mut db,
+            Options::limited(),
+        )?
+        .into_workspace()?;
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
@@ -3032,9 +3057,14 @@ mod ad_hoc_at_reference {
         );
 
         // Mix in an `Above` insertion: a new tip over the (still checked-out) `main`.
-        let mut ws =
-            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?
-                .into_workspace()?;
+        let mut ws = but_testsupport::graph_from_head(
+            &repo,
+            &meta,
+            project_meta,
+            &mut db,
+            Options::limited(),
+        )?
+        .into_workspace()?;
         create(&repo, &mut ws, &mut meta, &mut db, crown, main_ref, Above)?;
         assert_order(
             &meta,

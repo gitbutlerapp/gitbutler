@@ -1,6 +1,5 @@
 use anyhow::Result;
 use but_core::{RefMetadata as _, RepositoryExt as _, ref_metadata::ProjectMeta};
-use but_graph::Graph;
 use but_meta::{BranchOrderMetadata, VirtualBranchesTomlMetadata};
 use but_rebase::graph_rebase::{Editor, Step, mutate::InsertSide, testing::Testing as _};
 use but_testsupport::{StackState, graph_tree, invoke_bash};
@@ -38,7 +37,8 @@ fn branch_stacks(
         worktrees,
         ..standard_options()
     };
-    let graph = Graph::from_head(repo, &*meta, project_meta, db, options)?.validated()?;
+    let graph =
+        but_testsupport::graph_from_head(repo, &*meta, project_meta, db, options)?.validated()?;
     let mut ws = graph.into_workspace()?;
     let rebase = Editor::create(&mut ws, meta, repo, db)?.rebase()?;
     let stacks = rebase.branch_stacks()?;
@@ -169,7 +169,7 @@ fn an_empty_stack_on_the_target_stays_on_its_lane() -> Result<()> {
     for (idx, stack) in ["stack-a", "stack-b", "empty"].into_iter().enumerate() {
         add_stack_with_segments(&mut meta, idx, stack, StackState::InWorkspace, &[]);
     }
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         target_meta(&repo),
@@ -318,7 +318,7 @@ fn local_target_workspace(
     db: &mut but_db::DbHandle,
     project_meta: ProjectMeta,
 ) -> Result<but_graph::Workspace> {
-    Graph::from_head(repo, meta, project_meta, db, standard_options())?
+    but_testsupport::graph_from_head(repo, meta, project_meta, db, standard_options())?
         .validated()?
         .into_workspace()
 }
@@ -649,7 +649,7 @@ fn materializing_rebuilds_the_workspace_stacks() -> Result<()> {
     let (repo, _tmp, mut meta, mut db) = fixture_writable("workspace-two-stacks")?;
     add_stack_with_segments(&mut meta, 0, "stack-b", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 1, "unapplied", StackState::Inactive, &["below"]);
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         target_meta(&repo),
@@ -705,7 +705,7 @@ fn materializing_persists_an_order_that_moves_no_reference() -> Result<()> {
         repo.path().join("virtual_branches.toml"),
         repo.gitbutler_storage_path()?,
     )?;
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &meta,
         ProjectMeta::default(),
