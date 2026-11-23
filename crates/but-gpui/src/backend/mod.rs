@@ -730,16 +730,6 @@ pub(crate) fn ref_tip(
     Some(repo.find_reference(name).ok()?.peel_to_id().ok()?.detach())
 }
 
-/// Whether `ancestor` is `commit` or in its history.
-fn is_ancestor(
-    repo: &gix::Repository,
-    ancestor: gix::ObjectId,
-    commit: gix::ObjectId,
-) -> Result<bool> {
-    let base = repo.merge_base(ancestor, commit)?;
-    Ok(base.is_some_and(|base| base == ancestor))
-}
-
 /// What target `tip` has that what's checked out doesn't, as `but status` counts from where
 /// they part: HEAD can be behind the stored target commit, as main added behind its upstream
 /// is, or a branch applied from an older base leaves it, or have more, as a branch the target

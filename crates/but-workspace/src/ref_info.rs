@@ -832,7 +832,7 @@ impl RefInfo {
         Ok(target_commit != target_tip
             || self.can_fast_forward_local_target
             || match repo.head_id() {
-                Ok(head) => lacks(repo, target_tip, head.detach())?,
+                Ok(head) => !repo.is_ancestor(target_tip, head.detach())?,
                 Err(_) => false,
             })
     }
@@ -843,9 +843,20 @@ impl RefInfo {
         repo: &Repository,
         target_tip: gix::ObjectId,
     ) -> anyhow::Result<Vec<&crate::worktrees::WorktreeInfo>> {
+        let mut eligible_worktrees = self
+            .worktrees
+            .iter()
+            .filter(|worktree| worktree.rebasable_base().is_some())
+            .peekable();
         let mut behind = Vec::new();
-        for worktree in &self.worktrees {
-            if worktree.rebasable_base().is_some() && lacks(repo, target_tip, worktree.head)? {
+        if eligible_worktrees.peek().is_none() {
+            return Ok(behind);
+        }
+
+        let cache = repo.commit_graph_if_enabled()?;
+        let mut graph = repo.revision_graph(cache.as_ref());
+        for worktree in eligible_worktrees {
+            if !repo.is_ancestor_with_graph(target_tip, worktree.head, &mut graph)? {
                 behind.push(worktree);
             }
         }
@@ -1114,12 +1125,6 @@ impl crate::worktrees::WorktreeInfo {
                 .collect::<anyhow::Result<_>>()?,
         })
     }
-}
-
-/// Whether `head` lacks any commit of `tip`.
-fn lacks(repo: &Repository, tip: gix::ObjectId, head: gix::ObjectId) -> anyhow::Result<bool> {
-    let mut missing = repo.rev_walk([tip]).with_hidden([head]).all()?;
-    Ok(missing.next().transpose()?.is_some())
 }
 
 fn beneath_padding(id: gix::ObjectId, repo: &gix::Repository) -> anyhow::Result<gix::ObjectId> {

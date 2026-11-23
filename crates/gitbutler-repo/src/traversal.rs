@@ -34,6 +34,7 @@ pub fn commit_ids_excluding_reachable_from_with_graph(
     stop_before: gix::ObjectId,
     graph: &mut Graph<'_, '_, graph::Commit<Flags>>,
 ) -> Result<Vec<gix::ObjectId>> {
+    let shallow_commits = repo.shallow_commits()?;
     let mut commit_ids = Vec::new();
     let mut seen = HashSet::new();
     let mut to_visit = vec![from];
@@ -43,14 +44,17 @@ pub fn commit_ids_excluding_reachable_from_with_graph(
             continue;
         }
 
-        let reaches_hidden_history = repo
-            .merge_base_with_graph(commit_id, stop_before, graph)?
-            .is_some_and(|merge_base| merge_base == commit_id);
-        if reaches_hidden_history {
+        if repo.is_ancestor_with_graph(commit_id, stop_before, graph)? {
             continue;
         }
 
         commit_ids.push(commit_id);
+        if shallow_commits
+            .as_ref()
+            .is_some_and(|commits| commits.binary_search(&commit_id).is_ok())
+        {
+            continue;
+        }
         let commit = repo.find_commit(commit_id)?;
         to_visit.extend(commit.parent_ids().map(|parent_id| parent_id.detach()));
     }

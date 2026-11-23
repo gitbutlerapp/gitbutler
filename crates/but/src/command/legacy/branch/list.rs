@@ -152,11 +152,9 @@ pub fn list(
                 if branch.head == target_oid {
                     return false;
                 }
-                // If the merge-base equals the branch head, the branch is already fully contained
-                // in the target and has no commits ahead to show.
-                repo.merge_base_with_graph(branch.head, target_oid, &mut graph)
-                    .map(|merge_base| merge_base.is_none_or(|merge_base| merge_base != branch.head))
-                    .unwrap_or(true)
+                !repo
+                    .is_ancestor_with_graph(branch.head, target_oid, &mut graph)
+                    .unwrap_or(false)
             })
             .take(num_branches_to_take)
             .collect()
@@ -489,8 +487,6 @@ fn calculate_commits_ahead(
     target_oid: gix::ObjectId,
     branches: &[gitbutler_branch_actions::BranchListing],
 ) -> Result<HashMap<String, usize>, anyhow::Error> {
-    use gix::prelude::ObjectIdExt as _;
-
     let repo = ctx.repo.get()?;
 
     let mut result = HashMap::new();
@@ -505,18 +501,12 @@ fn calculate_commits_ahead(
             Ok(None) | Err(_) => continue, // Skip if no merge base found
         };
 
-        let traversal = match branch_oid
-            .attach(&repo)
-            .ancestors()
-            .with_hidden(Some(merge_base))
-            .all()
+        // Branch listings count from the selected merge base.
+        if let Ok(counts) =
+            repo.ahead_behind_counts_with_graph(branch_oid, merge_base.detach(), &mut graph)
         {
-            Ok(t) => t,
-            Err(_) => continue,
-        };
-
-        let count = traversal.filter_map(Result::ok).count();
-        result.insert(branch.name.to_string(), count);
+            result.insert(branch.name.to_string(), counts.ahead);
+        }
     }
 
     Ok(result)

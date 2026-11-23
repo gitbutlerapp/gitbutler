@@ -213,7 +213,7 @@ fn delete_landed_remote_branch(
         let Some(remote_tip) = super::peel_ref(&repo, &tracking_ref_name)? else {
             return Ok(false);
         };
-        if !super::target_ref_contains(&repo, remote_tip, target_tip)? {
+        if !repo.is_ancestor(remote_tip, target_tip)? {
             return Ok(false);
         }
         (tracking_ref_name, remote_branch_name)

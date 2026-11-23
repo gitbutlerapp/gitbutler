@@ -484,15 +484,31 @@ fn recyclable(
     // Listing reconciles the archived state, so it goes before the workspace is borrowed.
     let listing = worktrees_list_with_perm(ctx, perm)?;
     let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
-    for listed in listing.archived {
-        let Some(branch) = listed.ref_name.as_ref() else {
-            continue;
-        };
-        let behind = ref_tip(&repo, branch.as_ref()).is_some_and(|at| {
-            repo.merge_base(at, tip)
-                .is_ok_and(|base| base.is_some_and(|base| base == at))
-        });
-        if !behind || ws.refname_is_segment(branch.as_ref()) {
+    let mut candidates = listing
+        .archived
+        .into_iter()
+        .filter_map(|listed| {
+            let branch = listed.ref_name.as_ref()?.as_ref();
+            if ws.refname_is_segment(branch) {
+                return None;
+            }
+            let at = ref_tip(&repo, branch)?;
+            Some((listed, at))
+        })
+        .peekable();
+    if candidates.peek().is_none() {
+        return Ok(None);
+    }
+    let Ok(cache) = repo.commit_graph_if_enabled() else {
+        // Graph setup is best-effort too: without an ancestry result, don't recycle.
+        return Ok(None);
+    };
+    let mut graph = repo.revision_graph(cache.as_ref());
+    for (listed, at) in candidates {
+        if !repo
+            .is_ancestor_with_graph(at, tip, &mut graph)
+            .unwrap_or(false)
+        {
             continue;
         }
         let Ok(checkout) = open_worktree_repo(&repo, listed.name.as_ref()) else {

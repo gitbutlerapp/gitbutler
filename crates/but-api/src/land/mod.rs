@@ -413,7 +413,7 @@ pub fn branch_land(
         let advanced = {
             let repo = ctx.repo.get()?;
             match peel_target_tip(&repo, &fetch_remote_name, &target_branch_name)? {
-                Some(tip) => target_ref_contains(&repo, *new_target_oid, tip)?,
+                Some(tip) => repo.is_ancestor(*new_target_oid, tip)?,
                 None => false,
             }
         };
@@ -855,19 +855,6 @@ fn merge_base_distinguishes_unrelated_history_from_missing_objects() -> anyhow::
         "a missing object is a traversal failure, not unrelated history"
     );
     Ok(())
-}
-
-/// Whether `commit` is contained in the target tip — equal to it, or an ancestor of it (which
-/// happens when a concurrent push landed further commits on top of ours).
-fn target_ref_contains(
-    repo: &gix::Repository,
-    commit: gix::ObjectId,
-    tip: gix::ObjectId,
-) -> anyhow::Result<bool> {
-    if commit == tip {
-        return Ok(true);
-    }
-    Ok(merge_base_opt(repo, commit, tip)?.is_some_and(|base| base == commit))
 }
 
 /// Decide whether `remote_url` points at the repository we're sitting in (a `gb-local` self-remote)

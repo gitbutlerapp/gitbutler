@@ -739,6 +739,19 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
         .then(|| target_ref_name.to_owned().to_selector(editor))
         .transpose()?;
 
+    let repo = editor.repo();
+    let cache = std::cell::OnceCell::new();
+    let mut graph = None;
+    let mut target_contains = |remote_tip_id| {
+        // Only open the cache if an empty branch reaches the ancestry check; failures are best-effort.
+        let Ok(cache) = cache.get_or_init(|| repo.commit_graph_if_enabled()) else {
+            return false;
+        };
+        let graph = graph.get_or_insert_with(|| repo.revision_graph(cache.as_ref()));
+        repo.is_ancestor_with_graph(remote_tip_id, target_ref_commit, graph)
+            .unwrap_or(false)
+    };
+
     for stack in &mut output_stacks {
         let Stack { nodes, bottoms, .. } = stack;
 
@@ -873,6 +886,17 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
             let Some(node) = stack.nodes.get_mut(r_sel) else {
                 continue;
             };
+            if traversed_commits {
+                // The remote-tip check is only an empty-segment fallback. Once
+                // we have traversed local commits, those commits decide whether
+                // the segment is integrated so local work ahead of its tracking
+                // branch is not discarded.
+                if all_integrated {
+                    node.reference_integrated = Some(r_name.clone());
+                }
+                continue;
+            }
+
             let remote_tip_integrated = empty_local_reference_remote_tip_integrated(
                 editor,
                 *r_sel,
@@ -882,17 +906,9 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
                 target_sha,
                 target_ref_name,
                 target_ref_commit,
+                &mut target_contains,
             )?;
-            if traversed_commits {
-                // The remote-tip check is only an empty-segment fallback. Once
-                // we have traversed local commits, those commits decide whether
-                // the segment is integrated so local work ahead of its tracking
-                // branch is not discarded.
-                if all_integrated {
-                    node.reference_integrated = Some(r_name.clone());
-                }
-            } else if !head_is_workspace_commit && stack.heads.contains(r_sel) && is_local_reference
-            {
+            if !head_is_workspace_commit && stack.heads.contains(r_sel) && is_local_reference {
                 // A local ref pointing to target-reachable history is not by itself evidence that
                 // the branch was integrated. For an empty local segment, require branch-specific
                 // evidence from its configured remote-tracking ref or its associated merged
@@ -979,6 +995,7 @@ fn empty_local_reference_remote_tip_integrated<'ws, 'meta, M: RefMetadata>(
     target_sha: gix::ObjectId,
     target_ref_name: &gix::refs::FullNameRef,
     target_ref_commit: gix::ObjectId,
+    target_contains: impl FnOnce(gix::ObjectId) -> bool,
 ) -> Result<bool> {
     if ref_name.category() != Some(gix::refs::Category::LocalBranch) {
         return Ok(false);
@@ -1017,10 +1034,7 @@ fn empty_local_reference_remote_tip_integrated<'ws, 'meta, M: RefMetadata>(
         return Ok(false);
     }
 
-    Ok(editor
-        .repo()
-        .merge_base(remote_tip_id, target_ref_commit)
-        .is_ok_and(|merge_base| merge_base.is_some_and(|merge_base| merge_base == remote_tip_id)))
+    Ok(target_contains(remote_tip_id))
 }
 
 /// Return `true` if `ref_name` currently resolves to either the old target
@@ -1234,10 +1248,8 @@ fn replace_checkout_ref_with_fallback<M: RefMetadata>(
         && let Step::Pick(target) = editor.lookup_step(target_tip_selector)?
     {
         let local_tip = reference.peel_to_id()?.detach();
-        let can_fast_forward = local_tip == target.id
-            || repo
-                .merge_base(local_tip, target.id)
-                .is_ok_and(|base| base.is_some_and(|base| base.detach() == local_tip));
+        let can_fast_forward =
+            local_tip == target.id || repo.is_ancestor(local_tip, target.id).unwrap_or(false);
         if can_fast_forward
             && but_core::branch::SafeDelete::new(repo)?
                 .worktree_dirs_with_ref(&reference)
@@ -1374,11 +1386,7 @@ pub fn local_tracking_branch_to_fast_forward(
     };
     let mut local_ref = repo.find_reference(&local_ref_name)?;
     let local_id = local_ref.peel_to_id()?.detach();
-    if local_id == target_id
-        || !repo
-            .merge_base(local_id, target_id)
-            .is_ok_and(|base| base.is_some_and(|base| base.detach() == local_id))
-    {
+    if local_id == target_id || !repo.is_ancestor(local_id, target_id).unwrap_or(false) {
         return Ok(None);
     }
     if but_core::branch::SafeDelete::new(repo)?

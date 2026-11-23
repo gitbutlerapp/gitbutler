@@ -1,3 +1,5 @@
+use std::cell::OnceCell;
+
 use anyhow::{Context as _, Result};
 use bstr::ByteSlice;
 use but_api_macros::but_api;
@@ -2034,6 +2036,8 @@ fn review_updates_after_push(
     }
 
     let repo = ctx.repo.get()?;
+    let cache = OnceCell::new();
+    let mut remote_contains = remote_contains_query(&repo, &cache);
     let mut affected_lanes = chain.iter().map(|(lane, _)| *lane).collect::<Vec<_>>();
     for lane in info.lanes() {
         if affected_lanes.contains(&lane) {
@@ -2047,8 +2051,8 @@ fn review_updates_after_push(
                 continue;
             };
             for previous_tip in &previous_review_tips {
-                if remote_contains(&repo, *previous_tip, head.remote_tip)?
-                    || remote_contains(&repo, head.remote_tip, *previous_tip)?
+                if remote_contains(*previous_tip, head.remote_tip)?
+                    || remote_contains(head.remote_tip, *previous_tip)?
                 {
                     affected_lanes.push(lane);
                     break 'segments;
@@ -2209,12 +2213,13 @@ pub fn review_creation_target(ctx: &Context, branch: &gix::refs::FullNameRef) ->
         .skip(1)
         .map(|(head, _)| head.remote_tip)
         .chain(std::iter::once(selected.remote_tip));
+    let cache = OnceCell::new();
+    let mut remote_contains = remote_contains_query(&repo, &cache);
     for ((lower, rested_on), upper_tip) in reviewed_ancestors.iter().zip(upper_tips) {
         let stacked = match rested_on {
-            None => remote_contains(&repo, lower.remote_tip, upper_tip)?,
+            None => remote_contains(lower.remote_tip, upper_tip)?,
             Some(fork) => {
-                remote_contains(&repo, *fork, lower.remote_tip)?
-                    && remote_contains(&repo, *fork, upper_tip)?
+                remote_contains(*fork, lower.remote_tip)? && remote_contains(*fork, upper_tip)?
             }
         };
         if !stacked {
@@ -2360,17 +2365,26 @@ fn remote_head(
     })
 }
 
-fn remote_contains(
-    repo: &gix::Repository,
-    ancestor: gix::ObjectId,
-    descendant: gix::ObjectId,
-) -> Result<bool> {
-    if ancestor == descendant {
-        return Ok(true);
+/// Share a revision graph across a batch, opening its backing cache only when traversal is needed.
+fn remote_contains_query<'a>(
+    repo: &'a gix::Repository,
+    cache: &'a OnceCell<Option<gix::commitgraph::Graph>>,
+) -> impl FnMut(gix::ObjectId, gix::ObjectId) -> Result<bool> + 'a {
+    let mut graph = None;
+    move |ancestor, descendant| {
+        if ancestor == descendant {
+            return Ok(true);
+        }
+        let graph = match graph {
+            Some(ref mut graph) => graph,
+            None => {
+                let loaded = repo.commit_graph_if_enabled()?;
+                let cache = cache.get_or_init(|| loaded);
+                graph.insert(repo.revision_graph(cache.as_ref()))
+            }
+        };
+        Ok(repo.is_ancestor_with_graph(ancestor, descendant, graph)?)
     }
-    Ok(repo
-        .merge_base(ancestor, descendant)?
-        .is_some_and(|base| base == ancestor))
 }
 
 /// Warm up the CI checks cache for all applied branches with PRs.
