@@ -39,9 +39,9 @@ use crate::ui::scrollbar::{Scroll, scrollbar, scrolled_in_gap};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     BLINK, Button, ButtonStyle, HEADER_HEIGHT, Icon, MetaCountType, Tooltip, WINDOW_CONTROLS_WIDTH,
-    above_drag, blink_once, button, commit_title, count_badge, count_mark, dp, faint, field, fixed,
-    glow_once, guide_end_in, guide_in, h_flex, icon_at, icon_button, list_row, meta_count_on,
-    plural, pulsing, review, section_label, small_icon, v_flex,
+    above_drag, blink_once, button, commit_title, count_badge, dp, faint, field, fixed, glow_once,
+    guide_end_in, guide_in, h_flex, icon_at, icon_button, list_row, meta_count_on, plural, pulsing,
+    review, section_label, small_icon, v_flex,
 };
 use crate::ui::{
     CommitPlace, Fold as RowFold, MetaStatusVariant, PullRequestState, SidebarRow, SplitCell,
@@ -3538,8 +3538,7 @@ impl Navigator {
         let store = self.store.read(cx);
         let ws = store.workspace(project)?;
         if let Some(why) = ws.push_blocked(ref_name) {
-            let color = style.meta(style.theme.info_text);
-            return count_mark(Icon::ArrowUp, n, color, why.to_owned())
+            return count(MetaCountType::Unpushed, n, why.to_owned(), style)
                 .map(IntoElement::into_any_element);
         }
         let ref_name = ref_name?;
@@ -3582,10 +3581,9 @@ impl Navigator {
         style: RowStyle,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
-        let warn = style.meta(style.theme.warning_text);
         let ws = self.store.read(cx).workspace(project);
         let Some(ref_name) = ref_name.filter(|r| ws.is_some_and(|ws| ws.can_pull(r))) else {
-            return count_mark(Icon::ArrowDown, n, warn, tip).map(IntoElement::into_any_element);
+            return count(MetaCountType::Behind, n, tip, style).map(IntoElement::into_any_element);
         };
         if n == 0 {
             return None;

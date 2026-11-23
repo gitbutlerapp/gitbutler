@@ -4,8 +4,8 @@
 use std::time::Duration;
 
 use gpui::{
-    Animation, AnimationExt as _, AnyElement, Div, ElementId, Hsla, SharedString, Stateful,
-    Transformation, canvas, div, percentage, prelude::*,
+    Animation, AnimationExt as _, AnyElement, Div, Hsla, SharedString, Transformation, canvas, div,
+    percentage, prelude::*,
 };
 
 use crate::theme::Theme;
@@ -252,24 +252,6 @@ pub fn spinner(px: f32, color: Hsla) -> impl IntoElement {
             Animation::new(Duration::from_millis(800)).repeat(),
             |svg, delta| svg.with_transformation(Transformation::rotate(percentage(delta))),
         )
-}
-
-/// A glyph and a number in `color`, saying `tip` on hover, or nothing at zero: the app's rows'
-/// counts until they move onto [`meta_count`].
-pub fn count_mark(glyph: Icon, n: usize, color: Hsla, tip: String) -> Option<Stateful<Div>> {
-    let tip = SharedString::from(tip);
-    (n > 0).then(|| {
-        h_flex()
-            .id(ElementId::Name(tip.clone()))
-            .flex_none()
-            .gap(dp(3.))
-            .text_11()
-            .text_color(color)
-            .child(icon_at(glyph, 14.).text_color(color))
-            .child(n.to_string())
-            .aria_label(tip.clone())
-            .tooltip(Tooltip::text(tip))
-    })
 }
 
 const SPIN_STEP: Duration = Duration::from_millis(100);
