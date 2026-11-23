@@ -109,7 +109,7 @@ impl CommentStore {
                 2500,
             )),
             None,
-            0,
+            gix::fs::SharedPermissions::Umask,
         )?;
         let mut comments = self.read();
         let result = mutate(&mut comments)?;

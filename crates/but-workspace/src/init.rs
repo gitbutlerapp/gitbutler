@@ -404,7 +404,7 @@ pub fn publish_first_commit(
     edit.finish();
 
     // Persist the index before publishing the commit, so an index-write failure leaves HEAD unborn.
-    index.write(Default::default())?;
+    index.write(Default::default(), repo.refs.shared_repository_permissions)?;
 
     repo.reference(
         branch,

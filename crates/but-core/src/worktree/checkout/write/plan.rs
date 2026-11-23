@@ -3,7 +3,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use bstr::{BStr, BString, ByteSlice as _};
-use gix::{index::entry::Mode, merge::tree::TreatAsUnresolved};
+use gix::{
+    index::entry::{Mode, Stage},
+    merge::tree::TreatAsUnresolved,
+};
 
 use super::{Conflicts, Trees, transaction::Placed};
 use crate::index::{ConflictStage, Edit, Stat};
@@ -60,14 +63,18 @@ pub(super) struct Plan {
 
 impl Plan {
     /// Plan the checkout of `trees` over an index that has `index`'s entries.
-    pub fn new(index: &gix::index::State, trees: &Trees, conflicts: Conflicts<'_>) -> Self {
+    pub fn new(
+        index: &gix::index::State,
+        trees: &Trees,
+        conflicts: Conflicts<'_>,
+    ) -> anyhow::Result<Self> {
         let changes = changes(&trees.baseline, &trees.target);
-        Plan {
+        Ok(Plan {
             records: already_in_worktree(trees, index, &changes),
             removals: deleted_by_new_head(trees, index),
-            conflicts: conflict_stages(conflicts),
+            conflicts: conflict_stages(conflicts)?,
             changes,
-        }
+        })
     }
 
     /// The paths checkout writes, with their content.
@@ -219,34 +226,28 @@ fn deleted_by_new_head(trees: &Trees, index: &gix::index::State) -> Vec<BString>
         .collect()
 }
 
-fn conflict_stages(conflicts: Conflicts<'_>) -> Vec<ConflictEntry> {
-    conflicts
-        .into_iter()
-        .flat_map(|outcome| outcome.conflicts.iter())
-        .filter(|conflict| conflict.is_unresolved(TreatAsUnresolved::git()))
-        .flat_map(|conflict| {
-            let path = conflict.ours.location();
-            let stages = [
-                ConflictStage::Base,
-                ConflictStage::Ours,
-                ConflictStage::Theirs,
-            ];
-            stages
-                .into_iter()
-                .zip(conflict.entries())
-                .filter_map(move |(stage, entry)| {
-                    let entry = entry?;
-                    Some(ConflictEntry {
-                        path: path.to_owned(),
-                        stage,
-                        content: Content {
-                            id: entry.id,
-                            mode: entry.mode.into(),
-                        },
-                    })
-                })
+fn conflict_stages(conflicts: Conflicts<'_>) -> anyhow::Result<Vec<ConflictEntry>> {
+    let Some(outcome) = conflicts else {
+        return Ok(Vec::new());
+    };
+    let index = outcome.index(TreatAsUnresolved::git(), None)?;
+    Ok(index
+        .entries()
+        .iter()
+        .filter_map(|entry| {
+            let stage = match entry.stage() {
+                Stage::Unconflicted => return None,
+                Stage::Base => ConflictStage::Base,
+                Stage::Ours => ConflictStage::Ours,
+                Stage::Theirs => ConflictStage::Theirs,
+            };
+            Some(ConflictEntry {
+                path: entry.path(&index).to_owned(),
+                stage,
+                content: Content::of(entry),
+            })
         })
-        .collect()
+        .collect())
 }
 
 /// What a name in the index stands for.

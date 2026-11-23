@@ -45,14 +45,13 @@ fn run_repo(
     err: &mut dyn io::Write,
 ) -> Result<()> {
     let current_dir = effective_current_dir(args)?;
-    let repo = setup::repo_from_args(args).with_context(|| {
+    let mut repo = setup::repo_from_args(args).with_context(|| {
         format!(
             "Could not discover Git repository at '{}'",
             current_dir.display()
         )
     })?;
-    // nothing really works unless we have a non-relative path, keep it simple.
-    let repo = gix::open_opts(repo.git_dir().canonicalize()?, repo.open_options().clone())?;
+    repo.make_paths_absolute()?;
 
     let output_path = match &repo_args.archive.output {
         Some(path) => current_dir.join(path),
@@ -143,7 +142,7 @@ fn acquire_archive_lock(
         archive_path,
         gix::lock::acquire::Fail::Immediately,
         boundary_directory,
-        0,
+        gix::fs::SharedPermissions::Umask,
     )
     .with_context(|| format!("Could not lock archive '{}'", archive_path.display()))
 }

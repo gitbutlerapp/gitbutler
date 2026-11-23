@@ -20,7 +20,11 @@ type Listing = (Vec<Worktree>, Vec<(BString, Option<super::FullName>)>);
 
 /// The project's [`Listing`]. A worktree's files in `kept` are shown again rather than read,
 /// while its `HEAD` has the tree they were read against.
-pub(super) fn linked(ctx: &Context, kept: &mut HashMap<BString, KeptWorktree>) -> Result<Listing> {
+pub(super) fn linked(
+    ctx: &Context,
+    kept: &mut HashMap<BString, KeptWorktree>,
+    status: Option<&super::watch::StatusRequests>,
+) -> Result<Listing> {
     let listing = {
         let guard = ctx.shared_worktree_access();
         but_api::worktrees::worktrees_list_with_perm(ctx, guard.read_permission())?
@@ -35,7 +39,12 @@ pub(super) fn linked(ctx: &Context, kept: &mut HashMap<BString, KeptWorktree>) -
                 Some((files, read_against)) if read_against == tree => {
                     ((files, tree), git_operation(&checkout))
                 }
-                previous => read(&checkout, name.as_ref(), previous.unwrap_or_default()),
+                previous => read(
+                    &checkout,
+                    name.as_ref(),
+                    previous.unwrap_or_default(),
+                    status.and_then(|requests| requests.snapshot(checkout.git_dir())),
+                ),
             };
             Some(Worktree {
                 name,
@@ -59,17 +68,35 @@ pub(super) fn linked(ctx: &Context, kept: &mut HashMap<BString, KeptWorktree>) -
 
 /// `shown` with the uncommitted files read again of the main checkout, with `main`, and of
 /// the `linked` worktrees, for when only files changed.
+#[cfg(test)]
 pub fn reload_uncommitted(
+    path: &Path,
+    shown: Workspace,
+    main: bool,
+    linked: &HashSet<BString>,
+) -> Result<Workspace> {
+    reload_uncommitted_with_status(path, shown, main, linked, None)
+}
+
+/// Reload selected files using each checkout's requested snapshot when available.
+pub fn reload_uncommitted_with_status(
     path: &Path,
     mut shown: Workspace,
     main: bool,
     linked: &HashSet<BString>,
+    status: Option<super::watch::StatusRequests>,
 ) -> Result<Workspace> {
     let started = std::time::Instant::now();
     let ctx = open(path)?;
     let repo = ctx.repo.get()?;
+    let request = |repo: &gix::Repository| {
+        status
+            .as_ref()
+            .and_then(|requests| requests.snapshot(repo.git_dir()))
+    };
     if main {
-        shown.uncommitted = worktree_files(&repo, &shown.uncommitted)?;
+        shown.uncommitted =
+            super::worktree_files_requested(&repo, &shown.uncommitted, request(&repo))?;
         shown.tree = head_tree(&repo);
     }
     shown.worktrees.retain_mut(|worktree| {
@@ -80,7 +107,12 @@ pub fn reload_uncommitted(
             return false;
         };
         let previous = (std::mem::take(&mut worktree.uncommitted), worktree.tree);
-        let ((files, tree), operation) = read(&checkout, worktree.name.as_ref(), previous);
+        let ((files, tree), operation) = read(
+            &checkout,
+            worktree.name.as_ref(),
+            previous,
+            request(&checkout),
+        );
         worktree.uncommitted = files;
         worktree.tree = tree;
         worktree.git_operation = operation;
@@ -97,9 +129,10 @@ fn read(
     checkout: &gix::Repository,
     name: &BStr,
     previous: KeptWorktree,
+    status: Option<super::watch::StatusResponse>,
 ) -> (KeptWorktree, Option<&'static str>) {
     let tree = head_tree(checkout);
-    let kept = match worktree_files(checkout, &previous.0) {
+    let kept = match super::worktree_files_requested(checkout, &previous.0, status) {
         Ok(files) => (files, tree),
         Err(err) => {
             tracing::warn!("couldn't read worktree {name}: {err:#}");

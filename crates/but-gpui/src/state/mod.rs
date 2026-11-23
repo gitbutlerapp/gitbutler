@@ -596,6 +596,7 @@ pub struct Store {
     /// whatever the interval.
     fetch_soon: HashSet<ProjectId>,
     _auto_fetch: Task<()>,
+    _app_settings_watch: Task<()>,
     _update_check: Task<()>,
     forge_requests: mpsc::UnboundedSender<ProjectId>,
     /// Projects waiting for a forge refresh, so each waits only once.
@@ -759,6 +760,7 @@ impl Store {
             last_merged: HashMap::new(),
             fetch_soon: HashSet::new(),
             _auto_fetch: Self::fetch_in_background(cx),
+            _app_settings_watch: Self::watch_app_settings(cx),
             _update_check: Self::check_for_updates(cx),
         };
         store.load_projects(cx);
@@ -1029,12 +1031,12 @@ impl Store {
             Selection::Checkout(_, Checkout::Linked(name)) => {
                 workspace.worktrees.iter().any(|w| w.name == *name)
             }
-            // Listed only with something uncommitted, or as a commit being edited's files.
+            // A clean worktree still has a page while it has splits beside it.
             Selection::Uncommitted(_, checkout) => {
                 (workspace.editing.is_some() && *checkout == Checkout::Main)
                     || workspace
                         .uncommitted_in(checkout)
-                        .is_some_and(|f| !f.is_empty())
+                        .is_some_and(|files| !files.is_empty() || self.has_splits(selection))
             }
             Selection::Terminal(_, id) => self.terminals.get(*id).is_some(),
             Selection::Stack(_, bottom) => workspace
@@ -1137,6 +1139,7 @@ impl Store {
             self.left_in.insert(at, left.clone());
         }
         self.selection = selection;
+        self.update_status_checkouts();
         self.number_tiles();
         self.show_terminals(cx);
         self.save_soon(cx);

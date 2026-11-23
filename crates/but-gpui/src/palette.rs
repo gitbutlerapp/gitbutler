@@ -874,8 +874,8 @@ fn inactive_choice(store: &Store, entry: &ProjectEntry, several: bool) -> Option
 }
 
 /// Go to anything's rows for a loaded project's uncommitted changes, the main worktree's first,
-/// as the navigator lists them under each worktree while there are some; while a commit is
-/// checked out, the edit's, which takes their place.
+/// as the navigator lists them under each worktree while there are changes or splits.
+/// While a commit is checked out, the edit's files take their place.
 fn uncommitted_choices(
     store: &Store,
     entry: &ProjectEntry,

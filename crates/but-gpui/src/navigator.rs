@@ -2958,7 +2958,7 @@ impl Navigator {
     }
 
     /// A worktree's uncommitted changes, first under its heading, which select their files and
-    /// diff as [`Selection::Uncommitted`]. Listed only while there are some.
+    /// diff as [`Selection::Uncommitted`]. Listed while there are changes or splits.
     fn changes_row(
         &self,
         item: &Selection,

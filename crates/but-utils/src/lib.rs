@@ -149,7 +149,7 @@ pub fn create_dirs_then_write<P: AsRef<Path>>(
         file_path.as_ref().parent().unwrap(),
         ContainingDirectory::CreateAllRaceProof {
             retries: Retries::default(),
-            shared_repository_permissions: 0,
+            shared_repository_permissions: gix::fs::SharedPermissions::Umask,
         },
         AutoRemove::Tempfile,
     )?;

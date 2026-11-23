@@ -58,6 +58,7 @@ actions!(
         ZoomOut,
         ActualSize,
         AddProject,
+        RefreshProject,
         ToggleFileTree,
         Undo,
         Redo,
@@ -978,6 +979,14 @@ impl AppView {
             }
         })
         .detach();
+    }
+
+    /// Read the selected project's workspace again and reconcile its watcher coverage.
+    fn refresh_project(&mut self, _: &RefreshProject, _: &mut Window, cx: &mut Context<Self>) {
+        if let Some(project) = self.selected_project(cx) {
+            self.store
+                .update(cx, |store, cx| store.refresh(&project, cx));
+        }
     }
 
     /// Fetch the selected project, and ask its forge about pull requests and CI again.
@@ -5704,6 +5713,7 @@ impl Render for AppView {
             .on_action(cx.listener(|this, _: &Undo, _, cx| this.store.update(cx, Store::undo_last)))
             .on_action(cx.listener(|this, _: &Redo, _, cx| this.store.update(cx, Store::redo_last)))
             .on_action(cx.listener(Self::fetch))
+            .on_action(cx.listener(Self::refresh_project))
             .on_action(cx.listener(Self::pull))
             .on_action(cx.listener(Self::new_branch))
             .on_action(cx.listener(Self::new_worktree))

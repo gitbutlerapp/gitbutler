@@ -2684,6 +2684,69 @@ WorktreeChanges {
     Ok(())
 }
 
+#[test]
+fn monitored_snapshots_match_worktree_changes() -> Result<()> {
+    for fixture in [
+        "untracked-unborn",
+        "added-unborn",
+        "file-to-dir-in-worktree",
+        "modified-in-index-and-worktree-mod-mod",
+        "modified-in-index-and-worktree-mod-mod-noop",
+        "renamed-in-index-destination-deleted-and-source-recreated",
+        "renamed-in-index-source-recreated-and-destination-modified",
+        "conflicting",
+        "submodule-changed-head",
+        "submodule-changed-head-ignore-all",
+        "submodule-changed-worktree-ignore-none",
+    ] {
+        assert_status_snapshot_matches(&repo(fixture)?, fixture)?;
+    }
+    Ok(())
+}
+
+#[test]
+fn monitored_snapshots_keep_rename_tracking_when_configured_off() -> Result<()> {
+    let mut repo = repo("renamed-in-index")?;
+    repo.config_snapshot_mut()
+        .set_raw_value("status.renames", "false")?;
+    assert_status_snapshot_matches(&repo, "status.renames=false")
+}
+
+fn assert_status_snapshot_matches(repo: &gix::Repository, fixture: &str) -> Result<()> {
+    let project = repo.monitor(Default::default())?;
+    let mut monitor = project.worktree_status(repo, diff::status_monitor_options(repo)?)?;
+    let update = monitor.refresh(repo, &std::sync::atomic::AtomicBool::new(false))?;
+    assert!(
+        update.changed,
+        "{fixture}: the initial snapshot is published"
+    );
+    let actual = diff::worktree_changes_from_status(
+        repo,
+        monitor
+            .snapshot()
+            .expect("refresh creates a snapshot")
+            .iter()
+            .cloned(),
+    )?;
+    let expected = diff::worktree_changes(repo)?;
+    assert_eq!(
+        format!("{actual:?}"),
+        format!("{expected:?}"),
+        "{fixture}: monitored snapshots preserve merged worktree changes"
+    );
+    assert_eq!(
+        format!("{:?}", actual.index_changes),
+        format!("{:?}", expected.index_changes),
+        "{fixture}: the staged changes stay available to callers"
+    );
+    assert_eq!(
+        format!("{:?}", actual.index_conflicts),
+        format!("{:?}", expected.index_conflicts),
+        "{fixture}: conflict entries stay available to callers"
+    );
+    Ok(())
+}
+
 fn unified_patches(
     worktree: WorktreeChanges,
     repo: &gix::Repository,
