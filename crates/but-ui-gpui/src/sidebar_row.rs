@@ -373,6 +373,7 @@ impl SidebarRow {
                     self.on_toggle.clone(),
                     press,
                     self.row_folds,
+                    self.solid,
                     inks,
                 )
             });
@@ -541,8 +542,14 @@ fn fold_step(
     toggle: Option<Toggle>,
     press: Option<Press>,
     row_folds: bool,
+    solid: bool,
     theme: &Theme,
 ) -> Div {
+    // On a solid selection, the inverted ghost's, as but-ui-react's chevron button there.
+    let ground = match solid {
+        true => theme.inverse_ghost_hover,
+        false => theme.hover,
+    };
     let step = h_flex()
         .relative()
         .flex_none()
@@ -556,15 +563,12 @@ fn fold_step(
                 .opacity(0.5),
         ),
         Fold::Open | Fold::Folded => {
-            let chevron = chevron(
-                (id.clone(), "chevron"),
-                fold == Fold::Open,
-                theme.subtle_foreground,
-            );
+            let open = fold == Fold::Open;
             match (toggle, row_folds) {
                 (Some(toggle), false) => step.child(
                     h_flex()
                         .id("fold")
+                        .group(FOLD_GROUP)
                         .absolute()
                         .left(dp(-3.))
                         .w(dp(18.))
@@ -572,9 +576,11 @@ fn fold_step(
                         .top(relative(0.5))
                         .mt(dp(-9.))
                         .justify_center()
-                        .rounded(dp(theme.shape.xs))
-                        .hover(|el| el.bg(theme.hover))
-                        .child(chevron)
+                        // As but-ui-react's chevron button: `radius-sm`, the hover's ground under
+                        // the pointer, and the chevron a step louder.
+                        .rounded(dp(theme.shape.sm))
+                        .hover(move |el| el.bg(ground))
+                        .child(pressed_chevron((id.clone(), "chevron"), open, theme))
                         .when_some(press, |el, press| {
                             el.on_mouse_down(MouseButton::Left, move |event, window, cx| {
                                 press(event, window, cx)
@@ -585,7 +591,11 @@ fn fold_step(
                             toggle(window, cx);
                         }),
                 ),
-                _ => step.child(chevron),
+                _ => step.child(chevron(
+                    (id.clone(), "chevron"),
+                    open,
+                    theme.subtle_foreground,
+                )),
             }
         }
     }
@@ -602,6 +612,28 @@ pub fn chevron(
     icon_at(Icon::ChevronRight, 12.)
         .text_color(color)
         .opacity(0.6)
+        .with_spring(id, switch_spring(open), move |el, phase| {
+            el.with_transformation(gpui::Transformation::rotate(gpui::radians(
+                phase.interpolate_clamped(0., std::f32::consts::FRAC_PI_2),
+            )))
+        })
+}
+
+/// The group a chevron that folds on its own click is, so it lights up under the pointer.
+const FOLD_GROUP: &str = "sidebar-row-fold";
+
+/// [`chevron`] on its own button, in `subtle`, a step louder in `muted` and at full strength
+/// while the pointer's on it, as but-ui-react's chevron button.
+fn pressed_chevron(
+    id: impl Into<ElementId>,
+    open: bool,
+    theme: &Theme,
+) -> gpui::SpringAnimationElement<gpui::Svg> {
+    let muted = theme.muted_foreground;
+    icon_at(Icon::ChevronRight, 12.)
+        .text_color(theme.subtle_foreground)
+        .opacity(0.6)
+        .group_hover(FOLD_GROUP, move |s| s.text_color(muted).opacity(1.))
         .with_spring(id, switch_spring(open), move |el, phase| {
             el.with_transformation(gpui::Transformation::rotate(gpui::radians(
                 phase.interpolate_clamped(0., std::f32::consts::FRAC_PI_2),

@@ -267,6 +267,7 @@ pub enum Shade {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Shape {
     pub xs: f32,
+    pub sm: f32,
     pub control: f32,
     pub card: f32,
     pub popup: f32,
@@ -276,6 +277,7 @@ impl Default for Shape {
     fn default() -> Self {
         Shape {
             xs: tokens::RADIUS_XS,
+            sm: tokens::RADIUS_SM,
             control: tokens::RADIUS_CONTROL,
             card: tokens::RADIUS_CARD,
             popup: tokens::RADIUS_POPUP,
@@ -567,11 +569,12 @@ impl Theme {
     }
 
     pub fn with_corners(mut self, corners: Corners) -> Self {
-        if let Some((_, [xs, control, card, popup])) =
+        if let Some((_, [xs, sm, control, card, popup])) =
             (tokens::CORNERS.iter()).find(|(name, _)| *name == corners.name())
         {
             self.shape = Shape {
                 xs: *xs,
+                sm: *sm,
                 control: *control,
                 card: *card,
                 popup: *popup,
