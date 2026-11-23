@@ -1760,7 +1760,12 @@ impl Navigator {
     /// The row at `ix` of the list, drawn inside its card.
     /// Whether row `ix` is selected on the solid fill, as [`Self::render_item`] draws it.
     fn solid_at(&self, ix: usize, cx: &Context<Self>) -> bool {
-        let Some(Row::Item(item)) = self.built.rows.get(ix) else {
+        self.solid_in(&self.built.rows, ix, cx)
+    }
+
+    /// Whether row `ix` of `rows`, the cards' or the drawer's, is selected on the solid fill.
+    fn solid_in(&self, rows: &[Row], ix: usize, cx: &Context<Self>) -> bool {
+        let Some(Row::Item(item)) = rows.get(ix) else {
             return false;
         };
         let store = self.store.read(cx);
@@ -1931,22 +1936,11 @@ impl Navigator {
             false => el,
         };
         let (first, last) = card_ends(&self.built.rows, ix);
-        // A guide for each row it's under, joining those of the rows above and below into
-        // one line, as but.dev's sidebar draws them.
-        // On a row selected on the solid fill, in the fill's own guide ink, as SidebarRow's.
-        let guide_color = match self.solid_at(ix, cx) {
-            true => theme.derived.inverse_guide,
-            false => theme.border_subtle,
-        };
+        let solid = self.solid_at(ix, cx);
         let guides = || {
-            let guides = self.built.guides.get(ix).map_or(&[][..], Vec::as_slice);
+            let levels = self.built.guides.get(ix).map_or(&[][..], Vec::as_slice);
             let ends = self.built.ends.get(ix).copied().unwrap_or(false);
-            (guides.iter().enumerate()).map(move |(level, at)| {
-                match ends && level + 1 == guides.len() {
-                    true => guide_end_in(*at, guide_color, theme),
-                    false => guide_in(*at, guide_color),
-                }
-            })
+            row_guides(levels, ends, solid, theme)
         };
         // The card dragged by its heading is edged as what's moving is where it would land.
         let held = (self.built.held_card.as_ref()).is_some_and(|card| card.contains(&ix));
@@ -3006,15 +3000,10 @@ impl Navigator {
             }
             _ => div().into_any_element(),
         };
-        // The guides of a project's rows unfolded here, on the row alone, as a card's.
+        // The guides of a project's rows unfolded here, drawn as a card's are.
         let levels = drawer.guides.get(ix).map_or(&[][..], Vec::as_slice);
         let ends = drawer.ends.get(ix).copied().unwrap_or(false);
-        let guides = (levels.iter().enumerate()).map(|(level, at)| {
-            match ends && level + 1 == levels.len() {
-                true => guide_end_in(*at, theme.border_subtle, theme),
-                false => guide_in(*at, theme.border_subtle),
-            }
-        });
+        let guides = row_guides(levels, ends, self.solid_in(rows, ix, cx), theme);
         let row = div().relative().child(el).children(guides);
         let row = match folding {
             Some((height, closing)) => clipped(row, dp(height), closing),
@@ -4828,6 +4817,26 @@ impl Render for Navigator {
         // A card out over the detail goes back once the pointer leaves it, so it's resized
         // only beside the detail, once it's all there.
     }
+}
+
+/// A guide for each level a row is under, at `levels`, joining those of the rows above and below
+/// into one line, as but.dev's sidebar draws them; the last level ends in a tail where the row
+/// `ends` it. On a row selected on the solid fill they're in the fill's own guide ink, as
+/// SidebarRow's. The cards and the drawer both draw a row's guides with this.
+fn row_guides<'a>(
+    levels: &'a [f32],
+    ends: bool,
+    solid: bool,
+    theme: &'a Theme,
+) -> impl Iterator<Item = Div> + 'a {
+    let color = match solid {
+        true => theme.derived.inverse_guide,
+        false => theme.border_subtle,
+    };
+    (levels.iter().enumerate()).map(move |(level, at)| match ends && level + 1 == levels.len() {
+        true => guide_end_in(*at, color, theme),
+        false => guide_in(*at, color),
+    })
 }
 
 /// Where a list's top and bottom edges cut a card off as it's scrolled, `top` down its `cards`
