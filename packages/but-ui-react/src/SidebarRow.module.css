@@ -66,6 +66,7 @@
 	.local,
 	.remote,
 	.upstream,
+	.integrated,
 	.title {
 		color-scheme: dark;
 
@@ -459,6 +460,10 @@ button.toggle {
 
 .upstream {
 	color: var(--but-commit-upstream);
+}
+
+.integrated {
+	color: var(--but-commit-integrated);
 }
 
 .badge {

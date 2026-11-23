@@ -313,8 +313,9 @@ export const Merging = meta.story({
 
 /**
  * Merged work reads as merged whether or not its pull request is known: a request shows its number,
- * and a branch with none known says Merged beside its name. A worktree whose only branch merged is
- * done with: it shows its age, and Delete.
+ * and a branch with none known says Merged beside its name. Open, its commits are `integrated`, in
+ * the target already, in purple. A worktree whose only branch merged is done with: it shows its
+ * age, and Delete.
  */
 export const Merged = meta.story({
 	parameters: { design: { type: "figma", url: core("2572-3458") } },
@@ -337,9 +338,11 @@ export const Merged = meta.story({
 				title="tidy-sidebar-rows"
 				merged
 				depth={2}
-				folded
+				folded={false}
 				meta={<MetaCount type="age">5d</MetaCount>}
 			/>
+			<CommitItem message="fix: rows keep their end padding" integrated depth={3} />
+			<CommitItem message="feat: tidy the sidebar's rows" integrated depth={3} />
 			<WorktreeItem
 				name="retry-transfers"
 				depth={1}
