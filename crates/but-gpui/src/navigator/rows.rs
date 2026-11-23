@@ -51,6 +51,7 @@ const ACTIVE_WITHIN: Duration = Duration::from_secs(7 * 24 * 60 * 60);
 pub(super) enum Row {
     /// The space between two cards.
     Gap,
+    Group(super::groups::GroupRow),
     /// Whatever the [`Selection`] names: a project, a worktree, a branch, a commit,
     /// one of a project's pages, a section's heading, or one of these on another machine.
     Item(Selection),
@@ -85,6 +86,7 @@ pub(super) enum Row {
 /// What a row is across rebuilds, for a reorder to slide it from where it was.
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub(super) enum RowKey {
+    Group(String),
     Item(Selection),
     /// A commit by its key, which outlives the rewrites that move it.
     Commit(ProjectId, String),
@@ -124,6 +126,7 @@ pub(super) fn row_keys(rows: &[Row], store: &Store) -> Vec<Option<RowKey>> {
     let mut before = None;
     for row in rows {
         let key = match row {
+            Row::Group(group) => Some(RowKey::Group(group.id.clone())),
             Row::Item(item) if left_behind(store, item) => {
                 Some(RowKey::Left(Box::new(item_key(item))))
             }
@@ -179,6 +182,7 @@ impl Row {
     /// row is, as the density has it.
     pub(super) fn height(&self, row: f32) -> f32 {
         match self {
+            Row::Group(_) => super::groups::GROUP_HEIGHT,
             Row::Gap => super::CARD_GAP + 2. * CARD_EDGE,
             Row::Between(_) => 0.,
             Row::WorktreeDivider => 12.,
@@ -199,6 +203,7 @@ impl Row {
 /// first few, or the drawer's projects.
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub(super) enum Fold {
+    Group(String),
     Under(Selection),
     More(BranchKey),
     Drawer,
@@ -404,17 +409,15 @@ impl Navigator {
         }
         let store = self.store.read(cx);
         let mut rows = Rows::new(self.row);
-        for entry in self.watched(store) {
-            if !rows.rows.is_empty() {
-                rows.push(Row::Gap);
+        if store.prefs.project_groups.is_empty() {
+            for entry in self.watched(store) {
+                if !rows.rows.is_empty() {
+                    rows.push(Row::Gap);
+                }
+                self.project_rows(store, entry, &mut rows);
             }
-            let item = Selection::Project(entry.id.clone());
-            rows.push(Row::Item(item.clone()));
-            let open = !store.project_folded(&entry.id);
-            // Its rows' icons under the header's, so a worktree's name is under the project's.
-            rows.fold(Fold::Under(item), open, &self.folds, |rows| {
-                self.card_rows(store, entry, rows)
-            });
+        } else {
+            self.group_rows(store, &mut rows);
         }
         let listing = self.drawer_listing(store);
         rows.drawer.listed = listing.listed;
@@ -429,6 +432,17 @@ impl Navigator {
         }
         rows.drawer.rows = listing.rows;
         rows
+    }
+
+    pub(super) fn project_rows(&self, store: &Store, entry: &ProjectEntry, rows: &mut Rows) {
+        let item = Selection::Project(entry.id.clone());
+        rows.push(Row::Item(item.clone()));
+        rows.fold(
+            Fold::Under(item),
+            !store.project_folded(&entry.id),
+            &self.folds,
+            |rows| self.card_rows(store, entry, rows),
+        );
     }
 
     /// The projects not watched, as the settings list them, folded or not.
@@ -595,7 +609,12 @@ impl Navigator {
             if start > 0 {
                 rows.push(Row::Gap);
             }
-            let own = found(terms, &[&entry.project.name]);
+            let group = store
+                .prefs
+                .project_group(id)
+                .and_then(|id| store.prefs.project_groups.iter().find(|g| g.id == id))
+                .map_or("", |group| group.name.as_str());
+            let own = found(terms, &[&entry.project.name, group]);
             rows.push_found(Selection::Project(id.clone()), hit(0, own));
             let project_end = rows.rows.len();
             let workspace = (entry.workspace.as_ref()).filter(|ws| ws.editing.is_none());
