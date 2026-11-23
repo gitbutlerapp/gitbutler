@@ -139,7 +139,6 @@ impl Sandbox {
             && let Ok(commit_id) = repo.rev_parse_single("origin/main")
         {
             let storage_path = repo.gitbutler_storage_path().unwrap();
-            sandbox.file(storage_path.join("virtual_branches.toml"), "[branches]\n");
             ProjectMeta {
                 target_ref: Some(
                     but_core::ref_metadata::LocalRefName::new(

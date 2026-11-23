@@ -21,8 +21,16 @@ use snapbox::prelude::*;
 
 #[test]
 fn journey() -> anyhow::Result<()> {
-    let (mut store, _tmp) = vb_store_rw("virtual-branches-01")?;
+    let (mut store, tmp) = vb_store_rw("virtual-branches-01")?;
     let writable_toml_path = store.path().to_owned();
+    let mut db = but_db::DbHandle::new_in_directory(tmp.path())?;
+    let mut snapshot = db
+        .virtual_branches()
+        .get_snapshot()?
+        .expect("the database is initialized");
+    snapshot.state.toml_last_seen_mtime_ns = Some(1);
+    snapshot.state.toml_last_seen_sha256 = Some("an older client's stamp".into());
+    db.virtual_branches_mut()?.replace_snapshot(&snapshot)?;
 
     assert_eq!(store.iter().count(), 15, "There are items to test on");
     roundtrip_journey(&mut store)?;
@@ -33,6 +41,20 @@ fn journey() -> anyhow::Result<()> {
         store.iter().count(),
         0,
         "on drop the cleared metadata is written to the database"
+    );
+    drop(store);
+    let state = db
+        .virtual_branches()
+        .get_snapshot()?
+        .expect("the database is initialized")
+        .state;
+    assert_eq!(
+        (
+            state.toml_last_seen_mtime_ns,
+            state.toml_last_seen_sha256.as_deref()
+        ),
+        (Some(i64::MAX), None),
+        "saving replaces any stamp with one newer than every TOML, so older clients read the database"
     );
 
     Ok(())
@@ -1287,7 +1309,7 @@ fn vb_fixture(name: &str) -> PathBuf {
 fn write_fixture_to_db(name: &str, toml_path: &std::path::Path) -> anyhow::Result<()> {
     let vb: but_meta::virtual_branches_legacy_types::VirtualBranches =
         toml::from_str(&std::fs::read_to_string(vb_fixture(name))?)?;
-    but_meta::legacy_storage::write_virtual_branches_and_sync(toml_path, &vb)
+    but_meta::legacy_storage::write_virtual_branches(toml_path, &vb)
 }
 
 fn vb_store_rw(name: &str) -> anyhow::Result<(VirtualBranchesTomlMetadata, TempDir)> {

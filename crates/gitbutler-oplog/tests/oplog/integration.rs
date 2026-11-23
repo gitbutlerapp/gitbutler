@@ -246,7 +246,7 @@ fn restore_snapshot_replaces_branch_order() -> anyhow::Result<()> {
 }
 
 #[test]
-fn restore_snapshot_replaces_branch_metadata_and_its_toml_copy() -> anyhow::Result<()> {
+fn undo_restores_branch_metadata() -> anyhow::Result<()> {
     use but_core::RefMetadata as _;
     use but_meta::virtual_branches_legacy_types::VirtualBranches;
 
@@ -256,17 +256,17 @@ fn restore_snapshot_replaces_branch_metadata_and_its_toml_copy() -> anyhow::Resu
         SnapshotDetails::new(OperationKind::OnDemandSnapshot),
         guard.write_permission(),
     )?;
-    let expected: VirtualBranches = toml::from_str(&snapshot_blob(
+    let snapshotted: VirtualBranches = toml::from_str(&snapshot_blob(
         &repo.open_repo(),
         snapshot_id,
         "virtual_branches.toml",
     )?)?;
-    assert_eq!(expected.branches.len(), 1, "the snapshot holds stack A");
 
     ctx.legacy_meta()?.remove("refs/heads/A".try_into()?)?;
-    assert!(
-        ctx.legacy_meta()?.data().branches.is_empty(),
-        "stack A is gone before the restore"
+    assert_ne!(
+        ctx.legacy_meta()?.data(),
+        &snapshotted,
+        "removing stack A leaves something to undo"
     );
 
     ctx.restore_snapshot(
@@ -274,33 +274,10 @@ fn restore_snapshot_replaces_branch_metadata_and_its_toml_copy() -> anyhow::Resu
         RestoreKind::RestoreFromSnapshotViaUndo,
         guard.write_permission(),
     )?;
-
     assert_eq!(
         ctx.legacy_meta()?.data(),
-        &expected,
-        "the database holds the snapshot's branches"
-    );
-    let toml_path = ctx.project_data_dir().join("virtual_branches.toml");
-    let on_disk: VirtualBranches = toml::from_str(&fs::read_to_string(&toml_path)?)?;
-    assert_eq!(
-        on_disk, expected,
-        "the TOML copy holds the snapshot's branches"
-    );
-    let state = but_db::DbHandle::new_in_directory(ctx.project_data_dir())?
-        .virtual_branches()
-        .get_snapshot()?
-        .context("the database is initialized")?
-        .state;
-    let mtime_ns = i64::try_from(
-        fs::metadata(&toml_path)?
-            .modified()?
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_nanos(),
-    )?;
-    assert_eq!(
-        state.toml_last_seen_mtime_ns,
-        Some(mtime_ns),
-        "the database marks the restored TOML as seen, so older clients don't import it again"
+        &snapshotted,
+        "undo puts the snapshot's branches back in the database"
     );
     Ok(())
 }
@@ -854,8 +831,6 @@ fn malformed_project_meta_fails_before_restore_mutates_state() -> anyhow::Result
     )?;
     let before_meta = ctx.project_meta()?;
     let before_oplog_head = ctx.oplog_head()?;
-    let live_path = ctx.project_data_dir().join("virtual_branches.toml");
-    let before_toml = fs::read(&live_path)?;
 
     let error = ctx
         .restore_snapshot(
@@ -877,11 +852,6 @@ fn malformed_project_meta_fails_before_restore_mutates_state() -> anyhow::Result
         ctx.oplog_head()?,
         before_oplog_head,
         "a failed restore does not advance the oplog head"
-    );
-    assert_eq!(
-        fs::read(live_path)?,
-        before_toml,
-        "a failed restore does not rewrite virtual_branches.toml"
     );
     Ok(())
 }
