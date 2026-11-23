@@ -258,13 +258,16 @@ pub(super) fn card_bar(
                     .into_any_element(),
             }
         }))
+        // Faded, and lit under the pointer, as but-ui-react's drawer's chevron.
         .children(open.map(|open| {
-            fold::turned(
+            fold::turned_in_group(
                 format!("{id}-fold"),
                 open,
                 Icon::ChevronRight,
                 FRAC_PI_2,
                 muted,
+                DRAWER_GROUP,
+                ink,
             )
         }));
     // Over its card, not in it, as but-ui-react's Drawer has it, its words in line with the
@@ -284,11 +287,9 @@ pub(super) fn card_bar(
         .when(selected, |el| el.bg(theme.selected_inactive))
         .when(solid, |el| el.bg(theme.inverse))
         .child(fold)
-        .when_some(open, |el, open| {
-            el.aria_expanded(open)
-                .cursor_pointer()
-                .when(!selected, |el| el.hover(|el| el.bg(theme.hover)))
-        })
+        // No ground under the pointer, as but-ui-react's drawer: it sits on the panel's ground,
+        // and its chevron says a press opens it.
+        .when_some(open, |el, open| el.aria_expanded(open).cursor_pointer())
 }
 
 /// `bar` as a drawer's row at the navigator's foot, as but-ui-react's DrawerItem: a row tall,
@@ -2821,8 +2822,8 @@ impl Navigator {
         let open = toggles.then(|| !self.store.read(cx).prefs.projects_folded);
         // How many, at zero too, as but-ui-react's DrawerItem.
         let count = Some(count);
-        // As but-ui-react's Drawer: Add project always, Sort and show only under the pointer or
-        // with the keys on it, before it, so Add project keeps its place.
+        // As but-ui-react's Drawer: Sort and show and Add project only under the pointer or with
+        // the keys on it.
         let sort = (total > 0).then(|| {
             icon_button("project-view-options", Icon::Mixer)
                 .small()
@@ -2842,13 +2843,14 @@ impl Navigator {
             theme,
         ))
         .children(sort.map(|sort| on_hover(sort, selected)))
-        .child(
+        .child(on_hover(
             icon_button("add-project", Icon::Plus)
                 .small()
                 .inverted(solid)
                 .tooltip("Add project")
                 .dispatch(&AddProject),
-        )
+            selected,
+        ))
         .when(toggles, |el| {
             el.on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.toggle_drawer(cx)))
         })

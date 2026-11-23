@@ -688,6 +688,28 @@ pub fn turned(
         })
 }
 
+/// [`turned`], faded until the pointer's on `group`, where it's `lit` at full strength, as
+/// but-ui-react's drawer's chevron, the one thing on its row that answers the pointer.
+pub fn turned_in_group(
+    id: impl Into<ElementId>,
+    on: bool,
+    icon: Icon,
+    by: f32,
+    color: Hsla,
+    group: &'static str,
+    lit: Hsla,
+) -> SpringAnimationElement<Svg> {
+    small_icon(icon)
+        .text_color(color)
+        .opacity(0.6)
+        .group_hover(group, move |s| s.text_color(lit).opacity(1.))
+        .with_spring(id, switch_spring(on), move |el, phase| {
+            el.with_transformation(Transformation::rotate(radians(
+                phase.interpolate_clamped(0., by),
+            )))
+        })
+}
+
 /// CSS's `ease`, which but-ui's transitions ride: a cubic Bézier through (0.25, 0.1) and
 /// (0.25, 1), at `x` of the way through its time.
 fn ease(x: f32) -> f32 {
