@@ -21,11 +21,14 @@ pub type CommitOwnerIndexes = (usize, usize, CommitIndex);
 mod queries;
 
 impl Workspace {
-    /// Redo the graph traversal with the same settings as before, but use the latest
-    /// data from `repo`, `meta`, `project_meta` and `db` to do it.
+    /// Project the workspace seen from `HEAD` again from the
+    /// [nosegment graph](crate::nosegment::workspace()), with the same options as before, but use
+    /// the latest data from `repo`, `meta`, `project_meta` and `db` to do it.
     /// This is useful to make this instance represent changes to `repo` or `meta`.
     /// Worktree tips are [discovered](crate::init::Options::worktrees) afresh from
-    /// `db` rather than reusing the previous traversal's, as they may have changed.
+    /// `db` rather than reusing the previous ones, as they may have changed, and the
+    /// [extra refs](crate::init::Options::extra_refs) are walked where they point now, leaving out
+    /// those that are gone.
     ///
     /// Pass a freshly read `project_meta` to pick up target changes as well, or
     /// `self.graph.project_meta.clone()` to deliberately keep the current one,
@@ -43,8 +46,30 @@ impl Workspace {
         project_meta: but_core::ref_metadata::ProjectMeta,
         db: &mut but_db::DbHandle,
     ) -> anyhow::Result<()> {
-        let graph = Graph::from_head(repo, meta, project_meta, db, self.graph.options.clone())?;
-        *self = graph.into_workspace()?;
+        let options = self.graph.options.clone();
+        let head = repo.head()?;
+        // Like a traversal, the graph's extra refs join it, leaving out those that are gone.
+        let mut extra_heads = Vec::new();
+        for ref_name in &options.extra_refs {
+            if let Some(mut reference) = repo.try_find_reference(ref_name)? {
+                extra_heads.push(reference.peel_to_commit()?.id);
+            }
+        }
+        let mut workspace = crate::nosegment::workspace(
+            repo,
+            meta,
+            crate::init::Overlay::default(),
+            project_meta,
+            head.referent_name(),
+            head.id().map(|id| id.detach()),
+            extra_heads,
+            crate::init::discover_worktree_tips(repo, db, options.worktrees)?,
+            options.collect_tags,
+            options.commits_limit_hint,
+        )?;
+        // Workspaces refreshed from this one use the same options, extra refs included.
+        workspace.graph.options = options;
+        *self = workspace;
         Ok(())
     }
 }
