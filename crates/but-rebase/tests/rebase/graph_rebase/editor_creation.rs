@@ -1,5 +1,4 @@
 use anyhow::Result;
-use but_graph::{Graph, init::Tip};
 use but_rebase::graph_rebase::{Editor, GraphEditorOptions, testing::Testing as _};
 use but_testsupport::{CommandExt as _, StackState, git, graph_tree, visualize_commit_graph_all};
 use gix::prelude::ObjectIdExt as _;
@@ -776,26 +775,34 @@ fn immutable_entrypoints_propogate_until_mutable_entrypoints() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_commit_traversal_with_extra_tips(
-        repo.rev_parse_single("refs/heads/implicit-mut")?,
-        Some("refs/heads/implicit-mut".try_into()?),
-        [
-            Tip::reachable(
-                repo.rev_parse_single("refs/heads/explicit-const")?.detach(),
-                Some("refs/heads/explicit-const".try_into()?),
-            ),
-            Tip::reachable(
-                repo.rev_parse_single("refs/heads/explicit-const-2")?
-                    .detach(),
-                Some("refs/heads/explicit-const-2".try_into()?),
-            ),
+    let options = but_graph::init::Options {
+        extra_refs: vec![
+            "refs/heads/explicit-const".try_into()?,
+            "refs/heads/explicit-const-2".try_into()?,
         ],
+        ..standard_options()
+    };
+    let extra_heads = options
+        .extra_refs
+        .iter()
+        .map(|ref_name| Ok(repo.rev_parse_single(ref_name.as_bstr())?.detach()))
+        .collect::<Result<Vec<_>>>()?;
+    let mut graph = but_graph::nosegment::workspace(
+        &repo,
         &*meta,
+        but_graph::init::Overlay::default(),
         Default::default(),
-        &mut db,
-        standard_options(),
+        Some("refs/heads/implicit-mut".try_into()?),
+        Some(repo.rev_parse_single("refs/heads/implicit-mut")?.detach()),
+        extra_heads,
+        Vec::new(),
+        options.collect_tags,
+        options.commits_limit_hint,
     )?
+    .graph
     .validated()?;
+    // The editor walks the extra refs again.
+    graph.options = options;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
@@ -859,18 +866,26 @@ fn extra_refs_keep_their_new_names_in_the_overlayed_graph() -> Result<()> {
     let (repo, mut meta, mut db) = fixture("extra-refs-to-include")?;
     let extra_ref: gix::refs::FullName = "refs/heads/explicit-const-2".try_into()?;
     let extra_ref_commit = repo.rev_parse_single(extra_ref.as_bstr())?.detach();
-    let graph = Graph::from_commit_traversal(
-        repo.rev_parse_single("refs/heads/implicit-mut")?,
-        Some("refs/heads/implicit-mut".try_into()?),
+    let options = but_graph::init::Options {
+        extra_refs: vec![extra_ref.clone()],
+        ..standard_options()
+    };
+    let mut graph = but_graph::nosegment::workspace(
+        &repo,
         &*meta,
+        but_graph::init::Overlay::default(),
         Default::default(),
-        &mut db,
-        but_graph::init::Options {
-            extra_refs: vec![extra_ref.clone()],
-            ..standard_options()
-        },
+        Some("refs/heads/implicit-mut".try_into()?),
+        Some(repo.rev_parse_single("refs/heads/implicit-mut")?.detach()),
+        [extra_ref_commit],
+        Vec::new(),
+        options.collect_tags,
+        options.commits_limit_hint,
     )?
+    .graph
     .validated()?;
+    // The rebase walks the extra ref again, under the name it has then.
+    graph.options = options;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create_with_opts(
         &mut ws,
