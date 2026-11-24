@@ -1,7 +1,6 @@
 use anyhow::Context;
-use but_graph::{FirstParent, Graph, Segment, SegmentIndex, SegmentRelation, init::Tip};
+use but_graph::{FirstParent, Graph, Segment, SegmentIndex, SegmentRelation};
 use but_testsupport::visualize_commit_graph_all;
-use gix::prelude::ObjectIdExt as _;
 use snapbox::IntoData;
 
 use crate::init::{read_only_in_memory_scenario, standard_options};
