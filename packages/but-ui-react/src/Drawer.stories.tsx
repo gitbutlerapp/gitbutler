@@ -4,8 +4,18 @@ import { Button } from "./Button.tsx";
 import { Icon } from "./Icon.tsx";
 import { MetaCount, MetaStatus } from "./MetaCount.tsx";
 import { EmptyState } from "./EmptyState.tsx";
-import { Drawer, RepoItem } from "./SidebarRow.tsx";
-import { TerminalGroup } from "./story-assets/workspaceTree.tsx";
+import {
+	BranchItem,
+	CommitItem,
+	Drawer,
+	DrawerItem,
+	MoreItem,
+	RepoItem,
+	RowDivider,
+	UncommittedItem,
+	WorktreeItem,
+} from "./SidebarRow.tsx";
+import { Column, push, RepoCard, TerminalGroup, update } from "./story-assets/workspaceTree.tsx";
 import { Tooltip } from "./Tooltip.tsx";
 
 const core = (node: string) =>
@@ -257,5 +267,203 @@ export const Empty = meta.story({
 				</EmptyCard>
 			</Open>
 		</>
+	),
+});
+
+/** A part of the hidden projects' card: one project, ruled off from what's above it across the
+ * card, as the drawer's projects are. */
+const Part: FC<{ children: ReactNode }> = ({ children }) => (
+	<div
+		style={{
+			display: "flex",
+			flexDirection: "column",
+			gap: 1,
+			padding: 8,
+			borderTop: "1px solid var(--but-border-subtle)",
+		}}
+	>
+		{children}
+	</div>
+);
+
+const age = (value: string) => <MetaCount type="age">{value}</MetaCount>;
+
+/** The hidden projects listed folded, by what they hold, each with its way back into the sidebar. */
+const hidden = [
+	{
+		name: "gitbutler-docs",
+		meta: [
+			["behind", "7"],
+			["branch", "1"],
+		],
+	},
+	{
+		name: "homebrew-tap",
+		meta: [
+			["unpushed", "1"],
+			["branch", "2"],
+		],
+	},
+	{ name: "dnd-notes", meta: [["branch", "1"]] },
+] as const;
+
+/**
+ * The hidden projects as the last card of the list, scrolling with the cards above it
+ * rather than pinned at the panel's foot, where Terminals stays. Its `DrawerItem` heads the card,
+ * folded until opened, so it costs one row while nobody looks. Open, a line across the card parts
+ * one project from the next, and a project opened in place keeps its own `RowDivider` under its
+ * `RepoItem`, so the two lines never read as the same.
+ */
+const HiddenCard: FC<{ open?: boolean; opened?: boolean }> = ({ open = false, opened = false }) => {
+	const [folded, setFolded] = useState(!open);
+	const [butDev, setButDev] = useState(opened);
+	return (
+		<section
+			aria-label="Hidden projects"
+			style={{
+				flexShrink: 0,
+				overflow: "hidden",
+				border: "1px solid var(--but-border-subtle)",
+				borderRadius: "var(--but-radius-card)",
+				backgroundColor: "var(--but-background)",
+			}}
+		>
+			<div style={{ padding: 8 }}>
+				<DrawerItem
+					name="Hidden projects"
+					count={24}
+					folded={folded}
+					onToggleFolded={() => setFolded(!folded)}
+					hoverActions={
+						<>
+							{ghost("mixer", "Sort and show")}
+							{ghost("plus", "Add project")}
+						</>
+					}
+				/>
+			</div>
+			{!folded && (
+				<>
+					<Part>
+						<RepoItem
+							name="but-dev"
+							folded={!butDev}
+							onToggleFolded={() => setButDev(!butDev)}
+							meta={
+								butDev ? undefined : (
+									<>
+										<MetaCount type="uncommitted">4</MetaCount>
+										<MetaCount type="unpushed">2</MetaCount>
+										<MetaCount type="branch">3</MetaCount>
+									</>
+								)
+							}
+							actions={show("but-dev")}
+						/>
+						{butDev && (
+							<>
+								<RowDivider />
+								<Column>
+									<WorktreeItem main name="Main worktree" folded={false} meta={age("3d")} />
+									<UncommittedItem count={4} depth={1} />
+									<BranchItem title="review-cards" depth={1} folded actions={push(2)} />
+									<BranchItem
+										title="perf: cheaper diff stats"
+										pr={{ number: 410, state: "open" }}
+										depth={1}
+										folded={false}
+										meta={
+											<>
+												<MetaStatus variant="working">CI</MetaStatus>
+												{age("8m")}
+											</>
+										}
+									/>
+									<CommitItem message="feat: 28px hunk separator" depth={2} pushed={false} />
+									<CommitItem message="docs: handoff notes" depth={2} />
+									<WorktreeItem name="review-ios" folded meta={age("1d")} actions={update(3)} />
+								</Column>
+							</>
+						)}
+					</Part>
+					{hidden.map(({ name, meta: counts }) => (
+						<Part key={name}>
+							<RepoItem
+								name={name}
+								folded
+								onToggleFolded={() => {}}
+								meta={
+									<>
+										{counts.map(([type, value]) => (
+											<MetaCount key={type} type={type}>
+												{value}
+											</MetaCount>
+										))}
+									</>
+								}
+								actions={show(name)}
+							/>
+						</Part>
+					))}
+					<Part>
+						<MoreItem label="20 more" />
+					</Part>
+				</>
+			)}
+		</section>
+	);
+};
+
+/** A sidebar column: the cards scrolling, the hidden projects' card last among them, and the
+ * Terminals drawer pinned at the foot. */
+const Column334: FC<{ children: ReactNode }> = ({ children }) => (
+	<div style={{ display: "flex", flexDirection: "column", width: 334, height: 720 }}>
+		<div
+			style={{
+				display: "flex",
+				flexDirection: "column",
+				gap: 8,
+				flex: 1,
+				minHeight: 0,
+				overflowY: "auto",
+				paddingBottom: 8,
+			}}
+		>
+			<RepoCard
+				label="berlin-brutalism"
+				header={<RepoItem name="berlin-brutalism" folded={false} meta={age("3d")} />}
+			>
+				<BranchItem
+					title="cursor-unique-names"
+					folded
+					meta={
+						<>
+							<MetaCount type="commits">23</MetaCount>
+							{age("2h")}
+						</>
+					}
+				/>
+			</RepoCard>
+			{children}
+		</div>
+		<Open name="Terminals" count={5} hoverActions={ghost("plus", "New terminal…")} last />
+	</div>
+);
+
+/**
+ * Mock: the hidden projects unpinned, the last card of the list, folded (left) and open with a
+ * project opened in place (right). Terminals stays a drawer pinned at the foot.
+ */
+export const HiddenProjectsCard = meta.story({
+	parameters: { width: undefined },
+	render: () => (
+		<div style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "flex-start" }}>
+			<Column334>
+				<HiddenCard />
+			</Column334>
+			<Column334>
+				<HiddenCard open opened />
+			</Column334>
+		</div>
 	),
 });
