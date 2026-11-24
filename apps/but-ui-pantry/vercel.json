@@ -2,5 +2,5 @@
 	"$schema": "https://openapi.vercel.sh/vercel.json",
 	"buildCommand": "pnpm build",
 	"outputDirectory": "dist",
-	"ignoreCommand": "git diff --quiet ${VERCEL_GIT_PREVIOUS_SHA:-HEAD^} HEAD -- . ../../packages/but-ui ../../packages/but-ui-react ../../crates/but-ui-gpui/src"
+	"ignoreCommand": "(git cat-file -e ${VERCEL_GIT_PREVIOUS_SHA:-HEAD^}^{commit} && git diff --quiet ${VERCEL_GIT_PREVIOUS_SHA:-HEAD^} HEAD -- . ../../packages/but-ui ../../packages/but-ui-react ../../crates/but-ui-gpui/src) 2>/dev/null || exit 1"
 }
