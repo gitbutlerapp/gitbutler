@@ -49,21 +49,6 @@ const EmptyCard: FC<{ children: ReactNode }> = ({ children }) => (
 	</Card>
 );
 
-/** One group of a drawer's card, ruled off from the next. */
-const Group: FC<{ children: ReactNode; last?: boolean }> = ({ children, last = false }) => (
-	<div
-		style={{
-			display: "flex",
-			flexDirection: "column",
-			gap: 1,
-			padding: 8,
-			borderBottom: last ? undefined : "1px solid var(--but-border-subtle)",
-		}}
-	>
-		{children}
-	</div>
-);
-
 /** A ghost icon button at a drawer's end, with its tooltip. */
 const ghost = (icon: "plus" | "mixer", label: string) => (
 	<Tooltip key={label} content={label}>
@@ -88,66 +73,23 @@ const show = (name: string) => (
 	</Tooltip>
 );
 
-/** The hidden projects, each in its own part of the card with its counts and a way back into the
- * sidebar. */
-const Projects: FC = () => (
-	<>
-		<Group>
-			<RepoItem
-				name="but-dev"
-				folded
-				onToggleFolded={() => {}}
-				meta={
-					<>
-						<MetaCount type="uncommitted">4</MetaCount>
-						<MetaCount type="unpushed">2</MetaCount>
-						<MetaCount type="branch">3</MetaCount>
-						<MetaCount type="worktrees">2</MetaCount>
-					</>
-				}
-				actions={show("but-dev")}
-			/>
-		</Group>
-		<Group>
-			<RepoItem
-				name="gitbutler-docs"
-				folded
-				onToggleFolded={() => {}}
-				meta={
-					<>
-						<MetaCount type="behind">7</MetaCount>
-						<MetaCount type="branch">1</MetaCount>
-					</>
-				}
-				actions={show("gitbutler-docs")}
-			/>
-		</Group>
-		<Group last>
-			<RepoItem
-				name="homebrew-tap"
-				folded
-				onToggleFolded={() => {}}
-				meta={
-					<>
-						<MetaCount type="unpushed">1</MetaCount>
-						<MetaCount type="branch">2</MetaCount>
-					</>
-				}
-				actions={show("homebrew-tap")}
-			/>
-		</Group>
-	</>
-);
-
-/** A drawer, open: its row, and the card it holds under it. */
+/** A drawer, open: its row, its buttons, and the card it holds under it. */
 export const Default = meta.story({
 	args: {
-		name: "Hidden projects",
-		count: 3,
+		name: "Terminals",
+		count: 2,
 		folded: false,
+		actions: [ghost("mixer", "Group terminals"), ghost("plus", "New terminal…")],
 		children: (
 			<Card>
-				<Projects />
+				<TerminalGroup
+					label="Idle"
+					terminals={[
+						{ name: "review-cards", place: "gpui-row-buttons" },
+						{ name: "Terminal", place: "Main worktree" },
+					]}
+					last
+				/>
 			</Card>
 		),
 	},
@@ -180,6 +122,31 @@ export const GroupedTerminals = meta.story({
 	},
 });
 
+/** The terminals' drawer with nothing in it: its card says where a new one would open. */
+export const Empty = meta.story({
+	args: {
+		name: "Terminals",
+		count: 0,
+		folded: false,
+		actions: [ghost("mixer", "Group terminals"), ghost("plus", "New terminal…")],
+		last: true,
+		children: (
+			<EmptyCard>
+				<EmptyState
+					variant="tidy"
+					title="No terminals open"
+					description="New ones open in gitbutler / Main worktree"
+				>
+					<Button variant="outline" size="medium">
+						<Icon name="plus" />
+						New terminal
+					</Button>
+				</EmptyState>
+			</EmptyCard>
+		),
+	},
+});
+
 /** A drawer that keeps whether it's open, as the host does. */
 const Open: FC<
 	Omit<Parameters<typeof Drawer>[0], "folded" | "onToggleFolded"> & { open?: boolean }
@@ -187,100 +154,6 @@ const Open: FC<
 	const [folded, setFolded] = useState(!open);
 	return <Drawer {...props} folded={folded} onToggleFolded={() => setFolded(!folded)} />;
 };
-
-/**
- * The foot of the sidebar, under the cards: the hidden projects and the terminals, each a drawer.
- * A press anywhere on a drawer opens what it holds under it, but not on its buttons. The projects'
- * show only under the pointer (Sort and show, Add project); the terminals' always do (Group
- * terminals, New terminal…). The terminals keep their hairline under the projects' card open.
- */
-export const SidebarDrawers = meta.story({
-	parameters: { design: { type: "figma", url: core("5376-12694") } },
-	render: () => (
-		<>
-			<Open
-				name="Hidden projects"
-				count={24}
-				open
-				hoverActions={
-					<>
-						{ghost("mixer", "Sort and show")}
-						{ghost("plus", "Add project")}
-					</>
-				}
-			>
-				<Card>
-					<Projects />
-				</Card>
-			</Open>
-			<Open
-				name="Terminals"
-				count={0}
-				actions={[ghost("mixer", "Group terminals"), ghost("plus", "New terminal…")]}
-				last
-				open
-			>
-				<EmptyCard>
-					<EmptyState
-						variant="tidy"
-						title="No terminals open"
-						description="New ones open in gitbutler / Main worktree"
-					>
-						<Button variant="outline" size="medium">
-							<Icon name="plus" />
-							New terminal
-						</Button>
-					</EmptyState>
-				</EmptyCard>
-			</Open>
-		</>
-	),
-});
-
-/**
- * Both drawers with nothing in them. Every project already shows in the sidebar, so the projects
- * say so and offer another; the terminals say where a new one would open.
- */
-export const Empty = meta.story({
-	render: () => (
-		<>
-			<Open name="Hidden projects" count={0} open hoverActions={ghost("plus", "Add project")}>
-				<EmptyCard>
-					<EmptyState
-						variant="tidy"
-						title="Every project is showing"
-						description="Hide one and it waits here, or add another"
-					>
-						<Button variant="outline" size="medium">
-							<Icon name="plus" />
-							Add project
-						</Button>
-					</EmptyState>
-				</EmptyCard>
-			</Open>
-			<Open
-				name="Terminals"
-				count={0}
-				actions={[ghost("mixer", "Group terminals"), ghost("plus", "New terminal…")]}
-				last
-				open
-			>
-				<EmptyCard>
-					<EmptyState
-						variant="tidy"
-						title="No terminals open"
-						description="New ones open in gitbutler / Main worktree"
-					>
-						<Button variant="outline" size="medium">
-							<Icon name="plus" />
-							New terminal
-						</Button>
-					</EmptyState>
-				</EmptyCard>
-			</Open>
-		</>
-	),
-});
 
 /** A part of the hidden projects' card: one project, ruled off from what's above it across the
  * card, as the drawer's projects are. */
