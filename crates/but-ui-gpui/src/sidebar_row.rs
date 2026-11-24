@@ -577,11 +577,7 @@ fn fold_step(
         .self_stretch()
         .justify_center();
     match fold {
-        Fold::Empty => step.child(
-            icon_at(Icon::BulletDisc, 12.)
-                .text_color(rest)
-                .opacity(0.5),
-        ),
+        Fold::Empty => step.child(icon_at(Icon::BulletDisc, 12.).text_color(rest).opacity(0.5)),
         Fold::Open | Fold::Folded => {
             let open = fold == Fold::Open;
             match (toggle, row_folds) {
