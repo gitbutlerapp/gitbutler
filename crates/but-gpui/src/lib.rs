@@ -242,31 +242,6 @@ fn set_dock_icon(icon: &[u8]) {
     }
 }
 
-/// Draw text at its strokes' own width, as but-ui draws it in a browser
-/// (`-webkit-font-smoothing: antialiased`) and as Figma does. macOS font smoothing thickens a
-/// glyph more the lighter its colour, so in the light theme muted and subtle text read heavier
-/// and darker than the near-black text beside them, and than but-ui-react. GPUI reads
-/// `AppleFontSmoothing` once, as it draws the first glyph, so this goes first. It's only the
-/// app's registered default, in memory: a value set for the app, or for every app, still wins.
-#[cfg(target_os = "macos")]
-fn draw_text_unsmoothed() {
-    use objc2::rc::Retained;
-    use objc2::runtime::AnyObject;
-    use objc2::{class, msg_send};
-    use objc2_foundation::NSString;
-
-    let key = NSString::from_str("AppleFontSmoothing");
-    // SAFETY: Foundation's documented `NSNumber`, `NSDictionary` and `NSUserDefaults` messages,
-    // with the argument types they take.
-    unsafe {
-        let off: Retained<AnyObject> = msg_send![class!(NSNumber), numberWithInt: 0i32];
-        let defaults: Retained<AnyObject> =
-            msg_send![class!(NSDictionary), dictionaryWithObject: &*off, forKey: &*key];
-        let user: Retained<AnyObject> = msg_send![class!(NSUserDefaults), standardUserDefaults];
-        let _: () = msg_send![&*user, registerDefaults: &*defaults];
-    }
-}
-
 /// Start the log, before anything that could write to it. The desktop app's binary calls it
 /// before its own setup for the client, which logs too.
 pub use backend::logs::init as init_logging;
@@ -315,8 +290,6 @@ pub fn run(embedded: Option<Embedded>) {
     #[cfg(unix)]
     let handed = but_tty::handed();
 
-    #[cfg(target_os = "macos")]
-    draw_text_unsmoothed();
     let platform = gpui_platform::current_platform(false);
     let app = match state::screen_reader_on() {
         true => gpui::Application::with_platform(platform),
