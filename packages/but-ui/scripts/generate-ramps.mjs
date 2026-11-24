@@ -160,12 +160,16 @@ function seeThrough(hex, ground) {
 // under the opacity, so at one lightness every hue's tint weighs the same; a hue's own step 9
 // (blue's and purple's are dark, teal's and green's light) made blue and purple vanish on the
 // dark ground and stand out on the light one. The opacity is in whole percents, as the Figma
-// export writes it, and the hover is HOVER past it.
+// export writes it, and the hover is HOVER past it. Green, whose hue is the most vivid there,
+// reads loud at the shared opacity in light, so it takes less.
 const SOFT = {
-	light: { lightness: 0.7, percent: 18 },
+	light: { lightness: 0.7, percent: 18, green: 14 },
 	dark: { lightness: 0.85, percent: 16 },
 };
 const HOVER = 8;
+function softPercent(hue, mode) {
+	return SOFT[mode][hue] ?? SOFT[mode].percent;
+}
 function softBase(hex, mode) {
 	const { h } = oklch(parse(hex));
 	return formatHex(clampChroma({ mode: "oklch", l: SOFT[mode].lightness, c: 0.4, h }, "oklch"));
@@ -272,8 +276,8 @@ for (const [hue, { seed, label, ground }] of Object.entries(HUES)) {
 		const alphas = gray
 			? {
 					a2: seeThrough(tint(s[2], s[1], SOFT_STEP), gray["1"]),
-					a3: at(softBase(s[8], mode), SOFT[mode].percent),
-					a4: at(softBase(s[8], mode), SOFT[mode].percent + HOVER),
+					a3: at(softBase(s[8], mode), softPercent(hue, mode)),
+					a4: at(softBase(s[8], mode), softPercent(hue, mode) + HOVER),
 				}
 			: {};
 		if (gray) grounds.push(over(alphas.a3, gray["3"]), over(alphas.a4, gray["1"]));

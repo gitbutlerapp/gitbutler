@@ -1034,8 +1034,14 @@ fn palette_colors(bg: u32, fg: u32, palette: &Colors) -> (ColorTokens, Derived) 
         let (_, chroma, angle) = oklch(hue);
         from_oklch(soft_lightness, chroma, angle)
     };
-    let soft = |hue: u32| mix(bg, soft_base(hue), soft_share);
-    let soft_hover = |hue: u32| mix(bg, soft_base(hue), soft_share + 0.08);
+    // Green, the scheme's ANSI 2, takes less in light, as but-ui's does.
+    let ansi_green = given(2).unwrap_or(GHOSTTY_ANSI[2]);
+    let share = |hue: u32| match !dark && hue == ansi_green {
+        true => 0.14,
+        false => soft_share,
+    };
+    let soft = |hue: u32| mix(bg, soft_base(hue), share(hue));
+    let soft_hover = |hue: u32| mix(bg, soft_base(hue), share(hue) + 0.08);
     // The neutral one is the foreground's, at least as far from the ground as the hues' are,
     // so a scheme's dim foreground still shows; in light, a dark foreground at 10%, as but-ui's.
     let neutral_share = if dark { soft_share } else { 0.10 };
