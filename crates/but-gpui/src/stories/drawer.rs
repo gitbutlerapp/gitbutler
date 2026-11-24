@@ -19,73 +19,9 @@ fn card(theme: &Theme, children: impl IntoIterator<Item = Div>) -> Div {
         .children(children)
 }
 
-/// One project's part of the hidden projects' card, ruled off from the next across the card unless
-/// `last`, as `Drawer.stories.tsx`'s `Group`.
-fn group(theme: &Theme, last: bool, row: SidebarRow) -> Div {
-    v_flex()
-        .p(dp(8.))
-        .when(!last, |el| {
-            el.border_b_1().border_color(theme.border_subtle)
-        })
-        .child(row.build(theme))
-}
-
 /// A ghost icon button at a drawer's end, regular as React's, with its tooltip.
 fn ghost(id: &'static str, icon: Icon, label: &'static str) -> AnyElement {
     icon_button(id, icon).tooltip(label).into_any_element()
-}
-
-/// Puts a project the sidebar hides back among its cards.
-fn show(id: &'static str) -> AnyElement {
-    icon_button(id, Icon::EyeClosed)
-        .small()
-        .style(ButtonStyle::Outline)
-        .tooltip("Show project")
-        .into_any_element()
-}
-
-/// The hidden projects, each in its own part of the card with its counts and a way back into the
-/// sidebar.
-fn projects(theme: &Theme) -> Div {
-    let count = |kind, n: &str| meta_count(kind, Some(n.to_owned().into()), theme);
-    let project = |name: &'static str, counts: Vec<Div>, last: bool| {
-        let row = counts.into_iter().fold(
-            repo_item(name, name, theme).fold(Fold::Folded),
-            |row, count| row.meta(count),
-        );
-        group(theme, last, row.action(show(name)))
-    };
-    card(
-        theme,
-        [
-            project(
-                "but-dev",
-                vec![
-                    count(MetaCountType::Uncommitted, "4"),
-                    count(MetaCountType::Unpushed, "2"),
-                    count(MetaCountType::Branch, "3"),
-                    count(MetaCountType::Worktrees, "2"),
-                ],
-                false,
-            ),
-            project(
-                "gitbutler-docs",
-                vec![
-                    count(MetaCountType::Behind, "7"),
-                    count(MetaCountType::Branch, "1"),
-                ],
-                false,
-            ),
-            project(
-                "homebrew-tap",
-                vec![
-                    count(MetaCountType::Unpushed, "1"),
-                    count(MetaCountType::Branch, "2"),
-                ],
-                true,
-            ),
-        ],
-    )
 }
 
 /// The stories' `TerminalGroup`: a group's label over its terminals, one level under it.
@@ -137,7 +73,7 @@ pub(super) const ITEM_EXAMPLES: [Example; 2] = [
         id: "components-draweritem--default",
         name: "Default",
         draw: |theme| {
-            let mut item = drawer("drawer", "Hidden projects", Some(24), true);
+            let mut item = drawer("drawer", "Terminals", Some(5), true);
             div().w(dp(334.)).child(item.item(theme)).into_any_element()
         },
     },
@@ -145,9 +81,9 @@ pub(super) const ITEM_EXAMPLES: [Example; 2] = [
         id: "components-draweritem--with-buttons",
         name: "With Buttons",
         draw: |theme| {
-            let mut item = drawer("drawer", "Hidden projects", Some(24), true)
-                .action(ghost("add", Icon::Plus, "Add project"))
-                .hover_action(ghost("sort", Icon::Mixer, "Sort and show"));
+            let mut item = drawer("drawer", "Terminals", Some(5), true)
+                .action(ghost("group", Icon::Mixer, "Group terminals"))
+                .action(ghost("new", Icon::Plus, "New terminal…"));
             div().w(dp(334.)).child(item.item(theme)).into_any_element()
         },
     },
@@ -170,14 +106,30 @@ fn empty_card(title: &'static str, detail: &'static str, step: &'static str, the
     )
 }
 
-/// The stories of `Drawer.stories.tsx` this client can draw. `SidebarDrawers` isn't here yet.
+/// The stories of `Drawer.stories.tsx` this client can draw. `HiddenProjectsCard` isn't here
+/// yet.
 pub(super) const EXAMPLES: [Example; 3] = [
     Example {
         id: "components-drawer--default",
         name: "Default",
         draw: |theme| {
+            let terminals = card(
+                theme,
+                [terminal_group(
+                    theme,
+                    "Idle",
+                    vec![
+                        ("review-cards", "gpui-row-buttons", None),
+                        ("Terminal", "Main worktree", None),
+                    ],
+                    true,
+                )],
+            );
             on_page(
-                drawer("drawer", "Hidden projects", Some(3), false).content(projects(theme)),
+                drawer("drawer", "Terminals", Some(2), false)
+                    .action(ghost("group", Icon::Mixer, "Group terminals"))
+                    .action(ghost("new", Icon::Plus, "New terminal…"))
+                    .content(terminals),
                 theme,
             )
         },
@@ -209,7 +161,8 @@ pub(super) const EXAMPLES: [Example; 3] = [
             );
             on_page(
                 drawer("drawer", "Terminals", Some(3), false)
-                    .hover_action(ghost("new", Icon::Plus, "New terminal…"))
+                    .action(ghost("group", Icon::Mixer, "Group terminals"))
+                    .action(ghost("new", Icon::Plus, "New terminal…"))
                     .content(terminals),
                 theme,
             )
@@ -219,28 +172,19 @@ pub(super) const EXAMPLES: [Example; 3] = [
         id: "components-drawer--empty",
         name: "Empty",
         draw: |theme| {
-            let projects = drawer("projects", "Hidden projects", Some(0), false)
-                .hover_action(ghost("add", Icon::Plus, "Add project"))
-                .content(empty_card(
-                    "Every project is showing",
-                    "Hide one and it waits here, or add another",
-                    "Add project",
-                    theme,
-                ));
-            let terminals = drawer("terminals", "Terminals", Some(0), false)
-                .hover_action(ghost("new", Icon::Plus, "New terminal…"))
-                .last()
-                .content(empty_card(
-                    "No terminals open",
-                    "New ones open in gitbutler / Main worktree",
-                    "New terminal",
-                    theme,
-                ));
-            v_flex()
-                .w(dp(334.))
-                .child(projects.build(theme))
-                .child(terminals.build(theme))
-                .into_any_element()
+            on_page(
+                drawer("terminals", "Terminals", Some(0), false)
+                    .action(ghost("group", Icon::Mixer, "Group terminals"))
+                    .action(ghost("new", Icon::Plus, "New terminal…"))
+                    .last()
+                    .content(empty_card(
+                        "No terminals open",
+                        "New ones open in gitbutler / Main worktree",
+                        "New terminal",
+                        theme,
+                    )),
+                theme,
+            )
         },
     },
 ];
