@@ -57,6 +57,7 @@ pub fn commit_create(
                 changes,
                 message,
                 source,
+                but_workspace::commit::Conflicts::Reject,
             )?))
         },
     )?;
