@@ -37,7 +37,7 @@ use crate::ui::fold::{Folds, Place, clipped};
 use crate::ui::text_input::TextInput;
 use crate::ui::{
     Button, ButtonStyle, EMPTY_TIDY_HEIGHT, Guide, Icon, button, dp, empty_state_tidy, field,
-    fixed, group_label, icon_button, press_in_pane, terminal_item, v_flex,
+    fixed, group_label, icon_button, terminal_item, v_flex,
 };
 
 /// The room around a drawer's empty state in its card, above and below it and at its sides, as
@@ -676,8 +676,8 @@ impl TerminalOverview {
         }
     }
 
-    /// A group's heading, as but-ui-react's `GroupLabel`: its chevron, which folds it, and its
-    /// name. A double-click folds it too.
+    /// A group's heading, as but-ui-react's `GroupLabel`: its chevron and its name. A click folds
+    /// it and leaves the selection and the keys where they were; only the keys select it.
     fn heading_row(&self, group: Group, cx: &Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx);
         let selected = self.on_heading.as_ref() == Some(&group) && self.shows_selection();
@@ -695,35 +695,19 @@ impl TerminalOverview {
             ),
             Group::NeedsYou => ("needs-you".to_owned(), "Needs you".to_owned()),
         };
-        let this = cx.entity().downgrade();
-        let folding = group.clone();
         let row = group_label(
             ElementId::Name(format!("overview-group-{key}").into()),
             label.clone(),
             None,
             Some(!open),
             theme,
-        )
-        .chevron_folds()
-        .on_fold_press(press_in_pane(&self.focus))
-        .on_toggle(move |_, cx| {
-            this.update(cx, |this, cx| {
-                this.on_heading = Some(folding.clone());
-                this.toggle_fold(folding.clone(), cx)
-            })
-            .ok();
-        });
+        );
         (style.draw(row, 0.))
             .aria_label(label)
             .aria_expanded(open)
-            .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
-                window.focus(&this.focus, cx);
-                this.on_heading = Some(group.clone());
-                if event.click_count() == 2 {
-                    this.toggle_fold(group.clone(), cx);
-                }
-                cx.notify();
-            }))
+            .on_click(
+                cx.listener(move |this, _: &ClickEvent, _, cx| this.toggle_fold(group.clone(), cx)),
+            )
     }
 
     /// Row `ix`, terminal `id`'s, as but-ui-react's `TerminalItem`: its name, then where it's

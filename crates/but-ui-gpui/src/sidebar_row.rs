@@ -206,7 +206,9 @@ impl SidebarRow {
         self
     }
 
-    /// Selected: the quiet fill, or with `solid` the solid one while the list holds the keys.
+    /// Selected: the quiet fill, or with `solid` the solid one while the list holds the keys. A
+    /// row that folds on its click ([`Self::row_folds`]) takes the focus ring instead, only
+    /// while the list holds the keys.
     pub fn selected(mut self, selected: bool, solid: bool) -> Self {
         self.selected = selected;
         self.solid = selected && solid;
@@ -334,7 +336,14 @@ impl SidebarRow {
         self
     }
 
-    pub fn build(self, theme: &Theme) -> Stateful<Div> {
+    pub fn build(mut self, theme: &Theme) -> Stateful<Div> {
+        // A row that folds on its click is a button, as React's GroupLabel, not an item: it
+        // takes no selection's fill, and with the keys on it, the focus ring.
+        let ringed = self.row_folds && self.solid;
+        if self.row_folds {
+            self.selected = false;
+            self.solid = false;
+        }
         // What the row's parts take their colours from: on a solid selection, each token's
         // other value.
         let flipped;
@@ -510,6 +519,7 @@ impl SidebarRow {
                 (false, false, false) if self.quiet => el,
                 (false, false, false) => el.hover(|el| el.bg(theme.hover)),
             })
+            .when(ringed, |el| el.shadow(vec![focus_ring(theme)]))
             .when(split_room, |el| el.pr(dp(end_pad + 4. + 16. + 4. + 4.)))
             .children(steps)
             .children(glyph)
