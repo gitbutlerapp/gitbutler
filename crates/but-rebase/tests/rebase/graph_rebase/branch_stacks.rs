@@ -1,6 +1,6 @@
 use anyhow::Result;
 use but_core::{RefMetadata as _, RepositoryExt as _, ref_metadata::ProjectMeta};
-use but_meta::{BranchOrderMetadata, VirtualBranchesTomlMetadata};
+use but_meta::{BranchOrderMetadata, VirtualBranchesMetadata};
 use but_rebase::graph_rebase::{Editor, Step, mutate::InsertSide, testing::Testing as _};
 use but_testsupport::{StackState, graph_tree, invoke_bash};
 use gix::prelude::ObjectIdExt as _;
@@ -25,7 +25,7 @@ fn render_stacks(stacks: &[Vec<gix::refs::FullName>]) -> String {
 
 fn branch_stacks(
     repo: &gix::Repository,
-    meta: &mut VirtualBranchesTomlMetadata,
+    meta: &mut VirtualBranchesMetadata,
     db: &mut but_db::DbHandle,
     project_meta: ProjectMeta,
     worktrees: bool,
@@ -314,7 +314,7 @@ ad hoc
 
 fn local_target_workspace(
     repo: &gix::Repository,
-    meta: &VirtualBranchesTomlMetadata,
+    meta: &VirtualBranchesMetadata,
     db: &mut but_db::DbHandle,
     project_meta: ProjectMeta,
 ) -> Result<but_graph::Workspace> {
@@ -701,10 +701,7 @@ fn materializing_rebuilds_the_workspace_stacks() -> Result<()> {
 #[test]
 fn materializing_persists_an_order_that_moves_no_reference() -> Result<()> {
     let (repo, _tmp, _meta, mut db) = fixture_writable("many-references")?;
-    let mut meta = BranchOrderMetadata::from_paths(
-        repo.path().join("virtual_branches.toml"),
-        repo.gitbutler_storage_path()?,
-    )?;
+    let mut meta = BranchOrderMetadata::from_path(repo.gitbutler_storage_path()?)?;
     let graph = but_testsupport::graph_from_head(
         &repo,
         &meta,

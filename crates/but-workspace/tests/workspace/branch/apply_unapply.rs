@@ -644,7 +644,7 @@ Outcome {
 
 mod workspace_disposition {
     use super::*;
-    use but_meta::VirtualBranchesTomlMetadata;
+    use but_meta::VirtualBranchesMetadata;
     use but_testsupport::gix_testtools::tempfile::TempDir;
 
     #[test]
@@ -1057,7 +1057,7 @@ Outcome {
     fn workspace_with_virtual_base() -> anyhow::Result<(
         TempDir,
         gix::Repository,
-        VirtualBranchesTomlMetadata,
+        VirtualBranchesMetadata,
         but_graph::Workspace,
     )> {
         let (tmp, repo, mut meta, mut db) = named_writable_scenario("ws-ref-ws-commit-two-stacks")?;
@@ -1118,7 +1118,7 @@ Outcome {
 #[test]
 fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
     let (_tmp, mut repo, _meta, mut db) = named_writable_scenario("main-with-advanced-remote")?;
-    // Because VirtualBranchesTomlMetadata does not support remotes, use InMemoryRefMetadata for
+    // Because VirtualBranchesMetadata does not support remotes, use InMemoryRefMetadata for
     // this test instead.
     let mut meta = InMemoryRefMetadata::default();
 
@@ -2464,7 +2464,7 @@ mod unapply_checked_out {
     type Scenario = (
         TempDir,
         gix::Repository,
-        but_meta::VirtualBranchesTomlMetadata,
+        but_meta::VirtualBranchesMetadata,
         but_graph::Workspace,
     );
 

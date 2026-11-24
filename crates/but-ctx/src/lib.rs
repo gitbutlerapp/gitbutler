@@ -608,10 +608,7 @@ impl Context {
     /// one unconditionally, whether or not worktree discovery is enabled.
     fn workspace_from_head(&self) -> anyhow::Result<but_graph::Workspace> {
         let repo = self.repo.get()?;
-        let meta = but_meta::BranchOrderMetadata::from_paths_read_only(
-            self.project_data_dir().join("virtual_branches.toml"),
-            self.project_data_dir(),
-        )?;
+        let meta = but_meta::BranchOrderMetadata::from_path_read_only(self.project_data_dir())?;
         let mut db = self.db.get_cache_mut()?;
         let traversal = but_graph::init::Options {
             worktrees: true,
@@ -661,10 +658,7 @@ impl Context {
         _perm: &RepoShared,
     ) -> anyhow::Result<but_graph::Workspace> {
         let repo = self.repo.get()?;
-        let meta = but_meta::BranchOrderMetadata::from_paths_read_only(
-            self.project_data_dir().join("virtual_branches.toml"),
-            self.project_data_dir(),
-        )?;
+        let meta = but_meta::BranchOrderMetadata::from_path_read_only(self.project_data_dir())?;
         let mut reference = repo.find_reference(ref_name)?;
         let tip = reference.peel_to_id()?.detach();
         let mut db = self.db.get_cache_mut()?;
@@ -754,10 +748,7 @@ impl Context {
     //            reads. For a correct implementation, this would also have to hold on to
     //            `_read_only`.
     pub fn meta(&self) -> anyhow::Result<impl but_core::RefMetadata + 'static> {
-        but_meta::BranchOrderMetadata::from_paths(
-            self.project_data_dir().join("virtual_branches.toml"),
-            self.project_data_dir(),
-        )
+        but_meta::BranchOrderMetadata::from_path(self.project_data_dir())
     }
 
     pub fn to_sync(&self) -> ThreadSafeContext {

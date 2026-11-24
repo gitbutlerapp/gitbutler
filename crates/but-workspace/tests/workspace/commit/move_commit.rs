@@ -1186,13 +1186,11 @@ fn reorder_commit_in_non_managed_workspace() -> anyhow::Result<()> {
 }
 #[test]
 fn move_mixed_main_and_worktree_commits_to_another_worktree() -> anyhow::Result<()> {
-    use but_meta::VirtualBranchesTomlMetadata;
+    use but_meta::VirtualBranchesMetadata;
     use but_testsupport::git_status_at_dir;
 
     let (repo, _tmp) = crate::utils::writable_scenario_slow("worktree-move-mixed");
-    let mut meta = std::mem::ManuallyDrop::new(VirtualBranchesTomlMetadata::from_path(
-        repo.path().join("should-never-be-written.toml"),
-    )?);
+    let mut meta = std::mem::ManuallyDrop::new(VirtualBranchesMetadata::from_path(repo.path())?);
     // Adoption already ran, so both linked worktrees are discovered as active tips.
     let mut db = but_testsupport::project_db(&repo)?;
     db.worktree_meta_mut().mark_adopted()?;

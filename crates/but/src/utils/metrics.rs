@@ -631,15 +631,11 @@ pub fn add_workspace_shape(event: &mut Event, current_dir: &Path) {
     );
 }
 
-/// The workspace as seen from `HEAD`, built without rewriting `virtual_branches.toml`,
+/// The workspace as seen from `HEAD`, built without writing branch metadata,
 /// unlike the `Context::workspace_and_db()` family.
 fn read_only_workspace(ctx: &but_ctx::Context) -> Option<but_graph::Workspace> {
     let repo = ctx.repo.get().ok()?;
-    let meta = but_meta::BranchOrderMetadata::from_paths_read_only(
-        ctx.project_data_dir().join("virtual_branches.toml"),
-        ctx.project_data_dir(),
-    )
-    .ok()?;
+    let meta = but_meta::BranchOrderMetadata::from_path_read_only(ctx.project_data_dir()).ok()?;
     let head_ref = repo.head_name().ok()?;
     let head_id = repo.head_id().ok()?.detach();
     but_graph::nosegment::workspace(

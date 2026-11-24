@@ -1,7 +1,7 @@
 //! Scenario and metadata helpers, mirroring the ones used by `but-workspace` tests.
 use but_core::ref_metadata::{ProjectMeta, StackId};
 use but_meta::{
-    VirtualBranchesTomlMetadata,
+    VirtualBranchesMetadata,
     virtual_branches_legacy_types::{Stack, StackBranch},
 };
 
@@ -11,14 +11,10 @@ pub fn named_read_only_in_memory_scenario(
     dirname: &str,
 ) -> anyhow::Result<(
     gix::Repository,
-    std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
+    std::mem::ManuallyDrop<VirtualBranchesMetadata>,
 )> {
     let repo = but_testsupport::read_only_in_memory_scenario_named(name, dirname)?;
-    let meta = VirtualBranchesTomlMetadata::from_path(
-        repo.path()
-            .join(".git")
-            .join("should-never-be-written.toml"),
-    )?;
+    let meta = VirtualBranchesMetadata::from_path(repo.path().join(".git"))?;
     Ok((repo, std::mem::ManuallyDrop::new(meta)))
 }
 
@@ -48,7 +44,7 @@ pub enum StackState {
 
 /// Add a stack whose tip is `stack_name` with `segments` below it, in the given `state`.
 pub fn add_stack_with_segments(
-    meta: &mut VirtualBranchesTomlMetadata,
+    meta: &mut VirtualBranchesMetadata,
     stack_id: u128,
     stack_name: &str,
     state: StackState,

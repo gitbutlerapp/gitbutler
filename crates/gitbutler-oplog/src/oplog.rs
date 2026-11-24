@@ -1024,9 +1024,8 @@ fn prepare_snapshot_with_target_and_refs(
         }
         // Open this read-only so there is no write-back, there should be no side-effects when
         // preparing a snapshot.
-        let mut legacy_meta = but_meta::VirtualBranchesTomlMetadata::from_path_read_only(
-            ctx.project_data_dir().join("virtual_branches.toml"),
-        )?;
+        let mut legacy_meta =
+            but_meta::VirtualBranchesMetadata::from_path_read_only(ctx.project_data_dir())?;
         // Overlay *projected* workspace metadata onto the legacy snapshot format.
         // We want the metadata to represent what's actually there.
         if let Some(workspace_meta) = ws.metadata_from_projection()? {
@@ -1360,7 +1359,7 @@ fn restore_snapshot_tree(
     let repo = ctx.repo.get()?;
     let snapshot_tree = repo.find_tree(tree_id)?;
     // Validate all metadata formats before creating the before-restore snapshot or mutating the
-    // worktree, refs, config, TOML, or database.
+    // worktree, refs, config, or database.
     let (restored_project_meta, restored_virtual_branches, restored_branch_order, restored_target) =
         snapshot_metadata(&snapshot_tree, &repo)?;
     let restored_checkout = snapshot_checkout(&snapshot_tree, &repo)?;
@@ -1543,8 +1542,8 @@ fn restore_snapshot_tree(
         None => {}
     }
 
-    but_meta::legacy_storage::write_virtual_branches_and_sync(
-        &ctx.project_data_dir().join("virtual_branches.toml"),
+    but_meta::legacy_storage::write_virtual_branches(
+        &ctx.project_data_dir(),
         &restored_virtual_branches,
     )?;
     if let Some(branch_order) = restored_branch_order {

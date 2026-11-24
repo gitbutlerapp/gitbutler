@@ -4,7 +4,7 @@ use but_core::{
     RefMetadata, RepositoryExt, WORKSPACE_REF_NAME,
     ref_metadata::{ProjectMeta, StackId, WorkspaceCommitRelation},
 };
-use but_meta::VirtualBranchesTomlMetadata;
+use but_meta::VirtualBranchesMetadata;
 #[cfg(feature = "sandbox-but-api")]
 use but_settings::AppSettings;
 use gix::bstr::ByteVec;
@@ -139,7 +139,6 @@ impl Sandbox {
             && let Ok(commit_id) = repo.rev_parse_single("origin/main")
         {
             let storage_path = repo.gitbutler_storage_path().unwrap();
-            sandbox.file(storage_path.join("virtual_branches.toml"), "[branches]\n");
             ProjectMeta {
                 target_ref: Some(
                     but_core::ref_metadata::LocalRefName::new(
@@ -229,13 +228,8 @@ impl Sandbox {
     }
 
     pub fn meta(&self) -> impl but_core::RefMetadata {
-        VirtualBranchesTomlMetadata::from_path(
-            self.open_repo()
-                .gitbutler_storage_path()
-                .unwrap()
-                .join("virtual_branches.toml"),
-        )
-        .unwrap()
+        VirtualBranchesMetadata::from_path(self.open_repo().gitbutler_storage_path().unwrap())
+            .unwrap()
     }
 
     pub fn project_meta(&self) -> ProjectMeta {

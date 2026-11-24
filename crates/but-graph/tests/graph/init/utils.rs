@@ -1,6 +1,6 @@
 use but_core::ref_metadata::{ProjectMeta, StackId};
 use but_meta::{
-    VirtualBranchesTomlMetadata,
+    VirtualBranchesMetadata,
     virtual_branches_legacy_types::{Stack, StackBranch},
 };
 use but_testsupport::gix_testtools::scripted_fixture_read_only;
@@ -9,7 +9,7 @@ pub fn read_only_in_memory_scenario(
     name: &str,
 ) -> anyhow::Result<(
     gix::Repository,
-    std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
+    std::mem::ManuallyDrop<VirtualBranchesMetadata>,
     but_db::DbHandle,
 )> {
     named_read_only_in_memory_scenario("scenarios", name)
@@ -20,7 +20,7 @@ pub fn named_read_only_in_memory_scenario(
     name: &str,
 ) -> anyhow::Result<(
     gix::Repository,
-    std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
+    std::mem::ManuallyDrop<VirtualBranchesMetadata>,
     but_db::DbHandle,
 )> {
     let repo = read_only_in_memory_scenario_named(script, name)?;
@@ -32,9 +32,8 @@ pub fn named_read_only_in_memory_scenario(
 
 pub fn in_memory_meta(
     dir: impl AsRef<std::path::Path>,
-) -> anyhow::Result<std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>> {
-    let meta =
-        VirtualBranchesTomlMetadata::from_path(dir.as_ref().join("should-never-be-written.toml"))?;
+) -> anyhow::Result<std::mem::ManuallyDrop<VirtualBranchesMetadata>> {
+    let meta = VirtualBranchesMetadata::from_path(dir.as_ref())?;
     Ok(std::mem::ManuallyDrop::new(meta))
 }
 
@@ -55,7 +54,7 @@ pub enum StackState {
     Inactive,
 }
 
-pub fn add_workspace(meta: &mut VirtualBranchesTomlMetadata) {
+pub fn add_workspace(meta: &mut VirtualBranchesMetadata) {
     add_stack(
         meta,
         usize::MAX,
@@ -65,7 +64,7 @@ pub fn add_workspace(meta: &mut VirtualBranchesTomlMetadata) {
 }
 
 pub fn add_workspace_with_target(
-    meta: &mut VirtualBranchesTomlMetadata,
+    meta: &mut VirtualBranchesMetadata,
     target_commit: impl Into<gix::ObjectId>,
 ) -> ProjectMeta {
     add_stack(
@@ -106,7 +105,7 @@ pub fn default_project_meta(repo: &gix::Repository) -> ProjectMeta {
 }
 
 pub fn add_stack(
-    meta: &mut VirtualBranchesTomlMetadata,
+    meta: &mut VirtualBranchesMetadata,
     stack_id: usize,
     stack_name: &str,
     state: StackState,
@@ -116,7 +115,7 @@ pub fn add_stack(
 
 // Add parameters as needed.
 pub fn add_stack_with_segments(
-    meta: &mut VirtualBranchesTomlMetadata,
+    meta: &mut VirtualBranchesMetadata,
     stack_id: usize,
     stack_name: &str,
     state: StackState,

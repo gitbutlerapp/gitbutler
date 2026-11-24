@@ -1,97 +1,74 @@
-//! Storage for virtual-branches metadata: the project database, plus a TOML copy for older clients.
+//! Storage for virtual-branches metadata in the project database.
 
-use std::{collections::HashMap, io::Read as _, path::Path, str::FromStr, time::UNIX_EPOCH};
+use std::{collections::HashMap, path::Path, str::FromStr};
 
-use anyhow::{Context as _, anyhow, bail};
+use anyhow::{Context as _, anyhow};
 use but_core::ref_metadata::StackId;
 use but_db::{VbStack, VbStackHead, VbState, VirtualBranchesSnapshot};
 use gitbutler_reference::{Refname, RemoteRefname};
-use sha2::{Digest, Sha256};
 
 use crate::virtual_branches_legacy_types::{Stack, StackBranch, VirtualBranches};
 
 /// Read virtual-branches state from the DB, which is the source of truth.
 ///
-/// An uninitialized DB starts empty and never imports the TOML file, which is only written for
-/// older clients.
-pub fn read_synced_virtual_branches(path: &Path) -> anyhow::Result<VirtualBranches> {
-    let mut db = db_handle_from_toml_path(path)?;
+/// An uninitialized DB starts empty.
+pub fn read_virtual_branches(storage_dir: &Path) -> anyhow::Result<VirtualBranches> {
+    let mut db = db_handle_in(storage_dir)?;
     let mut tx = db.immediate_transaction()?;
-    let state = read_or_init_vb_storage(path, &mut tx)?;
+    let state = read_or_init_vb_storage(storage_dir, &mut tx)?;
     tx.commit()?;
     Ok(state)
 }
 
-/// Write virtual-branches `vb_state` to DB and TOML, keeping sync metadata up-to-date.
-pub fn write_virtual_branches_and_sync(path: &Path, vb: &VirtualBranches) -> anyhow::Result<()> {
-    let mut db = db_handle_from_toml_path(path)?;
+/// Write virtual-branches metadata to the DB.
+pub fn write_virtual_branches(storage_dir: &Path, vb: &VirtualBranches) -> anyhow::Result<()> {
+    let mut db = db_handle_in(storage_dir)?;
     let mut tx = db.immediate_transaction()?;
-    let mut db_state = snapshot_state(path, &tx)?.unwrap_or_default().state;
-    if !db_state.initialized {
-        db_state.initialized = true;
-    }
-    let mut snapshot = legacy_to_snapshot(vb, into_db_toml_file_info(db_state))?;
-    let info = write_toml(path, vb)?;
-    info.update_last_seen_metadata_on(&mut snapshot.state);
+    let snapshot = legacy_to_snapshot(vb)?;
     persist_snapshot(&mut tx, snapshot)?;
     tx.commit()?;
     // The single choke point for metadata writes, so touching the sentinel here surfaces
-    // out-of-process writes. Read-only syncs don't route through here.
-    if let Some(storage_dir) = path.parent() {
-        but_project_handle::write_refresh_sentinel(storage_dir);
-    }
+    // out-of-process writes.
+    but_project_handle::write_refresh_sentinel(storage_dir);
     Ok(())
 }
 
 fn read_or_init_vb_storage(
-    path: &Path,
+    storage_dir: &Path,
     tx: &mut but_db::Transaction<'_>,
 ) -> anyhow::Result<VirtualBranches> {
-    let snapshot = snapshot_state(path, tx)?.unwrap_or_default();
+    let snapshot = snapshot_state(storage_dir, tx)?.unwrap_or_default();
     if snapshot.state.initialized {
         return snapshot_to_legacy(&snapshot);
     }
 
-    let mut state = snapshot.state;
-    state.initialized = true;
     let empty = VirtualBranches::default();
-    let db_snapshot = legacy_to_snapshot(&empty, into_db_toml_file_info(state))?;
+    let db_snapshot = legacy_to_snapshot(&empty)?;
     persist_snapshot(tx, db_snapshot)?;
     Ok(empty)
 }
 
-/// Fail loudly when failing to open a database as this really should work, it's just the normal
-/// meta-database after all, but have a special case for when the directory doesn't exist which is assumed
-/// to be a test.
-fn db_handle_from_toml_path(path: &Path) -> anyhow::Result<but_db::DbHandle> {
-    let Some(parent) = path.parent() else {
-        bail!(
-            "Expected TOML path to have a parent directory: {}",
-            path.display()
-        );
-    };
-
+fn db_handle_in(storage_dir: &Path) -> anyhow::Result<but_db::DbHandle> {
     // Special case: don't write into read-only test fixtures. It's bad we have to do this.
-    if path
+    if storage_dir
         .iter()
         .any(|component| component == "generated-do-not-edit")
     {
         return but_db::DbHandle::new_at_path(":memory:");
     }
 
-    match but_db::DbHandle::new_in_directory(parent) {
+    match but_db::DbHandle::new_in_directory(storage_dir) {
         Ok(db) => Ok(db),
         Err(err) => {
             tracing::warn!(
-                toml_path = %path.display(),
-                db_dir = %parent.display(),
+                db_dir = %storage_dir.display(),
                 error = ?err,
                 "Failed to open virtual-branches DB on disk, using in-memory fallback"
             );
             but_db::DbHandle::new_at_path(":memory:").with_context(|| {
                 format!(
-                    "Failed to open in-memory fallback DB for TOML at {}",
-                    path.display()
+                    "Failed to open in-memory fallback DB for {}",
+                    storage_dir.display()
                 )
             })
         }
@@ -99,12 +76,15 @@ fn db_handle_from_toml_path(path: &Path) -> anyhow::Result<but_db::DbHandle> {
 }
 
 fn snapshot_state(
-    path: &Path,
+    storage_dir: &Path,
     tx: &but_db::Transaction<'_>,
 ) -> anyhow::Result<Option<VirtualBranchesSnapshot>> {
-    tx.virtual_branches()
-        .get_snapshot()
-        .with_context(|| format!("Failed to read VB snapshot from DB near {}", path.display()))
+    tx.virtual_branches().get_snapshot().with_context(|| {
+        format!(
+            "Failed to read VB snapshot from DB in {}",
+            storage_dir.display()
+        )
+    })
 }
 
 /// We own `snapshot` to show it's not supposed to be used afterwards. When that changes, borrow it again.
@@ -116,51 +96,7 @@ fn persist_snapshot(
     Ok(())
 }
 
-fn write_toml(path: &Path, data: &VirtualBranches) -> anyhow::Result<TomlFileState> {
-    let content = toml::to_string(data)?;
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    but_utils::write(path, content.as_bytes())?;
-    // Read from a single file descriptor so mtime/hash come from the same file instance.
-    let (bytes, metadata) = read_file_bytes_and_metadata(path)?;
-    let mtime_ns = file_mtime_ns(&metadata)?;
-    Ok(TomlFileState {
-        mtime_ns,
-        sha256_hexdigest: sha256_hex_hash(&bytes),
-    })
-}
-
-/// This should work for the case where the date is before the unix epoch,
-/// but it's of course hypothetical.
-fn file_mtime_ns(metadata: &std::fs::Metadata) -> anyhow::Result<i64> {
-    let modified = metadata.modified()?;
-    let duration = modified
-        .duration_since(UNIX_EPOCH)
-        .or_else(|_| UNIX_EPOCH.duration_since(modified))
-        .context("Could not compute UNIX timestamp for TOML mtime")?;
-    i64::try_from(duration.as_nanos()).context("mtime nanos exceed i64 range")
-}
-
-fn read_file_bytes_and_metadata(path: &Path) -> std::io::Result<(Vec<u8>, std::fs::Metadata)> {
-    let mut file = std::fs::File::open(path)?;
-    let mut bytes = Vec::new();
-    file.read_to_end(&mut bytes)?;
-    let metadata = file.metadata()?;
-    Ok((bytes, metadata))
-}
-
-fn sha256_hex_hash(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
-}
-
-fn legacy_to_snapshot(
-    vb: &VirtualBranches,
-    DbTomlFileState {
-        toml_last_seen_mtime_ns,
-        toml_last_seen_sha256,
-    }: DbTomlFileState,
-) -> anyhow::Result<VirtualBranchesSnapshot> {
+fn legacy_to_snapshot(vb: &VirtualBranches) -> anyhow::Result<VirtualBranchesSnapshot> {
     let initialized = true;
     let last_pushed_base_sha = vb.last_pushed_base.map(|oid| oid.to_string());
 
@@ -241,8 +177,11 @@ fn legacy_to_snapshot(
         state: VbState {
             last_pushed_base_sha,
             initialized,
-            toml_last_seen_mtime_ns,
-            toml_last_seen_sha256,
+            // GitButler 0.19.4 to 0.23.4 import virtual_branches.toml over the database when the
+            // file looks newer than this stamp. A stamp newer than any file makes them read the
+            // database and rewrite the file from it instead.
+            toml_last_seen_mtime_ns: Some(i64::MAX),
+            toml_last_seen_sha256: None,
         },
         stacks: out_stacks,
         heads: out_heads,
@@ -374,28 +313,4 @@ fn snapshot_to_legacy(snapshot: &VirtualBranchesSnapshot) -> anyhow::Result<Virt
         branches,
         last_pushed_base,
     })
-}
-
-struct TomlFileState {
-    mtime_ns: i64,
-    sha256_hexdigest: String,
-}
-
-impl TomlFileState {
-    fn update_last_seen_metadata_on(&self, state: &mut VbState) {
-        state.toml_last_seen_mtime_ns = Some(self.mtime_ns);
-        state.toml_last_seen_sha256 = Some(self.sha256_hexdigest.clone());
-    }
-}
-
-struct DbTomlFileState {
-    toml_last_seen_mtime_ns: Option<i64>,
-    toml_last_seen_sha256: Option<String>,
-}
-
-fn into_db_toml_file_info(db_state: VbState) -> DbTomlFileState {
-    DbTomlFileState {
-        toml_last_seen_mtime_ns: db_state.toml_last_seen_mtime_ns,
-        toml_last_seen_sha256: db_state.toml_last_seen_sha256,
-    }
 }

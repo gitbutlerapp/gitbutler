@@ -12,7 +12,7 @@ pub(crate) mod with_workspace_commit;
 
 pub fn head_info(
     repo: &gix::Repository,
-    meta: &but_meta::VirtualBranchesTomlMetadata,
+    meta: &but_meta::VirtualBranchesMetadata,
     db: &mut but_db::DbHandle,
     mut opts: but_workspace::ref_info::Options,
 ) -> anyhow::Result<but_workspace::RefInfo> {
@@ -472,7 +472,7 @@ RefInfo {
 }
 
 mod utils {
-    use but_meta::VirtualBranchesTomlMetadata;
+    use but_meta::VirtualBranchesMetadata;
     use but_testsupport::gix_testtools::tempfile;
     use but_workspace::ref_info;
 
@@ -480,7 +480,7 @@ mod utils {
         name: &str,
     ) -> anyhow::Result<(
         gix::Repository,
-        std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
+        std::mem::ManuallyDrop<VirtualBranchesMetadata>,
         but_db::DbHandle,
     )> {
         named_read_only_in_memory_scenario(name, "")
@@ -491,15 +491,11 @@ mod utils {
         name: &str,
     ) -> anyhow::Result<(
         gix::Repository,
-        std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
+        std::mem::ManuallyDrop<VirtualBranchesMetadata>,
         but_db::DbHandle,
     )> {
         let repo = crate::utils::read_only_in_memory_scenario_named(script, name)?;
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            repo.path()
-                .join(".git")
-                .join("should-never-be-written.toml"),
-        )?;
+        let meta = VirtualBranchesMetadata::from_path(repo.path().join(".git"))?;
         // The fixture is shared and read-only, so its database cannot live on disk.
         let db = but_testsupport::in_memory_db();
         Ok((repo, std::mem::ManuallyDrop::new(meta), db))
@@ -511,12 +507,11 @@ mod utils {
     ) -> anyhow::Result<(
         tempfile::TempDir,
         gix::Repository,
-        VirtualBranchesTomlMetadata,
+        VirtualBranchesMetadata,
         but_db::DbHandle,
     )> {
         let (repo, tmp) = crate::utils::writable_scenario_with_args(name, args);
-        let meta =
-            VirtualBranchesTomlMetadata::from_path(repo.path().join("virtual-branches.toml"))?;
+        let meta = VirtualBranchesMetadata::from_path(repo.path())?;
         let db = but_testsupport::project_db(&repo)?;
         Ok((tmp, repo, meta, db))
     }

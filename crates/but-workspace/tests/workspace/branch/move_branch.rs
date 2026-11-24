@@ -1319,7 +1319,7 @@ mod single_branch_mode {
     use crate::utils::r;
 
     fn branch_order_meta(repo: &gix::Repository) -> anyhow::Result<BranchOrderMetadata> {
-        BranchOrderMetadata::from_paths(repo.path().join("virtual-branches.toml"), repo.path())
+        BranchOrderMetadata::from_path(repo.path())
     }
 
     fn project_meta(repo: &gix::Repository) -> but_core::ref_metadata::ProjectMeta {
@@ -1938,7 +1938,7 @@ mod worktree_lanes {
     struct Fixture {
         _tmp: but_testsupport::gix_testtools::tempfile::TempDir,
         repo: gix::Repository,
-        meta: but_meta::VirtualBranchesTomlMetadata,
+        meta: but_meta::VirtualBranchesMetadata,
         db: but_db::DbHandle,
         ws: but_graph::Workspace,
     }
@@ -2223,8 +2223,7 @@ git worktree add -q -b wt wt-dir A
         let mut fixture = workspace_with_worktree("git branch empty main")?;
         add_stack_with_segments(&mut fixture.meta, 3, "empty", StackState::InWorkspace, &[]);
         fixture.meta.write_unreconciled()?;
-        let mut meta =
-            but_meta::BranchOrderMetadata::from_paths(fixture.meta.path(), fixture.repo.path())?;
+        let mut meta = but_meta::BranchOrderMetadata::from_path(fixture.repo.path())?;
         let project_meta = fixture.ws.graph.project_meta.clone();
         fixture.ws = but_testsupport::graph_from_head(
             &fixture.repo,

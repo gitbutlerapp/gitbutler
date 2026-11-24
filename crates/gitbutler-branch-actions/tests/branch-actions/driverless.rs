@@ -6,7 +6,7 @@ use but_core::{
     },
 };
 use but_ctx::Context;
-use but_meta::VirtualBranchesTomlMetadata;
+use but_meta::VirtualBranchesMetadata;
 use but_testsupport::{gix_testtools, open_repo};
 use tempfile::TempDir;
 
@@ -105,9 +105,7 @@ fn disable_gitbutler_commit_signing(repo: &gix::Repository) -> Result<()> {
 
 fn write_workspace_metadata(repo: &gix::Repository, stacks: &[StackSpec<'_>]) -> Result<()> {
     std::fs::create_dir_all(repo.gitbutler_storage_path()?)?;
-    let mut meta = VirtualBranchesTomlMetadata::from_path(
-        repo.gitbutler_storage_path()?.join("virtual_branches.toml"),
-    )?;
+    let mut meta = VirtualBranchesMetadata::from_path(repo.gitbutler_storage_path()?)?;
     let workspace_ref = gix::refs::FullName::try_from("refs/heads/gitbutler/workspace")?;
     let mut workspace = meta.workspace(workspace_ref.as_ref())?;
     workspace.stacks = stacks

@@ -15,7 +15,7 @@ fn workspace_with_an_unnamed_lane() -> anyhow::Result<(
     but_testsupport::gix_testtools::tempfile::TempDir,
     but_graph::Graph,
     gix::Repository,
-    but_meta::VirtualBranchesTomlMetadata,
+    but_meta::VirtualBranchesMetadata,
     but_db::DbHandle,
     gix::ObjectId,
 )> {
@@ -791,13 +791,13 @@ Outcome {
         use but_core::ref_metadata::{
             StackId, WorkspaceCommitRelation::Merged, WorkspaceStack, WorkspaceStackBranch,
         };
-        use but_meta::VirtualBranchesTomlMetadata;
+        use but_meta::VirtualBranchesMetadata;
         use gix::refs::Category;
 
         use crate::ref_info::with_workspace_commit::utils::{StackState, add_stack_with_segments};
 
         pub fn add_stacks(
-            meta: &mut VirtualBranchesTomlMetadata,
+            meta: &mut VirtualBranchesMetadata,
             short_stack_names: impl IntoIterator<Item = &'static str>,
         ) {
             for (idx, stack_name) in short_stack_names.into_iter().enumerate() {

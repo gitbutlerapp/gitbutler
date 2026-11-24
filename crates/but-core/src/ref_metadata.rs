@@ -1154,8 +1154,6 @@ pub fn resolve_local_target(
             target_ref: target_ref.to_owned(),
             reason,
             track_command,
-            target_commit_id: None,
-            push_remote: None,
         })
         .context(
             but_error::Context::new(message).with_code(but_error::Code::UnresolvedLegacyTarget),
@@ -1263,16 +1261,6 @@ pub struct UnresolvedLegacyTargetRefError {
     /// makes the local branch named as [`Self::target_ref`], like main for origin/main, track it.
     /// `None` when no command can, like when the remote branch is gone too.
     pub track_command: Option<String>,
-    /// The cutoff stored with the legacy target.
-    ///
-    /// Only set when the legacy target was read from `virtual_branches.toml`, so porting can keep
-    /// it. Targets stored in Git config keep their cutoff in place.
-    pub target_commit_id: Option<gix::ObjectId>,
-    /// The push remote stored with the legacy target.
-    ///
-    /// Only set when the legacy target was read from `virtual_branches.toml`, like
-    /// [`Self::target_commit_id`].
-    pub push_remote: Option<String>,
 }
 
 impl std::fmt::Display for UnresolvedLegacyTargetRefError {

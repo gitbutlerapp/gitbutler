@@ -13,7 +13,7 @@
 use anyhow::Result;
 use but_core::ref_metadata::ProjectMeta;
 use but_graph::init::Options;
-use but_meta::VirtualBranchesTomlMetadata;
+use but_meta::VirtualBranchesMetadata;
 use but_testsupport::{gix_testtools::tempfile::TempDir, visualize_commit_graph_all};
 use but_workspace::workspace::{
     DetailedGraphWorkspace, GraphRowData, Stack, detailed_graph_workspace,
@@ -34,11 +34,7 @@ fn detailed(
     target: Option<&str>,
 ) -> Result<(gix::Repository, DetailedGraphWorkspace)> {
     let repo = crate::utils::read_only_in_memory_scenario(fixture)?;
-    let mut meta = VirtualBranchesTomlMetadata::from_path(
-        repo.path()
-            .join(".git")
-            .join("should-never-be-written.toml"),
-    )?;
+    let mut meta = VirtualBranchesMetadata::from_path(repo.path().join(".git"))?;
     let project_meta = ProjectMeta {
         target_ref: target
             .map(|name| but_core::ref_metadata::LocalRefName::new(name.try_into()?))
@@ -66,7 +62,7 @@ fn detailed_writable(
 
     target_branch: &str,
     target_rev: &str,
-    mut configure_stacks: impl FnMut(&mut VirtualBranchesTomlMetadata),
+    mut configure_stacks: impl FnMut(&mut VirtualBranchesMetadata),
 ) -> Result<(TempDir, DetailedGraphWorkspace)> {
     let (tmp, repo, mut meta, _desc, mut db) = named_writable_scenario_with_description(fixture)?;
     let target_sha = repo.rev_parse_single(target_rev)?.detach();

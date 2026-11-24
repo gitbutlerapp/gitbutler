@@ -1,5 +1,5 @@
 //! A loose collection of states that users typically encounter.
-use but_meta::VirtualBranchesTomlMetadata;
+use but_meta::VirtualBranchesMetadata;
 use but_testsupport::visualize_commit_graph_all;
 use snapbox::prelude::*;
 
@@ -778,7 +778,7 @@ pub fn scenario(
     name: &str,
 ) -> anyhow::Result<(
     gix::Repository,
-    std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
+    std::mem::ManuallyDrop<VirtualBranchesMetadata>,
     String,
     but_db::DbHandle,
 )> {
