@@ -1,12 +1,11 @@
 use gpui::{AnyElement, Context, Div, Window, div, prelude::*};
 
-use super::sidebar_rows::repository;
 use super::{Example, example, page};
 use crate::theme::Theme;
 use crate::ui::{
-    ButtonStyle, Drawer, Fold, Icon, MetaCountType, MetaStatusVariant, button, dp, drawer,
-    empty_state_tidy, group_label, icon_button, meta_count, meta_status, repo_item, terminal_item,
-    tree_guides, v_flex,
+    ButtonStyle, Drawer, Fold, Icon, MetaCountType, MetaStatusVariant, SidebarRow, button, dp,
+    drawer, empty_state_tidy, group_label, icon_button, meta_count, meta_status, repo_item,
+    terminal_item, tree_guides, v_flex,
 };
 
 /// The card a drawer holds, on the panel's ground under its row.
@@ -18,6 +17,17 @@ fn card(theme: &Theme, children: impl IntoIterator<Item = Div>) -> Div {
         .rounded(dp(theme.shape.card))
         .bg(theme.background)
         .children(children)
+}
+
+/// One project's part of the hidden projects' card, ruled off from the next across the card unless
+/// `last`, as `Drawer.stories.tsx`'s `Group`.
+fn group(theme: &Theme, last: bool, row: SidebarRow) -> Div {
+    v_flex()
+        .p(dp(8.))
+        .when(!last, |el| {
+            el.border_b_1().border_color(theme.border_subtle)
+        })
+        .child(row.build(theme))
 }
 
 /// A ghost icon button at a drawer's end, regular as React's, with its tooltip.
@@ -43,7 +53,7 @@ fn projects(theme: &Theme) -> Div {
             repo_item(name, name, theme).fold(Fold::Folded),
             |row, count| row.meta(count),
         );
-        repository(theme, last, vec![(0, row.action(show(name)))])
+        group(theme, last, row.action(show(name)))
     };
     card(
         theme,

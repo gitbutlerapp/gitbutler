@@ -1,4 +1,4 @@
-use gpui::{AnyElement, Context, Div, Window, div, prelude::*};
+use gpui::{AnyElement, Context, Div, Window, prelude::*};
 
 use super::{Example, example, page};
 use crate::navigator::authors_stack;
@@ -12,7 +12,7 @@ use crate::ui::{
 };
 
 /// A sidebar card, as the Workspace tree stories' `Card`: a machine's header over its
-/// repositories, 334 wide, in a subtle ring.
+/// repositories, a `row_divider` under it, all in one padded block, 334 wide, in a subtle ring.
 fn card(theme: &Theme, repositories: impl IntoIterator<Item = Div>) -> Div {
     let header = machine_item(
         "machine",
@@ -30,32 +30,26 @@ fn card(theme: &Theme, repositories: impl IntoIterator<Item = Div>) -> Div {
         .border_color(theme.border_subtle)
         .rounded(dp(theme.shape.card))
         .bg(theme.background)
-        .child(
-            div()
-                .p(dp(8.))
-                .border_b_1()
-                .border_color(theme.border_subtle)
-                .child(header),
-        )
+        .gap(dp(1.))
+        .p(dp(8.))
+        .child(header)
+        .child(row_divider(theme))
         .children(repositories)
 }
 
 /// One repository's rows, with their guides worked out from how deep each sits, as the stories'
-/// `Repository` does, ruled off from the next unless `last`.
+/// `Repository` does, a `row_divider` after them unless `last`.
 pub(super) fn repository(theme: &Theme, last: bool, rows: Vec<(usize, SidebarRow)>) -> Div {
     let depths: Vec<usize> = rows.iter().map(|(depth, _)| *depth).collect();
     let guides = tree_guides(&depths);
     v_flex()
         .gap(dp(1.))
-        .p(dp(8.))
-        .when(!last, |el| {
-            el.border_b_1().border_color(theme.border_subtle)
-        })
         .children(
             rows.into_iter()
                 .zip(guides)
                 .map(|((depth, row), guides)| row.depth(depth, guides).build(theme)),
         )
+        .when(!last, |el| el.child(row_divider(theme)))
 }
 
 fn age(value: &'static str, theme: &Theme) -> Div {
