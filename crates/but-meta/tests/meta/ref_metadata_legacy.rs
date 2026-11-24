@@ -1309,7 +1309,7 @@ fn vb_fixture(name: &str) -> PathBuf {
 fn write_fixture_to_db(name: &str, toml_path: &std::path::Path) -> anyhow::Result<()> {
     let vb: but_meta::virtual_branches_legacy_types::VirtualBranches =
         toml::from_str(&std::fs::read_to_string(vb_fixture(name))?)?;
-    but_meta::legacy_storage::write_virtual_branches_and_sync(toml_path, &vb)
+    but_meta::legacy_storage::write_virtual_branches(toml_path, &vb)
 }
 
 fn vb_store_rw(name: &str) -> anyhow::Result<(VirtualBranchesTomlMetadata, TempDir)> {

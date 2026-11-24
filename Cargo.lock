@@ -1958,7 +1958,6 @@ dependencies = [
  "but-project-handle",
  "but-serde",
  "but-testsupport",
- "but-utils",
  "gitbutler-reference",
  "gix",
  "hex",

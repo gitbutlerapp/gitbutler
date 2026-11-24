@@ -70,7 +70,7 @@ impl Snapshot {
                 repo,
                 self.project_workspace_if_uncached(repo, projected_workspace),
             );
-            storage::write_virtual_branches_and_sync(&self.path, &data)?;
+            storage::write_virtual_branches(&self.path, &data)?;
             self.content = data;
             self.changed_at.take();
         }
@@ -81,7 +81,7 @@ impl Snapshot {
         let res = self.write_if_changed(repo);
         if let Err(err) = res {
             tracing::error!(
-                "Could not write back changes to virtual branches toml file to '{}': {err}",
+                "Could not write back virtual branches changes for '{}': {err}",
                 self.path.display()
             );
         }
@@ -256,10 +256,10 @@ impl Snapshot {
     }
 }
 
-/// An implementation to read and write metadata from the `virtual_branches.toml` file, meant to be a short-lived item
+/// An implementation to read and write metadata from the project database, meant to be a short-lived item
 /// that is possibly written multiple times. It will write itself on drop only, and log write failures.
 ///
-/// The idea is that it's forgiving and easy to use, while helping to eventually migrate to a database.
+/// The idea is that it's forgiving and easy to use.
 #[derive(Debug)]
 pub struct VirtualBranchesTomlMetadata {
     snapshot: Snapshot,

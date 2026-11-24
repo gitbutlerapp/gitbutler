@@ -1,4 +1,4 @@
-//! Storage for virtual-branches metadata: the project database, plus a TOML copy for older clients.
+//! Storage for virtual-branches metadata in the project database.
 
 use std::{collections::HashMap, path::Path, str::FromStr};
 
@@ -11,8 +11,7 @@ use crate::virtual_branches_legacy_types::{Stack, StackBranch, VirtualBranches};
 
 /// Read virtual-branches state from the DB, which is the source of truth.
 ///
-/// An uninitialized DB starts empty and never imports the TOML file, which is only written for
-/// older clients.
+/// An uninitialized DB starts empty. The TOML file is neither read nor written.
 pub fn read_synced_virtual_branches(path: &Path) -> anyhow::Result<VirtualBranches> {
     let mut db = db_handle_from_toml_path(path)?;
     let mut tx = db.immediate_transaction()?;
@@ -21,12 +20,11 @@ pub fn read_synced_virtual_branches(path: &Path) -> anyhow::Result<VirtualBranch
     Ok(state)
 }
 
-/// Write virtual-branches `vb_state` to DB and TOML.
-pub fn write_virtual_branches_and_sync(path: &Path, vb: &VirtualBranches) -> anyhow::Result<()> {
+/// Write virtual-branches metadata to the DB.
+pub fn write_virtual_branches(path: &Path, vb: &VirtualBranches) -> anyhow::Result<()> {
     let mut db = db_handle_from_toml_path(path)?;
     let mut tx = db.immediate_transaction()?;
     let snapshot = legacy_to_snapshot(vb)?;
-    write_toml(path, vb)?;
     persist_snapshot(&mut tx, snapshot)?;
     tx.commit()?;
     // The single choke point for metadata writes, so touching the sentinel here surfaces
@@ -106,14 +104,6 @@ fn persist_snapshot(
 ) -> anyhow::Result<()> {
     tx.virtual_branches_mut()?.replace_snapshot(&snapshot)?;
     Ok(())
-}
-
-fn write_toml(path: &Path, data: &VirtualBranches) -> anyhow::Result<()> {
-    let content = toml::to_string(data)?;
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    but_utils::write(path, content.as_bytes())
 }
 
 fn legacy_to_snapshot(vb: &VirtualBranches) -> anyhow::Result<VirtualBranchesSnapshot> {

@@ -624,7 +624,8 @@ fn resolve_status_paths(env: &Sandbox) -> (Vec<String>, Vec<String>) {
     (paths("conflicted_files"), paths("resolved_files"))
 }
 
-/// The refs, HEAD, index, worktree and edit-mode metadata a refused finish must leave alone.
+/// The refs, HEAD, index, worktree, edit-mode metadata and branch metadata a refused finish
+/// must leave alone.
 fn repo_state(env: &Sandbox) -> String {
     let mut state = [
         "symbolic-ref HEAD",
@@ -634,10 +635,18 @@ fn repo_state(env: &Sandbox) -> String {
     ]
     .map(|args| env.invoke_git(args))
     .join("\n");
-    for file in ["edit_mode_metadata.toml", "virtual_branches.toml"] {
-        state += &std::fs::read_to_string(env.projects_root().join(".git/gitbutler").join(file))
-            .expect("GitButler keeps its metadata in .git/gitbutler");
-    }
+    let storage_dir = env.projects_root().join(".git/gitbutler");
+    state += &std::fs::read_to_string(storage_dir.join("edit_mode_metadata.toml"))
+        .expect("GitButler keeps its edit-mode metadata in .git/gitbutler");
+    let db = but_db::DbHandle::open_existing_read_only_in_directory(&storage_dir)
+        .expect("the project database opens read-only")
+        .expect("GitButler keeps its branch metadata in .git/gitbutler/but.sqlite");
+    state += &format!(
+        "{:?}",
+        db.virtual_branches()
+            .get_snapshot()
+            .expect("the branch metadata reads")
+    );
     state
 }
 
