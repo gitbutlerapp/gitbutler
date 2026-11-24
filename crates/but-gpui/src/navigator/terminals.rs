@@ -867,11 +867,9 @@ impl TerminalOverview {
                     app.new_terminal_in(window, cx)
                 })
             });
-        bar.child(grouping)
-            .child(new_terminal)
-            .when(!in_tab, |el| {
-                el.on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.toggle_card(cx)))
-            })
+        bar.child(grouping).child(new_terminal).when(!in_tab, |el| {
+            el.on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.toggle_card(cx)))
+        })
     }
 }
 
