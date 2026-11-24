@@ -971,7 +971,7 @@ export const Drawer: FC<
  *
  * `leadingRow` is the row that heads a card of groups, such as the docs site's Docs and Components:
  * its name a step louder, in 14 semibold, and a chevron (`folded`, `onToggleFolded`) that folds the
- * whole card away. It sits alone above the card's first group, past a hairline. Rendered as a link
+ * whole card away. It sits alone above the card's first group, past a `RowDivider`. Rendered as a link
  * it opens the card's own page, as Docs opens the overview, and only its chevron folds; with no page
  * of its own, the whole row is the button that folds.
  *

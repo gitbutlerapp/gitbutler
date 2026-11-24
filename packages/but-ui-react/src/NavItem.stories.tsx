@@ -1,6 +1,6 @@
 import { stories } from "../stories/stories.ts";
 import { useState, type FC } from "react";
-import { GroupLabel, NavItem } from "./SidebarRow.tsx";
+import { GroupLabel, NavItem, RowDivider } from "./SidebarRow.tsx";
 import { treeGuides } from "./treeGuides.ts";
 
 const core = (node: string) =>
@@ -23,7 +23,7 @@ const DocsNavigation: FC = () => {
 	const [groupFolded, setGroupFolded] = useState(false);
 	return (
 		// In a card, as every sidebar row is: never loose on a panel's ground. The leading row sits
-		// alone past a hairline, and the group under it.
+		// alone past a RowDivider, and the group under it.
 		<nav
 			aria-label="Pages"
 			style={{
@@ -33,7 +33,7 @@ const DocsNavigation: FC = () => {
 				backgroundColor: "var(--but-background)",
 			}}
 		>
-			<div style={{ padding: 8 }}>
+			<div style={{ display: "flex", flexDirection: "column", gap: 1, padding: 8 }}>
 				<NavItem
 					leadingRow
 					name="Docs"
@@ -45,49 +45,42 @@ const DocsNavigation: FC = () => {
 						<a href="#docs" />
 					}
 				/>
+				{!folded && (
+					<>
+						<RowDivider />
+						<GroupLabel
+							name="Getting started"
+							folded={groupFolded}
+							onToggleFolded={() => setGroupFolded(!groupFolded)}
+						/>
+						{!groupFolded &&
+							(
+								[
+									["Overview", "docs"],
+									["Emphasis", "bullseye"],
+									["Icons", "file-text"],
+									["Buttons", "bullet-list"],
+								] as const
+							).map(([page, icon], index, pages) => (
+								<NavItem
+									key={page}
+									name={page}
+									icon={icon}
+									depth={1}
+									guides={treeGuides([{ depth: 0 }, ...pages.map(() => ({ depth: 1 }))])[index + 1]}
+									selected={page === "Emphasis"}
+									render={
+										// oxlint-disable-next-line jsx_a11y/anchor-has-content, jsx_a11y/control-has-associated-label -- The row renders as this link, and NavItem fills it with the name.
+										<a
+											href={`#${page.toLowerCase()}`}
+											aria-current={page === "Emphasis" ? "page" : undefined}
+										/>
+									}
+								/>
+							))}
+					</>
+				)}
 			</div>
-			{!folded && (
-				<div
-					style={{
-						display: "flex",
-						flexDirection: "column",
-						gap: 1,
-						padding: 8,
-						borderTop: "1px solid var(--but-border-subtle)",
-					}}
-				>
-					<GroupLabel
-						name="Getting started"
-						folded={groupFolded}
-						onToggleFolded={() => setGroupFolded(!groupFolded)}
-					/>
-					{!groupFolded &&
-						(
-							[
-								["Overview", "docs"],
-								["Emphasis", "bullseye"],
-								["Icons", "file-text"],
-								["Buttons", "bullet-list"],
-							] as const
-						).map(([page, icon], index, pages) => (
-							<NavItem
-								key={page}
-								name={page}
-								icon={icon}
-								depth={1}
-								guides={treeGuides([{ depth: 0 }, ...pages.map(() => ({ depth: 1 }))])[index + 1]}
-								selected={page === "Emphasis"}
-								render={
-									// oxlint-disable-next-line jsx_a11y/anchor-has-content, jsx_a11y/control-has-associated-label -- The row renders as this link, and NavItem fills it with the name.
-									<a
-										href={`#${page.toLowerCase()}`}
-										aria-current={page === "Emphasis" ? "page" : undefined}
-									/>
-								}
-							/>
-						))}
-				</div>
-			)}
 		</nav>
 	);
 };
@@ -111,7 +104,7 @@ const AppearanceSettings: FC = () => {
 				backgroundColor: "var(--but-background)",
 			}}
 		>
-			<div style={{ padding: 8 }}>
+			<div style={{ display: "flex", flexDirection: "column", gap: 1, padding: 8 }}>
 				<NavItem
 					leadingRow
 					name="Appearance"
@@ -119,49 +112,42 @@ const AppearanceSettings: FC = () => {
 					folded={folded}
 					onToggleFolded={() => setFolded(!folded)}
 				/>
+				{!folded && (
+					<>
+						<RowDivider />
+						<NavItem
+							name="Radius"
+							icon="corner-large"
+							meta="Round"
+							// oxlint-disable-next-line jsx_a11y/control-has-associated-label -- The row renders as this button, and NavItem fills it with the name.
+							render={<button type="button" />}
+						/>
+						<NavItem
+							name="Theme"
+							icon="theme-light"
+							meta="Light"
+							// oxlint-disable-next-line jsx_a11y/control-has-associated-label -- The row renders as this button, and NavItem fills it with the name.
+							render={<button type="button" />}
+						/>
+						<NavItem
+							name="Color"
+							icon={
+								<span
+									style={{
+										width: 14,
+										height: 14,
+										borderRadius: "50%",
+										backgroundColor: "var(--but-teal-8)",
+									}}
+								/>
+							}
+							meta="Teal"
+							// oxlint-disable-next-line jsx_a11y/control-has-associated-label -- The row renders as this button, and NavItem fills it with the name.
+							render={<button type="button" />}
+						/>
+					</>
+				)}
 			</div>
-			{!folded && (
-				<div
-					style={{
-						display: "flex",
-						flexDirection: "column",
-						gap: 1,
-						padding: 8,
-						borderTop: "1px solid var(--but-border-subtle)",
-					}}
-				>
-					<NavItem
-						name="Radius"
-						icon="corner-large"
-						meta="Round"
-						// oxlint-disable-next-line jsx_a11y/control-has-associated-label -- The row renders as this button, and NavItem fills it with the name.
-						render={<button type="button" />}
-					/>
-					<NavItem
-						name="Theme"
-						icon="theme-light"
-						meta="Light"
-						// oxlint-disable-next-line jsx_a11y/control-has-associated-label -- The row renders as this button, and NavItem fills it with the name.
-						render={<button type="button" />}
-					/>
-					<NavItem
-						name="Color"
-						icon={
-							<span
-								style={{
-									width: 14,
-									height: 14,
-									borderRadius: "50%",
-									backgroundColor: "var(--but-teal-8)",
-								}}
-							/>
-						}
-						meta="Teal"
-						// oxlint-disable-next-line jsx_a11y/control-has-associated-label -- The row renders as this button, and NavItem fills it with the name.
-						render={<button type="button" />}
-					/>
-				</div>
-			)}
 		</nav>
 	);
 };

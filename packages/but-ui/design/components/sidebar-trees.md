@@ -11,13 +11,19 @@ sit one after another with nothing between them: each worktree's glyph starts
 its group, and its rows hang one level under it. A stack's branches sit one
 level under its `StackCaption`, with nothing around them either.
 
-**A card's header stands apart.** The `RepoItem` that heads a repository's
-card sits in the same block as the rows under it, with a `RowDivider` between:
-a faint line inset from the rows' edges, not a header section ruled off across
-the card. A machine's `MachineItem` still sits over a line across the card,
-with the card's padding on either side of it. The rows under either start at
-the top level, not a step in: the line says they belong to it, so no guide
-hangs from its chevron. Folded, the card is the header alone, with no line.
+**A card's header stands apart.** The row that heads a card, a repository's
+`RepoItem` or a machine's `MachineItem`, sits in the same block as the rows
+under it, with a `RowDivider` between: a faint line inset from the rows' edges,
+not a header section ruled off across the card. The parts of one card divide
+the same way, as a machine's repositories or a repository's machines. The rows
+under a header start at the top level, not a step in: the line says they
+belong to it, so no guide hangs from its chevron. Folded, the card is the
+header alone, with no line.
+
+**A line across the card parts a drawer's groups.** A drawer's card, as the
+hidden projects or the terminals, rules each group off from the next across the
+whole card. Inside a card, a line is always a `RowDivider`, so the two never
+read as the same.
 
 **A row folds one way.** A row that holds others shows its chevron, always, in
 a column of its own before its glyph, and the guide of the rows under it hangs
