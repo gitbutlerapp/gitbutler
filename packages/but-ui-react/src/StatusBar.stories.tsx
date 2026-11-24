@@ -204,8 +204,8 @@ export const DevButton = meta.story({
 					<UndoUpdate />
 					<Commands />
 					<Button size="small" variant="outline">
-						Build and restart
 						<Icon name="play" />
+						Build and restart
 					</Button>
 				</>
 			}

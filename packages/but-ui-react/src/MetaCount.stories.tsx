@@ -140,8 +140,7 @@ export const WithNextStep = meta.story({
 			<MetaStatus variant="working">CI</MetaStatus>
 			<Tooltip content="Push 5 commits">
 				<Button size="small" variant="info" aria-label="Push 5 commits">
-					5
-					<Icon name="arrow-up" />
+					<Icon name="arrow-up" />5
 				</Button>
 			</Tooltip>
 		</div>

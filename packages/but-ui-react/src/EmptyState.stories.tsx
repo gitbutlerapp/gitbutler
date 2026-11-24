@@ -60,12 +60,12 @@ export const Default = meta.story({
 		children: (
 			<>
 				<Button variant="gray">
-					See all
 					<Icon name="list" />
+					See all
 				</Button>
 				<Button variant="outline">
-					New branch
 					<Icon name="plus" />
+					New branch
 				</Button>
 			</>
 		),
@@ -80,8 +80,8 @@ export const OneAction = meta.story({
 		description: "Your first commit will start one",
 		children: (
 			<Button variant="outline">
-				New branch
 				<Icon name="plus" />
+				New branch
 			</Button>
 		),
 	},
@@ -105,8 +105,8 @@ export const WithoutIllustration = meta.story({
 		illustration: undefined,
 		children: (
 			<Button variant="outline">
-				New branch
 				<Icon name="plus" />
+				New branch
 			</Button>
 		),
 	},

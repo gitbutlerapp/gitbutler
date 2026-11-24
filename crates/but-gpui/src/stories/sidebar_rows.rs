@@ -65,7 +65,7 @@ fn step(id: &'static str, n: usize, style: ButtonStyle, glyph: Icon) -> AnyEleme
     button(id, n.to_string())
         .small()
         .style(style)
-        .icon_end(glyph)
+        .icon(glyph)
         .into_any_element()
 }
 

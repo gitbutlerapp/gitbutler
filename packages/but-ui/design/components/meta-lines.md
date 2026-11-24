@@ -33,7 +33,7 @@ A row's `MetaCount` keeps only the glyph and the number.
 hover and no focus, and a reader never has to guess which numbers are buttons.
 When a count has a next step, as pushing what's unpushed or updating what's
 behind, the step is a small `Button` in the count's colour in its place (`info`
-for unpushed, `warning` for behind): the number, then the count's glyph, with a
+for unpushed, `warning` for behind): the count's glyph, then the number, with a
 tooltip saying what it does ("Push 5 commits").
 
 **A narrow pane keeps what the glyph can't say.** In a pane under 640px wide, a

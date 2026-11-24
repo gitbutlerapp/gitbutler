@@ -74,6 +74,31 @@ export const Variants = meta.story({
 });
 
 /**
+ * The three sizes: `regular` at 28px for forms, toolbars and modal footers, `medium` at 24px for a
+ * dense header, and `small` at 20px inside a row or a line of text.
+ */
+export const Sizes = meta.story({
+	render: () => (
+		<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+			{(["regular", "medium", "small"] as const).map((size) => (
+				<div key={size} style={{ display: "flex", gap: 12, alignItems: "center" }}>
+					<Button variant="pop" size={size}>
+						Button
+					</Button>
+					<Button variant="outline" size={size}>
+						<Icon name="plus" />
+						New branch
+					</Button>
+					<Button variant="ghost" size={size} iconOnly aria-label="More">
+						<Icon name="kebab" />
+					</Button>
+				</div>
+			))}
+		</div>
+	),
+});
+
+/**
  * The coloured outlines, each a count's next step in a row: Push beside the unpushed count in blue,
  * Update beside what's behind in amber, Merge once checks pass in green. The number and the count's
  * glyph say what the step acts on.
@@ -82,12 +107,10 @@ export const Colours = meta.story({
 	render: () => (
 		<div style={{ display: "flex", gap: 12, alignItems: "center" }}>
 			<Button size="small" variant="info" aria-label="Push 8 commits">
-				8
-				<Icon name="arrow-up" />
+				<Icon name="arrow-up" />8
 			</Button>
 			<Button size="small" variant="warning" aria-label="Update 3 commits">
-				3
-				<Icon name="arrow-down" />
+				<Icon name="arrow-down" />3
 			</Button>
 			<Button size="small" variant="success">
 				Merge
@@ -119,12 +142,10 @@ export const ColoursOnASelection = meta.story({
 			}}
 		>
 			<Button size="small" variant="info" aria-label="Push 8 commits">
-				8
-				<Icon name="arrow-up" />
+				<Icon name="arrow-up" />8
 			</Button>
 			<Button size="small" variant="warning" aria-label="Update 3 commits">
-				3
-				<Icon name="arrow-down" />
+				<Icon name="arrow-down" />3
 			</Button>
 			<Button size="small" variant="success">
 				Merge
@@ -181,17 +202,44 @@ export const IconOnly = meta.story({
 	),
 });
 
+/**
+ * An icon before the label names the action; one after it says where the click leads: a menu, the
+ * next step, or out of the app. A filter carries both.
+ */
 export const WithIconStartAndEnd = meta.story({
 	render: () => (
-		<div style={{ display: "grid", gridTemplateColumns: "repeat(2, max-content)", gap: 12 }}>
-			<Button variant="outline">
-				<Icon name="branch" />
-				New Branch
-			</Button>
-			<Button variant="outline">
-				New Branch
-				<Icon name="branch" />
-			</Button>
+		<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+			<div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+				<Button variant="outline">
+					<Icon name="plus" />
+					New branch
+				</Button>
+				<Button variant="ghost">
+					<Icon name="refresh" />
+					Refresh
+				</Button>
+			</div>
+			<div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+				<Button variant="outline">
+					Sort by date
+					<Icon name="chevron-down" />
+				</Button>
+				<Button variant="pop">
+					Continue
+					<Icon name="arrow-right" />
+				</Button>
+				<Button variant="ghost">
+					Open on GitHub
+					<Icon name="arrow-up-right" />
+				</Button>
+			</div>
+			<div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+				<Button variant="outline">
+					<Icon name="filter" />
+					Author
+					<Icon name="chevron-down" />
+				</Button>
+			</div>
 		</div>
 	),
 });
