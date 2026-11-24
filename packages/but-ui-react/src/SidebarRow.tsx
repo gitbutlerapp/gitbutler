@@ -255,7 +255,7 @@ export const MachineItem: FC<
 		icon={<span className={styles.picture}>{icon}</span>}
 		label={
 			<>
-				<Name tooltip={tooltip} className={classes("text-14", "text-semibold", styles.name)}>
+				<Name tooltip={tooltip} className={classes("text-14", styles.name)}>
 					{name}
 				</Name>
 				<Tooltip content={statusTooltip ?? (online ? "Online" : "Offline")}>
@@ -288,7 +288,7 @@ export const RepoItem: FC<{ name: string; icon?: ReactNode } & RowProps> = ({
 		name={name}
 		icon={icon ?? <Icon name="repo" />}
 		label={
-			<Name tooltip={tooltip} className={classes("text-14", "text-semibold", styles.name)}>
+			<Name tooltip={tooltip} className={classes("text-14", styles.name)}>
 				{name}
 			</Name>
 		}
@@ -327,7 +327,7 @@ export const WorktreeItem: FC<{ name: string; main?: boolean; fork?: boolean } &
 						Fork
 					</Badge>
 				)}
-				<Name tooltip={tooltip} className={classes("text-14", "text-semibold", styles.name)}>
+				<Name tooltip={tooltip} className={classes("text-14", styles.name)}>
 					{name}
 				</Name>
 			</>
@@ -443,10 +443,7 @@ export const BranchItem: FC<
 			label={
 				<>
 					{badge}
-					<Name
-						tooltip={tooltip}
-						className={classes("text-14", "text-semibold", styles.name, styles.title)}
-					>
+					<Name tooltip={tooltip} className={classes("text-14", styles.name, styles.title)}>
 						{title}
 					</Name>
 				</>
@@ -583,7 +580,7 @@ export const UpstreamItem: FC<
 		name={`New on ${remote}`}
 		icon={<Icon name="arrow-in-box" className={styles.upstream} />}
 		label={
-			<Name tooltip={tooltip} className={classes("text-14", "text-semibold", styles.name)}>
+			<Name tooltip={tooltip} className={classes("text-14", styles.name)}>
 				New on {remote}
 			</Name>
 		}
@@ -614,7 +611,7 @@ export const UncommittedItem: FC<
 		name="Uncommitted changes"
 		icon={<Icon name="diff" />}
 		label={
-			<Name tooltip={tooltip} className={classes("text-14", "text-semibold", styles.name)}>
+			<Name tooltip={tooltip} className={classes("text-14", styles.name)}>
 				Uncommitted changes
 			</Name>
 		}
@@ -695,14 +692,11 @@ export const StackCaption: FC<
 					<Badge variant="lightGray" className={styles.badge}>
 						{count}
 					</Badge>
-					<Name
-						tooltip={tooltip}
-						className={classes("text-14", "text-semibold", styles.name, styles.word)}
-					>
+					<Name tooltip={tooltip} className={classes("text-14", styles.name, styles.word)}>
 						Stack
 					</Name>
 					{folded === true && (
-						<Name tooltip={tooltip} className={classes("text-14", "text-semibold", styles.name)}>
+						<Name tooltip={tooltip} className={classes("text-14", styles.name)}>
 							{tip}
 						</Name>
 					)}
@@ -830,7 +824,7 @@ export const TerminalItem: FC<{ name: string; place?: string } & RowProps> = ({
 		icon={<Icon name="terminal" />}
 		label={
 			<>
-				<Name tooltip={tooltip} className={classes("text-14", "text-semibold", styles.name)}>
+				<Name tooltip={tooltip} className={classes("text-14", styles.name)}>
 					{name}
 				</Name>
 				{place !== undefined && (
@@ -1017,7 +1011,7 @@ export const NavItem: FC<
 			label={
 				<Name
 					tooltip={tooltip}
-					className={classes(leadingRow ? "text-14 text-semibold" : "text-13", styles.name)}
+					className={classes(leadingRow ? "text-14" : "text-13", styles.name)}
 				>
 					{name}
 				</Name>
