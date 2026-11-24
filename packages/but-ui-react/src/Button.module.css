@@ -132,14 +132,18 @@
 	--button-hover-bg: var(--but-hover);
 }
 
-/* The edge is stronger than outline's 26%: a faint light line on the dark fill reads fainter
-   than the same dark line on a light one. */
+/* On a light page's dark inverse the edge is stronger than outline's 26%: a faint light line on
+   a dark fill reads fainter than the same dark line on a light one. A dark page keeps 26%. */
 :where(.outline-inverted) {
 	--button-edge: 1px;
 	--button-border: 1px solid color-mix(in srgb, var(--but-inverse-foreground) 45%, transparent);
 	--button-bg: transparent;
 	--button-fg: var(--but-inverse-foreground);
 	--button-hover-bg: var(--but-inverse-ghost-hover);
+
+	@container style(--scheme-dark: true) {
+		--button-border: 1px solid color-mix(in srgb, var(--but-inverse-foreground) 26%, transparent);
+	}
 }
 
 :where(.danger) {
@@ -172,13 +176,15 @@
 	--button-hover-icon-opacity: 0.9;
 
 	/* Inside a selected row on the solid fill, the opposite scheme keeps the colour: every
-	   light-dark() colour resolves to its inverted value, as Badge and MetaCount do. The edge
-	   goes to 55% there, as outline-inverted's is stronger than outline's. */
+	   light-dark() colour resolves to its inverted value, as Badge and MetaCount do. On a light
+	   page's dark fill the edge goes to 55%, as outline-inverted's is stronger there; a dark
+	   page's light fill keeps 30%. */
 	@container style(--selection-inverted: true) {
 		--button-border: 1px solid color-mix(in srgb, var(--button-fg) 55%, transparent);
 		color-scheme: dark;
 
 		@container style(--scheme-dark: true) {
+			--button-border: 1px solid color-mix(in srgb, var(--button-fg) 30%, transparent);
 			color-scheme: light;
 		}
 	}
@@ -188,13 +194,13 @@
 	--button-fg: var(--but-info-text);
 	--button-hover-bg: var(--but-info-outline-hover);
 
-	/* Blue reads darker than amber and green on the dark solid fill: its edge there is 70%, which
-	   matches theirs at 55%. On the light fill of a dark page all three match at 55%. */
+	/* Blue reads darker than amber and green on a light page's dark solid fill: its edge there is
+	   70%, which matches theirs at 55%. A dark page's light fill keeps 30%. */
 	@container style(--selection-inverted: true) {
 		--button-border: 1px solid color-mix(in srgb, var(--button-fg) 70%, transparent);
 
 		@container style(--scheme-dark: true) {
-			--button-border: 1px solid color-mix(in srgb, var(--button-fg) 55%, transparent);
+			--button-border: 1px solid color-mix(in srgb, var(--button-fg) 30%, transparent);
 		}
 	}
 }
