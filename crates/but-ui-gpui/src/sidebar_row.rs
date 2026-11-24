@@ -839,7 +839,7 @@ pub fn uncommitted_item(
         _ => MetaCountType::Uncommitted,
     };
     sidebar_row(id)
-        .icon(Icon::Diff, theme)
+        .icon(Icon::FileCopy, theme)
         .label(item_name("Uncommitted changes"))
         .count(kind, Some(count.to_string().into()), tip)
 }
