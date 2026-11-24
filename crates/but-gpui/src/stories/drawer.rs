@@ -3,9 +3,8 @@ use gpui::{AnyElement, Context, Div, Window, div, prelude::*};
 use super::{Example, example, page};
 use crate::theme::Theme;
 use crate::ui::{
-    ButtonStyle, Drawer, Fold, Icon, MetaCountType, MetaStatusVariant, SidebarRow, button, dp,
-    drawer, empty_state_tidy, group_label, icon_button, meta_count, meta_status, repo_item,
-    terminal_item, tree_guides, v_flex,
+    ButtonStyle, Drawer, Icon, MetaStatusVariant, button, dp, drawer, empty_state_tidy,
+    group_label, icon_button, meta_status, terminal_item, tree_guides, v_flex,
 };
 
 /// The card a drawer holds, on the panel's ground under its row.
