@@ -316,20 +316,8 @@ pub(super) fn drawer_bar(bar: Stateful<Div>) -> Stateful<Div> {
         .pr(dp(4.))
 }
 
-/// The group a drawer's row is, so its buttons that wait for the pointer show under it.
+/// The group a drawer's row is, so its chevron lights up under the pointer.
 const DRAWER_GROUP: &str = "navigator-drawer";
-
-/// A drawer's button that shows only while the pointer's on its row or the keys are, `held`, as
-/// but-ui-react's Drawer's `hoverActions`. Laid out all along and only painted then: GPUI paints
-/// nothing it hasn't laid out, so one shown on hover from `hidden` would abort the app.
-pub(super) fn on_hover(button: impl IntoElement, held: bool) -> Div {
-    div()
-        .flex()
-        .when(!held, |el| {
-            el.invisible().group_hover(DRAWER_GROUP, |s| s.visible())
-        })
-        .child(button)
-}
 
 /// The rule over a drawer at the navigator's foot, as but-ui-react's Drawer draws it: across the
 /// column, out of its flow, so it takes no room.
