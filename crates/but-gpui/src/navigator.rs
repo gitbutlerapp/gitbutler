@@ -2739,7 +2739,7 @@ impl Navigator {
     }
 
     /// The hidden projects' card's heading, as 🍑 But UI's: a leading row, as but-ui-react's
-    /// `NavItem`, with its chevron, its name, and how many projects it lists of how many there
+    /// `NavItem`, with its chevron, a closed eye, its name, and how many projects it lists of how many there
     /// are. The whole row folds the card, and with the keys on it it's ringed, never filled, as
     /// a drawer's row. Its menu orders and filters the projects.
     fn drawer_bar(&self, alone: bool, theme: &Theme, cx: &Context<Self>) -> impl IntoElement {
@@ -2754,6 +2754,7 @@ impl Navigator {
         // which has the keys rather than it.
         let solid = self.keys.on_head_of(&List::Rows(None));
         let row = sidebar_row("drawer-bar")
+            .icon(Icon::EyeClosed, theme)
             .label(item_name(title))
             .meta(meta_count_on(
                 MetaCountType::Repos,
