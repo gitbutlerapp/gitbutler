@@ -10,14 +10,14 @@ use std::collections::HashSet;
 use std::time::Instant;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Entity, FocusHandle, Focusable, ListAlignment, ListState,
-    MouseButton, MouseDownEvent, Role, Subscription, Window, div, list, prelude::*, relative,
+    AnyElement, App, ClickEvent, Context, ElementId, Entity, FocusHandle, Focusable, ListAlignment,
+    ListState, MouseButton, MouseDownEvent, Role, Subscription, Window, div, list, prelude::*,
 };
 
 use super::cursor::{Step, Stops, step_to};
 use super::keys::{List, NavigatorKeys};
 use super::rename::{on_terminal_name, terminal_name_input};
-use super::rows::{CARD_PADDING, GUIDE_AT as ICON_MIDDLE, ROW_LEFT};
+use super::rows::CARD_PADDING;
 use super::{
     CARD_BAR_HEIGHT, CARD_BAR_INSET, DRAWER_BLOCK, DRAWER_GAP, DRAWER_ROW, RowStyle, card_bar,
     drawer_bar, on_hover, status_mark,
@@ -33,27 +33,30 @@ use crate::palette::StatusGroup;
 use crate::state::{Axis, NavigatorPlace, Part, ProjectId, Store, TerminalGrouping};
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
-use crate::ui::Text;
 use crate::ui::fold::{Folds, Place, clipped};
 use crate::ui::text_input::TextInput;
 use crate::ui::{
-    Button, ButtonStyle, EMPTY_TIDY_HEIGHT, Icon, button, dp, empty_state_tidy, faint, field,
-    fixed, fold_button, guide, icon_button, section_label, small_icon, v_flex,
+    Button, ButtonStyle, EMPTY_TIDY_HEIGHT, Guide, Icon, button, dp, empty_state_tidy, field,
+    fixed, group_label, icon_button, press_in_pane, terminal_item, v_flex,
 };
 
 /// The room around a drawer's empty state in its card, above and below it and at its sides, as
 /// but-ui-react's Drawer stories give it.
 pub(super) const EMPTY_CARD_PADDING: (f32, f32) = (28., 16.);
 
-/// How far a heading sits in from where a row's content starts, its 14-point chevron's middle
-/// under the bar's.
-const HEADING_INDENT: f32 = ICON_MIDDLE - (ROW_LEFT + 7.);
-/// How far a terminal's row sits in, past its heading's chevron and the guide under it.
-const TERMINAL_INDENT: f32 = HEADING_INDENT + 18.;
+/// The room between two rows of the card, as but-ui-react's `TerminalGroup` sets them apart.
+const ROW_GAP: f32 = 1.;
 
-/// Where the guide down beside a status's terminals runs: under the middle of its heading's
-/// 14-point chevron.
-const GUIDE_AT: f32 = ROW_LEFT + HEADING_INDENT + 7.;
+/// The room above row `ix` of `items`, which its slot in the list holds: none over the first,
+/// a group's padding below, its hairline and the next group's padding above over a heading,
+/// as but-ui-react's `TerminalGroup`s are ruled off, and the gap between rows over the rest.
+fn room_above(items: &[Item], ix: usize) -> f32 {
+    match (ix, items.get(ix)) {
+        (0, _) | (_, None) => 0.,
+        (_, Some(Item::Heading(_))) => CARD_PADDING + 1. + CARD_PADDING,
+        (_, Some(Item::Terminal(_))) => ROW_GAP,
+    }
+}
 
 /// The statuses in the order they're listed: what wants the user first, and what's under way
 /// last, as it needs nothing until it's done.
@@ -76,8 +79,8 @@ enum Group {
 
 #[derive(Debug, Clone, PartialEq)]
 enum Item {
-    /// A heading, with how many terminals are under it.
-    Heading(Group, usize),
+    /// A group's label, as but-ui-react's `GroupLabel`.
+    Heading(Group),
     Terminal(TerminalId),
 }
 
@@ -144,7 +147,7 @@ fn items_of(
         if at.is_empty() {
             continue;
         }
-        items.push(Item::Heading(group.clone(), at.len()));
+        items.push(Item::Heading(group.clone()));
         if !shut.contains(&group) {
             items.extend(at.into_iter().map(Item::Terminal));
         }
@@ -372,19 +375,29 @@ impl TerminalOverview {
             return bar + EMPTY_CARD_PADDING.0 * 2. + EMPTY_TIDY_HEIGHT;
         }
         let row = Theme::get(cx).sizes.control;
-        let rows = match self.folds.any() {
+        let slot = |items: &[Item], ix| row + room_above(items, ix);
+        let rows: f32 = match self.folds.any() {
             true => (0..self.items.len())
                 .map(|ix| {
                     let moved = self
                         .folds
                         .moved(self.places.get(ix).and_then(Option::as_ref));
-                    moved.map_or(row, |moved| moved.shown(row))
+                    let slot = slot(&self.items, ix);
+                    moved.map_or(slot, |moved| moved.shown(slot))
                 })
                 .sum(),
-            false => self.rows(cx).len() as f32 * row,
+            false => {
+                let items = self.rows(cx);
+                (0..items.len()).map(|ix| slot(&items, ix)).sum()
+            }
         };
-        // Or the line saying there are none.
-        bar + rows.max(row) + CARD_PADDING
+        // Its card's padding above and below, as a drawer's; under its tab, below only. Or the
+        // line saying there are none.
+        let padding = match in_tab {
+            true => CARD_PADDING,
+            false => CARD_PADDING * 2.,
+        };
+        bar + rows.max(row) + padding
     }
 
     /// Draw its rows at their heights again, as the interface's scale changed.
@@ -404,28 +417,17 @@ impl TerminalOverview {
         }
         if self.hovered && !now && !regrouped {
             let store = self.store.read(cx);
-            // Those closed meanwhile go, as nothing is there to point at, and the headings
-            // count what's under each now, which moves nothing.
+            // Those closed meanwhile go, as nothing is there to point at.
             (self.items).retain(|item| match item {
                 Item::Terminal(id) => store.terminals.get(*id).is_some(),
-                Item::Heading(..) => true,
+                Item::Heading(_) => true,
             });
-            let sorted = self.sorted(cx);
-            for item in &mut self.items {
-                if let Item::Heading(group, count) = item {
-                    *count = (sorted.iter())
-                        .filter(|(_, project, status, _)| {
-                            group_of(by, project, *status).as_ref() == Some(&*group)
-                        })
-                        .count();
-                }
-            }
         } else {
             let items = self.rows(cx);
             let (items, places) = self.folds.place(
                 items,
                 |item| match item {
-                    Item::Heading(group, _) => Some(group.clone()),
+                    Item::Heading(group) => Some(group.clone()),
                     Item::Terminal(_) => None,
                 },
                 |_, item| matches!(item, Item::Terminal(_)),
@@ -466,7 +468,7 @@ impl TerminalOverview {
             Some(Step::Bar) | None => return,
         };
         match self.items.get(next) {
-            Some(Item::Heading(group, _)) => {
+            Some(Item::Heading(group)) => {
                 self.on_heading = Some(group.clone());
                 cx.notify();
             }
@@ -483,9 +485,9 @@ impl TerminalOverview {
     /// terminal `shown`.
     fn selects(&self, item: &Item, shown: Option<TerminalId>) -> bool {
         match (item, &self.on_heading) {
-            (Item::Heading(group, _), Some(on)) => group == on,
+            (Item::Heading(group), Some(on)) => group == on,
             (Item::Terminal(id), None) => Some(*id) == shown,
-            (Item::Heading(..), None) | (Item::Terminal(_), Some(_)) => false,
+            (Item::Heading(_), None) | (Item::Terminal(_), Some(_)) => false,
         }
     }
 
@@ -625,40 +627,47 @@ impl TerminalOverview {
         });
     }
 
-    /// Row `ix`, with the guide down from its heading's chevron beside a terminal's, drawn as
-    /// far as a fold moving it is open.
+    /// Row `ix` in its slot, with the room above it ([`room_above`]), drawn as far as a fold
+    /// moving it is open.
     fn render_item(&self, ix: usize, cx: &Context<Self>) -> AnyElement {
         let theme = Theme::get(cx);
+        let above = room_above(&self.items, ix);
+        let height = theme.sizes.control + above;
         let moved = self
             .folds
             .moved(self.places.get(ix).and_then(Option::as_ref));
-        let shown = moved.map(|moved| moved.shown(theme.sizes.control));
+        let shown = moved.map(|moved| moved.shown(height));
         // Under the curtain, a row isn't drawn at all.
         if shown.is_some_and(|height| height <= 0.) {
             return div().into_any_element();
         }
-        let (row, guided) = match self.items.get(ix) {
-            Some(Item::Heading(group, count)) => (
-                Some(
-                    self.heading_row(group.clone(), *count, cx)
-                        .into_any_element(),
-                ),
-                false,
+        let (row, ruled) = match self.items.get(ix) {
+            Some(Item::Heading(group)) => (
+                Some(self.heading_row(group.clone(), cx).into_any_element()),
+                ix > 0,
             ),
-            // With no headings, there's no chevron to run a guide down from.
-            Some(Item::Terminal(id)) => (
-                self.terminal_row(*id, cx),
-                self.grouped_by != TerminalGrouping::Ungrouped,
-            ),
+            Some(Item::Terminal(id)) => (self.terminal_row(ix, *id, cx), false),
             None => (None, false),
         };
-        // A list item is as wide as its content unless something stretches it.
-        let slot = div()
+        // A list item is as wide as its content unless something stretches it. A heading after
+        // another group's rows sits under the hairline that ends them, across the whole card.
+        let slot = v_flex()
             .relative()
             .w_full()
-            .h(dp(theme.sizes.control))
-            .children(row)
-            .when(guided, |el| el.child(guide(GUIDE_AT, theme)));
+            .h(dp(height))
+            .justify_end()
+            .when(ruled, |el| {
+                el.child(
+                    div()
+                        .absolute()
+                        .left_0()
+                        .right_0()
+                        .top(dp(CARD_PADDING))
+                        .h(fixed(1.))
+                        .bg(theme.border_subtle),
+                )
+            })
+            .children(row);
         match moved.zip(shown) {
             Some((moved, height)) => clipped(slot, dp(height), moved.closing)
                 .w_full()
@@ -667,9 +676,9 @@ impl TerminalOverview {
         }
     }
 
-    /// A heading, as a section's in the navigator: its chevron, which folds it, its name and
-    /// how many are under it. A double-click folds it too.
-    fn heading_row(&self, group: Group, count: usize, cx: &Context<Self>) -> impl IntoElement {
+    /// A group's heading, as but-ui-react's `GroupLabel`: its chevron, which folds it, and its
+    /// name. A double-click folds it too.
+    fn heading_row(&self, group: Group, cx: &Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx);
         let selected = self.on_heading.as_ref() == Some(&group) && self.shows_selection();
         let style = RowStyle {
@@ -678,7 +687,6 @@ impl TerminalOverview {
             ..RowStyle::plain(theme, 0.)
         };
         let open = !self.folded.contains(&group);
-        let quiet = style.quiet();
         let (key, label) = match &group {
             Group::Status(status) => (status.label().to_owned(), status.label().to_owned()),
             Group::Project(project) => (
@@ -687,24 +695,27 @@ impl TerminalOverview {
             ),
             Group::NeedsYou => ("needs-you".to_owned(), "Needs you".to_owned()),
         };
+        let this = cx.entity().downgrade();
         let folding = group.clone();
-        let toggle = move |this: &mut Self, _: &mut Window, cx: &mut Context<Self>| {
-            this.on_heading = Some(folding.clone());
-            this.toggle_fold(folding.clone(), cx)
-        };
-        let id = format!("overview-fold-{key}");
-        (style.row(format!("overview-group-{key}"), HEADING_INDENT))
-            .gap(dp(6.))
-            .pr(dp(12.))
-            .aria_label(label.clone())
+        let row = group_label(
+            ElementId::Name(format!("overview-group-{key}").into()),
+            label.clone(),
+            None,
+            Some(!open),
+            theme,
+        )
+        .chevron_folds()
+        .on_fold_press(press_in_pane(&self.focus))
+        .on_toggle(move |_, cx| {
+            this.update(cx, |this, cx| {
+                this.on_heading = Some(folding.clone());
+                this.toggle_fold(folding.clone(), cx)
+            })
+            .ok();
+        });
+        (style.draw(row, 0.))
+            .aria_label(label)
             .aria_expanded(open)
-            .child(fold_button(id, Some(open), quiet, &self.focus, cx, toggle))
-            .child(
-                (section_label(label, theme).text_color(quiet))
-                    .min_w_0()
-                    .truncate(),
-            )
-            .child(faint(count.to_string(), theme).text_color(quiet))
             .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
                 window.focus(&this.focus, cx);
                 this.on_heading = Some(group.clone());
@@ -715,10 +726,11 @@ impl TerminalOverview {
             }))
     }
 
-    /// A terminal's row, set in under its heading: what it's at, its title, and the worktree
-    /// it's open on, with its project while terminals are open on several and its heading
-    /// doesn't name it.
-    fn terminal_row(&self, id: TerminalId, cx: &Context<Self>) -> Option<AnyElement> {
+    /// Row `ix`, terminal `id`'s, as but-ui-react's `TerminalItem`: its name, then where it's
+    /// open, with its project while terminals are open on several and its heading doesn't name
+    /// it, and what it's at. Under a heading it sits a level in, on the guide down from the
+    /// heading's chevron.
+    fn terminal_row(&self, ix: usize, id: TerminalId, cx: &Context<Self>) -> Option<AnyElement> {
         let theme = Theme::get(cx);
         let store = self.store.read(cx);
         let terminal = store.terminals.all().find(|t| t.id == id)?;
@@ -729,13 +741,6 @@ impl TerminalOverview {
             selected,
             solid: selected && self.keys.on_row_of(&List::Terminals),
             ..RowStyle::plain(theme, 0.)
-        };
-        let mark = match status_mark(terminal.status, !store.hidden(), style) {
-            Some(mark) => mark.into_any_element(),
-            None => small_icon(Icon::BulletDisc)
-                .text_color(style.quiet())
-                .opacity(0.5)
-                .into_any_element(),
         };
         let worktree = match terminal.checkout {
             Checkout::Main => "Main worktree".to_owned(),
@@ -750,38 +755,28 @@ impl TerminalOverview {
             StatusGroup::of(terminal.status),
         );
         let place = match several && !matches!(group, Some(Group::Project(_))) {
-            true => format!("{} · {worktree}", project_name(store, terminal.project)),
+            true => format!("{} / {worktree}", project_name(store, terminal.project)),
             false => worktree,
         };
-        let row = style
-            .row(format!("overview-terminal-{}", id.0), TERMINAL_INDENT)
-            .child(
-                div()
-                    .flex_none()
-                    .w(dp(14.))
-                    .flex()
-                    .justify_center()
-                    .child(mark),
-            )
-            .child(match self.rename_field(id, theme) {
-                Some(field) => field,
-                None => div()
-                    .flex_grow(1.)
-                    .min_w_0()
-                    .truncate()
-                    .child(terminal.title.clone())
-                    .into_any_element(),
-            })
-            // Always there, the title giving way to it, up to a share of the row.
-            .child(
-                div()
-                    .flex_none()
-                    .max_w(relative(0.4))
-                    .truncate()
-                    .text_11()
-                    .text_color(style.quiet())
-                    .child(place),
-            )
+        let row_id = ElementId::Name(format!("overview-terminal-{}", id.0).into());
+        let row = terminal_item(row_id, terminal.title.clone(), Some(place.into()), theme);
+        let row = match self.rename_field(id, theme) {
+            Some(field) => row.rename(field),
+            None => row,
+        };
+        let row = match status_mark(terminal.status, !store.hidden(), style) {
+            Some(mark) => row.meta(mark),
+            None => row,
+        };
+        // With no headings, there's no chevron to hang a guide from.
+        let row = match group {
+            Some(_) => {
+                let last = !matches!(self.items.get(ix + 1), Some(Item::Terminal(_)));
+                row.depth(1, vec![if last { Guide::Last } else { Guide::Line }])
+            }
+            None => row,
+        };
+        let row = (style.draw(row, 0.))
             .on_click(cx.listener(move |this, _, window, cx| {
                 // In the card under its tab, which goes as the pointer does, into the terminal,
                 // as a row clicked in another tab's card hands the keys on.
@@ -956,6 +951,7 @@ impl Render for TerminalOverview {
                 // Its line dragged lower than what it holds, what's past its card is cut.
                 .overflow_hidden()
                 .when(!empty, |el| el.pb(dp(CARD_PADDING)))
+                .when(!empty && !in_tab, |el| el.pt(dp(CARD_PADDING)))
                 // Its rows in a card under the bar, as but-ui-react's Drawer holds them; the card
                 // under its tab is its edges.
                 .when(!in_tab, |el| {
@@ -1080,15 +1076,15 @@ mod tests {
                 &HashSet::new()
             ),
             [
-                Item::Heading(Group::Status(StatusGroup::Blocked), 1),
+                Item::Heading(Group::Status(StatusGroup::Blocked)),
                 Item::Terminal(TerminalId(5)),
-                Item::Heading(Group::Status(StatusGroup::Failed), 1),
+                Item::Heading(Group::Status(StatusGroup::Failed)),
                 Item::Terminal(TerminalId(4)),
-                Item::Heading(Group::Status(StatusGroup::Done), 1),
+                Item::Heading(Group::Status(StatusGroup::Done)),
                 Item::Terminal(TerminalId(3)),
-                Item::Heading(Group::Status(StatusGroup::Idle), 1),
+                Item::Heading(Group::Status(StatusGroup::Idle)),
                 Item::Terminal(TerminalId(1)),
-                Item::Heading(Group::Status(StatusGroup::Working), 2),
+                Item::Heading(Group::Status(StatusGroup::Working)),
                 Item::Terminal(TerminalId(2)),
                 Item::Terminal(TerminalId(6)),
             ],
@@ -1113,7 +1109,7 @@ mod tests {
                 &HashSet::new()
             ),
             [
-                Item::Heading(Group::Status(StatusGroup::Idle), 3),
+                Item::Heading(Group::Status(StatusGroup::Idle)),
                 Item::Terminal(TerminalId(1)),
                 Item::Terminal(TerminalId(3)),
                 Item::Terminal(TerminalId(2)),
@@ -1134,11 +1130,11 @@ mod tests {
         assert_eq!(
             items_of(terminals, TerminalGrouping::Status, &[alpha()], &shut),
             [
-                Item::Heading(Group::Status(StatusGroup::Idle), 2),
-                Item::Heading(Group::Status(StatusGroup::Working), 1),
+                Item::Heading(Group::Status(StatusGroup::Idle)),
+                Item::Heading(Group::Status(StatusGroup::Working)),
                 Item::Terminal(TerminalId(2)),
             ],
-            "a folded status lists only its heading, which still counts its terminals"
+            "a folded status lists only its heading"
         );
     }
 
@@ -1159,10 +1155,10 @@ mod tests {
                 &HashSet::new()
             ),
             [
-                Item::Heading(Group::Project(beta()), 2),
+                Item::Heading(Group::Project(beta())),
                 Item::Terminal(TerminalId(4)),
                 Item::Terminal(TerminalId(2)),
-                Item::Heading(Group::Project(alpha()), 2),
+                Item::Heading(Group::Project(alpha())),
                 Item::Terminal(TerminalId(3)),
                 Item::Terminal(TerminalId(1)),
             ],
@@ -1188,13 +1184,13 @@ mod tests {
                 &HashSet::new()
             ),
             [
-                Item::Heading(Group::NeedsYou, 3),
+                Item::Heading(Group::NeedsYou),
                 Item::Terminal(TerminalId(3)),
                 Item::Terminal(TerminalId(5)),
                 Item::Terminal(TerminalId(2)),
-                Item::Heading(Group::Project(alpha()), 1),
+                Item::Heading(Group::Project(alpha())),
                 Item::Terminal(TerminalId(1)),
-                Item::Heading(Group::Project(beta()), 1),
+                Item::Heading(Group::Project(beta())),
                 Item::Terminal(TerminalId(4)),
             ],
             "blocked, failed and done lead under one heading, the rest under their projects'"
@@ -1216,9 +1212,9 @@ mod tests {
                 &HashSet::new()
             ),
             [
-                Item::Heading(Group::NeedsYou, 1),
+                Item::Heading(Group::NeedsYou),
                 Item::Terminal(TerminalId(1)),
-                Item::Heading(Group::Project(beta()), 1),
+                Item::Heading(Group::Project(beta())),
                 Item::Terminal(TerminalId(2)),
             ],
             "alpha's only terminal is under Needs you, so alpha has no heading"

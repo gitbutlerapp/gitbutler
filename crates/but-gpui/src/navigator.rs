@@ -42,8 +42,8 @@ use crate::ui::{
     BLINK, Button, ButtonStyle, HEADER_HEIGHT, Icon, MetaCountType, Tooltip, WINDOW_CONTROLS_WIDTH,
     above_drag, blink_once, button, commit_title, count_badge, dp, empty_state_tidy, faint, field,
     field_leading, fixed, gap_divider, glow_once, guide_end_in, guide_in, h_flex, icon_at,
-    icon_button, list_row, mark_dragged, meta_count_on, plural, pulsing, review, section_label,
-    small_icon, v_flex,
+    icon_button, mark_dragged, meta_count_on, plural, pulsing, review, section_label, small_icon,
+    v_flex,
 };
 use crate::ui::{
     CommitPlace, Fold as RowFold, MetaStatusVariant, PullRequestState, SidebarRow, SplitCell,
@@ -437,18 +437,6 @@ impl<'a> RowStyle<'a> {
         }
     }
 
-    fn row(&self, id: String, indent: f32) -> Stateful<Div> {
-        let theme = self.theme;
-        let el = list_row(ElementId::Name(id.into()), self.selected, theme)
-            .group(ROW_GROUP)
-            .mx(dp(ROW_MARGIN))
-            .pl(dp(8. + indent + self.inset))
-            .when(self.solid, |el| {
-                el.bg(theme.inverse).text_color(theme.inverse_foreground)
-            });
-        self.marks(el)
-    }
-
     /// `row`, a but-ui `SidebarRow`, drawn as this style draws an item: selected as it is, its
     /// contents set in by the style's inset and `by` inside its full-width ground, and marked as
     /// [`Self::marks`] says.
@@ -508,14 +496,6 @@ impl<'a> RowStyle<'a> {
             self.theme.inverse_muted_foreground
         } else {
             self.theme.muted_foreground
-        }
-    }
-
-    /// The faintest text, as a fold's glyph, or on a solid selection its muted ink.
-    fn quiet(&self) -> Hsla {
-        match self.solid {
-            true => self.muted(),
-            false => self.theme.subtle_foreground,
         }
     }
 
