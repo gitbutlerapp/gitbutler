@@ -312,9 +312,6 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     let git2_repo = &*ctx.git2_repo.get()?;
     let repo = &*ctx.repo.get()?;
 
-    #[allow(deprecated)]
-    let old_workspace = WorkspaceTrees::from_workspace(repo, &workspace_from_workspace_ref(ctx)?)?;
-
     let head_commit = repo.head_commit()?;
     let decoded_head_commit = head_commit.decode()?;
     // Write out all the changes, including unstaged changes to a tree for re-committing
@@ -336,7 +333,7 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
         )?
     };
 
-    {
+    let old_workspace = {
         let workspace_commit_id = repo
             .find_reference(WORKSPACE_BRANCH_REF)?
             .peel_to_commit()?
@@ -356,6 +353,7 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
             false,
             but_graph::init::Options::limited().commits_limit_hint,
         )?;
+        let old_workspace = WorkspaceTrees::from_workspace(repo, &workspace)?;
         let mut editor = Editor::create(&mut workspace, &mut meta, repo, &mut db)?;
         let (target_selector, _commit) =
             editor.find_selectable_commit(edit_mode_metadata.commit_oid)?;
@@ -374,7 +372,8 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
         // because there are none (they have been written to a tree earlier in this
         // function). Therefore, use `materialize_without_checkout`.
         outcome.materialize_without_checkout()?;
-    }
+        old_workspace
+    };
     ctx.invalidate_workspace_cache()?;
 
     git2_repo
