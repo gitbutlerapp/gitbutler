@@ -1027,8 +1027,32 @@ fn palette_colors(bg: u32, fg: u32, palette: &Colors) -> (ColorTokens, Derived) 
     let muted_nested = mix(muted, muted_hover, 2.);
     let grounds = [bg, canvas, muted, muted_hover];
     let ink = if dark { 0xffffff } else { 0x000000 };
-    let soft = |hue: u32| mix(bg, hue, if dark { 0.18 } else { 0.12 });
-    let soft_hover = |hue: u32| mix(bg, hue, if dark { 0.22 } else { 0.17 });
+    // As but-ui's soft fills: each hue at one lightness, so a dark blue or magenta tints as much
+    // as a light cyan, at one opacity, and the hover 8 points past it.
+    let (soft_lightness, soft_share) = if dark { (0.85, 0.16) } else { (0.70, 0.18) };
+    let soft_base = |hue: u32| {
+        let (_, chroma, angle) = oklch(hue);
+        from_oklch(soft_lightness, chroma, angle)
+    };
+    // Green, the scheme's ANSI 2, takes less in light, as but-ui's does.
+    let ansi_green = given(2).unwrap_or(GHOSTTY_ANSI[2]);
+    let share = |hue: u32| match !dark && hue == ansi_green {
+        true => 0.14,
+        false => soft_share,
+    };
+    let soft = |hue: u32| mix(bg, soft_base(hue), share(hue));
+    let soft_hover = |hue: u32| mix(bg, soft_base(hue), share(hue) + 0.08);
+    // The neutral one is the foreground's, at least as far from the ground as the hues' are,
+    // so a scheme's dim foreground still shows; in light, a dark foreground at 10%, as but-ui's.
+    let neutral_share = if dark { soft_share } else { 0.10 };
+    let neutral_base = {
+        let (lightness, chroma, angle) = oklch(fg);
+        let lightness = match dark {
+            true => lightness.max(soft_lightness),
+            false => lightness.min(soft_lightness),
+        };
+        from_oklch(lightness, chroma, angle)
+    };
     let text_on = |from: u32, ratio: f32, also: &[u32]| {
         let grounds: Vec<u32> = grounds.iter().chain(also).copied().collect();
         (reaching(from, fg, &grounds, ratio))
@@ -1124,7 +1148,7 @@ fn palette_colors(bg: u32, fg: u32, palette: &Colors) -> (ColorTokens, Derived) 
         inverse_ghost_hover: color(bg).opacity(0.05),
         inverse_soft: color(bg).opacity(0.15),
         inverse_soft_hover: color(bg).opacity(0.22),
-        neutral_soft: veil(if dark { 0.14 } else { 0.1 }),
+        neutral_soft: color(neutral_base).opacity(neutral_share),
         primary: color(pop),
         primary_hover: color(pressed(pop)),
         primary_foreground: color(ink_on(pop)),

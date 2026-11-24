@@ -2930,7 +2930,7 @@ impl Navigator {
         if matches!(rows.get(ix), Some(Row::Empty)) {
             let add = button("drawer-empty-add-project", "Add project")
                 .small()
-                .style(ButtonStyle::Gray)
+                .style(ButtonStyle::Outline)
                 .icon(Icon::Plus)
                 .dispatch(&AddProject)
                 .into_any_element();

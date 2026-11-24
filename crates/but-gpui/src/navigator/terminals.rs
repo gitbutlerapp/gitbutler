@@ -902,7 +902,7 @@ impl Render for TerminalOverview {
                     let app = self.app.clone();
                     let new_terminal = button("overview-empty-new-terminal", "New terminal")
                         .small()
-                        .style(ButtonStyle::Gray)
+                        .style(ButtonStyle::Outline)
                         .icon(Icon::Plus)
                         .on_click(move |_, window, cx| {
                             app.update_later(window, cx, |app, window, cx| {

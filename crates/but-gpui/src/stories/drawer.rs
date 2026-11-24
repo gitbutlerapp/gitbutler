@@ -148,7 +148,7 @@ pub(super) const ITEM_EXAMPLES: [Example; 2] = [
 fn empty_card(title: &'static str, detail: &'static str, step: &'static str, theme: &Theme) -> Div {
     let step = button(step, step)
         .small()
-        .style(ButtonStyle::Gray)
+        .style(ButtonStyle::Outline)
         .icon(Icon::Plus)
         .into_any_element();
     card(
