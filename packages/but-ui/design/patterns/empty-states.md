@@ -8,7 +8,7 @@ change one and change the other.
 block stands in for a popup's rows — a picker or the command palette whose
 search found nothing — or for a card's in a sidebar, it takes `tidy`: 20 under
 the illustration, 6 between the lines, 12 above the actions, centred plainly,
-and `small` buttons. It is as tall as its content, up to 320 wide, with no inset
+and `medium` buttons. It is as tall as its content, up to 320 wide, with no inset
 of its own: the card's padding is the room around it. In a popup, `PopupEmpty`
 makes it as wide as the list and 5:2 as tall, so a popup keeps its proportions
 however wide it opens instead of holding one fixed height. Usually it
@@ -26,7 +26,7 @@ body quotes what missed (the search, the filters, or both), and the one action
 shows everything again, since the filters live in a native menu the block
 can't point at. A short strip keeps the line where its rows would be, next to
 the filter. A picker's list takes `PopupEmpty`, the `tidy` block: one line
-reporting the miss and a small "Clear search" under it that puts the caret
+reporting the miss and a medium "Clear search" under it that puts the caret
 back in the search, no drawing and no title. A list empty before anything was typed gets the cactus and says what
 that means — "Nothing left to apply" — not "found", with nothing to clear. A dropdown no wider
 than its trigger, like the commit target combobox, keeps the plain line.

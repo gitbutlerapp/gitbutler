@@ -458,7 +458,7 @@ export const PopupSearch: FC<{ onClear?: () => void } & useRender.ComponentProps
  * What a popup's list shows when it has no rows: the "Empty state" block in its `tidy` variant,
  * as wide as the list and 5:2 as tall, so the popup keeps its proportions however wide it opens.
  *
- * A search that came up empty reports the miss in `nothingFound` with a small "Clear search" under
+ * A search that came up empty reports the miss in `nothingFound` with a medium "Clear search" under
  * it, which calls `onClearSearch` — the same clear the search row's own button does, so pass that —
  * and puts the caret back in the popup's search.
  * No drawing: the line sits where the rows were, and the way back is right under it. A list with
@@ -491,7 +491,7 @@ export const PopupEmpty: FC<{
 		<EmptyState variant="tidy" description={nothingFound} className={styles.empty}>
 			<Button
 				variant="outline"
-				size="small"
+				size="medium"
 				onClick={(event) => {
 					onClearSearch();
 					focusSearch(event.currentTarget);
