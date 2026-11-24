@@ -287,8 +287,8 @@
   --but-info-hover: var(--but-blue-10);
   /* Info as a mark: an icon, a dot, a switch or a light with no text beside it, at 3:1 on background, canvas and muted. Never text; text takes info/text. */
   --but-info-mark: var(--but-blue-mark);
-  /* The info colour's faintest tint, see-through: a coloured outline button (info) under the pointer. */
-  --but-info-outline-hover: var(--but-blue-a2);
+  /* A faint see-through tint of the info colour: a coloured outline button (info) under the pointer. */
+  --but-info-outline-hover: light-dark(var(--but-blue-a3), var(--but-blue-a2));
   --but-info-soft: var(--but-blue-a3);
   /* Text and icons on info/soft. */
   --but-info-soft-foreground: var(--but-blue-11);
@@ -606,8 +606,8 @@
   --but-success-hover: var(--but-green-10);
   /* Success as a mark: an icon, a dot, a switch or a light with no text beside it, at 3:1 on background, canvas and muted. Never text; text takes success/text. */
   --but-success-mark: var(--but-green-mark);
-  /* The success colour's faintest tint, see-through: a coloured outline button (success) under the pointer. */
-  --but-success-outline-hover: var(--but-green-a2);
+  /* A faint see-through tint of the success colour: a coloured outline button (success) under the pointer. */
+  --but-success-outline-hover: light-dark(var(--but-green-a2), var(--but-green-a3));
   --but-success-soft: var(--but-green-a3);
   /* Text and icons on success/soft. */
   --but-success-soft-foreground: var(--but-green-11);
@@ -679,8 +679,8 @@
   --but-warning-hover: var(--but-amber-10);
   /* Warning as a mark: an icon, a dot, a switch or a light with no text beside it, at 3:1 on background, canvas and muted. Never text; text takes warning/text. */
   --but-warning-mark: var(--but-amber-mark);
-  /* The warning colour's faintest tint, see-through: a coloured outline button (warning) under the pointer. */
-  --but-warning-outline-hover: var(--but-amber-a2);
+  /* A faint see-through tint of the warning colour: a coloured outline button (warning) under the pointer. */
+  --but-warning-outline-hover: light-dark(var(--but-amber-a2), var(--but-amber-a3));
   --but-warning-soft: var(--but-amber-a3);
   /* Text and icons on warning/soft. */
   --but-warning-soft-foreground: var(--but-amber-11);

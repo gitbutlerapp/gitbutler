@@ -75,8 +75,10 @@ pub struct Derived {
     pub muted_hover: Hsla,
     /// `primary` with 14% of `foreground` in it: a checked box or radio under the pointer.
     pub primary_checked_hover: Hsla,
-    /// `inverse-foreground` at 26%, as `input` is `foreground` at 26%: an outline's edge on a
-    /// solid selection, as React's `outline-inverted`.
+    /// `inverse-foreground` at 35% on a dark solid selection and 26% on a light one: an
+    /// outline's edge there, as React's `outline-inverted`. Stronger than `input`'s 26% on the
+    /// dark fill only, as a faint light edge on it reads fainter than a dark edge on a light one;
+    /// 35% reads as the coloured outlines' edges do there.
     pub inverse_input: Hsla,
     /// `inverse-muted-foreground` at 40%: a tree's guide on a solid selection, as
     /// but-ui-react's `--guide-color` there.
@@ -163,7 +165,10 @@ impl Derived {
         Derived {
             muted_hover: color(mix(rgb_hex(c.muted), rgb_hex(c.muted_nested), 0.5)),
             primary_checked_hover: primary_checked_hover(c),
-            inverse_input: c.inverse_foreground.opacity(0.26),
+            inverse_input: c.inverse_foreground.opacity(match c.inverse.l < 0.5 {
+                true => 0.35,
+                false => 0.26,
+            }),
             inverse_guide: c.inverse_muted_foreground.opacity(0.4),
             joined_line_on_solid: c.inverse_foreground.opacity(0.08),
             inverse_success_text: on_inverse(c.success_text),
@@ -898,14 +903,17 @@ impl Theme {
         }
     }
 
-    /// A coloured outline button's edge: its hue's text at 30%.
+    /// A coloured outline button's edge: its hue's text at 40%, a touch stronger than
+    /// `input`'s neutral edge, as a coloured line reads fainter than a gray one.
     pub fn outline_edge(&self, hue: Hue) -> Hsla {
-        self.hue(hue).opacity(0.3)
+        self.hue(hue).opacity(0.4)
     }
 
     /// A coloured outline button's text, edge and hover on a solid selection: its hue in the
-    /// other scheme's values, as but-ui-react's Button flips its scheme there. Only info,
-    /// success and warning are coloured; anything else takes the inverted ghost's.
+    /// other scheme's values, as but-ui-react's Button flips its scheme there. On a dark fill
+    /// the edge is 55% rather than 40%, as `inverse_input` is stronger there, and blue's 70%,
+    /// as it reads darker than amber and green and so matches theirs. A light fill keeps 40%.
+    /// Only info, success and warning are coloured; anything else takes the inverted ghost's.
     pub fn outline_on_solid(&self, hue: Option<Hue>) -> (Hsla, Hsla, Hsla) {
         let flip = &self.on_solid;
         let (text, hover) = match hue {
@@ -914,11 +922,16 @@ impl Theme {
             Some(Hue::Safe) => (flip.success_text, flip.success_outline_hover),
             _ => (self.inverse_foreground, self.inverse_ghost_hover),
         };
-        (text, text.opacity(0.3), hover)
+        let edge = match (hue, self.inverse.l < 0.5) {
+            (_, false) => 0.4,
+            (Some(Hue::Blue), true) => 0.7,
+            (_, true) => 0.55,
+        };
+        (text, text.opacity(edge), hover)
     }
 
-    /// Under the pointer, a coloured outline button's ground: its hue's faintest see-through
-    /// tint, as Radix's outline buttons hover. Only info, success and warning draw one.
+    /// Under the pointer, a coloured outline button's ground: a faint see-through tint of its
+    /// hue, as Radix's outline buttons hover. Only info, success and warning draw one.
     pub fn outline_hover(&self, hue: Hue) -> Hsla {
         match hue {
             Hue::Blue => self.info_outline_hover,

@@ -100,6 +100,43 @@ export const Colours = meta.story({
 });
 
 /**
+ * The same steps on a selected row's solid fill, beside an `outline-inverted` action: the colours
+ * take the other scheme's values, and every edge is stronger than on a plain row, as a faint light
+ * line on a dark fill reads fainter than the same dark line on a light one.
+ */
+export const ColoursOnASelection = meta.story({
+	render: () => (
+		<div
+			style={{
+				["--selection-inverted" as string]: "true",
+				display: "inline-flex",
+				gap: 8,
+				alignItems: "center",
+				padding: 8,
+				borderRadius: 8,
+				backgroundColor: "var(--but-inverse)",
+				color: "var(--but-inverse-foreground)",
+			}}
+		>
+			<Button size="small" variant="info" aria-label="Push 8 commits">
+				8
+				<Icon name="arrow-up" />
+			</Button>
+			<Button size="small" variant="warning" aria-label="Update 3 commits">
+				3
+				<Icon name="arrow-down" />
+			</Button>
+			<Button size="small" variant="success">
+				Merge
+			</Button>
+			<Button size="small" variant="outline-inverted" iconOnly aria-label="Hide project">
+				<Icon name="eye" />
+			</Button>
+		</div>
+	),
+});
+
+/**
  * Danger at both strengths: soft for a destructive act in a row or a toolbar, and `danger-solid`
  * for the answer to a confirmation that destroys something.
  */

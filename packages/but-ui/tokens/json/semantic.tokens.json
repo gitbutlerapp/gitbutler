@@ -675,11 +675,11 @@
       "outline-hover": {
         "$type": "color",
         "$value": "{ramps.amber.a2}",
-        "$description": "The warning colour's faintest tint, see-through: a coloured outline button (warning) under the pointer.",
+        "$description": "A faint see-through tint of the warning colour: a coloured outline button (warning) under the pointer.",
         "$extensions": {
           "mode": {
             "light": "{ramps.amber.a2}",
-            "dark": "{ramps.amber.a2}"
+            "dark": "{ramps.amber.a3}"
           }
         }
       },
@@ -842,11 +842,11 @@
       "outline-hover": {
         "$type": "color",
         "$value": "{ramps.green.a2}",
-        "$description": "The success colour's faintest tint, see-through: a coloured outline button (success) under the pointer.",
+        "$description": "A faint see-through tint of the success colour: a coloured outline button (success) under the pointer.",
         "$extensions": {
           "mode": {
             "light": "{ramps.green.a2}",
-            "dark": "{ramps.green.a2}"
+            "dark": "{ramps.green.a3}"
           }
         }
       },
@@ -1186,11 +1186,11 @@
       },
       "outline-hover": {
         "$type": "color",
-        "$value": "{ramps.blue.a2}",
-        "$description": "The info colour's faintest tint, see-through: a coloured outline button (info) under the pointer.",
+        "$value": "{ramps.blue.a3}",
+        "$description": "A faint see-through tint of the info colour: a coloured outline button (info) under the pointer.",
         "$extensions": {
           "mode": {
-            "light": "{ramps.blue.a2}",
+            "light": "{ramps.blue.a3}",
             "dark": "{ramps.blue.a2}"
           }
         }
@@ -1962,7 +1962,7 @@
           "semantic",
           "ramps"
         ],
-        "createdAt": "2026-11-19T12:32:30.235Z"
+        "createdAt": "2026-11-24T14:50:55.179Z"
       }
     }
   }
