@@ -17,6 +17,7 @@ import {
 	MoreItem,
 	NoticeItem,
 	RepoItem,
+	RowDivider,
 	StackCaption,
 	TerminalItem,
 	UncommittedItem,
@@ -26,7 +27,7 @@ import {
 import { treeGuides, type Guides } from "../treeGuides.ts";
 
 /*
- * What the Workspace tree's stories share: the row's buttons, and the card, column and repository
+ * What the Workspace tree's stories share: the row's buttons, and the cards, column and repository
  * they stand in. Each page's own trees stay in its stories file.
  */
 /* oxlint-disable react/only-export-components -- The rows' buttons and the machine row are elements the stories drop in as they are, beside the components that hold them. */
@@ -80,6 +81,34 @@ export const Card: FC<{
 	>
 		<div style={{ padding: 8, borderBottom: "1px solid var(--but-border-subtle)" }}>{header}</div>
 		{children}
+	</section>
+);
+
+/**
+ * A repository's card: its `RepoItem` on top and a `RowDivider` under it, in the same padded
+ * block as the rows `children` holds, which get their guides as `Repository`'s do.
+ */
+export const RepoCard: FC<{ children: ReactNode; header: ReactNode; label: string }> = ({
+	children,
+	header,
+	label,
+}) => (
+	<section
+		aria-label={label}
+		style={{
+			width: 334,
+			flexShrink: 0,
+			overflow: "hidden",
+			border: "1px solid var(--but-border-subtle)",
+			borderRadius: "var(--but-radius-card)",
+			backgroundColor: "var(--but-background)",
+		}}
+	>
+		<div style={{ display: "flex", flexDirection: "column", gap: 1, padding: 8 }}>
+			{header}
+			<RowDivider />
+			{guided(children)}
+		</div>
 	</section>
 );
 

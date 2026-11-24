@@ -746,6 +746,17 @@ export const MoreItem: FC<
 	});
 
 /**
+ * A line between a card's rows, such as under the `RepoItem` that heads a repository's card: a
+ * row of its own, 14px tall, in the rows' column, with a faint line through its middle inset 6px
+ * from either side. It takes no depth or guides, and the rows after it start at the top level.
+ *
+ * @import import { RowDivider } from "@gitbutler/but-ui-react/SidebarRow.tsx";
+ */
+export const RowDivider: FC<ComponentProps<"hr">> = ({ className, ...props }) => (
+	<hr {...props} className={classes(styles.divider, className)} />
+);
+
+/**
  * The label over a group of pages in a navigation panel, such as the docs site's "Getting
  * started": its name, small and quiet, so the pages under it read first. With `folded` it is a
  * button that hides and shows them, its chevron saying which; without, it only names them. Its

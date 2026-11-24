@@ -17,7 +17,14 @@ import {
 	UpstreamItem,
 	WorktreeItem,
 } from "./SidebarRow.tsx";
-import { Card, machine, push, Repository, update } from "./story-assets/workspaceTree.tsx";
+import {
+	Card,
+	machine,
+	push,
+	RepoCard,
+	Repository,
+	update,
+} from "./story-assets/workspaceTree.tsx";
 import { treeGuides, type Guides } from "./treeGuides.ts";
 
 const core = (node: string) =>
@@ -204,7 +211,7 @@ export const ByMachine = meta.story({
 const ByRepositoryTree: FC<{ open: boolean }> = ({ open }) => {
 	const age = (value: string) => <MetaCount type="age">{value}</MetaCount>;
 	return (
-		<Repository last>
+		<>
 			<MachineItem
 				name="pavel--macbook-pro-2"
 				online
@@ -310,7 +317,7 @@ const ByRepositoryTree: FC<{ open: boolean }> = ({ open }) => {
 					</>
 				}
 			/>
-		</Repository>
+		</>
 	);
 };
 
@@ -326,12 +333,125 @@ export const ByRepository = meta.story({
 	parameters: { design: { type: "figma", url: core("4664-11724") } },
 	render: () => (
 		<div style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "flex-start" }}>
-			<Card label="but-dev" header={repository}>
+			<RepoCard label="but-dev" header={repository}>
 				<ByRepositoryTree open={false} />
-			</Card>
-			<Card label="but-dev" header={repository}>
+			</RepoCard>
+			<RepoCard label="but-dev" header={repository}>
 				<ByRepositoryTree open />
-			</Card>
+			</RepoCard>
+		</div>
+	),
+});
+
+/**
+ * The repository's row heads its card with a `RowDivider` under it, in the same block as its
+ * worktrees and branches, rather than in a header section ruled off edge to edge.
+ */
+export const DividedHeader = meta.story({
+	render: () => (
+		<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+			<RepoCard label="but-dev" header={<RepoItem name="but-dev" folded={false} />}>
+				<WorktreeItem
+					main
+					name="Main worktree"
+					folded={false}
+					meta={
+						<>
+							<MetaCount type="uncommitted">22</MetaCount>
+							{since("3d")}
+						</>
+					}
+				/>
+				<BranchItem
+					title="review-cards"
+					depth={1}
+					folded
+					meta={
+						<>
+							<MetaCount type="unpushed">8</MetaCount>
+							<MetaCount type="agent-waiting">12m</MetaCount>
+						</>
+					}
+				/>
+				<BranchItem
+					title="fix: unique cursor names"
+					pr={{ number: 454, state: "open" }}
+					depth={1}
+					folded
+					meta={
+						<>
+							<MetaStatus variant="working">CI</MetaStatus>
+							<MetaCount type="unpushed">5</MetaCount>
+							<MetaCount type="agent-working">2m</MetaCount>
+						</>
+					}
+				/>
+				<BranchItem
+					title="perf: cheaper diff stats"
+					pr={{ number: 410, state: "open" }}
+					depth={1}
+					folded={false}
+					meta={
+						<>
+							<MetaStatus variant="working">CI</MetaStatus>
+							<MetaCount type="unpushed">5</MetaCount>
+							{since("8m")}
+						</>
+					}
+				/>
+				<CommitItem message="feat: 28px hunk separator" depth={2} pushed={false} />
+				<CommitItem message="docs: handoff notes" depth={2} />
+				<CommitItem message="chore: separator tokens" depth={2} />
+				<BranchItem
+					title="feat: archive old worktrees"
+					pr={{ number: 132, state: "merged" }}
+					depth={2}
+					folded
+					meta={
+						<>
+							<MetaCount type="commits">7</MetaCount>
+							{since("2d")}
+						</>
+					}
+				/>
+				<WorktreeItem
+					name="review-ios"
+					folded={false}
+					meta={
+						<>
+							<MetaCount type="uncommitted">17</MetaCount>
+							<MetaCount type="behind">8</MetaCount>
+							{since("3d")}
+						</>
+					}
+				/>
+				<BranchItem
+					title="ios-push-handoff"
+					depth={1}
+					folded
+					meta={
+						<>
+							<MetaCount type="unpushed">4</MetaCount>
+							<MetaCount type="agent-waiting">40m</MetaCount>
+						</>
+					}
+				/>
+			</RepoCard>
+			<RepoCard
+				label="berlin-brutalism"
+				header={<RepoItem name="berlin-brutalism" folded={false} meta={since("3d")} />}
+			>
+				<BranchItem
+					title="cursor-unique-names"
+					folded
+					meta={
+						<>
+							<MetaCount type="commits">23</MetaCount>
+							{since("2h")}
+						</>
+					}
+				/>
+			</RepoCard>
 		</div>
 	),
 });
@@ -1109,14 +1229,12 @@ export const InactiveWorktrees = meta.story({
 export const Loading = meta.story({
 	parameters: { design: { type: "figma", url: core("5500-237409") } },
 	render: () => (
-		<Card label="but-dev" header={<RepoItem name="but-dev" folded={false} />}>
-			<Repository last>
-				<div aria-busy style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-					{[156, 76, 199, 116].map((width) => (
-						<LoadingItem key={width} width={width} />
-					))}
-				</div>
-			</Repository>
-		</Card>
+		<RepoCard label="but-dev" header={<RepoItem name="but-dev" folded={false} />}>
+			<div aria-busy style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+				{[156, 76, 199, 116].map((width) => (
+					<LoadingItem key={width} width={width} />
+				))}
+			</div>
+		</RepoCard>
 	),
 });
