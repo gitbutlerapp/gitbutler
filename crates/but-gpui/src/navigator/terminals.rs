@@ -919,7 +919,7 @@ impl Render for TerminalOverview {
                     let new_terminal = button("overview-empty-new-terminal", "New terminal")
                         .small()
                         .style(ButtonStyle::Gray)
-                        .icon_end(Icon::Plus)
+                        .icon(Icon::Plus)
                         .on_click(move |_, window, cx| {
                             app.update_later(window, cx, |app, window, cx| {
                                 app.new_terminal_in(window, cx)

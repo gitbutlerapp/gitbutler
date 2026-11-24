@@ -47,8 +47,8 @@ export const ApiCredential = meta.story({
 			<DescriptionListItem label="Prefix">Clear Bearer and leave blank</DescriptionListItem>
 			<DescriptionListItem label="Value">
 				<Button>
-					Create join key
 					<Icon name="key" />
+					Create join key
 				</Button>
 			</DescriptionListItem>
 		</DescriptionList>

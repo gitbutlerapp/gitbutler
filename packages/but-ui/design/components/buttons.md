@@ -66,6 +66,16 @@ button on a field's line is `regular` too, the field's height, never `small`:
 Save beside a name, Cancel and Add beside a token, the filter menu beside a
 list's filter. One inside the field, as its clear ×, is `small`, within it.
 
+**Icons: what it is before the label, where it goes after.** An icon before
+the label names the action — a plus on New branch, a refresh arrow on Refresh
+— and is read first, so a toolbar scans by its icons and a stack of buttons
+lines them up on one edge. Give a button one only when it helps the eye find
+it. An icon after the label says what the click leads to: a down chevron opens
+a menu or a picker, a right arrow goes to the next step, an up-right arrow
+leaves the app, and a shortcut's `Kbd` sits there too. A button can carry one
+of each, as a filter's funnel, its label and a chevron, but never two on one
+side, and an icon that names the action never goes after the label.
+
 **The inverted pair.** `ghost-inverted` and `outline-inverted` are for a
 button on an inverted ground — a selected row, where the text turns to
 `--but-inverse-foreground` — not for dark mode, which the tokens handle. A row can apply

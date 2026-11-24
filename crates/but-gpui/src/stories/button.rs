@@ -2,7 +2,7 @@ use gpui::{AnyElement, Context, Window, div, prelude::*};
 
 use super::{Example, example, page, section, variant};
 use crate::theme::Theme;
-use crate::ui::{Button, ButtonStyle, Icon, button, dp, h_flex, icon_button};
+use crate::ui::{Button, ButtonStyle, Icon, button, dp, h_flex, icon_button, v_flex};
 
 const STYLES: [(&str, ButtonStyle); 8] = [
     ("Ghost", ButtonStyle::Ghost),
@@ -46,12 +46,12 @@ pub(super) const EXAMPLES: [Example; 6] = [
                 .children(
                     [
                         button("colour-push", "8")
-                            .icon_end(Icon::ArrowUp)
+                            .icon(Icon::ArrowUp)
                             .style(ButtonStyle::Info)
                             .small()
                             .tooltip("Push 8 commits"),
                         button("colour-update", "3")
-                            .icon_end(Icon::ArrowDown)
+                            .icon(Icon::ArrowDown)
                             .style(ButtonStyle::Warning)
                             .small()
                             .tooltip("Update 3 commits"),
@@ -80,11 +80,11 @@ pub(super) const EXAMPLES: [Example; 6] = [
                 .children(
                     [
                         button("selected-push", "8")
-                            .icon_end(Icon::ArrowUp)
+                            .icon(Icon::ArrowUp)
                             .style(ButtonStyle::Info)
                             .tooltip("Push 8 commits"),
                         button("selected-update", "3")
-                            .icon_end(Icon::ArrowDown)
+                            .icon(Icon::ArrowDown)
                             .style(ButtonStyle::Warning)
                             .tooltip("Update 3 commits"),
                         button("selected-merge", "Merge").style(ButtonStyle::Success),
@@ -116,14 +116,44 @@ pub(super) const EXAMPLES: [Example; 6] = [
         id: "components-button--with-icon-start-and-end",
         name: "With Icon Start And End",
         draw: |_| {
-            h_flex()
+            v_flex()
                 .gap(dp(12.))
-                .child(pressable(
-                    button("icon-start", "New Branch").icon(Icon::Branch),
-                ))
-                .child(pressable(
-                    button("icon-end", "New Branch").icon_end(Icon::Branch),
-                ))
+                .child(
+                    h_flex()
+                        .gap(dp(12.))
+                        .child(pressable(
+                            button("new-branch", "New branch").icon(Icon::Plus),
+                        ))
+                        .child(pressable(
+                            button("refresh", "Refresh")
+                                .style(ButtonStyle::Ghost)
+                                .icon(Icon::Refresh),
+                        )),
+                )
+                .child(
+                    h_flex()
+                        .gap(dp(12.))
+                        .child(pressable(
+                            button("sort", "Sort by date").icon_end(Icon::ChevronDown),
+                        ))
+                        .child(pressable(
+                            button("continue", "Continue")
+                                .style(ButtonStyle::Pop)
+                                .icon_end(Icon::ArrowRight),
+                        ))
+                        .child(pressable(
+                            button("open", "Open on GitHub")
+                                .style(ButtonStyle::Ghost)
+                                .icon_end(Icon::ArrowUpRight),
+                        )),
+                )
+                .child(
+                    h_flex().child(pressable(
+                        button("filter", "Author")
+                            .icon(Icon::Filter)
+                            .icon_end(Icon::ChevronDown),
+                    )),
+                )
                 .into_any_element()
         },
     },

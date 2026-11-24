@@ -2933,7 +2933,7 @@ impl Navigator {
             let add = button("drawer-empty-add-project", "Add project")
                 .small()
                 .style(ButtonStyle::Gray)
-                .icon_end(Icon::Plus)
+                .icon(Icon::Plus)
                 .dispatch(&AddProject)
                 .into_any_element();
             return div()
@@ -3820,7 +3820,7 @@ impl Navigator {
             ElementId::Name(format!("push-{project}-{}", ref_name.as_bstr()).into()),
             n.to_string(),
         )
-        .icon_end(Icon::ArrowUp)
+        .icon(Icon::ArrowUp)
         .style(ButtonStyle::Info)
         .small()
         .inverted(style.solid)
@@ -3866,7 +3866,7 @@ impl Navigator {
             ElementId::Name(format!("update-{project}-{}", ref_name.as_bstr()).into()),
             n.to_string(),
         )
-        .icon_end(Icon::ArrowDown)
+        .icon(Icon::ArrowDown)
         .style(ButtonStyle::Warning)
         .small()
         .inverted(style.solid)
@@ -4233,7 +4233,7 @@ impl Navigator {
         // Only its worktrees behind, the workspace has no count to show.
         let update = match target.filter(|t| t.behind > 0) {
             Some(t) => button(id, t.behind.to_string())
-                .icon_end(Icon::ArrowDown)
+                .icon(Icon::ArrowDown)
                 .style(ButtonStyle::Warning)
                 .tooltip_for(
                     format!("Update with {} from {}", plural(t.behind, "commit"), t.name),

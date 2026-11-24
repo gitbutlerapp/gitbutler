@@ -211,8 +211,8 @@ export const SidebarDrawers = meta.story({
 						description="New ones open in gitbutler / Main worktree"
 					>
 						<Button variant="gray" size="small">
-							New terminal
 							<Icon name="plus" />
+							New terminal
 						</Button>
 					</EmptyState>
 				</EmptyCard>
@@ -236,8 +236,8 @@ export const Empty = meta.story({
 						description="Hide one and it waits here, or add another"
 					>
 						<Button variant="gray" size="small">
-							Add project
 							<Icon name="plus" />
+							Add project
 						</Button>
 					</EmptyState>
 				</EmptyCard>
@@ -250,8 +250,8 @@ export const Empty = meta.story({
 						description="New ones open in gitbutler / Main worktree"
 					>
 						<Button variant="gray" size="small">
-							New terminal
 							<Icon name="plus" />
+							New terminal
 						</Button>
 					</EmptyState>
 				</EmptyCard>

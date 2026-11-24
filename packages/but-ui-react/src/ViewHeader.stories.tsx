@@ -132,8 +132,7 @@ export const SpelledOut = meta.story({
 				<MetaCount type="unpushed">4 unpushed</MetaCount>
 				<Tooltip content="Update 3 commits">
 					<Button size="small" variant="warning" aria-label="Update 3 commits">
-						3
-						<Icon name="arrow-down" />
+						<Icon name="arrow-down" />3
 					</Button>
 				</Tooltip>
 			</>

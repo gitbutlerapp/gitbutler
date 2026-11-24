@@ -116,7 +116,8 @@ impl Button {
         self
     }
 
-    /// `icon` after the label, as a count's next step draws its count's glyph after its number.
+    /// `icon` after the label, for where the click leads: a chevron opens a menu, an arrow goes on
+    /// or out of the app. An icon that names the action is `icon`, before the label.
     pub fn icon_end(mut self, icon: Icon) -> Self {
         self.icon_end = Some(icon);
         self

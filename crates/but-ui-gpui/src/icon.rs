@@ -46,6 +46,7 @@ icons! {
     ArrowDown => "arrow-down",
     ArrowInBox => "arrow-in-box",
     ArrowLineDown => "arrow-line-down",
+    ArrowRight => "arrow-right",
     ArrowUp => "arrow-up",
     ArrowUpRight => "arrow-up-right",
     Bin => "bin",

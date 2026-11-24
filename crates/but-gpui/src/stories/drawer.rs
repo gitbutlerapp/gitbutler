@@ -152,7 +152,7 @@ fn empty_card(title: &'static str, detail: &'static str, step: &'static str, the
     let step = button(step, step)
         .small()
         .style(ButtonStyle::Gray)
-        .icon_end(Icon::Plus)
+        .icon(Icon::Plus)
         .into_any_element();
     card(
         theme,
