@@ -333,6 +333,7 @@ const HiddenCard: FC<{ open?: boolean; opened?: boolean }> = ({ open = false, op
 				<NavItem
 					leadingRow
 					name="Hidden projects"
+					icon="eye-closed"
 					folded={folded}
 					onToggleFolded={() => setFolded(!folded)}
 					meta={<MetaCount type="repos">24</MetaCount>}
