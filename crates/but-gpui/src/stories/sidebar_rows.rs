@@ -7,8 +7,8 @@ use crate::ui::person::author_avatar;
 use crate::ui::{
     ButtonStyle, CommitPlace, Fold, Icon, MetaCountType, MetaStatusVariant, PullRequestState,
     SidebarRow, branch_item, button, commit_item, dp, icon_at, loading_item, machine_item,
-    machine_status, meta_count, meta_status, more_item, repo_item, stack_caption, terminal_item,
-    tree_guides, uncommitted_item, upstream_item, v_flex, worktree_item,
+    machine_status, meta_count, meta_status, more_item, repo_item, row_divider, stack_caption,
+    terminal_item, tree_guides, uncommitted_item, upstream_item, v_flex, worktree_item,
 };
 
 /// A sidebar card, as the Workspace tree stories' `Card`: a machine's header over its
@@ -444,7 +444,7 @@ fn upstream(heading_open: bool, branch_open: bool, theme: &Theme) -> Div {
 }
 
 /// The stories of `SidebarRow.stories.tsx` this client can draw so far.
-pub(super) const EXAMPLES: [Example; 5] = [
+pub(super) const EXAMPLES: [Example; 6] = [
     Example {
         id: "components-sidebarrow--selection",
         name: "Selection",
@@ -484,6 +484,11 @@ pub(super) const EXAMPLES: [Example; 5] = [
         draw: |theme| loading(theme).into_any_element(),
     },
     Example {
+        id: "components-sidebarrow--divided-header",
+        name: "Divided Header",
+        draw: |theme| divided_header(theme).into_any_element(),
+    },
+    Example {
         id: "components-sidebarrow--upstream",
         name: "Upstream",
         draw: |theme| {
@@ -500,9 +505,11 @@ pub(super) const EXAMPLES: [Example; 5] = [
     },
 ];
 
-/// A repository's card while its rows load, as the `Loading` story: the header as it will be, over
-/// rows of bones, each a glyph and a name.
-fn loading(theme: &Theme) -> Div {
+/// A repository's card headed by its row, a `row_divider` under it in the same block as its rows,
+/// as the stories' `RepoCard`.
+fn repo_card(theme: &Theme, header: SidebarRow, rows: Vec<(usize, SidebarRow)>) -> Div {
+    let depths: Vec<usize> = rows.iter().map(|(depth, _)| *depth).collect();
+    let guides = tree_guides(&depths);
     v_flex()
         .w(dp(334.))
         .flex_none()
@@ -511,25 +518,165 @@ fn loading(theme: &Theme) -> Div {
         .border_color(theme.border_subtle)
         .rounded(dp(theme.shape.card))
         .bg(theme.background)
-        .child(
-            div()
-                .p(dp(8.))
-                .border_b_1()
-                .border_color(theme.border_subtle)
-                .child(
-                    repo_item("repo", "but-dev", theme)
-                        .fold(Fold::Open)
-                        .build(theme),
-                ),
+        .gap(dp(1.))
+        .p(dp(8.))
+        .child(header.build(theme))
+        .child(row_divider(theme))
+        .children(
+            rows.into_iter()
+                .zip(guides)
+                .map(|((depth, row), guides)| row.depth(depth, guides).build(theme)),
         )
-        .child(
-            v_flex().gap(dp(1.)).p(dp(8.)).children(
-                [156., 76., 199., 116.]
-                    .into_iter()
-                    .enumerate()
-                    .map(|(ix, width)| loading_item(("loading", ix), width).build(theme)),
+}
+
+/// The `DividedHeader` story: each repository's row heads its card over a `row_divider`.
+fn divided_header(theme: &Theme) -> Div {
+    let count = |kind, value: &'static str| meta_count(kind, Some(value.into()), theme);
+    let ci = || meta_status(MetaStatusVariant::Working, Some("CI".into()), theme);
+    let but_dev = vec![
+        (
+            0,
+            worktree_item("main", "Main worktree", true, false, theme)
+                .fold(Fold::Open)
+                .meta(count(MetaCountType::Uncommitted, "22"))
+                .meta(age("3d", theme)),
+        ),
+        (
+            1,
+            branch_item("review", "review-cards", None, false, false, theme)
+                .fold(Fold::Folded)
+                .meta(count(MetaCountType::Unpushed, "8"))
+                .meta(count(MetaCountType::AgentWaiting, "12m")),
+        ),
+        (
+            1,
+            branch_item(
+                "pr-454",
+                "fix: unique cursor names",
+                Some((454, PullRequestState::Open)),
+                false,
+                false,
+                theme,
+            )
+            .fold(Fold::Folded)
+            .meta(ci())
+            .meta(count(MetaCountType::Unpushed, "5"))
+            .meta(count(MetaCountType::AgentWorking, "2m")),
+        ),
+        (
+            1,
+            branch_item(
+                "pr-410",
+                "perf: cheaper diff stats",
+                Some((410, PullRequestState::Open)),
+                false,
+                false,
+                theme,
+            )
+            .fold(Fold::Open)
+            .meta(ci())
+            .meta(count(MetaCountType::Unpushed, "5"))
+            .meta(age("8m", theme)),
+        ),
+        (
+            2,
+            commit_item(
+                "c1",
+                "feat: 28px hunk separator",
+                CommitPlace::Local,
+                false,
+                false,
+                theme,
             ),
-        )
+        ),
+        (
+            2,
+            commit_item(
+                "c2",
+                "docs: handoff notes",
+                CommitPlace::Pushed,
+                false,
+                false,
+                theme,
+            ),
+        ),
+        (
+            2,
+            commit_item(
+                "c3",
+                "chore: separator tokens",
+                CommitPlace::Pushed,
+                false,
+                false,
+                theme,
+            ),
+        ),
+        (
+            2,
+            branch_item(
+                "pr-132",
+                "feat: archive old worktrees",
+                Some((132, PullRequestState::Merged)),
+                false,
+                false,
+                theme,
+            )
+            .fold(Fold::Folded)
+            .meta(count(MetaCountType::Commits, "7"))
+            .meta(age("2d", theme)),
+        ),
+        (
+            0,
+            worktree_item("review-ios", "review-ios", false, false, theme)
+                .fold(Fold::Open)
+                .meta(count(MetaCountType::Uncommitted, "17"))
+                .meta(count(MetaCountType::Behind, "8"))
+                .meta(age("3d", theme)),
+        ),
+        (
+            1,
+            branch_item("ios", "ios-push-handoff", None, false, false, theme)
+                .fold(Fold::Folded)
+                .meta(count(MetaCountType::Unpushed, "4"))
+                .meta(count(MetaCountType::AgentWaiting, "40m")),
+        ),
+    ];
+    let berlin = vec![(
+        0,
+        branch_item("cursor", "cursor-unique-names", None, false, false, theme)
+            .fold(Fold::Folded)
+            .meta(count(MetaCountType::Commits, "23"))
+            .meta(age("2h", theme)),
+    )];
+    v_flex()
+        .gap(dp(8.))
+        .child(repo_card(
+            theme,
+            repo_item("but-dev", "but-dev", theme).fold(Fold::Open),
+            but_dev,
+        ))
+        .child(repo_card(
+            theme,
+            repo_item("berlin", "berlin-brutalism", theme)
+                .fold(Fold::Open)
+                .meta(age("3d", theme)),
+            berlin,
+        ))
+}
+
+/// A repository's card while its rows load, as the `Loading` story: the header as it will be, over
+/// a `row_divider` and rows of bones, each a glyph and a name.
+fn loading(theme: &Theme) -> Div {
+    let rows = [156., 76., 199., 116.]
+        .into_iter()
+        .enumerate()
+        .map(|(ix, width)| (0, loading_item(("loading", ix), width)))
+        .collect();
+    repo_card(
+        theme,
+        repo_item("repo", "but-dev", theme).fold(Fold::Open),
+        rows,
+    )
 }
 
 /// What a terminal's program is at, as `TerminalItem.stories.tsx`'s `Statuses` gives each.

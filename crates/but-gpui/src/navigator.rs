@@ -48,7 +48,7 @@ use crate::ui::{
 use crate::ui::{
     CommitPlace, Fold as RowFold, MetaStatusVariant, PullRequestState, SidebarRow, SplitCell,
     SplitPreview, SplitTile, branch_item, commit_item, group_label, item_name, loading_item,
-    meta_status, more_item, press_in_pane, repo_item, running_count, sidebar_row,
+    meta_status, more_item, press_in_pane, repo_item, row_divider, running_count, sidebar_row,
     split_preview_map, stack_caption, terminal_item, uncommitted_item, upstream_item,
     worktree_item,
 };
@@ -1805,13 +1805,7 @@ impl Navigator {
             Some(Row::WorktreeDivider) => div().into_any_element(),
             // Only the drawer's.
             Some(Row::Empty) => div().into_any_element(),
-            // Across the card, edge to edge, as but-ui-react's card header's border.
-            Some(Row::HeaderRule(_)) => div()
-                .h(dp(HEADER_RULE))
-                .flex()
-                .items_center()
-                .child(div().w_full().h(fixed(1.)).bg(theme.border_subtle))
-                .into_any_element(),
+            Some(Row::HeaderRule(_)) => header_rule(theme),
             Some(Row::Note(text, is_error)) => note_row(text, *is_error, theme),
             // A row still loading, as but-ui-react's LoadingItem.
             Some(Row::Loading(n)) => RowStyle::plain(theme, inset)
@@ -2971,12 +2965,7 @@ impl Navigator {
                     0.,
                 )
                 .into_any_element(),
-            Some(Row::HeaderRule(_)) => div()
-                .h(dp(HEADER_RULE))
-                .flex()
-                .items_center()
-                .child(div().w_full().h(fixed(1.)).bg(theme.border_subtle))
-                .into_any_element(),
+            Some(Row::HeaderRule(_)) => header_rule(theme),
             Some(Row::More(project, ref_name, hidden)) => {
                 let key = (project.clone(), ref_name.clone());
                 RowStyle::plain(theme, inset)
@@ -4397,6 +4386,17 @@ fn past_last_row(mut above: impl Iterator<Item = f32>, slid: f32) -> f32 {
 /// How far the rest of row `ix`'s card goes on from it, down or else up, up to `room`, short of
 /// the card's last or first row: a stretch over those would show its square corners outside
 /// their round ones, which they're drawn with anyway, by the list or by [`Navigator::slid_in`].
+/// The line under a project's heading, as but-ui-react's `RowDivider` under a repository card's
+/// `RepoItem`: in the rows' column, with the pixel React leaves between rows above and below it.
+fn header_rule(theme: &Theme) -> AnyElement {
+    v_flex()
+        .h(dp(HEADER_RULE))
+        .justify_center()
+        .mx(dp(ROW_MARGIN))
+        .child(row_divider(theme))
+        .into_any_element()
+}
+
 fn card_beyond(rows: &[Row], ix: usize, down: bool, room: f32, row: f32) -> f32 {
     let (before, after) = rows.split_at(ix.min(rows.len()));
     let far = |rest: &mut dyn Iterator<Item = &Row>| {

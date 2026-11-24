@@ -17,6 +17,7 @@ use crate::backend::{
 use crate::state::{NewAt, NewCommit, ProjectEntry, ProjectId, Section, Selection, Store};
 use crate::terminal::TerminalId;
 use crate::transfer::{self, Dragged, Stop};
+use crate::ui::ROW_DIVIDER;
 use crate::ui::fold::{Folds, MOVING_ROWS};
 
 /// How wide each loading row's name is, as 🍑 But UI's loading card draws them: names of the
@@ -32,9 +33,9 @@ pub(super) const HEADING_HEIGHT: f32 = 28.;
 /// The room inside a card around its rows, as 🍑 But UI's sidebar cards have it.
 pub(super) const CARD_PADDING: f32 = 8.;
 
-/// How tall the line under a project's heading is with the room around it: the heading's
-/// padding below, the 1px line, and the padding above the card's rows.
-pub(super) const HEADER_RULE: f32 = 2. * CARD_PADDING + 1.;
+/// How tall the line under a project's heading is with the room around it: a `row_divider`, and
+/// the pixel but-ui-react leaves between rows on either side of it.
+pub(super) const HEADER_RULE: f32 = ROW_DIVIDER + 2.;
 
 /// How far a row's ground sits in from its card's sides: the card's padding.
 pub(super) const ROW_MARGIN: f32 = CARD_PADDING;
@@ -93,7 +94,7 @@ pub(super) enum Row {
     /// joins that stack rather than the next.
     Between(ProjectId),
     WorktreeDivider,
-    /// The line under a watched project's heading, across its card, which sets the heading apart
+    /// The line under a watched project's heading, a `row_divider`, which sets the heading apart
     /// from the rows under it, as 🍑 But UI's and but-ui-react's cards have their header; and
     /// whether the main worktree's rows follow it with no heading of their own.
     HeaderRule(bool),
@@ -221,7 +222,6 @@ impl Row {
             // Worktrees follow one another with nothing between, as 🍑 But UI's sidebar has
             // them; the divider stays, for what drops and moves between them.
             Row::WorktreeDivider => 0.,
-            // The heading's padding below, the line, and the card's padding above its rows.
             Row::HeaderRule(_) => HEADER_RULE,
             Row::Item(Selection::Project(_)) => HEADING_HEIGHT,
             Row::Item(_)
