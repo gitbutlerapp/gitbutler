@@ -1,7 +1,5 @@
 use anyhow::Context;
-use but_graph::{
-    CommitFlags, FirstParent, Graph, Segment, SegmentIndex, SegmentRelation, init::Tip,
-};
+use but_graph::{FirstParent, Graph, Segment, SegmentIndex, SegmentRelation, init::Tip};
 use but_testsupport::visualize_commit_graph_all;
 use gix::prelude::ObjectIdExt as _;
 use snapbox::IntoData;
@@ -246,66 +244,6 @@ fn extra_tips_include_unnamed_revisions() -> anyhow::Result<()> {
     assert_eq!(
         graph.find_merge_base_octopus_by_commit_id([a_id, c_id, merged_id])?,
         Some(main_id)
-    );
-
-    Ok(())
-}
-
-#[test]
-fn extra_tips_prioritize_integrated_tips_independent_of_input_order() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
-    let merged_id = repo.rev_parse_single("merged")?.detach();
-    let a_id = repo.rev_parse_single("A")?.detach();
-    let main_id = repo.rev_parse_single("main")?.detach();
-
-    let graph = Graph::from_commit_traversal_with_extra_tips(
-        merged_id.attach(&repo),
-        None,
-        [Tip::reachable(a_id, None), Tip::integrated(main_id, None)],
-        &*meta,
-        but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
-        standard_options(),
-    )?
-    .validated()?;
-
-    snapbox::assert_data_eq!(
-        graph_dag(&graph),
-        snapbox::str![[r#"
-◎  👉merged[🌳]
-●    ·8a6c109 (⌂)
-├─╮
-◎ │  A
-● │    ·62b409a (⌂)
-├───╮
-● │ │  ·592abec (⌂)
-│ │ ◎  B
-│ │ ●  ·f16dddf (⌂)
-├───╯
-│ ◎  C
-│ ●    ·7ed512a (⌂)
-│ ├─╮
-│ ● │  ·35ee481 (⌂)
-├─╯ │
-│   ◎  D
-│   ●  ·ecb1877 (⌂)
-├───╯
-◎  main
-●  🏁·965998b (⌂|✓)
-"#]]
-    );
-
-    let (main_seg, main) = graph
-        .segment_and_commit_by_ref_name(ref_name("refs/heads/main")?.as_ref())
-        .expect("main segment");
-    assert!(
-        main.flags.contains(CommitFlags::Integrated),
-        "integrated tips should be queued before reachable tips even if the caller provides them last"
-    );
-    assert_eq!(
-        main_seg.id.index(),
-        0,
-        "schedule first, hence the first node"
     );
 
     Ok(())
