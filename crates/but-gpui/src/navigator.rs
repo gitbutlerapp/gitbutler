@@ -39,9 +39,9 @@ use crate::ui::scrollbar::{Scroll, scrolled_in_gap};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     BLINK, Button, ButtonStyle, HEADER_HEIGHT, Icon, MetaCountType, Tooltip, WINDOW_CONTROLS_WIDTH,
-    above_drag, blink_once, button, commit_title, count_badge, dp, faint, field, field_leading,
-    fixed, focus_ring, glow_once, guide_end_in, guide_in, h_flex, icon_at, icon_button,
-    meta_count_on, plural, pulsing, review, section_label, small_icon, v_flex,
+    above_drag, blink_once, button, commit_title, count_badge, dp, empty_state_tidy, faint, field,
+    field_leading, fixed, focus_ring, glow_once, guide_end_in, guide_in, h_flex, icon_at,
+    icon_button, meta_count_on, plural, pulsing, review, section_label, small_icon, v_flex,
 };
 use crate::ui::{
     CommitPlace, Fold as RowFold, MetaStatusVariant, PullRequestState, SidebarRow, SplitCell,
@@ -84,9 +84,9 @@ pub(crate) use terminals::TerminalOverview;
 use crate::ui::Text;
 use moving::Mark;
 use rows::{
-    BETWEEN, CARD_EDGE, CARD_PADDING, COMMIT_INDENT, Drawer, Fold, HEADER_RULE, HEADING_HEIGHT,
-    LOADING_WIDTHS, ROW_LEFT, ROW_MARGIN, Row, RowKey, caption, card_ends, checkout_holds,
-    in_checkout, in_inactive, inactive_open, span_height,
+    BETWEEN, CARD_EDGE, CARD_PADDING, COMMIT_INDENT, Drawer, Fold, GONE_HEIGHT, GONE_PADDING,
+    HEADER_RULE, HEADING_HEIGHT, LOADING_WIDTHS, ROW_LEFT, ROW_MARGIN, Row, RowKey, caption,
+    card_ends, checkout_holds, in_checkout, in_inactive, inactive_open, span_height,
 };
 
 /// How far apart the cards are, as the detail's are: but-ui's `gap/stack`, the one gap between
@@ -1815,6 +1815,7 @@ impl Navigator {
             Some(Row::WorktreeDivider) => div().into_any_element(),
             Some(Row::HeaderRule(_)) => header_rule(theme),
             Some(Row::Note(text, is_error)) => note_row(text, *is_error, theme),
+            Some(Row::Gone(project)) => self.gone_row(project, theme, cx),
             // A row still loading, as but-ui-react's LoadingItem.
             Some(Row::Loading(n)) => RowStyle::plain(theme, inset)
                 .draw(
@@ -2588,6 +2589,7 @@ impl Navigator {
                 self.row
             }
             Row::HeaderRule(_) => HEADER_RULE,
+            Row::Gone(_) => GONE_HEIGHT,
             _ => 0.,
         };
         let (starts, ends) = part_ends(rows, ix);
@@ -2794,6 +2796,33 @@ impl Navigator {
             })
     }
 
+    /// Under the heading of a project whose folder or repository is gone, as 🍑 But UI's card
+    /// says so: what its error says, and Relocate folder, which points it at where it is now.
+    fn gone_row(&self, project: &ProjectId, theme: &Theme, cx: &Context<Self>) -> AnyElement {
+        let error = (self.store.read(cx).project(project))
+            .and_then(|entry| entry.error.clone())
+            .unwrap_or_default();
+        let id = project.clone();
+        let relocate = button(
+            ElementId::Name(format!("relocate-{project}").into()),
+            "Relocate folder",
+        )
+        .medium()
+        .style(ButtonStyle::Outline)
+        .icon(Icon::Folder)
+        .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+            let id = id.clone();
+            (this.app).update_later(window, cx, move |app, _, cx| app.locate_project(id, cx));
+        }))
+        .into_any_element();
+        div()
+            .h(dp(GONE_HEIGHT))
+            .py(dp(GONE_PADDING))
+            .mx(dp(ROW_MARGIN))
+            .child(empty_state_tidy("", error, [relocate], theme))
+            .into_any_element()
+    }
+
     /// Unfold project `id` in the drawer, a card of its own there over the rest, or fold it back.
     /// Not watched, it isn't loaded, so unfolding it loads it, once.
     fn toggle_in_drawer(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
@@ -2823,6 +2852,7 @@ impl Navigator {
         let el = match rows.get(ix) {
             _ if folding.is_some_and(|(height, _)| height <= 0.) => div().into_any_element(),
             Some(Row::Note(text, is_error)) => note_row(text, *is_error, theme),
+            Some(Row::Gone(project)) => self.gone_row(project, theme, cx),
             Some(Row::Item(_)) => {
                 self.drawing_drawer.set(true);
                 let item = self.render_item(rows, ix, inset, theme, cx);

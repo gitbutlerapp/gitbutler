@@ -17,8 +17,8 @@ use crate::backend::{
 use crate::state::{NewAt, NewCommit, ProjectEntry, ProjectId, Section, Selection, Store};
 use crate::terminal::TerminalId;
 use crate::transfer::{self, Dragged, Stop};
-use crate::ui::ROW_DIVIDER;
 use crate::ui::fold::{Folds, MOVING_ROWS};
+use crate::ui::{EMPTY_TIDY_DETAIL_HEIGHT, ROW_DIVIDER};
 
 /// How wide each loading row's name is, as 🍑 But UI's loading card draws them: names of the
 /// lengths a card's rows often have.
@@ -101,6 +101,9 @@ pub(super) enum Row {
     /// In a linked worktree's section, a branch its lane rests on, by the row it selects, with
     /// the checkout it's in on the first of each lane.
     RestsOn(Selection, Option<Checkout>),
+    /// Under the heading of a project whose folder or repository is gone, what its error says,
+    /// and a way to point it at where it is now, as 🍑 But UI's card says so.
+    Gone(ProjectId),
 }
 
 /// What a row is across rebuilds, for a reorder to slide it from where it was.
@@ -219,6 +222,7 @@ impl Row {
             // them; the divider stays, for what drops and moves between them.
             Row::WorktreeDivider => 0.,
             Row::HeaderRule(_) => HEADER_RULE,
+            Row::Gone(_) => GONE_HEIGHT,
             Row::Item(Selection::Project(_)) => HEADING_HEIGHT,
             Row::Item(_)
             | Row::More(..)
@@ -309,6 +313,12 @@ pub(super) struct Drawer {
     /// The folds of the projects listed, as [`Rows::folds`] has them.
     pub(super) folds: Vec<(Fold, bool, Option<usize>)>,
 }
+
+/// How tall [`Row::Gone`] is: its empty state with the room 🍑 But UI gives it above and below.
+pub(super) const GONE_HEIGHT: f32 = 2. * GONE_PADDING + EMPTY_TIDY_DETAIL_HEIGHT;
+
+/// The room above and below a missing folder's empty state, as 🍑 But UI's card has it.
+pub(super) const GONE_PADDING: f32 = 13.;
 
 /// Where an item row's content starts in its card: the row's margin and its padding, 8, as
 /// [`RowStyle::row`](super::RowStyle::row) and [`section_heading`](super::section_heading)
@@ -601,6 +611,7 @@ impl Navigator {
         let id = &entry.id;
         let Some(workspace) = &entry.workspace else {
             match &entry.error {
+                Some(_) if entry.gone => rows.push(Row::Gone(id.clone())),
                 Some(err) => rows.push(Row::Note(err.clone(), true)),
                 // Rows of bones, as many as a card often holds, so it keeps its shape while the
                 // workspace loads, as 🍑 But UI's loading card.
