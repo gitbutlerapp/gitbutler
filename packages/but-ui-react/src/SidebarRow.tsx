@@ -609,7 +609,7 @@ export const UncommittedItem: FC<
 	<Row
 		{...props}
 		name="Uncommitted changes"
-		icon={<Icon name="diff" />}
+		icon={<Icon name="file-copy" />}
 		label={
 			<Name tooltip={tooltip} className={classes("text-14", styles.name)}>
 				Uncommitted changes
