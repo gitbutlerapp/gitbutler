@@ -1,5 +1,4 @@
 use but_core::RefMetadata;
-use but_graph::Graph;
 use but_testsupport::visualize_commit_graph_all;
 
 use super::target_meta;
@@ -11,7 +10,7 @@ fn with_local_target_uses_fetch_remote() -> anyhow::Result<()> {
 
     add_workspace(&mut meta);
 
-    let ws = Graph::from_head(
+    let ws = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         target_meta(&repo),
@@ -35,7 +34,7 @@ fn with_local_target_uses_fetch_remote() -> anyhow::Result<()> {
 fn explicit_push_remote_overrides_target_fetch_remote() -> anyhow::Result<()> {
     let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
     add_workspace(&mut meta);
-    let mut ws = Graph::from_head(
+    let mut ws = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         target_meta(&repo),
@@ -57,7 +56,7 @@ fn explicit_push_remote_overrides_target_fetch_remote() -> anyhow::Result<()> {
 fn unconfigured_target_uses_projected_upstream_remote() -> anyhow::Result<()> {
     let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
     add_workspace(&mut meta);
-    let mut ws = Graph::from_head(
+    let mut ws = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         target_meta(&repo),
@@ -83,7 +82,7 @@ fn unconfigured_target_uses_projected_upstream_remote() -> anyhow::Result<()> {
 fn configured_target_without_remote_does_not_use_projected_upstream() -> anyhow::Result<()> {
     let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
     add_workspace(&mut meta);
-    let mut ws = Graph::from_head(
+    let mut ws = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         target_meta(&repo),
@@ -113,7 +112,7 @@ fn returns_none_when_no_target_and_no_push_remote() -> anyhow::Result<()> {
 
     add_workspace(&mut meta);
 
-    let ws = Graph::from_head(
+    let ws = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),

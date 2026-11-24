@@ -1,4 +1,3 @@
-use but_graph::Graph;
 use but_testsupport::visualize_commit_graph_all;
 use snapbox::IntoData;
 
@@ -29,7 +28,7 @@ fn with_selected_cutoff() -> anyhow::Result<()> {
 
     add_workspace(&mut meta);
 
-    let ws = Graph::from_head(
+    let ws = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         target_meta(&repo),
@@ -64,7 +63,7 @@ fn returns_none_when_no_target_is_set() -> anyhow::Result<()> {
     let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
 
     add_workspace(&mut meta);
-    let graph = Graph::from_head(
+    let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -91,7 +90,7 @@ fn returns_none_when_commit_not_in_graph() -> anyhow::Result<()> {
     let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
 
     add_workspace(&mut meta);
-    let ws = Graph::from_head(
+    let ws = but_testsupport::graph_from_head(
         &repo,
         &*meta,
         target_meta(&repo),
