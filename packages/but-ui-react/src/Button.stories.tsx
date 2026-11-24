@@ -74,6 +74,31 @@ export const Variants = meta.story({
 });
 
 /**
+ * The three sizes: `regular` at 28px for forms, toolbars and modal footers, `medium` at 24px for a
+ * dense header, and `small` at 20px inside a row or a line of text.
+ */
+export const Sizes = meta.story({
+	render: () => (
+		<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+			{(["regular", "medium", "small"] as const).map((size) => (
+				<div key={size} style={{ display: "flex", gap: 12, alignItems: "center" }}>
+					<Button variant="pop" size={size}>
+						Button
+					</Button>
+					<Button variant="outline" size={size}>
+						<Icon name="plus" />
+						New branch
+					</Button>
+					<Button variant="ghost" size={size} iconOnly aria-label="More">
+						<Icon name="kebab" />
+					</Button>
+				</div>
+			))}
+		</div>
+	),
+});
+
+/**
  * The coloured outlines, each a count's next step in a row: Push beside the unpushed count in blue,
  * Update beside what's behind in amber, Merge once checks pass in green. The number and the count's
  * glyph say what the step acts on.
