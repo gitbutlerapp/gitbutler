@@ -49,8 +49,6 @@ const trimTextChildren = (children: ReactNode) =>
  *
  * The label carries the colour over a tint of it, so the pill stays near white.
  *
- * @figma The drawing shows the light theme's tint in both themes: on a dark ground the code tints
- * from the variant's fill instead, and Figma can't change a layer's opacity by mode.
  * @see packages/but-ui/design/components/badges.md
  * @import import { Badge } from "@gitbutler/but-ui-react/Badge.tsx";
  */

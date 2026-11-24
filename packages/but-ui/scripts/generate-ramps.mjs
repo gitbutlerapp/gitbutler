@@ -155,6 +155,27 @@ function seeThrough(hex, ground) {
 	}
 	throw new Error(`no see-through colour comes to ${hex} over ${ground}`);
 }
+// The soft fill and its hover: every colour's own hue at one OKLCH lightness, as vivid as sRGB
+// allows there, at one opacity, per mode. How much a tint shows is the lightness of the colour
+// under the opacity, so at one lightness every hue's tint weighs the same; a hue's own step 9
+// (blue's and purple's are dark, teal's and green's light) made blue and purple vanish on the
+// dark ground and stand out on the light one. The opacity is in whole percents, as the Figma
+// export writes it, and the hover is HOVER past it.
+const SOFT = {
+	light: { lightness: 0.7, percent: 18 },
+	dark: { lightness: 0.85, percent: 16 },
+};
+const HOVER = 8;
+function softBase(hex, mode) {
+	const { h } = oklch(parse(hex));
+	return formatHex(clampChroma({ mode: "oklch", l: SOFT[mode].lightness, c: 0.4, h }, "oklch"));
+}
+// `hex`'s colour at `percent` opacity.
+function at(hex, percent) {
+	return `${hex.slice(0, 7)}${Math.round(percent * 2.55)
+		.toString(16)
+		.padStart(2, "0")}`;
+}
 // `hex8`, a colour with its alpha last, laid over `ground`.
 function over(hex8, ground) {
 	return tint(hex8.slice(0, 7), ground, parseInt(hex8.slice(7, 9), 16) / 255);
@@ -242,20 +263,20 @@ for (const [hue, { seed, label, ground }] of Object.entries(HUES)) {
 		// The status's -muted tint, its fill at 14% on the background, is a ground its text sits
 		// on too: a banner, a highlighted row. Settled after the fill, which the tint is made of.
 		grounds.push(tint(s[8], gray ? gray["1"] : s[0], 0.14));
-		// The soft fill and its hover, a3 and a4: made see-through over the page, gray 1, where they
-		// come half a step past steps 3 and 4, toward 4 and 5. At step 3 itself a fill barely
-		// showed on a row's hover or a card. Its text reads on the fill over canvas, gray 3, the
-		// darkest ground it sits on; a hover there, for a moment, is let off.
-		// a2, half a step past step 2, is the faintest: a coloured outline button's hover, as Radix's
-		// outline hovers on its a2.
+		// The soft fill and its hover, a3 and a4: the hue of step 9 at SOFT's lightness and
+		// opacity, and HOVER past it. Its text reads on the fill over canvas, gray 3, the darkest
+		// ground it sits on, and on the hover over the page; a hover on canvas, for a moment, is
+		// let off.
+		// a2, see-through half a step past step 2 over the page, is the faintest: a coloured
+		// outline button's hover, as Radix's outline hovers on its a2.
 		const alphas = gray
 			? {
 					a2: seeThrough(tint(s[2], s[1], SOFT_STEP), gray["1"]),
-					a3: seeThrough(tint(s[3], s[2], SOFT_STEP), gray["1"]),
-					a4: seeThrough(tint(s[4], s[3], SOFT_STEP), gray["1"]),
+					a3: at(softBase(s[8], mode), SOFT[mode].percent),
+					a4: at(softBase(s[8], mode), SOFT[mode].percent + HOVER),
 				}
 			: {};
-		if (gray) grounds.push(over(alphas.a3, gray["3"]));
+		if (gray) grounds.push(over(alphas.a3, gray["3"]), over(alphas.a4, gray["1"]));
 		s[10] = until(s[10], away, (c) => grounds.every((g) => wcag(c, g) >= TEXT));
 		// Text on the plain grounds and the marks, the colour itself moved away from those grounds
 		// only as far as each needs: text to 4.5:1, and a mark (an icon, a dot, a switch, a light,

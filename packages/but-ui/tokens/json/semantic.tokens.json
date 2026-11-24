@@ -1186,11 +1186,11 @@
       },
       "outline-hover": {
         "$type": "color",
-        "$value": "{ramps.blue.a3}",
+        "$value": "{ramps.blue.a2}",
         "$description": "A faint see-through tint of the info colour: a coloured outline button (info) under the pointer.",
         "$extensions": {
           "mode": {
-            "light": "{ramps.blue.a3}",
+            "light": "{ramps.blue.a2}",
             "dark": "{ramps.blue.a2}"
           }
         }
@@ -1937,7 +1937,7 @@
           "components": "{semantic.foreground}",
           "alpha": "10%"
         },
-        "$description": "The neutral tinted fill: foreground at 10% in light and 14% in dark, so it stands with the coloured soft fills on the page, a row or a selected row. A gray badge. Text on it: foreground.",
+        "$description": "The neutral tinted fill: foreground at 10% in light and 16% in dark. The foreground is dark in light, so a little of it tints as much as the colours' soft fills do. A gray badge. Text on it: foreground.",
         "$extensions": {
           "mode": {
             "light": {
@@ -1946,7 +1946,7 @@
             },
             "dark": {
               "components": "{semantic.foreground}",
-              "alpha": "14%"
+              "alpha": "16%"
             }
           }
         }
@@ -1962,7 +1962,7 @@
           "semantic",
           "ramps"
         ],
-        "createdAt": "2026-11-24T14:50:55.179Z"
+        "createdAt": "2026-11-24T20:14:11.529Z"
       }
     }
   }

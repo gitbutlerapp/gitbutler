@@ -75,20 +75,20 @@
 				},
 				"primary-soft": {
 					"light": {
-						"lightness": 0.766,
-						"chroma": 1.309,
-						"alpha": 0.15
+						"lightness": 0.703,
+						"chroma": 1.19,
+						"alpha": 0.18
 					},
 					"dark": {
-						"lightness": 0.905,
-						"chroma": 1.532,
-						"alpha": 0.13
+						"lightness": 0.851,
+						"chroma": 1.441,
+						"alpha": 0.16
 					}
 				},
 				"primary-soft-foreground": {
 					"light": {
-						"lightness": 0.452,
-						"chroma": 0.831
+						"lightness": 0.443,
+						"chroma": 0.815
 					},
 					"dark": {
 						"lightness": 0.827,
@@ -97,14 +97,14 @@
 				},
 				"primary-soft-hover": {
 					"light": {
-						"lightness": 0.73,
-						"chroma": 1.24,
-						"alpha": 0.25
+						"lightness": 0.703,
+						"chroma": 1.19,
+						"alpha": 0.26
 					},
 					"dark": {
-						"lightness": 0.905,
-						"chroma": 1.532,
-						"alpha": 0.19
+						"lightness": 0.851,
+						"chroma": 1.441,
+						"alpha": 0.24
 					}
 				},
 				"primary-surface": {

@@ -42,8 +42,9 @@ a button acts, so a pop badge is soft while the pop button is solid.
 
 **Soft comes two ways, by size.** A mark or a control that sits on a ground (a
 badge, a status note, the soft `danger` button) takes `--but-*-soft`, which is
-see-through: it comes to step 3 on the page and blends with a card or a bar
-under it, so it reads as one tint wherever it sits. An area (a banner, a
+see-through: its hue at one lightness and one opacity, the same for every
+colour, so the colours weigh the same, and it blends with a card or a bar
+under it and reads as one tint wherever it sits. An area (a banner, a
 callout, a tile) is a ground itself and takes `--but-*-surface`, step 3 opaque,
 so a whole strip of it stays clean on any ground. Both carry
 `--but-*-soft-foreground`.
