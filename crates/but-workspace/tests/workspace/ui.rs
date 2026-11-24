@@ -4,7 +4,7 @@ use snapbox::IntoJson;
 fn head_info_with_local_target_converts_for_ui() -> anyhow::Result<()> {
     let repo = crate::utils::read_only_in_memory_scenario_named("one-commit-detached", "")?;
     let meta = std::mem::ManuallyDrop::new(but_meta::VirtualBranchesTomlMetadata::from_path(
-        repo.path().join("should-never-be-written.toml"),
+        repo.path(),
     )?);
     let mut db = but_testsupport::in_memory_db();
     assert!(repo.remote_names().is_empty(), "the fixture has no remotes");
@@ -462,9 +462,7 @@ TreeChanges {
     fn worktree_branch_resting_on_a_stack() -> anyhow::Result<()> {
         let repo =
             crate::utils::read_only_in_memory_scenario_named("worktree-on-stack-with-files", "")?;
-        let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
-            repo.path().join("should-never-be-written.toml"),
-        )?;
+        let meta = but_meta::VirtualBranchesTomlMetadata::from_path(repo.path())?;
         let mut db = but_testsupport::in_memory_db();
         db.worktree_meta_mut().mark_adopted()?;
         let graph = but_testsupport::graph_from_head(

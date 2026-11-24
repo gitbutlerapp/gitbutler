@@ -22,11 +22,7 @@ fn worktree_fixture(
     but_db::DbHandle,
 )> {
     let (repo, tmp) = but_testsupport::writable_scenario_slow(name);
-    let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
-        repo.path()
-            .join(".git")
-            .join("should-never-be-written.toml"),
-    )?;
+    let meta = but_meta::VirtualBranchesTomlMetadata::from_path(repo.path().join(".git"))?;
     // Adoption already ran, so the fixture's worktrees count as active.
     let mut db = but_testsupport::project_db(&repo)?;
     db.worktree_meta_mut().mark_adopted()?;

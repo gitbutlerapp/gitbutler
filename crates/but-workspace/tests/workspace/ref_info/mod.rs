@@ -495,11 +495,7 @@ mod utils {
         but_db::DbHandle,
     )> {
         let repo = crate::utils::read_only_in_memory_scenario_named(script, name)?;
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            repo.path()
-                .join(".git")
-                .join("should-never-be-written.toml"),
-        )?;
+        let meta = VirtualBranchesTomlMetadata::from_path(repo.path().join(".git"))?;
         // The fixture is shared and read-only, so its database cannot live on disk.
         let db = but_testsupport::in_memory_db();
         Ok((repo, std::mem::ManuallyDrop::new(meta), db))
@@ -515,8 +511,7 @@ mod utils {
         but_db::DbHandle,
     )> {
         let (repo, tmp) = crate::utils::writable_scenario_with_args(name, args);
-        let meta =
-            VirtualBranchesTomlMetadata::from_path(repo.path().join("virtual-branches.toml"))?;
+        let meta = VirtualBranchesTomlMetadata::from_path(repo.path())?;
         let db = but_testsupport::project_db(&repo)?;
         Ok((tmp, repo, meta, db))
     }

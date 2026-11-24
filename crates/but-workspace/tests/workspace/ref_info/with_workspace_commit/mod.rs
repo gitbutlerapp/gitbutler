@@ -4007,8 +4007,7 @@ pub(crate) mod utils {
         )
         .map_err(anyhow::Error::from_boxed)?;
         let repo = but_testsupport::open_repo(&tmp.path().join(name))?;
-        let meta =
-            VirtualBranchesTomlMetadata::from_path(repo.path().join("virtual-branches.toml"))?;
+        let meta = VirtualBranchesTomlMetadata::from_path(repo.path())?;
         project_meta(&repo)?.persist(&repo)?;
         let db = but_testsupport::project_db(&repo)?;
         Ok((tmp, repo, meta, db))
@@ -4108,14 +4107,6 @@ pub(crate) mod utils {
         let (tmp, repo, meta, db) =
             crate::ref_info::utils::named_writable_scenario_with_args(name, args)?;
         project_meta(&repo)?.persist(&repo)?;
-        let refresh_sentinel = meta
-            .path()
-            .parent()
-            .expect("metadata has a parent directory")
-            .join("REFRESH");
-        if refresh_sentinel.exists() {
-            std::fs::remove_file(refresh_sentinel)?;
-        }
         let desc = std::fs::read_to_string(repo.git_dir().join("description"))?;
         Ok((tmp, repo, meta, desc, db))
     }

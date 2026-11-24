@@ -228,13 +228,8 @@ impl Sandbox {
     }
 
     pub fn meta(&self) -> impl but_core::RefMetadata {
-        VirtualBranchesTomlMetadata::from_path(
-            self.open_repo()
-                .gitbutler_storage_path()
-                .unwrap()
-                .join("virtual_branches.toml"),
-        )
-        .unwrap()
+        VirtualBranchesTomlMetadata::from_path(self.open_repo().gitbutler_storage_path().unwrap())
+            .unwrap()
     }
 
     pub fn project_meta(&self) -> ProjectMeta {

@@ -2,7 +2,7 @@
 
 use std::{collections::HashMap, path::Path, str::FromStr};
 
-use anyhow::{Context as _, anyhow, bail};
+use anyhow::{Context as _, anyhow};
 use but_core::ref_metadata::StackId;
 use but_db::{VbStack, VbStackHead, VbState, VirtualBranchesSnapshot};
 use gitbutler_reference::{Refname, RemoteRefname};
@@ -11,35 +11,33 @@ use crate::virtual_branches_legacy_types::{Stack, StackBranch, VirtualBranches};
 
 /// Read virtual-branches state from the DB, which is the source of truth.
 ///
-/// An uninitialized DB starts empty. The TOML file is neither read nor written.
-pub fn read_synced_virtual_branches(path: &Path) -> anyhow::Result<VirtualBranches> {
-    let mut db = db_handle_from_toml_path(path)?;
+/// An uninitialized DB starts empty.
+pub fn read_virtual_branches(storage_dir: &Path) -> anyhow::Result<VirtualBranches> {
+    let mut db = db_handle_in(storage_dir)?;
     let mut tx = db.immediate_transaction()?;
-    let state = read_or_init_vb_storage(path, &mut tx)?;
+    let state = read_or_init_vb_storage(storage_dir, &mut tx)?;
     tx.commit()?;
     Ok(state)
 }
 
 /// Write virtual-branches metadata to the DB.
-pub fn write_virtual_branches(path: &Path, vb: &VirtualBranches) -> anyhow::Result<()> {
-    let mut db = db_handle_from_toml_path(path)?;
+pub fn write_virtual_branches(storage_dir: &Path, vb: &VirtualBranches) -> anyhow::Result<()> {
+    let mut db = db_handle_in(storage_dir)?;
     let mut tx = db.immediate_transaction()?;
     let snapshot = legacy_to_snapshot(vb)?;
     persist_snapshot(&mut tx, snapshot)?;
     tx.commit()?;
     // The single choke point for metadata writes, so touching the sentinel here surfaces
-    // out-of-process writes. Read-only syncs don't route through here.
-    if let Some(storage_dir) = path.parent() {
-        but_project_handle::write_refresh_sentinel(storage_dir);
-    }
+    // out-of-process writes.
+    but_project_handle::write_refresh_sentinel(storage_dir);
     Ok(())
 }
 
 fn read_or_init_vb_storage(
-    path: &Path,
+    storage_dir: &Path,
     tx: &mut but_db::Transaction<'_>,
 ) -> anyhow::Result<VirtualBranches> {
-    let snapshot = snapshot_state(path, tx)?.unwrap_or_default();
+    let snapshot = snapshot_state(storage_dir, tx)?.unwrap_or_default();
     if snapshot.state.initialized {
         return snapshot_to_legacy(&snapshot);
     }
@@ -50,38 +48,27 @@ fn read_or_init_vb_storage(
     Ok(empty)
 }
 
-/// Fail loudly when failing to open a database as this really should work, it's just the normal
-/// meta-database after all, but have a special case for when the directory doesn't exist which is assumed
-/// to be a test.
-fn db_handle_from_toml_path(path: &Path) -> anyhow::Result<but_db::DbHandle> {
-    let Some(parent) = path.parent() else {
-        bail!(
-            "Expected TOML path to have a parent directory: {}",
-            path.display()
-        );
-    };
-
+fn db_handle_in(storage_dir: &Path) -> anyhow::Result<but_db::DbHandle> {
     // Special case: don't write into read-only test fixtures. It's bad we have to do this.
-    if path
+    if storage_dir
         .iter()
         .any(|component| component == "generated-do-not-edit")
     {
         return but_db::DbHandle::new_at_path(":memory:");
     }
 
-    match but_db::DbHandle::new_in_directory(parent) {
+    match but_db::DbHandle::new_in_directory(storage_dir) {
         Ok(db) => Ok(db),
         Err(err) => {
             tracing::warn!(
-                toml_path = %path.display(),
-                db_dir = %parent.display(),
+                db_dir = %storage_dir.display(),
                 error = ?err,
                 "Failed to open virtual-branches DB on disk, using in-memory fallback"
             );
             but_db::DbHandle::new_at_path(":memory:").with_context(|| {
                 format!(
-                    "Failed to open in-memory fallback DB for TOML at {}",
-                    path.display()
+                    "Failed to open in-memory fallback DB for {}",
+                    storage_dir.display()
                 )
             })
         }
@@ -89,12 +76,15 @@ fn db_handle_from_toml_path(path: &Path) -> anyhow::Result<but_db::DbHandle> {
 }
 
 fn snapshot_state(
-    path: &Path,
+    storage_dir: &Path,
     tx: &but_db::Transaction<'_>,
 ) -> anyhow::Result<Option<VirtualBranchesSnapshot>> {
-    tx.virtual_branches()
-        .get_snapshot()
-        .with_context(|| format!("Failed to read VB snapshot from DB near {}", path.display()))
+    tx.virtual_branches().get_snapshot().with_context(|| {
+        format!(
+            "Failed to read VB snapshot from DB in {}",
+            storage_dir.display()
+        )
+    })
 }
 
 /// We own `snapshot` to show it's not supposed to be used afterwards. When that changes, borrow it again.

@@ -33,8 +33,7 @@ pub fn named_read_only_in_memory_scenario(
 pub fn in_memory_meta(
     dir: impl AsRef<std::path::Path>,
 ) -> anyhow::Result<std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>> {
-    let meta =
-        VirtualBranchesTomlMetadata::from_path(dir.as_ref().join("should-never-be-written.toml"))?;
+    let meta = VirtualBranchesTomlMetadata::from_path(dir.as_ref())?;
     Ok(std::mem::ManuallyDrop::new(meta))
 }
 

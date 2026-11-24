@@ -3880,9 +3880,7 @@ fn worktree_workspace() -> Result<(
 )> {
     // Linked worktrees record absolute paths, so the fixture is executed rather than copied.
     let (repo, tmp) = crate::utils::writable_scenario_slow("worktree-workspace");
-    let mut meta = but_meta::VirtualBranchesTomlMetadata::from_path(
-        repo.path().join("virtual-branches.toml"),
-    )?;
+    let mut meta = but_meta::VirtualBranchesTomlMetadata::from_path(repo.path())?;
     crate::ref_info::with_workspace_commit::utils::add_workspace(&mut meta);
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
