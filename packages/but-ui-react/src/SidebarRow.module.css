@@ -473,7 +473,7 @@ button.toggle {
 /* A merged request is done with: its title recedes, until the row is the one picked. */
 .merged .title {
 	color: var(--but-done-text);
-	opacity: 0.6;
+	opacity: 0.8;
 }
 
 .merged[data-selected] .title {

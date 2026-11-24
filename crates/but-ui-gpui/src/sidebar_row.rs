@@ -647,14 +647,13 @@ fn pressed_chevron(
         })
 }
 
-/// A row's name: 14px semibold, cut with an ellipsis once its row runs out of room. For a row
+/// A row's name: 14px regular, cut with an ellipsis once its row runs out of room. For a row
 /// no kind fits, as the kinds' names are.
 pub fn item_name(text: impl Into<SharedString>) -> Div {
     div()
         .min_w_0()
         .truncate()
         .text_14()
-        .semibold()
         .line_height(dp(17.))
         .child(text.into())
 }
@@ -766,7 +765,7 @@ pub fn branch_item(
     };
     let title = item_name(title);
     match state == Some(PullRequestState::Merged) && !selected {
-        true => row.inked_label(title.opacity(0.6), Ink::DoneText),
+        true => row.inked_label(title.opacity(0.8), Ink::DoneText),
         false => row.label(title),
     }
 }

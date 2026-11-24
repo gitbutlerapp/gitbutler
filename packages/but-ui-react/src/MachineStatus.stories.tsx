@@ -28,7 +28,7 @@ export const Machines = meta.story({
 			{machines.map(({ name, online, seen }) => (
 				<span
 					key={name}
-					className="text-14 text-semibold"
+					className="text-14"
 					style={{ display: "flex", alignItems: "center", gap: 6 }}
 				>
 					{name}

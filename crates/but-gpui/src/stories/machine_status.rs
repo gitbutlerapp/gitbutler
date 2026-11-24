@@ -28,7 +28,6 @@ pub(super) const EXAMPLES: [Example; 2] = [
                     h_flex()
                         .gap(dp(6.))
                         .text_14()
-                        .semibold()
                         .text_color(theme.foreground)
                         .child(name)
                         .child(match seen {
