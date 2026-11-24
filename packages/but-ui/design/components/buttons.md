@@ -23,7 +23,8 @@ to a quiet one.
   [Meta lines](meta-lines.md)). On a selected row's solid fill the edge goes
   to 55%, as `outline-inverted`'s goes to 45% from `outline`'s 26%: a faint
   light line on a dark fill reads fainter than the same dark line on a light
-  one.
+  one. Blue's goes to 70% on the dark fill, where it reads darker than amber
+  and green, so that it matches theirs.
 
 **A coloured outline is a count's next step, and only that.** Push beside an
 unpushed count is `info`, Update beside a behind count is `warning`, Merge once

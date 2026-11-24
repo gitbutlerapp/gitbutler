@@ -906,8 +906,9 @@ impl Theme {
 
     /// A coloured outline button's text, edge and hover on a solid selection: its hue in the
     /// other scheme's values, as but-ui-react's Button flips its scheme there, with the edge at
-    /// 55% rather than 30%, as `inverse_input` is stronger than `input`. Only info, success
-    /// and warning are coloured; anything else takes the inverted ghost's.
+    /// 55% rather than 30%, as `inverse_input` is stronger than `input`. Blue reads darker than
+    /// amber and green on a dark fill, so there its edge is 70%, which matches theirs at 55%.
+    /// Only info, success and warning are coloured; anything else takes the inverted ghost's.
     pub fn outline_on_solid(&self, hue: Option<Hue>) -> (Hsla, Hsla, Hsla) {
         let flip = &self.on_solid;
         let (text, hover) = match hue {
@@ -916,7 +917,11 @@ impl Theme {
             Some(Hue::Safe) => (flip.success_text, flip.success_outline_hover),
             _ => (self.inverse_foreground, self.inverse_ghost_hover),
         };
-        (text, text.opacity(0.55), hover)
+        let edge = match hue {
+            Some(Hue::Blue) if self.inverse.l < 0.5 => 0.7,
+            _ => 0.55,
+        };
+        (text, text.opacity(edge), hover)
     }
 
     /// Under the pointer, a coloured outline button's ground: its hue's faintest see-through

@@ -187,6 +187,16 @@
 :where(.info) {
 	--button-fg: var(--but-info-text);
 	--button-hover-bg: var(--but-info-outline-hover);
+
+	/* Blue reads darker than amber and green on the dark solid fill: its edge there is 70%, which
+	   matches theirs at 55%. On the light fill of a dark page all three match at 55%. */
+	@container style(--selection-inverted: true) {
+		--button-border: 1px solid color-mix(in srgb, var(--button-fg) 70%, transparent);
+
+		@container style(--scheme-dark: true) {
+			--button-border: 1px solid color-mix(in srgb, var(--button-fg) 55%, transparent);
+		}
+	}
 }
 
 :where(.warning) {
