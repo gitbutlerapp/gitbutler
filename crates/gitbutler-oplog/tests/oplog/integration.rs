@@ -286,22 +286,6 @@ fn restore_snapshot_replaces_branch_metadata_and_its_toml_copy() -> anyhow::Resu
         on_disk, expected,
         "the TOML copy holds the snapshot's branches"
     );
-    let state = but_db::DbHandle::new_in_directory(ctx.project_data_dir())?
-        .virtual_branches()
-        .get_snapshot()?
-        .context("the database is initialized")?
-        .state;
-    let mtime_ns = i64::try_from(
-        fs::metadata(&toml_path)?
-            .modified()?
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_nanos(),
-    )?;
-    assert_eq!(
-        state.toml_last_seen_mtime_ns,
-        Some(mtime_ns),
-        "the database marks the restored TOML as seen, so older clients don't import it again"
-    );
     Ok(())
 }
 

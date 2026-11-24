@@ -25,7 +25,6 @@ legacy = [
     "dep:serde",
     "dep:md5",
     "dep:hex",
-    "dep:sha2",
     "dep:gix",
 ]
 
@@ -49,7 +48,6 @@ toml = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 md5 = { workspace = true, optional = true }
 hex = { version = "0.4.3", optional = true }
-sha2 = { workspace = true, optional = true }
 
 [dev-dependencies]
 but-meta = { workspace = true, features = ["legacy"] }
