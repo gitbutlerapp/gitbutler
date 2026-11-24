@@ -56,6 +56,10 @@ pub fn empty_state(
 pub const EMPTY_TIDY_HEIGHT: f32 =
     14. * crate::text::LINE_HEIGHT_BODY + 6. + 13. * crate::text::LINE_HEIGHT_BODY + 12. + 24.;
 
+/// How tall [`empty_state_tidy`] is with no title, a detail and a row of medium buttons, as a
+/// card with a missing project's folder says so under its heading.
+pub const EMPTY_TIDY_DETAIL_HEIGHT: f32 = 13. * crate::text::LINE_HEIGHT_BODY + 12. + 24.;
+
 /// A few rows with nothing in them, as but-ui-react's `EmptyState` with `variant="tidy"`: the
 /// title and the detail closed up, 6 apart, and 12 over the `actions`, medium buttons, at most
 /// two. As tall as its content and up to 320 wide, centred; the host's padding is the room
