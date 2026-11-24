@@ -157,7 +157,7 @@ pub(super) const ITEM_EXAMPLES: [Example; 2] = [
 /// 28 above and below and 16 at the sides.
 fn empty_card(title: &'static str, detail: &'static str, step: &'static str, theme: &Theme) -> Div {
     let step = button(step, step)
-        .small()
+        .medium()
         .style(ButtonStyle::Outline)
         .icon(Icon::Plus)
         .into_any_element();
