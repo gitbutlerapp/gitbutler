@@ -224,7 +224,7 @@ pub struct DevApp {
 
 /// Run this binary from the dev app, when a restart from there started it, or a build it
 /// started, from a branch from before the dev app: point the dev app at this binary and run it
-/// again by the link, in this process, without [`DEV_APP`], so nothing it starts, as its
+/// again by the link, in this process, without `DEV_APP`, so nothing it starts, as its
 /// terminals' shells, takes the dev app over. First thing in `main`, before anything that
 /// running it again would lose or the window server would tie to this path. Returns only
 /// when it doesn't, with why if it couldn't.
