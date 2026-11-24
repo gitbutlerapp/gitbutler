@@ -46,9 +46,8 @@ windows = { version = "0.62", features = [
 ] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-# Text drawn as the web apps draw it and the Dock icon (see `run`), scripted runs kept out of
-# App Nap, the cursor shown again when the window becomes key, and the window's least width
-# lowered while it's narrowed to the navigator.
+# The Dock icon (see `run`), scripted runs kept out of App Nap, the cursor shown again when the
+# window becomes key, and the window's least width lowered while it's narrowed to the navigator.
 # In a dev build, a drag kept going through a click of another button.
 block2 = "0.6.2"
 objc2 = "0.6.4"
