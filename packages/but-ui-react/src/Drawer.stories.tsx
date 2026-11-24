@@ -57,7 +57,7 @@ const Group: FC<{ children: ReactNode; last?: boolean }> = ({ children, last = f
 /** A ghost icon button at a drawer's end, with its tooltip. */
 const ghost = (icon: "plus" | "mixer", label: string) => (
 	<Tooltip key={label} content={label}>
-		<Button variant="ghost" size="medium" iconOnly aria-label={label}>
+		<Button variant="ghost" iconOnly aria-label={label}>
 			<Icon name={icon} />
 		</Button>
 	</Tooltip>

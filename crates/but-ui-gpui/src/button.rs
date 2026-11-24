@@ -144,8 +144,7 @@ impl Button {
         self
     }
 
-    /// 24px, as React's `medium`: a row of buttons in a dense header, or a drawer's at the
-    /// sidebar's foot.
+    /// 24px, as React's `medium`: a row of buttons in a dense header.
     pub fn medium(mut self) -> Self {
         self.medium = true;
         self

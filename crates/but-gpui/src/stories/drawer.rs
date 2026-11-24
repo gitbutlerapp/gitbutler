@@ -20,12 +20,9 @@ fn card(theme: &Theme, children: impl IntoIterator<Item = Div>) -> Div {
         .children(children)
 }
 
-/// A ghost icon button at a drawer's end, medium as React's, with its tooltip.
+/// A ghost icon button at a drawer's end, regular as React's, with its tooltip.
 fn ghost(id: &'static str, icon: Icon, label: &'static str) -> AnyElement {
-    icon_button(id, icon)
-        .medium()
-        .tooltip(label)
-        .into_any_element()
+    icon_button(id, icon).tooltip(label).into_any_element()
 }
 
 /// Puts a project the sidebar hides back among its cards.

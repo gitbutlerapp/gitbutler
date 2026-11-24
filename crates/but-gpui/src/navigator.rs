@@ -2871,7 +2871,6 @@ impl Navigator {
         // the keys on it.
         let sort = (total > 0).then(|| {
             icon_button("project-view-options", Icon::Mixer)
-                .medium()
                 .inverted(solid)
                 .tooltip("Sort and show")
                 .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
@@ -2890,7 +2889,6 @@ impl Navigator {
         .children(sort.map(|sort| on_hover(sort, selected)))
         .child(on_hover(
             icon_button("add-project", Icon::Plus)
-                .medium()
                 .inverted(solid)
                 .tooltip("Add project")
                 .dispatch(&AddProject),
