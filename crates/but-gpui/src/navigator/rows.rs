@@ -89,9 +89,9 @@ pub(super) enum Row {
     GhostStack(ProjectId),
     /// The commit uncommitted changes being committed would make where the commit's at.
     NewCommit(ProjectId),
-    /// Where one stack ends and the next starts, a hairline across, so two branches alone in
-    /// their lanes don't read as one stack. A branch dropped low on one stack's last branch
-    /// joins that stack rather than the next.
+    /// Where one stack ends and the next starts. It draws nothing, as levels group the rows,
+    /// never lines between them, but a branch dropped low on one stack's last branch joins that
+    /// stack rather than the next.
     Between(ProjectId),
     WorktreeDivider,
     /// The line under a watched project's heading, a `row_divider`, which sets the heading apart
@@ -217,7 +217,7 @@ impl Row {
     pub(super) fn height(&self, row: f32) -> f32 {
         match self {
             Row::Gap => super::CARD_GAP + 2. * CARD_EDGE,
-            Row::Between(_) => BETWEEN,
+            Row::Between(_) => 0.,
             // Worktrees follow one another with nothing between, as 🍑 But UI's sidebar has
             // them; the divider stays, for what drops and moves between them.
             Row::WorktreeDivider => 0.,
@@ -333,9 +333,6 @@ pub(super) const COMMIT_INDENT: f32 = STEP + 2. + 1.;
 /// Where the middle of a row's chevron sits in a row set in by nothing: the row's left edge
 /// and half the 12-point step, where the guide down to the rows under it hangs from.
 pub(super) const GUIDE_AT: f32 = ROW_LEFT + 6.;
-
-/// How tall the gap between two stacks is, its hairline across the middle.
-pub(super) const BETWEEN: f32 = 9.;
 
 /// The caption over `project`'s lane of `branches`, as drawn: over two or more, by the bottom one.
 pub(super) fn caption(project: &ProjectId, branches: &[Branch]) -> Option<Selection> {
