@@ -3542,11 +3542,11 @@ checksum = "5729f5117e208430e437df2f4843f5e5952997175992d1414f94c57d61e270b4"
 
 [[package]]
 name = "deltoids"
-version = "0.17.0"
-source = "git+https://github.com/juanibiapina/deltoids?rev=b797d011ecc6b733025461cc98fae6f9f8719429#b797d011ecc6b733025461cc98fae6f9f8719429"
+version = "0.20.0"
+source = "git+https://github.com/juanibiapina/deltoids?rev=8822bcd67b66c670cb89453563c1dc7b8cc4c1ed#8822bcd67b66c670cb89453563c1dc7b8cc4c1ed"
 dependencies = [
  "dirs",
- "gix-imara-diff 0.2.5",
+ "gix-imara-diff",
  "regex",
  "rustc-hash 2.1.2",
  "serde",
@@ -5398,7 +5398,7 @@ dependencies = [
  "gix-filter",
  "gix-fs",
  "gix-hash",
- "gix-imara-diff 0.3.4",
+ "gix-imara-diff",
  "gix-index",
  "gix-object",
  "gix-path 0.14.2",
@@ -5558,16 +5558,6 @@ dependencies = [
 
 [[package]]
 name = "gix-imara-diff"
-version = "0.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c91d8cffac8849493a82233811bd02b2b183b8cf39bf704de0fa0841b737595"
-dependencies = [
- "bstr",
- "hashbrown 0.17.1",
-]
-
-[[package]]
-name = "gix-imara-diff"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23347fa4a29a440eebf045d0bc21da465c0dc70434c2a4bcdfcc658f16c9e27e"
@@ -5656,7 +5646,7 @@ dependencies = [
  "gix-filter",
  "gix-fs",
  "gix-hash",
- "gix-imara-diff 0.3.4",
+ "gix-imara-diff",
  "gix-index",
  "gix-object",
  "gix-path 0.14.2",
