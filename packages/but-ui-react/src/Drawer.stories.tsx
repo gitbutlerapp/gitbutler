@@ -160,7 +160,7 @@ export const GroupedTerminals = meta.story({
 		name: "Terminals",
 		count: 3,
 		folded: false,
-		hoverActions: ghost("plus", "New terminal…"),
+		actions: [ghost("mixer", "Group terminals"), ghost("plus", "New terminal…")],
 		children: (
 			<Card>
 				<TerminalGroup
@@ -190,9 +190,9 @@ const Open: FC<
 
 /**
  * The foot of the sidebar, under the cards: the hidden projects and the terminals, each a drawer.
- * A press anywhere on a drawer opens what it holds under it, but not on its buttons, which show
- * only under the pointer: Sort and show, Add project and New terminal…. The terminals keep their
- * hairline under the projects' card open.
+ * A press anywhere on a drawer opens what it holds under it, but not on its buttons. The projects'
+ * show only under the pointer (Sort and show, Add project); the terminals' always do (Group
+ * terminals, New terminal…). The terminals keep their hairline under the projects' card open.
  */
 export const SidebarDrawers = meta.story({
 	parameters: { design: { type: "figma", url: core("5376-12694") } },
@@ -213,7 +213,13 @@ export const SidebarDrawers = meta.story({
 					<Projects />
 				</Card>
 			</Open>
-			<Open name="Terminals" count={0} hoverActions={ghost("plus", "New terminal…")} last open>
+			<Open
+				name="Terminals"
+				count={0}
+				actions={[ghost("mixer", "Group terminals"), ghost("plus", "New terminal…")]}
+				last
+				open
+			>
 				<EmptyCard>
 					<EmptyState
 						variant="tidy"
@@ -252,7 +258,13 @@ export const Empty = meta.story({
 					</EmptyState>
 				</EmptyCard>
 			</Open>
-			<Open name="Terminals" count={0} hoverActions={ghost("plus", "New terminal…")} last open>
+			<Open
+				name="Terminals"
+				count={0}
+				actions={[ghost("mixer", "Group terminals"), ghost("plus", "New terminal…")]}
+				last
+				open
+			>
 				<EmptyCard>
 					<EmptyState
 						variant="tidy"
@@ -443,13 +455,19 @@ const Column334: FC<{ children: ReactNode }> = ({ children }) => (
 			</RepoCard>
 			{children}
 		</div>
-		<Open name="Terminals" count={5} hoverActions={ghost("plus", "New terminal…")} last />
+		<Open
+			name="Terminals"
+			count={5}
+			actions={[ghost("mixer", "Group terminals"), ghost("plus", "New terminal…")]}
+			last
+		/>
 	</div>
 );
 
 /**
  * Mock: the hidden projects unpinned, the last card of the list, folded (left) and open with a
- * project opened in place (right). Terminals stays a drawer pinned at the foot.
+ * project opened in place (right). Terminals stays a drawer pinned at the foot, its buttons always
+ * shown.
  */
 export const HiddenProjectsCard = meta.story({
 	parameters: { width: undefined },
