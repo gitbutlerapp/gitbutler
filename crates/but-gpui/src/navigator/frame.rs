@@ -41,6 +41,8 @@ pub(super) struct Built {
     /// The rows of the card the selection's in, while the navigator has the keys, which edge
     /// it as the tile with them is: see [`Navigator::find_focused_card`].
     pub(super) focused_card: std::cell::RefCell<Option<Range<usize>>>,
+    /// The rows of the drawer's card the selection's in, edged as [`Self::focused_card`] is.
+    pub(super) focused_drawer_card: std::cell::RefCell<Option<Range<usize>>>,
     /// The rows of the linked worktree being moved, dragged by its heading or with the keys, as
     /// last drawn, which go over the rows they pass.
     pub(super) held_worktree: Option<Range<usize>>,

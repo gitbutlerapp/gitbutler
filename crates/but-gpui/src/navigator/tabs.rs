@@ -2633,6 +2633,7 @@ impl Navigator {
             // Held and edged as the list draws them, which the card doesn't.
             held_card: None,
             focused_card: RefCell::new(None),
+            focused_drawer_card: RefCell::new(None),
             held_worktree: None,
         };
         let list = std::mem::replace(&mut self.built, card);

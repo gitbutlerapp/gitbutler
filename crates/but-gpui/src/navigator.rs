@@ -2752,24 +2752,15 @@ impl Navigator {
     }
 
     /// Note the card the selection's in while the navigator has the keys, but in its filter,
-    /// for its rows to edge it as the tile with the keys is.
+    /// among the cards or in the drawer, for its rows to edge it as the tile with the keys is.
     fn find_focused_card(&self, cx: &App) {
         let store = self.store.read(cx);
         let keys = store.prefs.shows(Part::FocusOutline) && self.keys.on_row_of(&self.list());
-        let selection = store.selection.as_ref();
-        let at = selection.filter(|_| keys).and_then(|selection| {
-            (self.built.rows.iter())
-                .position(|row| matches!(row, Row::Item(item) if item == selection))
-        });
-        let card = at.map(|at| {
-            let gap = |ix: &usize| matches!(self.built.rows.get(*ix), Some(Row::Gap));
-            let start = (0..at).rev().find(gap).map_or(0, |ix| ix + 1);
-            let end = (at..self.built.rows.len())
-                .find(gap)
-                .unwrap_or(self.built.rows.len());
-            start..end
-        });
-        *self.built.focused_card.borrow_mut() = card;
+        let selection = store.selection.as_ref().filter(|_| keys);
+        *self.built.focused_card.borrow_mut() =
+            selection.and_then(|s| card_of(&self.built.rows, s));
+        *self.built.focused_drawer_card.borrow_mut() =
+            selection.and_then(|s| card_of(&self.built.drawer.rows, s));
     }
 
     /// Each row, and how tall it's drawn in this frame: as tall as it is, or one a fold is
@@ -2824,7 +2815,8 @@ impl Navigator {
         let top = -f32::from(self.drawer_list.scroll_px_offset_for_scrollbar().y) / scale;
         let height = f32::from(self.drawer_list.viewport_bounds().size.height) / scale;
         let drawer = &self.built.drawer;
-        let (mut cards, mut start, mut y) = (Vec::new(), 0., 0.);
+        let focused_rows = self.built.focused_drawer_card.borrow().clone();
+        let (mut cards, mut start, mut y, mut focused) = (Vec::new(), 0., 0., None);
         for (ix, row) in drawer.rows.iter().enumerate() {
             if matches!(row, Row::Gap) {
                 y += self.drawer_gap(ix);
@@ -2836,10 +2828,13 @@ impl Navigator {
             }
             y += self.drawer_row_height(ix);
             if last {
+                if focused_rows.as_ref().is_some_and(|rows| rows.contains(&ix)) {
+                    focused = Some(cards.len());
+                }
                 cards.push((start, y));
             }
         }
-        card_caps(&cards, top, height, None, (0., 0.), theme)
+        card_caps(&cards, top, height, focused, (0., 0.), theme)
     }
 
     /// The drawer's handle: a click opens or closes it, and it says how many projects it lists
@@ -3032,9 +3027,15 @@ impl Navigator {
             let open = gap.map_or(1., |gap| self.drawer_gap(gap) / CARD_GAP);
             dp(theme.shape.card * open)
         };
+        // The card the selection's in, while the navigator has the keys, edged as the cards'.
+        let focused = (self.built.focused_drawer_card.borrow().as_ref())
+            .is_some_and(|card| card.contains(&ix));
         div()
             .bg(theme.background)
-            .border_color(theme.border_subtle)
+            .border_color(match focused {
+                true => theme.focus_edge(),
+                false => theme.border_subtle,
+            })
             .border_l_1()
             .border_r_1()
             .when(first, |el| {
@@ -4778,6 +4779,7 @@ impl Render for Navigator {
                 if empty {
                     el
                 } else if self.built.rows.is_empty() {
+                    self.find_focused_card(cx);
                     el.child(self.drawer(&theme, cx))
                 } else {
                     let rows = list(
@@ -4817,6 +4819,17 @@ impl Render for Navigator {
         // A card out over the detail goes back once the pointer leaves it, so it's resized
         // only beside the detail, once it's all there.
     }
+}
+
+/// The rows of the card in `rows` that `selection` is a row of: those between the gaps round it.
+fn card_of(rows: &[Row], selection: &Selection) -> Option<std::ops::Range<usize>> {
+    let at = rows
+        .iter()
+        .position(|row| matches!(row, Row::Item(item) if item == selection))?;
+    let gap = |ix: &usize| matches!(rows.get(*ix), Some(Row::Gap));
+    let start = (0..at).rev().find(gap).map_or(0, |ix| ix + 1);
+    let end = (at..rows.len()).find(gap).unwrap_or(rows.len());
+    Some(start..end)
 }
 
 /// A guide for each level a row is under, at `levels`, joining those of the rows above and below
