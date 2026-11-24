@@ -5,6 +5,14 @@ use gpui::{Div, MouseButton, Pixels, Stateful, prelude::*};
 use crate::theme::Theme;
 use crate::*;
 
+/// The ring of a control the keys reached, as but-ui-react's `--but-focus-ring` with its offset:
+/// 1.5px of `ring` just inside its edge.
+pub fn focus_ring(theme: &Theme) -> gpui::BoxShadow {
+    gpui::BoxShadow::new(fixed(0.), fixed(0.), theme.ring)
+        .spread_radius(fixed(1.5))
+        .inset()
+}
+
 /// A click leaves the keys where they were, as on macOS, so a list keeps its arrows and Return
 /// doesn't press the control again.
 pub fn tab_stop(el: Stateful<Div>, theme: &Theme) -> Stateful<Div> {
