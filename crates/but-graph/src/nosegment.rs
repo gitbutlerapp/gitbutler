@@ -521,7 +521,6 @@ pub(crate) fn graph(
                 })
             };
             let own_lane_reaches_it = workspace_commit.is_some()
-                && !is_in_target(commit_id, &mut revision_graph)
                 && stacks
                     .iter()
                     .any(|stack| stack.in_workspace && stack.branches.contains(&full_name))
@@ -529,7 +528,8 @@ pub(crate) fn graph(
                     lineages
                         .keys()
                         .any(|stack_lineage| stack_lineage.branches_in_lineage.contains(&full_name))
-                });
+                })
+                && !is_in_target(commit_id, &mut revision_graph);
             for (stack_lineage, to_repoints) in
                 unassigned_oid_map.remove(&commit_id).unwrap_or_default()
             {
