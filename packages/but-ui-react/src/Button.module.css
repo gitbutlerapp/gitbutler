@@ -133,10 +133,11 @@
 }
 
 /* On a light page's dark inverse the edge is stronger than outline's 26%: a faint light line on
-   a dark fill reads fainter than the same dark line on a light one. A dark page keeps 26%. */
+   a dark fill reads fainter than the same dark line on a light one. 35% reads as the coloured
+   outlines' edges do there. A dark page keeps 26%. */
 :where(.outline-inverted) {
 	--button-edge: 1px;
-	--button-border: 1px solid color-mix(in srgb, var(--but-inverse-foreground) 45%, transparent);
+	--button-border: 1px solid color-mix(in srgb, var(--but-inverse-foreground) 35%, transparent);
 	--button-bg: transparent;
 	--button-fg: var(--but-inverse-foreground);
 	--button-hover-bg: var(--but-inverse-ghost-hover);
@@ -165,12 +166,12 @@
 	--button-hover-bg: var(--but-danger-hover);
 }
 
-/* The coloured outlines: the colour's text and an edge of it at 30% at rest, and under the pointer
+/* The coloured outlines: the colour's text and an edge of it at 40% at rest, and under the pointer
    the colour's faintest see-through tint, its a2, as Radix's outline buttons hover.
    The glyph keeps danger's step up, as colour loses an icon at 0.7. */
 :where(.info, .warning, .success) {
 	--button-edge: 1px;
-	--button-border: 1px solid color-mix(in srgb, var(--button-fg) 30%, transparent);
+	--button-border: 1px solid color-mix(in srgb, var(--button-fg) 40%, transparent);
 	--button-bg: transparent;
 	--button-icon-opacity: 0.8;
 	--button-hover-icon-opacity: 0.9;
@@ -178,13 +179,13 @@
 	/* Inside a selected row on the solid fill, the opposite scheme keeps the colour: every
 	   light-dark() colour resolves to its inverted value, as Badge and MetaCount do. On a light
 	   page's dark fill the edge goes to 55%, as outline-inverted's is stronger there; a dark
-	   page's light fill keeps 30%. */
+	   page's light fill keeps 40%. */
 	@container style(--selection-inverted: true) {
 		--button-border: 1px solid color-mix(in srgb, var(--button-fg) 55%, transparent);
 		color-scheme: dark;
 
 		@container style(--scheme-dark: true) {
-			--button-border: 1px solid color-mix(in srgb, var(--button-fg) 30%, transparent);
+			--button-border: 1px solid color-mix(in srgb, var(--button-fg) 40%, transparent);
 			color-scheme: light;
 		}
 	}
@@ -195,12 +196,12 @@
 	--button-hover-bg: var(--but-info-outline-hover);
 
 	/* Blue reads darker than amber and green on a light page's dark solid fill: its edge there is
-	   70%, which matches theirs at 55%. A dark page's light fill keeps 30%. */
+	   70%, which matches theirs at 55%. A dark page's light fill keeps 40%. */
 	@container style(--selection-inverted: true) {
 		--button-border: 1px solid color-mix(in srgb, var(--button-fg) 70%, transparent);
 
 		@container style(--scheme-dark: true) {
-			--button-border: 1px solid color-mix(in srgb, var(--button-fg) 30%, transparent);
+			--button-border: 1px solid color-mix(in srgb, var(--button-fg) 40%, transparent);
 		}
 	}
 }
