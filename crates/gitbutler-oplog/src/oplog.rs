@@ -827,28 +827,8 @@ fn snapshot_metadata(
 }
 
 mod legacy_virtual_branches {
-    use std::path::PathBuf;
-
     use anyhow::{Result, bail};
-    use but_ctx::Context;
-    use but_meta::{
-        legacy_storage,
-        virtual_branches_legacy_types::{Stack, StackBranch, VirtualBranches},
-    };
-
-    pub(super) fn restore_legacy_metadata_from_toml(
-        ctx: &Context,
-        contents: &[u8],
-    ) -> Result<but_meta::VirtualBranchesTomlMetadata> {
-        let path = toml_path(ctx);
-        but_utils::write(&path, contents)?;
-        legacy_storage::import_toml_into_db(&path)?;
-        ctx.legacy_meta()
-    }
-
-    fn toml_path(ctx: &Context) -> PathBuf {
-        ctx.project_data_dir().join("virtual_branches.toml")
-    }
+    use but_meta::virtual_branches_legacy_types::{Stack, StackBranch, VirtualBranches};
 
     pub(super) fn in_workspace_stacks(
         virtual_branches: &VirtualBranches,
@@ -1385,7 +1365,6 @@ fn restore_snapshot_tree(
         snapshot_metadata(&snapshot_tree, &repo)?;
     let restored_checkout = snapshot_checkout(&snapshot_tree, &repo)?;
     let restored_references = snapshot_references(&snapshot_tree, &repo)?;
-    let restored_vb_toml = toml::to_string(&restored_virtual_branches)?;
 
     for reference in &restored_references {
         // A worktree that had the ref checked out when the snapshot was taken gets it moved
@@ -1564,9 +1543,9 @@ fn restore_snapshot_tree(
         None => {}
     }
 
-    let vb_state = legacy_virtual_branches::restore_legacy_metadata_from_toml(
-        ctx,
-        restored_vb_toml.as_bytes(),
+    but_meta::legacy_storage::write_virtual_branches_and_sync(
+        &ctx.project_data_dir().join("virtual_branches.toml"),
+        &restored_virtual_branches,
     )?;
     if let Some(branch_order) = restored_branch_order {
         ctx.db
@@ -1576,7 +1555,7 @@ fn restore_snapshot_tree(
     }
 
     // Now that legacy metadata has been restored, update references to reflect the restored heads.
-    for stack in legacy_virtual_branches::in_workspace_stacks(vb_state.data()) {
+    for stack in legacy_virtual_branches::in_workspace_stacks(&restored_virtual_branches) {
         for branch in &stack.heads {
             legacy_virtual_branches::set_reference_to_stored_head(branch, &gix_repo).ok();
         }

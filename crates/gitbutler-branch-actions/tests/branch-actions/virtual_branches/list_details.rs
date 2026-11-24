@@ -6,10 +6,8 @@ use crate::virtual_branches::list;
 
 #[test]
 fn one_vbranch_in_workspace_empty_details() -> anyhow::Result<()> {
-    let list = branch_details(
-        &list::project_ctx("one-vbranch-in-workspace")?,
-        Some("virtual"),
-    )?;
+    let (ctx, _tmp) = list::project_ctx("one-vbranch-in-workspace")?;
+    let list = branch_details(&ctx, Some("virtual"))?;
 
     snapbox::assert_data_eq!(
         list.to_debug(),
@@ -48,10 +46,8 @@ fn one_vbranch_in_workspace_empty_details() -> anyhow::Result<()> {
 
 #[test]
 fn one_vbranch_in_workspace_single_commit() -> anyhow::Result<()> {
-    let list = branch_details(
-        &list::project_ctx("one-vbranch-in-workspace-one-commit")?,
-        Some("virtual"),
-    )?;
+    let (ctx, _tmp) = list::project_ctx("one-vbranch-in-workspace-one-commit")?;
+    let list = branch_details(&ctx, Some("virtual"))?;
     assert_eq!(list.len(), 1);
     assert_eq!(
         list[0],
@@ -71,7 +67,7 @@ fn one_vbranch_in_workspace_single_commit() -> anyhow::Result<()> {
 
 #[test]
 fn many_commits_in_all_branch_types() -> anyhow::Result<()> {
-    let ctx = project_ctx("complex-repo")?;
+    let (ctx, _tmp) = project_ctx("complex-repo")?;
     let list = branch_details(&ctx, ["feature", "non-virtual-feature"])?;
     let repo = ctx.repo.get()?;
 
@@ -222,8 +218,8 @@ mod util {
         }
     }
 
-    pub fn project_ctx(name: &str) -> anyhow::Result<Context> {
-        crate::driverless::read_only_context("for-details.sh", name)
+    pub fn project_ctx(name: &str) -> anyhow::Result<(Context, tempfile::TempDir)> {
+        crate::driverless::writable_context("for-details.sh", name)
     }
 }
 use util::{branch_details, default_author, project_ctx};

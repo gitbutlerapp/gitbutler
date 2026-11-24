@@ -935,8 +935,7 @@ mod util {
     }
 
     fn test_scenario(name: &str) -> anyhow::Result<TestContext> {
-        // TODO: make this a read-only scenario once we don't rely on vb.toml anymore.
-        let (repo, tmpdir) = but_testsupport::writable_scenario(name);
+        let (repo, tmpdir) = crate::writable_scenario_with_target(name)?;
         let ctx = but_ctx::Context::from_repo_for_testing(repo)?;
 
         Ok(TestContext {
@@ -951,8 +950,7 @@ mod util {
 
     pub struct TestContext {
         pub ctx: Context,
-        // TODO: make non-optional
-        // TODO: remove once we don't need vb.toml anymore which is produced on the fly.
+        // TODO: remove this once this has been ported to 'modern' code, i.e. uses `but_graph::Workspace`.
         #[expect(dead_code)]
         tmpdir: Option<tempfile::TempDir>,
     }

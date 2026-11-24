@@ -27,7 +27,7 @@ function remote-tracking-caught-up () {
   cp ".git/refs/heads/$branch_name" ".git/refs/remotes/origin/$remote_branch_name"
 }
 
-function setup-remote-and-vbtoml () {
+function setup-remote () {
   cat <<EOF >>.git/config
 [remote "origin"]
   url = ./fake/local/path/which-is-fine-as-we-dont-fetch-or-push
@@ -35,21 +35,6 @@ function setup-remote-and-vbtoml () {
 [branch "main"]
   remote = origin
   merge = refs/heads/main
-EOF
-
-  # Make sure the target is set.
-  mkdir .git/gitbutler
-  cat <<EOF >>.git/gitbutler/virtual_branches.toml
-[default_target]
-   branchName = "main"
-   remoteName = "origin"
-   remoteUrl = "."
-   sha = "$(git rev-parse main)"
-   pushRemoteName = "origin"
-
-[branch_targets]
-
-[branches]
 EOF
 }
 
@@ -60,7 +45,7 @@ function init-repo-with-files-and-remote () {
 
   remote-tracking-caught-up main
 
-  setup-remote-and-vbtoml
+  setup-remote
 }
 
 function commit() {

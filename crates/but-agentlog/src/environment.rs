@@ -348,10 +348,9 @@ fn workspace_snapshot(repo: &gix::Repository) -> anyhow::Result<WorkspaceObserva
 }
 
 fn legacy_metadata_exists(metadata_path: &Path) -> bool {
-    metadata_path.is_file()
-        || metadata_path
-            .parent()
-            .is_some_and(|storage_path| storage_path.join("but.sqlite").is_file())
+    metadata_path
+        .parent()
+        .is_some_and(|storage_path| storage_path.join("but.sqlite").is_file())
 }
 
 fn workspace_snapshot_with_current_branch_fallback(
