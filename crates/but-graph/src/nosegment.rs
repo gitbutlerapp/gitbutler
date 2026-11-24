@@ -571,10 +571,13 @@ pub(crate) fn graph(
                     new_map.insert(stack_lineage, to_repoints);
                 }
             }
-            // A remote-tracking branch leads through the local branch of the same name.
+            // A remote-tracking branch leads through the local branch of the same name. Without
+            // such a branch, no reference has that name, so it's left out of the lineage, which
+            // would otherwise grow with every remote-tracking branch above a commit.
             if category == Some(gix::refs::Category::RemoteBranch) {
                 if let Some((_remote, short_name)) =
                     but_core::extract_remote_name_and_short_name(full_name.as_ref(), remote_names)
+                    && !is_remote_only_branch
                 {
                     new_stack_lineage
                         .branches_in_lineage
