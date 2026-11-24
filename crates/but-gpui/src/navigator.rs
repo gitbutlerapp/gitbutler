@@ -4603,7 +4603,7 @@ pub(crate) fn upstream_label(
 
 /// Who `people` (name, email) are, each once, as overlapping pictures: the first three, as
 /// but-ui-react's rows stack them on a folded row. Set in 3 points, as one picture is.
-fn authors_stack<'a>(
+pub(crate) fn authors_stack<'a>(
     people: impl Iterator<Item = (&'a str, &'a str)>,
     theme: &Theme,
 ) -> Option<Div> {
@@ -4620,8 +4620,12 @@ fn authors_stack<'a>(
         }
     }
     (!shown.is_empty()).then(|| {
+        // Taffy measures a row of pictures tucked under one another with negative margins as
+        // next to nothing, so the step after it drew over them: the row is given its width.
+        let tucked = 14. + 10. * (shown.len() - 1) as f32;
         h_flex()
             .flex_none()
+            .w(dp(3. + tucked + 3.))
             .px(dp(3.))
             .children(shown.into_iter().enumerate().map(|(ix, (name, email))| {
                 crate::ui::person::author_avatar(name, email, 14., theme)

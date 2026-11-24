@@ -1,12 +1,14 @@
 use gpui::{AnyElement, Context, Div, Window, div, prelude::*};
 
 use super::{Example, example, page};
+use crate::navigator::authors_stack;
 use crate::theme::Theme;
+use crate::ui::person::author_avatar;
 use crate::ui::{
     ButtonStyle, CommitPlace, Fold, Icon, MetaCountType, MetaStatusVariant, PullRequestState,
     SidebarRow, branch_item, button, commit_item, dp, icon_at, loading_item, machine_item,
     machine_status, meta_count, meta_status, more_item, repo_item, stack_caption, terminal_item,
-    tree_guides, uncommitted_item, v_flex, worktree_item,
+    tree_guides, uncommitted_item, upstream_item, v_flex, worktree_item,
 };
 
 /// A sidebar card, as the Workspace tree stories' `Card`: a machine's header over its
@@ -343,8 +345,106 @@ fn unread(theme: &Theme) -> Div {
     card(theme, [repository(theme, true, rows)])
 }
 
+/// The Upstream story's tree with the heading open or folded, and the branch open or folded, as
+/// 🍑 But UI's Sidebar · upstream draws the three. Folded, a row shows who the commits it hides
+/// are from, then Update.
+fn upstream(heading_open: bool, branch_open: bool, theme: &Theme) -> Div {
+    // Each card's rows their own ids: a chevron turns by its row's id, so one card's fold would
+    // turn another's.
+    let card_ix = usize::from(heading_open) + 2 * usize::from(branch_open);
+    let pavel = ("Pavel Laptev", "pavel@example.com");
+    let kiril = ("Kiril Videlov", "kiril@example.com");
+    let face = |(name, email): (&str, &str)| author_avatar(name, email, 14., theme).mx(dp(3.));
+    let fold = |open: bool| match open {
+        true => Fold::Open,
+        false => Fold::Folded,
+    };
+    let faces = |row: SidebarRow| {
+        authors_stack([pavel, kiril].into_iter(), theme)
+            .into_iter()
+            .fold(row, SidebarRow::meta)
+    };
+    let branch = branch_item(
+        ("perf", card_ix),
+        "perf: cheaper status polling",
+        None,
+        false,
+        false,
+        theme,
+    )
+    .fold(fold(branch_open))
+    .meta(meta_status(
+        MetaStatusVariant::Working,
+        Some("CI".into()),
+        theme,
+    ));
+    let mut rows = vec![
+        (
+            0,
+            repo_item(("repo", card_ix), "but-dev", theme).fold(Fold::Open),
+        ),
+        (
+            1,
+            match branch_open {
+                true => branch,
+                false => faces(branch).action(update("update-perf", 3)),
+            },
+        ),
+    ];
+    if branch_open {
+        let heading =
+            upstream_item(("upstream", card_ix), "origin", None, theme).fold(fold(heading_open));
+        let heading = match heading_open {
+            true => heading,
+            false => faces(heading),
+        };
+        rows.push((2, heading.action(update("update-upstream", 3))));
+        if heading_open {
+            let upstream = |id: &'static str, message: &'static str, merge: bool| {
+                commit_item(
+                    (id, card_ix),
+                    message,
+                    CommitPlace::Upstream,
+                    merge,
+                    false,
+                    theme,
+                )
+            };
+            rows.extend([
+                (
+                    3,
+                    upstream("merge", "Merge #12: retry on timeout", true).fold(Fold::Open),
+                ),
+                (
+                    4,
+                    upstream("fix", "fix: retry on timeout", false).meta(face(kiril)),
+                ),
+                (
+                    3,
+                    upstream("test", "test: cover a stalled transfer", false).meta(face(pavel)),
+                ),
+            ]);
+        }
+        let own = |id: &'static str, message: &'static str, place: CommitPlace| {
+            commit_item((id, card_ix), message, place, false, false, theme)
+        };
+        rows.extend([
+            (2, own("docs", "docs: handoff notes", CommitPlace::Pushed)),
+            (
+                2,
+                own("hunk", "feat: 28px hunk separator", CommitPlace::Local),
+            ),
+            (
+                2,
+                own("tokens", "chore: separator tokens", CommitPlace::Local),
+            ),
+        ]);
+    }
+    card(theme, [repository(theme, true, rows)])
+}
+
 /// The stories of `SidebarRow.stories.tsx` this client can draw so far.
-pub(super) const EXAMPLES: [Example; 4] = [
+pub(super) const EXAMPLES: [Example; 5] = [
     Example {
         id: "components-sidebarrow--selection",
         name: "Selection",
@@ -382,6 +482,21 @@ pub(super) const EXAMPLES: [Example; 4] = [
         id: "components-sidebarrow--loading",
         name: "Loading",
         draw: |theme| loading(theme).into_any_element(),
+    },
+    Example {
+        id: "components-sidebarrow--upstream",
+        name: "Upstream",
+        draw: |theme| {
+            gpui::div()
+                .flex()
+                .flex_wrap()
+                .items_start()
+                .gap(dp(24.))
+                .child(upstream(true, true, theme))
+                .child(upstream(false, true, theme))
+                .child(upstream(false, false, theme))
+                .into_any_element()
+        },
     },
 ];
 
