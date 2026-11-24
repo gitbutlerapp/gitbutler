@@ -314,11 +314,11 @@ pub(super) struct Drawer {
     pub(super) folds: Vec<(Fold, bool, Option<usize>)>,
 }
 
-/// How tall [`Row::Gone`] is: its empty state with the room 🍑 But UI gives it above and below.
+/// How tall [`Row::Gone`] is: its empty state and the room above and below it.
 pub(super) const GONE_HEIGHT: f32 = 2. * GONE_PADDING + EMPTY_TIDY_DETAIL_HEIGHT;
 
-/// The room above and below a missing folder's empty state, as 🍑 But UI's card has it.
-pub(super) const GONE_PADDING: f32 = 13.;
+/// The room above and below a missing folder's empty state.
+pub(super) const GONE_PADDING: f32 = 20.;
 
 /// Where an item row's content starts in its card: the row's margin and its padding, 8, as
 /// [`RowStyle::row`](super::RowStyle::row) and [`section_heading`](super::section_heading)
