@@ -18,7 +18,7 @@ to a quiet one.
 - **`danger-solid`** — danger at full strength, for the answer to a
   confirmation that destroys something (see [Modals](../patterns/modals.md)).
 - **`info`, `warning`, `success`** — `outline` in a colour: the colour's text,
-  an edge of it at 40%, and under the pointer its faintest see-through tint
+  an edge of it at 40%, and under the pointer a faint see-through tint
   (`--but-*-outline-hover`). For the next step of a coloured count (see
   [Meta lines](meta-lines.md)). On a light page's selected row, whose solid
   fill is dark, the edge goes to 55%, as `outline-inverted`'s goes to 35% from

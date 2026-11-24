@@ -96,14 +96,14 @@ const pairs = [
 	["inverse-foreground", "inverse-hover", TEXT],
 	["inverse-muted-foreground", "inverse", TEXT],
 	["inverse-subtle-foreground", "inverse", MARK],
-	// Each colour's weights: -text on the plain grounds and an outline button's hover, -mark (an
-	// icon, a dot, a switch) on the plain grounds, soft-foreground on soft and on surface, and
-	// foreground on the solid.
+	// Each colour's weights: -text on the plain grounds, and at a mark's 3:1 on an outline
+	// button's hover, which shows only for a moment; -mark (an icon, a dot, a switch) on the plain
+	// grounds, soft-foreground on soft and on surface, and foreground on the solid.
 	...STATUSES.flatMap((status) => [
-		...[
-			...GROUNDS,
-			...(declared(`${status}-outline-hover`) ? [`${status}-outline-hover`] : []),
-		].map((ground) => [`${status}-text`, ground, TEXT]),
+		...GROUNDS.map((ground) => [`${status}-text`, ground, TEXT]),
+		...(declared(`${status}-outline-hover`)
+			? [[`${status}-text`, `${status}-outline-hover`, MARK]]
+			: []),
 		...GROUNDS.map((ground) => [`${status}-mark`, ground, MARK]),
 		...[`soft`, `soft-hover`, `surface`, `surface-hover`].map((ground) => [
 			`${status}-soft-foreground`,

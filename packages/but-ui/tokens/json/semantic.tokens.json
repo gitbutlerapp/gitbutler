@@ -554,7 +554,7 @@
       "text": {
         "$type": "color",
         "$value": "{ramps.amber.text}",
-        "$description": "Warning text: reads at 4.5:1 on background, canvas, muted and warning/outline-hover. On warning/soft or warning/surface, use warning/soft/foreground.",
+        "$description": "Warning text: reads at 4.5:1 on background, canvas and muted, and at 3:1 on warning/outline-hover, which shows only for a moment. On warning/soft or warning/surface, use warning/soft/foreground.",
         "$extensions": {
           "mode": {
             "light": "{ramps.amber.text}",
@@ -675,11 +675,11 @@
       "outline-hover": {
         "$type": "color",
         "$value": "{ramps.amber.a2}",
-        "$description": "The warning colour's faintest tint, see-through: a coloured outline button (warning) under the pointer.",
+        "$description": "A faint see-through tint of the warning colour: a coloured outline button (warning) under the pointer.",
         "$extensions": {
           "mode": {
             "light": "{ramps.amber.a2}",
-            "dark": "{ramps.amber.a2}"
+            "dark": "{ramps.amber.a3}"
           }
         }
       },
@@ -721,7 +721,7 @@
       "text": {
         "$type": "color",
         "$value": "{ramps.green.text}",
-        "$description": "Success text: reads at 4.5:1 on background, canvas, muted and success/outline-hover. On success/soft or success/surface, use success/soft/foreground.",
+        "$description": "Success text: reads at 4.5:1 on background, canvas and muted, and at 3:1 on success/outline-hover, which shows only for a moment. On success/soft or success/surface, use success/soft/foreground.",
         "$extensions": {
           "mode": {
             "light": "{ramps.green.text}",
@@ -842,11 +842,11 @@
       "outline-hover": {
         "$type": "color",
         "$value": "{ramps.green.a2}",
-        "$description": "The success colour's faintest tint, see-through: a coloured outline button (success) under the pointer.",
+        "$description": "A faint see-through tint of the success colour: a coloured outline button (success) under the pointer.",
         "$extensions": {
           "mode": {
             "light": "{ramps.green.a2}",
-            "dark": "{ramps.green.a2}"
+            "dark": "{ramps.green.a3}"
           }
         }
       },
@@ -1044,7 +1044,7 @@
       "text": {
         "$type": "color",
         "$value": "{ramps.blue.text}",
-        "$description": "Info text: reads at 4.5:1 on background, canvas, muted and info/outline-hover. On info/soft or info/surface, use info/soft/foreground.",
+        "$description": "Info text: reads at 4.5:1 on background, canvas and muted, and at 3:1 on info/outline-hover, which shows only for a moment. On info/soft or info/surface, use info/soft/foreground.",
         "$extensions": {
           "mode": {
             "light": "{ramps.blue.text}",
@@ -1187,11 +1187,11 @@
       "outline-hover": {
         "$type": "color",
         "$value": "{ramps.blue.a3}",
-        "$description": "The info colour's faintest tint, see-through: a coloured outline button (info) under the pointer.",
+        "$description": "A faint see-through tint of the info colour: a coloured outline button (info) under the pointer.",
         "$extensions": {
           "mode": {
             "light": "{ramps.blue.a3}",
-            "dark": "{ramps.blue.a2}"
+            "dark": "{ramps.blue.a3}"
           }
         }
       },
@@ -1962,7 +1962,7 @@
           "semantic",
           "ramps"
         ],
-        "createdAt": "2026-11-24T14:37:11.137Z"
+        "createdAt": "2026-11-24T14:44:03.264Z"
       }
     }
   }

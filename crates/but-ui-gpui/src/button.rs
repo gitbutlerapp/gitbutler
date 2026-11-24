@@ -248,8 +248,8 @@ impl RenderOnce for Button {
                 None,
                 theme.danger_soft_hover,
             ),
-            // The colour's text and an edge of it at 30%, and under the pointer its faintest
-            // see-through tint, as React's coloured outlines draw them.
+            // The colour's text and an edge of it at 40%, and under the pointer a faint
+            // see-through tint of it, as React's coloured outlines draw them.
             ButtonStyle::Info => outlined(theme, Hue::Blue),
             ButtonStyle::Warning => outlined(theme, Hue::Warn),
             ButtonStyle::Success => outlined(theme, Hue::Safe),

@@ -930,8 +930,8 @@ impl Theme {
         (text, text.opacity(edge), hover)
     }
 
-    /// Under the pointer, a coloured outline button's ground: its hue's faintest see-through
-    /// tint, as Radix's outline buttons hover. Only info, success and warning draw one.
+    /// Under the pointer, a coloured outline button's ground: a faint see-through tint of its
+    /// hue, as Radix's outline buttons hover. Only info, success and warning draw one.
     pub fn outline_hover(&self, hue: Hue) -> Hsla {
         match hue {
             Hue::Blue => self.info_outline_hover,

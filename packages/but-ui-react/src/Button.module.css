@@ -167,7 +167,7 @@
 }
 
 /* The coloured outlines: the colour's text and an edge of it at 40% at rest, and under the pointer
-   the colour's faintest see-through tint, its a2, as Radix's outline buttons hover.
+   a faint see-through tint of the colour, its a2 or a3, as Radix's outline buttons hover.
    The glyph keeps danger's step up, as colour loses an icon at 0.7. */
 :where(.info, .warning, .success) {
 	--button-edge: 1px;
