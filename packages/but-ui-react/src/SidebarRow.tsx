@@ -842,7 +842,7 @@ export const TerminalItem: FC<{ name: string; place?: string } & RowProps> = ({
  *
  * Its buttons sit at its end and take their own clicks: `actions` always show, `hoverActions` only
  * while the pointer is on the drawer or the keys are in it, before the ones that always show, so
- * those keep their place. A ghost medium icon-only `Button` each, such as Add project or Sort and
+ * those keep their place. A ghost regular icon-only `Button` each, such as Add project or Sort and
  * show.
  *
  * Unlike the other sidebar rows it sits on the panel's ground, under the cards rather than in

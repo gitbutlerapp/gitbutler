@@ -865,10 +865,10 @@ impl TerminalOverview {
             true => bar.mb_0(),
             false => drawer_bar(bar).when(folded_away, |el| el.mb(dp(DRAWER_BLOCK))),
         };
-        // A drawer's buttons are medium, as but-ui-react's Drawer's; under its tab, small.
+        // A drawer's buttons are regular, as but-ui-react's Drawer's; under its tab, small.
         let sized = |button: Button| match in_tab {
             true => button.small(),
-            false => button.medium(),
+            false => button,
         };
         let grouping = sized(icon_button("overview-grouping", Icon::Mixer))
             .tooltip("Group terminals")
