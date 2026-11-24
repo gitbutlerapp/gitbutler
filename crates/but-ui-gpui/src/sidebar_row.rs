@@ -896,6 +896,21 @@ pub fn more_item(
         .label(div().min_w_0().truncate().text_13().child(label.into()))
 }
 
+/// How tall a [`row_divider`] is.
+pub const ROW_DIVIDER: f32 = 14.;
+
+/// A line between a card's rows, as but-ui-react's `RowDivider`: a row of its own, under the
+/// `repo_item` heading a repository's card, with a faint line through its middle inset 6px.
+pub fn row_divider(theme: &Theme) -> Div {
+    h_flex().flex_none().h(dp(ROW_DIVIDER)).px(dp(6.)).child(
+        div()
+            .flex_grow(1.)
+            .h(fixed(1.))
+            .bg(theme.border)
+            .opacity(0.5),
+    )
+}
+
 /// The label over a group of pages: its name, small and quiet, so the pages under it read first.
 pub fn group_label(
     id: impl Into<ElementId>,
