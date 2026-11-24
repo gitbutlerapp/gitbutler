@@ -17,7 +17,7 @@ const STYLES: [(&str, ButtonStyle); 8] = [
 
 /// The stories of `Button.stories.tsx` this client can draw. It has no solid danger, no medium
 /// size and no keys in a button, so `Danger`, `WithKbd` and `DenseHeader` aren't here.
-pub(super) const EXAMPLES: [Example; 5] = [
+pub(super) const EXAMPLES: [Example; 6] = [
     Example {
         id: "components-button--default",
         name: "Default",
@@ -63,6 +63,36 @@ pub(super) const EXAMPLES: [Example; 5] = [
                         button("colour-merge-regular", "Merge").style(ButtonStyle::Success),
                     ]
                     .map(pressable),
+                )
+                .into_any_element()
+        },
+    },
+    Example {
+        id: "components-button--colours-on-a-selection",
+        name: "Colours On A Selection",
+        draw: |theme| {
+            h_flex()
+                .gap(dp(8.))
+                .items_center()
+                .p(dp(8.))
+                .rounded(dp(8.))
+                .bg(theme.inverse)
+                .children(
+                    [
+                        button("selected-push", "8")
+                            .icon_end(Icon::ArrowUp)
+                            .style(ButtonStyle::Info)
+                            .tooltip("Push 8 commits"),
+                        button("selected-update", "3")
+                            .icon_end(Icon::ArrowDown)
+                            .style(ButtonStyle::Warning)
+                            .tooltip("Update 3 commits"),
+                        button("selected-merge", "Merge").style(ButtonStyle::Success),
+                        icon_button("selected-hide", Icon::Eye)
+                            .style(ButtonStyle::Outline)
+                            .tooltip("Hide project"),
+                    ]
+                    .map(|button| pressable(button.small().inverted(true))),
                 )
                 .into_any_element()
         },
