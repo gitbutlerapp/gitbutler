@@ -1,5 +1,5 @@
-//! Build and restart, in the status bar of a client `cargo run` started: builds it again, from
-//! the worktree picked when the repository has several, with cargo's output in a modal as it
+//! Build and restart, in the status bar of a client `cargo run` started or the dev app runs:
+//! builds it again, from the worktree picked when the repository has several, with cargo's output in a modal as it
 //! comes, then restarts on the new binary in place. A failed build leaves the app as it was,
 //! with the output on screen. Hidden, the modal keeps building.
 

@@ -1,6 +1,7 @@
 //! Build and restart, for a client `cargo run` started from a checkout of this repository on
-//! macOS or Linux: build it again, from this checkout or another worktree of it, and run the
-//! new binary in this process's place, so `cargo run` and its terminal keep it.
+//! macOS or Linux, or the dev app `make but-gpui-app-dev` makes on macOS: build it again, from
+//! this checkout or another worktree of it, and run the new binary in this process's place, so
+//! `cargo run` and its terminal keep it, or the Dock keeps the dev app.
 
 use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
@@ -46,6 +47,8 @@ pub struct Rebuild {
     crate_dir: PathBuf,
     /// The build's profile, by the folder its binary is in: `debug` for `dev`.
     profile: Option<String>,
+    /// The dev app this binary runs from, which the new build runs from too.
+    dev_app: Option<DevApp>,
 }
 
 impl gpui::Global for Rebuild {}
@@ -59,25 +62,29 @@ pub struct Source {
 
 impl Rebuild {
     /// How to build this binary again, when `cargo run` started it from the checkout it was
-    /// built from; `None` otherwise, as for an installed app or one the desktop app started.
-    /// Windows locks a running binary, so a build couldn't replace it, and has no exec.
+    /// built from, or it runs from the dev app; `None` otherwise, as for an installed app or one
+    /// the desktop app started. Windows locks a running binary, so a build couldn't replace it,
+    /// and has no exec.
     pub fn detect() -> Option<Self> {
-        let manifest_dir = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR")?);
         let cargo = PathBuf::from(std::env::var_os("CARGO")?);
+        let started_as = std::env::current_exe().ok()?;
+        let dev_app = DevApp::of(&started_as);
+        let manifest_dir = match dev_app {
+            // Opened from the Dock, without cargo's variables: the checkout it was built in.
+            Some(_) => PathBuf::from(env!("CARGO_MANIFEST_DIR")),
+            None => PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR")?),
+        };
         if !cfg!(unix) || manifest_dir != Path::new(env!("CARGO_MANIFEST_DIR")) {
             return None;
         }
         let checkout = manifest_dir.ancestors().nth(2)?.to_owned();
         let crate_dir = manifest_dir.strip_prefix(&checkout).ok()?.to_owned();
         let common_dir = gix::open(&checkout).ok()?.common_dir().to_owned();
-        let exe = std::env::current_exe().ok()?;
+        // The binary in `target`, which the dev app's link points at.
+        let exe = started_as.canonicalize().ok()?;
         let bin = match exe.file_stem().and_then(|stem| stem.to_str()) {
             Some(STORIES_BIN) => STORIES_BIN,
             _ => BIN,
-        };
-        let profile = match exe.parent()?.file_name()?.to_str()? {
-            "debug" => None,
-            profile => Some(profile.to_owned()),
         };
         Some(Self {
             cargo,
@@ -85,7 +92,8 @@ impl Rebuild {
             common_dir,
             bin,
             crate_dir,
-            profile,
+            profile: profile_of(&exe)?,
+            dev_app,
         })
     }
 
@@ -183,8 +191,111 @@ impl Rebuild {
             child: Arc::new(Mutex::new(child)),
             bin: self.bin,
             crate_dir,
+            dev_app: self.dev_app.clone(),
         })
     }
+}
+
+/// The build profile of binary `exe`, by the folder cargo put it in: `None` for `dev`, whose
+/// folder is `debug`.
+fn profile_of(exe: &Path) -> Option<Option<String>> {
+    Some(match exe.parent()?.file_name()?.to_str()? {
+        "debug" => None,
+        profile => Some(profile.to_owned()),
+    })
+}
+
+/// The dev app's link, which a restart from the dev app gives the build it starts, for that
+/// build to run from the dev app too, see [`run_from_dev_app`]. A build from a branch from
+/// before the dev app ignores it and runs on its own, but hands it on to the builds it restarts
+/// on, in the environment they inherit, so the first of those that knows it takes the app back.
+#[cfg(unix)]
+const DEV_APP: &str = "GITBUTLER_GPUI_DEV_APP";
+
+/// The app bundle `make but-gpui-app-dev` makes, `GitButler GPUI Dev.app`, which runs a build
+/// in `target` through a symlink in its `Contents/MacOS`. Run by that link's path, a binary
+/// takes the bundle as its own, so the Dock and ⌘Tab show it as the app. The link points at
+/// the build that last ran from it, which the next launch opens.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DevApp {
+    /// The symlink to the binary.
+    link: PathBuf,
+}
+
+/// Run this binary from the dev app, when a restart from there started it, or a build it
+/// started, from a branch from before the dev app: point the dev app at this binary and run it
+/// again by the link, in this process, without [`DEV_APP`], so nothing it starts, as its
+/// terminals' shells, takes the dev app over. First thing in `main`, before anything that
+/// running it again would lose or the window server would tie to this path. Returns only
+/// when it doesn't, with why if it couldn't.
+#[cfg(unix)]
+pub fn run_from_dev_app() -> Result<()> {
+    use std::os::unix::process::CommandExt as _;
+
+    let Some(link) = std::env::var_os(DEV_APP) else {
+        return Ok(());
+    };
+    let exe = std::env::current_exe()?.canonicalize()?;
+    let dev_app = DevApp::taking_over(Path::new(&link), &exe)?;
+    let err = Command::new(&dev_app.link)
+        .args(std::env::args_os().skip(1))
+        .env_remove(DEV_APP)
+        .exec();
+    Err(err).with_context(|| format!("couldn't run {}", dev_app.link.display()))
+}
+
+#[cfg(not(unix))]
+pub fn run_from_dev_app() -> Result<()> {
+    Ok(())
+}
+
+impl DevApp {
+    /// The dev app whose link is `link`, pointed at binary `exe`, to run that from it.
+    #[cfg(unix)]
+    fn taking_over(link: &Path, exe: &Path) -> Result<DevApp> {
+        let dev_app =
+            DevApp::of(link).with_context(|| format!("{} isn't the dev app's", link.display()))?;
+        (dev_app.link_to(exe))
+            .with_context(|| format!("couldn't point the dev app at {}", exe.display()))?;
+        Ok(dev_app)
+    }
+
+    /// The dev app that `exe`, the path this process was started by, is the link of.
+    fn of(exe: &Path) -> Option<DevApp> {
+        let is_link = exe.symlink_metadata().ok()?.is_symlink();
+        (is_bundled(exe) && is_link).then(|| DevApp {
+            link: exe.to_owned(),
+        })
+    }
+
+    /// Point the link at `binary`, replacing it in one rename so that a launch meanwhile finds
+    /// the old binary or the new one.
+    #[cfg(unix)]
+    fn link_to(&self, binary: &Path) -> std::io::Result<()> {
+        let new = self.link.with_extension("new");
+        // Left by a restart that stopped partway. When it can't go, making the link says why.
+        _ = std::fs::remove_file(&new);
+        std::os::unix::fs::symlink(binary, &new)?;
+        std::fs::rename(&new, &self.link)
+    }
+}
+
+/// Whether `exe` is the executable of a macOS app bundle, `<name>.app/Contents/MacOS/<exe>`,
+/// which gives the app its name and icon.
+pub fn is_bundled(exe: &Path) -> bool {
+    let folders: Vec<_> = exe
+        .ancestors()
+        .skip(1)
+        .take(3)
+        .map(Path::file_name)
+        .collect();
+    let [Some(macos), Some(contents), Some(app)] = folders[..] else {
+        return false;
+    };
+    cfg!(target_os = "macos")
+        && macos == "MacOS"
+        && contents == "Contents"
+        && Path::new(app).extension() == Some("app".as_ref())
 }
 
 /// A `cargo build` under way.
@@ -193,6 +304,7 @@ pub struct Build {
     child: Arc<Mutex<Child>>,
     bin: &'static str,
     crate_dir: PathBuf,
+    dev_app: Option<DevApp>,
 }
 
 /// What cargo printed: a line, or its progress bar, which it draws again in place.
@@ -207,6 +319,8 @@ pub struct Built {
     exe: PathBuf,
     #[cfg_attr(not(unix), expect(dead_code))]
     crate_dir: PathBuf,
+    #[cfg_attr(not(unix), expect(dead_code))]
+    dev_app: Option<DevApp>,
 }
 
 impl Build {
@@ -233,6 +347,7 @@ impl Build {
         Ok(Built {
             exe,
             crate_dir: self.crate_dir.clone(),
+            dev_app: self.dev_app.clone(),
         })
     }
 
@@ -335,6 +450,7 @@ impl Built {
     /// of its own, not this one by exec: macOS goes on drawing a window a process opens after
     /// exec and sending it clicks, but offers it no drags from other apps. `cargo run` ends with
     /// this process, so its terminal is back at its prompt while the new build writes on there.
+    /// From the dev app, the new binary gets [`DEV_APP`], to run from the dev app too.
     /// Returns only when starting it fails.
     #[cfg(unix)]
     pub fn restart<T: serde::Serialize, L: serde::Serialize>(
@@ -344,6 +460,9 @@ impl Built {
         env: &[(&str, &str)],
     ) -> anyhow::Error {
         let mut new = Command::new(&self.exe);
+        if let Some(dev_app) = &self.dev_app {
+            new.env(DEV_APP, &dev_app.link);
+        }
         new.args(std::env::args_os().skip(1))
             .envs(env.iter().copied())
             .env("CARGO_MANIFEST_DIR", &self.crate_dir)
@@ -529,6 +648,7 @@ mod tests {
             bin: super::BIN,
             crate_dir: "crate".into(),
             profile: None,
+            dev_app: None,
         };
         let build = rebuild.start(dir.path()).unwrap();
         let started = Instant::now();
@@ -582,6 +702,7 @@ mod tests {
             bin: super::BIN,
             crate_dir: "crate".into(),
             profile: None,
+            dev_app: None,
         };
         std::fs::remove_dir_all(&linked).unwrap();
 
@@ -595,6 +716,113 @@ mod tests {
         );
     }
 
+    /// A dev app in `dir`, its link pointing at a release build in `dir/target`, as `make
+    /// but-gpui-app-dev` makes it: the app's link and the binary.
+    #[cfg(target_os = "macos")]
+    fn dev_app_in(dir: &std::path::Path) -> (std::path::PathBuf, std::path::PathBuf) {
+        let release = dir.join("target/release");
+        let macos = dir.join("GitButler GPUI Dev.app/Contents/MacOS");
+        std::fs::create_dir_all(&release).unwrap();
+        std::fs::create_dir_all(&macos).unwrap();
+        let binary = release.join(super::BIN);
+        std::fs::write(&binary, "").unwrap();
+        let link = macos.join(super::BIN);
+        std::os::unix::fs::symlink(&binary, &link).unwrap();
+        (link, binary)
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn the_dev_app_builds_again_with_the_profile_of_the_binary_it_links_to() {
+        let dir = tempfile::tempdir().unwrap();
+        let (link, _) = dev_app_in(dir.path());
+        assert!(
+            super::DevApp::of(&link).is_some(),
+            "it runs from the dev app"
+        );
+        assert_eq!(
+            super::profile_of(&link.canonicalize().unwrap()),
+            Some(Some("release".to_owned())),
+            "the profile is the folder of the binary in `target`, not the bundle's `MacOS`"
+        );
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn the_binary_the_dev_app_links_to_doesnt_run_from_it_when_started_by_its_own_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let (_, binary) = dev_app_in(dir.path());
+        assert_eq!(super::DevApp::of(&binary), None, "as `cargo run` starts it");
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn an_installed_app_isnt_the_dev_app() {
+        let dir = tempfile::tempdir().unwrap();
+        let macos = dir.path().join("GitButler.app/Contents/MacOS");
+        std::fs::create_dir_all(&macos).unwrap();
+        let exe = macos.join("gitbutler-tauri");
+        std::fs::write(&exe, "").unwrap();
+        assert_eq!(
+            super::DevApp::of(&exe),
+            None,
+            "its binary is in the bundle, not a link to one in `target`"
+        );
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn a_build_a_restart_from_the_dev_app_started_takes_it_over() {
+        let dir = tempfile::tempdir().unwrap();
+        let (link, old) = dev_app_in(dir.path());
+        let new = dir.path().join("worktree/target/release").join(super::BIN);
+        std::fs::create_dir_all(new.parent().unwrap()).unwrap();
+        std::fs::write(&new, "").unwrap();
+
+        let dev_app = super::DevApp::taking_over(&link, &new).unwrap();
+
+        assert_eq!(dev_app.link, link, "it runs again by the link");
+        assert_eq!(
+            std::fs::read_link(&link).unwrap(),
+            new,
+            "the next launch opens the build that ran last"
+        );
+        assert!(old.is_file(), "the old build stays where it was");
+        assert!(
+            !link.with_extension("new").exists(),
+            "nothing is left beside the link"
+        );
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn a_path_that_isnt_the_dev_apps_link_is_left_alone() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("somewhere");
+        std::fs::write(&file, "kept").unwrap();
+        let exe = dir.path().join(super::BIN);
+
+        let taken = super::DevApp::taking_over(&file, &exe);
+
+        assert!(taken.is_err(), "it isn't a link in an app bundle");
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), "kept");
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn an_app_bundles_executable_is_bundled() {
+        assert!(super::is_bundled(std::path::Path::new(
+            "/Applications/GitButler.app/Contents/MacOS/gitbutler-tauri"
+        )));
+    }
+
+    #[test]
+    fn a_binary_in_target_isnt_bundled() {
+        assert!(!super::is_bundled(std::path::Path::new(
+            "/checkout/target/release/gitbutler-gpui"
+        )));
+    }
+
     #[test]
     fn the_build_makes_the_askpass_helper_too() {
         use super::Rebuild;
@@ -606,6 +834,7 @@ mod tests {
             bin: super::BIN,
             crate_dir: "crates/but-gpui".into(),
             profile: None,
+            dev_app: None,
         };
         assert_eq!(
             rebuild.args()[..9],
@@ -633,6 +862,7 @@ mod tests {
             bin: super::STORIES_BIN,
             crate_dir: "crates/but-gpui".into(),
             profile: None,
+            dev_app: None,
         };
         let args = rebuild.args();
         assert_eq!(

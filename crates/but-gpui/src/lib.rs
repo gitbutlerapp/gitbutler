@@ -212,6 +212,13 @@ fn channel_icon() -> &'static [u8] {
     }
 }
 
+/// Whether this process runs from an app bundle's executable, as from the dev app that `make
+/// but-gpui-app-dev` makes.
+#[cfg(target_os = "macos")]
+fn runs_from_bundle() -> bool {
+    std::env::current_exe().is_ok_and(|exe| backend::rebuild::is_bundled(&exe))
+}
+
 /// Give the Dock `icon`, an image in any format `NSImage` reads. A binary run on its own has
 /// no bundle to carry one, so the Dock would show a terminal's.
 #[cfg(target_os = "macos")]
@@ -263,6 +270,10 @@ fn draw_text_unsmoothed() {
 /// Start the log, before anything that could write to it. The desktop app's binary calls it
 /// before its own setup for the client, which logs too.
 pub use backend::logs::init as init_logging;
+
+/// Run this binary from the dev app `make but-gpui-app-dev` makes, when a restart from there
+/// started it. First thing in `main`.
+pub use backend::rebuild::run_from_dev_app;
 
 #[cfg(feature = "stories")]
 pub use stories::run as run_stories;
@@ -335,10 +346,9 @@ pub fn run(embedded: Option<Embedded>) {
             ui::prewarm_fonts(cx);
             match embedded {
                 Some(embedded) => cx.set_global(embedded),
-                // The desktop app's bundle gives the Dock its icon.
+                // A bundle gives the Dock its icon: the desktop app's, or the dev app's.
                 #[cfg(target_os = "macos")]
-                None => set_dock_icon(channel_icon()),
-                #[cfg(not(target_os = "macos"))]
+                None if !runs_from_bundle() => set_dock_icon(channel_icon()),
                 None => {}
             }
             if let Some(rebuild) = backend::rebuild::Rebuild::detect() {
