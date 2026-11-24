@@ -75,8 +75,9 @@ pub struct Derived {
     pub muted_hover: Hsla,
     /// `primary` with 14% of `foreground` in it: a checked box or radio under the pointer.
     pub primary_checked_hover: Hsla,
-    /// `inverse-foreground` at 26%, as `input` is `foreground` at 26%: an outline's edge on a
-    /// solid selection, as React's `outline-inverted`.
+    /// `inverse-foreground` at 45%: an outline's edge on a solid selection, as React's
+    /// `outline-inverted`. Stronger than `input`'s 26%, as a faint light edge on a dark fill
+    /// reads fainter than the same dark edge on a light one.
     pub inverse_input: Hsla,
     /// `inverse-muted-foreground` at 40%: a tree's guide on a solid selection, as
     /// but-ui-react's `--guide-color` there.
@@ -163,7 +164,7 @@ impl Derived {
         Derived {
             muted_hover: color(mix(rgb_hex(c.muted), rgb_hex(c.muted_nested), 0.5)),
             primary_checked_hover: primary_checked_hover(c),
-            inverse_input: c.inverse_foreground.opacity(0.26),
+            inverse_input: c.inverse_foreground.opacity(0.45),
             inverse_guide: c.inverse_muted_foreground.opacity(0.4),
             joined_line_on_solid: c.inverse_foreground.opacity(0.08),
             inverse_success_text: on_inverse(c.success_text),
@@ -904,8 +905,9 @@ impl Theme {
     }
 
     /// A coloured outline button's text, edge and hover on a solid selection: its hue in the
-    /// other scheme's values, as but-ui-react's Button flips its scheme there. Only info,
-    /// success and warning are coloured; anything else takes the inverted ghost's.
+    /// other scheme's values, as but-ui-react's Button flips its scheme there, with the edge at
+    /// 55% rather than 30%, as `inverse_input` is stronger than `input`. Only info, success
+    /// and warning are coloured; anything else takes the inverted ghost's.
     pub fn outline_on_solid(&self, hue: Option<Hue>) -> (Hsla, Hsla, Hsla) {
         let flip = &self.on_solid;
         let (text, hover) = match hue {
@@ -914,7 +916,7 @@ impl Theme {
             Some(Hue::Safe) => (flip.success_text, flip.success_outline_hover),
             _ => (self.inverse_foreground, self.inverse_ghost_hover),
         };
-        (text, text.opacity(0.3), hover)
+        (text, text.opacity(0.55), hover)
     }
 
     /// Under the pointer, a coloured outline button's ground: its hue's faintest see-through

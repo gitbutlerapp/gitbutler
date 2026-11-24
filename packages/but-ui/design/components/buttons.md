@@ -20,7 +20,10 @@ to a quiet one.
 - **`info`, `warning`, `success`** — `outline` in a colour: the colour's text,
   an edge of it at 30%, and under the pointer its faintest see-through tint
   (`--but-*-outline-hover`). For the next step of a coloured count (see
-  [Meta lines](meta-lines.md)).
+  [Meta lines](meta-lines.md)). On a selected row's solid fill the edge goes
+  to 55%, as `outline-inverted`'s goes to 45% from `outline`'s 26%: a faint
+  light line on a dark fill reads fainter than the same dark line on a light
+  one.
 
 **A coloured outline is a count's next step, and only that.** Push beside an
 unpushed count is `info`, Update beside a behind count is `warning`, Merge once

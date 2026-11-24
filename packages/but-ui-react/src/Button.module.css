@@ -132,9 +132,11 @@
 	--button-hover-bg: var(--but-hover);
 }
 
+/* The edge is stronger than outline's 26%: a faint light line on the dark fill reads fainter
+   than the same dark line on a light one. */
 :where(.outline-inverted) {
 	--button-edge: 1px;
-	--button-border: 1px solid color-mix(in srgb, var(--but-inverse-foreground) 26%, transparent);
+	--button-border: 1px solid color-mix(in srgb, var(--but-inverse-foreground) 45%, transparent);
 	--button-bg: transparent;
 	--button-fg: var(--but-inverse-foreground);
 	--button-hover-bg: var(--but-inverse-ghost-hover);
@@ -170,8 +172,10 @@
 	--button-hover-icon-opacity: 0.9;
 
 	/* Inside a selected row on the solid fill, the opposite scheme keeps the colour: every
-	   light-dark() colour resolves to its inverted value, as Badge and MetaCount do. */
+	   light-dark() colour resolves to its inverted value, as Badge and MetaCount do. The edge
+	   goes to 55% there, as outline-inverted's is stronger than outline's. */
 	@container style(--selection-inverted: true) {
+		--button-border: 1px solid color-mix(in srgb, var(--button-fg) 55%, transparent);
 		color-scheme: dark;
 
 		@container style(--scheme-dark: true) {
