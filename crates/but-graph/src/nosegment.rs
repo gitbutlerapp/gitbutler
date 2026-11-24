@@ -420,7 +420,7 @@ pub(crate) fn graph(
     // Data regarding known OIDs that have not yet been assigned a `NodeIndex`.
     // Each OID is known because we have parsed at least one of its children.
     let mut unassigned_oid_map =
-        HashMap::<gix::ObjectId, HashMap<StackLineage, Vec<ToRepoint>>>::new();
+        BTreeMap::<gix::ObjectId, HashMap<StackLineage, Vec<ToRepoint>>>::new();
 
     let mut nodes = Vec::<Node>::new();
     let mut unclaimed_branches = BTreeSet::new();
