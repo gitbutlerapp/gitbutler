@@ -8,8 +8,8 @@ import {
 	BranchItem,
 	CommitItem,
 	Drawer,
-	DrawerItem,
 	MoreItem,
+	NavItem,
 	RepoItem,
 	RowDivider,
 	UncommittedItem,
@@ -309,8 +309,9 @@ const hidden = [
 
 /**
  * The hidden projects as the last card of the list, scrolling with the cards above it
- * rather than pinned at the panel's foot, where Terminals stays. Its `DrawerItem` heads the card,
- * folded until opened, so it costs one row while nobody looks. Open, a line across the card parts
+ * rather than pinned at the panel's foot, where Terminals stays. A leading `NavItem` heads the card,
+ * its chevron, its name and how many projects it holds, folded until opened, so it costs one row
+ * while nobody looks. Open, a line across the card parts
  * one project from the next, and a project opened in place keeps its own `RowDivider` under its
  * `RepoItem`, so the two lines never read as the same.
  */
@@ -329,17 +330,12 @@ const HiddenCard: FC<{ open?: boolean; opened?: boolean }> = ({ open = false, op
 			}}
 		>
 			<div style={{ padding: 8 }}>
-				<DrawerItem
+				<NavItem
+					leadingRow
 					name="Hidden projects"
-					count={24}
 					folded={folded}
 					onToggleFolded={() => setFolded(!folded)}
-					hoverActions={
-						<>
-							{ghost("mixer", "Sort and show")}
-							{ghost("plus", "Add project")}
-						</>
-					}
+					meta={<MetaCount type="repos">24</MetaCount>}
 				/>
 			</div>
 			{!folded && (
