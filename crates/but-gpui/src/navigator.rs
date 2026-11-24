@@ -16,7 +16,7 @@ use gpui::{
     canvas, div, fill, list, point, prelude::*, relative,
 };
 
-use crate::app::{AppHandle, UpdateFromTarget};
+use crate::app::{AddProject, AppHandle, UpdateFromTarget};
 use crate::backend::rebuild::Rebuild;
 use crate::backend::upstream::UpdateScope;
 use crate::backend::{
@@ -4590,6 +4590,15 @@ impl Render for Navigator {
             })
             .children(self.update_button(cx).map(|el| above_drag(div().child(el))))
             .child(above_drag(div().child(self.view_button(cx))))
+            // Adding a project acts on the whole list, so it's beside how the list goes, in
+            // reach whatever the cards are doing.
+            .child(above_drag(
+                div().child(
+                    icon_button("add-project", Icon::Plus)
+                        .tooltip_for("Add project", &AddProject)
+                        .dispatch(&AddProject),
+                ),
+            ))
             .child(above_drag(div().child(self.settings_button(&theme, cx))))
             // The line at the sidebar's end, setting it apart from the location bar beside it, 10
             // from the avatar.
