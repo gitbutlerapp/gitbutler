@@ -19,8 +19,9 @@ Each file is 60 lighter than the but-ui weight it stands in for: Regular is 400 
 440, stands in for a 500 but-ui doesn't have; only Markdown's italics and the graph's labels draw
 with it. Each file says what it was cut for in its Description name record, which the test reads.
 CoreGraphics, which GPUI rasterizes glyphs with, draws the same outlines with stems about half a
-pixel thicker than Chrome at 2x, in both themes, and 60 brought them level with but.dev when the
-client turned macOS font smoothing off, which it no longer does, so text now reads heavier there.
+pixel thicker than Chrome at 2x, in both themes, and 60 brings them close to but.dev's with macOS
+font smoothing off, as the client turns it off (`draw_text_unsmoothed` in `but-gpui`). With it on,
+grey text reads heavier still, as macOS thickens lighter text more.
 Compare against but.dev before changing the offset: render both at the same scale (headless
 Chrome with `--force-device-scale-factor=2`, and a `drive.sh` `shot` of a region, which keeps the
 display's scale) and compare stem thickness, not screenshots taken at different scales.

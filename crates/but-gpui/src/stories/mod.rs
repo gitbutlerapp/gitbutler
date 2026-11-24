@@ -62,6 +62,8 @@ actions!(stories, [Quit]);
 
 /// Open the stories' window on this thread, the process's main one, and run until it closes.
 pub fn run() {
+    #[cfg(target_os = "macos")]
+    crate::draw_text_unsmoothed();
     gpui_platform::application()
         .with_assets(ui::Assets)
         .with_quit_mode(QuitMode::LastWindowClosed)
