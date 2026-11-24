@@ -288,7 +288,7 @@
   /* Info as a mark: an icon, a dot, a switch or a light with no text beside it, at 3:1 on background, canvas and muted. Never text; text takes info/text. */
   --but-info-mark: var(--but-blue-mark);
   /* A faint see-through tint of the info colour: a coloured outline button (info) under the pointer. */
-  --but-info-outline-hover: var(--but-blue-a3);
+  --but-info-outline-hover: light-dark(var(--but-blue-a3), hsl(215 100.0% 53.9% / 0.2));
   --but-info-soft: var(--but-blue-a3);
   /* Text and icons on info/soft. */
   --but-info-soft-foreground: var(--but-blue-11);

@@ -1191,7 +1191,7 @@
         "$extensions": {
           "mode": {
             "light": "{ramps.blue.a3}",
-            "dark": "{ramps.blue.a3}"
+            "dark": "#1475ff33"
           }
         }
       },
@@ -1962,7 +1962,7 @@
           "semantic",
           "ramps"
         ],
-        "createdAt": "2026-11-24T14:44:03.264Z"
+        "createdAt": "2026-11-24T14:47:52.550Z"
       }
     }
   }
