@@ -26,7 +26,7 @@ use crate::virtual_branches_legacy_types::{Stack, StackBranch, VirtualBranches};
 #[cfg(feature = "legacy")]
 pub mod storage;
 
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 struct Snapshot {
     /// The time at which the `content` was changed, before it was written to disk.
     changed_at: Option<Instant>,
@@ -50,12 +50,21 @@ impl Snapshot {
             .then(|| gix::discover(&self.path).ok())
             .flatten();
         let repo = repo.or(discovered_repo.as_ref());
+        let mut disposable_snapshot = self.clone();
         let mut projected_segment_ids = None;
         if self.changed_at.is_some() || self.has_null_head_hash() || {
             let mut snapshot = self.clone();
-            snapshot.enforce_constraints(repo, &mut projected_segment_ids)?
+            snapshot.enforce_constraints(
+                repo,
+                &mut disposable_snapshot,
+                &mut projected_segment_ids,
+            )?
         } {
-            let data = self.to_consistent_data(repo, &mut projected_segment_ids)?;
+            let data = self.to_consistent_data(
+                repo,
+                &mut disposable_snapshot,
+                &mut projected_segment_ids,
+            )?;
             storage::write_virtual_branches(&self.path, &data)?;
             self.content = data;
             self.changed_at.take();
@@ -85,13 +94,14 @@ impl Snapshot {
     fn to_consistent_data(
         &self,
         repo: Option<&gix::Repository>,
+        disposable_snapshot: &mut Snapshot,
         projected_segment_ids: &mut Option<Option<BTreeMap<String, but_graph::SegmentIndex>>>,
     ) -> anyhow::Result<VirtualBranches> {
         // EVIL HACK: assure we fill-in the CommitIDs of heads or else everything breaks.
         //            this probably won't be needed once no old code is running, and by then
         //            we should move away from this anyway and have a DB backed implementation.
         let mut clone = self.clone();
-        clone.enforce_constraints(repo, projected_segment_ids)?;
+        clone.enforce_constraints(repo, disposable_snapshot, projected_segment_ids)?;
         Ok(clone.content)
     }
 
@@ -111,9 +121,9 @@ impl Snapshot {
     fn enforce_constraints(
         &mut self,
         repo: Option<&gix::Repository>,
+        disposable_snapshot: &mut Snapshot,
         projected_segment_ids: &mut Option<Option<BTreeMap<String, but_graph::SegmentIndex>>>,
     ) -> anyhow::Result<bool> {
-        let projected_segment_ids = get_or_project_segment_ids(self, repo, projected_segment_ids)?;
         let mut changed = false;
         let mut empty_stacks_to_remove = Vec::new();
         let null_id = gix::hash::Kind::Sha1.null();
@@ -144,32 +154,31 @@ impl Snapshot {
             // cross-stack `preserve_duplicate` carve-out below, which only makes sense
             // for two *different* stacks resolving to the same projected segment.
             let mut seen_in_this_stack = HashSet::<String>::new();
-            let head_indices_to_remove: Vec<_> = stack
-                .heads
-                .iter()
-                .enumerate()
-                .filter_map(|(head_idx, head)| {
-                    if !seen_in_this_stack.insert(head.name.clone()) {
-                        return Some(head_idx);
+            let mut head_indices_to_remove = Vec::new();
+            for (head_idx, head) in stack.heads.iter().enumerate() {
+                if !seen_in_this_stack.insert(head.name.clone()) {
+                    head_indices_to_remove.push(head_idx);
+                    continue;
+                }
+                let projected_segment_id =
+                    get_or_project_segment_ids(disposable_snapshot, repo, projected_segment_ids)?
+                        .and_then(|ids| ids.get(&head.name).copied());
+                match seen_refnames.entry(head.name.clone()) {
+                    btree_map::Entry::Vacant(entry) => {
+                        entry.insert(projected_segment_id);
                     }
-                    let projected_segment_id =
-                        projected_segment_ids.and_then(|ids| ids.get(&head.name).copied());
-                    match seen_refnames.entry(head.name.clone()) {
-                        btree_map::Entry::Vacant(entry) => {
-                            entry.insert(projected_segment_id);
-                            None
-                        }
-                        btree_map::Entry::Occupied(entry) => {
-                            let preserve_duplicate = entry
-                                .get()
-                                .as_ref()
-                                .zip(projected_segment_id)
-                                .is_some_and(|(seen, current)| *seen == current);
-                            (!preserve_duplicate).then_some(head_idx)
+                    btree_map::Entry::Occupied(entry) => {
+                        let preserve_duplicate = entry
+                            .get()
+                            .as_ref()
+                            .zip(projected_segment_id)
+                            .is_some_and(|(seen, current)| *seen == current);
+                        if !preserve_duplicate {
+                            head_indices_to_remove.push(head_idx);
                         }
                     }
-                })
-                .collect();
+                }
+            }
             for head_idx in head_indices_to_remove.into_iter().rev() {
                 let head = stack.heads.remove(head_idx);
                 tracing::warn!(
@@ -194,7 +203,7 @@ impl Snapshot {
 }
 
 fn get_or_project_segment_ids<'a>(
-    snapshot: &Snapshot,
+    snapshot: &mut Snapshot,
     repo: Option<&gix::Repository>,
     cache: &'a mut Option<Option<BTreeMap<String, but_graph::SegmentIndex>>>,
 ) -> anyhow::Result<Option<&'a BTreeMap<String, but_graph::SegmentIndex>>> {
@@ -208,10 +217,11 @@ fn get_or_project_segment_ids<'a>(
         return Ok(cache.insert(None).as_ref());
     };
     let commit_id = reference.peel_to_commit()?.id;
+    let snapshot = std::mem::take(snapshot);
     let sideeffect_free_meta = std::mem::ManuallyDrop::new(VirtualBranchesMetadata {
         snapshot: Snapshot {
             changed_at: None,
-            ..snapshot.clone()
+            ..snapshot
         },
         write_on_drop: false,
     });
