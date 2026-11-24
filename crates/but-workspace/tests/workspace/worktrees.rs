@@ -91,7 +91,7 @@ fn worktree_orders_skip_deleted_branches() -> Result<()> {
 #[test]
 fn worktrees_are_projected_onto_the_workspace() -> Result<()> {
     let (repo, _tmp) = writable_scenario_slow("worktree-workspace");
-    let mut meta = but_meta::VirtualBranchesTomlMetadata::from_path(repo.path())?;
+    let mut meta = but_meta::VirtualBranchesMetadata::from_path(repo.path())?;
     add_workspace(&mut meta);
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
@@ -276,7 +276,7 @@ fn worktrees_are_projected_onto_the_workspace() -> Result<()> {
 #[test]
 fn a_worktree_branch_the_target_moved_past_keeps_the_review_merged_at_its_tip() -> Result<()> {
     let (repo, _tmp) = writable_scenario_slow("worktree-workspace");
-    let mut meta = but_meta::VirtualBranchesTomlMetadata::from_path(repo.path())?;
+    let mut meta = but_meta::VirtualBranchesMetadata::from_path(repo.path())?;
     add_workspace(&mut meta);
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
@@ -317,7 +317,7 @@ fn a_worktree_branch_the_target_moved_past_keeps_the_review_merged_at_its_tip() 
 #[test]
 fn lane_chains_follow_what_worktrees_rest_on() -> Result<()> {
     let (repo, _tmp) = writable_scenario_slow("worktree-workspace");
-    let mut meta = but_meta::VirtualBranchesTomlMetadata::from_path(repo.path())?;
+    let mut meta = but_meta::VirtualBranchesMetadata::from_path(repo.path())?;
     add_workspace(&mut meta);
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
@@ -393,7 +393,7 @@ fn a_worktree_on_a_padding_commit_rests_on_the_lane_owning_it() -> Result<()> {
         ),
         repo.workdir().expect("fixture has a working directory"),
     );
-    let mut meta = but_meta::VirtualBranchesTomlMetadata::from_path(repo.path())?;
+    let mut meta = but_meta::VirtualBranchesMetadata::from_path(repo.path())?;
     add_workspace(&mut meta);
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     let info = ref_info_with_worktree_tips(&repo, &meta)?;
@@ -423,7 +423,7 @@ fn a_worktree_on_a_padding_commit_rests_on_the_lane_owning_it() -> Result<()> {
 fn worktrees_are_empty_without_seeded_tips() -> Result<()> {
     let mut db = but_testsupport::in_memory_db();
     let (repo, _tmp) = writable_scenario_slow("worktree-workspace");
-    let meta = but_meta::VirtualBranchesTomlMetadata::from_path(repo.path())?;
+    let meta = but_meta::VirtualBranchesMetadata::from_path(repo.path())?;
     let graph = but_testsupport::graph_from_head(
         &repo,
         &meta,
@@ -443,7 +443,7 @@ fn worktrees_are_empty_without_seeded_tips() -> Result<()> {
 #[test]
 fn deep_disjoint_history_is_never_mistaken_for_being_below_the_target() -> Result<()> {
     let (repo, _tmp) = writable_scenario_slow("worktree-disjoint-deep");
-    let mut meta = but_meta::VirtualBranchesTomlMetadata::from_path(repo.path())?;
+    let mut meta = but_meta::VirtualBranchesMetadata::from_path(repo.path())?;
     add_workspace(&mut meta);
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
 
@@ -1145,7 +1145,7 @@ fn add_worktreeinclude_copies_only_destination_ignored_files_untracked_in_both_i
 #[test]
 fn references_can_be_created_at_commits_of_worktree_lanes() -> Result<()> {
     let (repo, _tmp) = writable_scenario_slow("worktree-workspace");
-    let mut meta = but_meta::VirtualBranchesTomlMetadata::from_path(repo.path())?;
+    let mut meta = but_meta::VirtualBranchesMetadata::from_path(repo.path())?;
     add_workspace(&mut meta);
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
@@ -1417,7 +1417,7 @@ fn worktree_orders_leave_branches_claimed_elsewhere_alone() -> Result<()> {
         "git worktree add -q -b on-a wt-on-a A && git -C wt-on-a commit -q --allow-empty -m on-A",
         repo.workdir().expect("fixture has a working directory"),
     );
-    let mut stacks_meta = but_meta::VirtualBranchesTomlMetadata::from_path(repo.path())?;
+    let mut stacks_meta = but_meta::VirtualBranchesMetadata::from_path(repo.path())?;
     add_stack(&mut stacks_meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut stacks_meta, 2, "B", StackState::InWorkspace);
     stacks_meta.write_unreconciled()?;

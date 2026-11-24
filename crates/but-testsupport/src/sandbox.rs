@@ -4,7 +4,7 @@ use but_core::{
     RefMetadata, RepositoryExt, WORKSPACE_REF_NAME,
     ref_metadata::{ProjectMeta, StackId, WorkspaceCommitRelation},
 };
-use but_meta::VirtualBranchesTomlMetadata;
+use but_meta::VirtualBranchesMetadata;
 #[cfg(feature = "sandbox-but-api")]
 use but_settings::AppSettings;
 use gix::bstr::ByteVec;
@@ -228,7 +228,7 @@ impl Sandbox {
     }
 
     pub fn meta(&self) -> impl but_core::RefMetadata {
-        VirtualBranchesTomlMetadata::from_path(self.open_repo().gitbutler_storage_path().unwrap())
+        VirtualBranchesMetadata::from_path(self.open_repo().gitbutler_storage_path().unwrap())
             .unwrap()
     }
 

@@ -776,7 +776,7 @@ fn planning_works_after_normalizing_chained_editor_mutations() -> Result<()> {
 
 struct SimplifyFixture {
     repo: gix::Repository,
-    meta: ManuallyDrop<but_meta::VirtualBranchesTomlMetadata>,
+    meta: ManuallyDrop<but_meta::VirtualBranchesMetadata>,
     db: but_db::DbHandle,
     ws: but_graph::Workspace,
     base: gix::ObjectId,

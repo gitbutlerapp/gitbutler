@@ -14,7 +14,7 @@ fn fixture(
 ) -> anyhow::Result<(
     but_testsupport::gix_testtools::tempfile::TempDir,
     gix::Repository,
-    but_meta::VirtualBranchesTomlMetadata,
+    but_meta::VirtualBranchesMetadata,
 )> {
     ASKPASS.call_once(but_askpass::disable);
     let (repo, tmp) = writable_scenario_slow(name);
@@ -28,7 +28,7 @@ fn fixture(
         status.success(),
         "fixture remote URL should be normalized to an absolute path"
     );
-    let meta = but_meta::VirtualBranchesTomlMetadata::from_path(repo.path())?;
+    let meta = but_meta::VirtualBranchesMetadata::from_path(repo.path())?;
     Ok((tmp, repo, meta))
 }
 
@@ -44,7 +44,7 @@ fn project_meta(repo: &gix::Repository) -> anyhow::Result<ProjectMeta> {
 
 fn head_info(
     repo: &gix::Repository,
-    meta: &but_meta::VirtualBranchesTomlMetadata,
+    meta: &but_meta::VirtualBranchesMetadata,
 ) -> anyhow::Result<(RefInfo, but_graph::Workspace)> {
     let mut db = but_testsupport::project_db(repo)?;
     // Adoption already ran, so the fixture worktrees count as active.
@@ -67,7 +67,7 @@ fn head_info(
 
 fn push(
     repo: &gix::Repository,
-    meta: &but_meta::VirtualBranchesTomlMetadata,
+    meta: &but_meta::VirtualBranchesMetadata,
     branch: &gix::refs::FullNameRef,
     with_force: bool,
     skip_force_push_protection: bool,
@@ -232,7 +232,7 @@ fn pushing_a_worktree_branch_pushes_the_stack_branches_beneath_it() -> anyhow::R
 
 fn assert_refused_and_remote_untouched(
     repo: &gix::Repository,
-    meta: &but_meta::VirtualBranchesTomlMetadata,
+    meta: &but_meta::VirtualBranchesMetadata,
     branch: &str,
 ) -> anyhow::Result<()> {
     let err = push(repo, meta, r(branch), false, false, false)

@@ -18,11 +18,11 @@ fn worktree_fixture(
 ) -> Result<(
     gix::Repository,
     tempfile::TempDir,
-    std::mem::ManuallyDrop<but_meta::VirtualBranchesTomlMetadata>,
+    std::mem::ManuallyDrop<but_meta::VirtualBranchesMetadata>,
     but_db::DbHandle,
 )> {
     let (repo, tmp) = but_testsupport::writable_scenario_slow(name);
-    let meta = but_meta::VirtualBranchesTomlMetadata::from_path(repo.path().join(".git"))?;
+    let meta = but_meta::VirtualBranchesMetadata::from_path(repo.path().join(".git"))?;
     // Adoption already ran, so the fixture's worktrees count as active.
     let mut db = but_testsupport::project_db(&repo)?;
     db.worktree_meta_mut().mark_adopted()?;
@@ -1145,7 +1145,7 @@ fn an_attached_worktree_follows_its_branch_being_replaced_by_another() -> Result
 
 fn replace_reference_in_worktree_fixture(
     repo: &gix::Repository,
-    meta: &mut but_meta::VirtualBranchesTomlMetadata,
+    meta: &mut but_meta::VirtualBranchesMetadata,
     db: &mut but_db::DbHandle,
     from: &str,
     to: &str,

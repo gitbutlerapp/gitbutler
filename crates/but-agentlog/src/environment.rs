@@ -11,7 +11,7 @@ use but_core::{
     open_repo_for_merging,
     ref_metadata::{Branch, ValueInfo, Workspace},
 };
-use but_meta::VirtualBranchesTomlMetadata;
+use but_meta::VirtualBranchesMetadata;
 use gix::prelude::ObjectIdExt as _;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -335,7 +335,7 @@ fn workspace_snapshot(repo: &gix::Repository) -> anyhow::Result<WorkspaceObserva
     let storage_dir = repo.gitbutler_storage_path()?;
     let legacy_metadata_exists = legacy_metadata_exists(&storage_dir);
     if legacy_metadata_exists
-        && let Ok(meta) = VirtualBranchesTomlMetadata::from_path_read_only(&storage_dir)
+        && let Ok(meta) = VirtualBranchesMetadata::from_path_read_only(&storage_dir)
     {
         return workspace_snapshot_with_current_branch_fallback(repo, &meta);
     }

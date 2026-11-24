@@ -9,7 +9,7 @@ use but_core::{
     },
 };
 use but_meta::{
-    BranchOrderMetadata, VirtualBranchesTomlMetadata,
+    BranchOrderMetadata, VirtualBranchesMetadata,
     virtual_branches_legacy_types::{Stack as LegacyStack, StackBranch},
 };
 use but_testsupport::{
@@ -36,7 +36,7 @@ fn journey() -> anyhow::Result<()> {
     roundtrip_journey(&mut store)?;
     drop(store);
 
-    let store = VirtualBranchesTomlMetadata::from_path(&writable_storage_dir)?;
+    let store = VirtualBranchesMetadata::from_path(&writable_storage_dir)?;
     assert_eq!(
         store.iter().count(),
         0,
@@ -67,15 +67,13 @@ fn read_only_store_does_not_write_on_drop() -> anyhow::Result<()> {
     drop(store);
 
     {
-        let mut store = VirtualBranchesTomlMetadata::from_path_read_only(&path)?;
+        let mut store = VirtualBranchesMetadata::from_path_read_only(&path)?;
         store.data_mut().branches.clear();
         store.set_changed_to_necessitate_write();
     }
 
     assert_eq!(
-        VirtualBranchesTomlMetadata::from_path(&path)?
-            .iter()
-            .count(),
+        VirtualBranchesMetadata::from_path(&path)?.iter().count(),
         15,
         "read-only metadata is projection input and must not reconcile or persist on drop"
     );
@@ -136,7 +134,7 @@ fn writable_store_does_not_reconcile_on_drop() -> anyhow::Result<()> {
     let path = repo.path();
     write_fixture_to_db("non-unique-branches", path)?;
 
-    let mut store = VirtualBranchesTomlMetadata::from_path(path)?;
+    let mut store = VirtualBranchesMetadata::from_path(path)?;
     store.set_changed_to_necessitate_write();
     store.write_unreconciled()?;
     let unreconciled = store.data().clone();
@@ -144,7 +142,7 @@ fn writable_store_does_not_reconcile_on_drop() -> anyhow::Result<()> {
     drop(store);
 
     assert_eq!(
-        VirtualBranchesTomlMetadata::from_path_read_only(path)?.data(),
+        VirtualBranchesMetadata::from_path_read_only(path)?.data(),
         &unreconciled,
         "dropping writable metadata must persist without reconciling it against the workspace"
     );
@@ -491,7 +489,7 @@ Workspace {
     let storage_dir = store.path().to_owned();
     drop(store);
 
-    let mut store = VirtualBranchesTomlMetadata::from_path(&storage_dir)?;
+    let mut store = VirtualBranchesMetadata::from_path(&storage_dir)?;
     let mut ws_md = store.workspace(ws_ref)?;
     snapbox::assert_data_eq!(
         ws_md.deref().to_debug(),
@@ -666,14 +664,14 @@ fn set_workspace_stack_only_changes_are_written_on_drop() -> anyhow::Result<()> 
     drop(store);
 
     let ws_ref: gix::refs::FullName = "refs/heads/gitbutler/workspace".try_into()?;
-    let mut store = VirtualBranchesTomlMetadata::from_path(&storage_dir)?;
+    let mut store = VirtualBranchesMetadata::from_path(&storage_dir)?;
     let mut ws = store.workspace(ws_ref.as_ref())?;
     assert_eq!(ws.stacks.len(), 2, "fixture starts with both stacks");
     ws.stacks.retain(|stack| stack.id == first_stack_id);
     store.set_workspace(&ws)?;
     drop(store);
 
-    let store = VirtualBranchesTomlMetadata::from_path(&storage_dir)?;
+    let store = VirtualBranchesMetadata::from_path(&storage_dir)?;
     let ws = store.workspace(ws_ref.as_ref())?;
     assert_eq!(
         ws.stacks.len(),
@@ -814,7 +812,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     drop(store);
 
     let (actual, uuids) = sanitize_uuids_and_timestamps_with_mapping(toml::to_string(
-        VirtualBranchesTomlMetadata::from_path_read_only(&storage_dir)?.data(),
+        VirtualBranchesMetadata::from_path_read_only(&storage_dir)?.data(),
     )?);
     snapbox::assert_data_eq!(
         actual,
@@ -856,7 +854,7 @@ CommitId = "0000000000000000000000000000000000000000"
         "the saved metadata also contains the id we have set for the first branch, which is a stack now."
     );
 
-    let mut store = VirtualBranchesTomlMetadata::from_path(&storage_dir)?;
+    let mut store = VirtualBranchesMetadata::from_path(&storage_dir)?;
     let new_ws = store.workspace(workspace_name.as_ref())?;
     assert_eq!(
         new_ws.deref(),
@@ -1074,7 +1072,7 @@ Workspace {
 
     drop(store);
     assert!(
-        VirtualBranchesTomlMetadata::from_path_read_only(&storage_dir)?
+        VirtualBranchesMetadata::from_path_read_only(&storage_dir)?
             .data()
             .branches
             .is_empty(),
@@ -1221,7 +1219,7 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
     drop(store);
 
     // Stacks are still there, but not in workspace, they carry data. But can't test it due to hashmap-instability.
-    let mut store = VirtualBranchesTomlMetadata::from_path(storage_dir)?;
+    let mut store = VirtualBranchesMetadata::from_path(storage_dir)?;
     let stored_ws = store.workspace(workspace_name)?;
     assert_eq!(
         stored_ws.deref(),
@@ -1311,11 +1309,11 @@ fn write_fixture_to_db(name: &str, storage_dir: &std::path::Path) -> anyhow::Res
     but_meta::legacy_storage::write_virtual_branches(storage_dir, &vb)
 }
 
-fn vb_store_rw(name: &str) -> anyhow::Result<(VirtualBranchesTomlMetadata, TempDir)> {
+fn vb_store_rw(name: &str) -> anyhow::Result<(VirtualBranchesMetadata, TempDir)> {
     let tmp = TempDir::new()?;
     let storage_dir = tmp.path();
     write_fixture_to_db(name, storage_dir)?;
-    let store = VirtualBranchesTomlMetadata::from_path(storage_dir)?;
+    let store = VirtualBranchesMetadata::from_path(storage_dir)?;
     Ok((store, tmp))
 }
 
@@ -1366,9 +1364,9 @@ fn rename_onto_an_existing_branch_is_rejected() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn empty_vb_store_rw() -> anyhow::Result<(VirtualBranchesTomlMetadata, TempDir)> {
+fn empty_vb_store_rw() -> anyhow::Result<(VirtualBranchesMetadata, TempDir)> {
     let tmp = tempdir()?;
-    let store = VirtualBranchesTomlMetadata::from_path(tmp.path())?;
+    let store = VirtualBranchesMetadata::from_path(tmp.path())?;
     Ok((store, tmp))
 }
 
@@ -1475,7 +1473,7 @@ fn removes_duplicate_heads_even_if_they_point_to_the_same_commit() -> anyhow::Re
     let path = store.path().to_owned();
     drop(store);
 
-    let store = VirtualBranchesTomlMetadata::from_path(path)?;
+    let store = VirtualBranchesMetadata::from_path(path)?;
     let shared_heads = store
         .data()
         .branches
@@ -1606,7 +1604,7 @@ fn garbage_collect_removes_outside_workspace_stack_with_broken_ref() -> anyhow::
 fn preserves_duplicate_heads_if_they_map_to_the_same_workspace_segment() -> anyhow::Result<()> {
     let (repo, _repo_tmp) = but_testsupport::writable_scenario("ws/multi-lane-with-shared-segment");
     let path = repo.path();
-    let mut store = VirtualBranchesTomlMetadata::from_path(path)?;
+    let mut store = VirtualBranchesMetadata::from_path(path)?;
     but_core::ref_metadata::ProjectMeta {
         target_ref: Some(but_core::ref_metadata::LocalRefName::new(
             "refs/heads/main".try_into()?,
@@ -1648,7 +1646,7 @@ fn preserves_duplicate_heads_if_they_map_to_the_same_workspace_segment() -> anyh
 
     store.write_unreconciled()?;
 
-    let store = VirtualBranchesTomlMetadata::from_path(path)?;
+    let store = VirtualBranchesMetadata::from_path(path)?;
     let shared_heads = store
         .data()
         .branches
@@ -1669,7 +1667,7 @@ fn removes_within_stack_duplicate_heads_even_when_mapped_to_a_segment_13345() ->
 {
     let (repo, _repo_tmp) = but_testsupport::writable_scenario("ws/multi-lane-with-shared-segment");
     let path = repo.path();
-    let mut store = VirtualBranchesTomlMetadata::from_path(path)?;
+    let mut store = VirtualBranchesMetadata::from_path(path)?;
     but_core::ref_metadata::ProjectMeta {
         target_ref: Some(but_core::ref_metadata::LocalRefName::new(
             "refs/heads/main".try_into()?,
@@ -1696,7 +1694,7 @@ fn removes_within_stack_duplicate_heads_even_when_mapped_to_a_segment_13345() ->
 
     store.write_unreconciled()?;
 
-    let store = VirtualBranchesTomlMetadata::from_path(path)?;
+    let store = VirtualBranchesMetadata::from_path(path)?;
     let shared_in_stack = store.data().branches.get(&stack_id).map(|stack| {
         stack
             .heads
@@ -1858,7 +1856,7 @@ fn falls_back_to_in_memory_db_when_persistent_db_open_fails() -> anyhow::Result<
     read_only_permissions.set_mode(0o555);
     std::fs::set_permissions(tmp.path(), read_only_permissions)?;
 
-    let store_result = VirtualBranchesTomlMetadata::from_path(tmp.path());
+    let store_result = VirtualBranchesMetadata::from_path(tmp.path());
 
     // Restore permissions so TempDir cleanup can remove the directory.
     std::fs::set_permissions(tmp.path(), original_permissions)?;

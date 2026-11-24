@@ -1025,7 +1025,7 @@ fn prepare_snapshot_with_target_and_refs(
         // Open this read-only so there is no write-back, there should be no side-effects when
         // preparing a snapshot.
         let mut legacy_meta =
-            but_meta::VirtualBranchesTomlMetadata::from_path_read_only(ctx.project_data_dir())?;
+            but_meta::VirtualBranchesMetadata::from_path_read_only(ctx.project_data_dir())?;
         // Overlay *projected* workspace metadata onto the legacy snapshot format.
         // We want the metadata to represent what's actually there.
         if let Some(workspace_meta) = ws.metadata_from_projection()? {

@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use bstr::ByteSlice;
 use but_core::{RefMetadata, WORKSPACE_REF_NAME, ref_metadata::StackKind};
-use but_meta::VirtualBranchesTomlMetadata;
+use but_meta::VirtualBranchesMetadata;
 use but_rebase::graph_rebase::Editor;
 use but_testsupport::{
     CommandExt as _, git, gix_testtools::tempfile::TempDir, graph_workspace_determinisitcally,
@@ -34,7 +34,7 @@ fn two_stacks(
 ) -> anyhow::Result<(
     TempDir,
     gix::Repository,
-    VirtualBranchesTomlMetadata,
+    VirtualBranchesMetadata,
     but_db::DbHandle,
 )> {
     let (tmp, repo, mut meta, db) =
@@ -52,7 +52,7 @@ fn two_stacks(
 
 fn workspace(
     repo: &gix::Repository,
-    meta: &VirtualBranchesTomlMetadata,
+    meta: &VirtualBranchesMetadata,
     db: &mut but_db::DbHandle,
 ) -> anyhow::Result<but_graph::Workspace> {
     graph(repo, meta, db)?.into_workspace()
@@ -62,7 +62,7 @@ fn apply_stack(
     branch: &gix::refs::FullNameRef,
     mut ws: but_graph::Workspace,
     repo: &gix::Repository,
-    meta: &mut VirtualBranchesTomlMetadata,
+    meta: &mut VirtualBranchesMetadata,
     db: &mut but_db::DbHandle,
 ) -> anyhow::Result<apply::Outcome> {
     let editor = Editor::create(&mut ws, meta, repo, db)?;
@@ -88,7 +88,7 @@ fn unapply_stack<'ws>(
     branch: &gix::refs::FullNameRef,
     ws: &'ws but_graph::Workspace,
     repo: &gix::Repository,
-    meta: &mut VirtualBranchesTomlMetadata,
+    meta: &mut VirtualBranchesMetadata,
     db: &mut but_db::DbHandle,
 ) -> anyhow::Result<unapply::Outcome<'ws>> {
     let mut changed = ws.clone();
@@ -134,7 +134,7 @@ fn branch_config(repo: &gix::Repository, branch: &str) -> anyhow::Result<String>
 }
 
 /// The stacks the workspace metadata records as applied.
-fn applied_stacks_in_metadata(meta: &VirtualBranchesTomlMetadata) -> anyhow::Result<Vec<String>> {
+fn applied_stacks_in_metadata(meta: &VirtualBranchesMetadata) -> anyhow::Result<Vec<String>> {
     Ok(meta
         .workspace(r(WORKSPACE_REF_NAME))?
         .stacks(StackKind::Applied)
