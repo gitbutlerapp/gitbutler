@@ -256,7 +256,7 @@ libc = "0.2.189"
 git2-hooks = { version = "0.7.0" }
 itertools = "0.14.0"
 dirs = "6.0.0"
-rmcp = { version = "0.16.0", default-features = false, features = [
+rmcp = { version = "2.1.0", default-features = false, features = [
     "base64",
     "server",
     "macros",
