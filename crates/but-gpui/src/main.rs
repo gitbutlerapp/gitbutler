@@ -4,8 +4,13 @@
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
 fn main() {
+    // Before anything else, as it runs this binary again from the start.
+    let dev_app = but_gpui::run_from_dev_app();
     use_production_server();
     but_gpui::init_logging();
+    if let Err(err) = dev_app {
+        tracing::error!("couldn't run from the dev app: {err:#}");
+    }
     but_gpui::run(None);
 }
 

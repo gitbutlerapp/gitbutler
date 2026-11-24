@@ -269,7 +269,7 @@ fn new_branch_items(cx: &App) -> Vec<MenuItem> {
 }
 
 /// Build and restart from checkout `dir`, the row right-clicked and so selected, in a client
-/// `cargo run` started, when `dir` has the client to build.
+/// `cargo run` started or the dev app runs, when `dir` has the client to build.
 fn build_item(dir: &Path, cx: &App) -> Option<MenuItem> {
     let builds = cx.try_global::<Rebuild>().is_some_and(|r| r.builds_in(dir));
     let item = MenuItem::command(&BuildAndRestartFromHere, cx);

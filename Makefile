@@ -60,3 +60,9 @@ but-bench-show:
 run-but-gpui-without-xcode:
 	cargo build -p but-gpui -p gitbutler-git --bins --features gpui_platform/runtime_shaders
 	cargo run -p but-gpui --features gpui_platform/runtime_shaders
+
+# macOS only: build the GPUI client for release and write `GitButler GPUI Dev.app`, which runs
+# that build from `target/`. APP_DIR sets where, ~/Applications by default.
+.PHONY: but-gpui-app-dev
+but-gpui-app-dev:
+	./crates/but-gpui/scripts/dev-app/make-app.sh

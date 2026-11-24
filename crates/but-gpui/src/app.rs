@@ -5634,7 +5634,7 @@ impl Render for AppView {
             .when(has_update_feed, |el| {
                 el.on_action(cx.listener(Self::check_for_updates))
             })
-            // Only in a build `cargo run` started, likewise.
+            // Only in a build `cargo run` started or the dev app runs, likewise.
             .when(cx.has_global::<backend::rebuild::Rebuild>(), |el| {
                 el.on_action(cx.listener(Self::build_and_restart))
                     .on_action(cx.listener(Self::build_and_restart_from_here))
