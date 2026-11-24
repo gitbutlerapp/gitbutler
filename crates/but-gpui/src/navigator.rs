@@ -16,7 +16,7 @@ use gpui::{
     canvas, div, fill, list, point, prelude::*, relative,
 };
 
-use crate::app::{AddProject, AppHandle, UpdateFromTarget};
+use crate::app::{AppHandle, UpdateFromTarget};
 use crate::backend::rebuild::Rebuild;
 use crate::backend::upstream::UpdateScope;
 use crate::backend::{
@@ -2744,9 +2744,10 @@ impl Navigator {
         card_caps(&cards, top, height, focused, self.card_margins(), theme)
     }
 
-    /// The drawer's handle: a click opens or closes it, and it says how many projects it lists
-    /// of how many there are, and has ways to add, order and find them. With the keys on it,
-    /// it's drawn as a selected row is.
+    /// The hidden projects' card's heading, as 🍑 But UI's: a leading row, as but-ui-react's
+    /// `NavItem`, with its chevron, its name, and how many projects it lists of how many there
+    /// are. The whole row folds the card, and with the keys on it it's ringed, never filled, as
+    /// a drawer's row. Its menu orders and filters the projects.
     fn drawer_bar(&self, alone: bool, theme: &Theme, cx: &Context<Self>) -> impl IntoElement {
         let Drawer { listed, total, .. } = self.built.drawer;
         let title = drawer_title(alone);
@@ -2758,35 +2759,38 @@ impl Navigator {
         // Beside the page only: across the top, More projects' card's bar is under its tab,
         // which has the keys rather than it.
         let solid = self.keys.on_head_of(&List::Rows(None));
-        let selected = solid;
-        let open = toggles.then(|| !self.store.read(cx).prefs.projects_folded);
-        // How many, at zero too, as but-ui-react's DrawerItem.
-        let count = Some(count);
-        // As but-ui-react's Drawer: Sort and show and Add project only under the pointer or with
-        // the keys on it.
-        let sort = (total > 0).then(|| {
-            icon_button("project-view-options", Icon::Mixer)
-                .tooltip("Sort and show")
-                .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
-                    this.open_menu(event.position(), |this, cx| this.view_options(cx), cx)
-                }))
-        });
-        // Heading its card, in the card's padding, its words in line with the rows under it.
-        card_bar("drawer-bar", title, count, open, selected, solid, theme)
-            .group(DRAWER_GROUP)
-            .h(dp(DRAWER_ROW))
+        let row = sidebar_row("drawer-bar")
+            .label(item_name(title))
+            .meta(meta_count_on(
+                MetaCountType::Repos,
+                Some(count.into()),
+                false,
+                theme,
+            ));
+        let row = match toggles {
+            true => row
+                .row_folds()
+                .fold(match self.store.read(cx).prefs.projects_folded {
+                    true => RowFold::Folded,
+                    false => RowFold::Open,
+                })
+                .selected(solid, solid),
+            false => row,
+        };
+        row.build(theme)
+            .aria_label(title)
             .mx(dp(ROW_MARGIN))
             .my(dp(CARD_PADDING))
-            .pr(dp(4.))
-            .children(sort.map(|sort| on_hover(sort, selected)))
-            .child(on_hover(
-                icon_button("add-project", Icon::Plus)
-                    .tooltip("Add project")
-                    .dispatch(&AddProject),
-                selected,
-            ))
             .when(toggles, |el| {
                 el.on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.toggle_drawer(cx)))
+            })
+            .when(total > 0, |el| {
+                el.on_mouse_down(
+                    MouseButton::Right,
+                    cx.listener(|this, event: &MouseDownEvent, _, cx| {
+                        this.open_menu(event.position, |this, cx| this.view_options(cx), cx)
+                    }),
+                )
             })
     }
 
