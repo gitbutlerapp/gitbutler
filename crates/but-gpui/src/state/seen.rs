@@ -9,7 +9,10 @@ use gpui::Context;
 
 use super::{ProjectId, Selection, Store};
 use crate::backend::history::NEWEST_ENTRIES;
-use crate::backend::{Branch, Commit, CommitId, RemoteCommit, SnapshotId, Workspace};
+use crate::backend::{
+    Branch, Commit, CommitId, CommitState, PushState, RemoteCommit, ReviewState, SnapshotId,
+    Workspace,
+};
 
 /// What the user has looked at, so new work by agents stands out. Per project id.
 #[derive(Default, Clone, Serialize, Deserialize)]
@@ -53,6 +56,24 @@ impl Seeable for RemoteCommit {
 pub(super) fn shown(workspace: &Workspace) -> impl Iterator<Item = (CommitId, [&str; 2])> {
     let local = workspace.commits().map(|commit| (commit.id, commit.ids()));
     local.chain((workspace.remote_commits()).map(|commit| (commit.id, commit.ids())))
+}
+
+/// What `workspace` shows that has merged, by what each goes by among those seen: the
+/// commits of a branch whose pull request merged or that the target has, and any commit the
+/// target has. Its work is done, so it's never news.
+fn merged(workspace: &Workspace) -> HashSet<&str> {
+    let branches = workspace.all_branches().filter(|branch| {
+        branch.push == PushState::Integrated
+            || (branch.review.as_ref()).is_some_and(|review| review.state == ReviewState::Merged)
+    });
+    let of_branches = branches.flat_map(|branch| {
+        let local = branch.commits.iter().flat_map(Seeable::ids);
+        local.chain(branch.incoming.iter().flat_map(Seeable::ids))
+    });
+    let integrated = (workspace.commits())
+        .filter(|commit| commit.state == CommitState::Integrated)
+        .flat_map(Seeable::ids);
+    of_branches.chain(integrated).collect()
 }
 
 /// The commit a branch's or a stack's page shows, when it's their only one: their diff is
@@ -234,9 +255,10 @@ impl Store {
         if seen.len() > KEPT {
             seen.retain(|key| commits.contains(key));
         }
-        // Nothing is news the first time a project shows up, and neither is what the
-        // app's own operations created. A commit seen by one of its ids is seen by both, so
-        // it stays seen when a rebase by Git changes its key, or a reword its message.
+        // Nothing is news the first time a project shows up, nor once it has merged, and
+        // neither is what the app's own operations created. A commit seen by one of its ids
+        // is seen by both, so it stays seen when a rebase by Git changes its key, or a reword
+        // its message.
         // Only those in the checkouts it made commits in: an agent's in another are news.
         let before = self.rebaseline.get(id).map(|(before, checkouts)| {
             let there: HashSet<&str> = (checkouts.iter())
@@ -246,9 +268,11 @@ impl Store {
                 .collect();
             (before, there)
         });
+        let merged = merged(workspace);
         let now_seen: Vec<String> = (shown(workspace))
             .filter(|(_, [key, authored])| {
                 first_sight
+                    || merged.contains(key)
                     || before.as_ref().is_some_and(|(before, there)| {
                         !before.contains(*key) && there.contains(key)
                     })
@@ -316,9 +340,11 @@ fn amended(old: &Commit, new: &Commit) -> bool {
 mod tests {
     use std::collections::HashSet;
 
-    use super::{Seeable, amended, amended_since, by_a_person, lone_commit, was_seen};
+    use super::{Seeable, amended, amended_since, by_a_person, lone_commit, merged, was_seen};
     use crate::backend::model::build::{branch, full, workspace};
-    use crate::backend::{Commit, CommitId, SnapshotId};
+    use crate::backend::{
+        Commit, CommitId, CommitState, PushState, Review, ReviewState, SnapshotId,
+    };
     use crate::state::Selection;
 
     fn commit(id: u8, parent: u8, tree: u8) -> Commit {
@@ -372,6 +398,29 @@ mod tests {
             ..rebased
         };
         assert!(!was_seen(&seen, other.ids()), "another commit isn't");
+    }
+
+    #[test]
+    fn what_has_merged_is_never_news() {
+        let mut pr_merged = branch("pr-merged", &[1]);
+        pr_merged.review = Some(Review {
+            state: ReviewState::Merged,
+            ..Review::default()
+        });
+        let mut in_target = branch("in-target", &[2]);
+        in_target.push = PushState::Integrated;
+        let mut open = branch("open", &[3, 4]);
+        open.review = Some(Review::default());
+        open.commits[1].state = CommitState::Integrated;
+        let ws = workspace(vec![vec![pr_merged, in_target, open]], vec![]);
+        let merged = merged(&ws);
+        assert!(merged.contains("key1"), "its pull request merged");
+        assert!(merged.contains("authored2"), "the target has its branch");
+        assert!(merged.contains("key4"), "the target has the commit itself");
+        assert!(
+            !merged.contains("key3"),
+            "an open pull request's commit is still news"
+        );
     }
 
     #[test]
