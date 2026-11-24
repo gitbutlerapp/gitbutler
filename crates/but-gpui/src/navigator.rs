@@ -174,6 +174,22 @@ enum ClickOpened {
     Elsewhere(crate::state::MeshBranch),
 }
 
+/// A row's ↑ or ↓: the button that pushes or updates, or while it can't, the plain count, which
+/// goes with the row's other counts so it lines up with them.
+enum Step {
+    Count(AnyElement),
+    Button(AnyElement),
+}
+
+impl Step {
+    fn add(row: SidebarRow, step: Self) -> SidebarRow {
+        match step {
+            Step::Count(count) => row.meta(count),
+            Step::Button(button) => row.action(button),
+        }
+    }
+}
+
 /// How an item row draws: `solid` is the selection while the navigator has focus, `taken`
 /// is the row being moved, `held` a copy of what's being moved, or a terminal
 /// going where it'd land itself, `mark` the colour taken or held rows are marked in, and `inset`
@@ -3744,13 +3760,9 @@ impl Navigator {
             .chain(conflicts.map(IntoElement::into_any_element))
             .chain(authors.map(IntoElement::into_any_element))
             .fold(row, SidebarRow::meta);
-        let row = (update.map(IntoElement::into_any_element))
-            .into_iter()
-            .chain(
-                self.push_step(id, ref_name, unpushed_n, style, cx)
-                    .map(IntoElement::into_any_element),
-            )
-            .fold(row, SidebarRow::action);
+        let row = (update.into_iter())
+            .chain(self.push_step(id, ref_name, unpushed_n, style, cx))
+            .fold(row, Step::add);
         Some(
             (style.draw(row, 0.))
                 .aria_label(format!("Branch {name}"))
@@ -3792,12 +3804,12 @@ impl Navigator {
         n: usize,
         style: RowStyle,
         cx: &Context<Self>,
-    ) -> Option<AnyElement> {
+    ) -> Option<Step> {
         let store = self.store.read(cx);
         let ws = store.workspace(project)?;
         if let Some(why) = ws.push_blocked(ref_name) {
             return count(MetaCountType::Unpushed, n, why.to_owned(), style)
-                .map(IntoElement::into_any_element);
+                .map(|count| Step::Count(count.into_any_element()));
         }
         let ref_name = ref_name?;
         if n == 0 {
@@ -3821,10 +3833,10 @@ impl Navigator {
                 app.push_branch(project, Some(ref_name), window, cx)
             });
         });
-        Some(match pushing {
+        Some(Step::Button(match pushing {
             true => pulsing(step).into_any_element(),
             false => step.into_any_element(),
-        })
+        }))
     }
 
     /// Update, in place of the ↓ count of the `n` commits only `ref_name`'s remote has: the
@@ -3838,10 +3850,11 @@ impl Navigator {
         tip: String,
         style: RowStyle,
         cx: &Context<Self>,
-    ) -> Option<AnyElement> {
+    ) -> Option<Step> {
         let ws = self.store.read(cx).workspace(project);
         let Some(ref_name) = ref_name.filter(|r| ws.is_some_and(|ws| ws.can_pull(r))) else {
-            return count(MetaCountType::Behind, n, tip, style).map(IntoElement::into_any_element);
+            return count(MetaCountType::Behind, n, tip, style)
+                .map(|count| Step::Count(count.into_any_element()));
         };
         if n == 0 {
             return None;
@@ -3865,7 +3878,7 @@ impl Navigator {
                 store.pull_remote(&project, ref_name, None, cx)
             })
         });
-        Some(step.into_any_element())
+        Some(Step::Button(step.into_any_element()))
     }
 
     /// `step` as a row's next step: pressing it does `press` and leaves its row as it was,
@@ -4285,7 +4298,7 @@ impl Navigator {
             .flatten();
         let row = self.section_heading(ix, project, &section, label, style, cx, |row| {
             let row = authors.flatten().into_iter().fold(row, SidebarRow::meta);
-            step.into_iter().fold(row, SidebarRow::action)
+            step.into_iter().fold(row, Step::add)
         });
         let row = row.when_some(full, |el, full| el.tooltip(Tooltip::text(full)));
         Some(row.into_any_element())
