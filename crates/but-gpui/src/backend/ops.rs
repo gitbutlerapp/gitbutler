@@ -1454,6 +1454,8 @@ fn stack_order(
 }
 
 /// Take the stack holding `branch` out of the workspace. Its branches stay in the repository.
+/// Outside the workspace the stack is the branch checked out, so this checks out the target's
+/// local branch instead.
 pub struct UnapplyStack {
     pub branch: FullName,
 }
@@ -1468,7 +1470,7 @@ impl Intent for UnapplyStack {
                 .find(|stack| stack.segments.iter().any(|s| holds(s, &self.branch)))
                 .and_then(|stack| stack.id)
             else {
-                but_error::bail_precondition!("That branch isn't in the workspace any more");
+                but_error::bail_precondition!("That branch isn't applied any more");
             };
             but_api::legacy::virtual_branches::unapply_stack_with_perm(ctx, stack_id, perm)
         })
@@ -2563,6 +2565,11 @@ pub(super) mod tests {
     pub(in crate::backend) fn head(dir: &Path) -> CommitId {
         let id = git(dir, &["rev-parse", "HEAD"]);
         CommitId(gix::ObjectId::from_hex(id.trim().as_bytes()).unwrap())
+    }
+
+    /// The full name of the branch `dir` has checked out.
+    pub(in crate::backend) fn head_ref(dir: &Path) -> String {
+        git(dir, &["symbolic-ref", "HEAD"]).trim().to_owned()
     }
 
     fn newest_entry(path: &Path) -> crate::backend::SnapshotId {
@@ -3875,7 +3882,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                 "named as typed, as Git allows"
             );
             assert_eq!(
-                git(path, &["symbolic-ref", "HEAD"]).trim(),
+                head_ref(path),
                 new,
                 "it's checked out, as `git checkout -b` would"
             );
@@ -4131,7 +4138,6 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                 lanes.sort();
                 (workspace.managed, lanes)
             };
-            let head = |path: &Path| git(path, &["symbolic-ref", "HEAD"]).trim().to_owned();
 
             // A teammate's branch on the remote, which a branch of that name would take as
             // its own.
@@ -4152,7 +4158,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                 (true, both),
                 "two branches side by side, so GitButler's workspace holds them"
             );
-            assert_eq!(head(path), "refs/heads/gitbutler/workspace");
+            assert_eq!(head_ref(path), "refs/heads/gitbutler/workspace");
             assert_eq!(
                 std::fs::read_to_string(path.join("file")).unwrap(),
                 "two\n",
@@ -4162,7 +4168,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let last = newest_entry(path);
             undo(path, last, None).unwrap();
             assert_eq!(
-                head(path),
+                head_ref(path),
                 "refs/heads/feature",
                 "one undo goes back to the branch on its own"
             );
@@ -4228,10 +4234,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                 fork,
                 "where feature leaves the target, so the two merge without conflicts"
             );
-            assert_eq!(
-                git(path, &["symbolic-ref", "HEAD"]).trim(),
-                "refs/heads/gitbutler/workspace"
-            );
+            assert_eq!(head_ref(path), "refs/heads/gitbutler/workspace");
         })
     }
 
@@ -4271,7 +4274,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                 "the composer's new branch goes on top of main's commit, which stays where it is"
             );
             assert_eq!(
-                git(path, &["symbolic-ref", "HEAD"]).trim(),
+                head_ref(path),
                 new,
                 "the new branch is checked out, so the commit lands on it"
             );
@@ -6075,7 +6078,6 @@ managed true, below true: agent [one], <new> [two], agent checked out
             );
             git(path, &["config", "branch.feature.description", "Why"]);
             crate::backend::apply(path, branch_named("second")).unwrap();
-            let head_ref = |path: &Path| git(path, &["symbolic-ref", "HEAD"]).trim().to_owned();
             assert_eq!(head_ref(path), "refs/heads/gitbutler/workspace");
 
             let delete = DeleteBranchAndCommits {
@@ -6120,6 +6122,50 @@ managed true, below true: agent [one], <new> [two], agent checked out
     }
 
     #[test]
+    fn unapplying_a_branch_checked_out_by_itself_checks_out_the_target_and_undoes() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["checkout", "-q", "-b", "feature"]);
+            std::fs::write(path.join("feature.txt"), "work\n").unwrap();
+            git(path, &["add", "feature.txt"]);
+            git(path, &["commit", "-q", "-m", "feature work"]);
+            let work = head(path);
+            let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+            assert!(!workspace.managed, "a branch checked out by itself");
+
+            let unapply = UnapplyStack {
+                branch: full("refs/heads/feature"),
+            };
+            crate::backend::apply(path, unapply).unwrap();
+            assert_eq!(
+                head_ref(path),
+                "refs/heads/main",
+                "the target is checked out"
+            );
+            assert!(
+                !path.join("feature.txt").exists(),
+                "without the branch's file"
+            );
+            assert_eq!(
+                git(path, &["rev-parse", "feature"]).trim(),
+                work.0.to_string(),
+                "the branch stays, with its commit"
+            );
+
+            let last = newest_entry(path);
+            undo(path, last, None).unwrap();
+            assert_eq!(
+                head_ref(path),
+                "refs/heads/feature",
+                "undo checks it out again"
+            );
+            assert!(path.join("feature.txt").exists(), "with its file");
+        })
+    }
+
+    #[test]
     fn a_linked_worktrees_top_branch_goes_and_leaves_it_on_the_one_below() {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\n");
@@ -6149,7 +6195,7 @@ managed true, below true: agent [one], <new> [two], agent checked out
                 "the branch is gone"
             );
             assert_eq!(
-                git(&linked, &["symbolic-ref", "HEAD"]).trim(),
+                head_ref(&linked),
                 "refs/heads/agent",
                 "the worktree is on the branch below"
             );
@@ -6180,7 +6226,7 @@ managed true, below true: agent [one], <new> [two], agent checked out
                 below: full("refs/heads/feature"),
             };
             let (tip, _) = crate::backend::apply(path, above).unwrap();
-            assert_eq!(git(path, &["symbolic-ref", "HEAD"]).trim(), tip.to_string());
+            assert_eq!(head_ref(path), tip.to_string());
 
             let delete = DeleteBranchAndCommits {
                 branch: tip,
@@ -6188,7 +6234,7 @@ managed true, below true: agent [one], <new> [two], agent checked out
             };
             crate::backend::apply(path, delete).unwrap();
             assert_eq!(
-                git(path, &["symbolic-ref", "HEAD"]).trim(),
+                head_ref(path),
                 "refs/heads/feature",
                 "HEAD is back on the branch it was made on"
             );
@@ -6215,10 +6261,7 @@ managed true, below true: agent [one], <new> [two], agent checked out
                 "a checkout on it would have nothing to fall back to: {refused:#}"
             );
             assert_eq!(head(path), tip, "main and its commit stay");
-            assert_eq!(
-                git(path, &["symbolic-ref", "HEAD"]).trim(),
-                "refs/heads/main"
-            );
+            assert_eq!(head_ref(path), "refs/heads/main");
         })
     }
 
