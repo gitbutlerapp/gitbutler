@@ -758,6 +758,17 @@
         "$extensions": {
           "mode": {}
         }
+      },
+      "slow": {
+        "$type": "duration",
+        "$value": {
+          "value": 175,
+          "unit": "ms"
+        },
+        "$description": "Slow transition (175ms). Use for something that travels along a list: cards and rows trading places, a project going to or from the hidden projects. Pairs with the default CSS ease. Not for a fold, a chevron or a switch, which use transition/medium.",
+        "$extensions": {
+          "mode": {}
+        }
       }
     },
     "easing": {
@@ -785,7 +796,7 @@
           "semantic",
           "ramps"
         ],
-        "createdAt": "2026-11-24T20:22:01.001Z"
+        "createdAt": "2026-11-25T20:18:23.758Z"
       }
     }
   }
