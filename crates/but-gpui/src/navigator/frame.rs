@@ -374,6 +374,9 @@ impl Navigator {
     ) {
         // Rows not drawn yet count as one row tall, which a project's row is.
         let row = Theme::get(cx).scaled(self.row);
+        // A project crossing between the cards and the hidden projects' card, where it was
+        // drawn, read before either list changes.
+        let crossing = self.crossing(&rows, &drawer, cx);
         // At the very top a list stays there, showing what's added, as the diff does: rows
         // added above the first one count as added above the top, which would leave it
         // scrolled to their end, as the drawer's rows are when it opens.
@@ -385,6 +388,7 @@ impl Navigator {
             }
         }
         self.built.drawer = drawer;
+        let crossed = crossing.is_some_and(|crossing| self.cross(crossing));
         // Scrolled, the row under the pointer stays where it is.
         let at_top = at_top(&self.list);
         let hovered = (std::mem::take(&mut self.hold_still) && !at_top)
@@ -441,7 +445,9 @@ impl Navigator {
         let store = self.store.read(cx);
         let op = (store.moving.as_ref().or_else(|| store.landing())).map(|moving| moving.op);
         let was = std::mem::replace(&mut self.shown_op, op);
-        let every = op.is_some() || was.is_some();
+        // As a project crosses to or from the hidden projects' card, the cards close over the
+        // room it leaves or open for it, rather than jump.
+        let every = op.is_some() || was.is_some() || crossed;
         // A squash just ended: landed, what it took goes.
         let ended = matches!(was, Some(Op::Squash(_))) && store.moving.is_none();
         // A move Return landed, until the reload after it, and as that shows where it went. Not

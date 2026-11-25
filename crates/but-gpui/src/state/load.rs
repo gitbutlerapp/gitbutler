@@ -284,9 +284,13 @@ impl Store {
             self.select(first.map(|entry| Selection::Project(entry.id.clone())), cx);
         }
 
+        // The watched open, with a watcher; the hidden are read once, so their rows say what's
+        // in them as a watched project's do.
         for id in &open {
-            if self.project(id).is_some_and(|entry| entry.expanded) {
-                self.open_project(id, cx);
+            match self.project(id).map(|entry| entry.expanded) {
+                Some(true) => self.open_project(id, cx),
+                Some(false) => self.load(id, Reload::full(), cx),
+                None => {}
             }
         }
         if first_load {

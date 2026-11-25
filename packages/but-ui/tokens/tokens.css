@@ -672,6 +672,8 @@
   --but-transition-medium: 150ms;
   /* Popup transition (150ms). Use for anything that opens over the app: modals, dropdowns, the toolbox, and the backdrop behind them. Always pair with easing/popup. Not for hover or press states. */
   --but-transition-popup: var(--but-transition-medium);
+  /* Slow transition (175ms). Use for something that travels along a list: cards and rows trading places, a project going to or from the hidden projects. Pairs with the default CSS ease. Not for a fold, a chevron or a switch, which use transition/medium. */
+  --but-transition-slow: 175ms;
   --but-warning: var(--but-amber-9);
   /* Text and icons on warning. */
   --but-warning-foreground: light-dark(var(--but-amber-12), hsl(19 100.0% 3.1%));

@@ -387,8 +387,8 @@ commands! {
     crate::app::CopyTileDiagram => "Copy tile layout as a diagram" {
         aliases: &["Copy splits as ASCII", "Copy tiling diagram"],
     },
-    crate::navigator::Watch => "Watch",
-    crate::navigator::StopWatching => "Stop watching" { aliases: &["Unwatch"] },
+    crate::navigator::Watch => "Unhide project" { aliases: &["Show project", "Watch"] },
+    crate::navigator::StopWatching => "Hide project" { aliases: &["Stop watching", "Unwatch"] },
     crate::navigator::UnarchiveWorktree => "Unarchive worktree",
     crate::navigator::Reveal => (crate::ui::REVEAL),
     crate::navigator::OpenProjectSettings => "Project settings",

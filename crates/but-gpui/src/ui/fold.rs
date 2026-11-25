@@ -21,8 +21,13 @@ use gpui::{
 use super::{Icon, fixed, small_icon, switch_spring};
 use crate::clock;
 
-/// How long a fold takes to open or close: but-ui's `--but-transition-medium`.
-pub const FOLD: Duration = Duration::from_millis(150);
+/// How long a fold takes to open or close: but-ui's `--but-transition-medium`, on the default
+/// `ease`, as the motion note has it.
+pub const FOLD: Duration = crate::theme::tokens::TRANSITION_MEDIUM;
+
+/// How long rows a reorder moves take to slide, cards trading places and a project going to or
+/// from the hidden projects alike: but-ui's `--but-transition-slow`, on the default `ease`.
+pub const REORDER: Duration = crate::theme::tokens::TRANSITION_SLOW;
 
 /// The most rows a list's fold moves, which is more than a window shows: those past them
 /// join or leave once it's done, so a branch of a thousand commits opens as quickly as one of
@@ -384,7 +389,7 @@ pub fn openness(open: bool, since: Instant, now: Instant) -> f32 {
 }
 
 /// [`openness`] of a move that takes `lasting`.
-fn openness_over(open: bool, since: Instant, now: Instant, lasting: Duration) -> f32 {
+pub fn openness_over(open: bool, since: Instant, now: Instant, lasting: Duration) -> f32 {
     let along = now.saturating_duration_since(since).as_secs_f32() / lasting.as_secs_f32();
     let eased = ease(along.clamp(0., 1.));
     match open {
@@ -742,8 +747,8 @@ fn solve(target: f32, f: impl Fn(f32) -> f32) -> f32 {
     (low + high) / 2.
 }
 
-/// A list's rows sliding to where a reorder put them, over [`FOLD`] as a fold moves unless
-/// it's made [`Reorder::lasting`] another time, by their keys. Rows reordered again partway
+/// A list's rows sliding to where a reorder put them, over [`REORDER`] unless it's made
+/// [`Reorder::lasting`] another time, by their keys. Rows reordered again partway
 /// slide on from where they're drawn. Under reduced motion, rows move at once.
 pub struct Reorder<K> {
     from: HashMap<K, f32>,
@@ -755,7 +760,7 @@ pub struct Reorder<K> {
 
 impl<K> Default for Reorder<K> {
     fn default() -> Self {
-        Self::lasting(FOLD)
+        Self::lasting(REORDER)
     }
 }
 
@@ -950,7 +955,7 @@ mod tests {
         let start = Instant::now();
         reorder.start_at(HashMap::from([("a", 30.)]), start);
         assert_eq!(reorder.offset(&"a"), 30., "it starts where it was");
-        reorder.frame_at(start + FOLD / 2);
+        reorder.frame_at(start + REORDER / 2);
         let halfway = reorder.offset(&"a");
         assert!(halfway > 0. && halfway < 30., "halfway, it's partly there");
         reorder.start_at(HashMap::from([("a", -10.), ("b", 10.)]), reorder.now);
@@ -958,7 +963,7 @@ mod tests {
             (reorder.offset(&"a") - (halfway - 10.)).abs() < 1e-3,
             "moved again, it goes on from where it's drawn"
         );
-        reorder.frame_at(reorder.now + FOLD);
+        reorder.frame_at(reorder.now + REORDER);
         assert!(!reorder.any(), "then rests");
         assert_eq!(reorder.offset(&"b"), 0., "where it's laid out");
     }

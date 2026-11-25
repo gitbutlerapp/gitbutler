@@ -72,6 +72,7 @@ mod rename;
 mod rows;
 mod tabs;
 mod terminals;
+mod travel;
 use cursor::{OffRow, row_actions};
 use drop::on_any_drag_move;
 use frame::{Built, RowsIn};
@@ -632,6 +633,8 @@ pub struct Navigator {
     /// The terminal sliding from one card to another, which floats over the cards on its way
     /// rather than taking a slice of the card it's going to with it.
     crossing: Option<RowKey>,
+    /// A project going between the cards and the hidden projects' card, floating over them.
+    travel: Option<travel::Travel>,
     /// Whether each fold the rows were last built through showed what it holds, to tell
     /// which opened or shut since.
     folds_seen: HashMap<Fold, bool>,
@@ -880,6 +883,7 @@ impl Navigator {
             steps: Reorder::default(),
             stand_ins: Vec::new(),
             crossing: None,
+            travel: None,
             folds_seen: HashMap::new(),
             // Its last item, after the rows, is the drawer: see `drawer_footer`.
             list: ListState::new(1, ListAlignment::Top, fixed(56.)),
@@ -1283,7 +1287,7 @@ impl Navigator {
             match store.project(id).is_some_and(|p| p.expanded) {
                 true if filtering => {}
                 true => store.set_project_folded(id, !store.project_folded(id), cx),
-                false => store.set_expanded(id, true, cx),
+                false => store.show_project(id, cx),
             }
         })
     }
@@ -1714,6 +1718,11 @@ impl Navigator {
             return self.drawer_footer(Theme::get(cx), cx);
         }
         let row = self.row_in_card(ix, cx);
+        // The project on its way, to or from the cards, shows as its copy until that gets there.
+        let row = match self.travelling_in_cards(ix) {
+            Some(opacity) => div().opacity(opacity).child(row).into_any_element(),
+            None => row,
+        };
         let Some((first, below)) = self.slide_edges else {
             return row;
         };
@@ -2546,6 +2555,11 @@ impl Navigator {
                     .relative()
                     .flex_1()
                     .min_h_0()
+                    // While the room a hidden project takes opens, the card is short of its rows
+                    // by what's still to open, and the rows past that room are drawn up by as
+                    // much: the list runs on past the card's edge by that, cut off by the card,
+                    // so it draws its last rows too.
+                    .when(self.footer_room() < 0., |el| el.mb(dp(self.footer_room())))
                     // With no cards its rows scroll past where it's cut off, its thumb in the
                     // gap beside it as the cards' is.
                     .child(
@@ -2613,6 +2627,9 @@ impl Navigator {
             return div().into_any_element();
         }
         let (left, right) = self.card_margins();
+        // Sliding with the cards above it as one crossing to it or from it closes or opens.
+        // A list lays its item out as a root, which no inset moves, so what's in it moves.
+        let offset = self.footer_offset();
         div()
             .pl(dp(left))
             .pr(dp(right))
@@ -2620,6 +2637,8 @@ impl Navigator {
             .child(
                 div()
                     .h(dp(height))
+                    .when(offset != 0., |el| el.relative().top(dp(offset)))
+                    .opacity(self.footer_opacity())
                     .child(self.drawer_card(false, theme, cx)),
             )
             .into_any_element()
@@ -2638,9 +2657,10 @@ impl Navigator {
         let drawn = self.drawn_height.get();
         let grown = drawn - self.listed_height.replace(drawn);
         let column = f32::from(view.size.height + grown) / scale;
+        // The last hidden project going up among the cards leaves the card closing behind it.
         let height = match self.built.drawer.total {
-            0 => 0.,
-            _ => HIDDEN_HEAD + self.drawer_rows_height() + 1.,
+            0 if self.footer_room() <= 0. => 0.,
+            _ => HIDDEN_HEAD + self.drawer_rows_height() + self.footer_room() + 1.,
         };
         let (_, was) = self.footer.get();
         if was != height {
@@ -2852,7 +2872,7 @@ impl Navigator {
     }
 
     /// Unfold project `id` in the drawer, a card of its own there over the rest, or fold it back.
-    /// Not watched, it isn't loaded, so unfolding it loads it, once.
+    /// Not watched, it may not be loaded yet, and unfolding it loads it, once.
     fn toggle_in_drawer(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
         if !self.drawer_open.remove(id) {
             self.drawer_open.insert(id.clone());
@@ -2939,15 +2959,29 @@ impl Navigator {
         // Each project a part of the card, ruled off from what's above it across the card, its
         // rows in the card's padding.
         let (starts, ends) = part_ends(rows, ix);
-        div()
+        // Past a project on its way here or from here, as far as the room it takes or left is
+        // still to open or close; and that project, once its copy gets there.
+        // A list lays its item out as a root, which no inset moves, so what's in it moves.
+        let (shift, landing) = self.drawer_travel(ix);
+        // Its line shows at once, ahead of the project coming to it.
+        let row = match landing {
+            Some(opacity) => row.opacity(opacity),
+            None => row,
+        };
+        let part = div()
             .when(starts, |el| {
                 el.border_t_1()
                     .border_color(theme.border_subtle)
                     .pt(dp(CARD_PADDING))
             })
             .when(ends, |el| el.pb(dp(CARD_PADDING)))
-            .child(row)
-            .into_any_element()
+            .child(row);
+        match shift != 0. {
+            true => div()
+                .child(part.relative().top(dp(shift)))
+                .into_any_element(),
+            false => part.into_any_element(),
+        }
     }
 
     fn project_row(
@@ -2999,30 +3033,32 @@ impl Navigator {
         let glyph = div()
             .text_12()
             .child(project_glyph_at(store, id, style.muted(), 14., theme));
-        // Whether the app watches the project, as but-ui-react's Drawer marks it: an outlined
-        // icon button with the open eye on a watched card, which stops watching it, or the
-        // closed one in the drawer, which shows it again. It always shows, so what a press on it
-        // does is there before the pointer is. Its press doesn't select the row, and while
+        // Whether the project shows among the cards, as but-ui-react's RepoItem `glyphAction`
+        // marks it: the glyph turns into a ghost eye while the pointer is on the glyph,
+        // open on a shown project and closed on a hidden one, as a layers panel's. The row's
+        // menu and the keys (h, l) do the same. Its press doesn't select the row, and while
         // something is being moved it's only part of the row, which a press puts the move at.
         let moving = store.moving.is_some();
         let (eye_icon, tooltip) = match expanded {
-            true => (Icon::Eye, "Stop watching"),
-            false => (Icon::EyeClosed, "Show project"),
+            true => (Icon::Eye, "Hide project"),
+            false => (Icon::EyeClosed, "Unhide project"),
         };
         let eye = icon_button(
             ElementId::Name(format!("{}-{id}", if expanded { "unwatch" } else { "watch" }).into()),
             eye_icon,
         )
         .small()
-        .style(ButtonStyle::Outline)
+        .style(ButtonStyle::Ghost)
         .inverted(style.solid)
         .tooltip(tooltip)
         .when(!moving, |el| {
             let id = id.clone();
             // The row moves to the other card, from under the pointer.
             el.on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                this.store
-                    .update(cx, |store, cx| store.set_expanded(&id, !expanded, cx));
+                this.store.update(cx, |store, cx| match expanded {
+                    true => store.set_expanded(&id, false, cx),
+                    false => store.show_project(&id, cx),
+                });
             }))
         });
         let eye = div()
@@ -3109,7 +3145,7 @@ impl Navigator {
         // Unfolded in the drawer, its heading's bare, as 🍑 But UI's.
         let row = match open_here {
             true => row,
-            false => row.action(eye),
+            false => row.glyph_action(eye),
         };
         Some(
             (style.draw(row, 0.))
@@ -3597,22 +3633,23 @@ impl Navigator {
             None => row,
         };
         let row = self.folding(row, folds.then_some(open), cx, toggle.clone());
-        // CI only while it runs or after it failed: passing is the usual state, as but-ui's
-        // MetaStatus says it. A mark, not a button: the branch's page shows the checks.
-        let checks = checks
-            .filter(|c| c.running > 0 || c.failed > 0)
-            .map(|checks| {
-                let (_, _, text) = review::checks_summary(checks, theme);
-                let variant = match checks.running > 0 {
-                    true => MetaStatusVariant::Working,
-                    false => MetaStatusVariant::Failed,
-                };
-                let tip = SharedString::from(text);
-                meta_status(variant, Some("CI".into()), &style.kind_theme())
-                    .id(ElementId::Name(format!("checks-{row_id}").into()))
-                    .aria_label(tip.clone())
-                    .tooltip(Tooltip::text(tip))
-            });
+        // CI in every state, passed too, so it tells apart from a pull request with no checks,
+        // which shows none. A mark, not a button: the branch's page shows the checks.
+        let checks = checks.map(|checks| {
+            let (_, _, text) = review::checks_summary(checks, theme);
+            let variant = if checks.running > 0 {
+                MetaStatusVariant::Working
+            } else if checks.failed > 0 {
+                MetaStatusVariant::Failed
+            } else {
+                MetaStatusVariant::Passed
+            };
+            let tip = SharedString::from(text);
+            meta_status(variant, Some("CI".into()), &style.kind_theme())
+                .id(ElementId::Name(format!("checks-{row_id}").into()))
+                .aria_label(tip.clone())
+                .tooltip(Tooltip::text(tip))
+        });
         // That someone wrote a brief for it, quietly; its page has it to read.
         let brief = (store.briefs
             && (store.brief_at(id, &branch.name)).is_some_and(|known| known.found.is_some()))
@@ -4605,7 +4642,7 @@ impl Render for Navigator {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // After the rows are up to date, as a reorder of them starts sliding there, and nothing
         // else may draw the next frame, which what waits for the list's height needs too.
-        if self.prepare(RowsIn::List, window, cx) || !self.list_drawn() {
+        if self.prepare(RowsIn::List, window, cx) || !self.list_drawn() || self.travel_frame() {
             window.request_animation_frame();
         }
         let theme = Theme::get(cx).clone();
@@ -4773,6 +4810,7 @@ impl Render for Navigator {
                     )
                 }
             })
+            .children(self.travelling(cx))
         // A card out over the detail goes back once the pointer leaves it, so it's resized
         // only beside the detail, once it's all there.
     }

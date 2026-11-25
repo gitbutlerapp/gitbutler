@@ -101,6 +101,7 @@ pub struct SidebarRow {
     unread: bool,
     quiet: bool,
     glyph: Option<AnyElement>,
+    glyph_action: Option<AnyElement>,
     icon: Option<(Icon, f32, Ink)>,
     fold_room: bool,
     muted_text: bool,
@@ -131,6 +132,7 @@ pub fn sidebar_row(id: impl Into<ElementId>) -> SidebarRow {
         unread: false,
         quiet: false,
         glyph: None,
+        glyph_action: None,
         icon: None,
         fold_room: false,
         muted_text: false,
@@ -245,6 +247,14 @@ impl SidebarRow {
     /// The row's glyph, coloured by its caller, in a 14px box.
     pub fn glyph(mut self, glyph: impl IntoElement) -> Self {
         self.glyph = Some(glyph.into_any_element());
+        self
+    }
+
+    /// A small ghost icon button that stands in for the glyph only while the pointer is on the
+    /// glyph, as React's `glyphAction`: passing over the row shows nothing, and
+    /// nothing on the row moves when it comes. A spinner while `busy` keeps its place.
+    pub fn glyph_action(mut self, action: impl IntoElement) -> Self {
+        self.glyph_action = Some(action.into_any_element());
         self
     }
 
@@ -410,12 +420,47 @@ impl SidebarRow {
                 .children(fold_step)
         });
         let unstepped = steps.is_none();
+        let glyph_action = self.glyph_action.filter(|_| !self.busy);
         let glyph = match (self.busy, glyph) {
             (true, _) => Some(spinning(self.busy_color.unwrap_or(muted), true).into_any_element()),
             (false, glyph) => glyph,
         }
+        .map(|glyph| match glyph_action {
+            None => glyph,
+            // The button's 20px box, centred on the glyph's 14, is what the pointer finds: the
+            // glyph fades out under it as the button fades in, both kept in the layout, so the
+            // button keeps its hitbox (an invisible element has none).
+            Some(action) => div()
+                .id((self.id.clone(), "glyph-action"))
+                .group(GLYPH_GROUP)
+                .absolute()
+                .size(dp(20.))
+                .left(dp(-3.))
+                .top(dp(-3.))
+                .flex()
+                .items_center()
+                .justify_center()
+                .child(
+                    div()
+                        .group_hover(GLYPH_GROUP, |s| s.opacity(0.))
+                        .child(glyph),
+                )
+                .child(
+                    div()
+                        .absolute()
+                        .inset_0()
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .opacity(0.)
+                        .group_hover(GLYPH_GROUP, |s| s.opacity(1.))
+                        .child(action),
+                )
+                .into_any_element(),
+        })
         .map(|glyph| {
             div()
+                .relative()
                 .flex_none()
                 .size(dp(14.))
                 .flex()
@@ -633,6 +678,7 @@ pub fn chevron(
 
 /// The group a chevron that folds on its own click is, so it lights up under the pointer.
 const FOLD_GROUP: &str = "sidebar-row-fold";
+const GLYPH_GROUP: &str = "sidebar-row-glyph";
 
 /// [`chevron`] on its own button, in `rest`, turning `lit` and at full strength while the
 /// pointer's on it, as but-ui-react's chevron button.

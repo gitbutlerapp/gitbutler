@@ -1,11 +1,19 @@
 # Motion
 
-**Two speeds, both tokens.** Every duration comes from but-ui.
+**Three speeds, all tokens.** Every duration comes from but-ui.
 `--but-transition-fast` is for a control changing state in place: hover and
 press on a button, a focused field's outline, a small opacity fade.
 `--but-transition-medium` is for something that moves or changes shape: a
-switch thumb, a chevron turning, a section folding, the minimap fading in. No
-hand-written durations; if neither tier fits, add a tier in Figma.
+switch thumb, a chevron turning, a section folding, the minimap fading in.
+`--but-transition-slow` is for something that travels along a list: cards and
+rows trading places, a project going to or from the hidden projects. No
+hand-written durations; if no tier fits, add a tier in Figma.
+
+**A move across a list takes longer the further it goes.** What travels, as a
+project carried to the hidden projects, takes the slow tier for a short hop and
+0.4ms more for each pixel it covers, up to one and a half times the tier, so
+going across the sidebar reads as a move rather than a jump. The room it leaves and the room it
+takes open and close on the slow tier itself.
 
 **Popups are the medium tier with a curve.** `--but-transition-popup` aliases
 medium, and `--but-easing-popup` is the one tokenised curve: a hard ease-out that
