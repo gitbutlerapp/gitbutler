@@ -11,7 +11,7 @@ use gpui::{App, Context, Div, Focusable, SharedString, Stateful, Window, actions
 
 use crate::app::{AppView, FocusNavigator, NewBranchOnTop, Push};
 use crate::backend::{
-    self, Branch, Checkout, Commit, CommitId, Destination, FullName, Selected, Undiscarded,
+    self, Branch, Checkout, Commit, CommitId, Destination, FullName, Lane, Selected, Undiscarded,
     Workspace, short_ref,
 };
 use crate::clipboard;
@@ -201,13 +201,14 @@ pub struct BranchEdits {
     /// It has more than one commit to squash into one, and none conflicted, which the
     /// engine won't squash.
     pub squash_all: bool,
-    pub stacked: bool,
     /// It shares its stack and can go in one of its own, which starts from the target.
     pub unstack: bool,
     /// There's a branch of the workspace's it can be stacked on, other than where it is.
     pub stack_on: bool,
     /// It can merge into the target, and whether with the branches below it.
     pub merge: Option<bool>,
+    /// The branches unapplying its stack takes away, top first, or none when it stays.
+    pub unapply: Vec<FullName>,
 }
 
 impl BranchEdits {
@@ -224,12 +225,35 @@ impl BranchEdits {
         Self {
             new_below: commits > 0,
             squash_all: commits > 1 && !conflicted,
-            stacked,
             unstack: stacked && workspace.target_branch.is_some(),
             stack_on: !stack_on_targets(workspace, ref_name).is_empty(),
             merge: merge_scope(workspace, ref_name).filter(|_| workspace.target.is_some()),
+            unapply: (workspace.stack_of(Some(ref_name)))
+                .map(|(stack, _)| unapplied_by(workspace, stack))
+                .filter(|leaving| leaving.contains(ref_name))
+                .unwrap_or_default(),
         }
     }
+}
+
+/// The branches unapplying `stack` takes away, top first. The engine unapplies a stack by its
+/// top branch, refuses an unnamed one and leaves a stack topped by the target's branch alone.
+/// Outside the workspace it checks out the target's branch, so that one and those below it
+/// stay.
+fn unapplied_by(workspace: &Workspace, stack: &Lane) -> Vec<FullName> {
+    match stack.branches.first() {
+        Some(top) if top.ref_name.is_some() && !is_target(workspace, top) => {
+            (stack.branches.iter())
+                .take_while(|branch| workspace.managed || !is_target(workspace, branch))
+                .filter_map(|branch| branch.ref_name.clone())
+                .collect()
+        }
+        Some(_) | None => Vec::new(),
+    }
+}
+
+fn is_target(workspace: &Workspace, branch: &Branch) -> bool {
+    (workspace.target_branch.as_ref()).is_some_and(|t| branch.ref_name.as_ref() == Some(t))
 }
 
 /// The branches of `workspace`'s stacks that `branch` can be stacked on, right above them, in
@@ -374,11 +398,9 @@ impl AppView {
                         el.on_action(cx.listener(Self::stack_on))
                     })
                     .when(edits.unstack, |el| el.on_action(cx.listener(Self::unstack)))
-                    // Outside the workspace there are no stacks to take out of it.
-                    .when(
-                        workspace.managed && workspace.stack_of(Some(ref_name)).is_some(),
-                        |el| el.on_action(cx.listener(Self::unapply_stack)),
-                    )
+                    .when(!edits.unapply.is_empty(), |el| {
+                        el.on_action(cx.listener(Self::unapply_stack))
+                    })
                     .when(edits.merge.is_some(), |el| {
                         el.on_action(cx.listener(Self::merge_branch))
                     })
@@ -392,15 +414,14 @@ impl AppView {
                 let top = (workspace.lane(bottom.as_ref()))
                     .and_then(|lane| lane.branches.first())
                     .and_then(|top| top.ref_name.as_ref());
-                let merges =
-                    top.is_some_and(|top| BranchEdits::of(workspace, top).merge == Some(true));
-                el.when(merges, |el| el.on_action(cx.listener(Self::merge_branch)))
-                    .when(
-                        workspace.managed
-                            && top.is_some()
-                            && workspace.stack_of(bottom.as_ref()).is_some(),
-                        |el| el.on_action(cx.listener(Self::unapply_stack)),
-                    )
+                let edits =
+                    top.map_or_else(BranchEdits::default, |top| BranchEdits::of(workspace, top));
+                el.when(edits.merge == Some(true), |el| {
+                    el.on_action(cx.listener(Self::merge_branch))
+                })
+                .when(!edits.unapply.is_empty(), |el| {
+                    el.on_action(cx.listener(Self::unapply_stack))
+                })
             }
             // Its name, in place of what its shell titles it.
             Some(Selection::Terminal(..)) => el.on_action(cx.listener(Self::rename_terminal)),
@@ -1384,20 +1405,15 @@ impl AppView {
         let Some((project, ref_name)) = self.selected_named_branch(cx) else {
             return;
         };
-        // The whole stack goes, at once, and the snackbar counts the other branches in it.
-        // An unnamed one has no ref to tell it from another stack's.
-        let Some(stack): Option<HashSet<FullName>> = (self.store.read(cx).workspace(&project))
-            .and_then(|ws| ws.stack_of(Some(&ref_name)))
-            .map(|(stack, _)| {
-                (stack.branches.iter())
-                    .filter_map(|b| b.ref_name.clone())
-                    .collect()
-            })
+        // The stack goes at once, and the snackbar counts the other branches leaving with it.
+        let Some(leaving): Option<HashSet<FullName>> = (self.store.read(cx).workspace(&project))
+            .map(|ws| BranchEdits::of(ws, &ref_name).unapply.into_iter().collect())
+            .filter(|leaving: &HashSet<FullName>| !leaving.is_empty())
         else {
             return;
         };
-        let name = match stack.len().max(1) {
-            1 => short_ref(&ref_name).into_owned(),
+        let name = match leaving.len() {
+            0 | 1 => short_ref(&ref_name).into_owned(),
             2 => format!("{} and the other branch in its stack", short_ref(&ref_name)),
             n => format!(
                 "{} and the {} other branches in its stack",
@@ -1410,7 +1426,7 @@ impl AppView {
                 &project,
                 "Unapply",
                 Overlay {
-                    branches: stack,
+                    branches: leaving,
                     ..Overlay::rewriting_main()
                 },
                 backend::UnapplyStack { branch: ref_name },
@@ -1683,6 +1699,83 @@ mod tests {
             &workspace(vec![stack], Vec::new()),
             &full(&format!("refs/heads/{name}")),
         )
+    }
+
+    /// The branches unapplying `name` takes away.
+    fn unapplies(ws: &Workspace, name: &str) -> Vec<String> {
+        (super::BranchEdits::of(ws, &full(&format!("refs/heads/{name}"))).unapply)
+            .iter()
+            .map(|name| short_ref(name).into_owned())
+            .collect()
+    }
+
+    fn checked_out_by_itself(stack: Vec<Branch>) -> Workspace {
+        Workspace {
+            managed: false,
+            target_branch: Some(full("refs/heads/main")),
+            ..workspace(vec![stack], Vec::new())
+        }
+    }
+
+    #[test]
+    fn a_branch_checked_out_by_itself_unapplies() {
+        let ws = checked_out_by_itself(vec![branch("feature", &[1])]);
+        assert_eq!(unapplies(&ws, "feature"), ["feature"]);
+    }
+
+    #[test]
+    fn the_targets_branch_checked_out_by_itself_does_not_unapply() {
+        let ws = checked_out_by_itself(vec![branch("main", &[1])]);
+        assert!(
+            unapplies(&ws, "main").is_empty(),
+            "it would check out itself"
+        );
+    }
+
+    #[test]
+    fn outside_the_workspace_the_targets_branch_and_those_below_it_stay() {
+        let ws = checked_out_by_itself(vec![
+            branch("feature", &[3]),
+            branch("main", &[2]),
+            branch("wip", &[1]),
+        ]);
+        assert_eq!(
+            unapplies(&ws, "feature"),
+            ["feature"],
+            "main is checked out in its place"
+        );
+        assert!(unapplies(&ws, "main").is_empty());
+        assert!(unapplies(&ws, "wip").is_empty(), "it's still below main");
+    }
+
+    #[test]
+    fn a_stack_with_an_unnamed_top_does_not_unapply() {
+        let ws = checked_out_by_itself(vec![branch("", &[2]), branch("feature", &[1])]);
+        assert!(
+            unapplies(&ws, "feature").is_empty(),
+            "the engine unapplies a stack by its top's name"
+        );
+    }
+
+    #[test]
+    fn in_the_workspace_the_whole_stack_unapplies_with_the_targets_branch() {
+        let ws = Workspace {
+            managed: true,
+            ..checked_out_by_itself(vec![branch("feature", &[2]), branch("main", &[1])])
+        };
+        assert_eq!(unapplies(&ws, "main"), ["feature", "main"]);
+    }
+
+    #[test]
+    fn in_the_workspace_a_stack_topped_by_the_targets_branch_does_not_unapply() {
+        let ws = Workspace {
+            managed: true,
+            ..checked_out_by_itself(vec![branch("main", &[1])])
+        };
+        assert!(
+            unapplies(&ws, "main").is_empty(),
+            "the engine leaves the target's branch alone"
+        );
     }
 
     #[test]
