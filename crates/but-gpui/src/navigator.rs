@@ -624,6 +624,9 @@ pub struct Navigator {
     folds: Folds<Fold>,
     /// The rows sliding to where a reorder put them.
     reorder: Reorder<RowKey>,
+    /// The rows sliding across to how far in they're set, as they step in under a stack's
+    /// caption, or out of one, at the pace they slide down or up.
+    steps: Reorder<RowKey>,
     /// Rows a move just took away, drawn where they were while the rows close over them.
     stand_ins: Vec<moving::StandIn>,
     /// The terminal sliding from one card to another, which floats over the cards on its way
@@ -874,6 +877,7 @@ impl Navigator {
             row: Theme::get(cx).sizes.control,
             folds: Folds::default(),
             reorder: Reorder::default(),
+            steps: Reorder::default(),
             stand_ins: Vec::new(),
             crossing: None,
             folds_seen: HashMap::new(),
@@ -1587,15 +1591,18 @@ impl Navigator {
     /// from where it was on screen: those a reorder moved, or with `every`, all of them, as
     /// [`shifted`] says. With the row under the pointer `held` still, from its index before to
     /// after, as a load holds it, the list scrolls by as far as that row moved, so the rows on
-    /// screen slide that far too, but only with a reorder.
+    /// screen slide that far too, but only with a reorder. Then how far each slides across, from
+    /// where it was set in to where `insets` set it, as it steps in or out with what it's under:
+    /// with `every`, each row that came from one.
     fn slides(
         &self,
         rows: &[Row],
         keys: &[Option<RowKey>],
+        insets: &[f32],
         held: Option<(usize, usize)>,
         every: bool,
         landing: bool,
-    ) -> HashMap<RowKey, f32> {
+    ) -> (HashMap<RowKey, f32>, HashMap<RowKey, f32>) {
         let row = self.row;
         let sized = |keys: &[Option<RowKey>], rows: &[Row]| -> Vec<(Option<RowKey>, f32)> {
             keys.iter()
@@ -1610,6 +1617,11 @@ impl Navigator {
         let mut offsets = match every {
             true => shifted(&old, &new),
             false => reordered(&old, &new),
+        };
+        let inset = |insets: &[f32], ix: usize| insets.get(ix).copied().unwrap_or_default();
+        let mut steps = match every {
+            true => stepped(&self.built.row_keys, &self.built.insets, keys, insets),
+            false => HashMap::new(),
         };
         let top = |rows: &[Row], ix: usize| span_height(rows, 0..ix, row);
         // The row of what's moving is keyed apart while it moves, as its copy takes its key,
@@ -1643,6 +1655,7 @@ impl Navigator {
                             }) =>
                         {
                             offsets.remove(own);
+                            steps.remove(own);
                             false
                         }
                         _ => was.is_none(),
@@ -1652,7 +1665,8 @@ impl Navigator {
                 }
             };
             if let Some((key, was)) = from {
-                offsets.insert(key, top(&self.built.rows, was) - top(rows, is));
+                offsets.insert(key.clone(), top(&self.built.rows, was) - top(rows, is));
+                steps.insert(key, inset(&self.built.insets, was) - inset(insets, is));
             }
         }
         if let Some((old_ix, new_ix)) = held.filter(|_| !offsets.is_empty()) {
@@ -1662,7 +1676,20 @@ impl Navigator {
                 *offsets.entry(key.clone()).or_default() += scrolled;
             }
         }
-        offsets
+        steps.retain(|_, by| *by != 0.);
+        (offsets, steps)
+    }
+
+    /// Where row `ix`'s guides run in this frame: each as far across as the row it hangs from
+    /// is set in, stepping in or out.
+    fn guides_at(&self, ix: usize) -> Vec<f32> {
+        let stepped = |from: usize| {
+            (self.built.row_keys.get(from).and_then(Option::as_ref))
+                .map_or(0., |key| self.steps.offset(key))
+        };
+        (self.built.guides.get(ix).into_iter().flatten())
+            .map(|guide| guide.at + stepped(guide.from))
+            .collect()
     }
 
     /// The row under the pointer, if it's over the list, and how far below the list's top.
@@ -1777,9 +1804,12 @@ impl Navigator {
         let theme = Theme::get(cx);
         // Only the navigator's own rows slide, which across the top are those of the tab the
         // selection's in.
-        let sliding =
-            self.reorder.any() && (self.scope.is_none() || self.scope == self.top_scope(cx));
-        let inset = self.built.insets.get(ix).copied().unwrap_or_default();
+        let sliding = (self.reorder.any() || self.steps.any())
+            && (self.scope.is_none() || self.scope == self.top_scope(cx));
+        let key = self.built.row_keys.get(ix).and_then(Option::as_ref);
+        // Set in as far as stepping in or out has it across, on its way to its own inset.
+        let inset = self.built.insets.get(ix).copied().unwrap_or_default()
+            + key.map_or(0., |key| self.steps.offset(key));
         // A row a fold is moving shows as far as the fold's open: inside its card, so the
         // card's edges stay where they are, and taking no clicks while it goes. Under the
         // curtain, it isn't drawn at all.
@@ -1932,10 +1962,10 @@ impl Navigator {
         };
         let (first, last) = card_ends(&self.built.rows, ix);
         let solid = self.solid_at(ix, cx);
+        let levels = self.guides_at(ix);
         let guides = || {
-            let levels = self.built.guides.get(ix).map_or(&[][..], Vec::as_slice);
             let ends = self.built.ends.get(ix).copied().unwrap_or(false);
-            row_guides(levels, ends, solid, theme)
+            row_guides(&levels, ends, solid, theme)
         };
         // The card dragged by its heading is edged as what's moving is where it would land.
         let held = (self.built.held_card.as_ref()).is_some_and(|card| card.contains(&ix));
@@ -1948,16 +1978,9 @@ impl Navigator {
             (false, true) => theme.focus_edge(),
             (false, false) => theme.border_subtle,
         };
-        // How far row `ix` is drawn from where it's laid out: as far as a reorder slid it, but
-        // not while a fold moves it, which draws it as far as the fold's open.
-        let drawn_at = |ix: usize| match self.built.moving.get(ix).and_then(Option::as_ref) {
-            Some(m) if self.folds.openness(&m.fold).is_some() => 0.,
-            _ => (self.built.row_keys.get(ix).and_then(Option::as_ref))
-                .map_or(0., |key| self.reorder.offset(key)),
-        };
         // How far the card after row `ix`, its card's last, is drawn from where it's laid out.
         let next_card_at = |ix: usize| match self.built.rows.get(ix + 1) {
-            Some(Row::Gap) => Some(drawn_at(ix + 2)),
+            Some(Row::Gap) => Some(self.slid_by(ix + 2)),
             _ => None,
         };
         let crossing_at = |ix: usize| {
@@ -1969,7 +1992,7 @@ impl Navigator {
         // carries the card's bottom edge, so it keeps its distance from the card after it.
         let slid_at = |ix: usize| match crossing_at(ix) {
             true => next_card_at(ix).unwrap_or_default(),
-            false => drawn_at(ix),
+            false => self.slid_by(ix),
         };
         // A row slides with its slice of the card, so the card's edges follow its rows. Its
         // slice also stretches over the room between it and where it's laid out, as far as its
@@ -2011,8 +2034,14 @@ impl Navigator {
         // passes (see below), and so do the rows of a linked worktree being moved, over those of
         // the others it passes, and a terminal being moved, selected or not; the copies of
         // what's moving over the rest, and the selected row, which moves, over the rows it
-        // passes. The new branch the copies would land in shows from under what slides off it,
-        // rather than over what's about to.
+        // passes. The new branch or stack the copies would land in, showing up where it is,
+        // shows from under what slides off it, rather than over what's about to: it stays with
+        // the cards' slices, under every row's content.
+        let shows_up = slid == 0.
+            && matches!(
+                self.built.rows.get(ix),
+                Some(Row::GhostBranch(..) | Row::GhostStack(_))
+            );
         let store = self.store.read(cx);
         let selection = store.selection.as_ref();
         let over_rank = match self.built.rows.get(ix) {
@@ -2025,7 +2054,6 @@ impl Navigator {
         // What a move just took away from under this row stays there, moving with it, while
         // the rows after it close over it: only while rows slide, as only then do they draw
         // over it.
-        let key = self.built.row_keys.get(ix).and_then(Option::as_ref);
         let stand_ins = (self.stand_ins.iter())
             .filter(|stand_in| sliding && key == Some(&stand_in.under))
             .map(|stand_in| {
@@ -2054,7 +2082,8 @@ impl Navigator {
                         .bg(theme.background)
                         .child(moving::ghost_row(
                             item,
-                            inset,
+                            self.built.insets.get(ix).copied().unwrap_or_default()
+                                + self.steps.offset(own),
                             with,
                             self.blinking(Blink::Move),
                             store,
@@ -2108,7 +2137,7 @@ impl Navigator {
                         closing,
                     ))
                 }
-                None if sliding => {
+                None if sliding && !shows_up => {
                     // Rounded at a card's ends, inside its corners, which square it'd cover a
                     // sliver of until the rows stop.
                     let corner = match edged {
@@ -2118,7 +2147,7 @@ impl Navigator {
                     let over = (div().relative().bg(theme.background).child(el))
                         .when(first, |el| el.rounded_t(dp(corner)))
                         .when(last, |el| el.rounded_b(dp(corner)))
-                        .when(crossing, |el| el.top(dp(drawn_at(ix) - slid)));
+                        .when(crossing, |el| el.top(dp(self.slid_by(ix) - slid)));
                     let over = self.over_rows(over.children(guides()), over_rank);
                     card.child(div().relative().children(guides()).child(over))
                 }
@@ -2692,6 +2721,16 @@ impl Navigator {
         })
     }
 
+    /// How far row `ix` is drawn from where it's laid out in this frame: as far as a reorder
+    /// slid it, but not while a fold moves it, which draws it as far as the fold's open.
+    fn slid_by(&self, ix: usize) -> f32 {
+        match self.built.moving.get(ix).and_then(Option::as_ref) {
+            Some(m) if self.folds.openness(&m.fold).is_some() => 0.,
+            _ => (self.built.row_keys.get(ix).and_then(Option::as_ref))
+                .map_or(0., |key| self.reorder.offset(key)),
+        }
+    }
+
     /// Where the list's top and bottom edges cut a card off as it's scrolled in this frame,
     /// the drawer's too: there the card's edge is drawn along the list's, rounded as its own,
     /// so it keeps its shape. GPUI cuts what the list draws to a rectangle, so the ground the
@@ -2700,17 +2739,25 @@ impl Navigator {
     fn card_caps(&self, height: f32, theme: &Theme, cx: &App) -> Vec<Div> {
         let scale = Theme::get(cx).scale;
         let top = -f32::from(self.list.scroll_px_offset_for_scrollbar().y) / scale;
-        // Each card's top and bottom, from the list's top, as `cards_height` counts them.
+        // Each card's top and bottom, from the list's top, as `cards_height` counts them, where
+        // it's drawn in this frame: from its highest row to its lowest as they slide, as the
+        // card's slices hold together between them.
         let mut cards = Vec::new();
-        let (mut start, mut y) = (LIST_TOP, LIST_TOP + CARD_EDGE);
-        for (row, drawn) in self.drawn_heights() {
+        let mut y = LIST_TOP + CARD_EDGE;
+        // The top of the card's highest row and the bottom of its lowest, as drawn.
+        let mut card: Option<(f32, f32)> = None;
+        let edged = |(top, bottom): (f32, f32)| (top - CARD_EDGE, bottom + CARD_EDGE);
+        for (ix, (row, height)) in self.drawn_heights().enumerate() {
             if matches!(row, Row::Gap) {
-                cards.push((start, y + CARD_EDGE));
-                start = y + drawn - CARD_EDGE;
+                cards.extend(card.take().map(edged));
+            } else {
+                let top = y + self.slid_by(ix);
+                let (highest, lowest) = card.unwrap_or((top, top + height));
+                card = Some((highest.min(top), lowest.max(top + height)));
             }
-            y += drawn;
+            y += height;
         }
-        cards.push((start, y + CARD_EDGE));
+        cards.extend(card.map(edged));
         // The hidden projects' card after them, as `drawer_footer` sets it.
         let (spacer, drawer) = self.footer.get();
         if drawer > 0. {
@@ -2879,9 +2926,11 @@ impl Navigator {
             _ => div().into_any_element(),
         };
         // The guides of a project's rows unfolded here, drawn as a card's are.
-        let levels = drawer.guides.get(ix).map_or(&[][..], Vec::as_slice);
+        let levels: Vec<f32> = (drawer.guides.get(ix).into_iter().flatten())
+            .map(|guide| guide.at)
+            .collect();
         let ends = drawer.ends.get(ix).copied().unwrap_or(false);
-        let guides = row_guides(levels, ends, self.solid_in(rows, ix, cx), theme);
+        let guides = row_guides(&levels, ends, self.solid_in(rows, ix, cx), theme);
         let row = div().relative().child(el).children(guides);
         let row = match folding {
             Some((height, closing)) => clipped(row, dp(height), closing),
@@ -4226,6 +4275,36 @@ fn note_row(text: &SharedString, is_error: bool, theme: &Theme) -> AnyElement {
                 .child(text.clone()),
         )
         .into_any_element()
+}
+
+/// How far each row keyed by `keys` and set in by `insets` was set in further than it is, by the
+/// row with its key in `was`, set in by `was_insets`: as far as it slides across to where it is
+/// as it steps in or out. Only a key one row has on each side counts.
+fn stepped(
+    was: &[Option<RowKey>],
+    was_insets: &[f32],
+    keys: &[Option<RowKey>],
+    insets: &[f32],
+) -> HashMap<RowKey, f32> {
+    // Each key's inset, `None` for a key more than one row has.
+    let by_key = |keys: &[Option<RowKey>], insets: &[f32]| {
+        let mut by_key = HashMap::<RowKey, Option<f32>>::new();
+        for (key, inset) in keys.iter().zip(insets) {
+            if let Some(key) = key {
+                (by_key.entry(key.clone()))
+                    .and_modify(|at| *at = None)
+                    .or_insert(Some(*inset));
+            }
+        }
+        by_key
+    };
+    let was = by_key(was, was_insets);
+    (by_key(keys, insets).into_iter())
+        .filter_map(|(key, inset)| {
+            let by = (*was.get(&key)?)? - inset?;
+            (by != 0.).then_some((key, by))
+        })
+        .collect()
 }
 
 /// How far a card goes on below its last row, drawn `slid` from where it's laid out, given how
