@@ -262,15 +262,23 @@ pub(super) struct Moving {
     pub(super) above: Option<usize>,
 }
 
+/// A line down beside rows from under the icon of the row they're under, as but.dev's sidebar
+/// draws one: `at` across, hanging from row `from`, which it moves with as that steps in or out.
+#[derive(Clone, Copy, PartialEq)]
+pub(super) struct Guide {
+    pub(super) at: f32,
+    pub(super) from: usize,
+}
+
 /// The rows as they're built, each with how far in it sits: a worktree's section and a
 /// stack's branches step in from what holds them. Each also has the guides it draws, as
-/// but.dev's sidebar does: a line down from under the icon of each row it's under, and while
-/// a fold holding it moves, its place in that.
+/// but.dev's sidebar does: one for each row it's under, and while a fold holding it moves,
+/// its place in that.
 #[derive(Default)]
 pub(super) struct Rows {
     pub(super) rows: Vec<Row>,
     pub(super) insets: Vec<f32>,
-    pub(super) guides: Vec<Vec<f32>>,
+    pub(super) guides: Vec<Vec<Guide>>,
     /// Whether each row is the last under its innermost guide, which turns into it there, as
     /// but-ui-react's tree guides end, rather than running on.
     pub(super) ends: Vec<bool>,
@@ -284,8 +292,8 @@ pub(super) struct Rows {
     pub(super) folds: Vec<(Fold, bool, Option<usize>)>,
     /// What the rows pushed next sit in by.
     inset: f32,
-    /// Where the guides of the rows pushed next run.
-    open: Vec<f32>,
+    /// The guides of the rows pushed next.
+    open: Vec<Guide>,
     /// What the rows sat in by before each guide in `open` began, which closing it restores.
     outer: Vec<f32>,
     /// The first item the filter found, which Enter in it selects.
@@ -306,7 +314,7 @@ pub(super) struct Drawer {
     /// How far in each row sits, the guides it draws, and whether it ends its innermost one,
     /// as [`Rows`] has them: the rows of a project unfolded in the drawer step in as a card's.
     pub(super) insets: Vec<f32>,
-    pub(super) guides: Vec<Vec<f32>>,
+    pub(super) guides: Vec<Vec<Guide>>,
     pub(super) ends: Vec<bool>,
     /// Where each row is in the fold of a project unfolding or folding here, as [`Rows`] has it.
     pub(super) moving: Vec<Option<Moving>>,
@@ -409,7 +417,11 @@ impl Rows {
     /// As [`Self::open`], for a row whose icon's middle is `at` instead.
     fn open_at(&mut self, at: f32) {
         let under = self.insets.last().copied().unwrap_or_default();
-        self.open.push(at + under);
+        let from = self.rows.len().saturating_sub(1);
+        self.open.push(Guide {
+            at: at + under,
+            from,
+        });
         self.starts.push(self.rows.len());
         self.outer.push(self.inset);
     }
