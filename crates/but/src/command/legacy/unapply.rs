@@ -83,7 +83,7 @@ fn resolve(
     repo: &gix::Repository,
     head_info: &RefInfo,
 ) -> CliResult<UnapplyOperation> {
-    let Platform { target } = args;
+    let Platform { target, json: _ } = args;
 
     let stack = match target
         .resolve_in_workspace(repo, id_map, Purpose::Source, Some(Priority::Branch))?

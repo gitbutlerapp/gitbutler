@@ -53,7 +53,11 @@ fn resolve(
     args: Platform,
     invoked_from: &InvokedFrom,
 ) -> CliResult<SwitchOperation> {
-    let Platform { target, workspace } = args;
+    let Platform {
+        target,
+        workspace,
+        json: _,
+    } = args;
 
     if workspace {
         return Ok(SwitchOperation::Workspace);

@@ -2,6 +2,10 @@
 pub struct Platform {
     #[clap(subcommand)]
     pub cmd: Option<Subcommands>,
+
+    #[clap(flatten)]
+    #[allow(missing_docs)]
+    pub json: crate::args::atoms::JsonArg,
 }
 
 #[derive(Debug, clap::Subcommand)]

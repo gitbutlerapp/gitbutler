@@ -76,8 +76,8 @@ impl Subcommands {
             Subcommands::Diff(..) => Diff,
             Subcommands::Show { .. } => Show,
             Subcommands::Pull { .. } => Pull,
-            Subcommands::Fetch => Pull,
-            Subcommands::Branch(branch::Platform { cmd }) => match cmd {
+            Subcommands::Fetch { .. } => Pull,
+            Subcommands::Branch(branch::Platform { cmd, json: _ }) => match cmd {
                 None => BranchList,
                 Some(branch::Subcommands::List { .. }) => BranchList,
                 Some(branch::Subcommands::New { .. }) => BranchNew,
@@ -86,7 +86,7 @@ impl Subcommands {
                 Some(branch::Subcommands::Update { .. }) => BranchUpdate,
                 Some(branch::Subcommands::Move { .. }) => BranchMove,
             },
-            Subcommands::Worktree(worktree::Platform { cmd }) => match cmd {
+            Subcommands::Worktree(worktree::Platform { cmd, json: _ }) => match cmd {
                 None | Some(worktree::Subcommands::List { .. }) => WorktreeList,
                 Some(worktree::Subcommands::Archive { .. }) => WorktreeArchive,
                 Some(worktree::Subcommands::Unarchive { .. }) => WorktreeUnarchive,
@@ -103,7 +103,7 @@ impl Subcommands {
             Subcommands::Commit(..) => Commit,
             Subcommands::Push(_) => Push,
             Subcommands::Reword { .. } | Subcommands::_Reword2(..) => Reword,
-            Subcommands::Oplog(crate::args::oplog::Platform { cmd }) => match cmd {
+            Subcommands::Oplog(crate::args::oplog::Platform { cmd, json: _ }) => match cmd {
                 None => OplogList,
                 Some(crate::args::oplog::Subcommands::List { .. }) => OplogList,
                 Some(crate::args::oplog::Subcommands::Snapshot { .. }) => OplogSnapshot,
@@ -127,7 +127,7 @@ impl Subcommands {
                 Some(forge::pr::Subcommands::SetReady { .. }) => SetReviewReady,
             },
             Subcommands::Teardown { .. } => Teardown,
-            Subcommands::Config(config::Platform { cmd }) => match cmd {
+            Subcommands::Config(config::Platform { cmd, json: _ }) => match cmd {
                 Some(config::Subcommands::Forge {
                     cmd: Some(config::ForgeSubcommand::Auth),
                 }) => ForgeAuth,
@@ -141,13 +141,13 @@ impl Subcommands {
             },
             #[cfg(feature = "nightly")]
             Subcommands::_Expand { .. } => Expand,
-            Subcommands::Alias(alias_args::Platform { cmd }) => match cmd {
+            Subcommands::Alias(alias_args::Platform { cmd, json: _ }) => match cmd {
                 None | Some(alias_args::Subcommands::List) => AliasCheck,
                 Some(alias_args::Subcommands::Add { .. }) => AliasAdd,
                 Some(alias_args::Subcommands::Remove { .. }) => AliasRemove,
             },
             Subcommands::Update(update::Platform { cmd }) => match cmd {
-                update::Subcommands::Check => UpdateCheck,
+                update::Subcommands::Check { .. } => UpdateCheck,
                 update::Subcommands::Suppress { .. } => UpdateSuppress,
                 #[cfg(all(unix, not(feature = "packaged-but-distribution")))]
                 update::Subcommands::Install { .. } => UpdateInstall,
@@ -170,7 +170,7 @@ impl Subcommands {
             // Bare `but agent` (None) runs the setup wizard, same as `agent setup`.
             Subcommands::Agent(agent::Platform { cmd }) => match cmd {
                 None | Some(agent::Subcommands::Setup { .. }) => AgentSetup,
-                Some(agent::Subcommands::Uninstall) => AgentUninstall,
+                Some(agent::Subcommands::Uninstall { .. }) => AgentUninstall,
             },
             Subcommands::Edit { .. } => Edit,
             Subcommands::Clean { .. } => Clean,

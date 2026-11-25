@@ -17,7 +17,14 @@ import {
 	UpstreamItem,
 	WorktreeItem,
 } from "./SidebarRow.tsx";
-import { Card, machine, push, Repository, update } from "./story-assets/workspaceTree.tsx";
+import {
+	Card,
+	machine,
+	push,
+	RepoCard,
+	Repository,
+	update,
+} from "./story-assets/workspaceTree.tsx";
 import { treeGuides, type Guides } from "./treeGuides.ts";
 
 const core = (node: string) =>
@@ -200,117 +207,124 @@ export const ByMachine = meta.story({
 	),
 });
 
-/** One repository's card when the sidebar is grouped by repository: its machines, folded or open. */
+/** One repository's card when the sidebar is grouped by repository: its machines, folded or open,
+ * a `RowDivider` between one and the next. */
 const ByRepositoryTree: FC<{ open: boolean }> = ({ open }) => {
 	const age = (value: string) => <MetaCount type="age">{value}</MetaCount>;
 	return (
-		<Repository last>
-			<MachineItem
-				name="pavel--macbook-pro-2"
-				online
-				folded={!open}
-				icon={<Icon name="laptop" />}
-				meta={
-					open ? undefined : (
-						<>
-							<MetaCount type="uncommitted">12</MetaCount>
-							<MetaCount type="unpushed">8</MetaCount>
-							<MetaCount type="behind">3</MetaCount>
-							<MetaCount type="worktrees">2</MetaCount>
-							<MetaCount type="age">8m</MetaCount>
-						</>
-					)
-				}
-			/>
-			{open && (
-				<>
-					<WorktreeItem
-						main
-						name="Main worktree"
-						depth={1}
-						folded={false}
-						meta={<>{age("8m")}</>}
-						actions={update(3)}
-					/>
-					<UncommittedItem count={12} depth={2} />
-					<BranchItem
-						title="mesh-archive"
-						depth={2}
-						folded
-						meta={<MetaCount type="agent-working">12m</MetaCount>}
-						actions={push(4)}
-					/>
-					<BranchItem
-						title="fix: redact remote credentials"
-						pr={{ number: 32, state: "open" }}
-						depth={2}
-						folded
-						meta={
+		<>
+			<Repository>
+				<MachineItem
+					name="pavel--macbook-pro-2"
+					online
+					folded={!open}
+					icon={<Icon name="laptop" />}
+					meta={
+						open ? undefined : (
 							<>
-								<MetaStatus variant="working">CI</MetaStatus>
-								{age("3d")}
+								<MetaCount type="uncommitted">12</MetaCount>
+								<MetaCount type="unpushed">8</MetaCount>
+								<MetaCount type="behind">3</MetaCount>
+								<MetaCount type="worktrees">2</MetaCount>
+								<MetaCount type="age">8m</MetaCount>
 							</>
-						}
-						actions={<>{push(4)}</>}
-					/>
-					<WorktreeItem
-						name="review-ios"
-						depth={1}
-						folded
-						meta={<MetaCount type="age">1d</MetaCount>}
-					/>
-				</>
-			)}
-			<MachineItem
-				name="studio-desktop"
-				online={false}
-				folded={!open}
-				icon={<Icon name="desktop" />}
-				meta={
-					open ? (
-						<>
-							<MetaCount type="behind">3</MetaCount>
-							<MetaCount type="age">2d</MetaCount>
-						</>
-					) : (
-						<>
-							<MetaCount type="unpushed">4</MetaCount>
-							<MetaCount type="age">2d</MetaCount>
-						</>
-					)
-				}
-				actions={update(3)}
-			/>
-			{open && (
-				<>
-					<BranchItem title="resume-on-laptop" depth={1} folded actions={push(4)} />
-					<BranchItem
-						title="feat: archive old worktrees"
-						pr={{ number: 31, state: "merged" }}
-						depth={1}
-						folded
-						meta={
-							<>
-								<MetaCount type="commits">5</MetaCount>
-								<MetaCount type="age">3d</MetaCount>
-							</>
-						}
-					/>
-				</>
-			)}
-			<MachineItem
-				name="cloud"
-				online
-				folded
-				icon={<Icon name="cloud" />}
-				meta={
+						)
+					}
+				/>
+				{open && (
 					<>
-						<MetaCount type="worktrees">3</MetaCount>
-						<MetaCount type="agent-waiting">2m</MetaCount>
+						<WorktreeItem
+							main
+							name="Main worktree"
+							depth={1}
+							folded={false}
+							meta={<>{age("8m")}</>}
+							actions={update(3)}
+						/>
+						<UncommittedItem count={12} depth={2} />
+						<BranchItem
+							title="mesh-archive"
+							depth={2}
+							folded
+							meta={<MetaCount type="agent-working">12m</MetaCount>}
+							actions={push(4)}
+						/>
+						<BranchItem
+							title="fix: redact remote credentials"
+							pr={{ number: 32, state: "open" }}
+							depth={2}
+							folded
+							meta={
+								<>
+									<MetaStatus variant="working">CI</MetaStatus>
+									{age("3d")}
+								</>
+							}
+							actions={<>{push(4)}</>}
+						/>
+						<WorktreeItem
+							name="review-ios"
+							depth={1}
+							folded
+							meta={<MetaCount type="age">1d</MetaCount>}
+						/>
 					</>
-				}
-			/>
-		</Repository>
+				)}
+			</Repository>
+			<Repository>
+				<MachineItem
+					name="studio-desktop"
+					online={false}
+					folded={!open}
+					icon={<Icon name="desktop" />}
+					meta={
+						open ? (
+							<>
+								<MetaCount type="behind">3</MetaCount>
+								<MetaCount type="age">2d</MetaCount>
+							</>
+						) : (
+							<>
+								<MetaCount type="unpushed">4</MetaCount>
+								<MetaCount type="age">2d</MetaCount>
+							</>
+						)
+					}
+					actions={update(3)}
+				/>
+				{open && (
+					<>
+						<BranchItem title="resume-on-laptop" depth={1} folded actions={push(4)} />
+						<BranchItem
+							title="feat: archive old worktrees"
+							pr={{ number: 31, state: "merged" }}
+							depth={1}
+							folded
+							meta={
+								<>
+									<MetaCount type="commits">5</MetaCount>
+									<MetaCount type="age">3d</MetaCount>
+								</>
+							}
+						/>
+					</>
+				)}
+			</Repository>
+			<Repository last>
+				<MachineItem
+					name="cloud"
+					online
+					folded
+					icon={<Icon name="cloud" />}
+					meta={
+						<>
+							<MetaCount type="worktrees">3</MetaCount>
+							<MetaCount type="agent-waiting">2m</MetaCount>
+						</>
+					}
+				/>
+			</Repository>
+		</>
 	);
 };
 
@@ -318,7 +332,7 @@ const repository = <RepoItem name="but-dev" folded={false} />;
 
 /**
  * Grouped by repository: the repository heads the card and its machines are rows inside it, each
- * over its own worktrees, or straight over the branches of its only one. Folded, a machine sums up
+ * over its own worktrees, or straight over the branches of its only one, divided from the next. Folded, a machine sums up
  * its worktrees and its age, and a cloud machine shows its agents' time. Open, a row over several
  * worktrees shows no age, as each says its own.
  */
@@ -326,12 +340,125 @@ export const ByRepository = meta.story({
 	parameters: { design: { type: "figma", url: core("4664-11724") } },
 	render: () => (
 		<div style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "flex-start" }}>
-			<Card label="but-dev" header={repository}>
+			<RepoCard label="but-dev" header={repository}>
 				<ByRepositoryTree open={false} />
-			</Card>
-			<Card label="but-dev" header={repository}>
+			</RepoCard>
+			<RepoCard label="but-dev" header={repository}>
 				<ByRepositoryTree open />
-			</Card>
+			</RepoCard>
+		</div>
+	),
+});
+
+/**
+ * The repository's row heads its card with a `RowDivider` under it, in the same block as its
+ * worktrees and branches, rather than in a header section ruled off edge to edge.
+ */
+export const DividedHeader = meta.story({
+	render: () => (
+		<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+			<RepoCard label="but-dev" header={<RepoItem name="but-dev" folded={false} />}>
+				<WorktreeItem
+					main
+					name="Main worktree"
+					folded={false}
+					meta={
+						<>
+							<MetaCount type="uncommitted">22</MetaCount>
+							{since("3d")}
+						</>
+					}
+				/>
+				<BranchItem
+					title="review-cards"
+					depth={1}
+					folded
+					meta={
+						<>
+							<MetaCount type="unpushed">8</MetaCount>
+							<MetaCount type="agent-waiting">12m</MetaCount>
+						</>
+					}
+				/>
+				<BranchItem
+					title="fix: unique cursor names"
+					pr={{ number: 454, state: "open" }}
+					depth={1}
+					folded
+					meta={
+						<>
+							<MetaStatus variant="working">CI</MetaStatus>
+							<MetaCount type="unpushed">5</MetaCount>
+							<MetaCount type="agent-working">2m</MetaCount>
+						</>
+					}
+				/>
+				<BranchItem
+					title="perf: cheaper diff stats"
+					pr={{ number: 410, state: "open" }}
+					depth={1}
+					folded={false}
+					meta={
+						<>
+							<MetaStatus variant="working">CI</MetaStatus>
+							<MetaCount type="unpushed">5</MetaCount>
+							{since("8m")}
+						</>
+					}
+				/>
+				<CommitItem message="feat: 28px hunk separator" depth={2} pushed={false} />
+				<CommitItem message="docs: handoff notes" depth={2} />
+				<CommitItem message="chore: separator tokens" depth={2} />
+				<BranchItem
+					title="feat: archive old worktrees"
+					pr={{ number: 132, state: "merged" }}
+					depth={2}
+					folded
+					meta={
+						<>
+							<MetaCount type="commits">7</MetaCount>
+							{since("2d")}
+						</>
+					}
+				/>
+				<WorktreeItem
+					name="review-ios"
+					folded={false}
+					meta={
+						<>
+							<MetaCount type="uncommitted">17</MetaCount>
+							<MetaCount type="behind">8</MetaCount>
+							{since("3d")}
+						</>
+					}
+				/>
+				<BranchItem
+					title="ios-push-handoff"
+					depth={1}
+					folded
+					meta={
+						<>
+							<MetaCount type="unpushed">4</MetaCount>
+							<MetaCount type="agent-waiting">40m</MetaCount>
+						</>
+					}
+				/>
+			</RepoCard>
+			<RepoCard
+				label="berlin-brutalism"
+				header={<RepoItem name="berlin-brutalism" folded={false} meta={since("3d")} />}
+			>
+				<BranchItem
+					title="cursor-unique-names"
+					folded
+					meta={
+						<>
+							<MetaCount type="commits">23</MetaCount>
+							{since("2h")}
+						</>
+					}
+				/>
+			</RepoCard>
 		</div>
 	),
 });
@@ -1109,14 +1236,12 @@ export const InactiveWorktrees = meta.story({
 export const Loading = meta.story({
 	parameters: { design: { type: "figma", url: core("5500-237409") } },
 	render: () => (
-		<Card label="but-dev" header={<RepoItem name="but-dev" folded={false} />}>
-			<Repository last>
-				<div aria-busy style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-					{[156, 76, 199, 116].map((width) => (
-						<LoadingItem key={width} width={width} />
-					))}
-				</div>
-			</Repository>
-		</Card>
+		<RepoCard label="but-dev" header={<RepoItem name="but-dev" folded={false} />}>
+			<div aria-busy style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+				{[156, 76, 199, 116].map((width) => (
+					<LoadingItem key={width} width={width} />
+				))}
+			</div>
+		</RepoCard>
 	),
 });

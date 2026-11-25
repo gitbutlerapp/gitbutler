@@ -589,18 +589,12 @@ pub fn loading_state(title: &'static str, theme: &Theme, cx: &App) -> AnyElement
         .into_any_element()
 }
 
-/// `el` pulsing, fading in and out, while what it stands for is under way, where it is, rather
-/// than a word beside it that would move what's around it. The status bar names what's under
-/// way.
-pub fn pulsing<E: IntoElement + Styled + 'static>(el: E) -> impl IntoElement {
-    use gpui::{Animation, AnimationExt as _};
-    el.with_animation(
-        "pulsing",
-        Animation::new(std::time::Duration::from_millis(1600))
-            .repeat()
-            .with_easing(gpui::pulsating_between(0.35, 1.)),
-        |el, delta| el.opacity(delta),
-    )
+/// `el` pulsing, fading in and out every 1.6s a [`Looping`] step at a time, while what it stands
+/// for is under way, where it is, rather than a word beside it that would move what's around it.
+/// The status bar names what's under way.
+pub fn pulsing(el: Div) -> Div {
+    let at = Looping::now(16);
+    (el.opacity(gpui::pulsating_between(0.35, 1.)(at.progress()))).child(at.next())
 }
 
 /// A faint pop wash over a `list_row`'s ground that fades out once, as for a commit that just

@@ -45,7 +45,7 @@ impl AppView {
         };
         button("build-and-restart", label)
             .small()
-            .style(ButtonStyle::Gray)
+            .style(ButtonStyle::Outline)
             .tooltip(tooltip)
             .on_click(cx.listener(|this, _, window, cx| {
                 this.build_and_restart(&BuildAndRestart, window, cx)

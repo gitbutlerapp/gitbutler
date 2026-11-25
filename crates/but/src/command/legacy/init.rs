@@ -17,6 +17,7 @@ use but_api::json::{ChangeIdString, HexHash};
 pub fn run(args: Platform, path: &Path, out: &mut OutputChannel) -> CliResult<InitOutcome> {
     let Platform {
         commit: with_initial_commit,
+        json: _,
     } = args;
 
     // Open only this directory, not an ancestor: initializing a nested repository

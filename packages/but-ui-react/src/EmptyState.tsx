@@ -20,12 +20,12 @@ type Props = {
 	 * the live answer — a count, a name, a time — rather than restating the title.
 	 */
 	description?: ReactNode;
-	/** The actions slot: at most two buttons, and never `pop`. In `tidy`, the buttons are `small`. */
+	/** The actions slot: at most two buttons, and never `pop`. In `tidy`, the buttons are `medium`. */
 	children?: ReactNode;
 	/**
 	 * `tidy` where the block stands in for a few rows — a search in a picker
 	 * or the command palette that found nothing, or an empty card in a sidebar:
-	 * usually just the line and a `small` "Clear search", closed up and centred
+	 * usually just the line and a `medium` "Clear search", closed up and centred
 	 * plainly rather than lifted. It is as tall as its content, up to 320 wide,
 	 * with no inset of its own: the host's padding is the room around it.
 	 */

@@ -1143,7 +1143,7 @@ fn move_commits_outputs_json() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
     env.setup_metadata(&["A"]);
 
-    env.but("--json move zll --above ywx")
+    env.but("move --json zll --above ywx")
         .allow_json()
         .assert()
         .success()
@@ -1168,7 +1168,7 @@ fn move_committed_changes_outputs_json() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
     env.setup_metadata(&["A"]);
 
-    env.but("--json move ywx:wu --branch new-branch")
+    env.but("move --json ywx:wu --branch new-branch")
         .allow_json()
         .assert()
         .success()
@@ -1191,7 +1191,7 @@ fn stack_branch_outputs_json() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    env.but("--json move B --above A")
+    env.but("move --json B --above A")
         .allow_json()
         .assert()
         .success()
@@ -1212,7 +1212,7 @@ fn unstack_branch_outputs_json() {
     );
     env.setup_metadata(&["A", "B", "C"]);
 
-    env.but("--json move C --unstack")
+    env.but("move --json C --unstack")
         .allow_json()
         .assert()
         .success()

@@ -70,7 +70,7 @@ Error: Post-checkout hook failed (exit status: 1): hook-failed
 }
 
 fn status_json(env: &crate::utils::Sandbox) -> serde_json::Value {
-    let output = env.but("--json status").allow_json().output().unwrap();
+    let output = env.but("status --json").allow_json().output().unwrap();
     serde_json::from_slice(&output.stdout)
         .map_err(|err| anyhow::anyhow!("status output should be valid JSON: {err}"))
         .unwrap()

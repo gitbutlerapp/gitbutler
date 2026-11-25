@@ -128,7 +128,7 @@ export const Tidy = meta.story({
 		title: undefined,
 		description: "No matching files found",
 		children: (
-			<Button variant="outline" size="small">
+			<Button variant="outline" size="medium">
 				Clear search
 			</Button>
 		),

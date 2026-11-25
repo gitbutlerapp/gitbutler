@@ -61,6 +61,7 @@ fn resolve(
         target,
         sources,
         allow_merged: _,
+        json: _,
     } = args;
 
     let changes = if sources.is_empty() {

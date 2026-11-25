@@ -444,7 +444,7 @@ fn push_refuses_conflicted_commits() {
     // The refusal is bad input: only that prints a hint, and it names the commit to start with.
     // A dry run gives the same refusal. `origin` is this repository, so the dry run's fetch
     // makes `A` look pushed, and the refusal can't depend on `A` having something to preview.
-    for command in ["push A", "push A --dry-run", "--json push A --dry-run"] {
+    for command in ["push A", "push A --dry-run", "push --json A --dry-run"] {
         env.but(command)
             .assert()
             .failure()
@@ -536,7 +536,7 @@ Error: would refuse to push 1 of 2 branches
 
 "#]]);
     // A row without a `warning` is a branch that would really be pushed.
-    env.but("--json push --dry-run")
+    env.but("push --json --dry-run")
         .assert()
         .failure()
         .stdout_eq(str![[r#"
@@ -699,7 +699,7 @@ Hint: Start resolving with `but resolve conflicts nyo`, then push again
 Error: failed to push 1 of 1 branch
 
 "#]]);
-    env.but("--json push")
+    env.but("push --json")
         .assert()
         .failure()
         .stdout_eq(str![[r#"

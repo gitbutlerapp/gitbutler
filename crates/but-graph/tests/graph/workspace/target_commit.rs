@@ -4,7 +4,7 @@ use but_testsupport::{graph_workspace_determinisitcally, visualize_commit_graph_
 use snapbox::IntoData;
 
 use super::target_meta;
-use crate::init::utils::{
+use crate::utils::{
     add_workspace, add_workspace_with_target, read_only_in_memory_scenario, standard_options,
 };
 

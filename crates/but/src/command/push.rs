@@ -60,6 +60,10 @@ pub mod help {
             out,
             "      --no-hooks, --no-verify       Bypass pre-push hooks"
         )?;
+        writeln!(
+            out,
+            "      --json                        Output detailed information as JSON for tool consumption"
+        )?;
 
         if is_gerrit_enabled() {
             writeln!(out,)?;

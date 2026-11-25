@@ -56,7 +56,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 "#]]);
 
     let diff = env
-        .but("--json diff")
+        .but("diff --json")
         .allow_json()
         .output()
         .expect("diff should succeed");
@@ -454,6 +454,30 @@ fn non_agent_commit_json_uses_native_result() {
   "commitId": "ad3beae727eb9f82f063c32ccff084d97ad0fd5e",
   "changeId": "ssvtnomvyusxrxwspzwsqkssnkmsnylz"
 }
+
+"#]]);
+}
+
+#[test]
+fn commit_json_before_subcommand_still_prints_json_and_teaches_the_new_position() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("file.txt", "Some text");
+
+    env.but("--json commit --no-message")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "commitId": "ad3beae727eb9f82f063c32ccff084d97ad0fd5e",
+  "changeId": "ssvtnomvyusxrxwspzwsqkssnkmsnylz"
+}
+
+"#]])
+        .stderr_eq(snapbox::str![[r#"
+
+note: `--json` now goes after the subcommand, as in `but commit --json`. Placing it before the subcommand will stop working in a future release.
 
 "#]]);
 }

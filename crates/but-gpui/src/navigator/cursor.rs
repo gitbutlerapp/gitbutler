@@ -5,12 +5,13 @@ use gpui::{App, Context, InteractiveElement, Window};
 
 use super::rows::{Fold, Moving, Row};
 use super::{
-    ClickOpened, Navigator, NextSection, PreviousSection, SelectFirst, SelectLast, items, parent,
-    tabs,
+    CARD_GAP, ClickOpened, HIDDEN_HEAD, Navigator, NextSection, PreviousSection, SelectFirst,
+    SelectLast, items, parent, tabs,
 };
 use crate::app::{Collapse, Confirm, Expand, SelectNext, SelectPrevious, ToggleFold};
 use crate::backend::Checkout;
 use crate::state::{ProjectId, Section, Selection};
+use crate::theme::Theme;
 
 /// Where a step of the keys lands.
 #[derive(Debug, PartialEq, Eq)]
@@ -238,10 +239,15 @@ impl Navigator {
         self.off_row == Some(OffRow::DrawerBar) || self.stepped_up()
     }
 
-    /// Give the drawer's bar the keys, in view.
+    /// Give the drawer's bar the keys, in view: it heads the hidden projects' card, the list's
+    /// last item, past the room over it.
     fn enter_drawer_bar(&mut self, cx: &mut Context<Navigator>) {
-        // Pinned at the column's foot, it's always in view.
         self.off_row = Some(OffRow::DrawerBar);
+        if !self.built.rows.is_empty() {
+            let theme = Theme::get(cx);
+            let top = theme.scaled(CARD_GAP);
+            self.reveal_in_footer(top, theme.scaled(HIDDEN_HEAD));
+        }
         cx.notify();
     }
 

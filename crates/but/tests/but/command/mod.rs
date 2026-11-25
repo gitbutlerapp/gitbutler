@@ -102,13 +102,13 @@ mod util {
 
     /// Return `but status` JSON output as a parsed value.
     pub fn status_json(env: &Sandbox) -> serde_json::Value {
-        let output = env.but("--json status").allow_json().output().unwrap();
+        let output = env.but("status --json").allow_json().output().unwrap();
         serde_json::from_slice(&output.stdout).expect("status output should be valid JSON")
     }
 
     /// Return `but status -f` JSON output as a parsed value.
     pub fn status_json_with_files(env: &Sandbox) -> serde_json::Value {
-        let output = env.but("--json status -f").allow_json().output().unwrap();
+        let output = env.but("status --json -f").allow_json().output().unwrap();
         serde_json::from_slice(&output.stdout).expect("status output should be valid JSON")
     }
 

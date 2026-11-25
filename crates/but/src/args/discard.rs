@@ -22,4 +22,8 @@ pub struct Platform {
     ///
     /// If omitted, all uncommitted changes of the checkout `but` runs in are discarded.
     pub changes: Vec<CliIdArg>,
+
+    #[clap(flatten)]
+    #[allow(missing_docs)]
+    pub json: crate::args::atoms::JsonArg,
 }

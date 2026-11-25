@@ -222,7 +222,7 @@ fn with_json_output() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    env.but("--json branch new middle")
+    env.but("branch --json new middle")
         .allow_json()
         .assert()
         .success()

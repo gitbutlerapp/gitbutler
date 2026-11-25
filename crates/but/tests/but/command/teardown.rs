@@ -241,7 +241,7 @@ fn json_output_single_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
-    env.but("--json teardown")
+    env.but("teardown --json")
         .allow_json()
         .assert()
         .success()
@@ -266,7 +266,7 @@ fn json_output_with_dangling_commits() {
         Sandbox::init_scenario_with_target_and_default_settings("teardown-dangling-single-commit");
     env.setup_metadata(&["A"]);
 
-    env.but("--json teardown")
+    env.but("teardown --json")
         .allow_json()
         .assert()
         .success()
@@ -304,7 +304,7 @@ fn teardown_checks_out_to_branch_override() {
     env.setup_metadata(&[]);
     env.invoke_git("branch A main");
 
-    env.but("--json teardown")
+    env.but("teardown --json")
         .arg("--checkout-to")
         .arg("A")
         .allow_json()
@@ -336,7 +336,7 @@ fn teardown_checks_out_to_branch_override_with_qualified_ref_name() {
     env.setup_metadata(&[]);
     env.invoke_git("branch A main");
 
-    env.but("--json teardown")
+    env.but("teardown --json")
         .arg("--checkout-to")
         .arg("refs/heads/A")
         .allow_json()
@@ -506,7 +506,7 @@ fn json_output_reports_partial_hook_cleanup() {
     std::fs::write(hooks_dir.join("post-checkout"), managed_hook).unwrap();
     std::fs::set_permissions(&hooks_dir, std::fs::Permissions::from_mode(0o555)).unwrap();
 
-    env.but("--json teardown")
+    env.but("teardown --json")
         .allow_json()
         .assert()
         .success()

@@ -144,19 +144,76 @@ fn parse_args_and_output_format(args: Vec<OsString>, agent_detected: bool) -> (A
             }
         }
     };
-    let args = Args::from_arg_matches(&matches).unwrap_or_else(|err| err.exit());
+    let parsed = Args::from_arg_matches(&matches).unwrap_or_else(|err| err.exit());
+    let output_format = output_format(&parsed, &matches, agent_detected).unwrap_or_else(|err| {
+        utils::metrics::emit_parse_error(&args, &err, false);
+        err.exit()
+    });
 
-    let output_format = if args.format.json {
-        OutputFormat::Json
-    } else if let Some(output_format_from_env) = OutputFormat::try_from_env(agent_detected) {
-        output_format_from_env
-    } else {
-        OutputFormat::Human {
-            agent: agent_detected,
-        }
+    (parsed, output_format)
+}
+
+/// The output format the parsed command line asks for, or the error for `--json` before a
+/// command that doesn't print JSON.
+///
+/// `--json` on a command that prints JSON selects JSON. So does `--json` before the subcommand,
+/// with a note teaching the new position. Otherwise `BUT_OUTPUT_FORMAT` decides, though it can't
+/// select JSON for a command that doesn't print it.
+fn output_format(
+    args: &Args,
+    matches: &clap::ArgMatches,
+    agent_detected: bool,
+) -> Result<OutputFormat, clap::Error> {
+    let human = OutputFormat::Human {
+        agent: agent_detected,
     };
+    let from_env = OutputFormat::try_from_env(agent_detected).unwrap_or(human);
+    let cmd = match args.cmd.as_ref() {
+        // Without a subcommand, `but` runs the default alias, so `--json` has no later position.
+        None if args.json_before_subcommand => return Ok(OutputFormat::Json),
+        None => return Ok(from_env),
+        // An external command is only known to exist at dispatch, which reports an unknown or
+        // removed one. `--json` never reached external commands.
+        Some(Subcommands::External(_)) => return Ok(human),
+        Some(cmd) => cmd,
+    };
+    let Some(json_arg) = cmd.json_arg() else {
+        if args.json_before_subcommand {
+            let mut err = Args::command().error(
+                clap::error::ErrorKind::UnknownArgument,
+                format!(
+                    "`but {}` doesn't print JSON, so it doesn't take `--json`",
+                    subcommand_path(matches)
+                ),
+            );
+            // Names the flag in the parse-error event.
+            err.insert(
+                clap::error::ContextKind::InvalidArg,
+                clap::error::ContextValue::String("--json".to_owned()),
+            );
+            return Err(err);
+        }
+        return Ok(human);
+    };
+    if args.json_before_subcommand {
+        print_err_infallible(retired_syntax::leading_json_hint(
+            &subcommand_path(matches),
+            agent_detected,
+        ));
+    }
+    Ok(if json_arg.json || args.json_before_subcommand {
+        OutputFormat::Json
+    } else {
+        from_env
+    })
+}
 
-    (args, output_format)
+/// The names of the subcommands on the command line, such as `worktree list`.
+fn subcommand_path(matches: &clap::ArgMatches) -> String {
+    std::iter::successors(matches.subcommand(), |(_, matches)| matches.subcommand())
+        .map(|(name, _)| name)
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn should_detect_terminal_theme(
@@ -325,7 +382,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
 
     let result = match args.cmd.take() {
         // Runs before the app settings are loaded, which agent hooks don't need.
-        Some(Subcommands::AgentLog { cmd }) => {
+        Some(Subcommands::AgentLog { cmd, json: _ }) => {
             run_agentlog_command(&args.current_dir, cmd, &mut out)
         }
         None => {
@@ -345,7 +402,6 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             if args.current_dir != std::path::Path::new(".") {
                 default_alias_args.current_dir = args.current_dir.clone();
             }
-            default_alias_args.format = args.format;
             default_alias_args.status_after = args.status_after;
 
             match default_alias_args.cmd.take() {
@@ -544,7 +600,7 @@ async fn match_subcommand(
     let out = &mut output;
 
     let cmd = match cmd {
-        Subcommands::AgentLog { cmd } => {
+        Subcommands::AgentLog { cmd, json: _ } => {
             return run_agentlog_command(&args.current_dir, cmd, out);
         }
         cmd => cmd,
@@ -595,6 +651,11 @@ async fn match_subcommand(
         && let Some(metrics_ctx) = metrics_ctx.as_mut()
     {
         metrics_ctx.push_extra_prop("retiredCommitSyntax", true);
+    }
+    if args.json_before_subcommand
+        && let Some(metrics_ctx) = metrics_ctx.as_mut()
+    {
+        metrics_ctx.push_extra_prop("leadingJson", true);
     }
 
     match dispatch_subcommand(cmd, args, app_settings, &mut output).await {
@@ -677,7 +738,7 @@ async fn dispatch_subcommand(
             command::onboarding::handle(out)?;
             return Ok(DispatchOutcome::Return);
         }
-        Subcommands::Config(args::config::Platform { cmd }) => {
+        Subcommands::Config(args::config::Platform { cmd, json: _ }) => {
             // Handle subcommands that don't require a repo context
             return (match &cmd {
                 Some(args::config::Subcommands::Metrics { status }) => {
@@ -754,7 +815,7 @@ async fn dispatch_subcommand(
             })
             .map(|()| DispatchOutcome::Return);
         }
-        Subcommands::Alias(alias_args::Platform { cmd }) => {
+        Subcommands::Alias(alias_args::Platform { cmd, json: _ }) => {
             let ctx = match &cmd {
                 Some(
                     alias_args::Subcommands::Add { global: true, .. }
@@ -819,7 +880,7 @@ async fn dispatch_subcommand(
         ),
         #[cfg(feature = "nightly")]
         Subcommands::_Expand { .. } => Ok(but_ctx::Context::discover(&args.current_dir)?),
-        Subcommands::Branch(branch::Platform { ref cmd }) => setup::init_ctx(
+        Subcommands::Branch(branch::Platform { ref cmd, json: _ }) => setup::init_ctx(
             &args,
             match cmd {
                 Some(branch::Subcommands::Update { .. }) => InitCtxOptions {
@@ -857,7 +918,7 @@ async fn dispatch_subcommand(
             )
         }
         Subcommands::Pull { .. }
-        | Subcommands::Fetch
+        | Subcommands::Fetch { .. }
         | Subcommands::Push(..)
         | Subcommands::Oplog(..)
         | Subcommands::Undo(..)
@@ -951,6 +1012,7 @@ async fn dispatch_subcommand(
             program_id,
             gui,
             dry_run,
+            json: _,
         } => {
             use crate::utils::IntermediateChannel;
 
@@ -967,13 +1029,13 @@ async fn dispatch_subcommand(
             None
         }
         #[cfg(feature = "nightly")]
-        Subcommands::_Expand { cli_id } => {
+        Subcommands::_Expand { cli_id, json: _ } => {
             let outcome =
                 command::expand::handle(&ctx, cli_id, &InvokedFrom::discover(&args.current_dir)?)?;
             out.print_cli_output(outcome)?;
             None
         }
-        Subcommands::Worktree(worktree::Platform { cmd }) => {
+        Subcommands::Worktree(worktree::Platform { cmd, json: _ }) => {
             match cmd.unwrap_or(worktree::Subcommands::List {
                 archived: false,
                 active: false,
@@ -1026,7 +1088,7 @@ async fn dispatch_subcommand(
             }
             None
         }
-        Subcommands::Branch(branch::Platform { cmd }) => match cmd {
+        Subcommands::Branch(branch::Platform { cmd, json: _ }) => match cmd {
             None => {
                 let outcome = command::legacy::branch::handle_no_subcommand(&mut ctx)?;
                 out.print_cli_output(outcome)?;
@@ -1134,10 +1196,12 @@ async fn dispatch_subcommand(
             out.print_cli_output(outcome)?;
             None
         }
-        Subcommands::Pull { check, update } => {
-            command::legacy::pull::handle(&mut ctx, out, check, &update).await?
-        }
-        Subcommands::Fetch => {
+        Subcommands::Pull {
+            check,
+            update,
+            json: _,
+        } => command::legacy::pull::handle(&mut ctx, out, check, &update).await?,
+        Subcommands::Fetch { json: _ } => {
             use std::fmt::Write;
             let mut progress = out.progress_channel();
             writeln!(
@@ -1159,6 +1223,7 @@ async fn dispatch_subcommand(
             dry_run,
             pull,
             include_upstream,
+            json: _,
         } => {
             let status_after = args.status_after;
             if pull {
@@ -1193,6 +1258,7 @@ async fn dispatch_subcommand(
             upstream,
             no_hint,
             short: _,
+            json: _,
         } => {
             use crate::command::legacy::status::FilesStatusFlag;
             use crate::command::legacy::status::StatusFlags;
@@ -1255,6 +1321,7 @@ async fn dispatch_subcommand(
             commit,
             verbose,
             stat,
+            json: _,
         } => {
             return Ok(DispatchOutcome::ExitWithoutDestructors(
                 command::legacy::show::show_commit(
@@ -1366,6 +1433,7 @@ async fn dispatch_subcommand(
             diff,
             no_diff,
             allow_merged,
+            json: _,
         } => {
             let message = match file {
                 Some(file) => Some(file.read_non_empty(&args.current_dir)?),
@@ -1388,7 +1456,7 @@ async fn dispatch_subcommand(
             out.print_cli_output(outcome)?;
             None
         }
-        Subcommands::Oplog(args::oplog::Platform { cmd }) => match cmd {
+        Subcommands::Oplog(args::oplog::Platform { cmd, json: _ }) => match cmd {
             Some(args::oplog::Subcommands::List { since, snapshot }) => {
                 let filter = if snapshot {
                     Some(command::legacy::oplog::OplogFilter::Snapshot)
@@ -1453,6 +1521,7 @@ async fn dispatch_subcommand(
             source,
             dry_run,
             allow_merged,
+            json: _,
         } => {
             let status_after = args.status_after;
             out.begin_status_after(status_after);
@@ -1494,7 +1563,10 @@ async fn dispatch_subcommand(
             out.print_cli_output(outcome)?;
             None
         }
-        Subcommands::Teardown { checkout_to } => {
+        Subcommands::Teardown {
+            checkout_to,
+            json: _,
+        } => {
             let outcome = command::legacy::teardown::teardown(&mut ctx, checkout_to, out)
                 .map_err(|err| err.context("Failed to teardown GitButler project."))?;
             out.print_cli_output(outcome)?;
@@ -1514,6 +1586,7 @@ async fn dispatch_subcommand(
                     no_hooks,
                     default,
                     draft,
+                    json: _,
                 }) => {
                     let draft = top_level_draft || draft;
                     let message_content = match &file {
@@ -1628,7 +1701,12 @@ async fn dispatch_subcommand(
             )?;
             None
         }
-        Subcommands::Resolve { cmd, targets, ai } => {
+        Subcommands::Resolve {
+            cmd,
+            targets,
+            ai,
+            json: _,
+        } => {
             let status_after = args.status_after
                 && matches!(&cmd, Some(crate::args::resolve::Subcommands::Finish));
             out.begin_status_after(status_after);
@@ -2117,6 +2195,74 @@ mod tests {
         });
 
         assert!(matches!(format, OutputFormat::Json));
+    }
+
+    #[test]
+    fn json_after_a_command_with_its_own_flag_selects_json() {
+        let (args, format) = temp_env::with_var(envs::BUT_OUTPUT_FORMAT, None::<&str>, || {
+            parse_args_and_output_format(os_args(&["but", "commit", "--json"]), false)
+        });
+
+        assert!(matches!(format, OutputFormat::Json));
+        let Some(Subcommands::Commit(platform)) = args.cmd else {
+            panic!("expected commit");
+        };
+        assert!(platform.json.json, "commit has its own --json flag");
+    }
+
+    #[test]
+    fn json_before_a_command_with_its_own_flag_still_selects_json() {
+        let (_, format) = temp_env::with_var(envs::BUT_OUTPUT_FORMAT, None::<&str>, || {
+            parse_args_and_output_format(os_args(&["but", "--json", "commit"]), false)
+        });
+
+        assert!(matches!(format, OutputFormat::Json));
+    }
+
+    #[test]
+    fn json_from_the_environment_only_applies_to_commands_that_print_json() {
+        let (_, format) = temp_env::with_var(envs::BUT_OUTPUT_FORMAT, Some("json"), || {
+            parse_args_and_output_format(os_args(&["but", "merge", "A"]), false)
+        });
+
+        assert!(matches!(format, OutputFormat::Human { agent: false }));
+    }
+
+    #[test]
+    fn json_after_a_subcommand_covers_it_when_its_parent_takes_json() {
+        let (_, format) = temp_env::with_var(envs::BUT_OUTPUT_FORMAT, None::<&str>, || {
+            parse_args_and_output_format(os_args(&["but", "worktree", "list", "--json"]), false)
+        });
+
+        assert!(matches!(format, OutputFormat::Json));
+    }
+
+    #[test]
+    fn json_before_a_subcommand_covers_it_when_its_parent_takes_json() {
+        let (_, format) = temp_env::with_var(envs::BUT_OUTPUT_FORMAT, None::<&str>, || {
+            parse_args_and_output_format(os_args(&["but", "worktree", "--json", "list"]), false)
+        });
+
+        assert!(matches!(format, OutputFormat::Json));
+    }
+
+    #[test]
+    fn json_before_an_external_command_leaves_it_to_dispatch() {
+        let (args, format) = temp_env::with_var(envs::BUT_OUTPUT_FORMAT, None::<&str>, || {
+            parse_args_and_output_format(os_args(&["but", "--json", "stauts"]), false)
+        });
+
+        assert!(matches!(args.cmd, Some(Subcommands::External(_))));
+        assert!(matches!(format, OutputFormat::Human { agent: false }));
+    }
+
+    #[test]
+    fn subcommand_path_names_every_level() {
+        let matches = Args::command()
+            .try_get_matches_from(["but", "-C", ".", "worktree", "list", "--json"])
+            .unwrap();
+
+        assert_eq!(subcommand_path(&matches), "worktree list");
     }
 
     #[test]

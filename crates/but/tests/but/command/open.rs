@@ -1022,7 +1022,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 
 "#]]);
     // Tools read the link from JSON.
-    env.but("--json _open zon --gui --dry-run")
+    env.but("_open --json zon --gui --dry-run")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"

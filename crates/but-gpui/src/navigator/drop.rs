@@ -1065,23 +1065,23 @@ mod tests {
     }
 
     #[test]
-    fn the_gap_between_stacks_aims_at_the_row_on_its_side() {
+    fn the_end_of_a_stack_takes_no_room_and_its_neighbours_edges_aim_at_it() {
         let rows = Vec::from([branch("ui"), Row::Between(project()), branch("api")]);
         let row = ROW_HEIGHT;
-        let gap = rows[1].height(row);
-        assert!(
-            gap > 0.,
-            "the gap between stacks takes room, so it can be pointed at"
+        assert_eq!(
+            rows[1].height(row),
+            0.,
+            "no line or gap between stacks: levels group the rows"
         );
         assert_eq!(
-            aimed_at(&rows, row + gap * 0.25, row).map(|(ix, _)| ix),
+            aimed_at(&rows, row * 0.9, row).map(|(ix, _)| ix),
             Some(0),
-            "its top half stands for the bottom of the stack above"
+            "just above where one stack ends is the bottom of its last branch"
         );
         assert_eq!(
-            aimed_at(&rows, row + gap * 0.75, row),
-            Some((2, 0.)),
-            "its bottom half stands for the top of the stack below"
+            aimed_at(&rows, row * 1.1, row).map(|(ix, _)| ix),
+            Some(2),
+            "just below is the top of the next stack's first branch"
         );
     }
 

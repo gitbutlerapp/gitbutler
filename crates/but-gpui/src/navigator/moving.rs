@@ -738,7 +738,7 @@ impl Navigator {
                     under: self.built.row_keys.get(above)?.clone()?,
                     by: span_height(&self.built.rows, above..ix, self.row),
                     inset: self.built.insets.get(ix).copied().unwrap_or_default(),
-                    guides: self.built.guides.get(ix).cloned().unwrap_or_default(),
+                    guides: self.guides_at(ix),
                     since: now,
                     shown: 1.,
                     op,

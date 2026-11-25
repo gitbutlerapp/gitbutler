@@ -80,6 +80,7 @@ icons! {
     ExpandVertical => "expand-vertical",
     File => "file",
     Filter => "filter",
+    FileCopy => "file-copy",
     FileDiff => "file-diff",
     FilesSidebar => "files-sidebar",
     Folder => "folder",

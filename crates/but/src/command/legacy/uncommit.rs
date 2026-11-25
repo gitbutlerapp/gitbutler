@@ -51,6 +51,7 @@ fn resolve(
     let Platform {
         sources,
         allow_merged: _,
+        json: _,
     } = args;
 
     let sources = sources

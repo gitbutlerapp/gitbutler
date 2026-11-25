@@ -36,6 +36,8 @@ pub enum Subcommands {
         /// the full skill files. Team-internal while the approach is evaluated.
         #[clap(long, hide = true)]
         stub: bool,
+        #[clap(flatten)]
+        json: crate::args::atoms::JsonArg,
     },
     /// Remove GitButler skills and workflow instructions from coding agents.
     ///
@@ -57,5 +59,8 @@ pub enum Subcommands {
     /// but agent uninstall
     /// ```
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    Uninstall,
+    Uninstall {
+        #[clap(flatten)]
+        json: crate::args::atoms::JsonArg,
+    },
 }

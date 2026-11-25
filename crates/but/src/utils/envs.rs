@@ -2,8 +2,7 @@
 ///
 /// Unknown values are ignored. This is publicly documented in the CLI help via [`ALL_ENVS`].
 pub const BUT_OUTPUT_FORMAT: &str = "BUT_OUTPUT_FORMAT";
-pub const BUT_OUTPUT_FORMAT_DESCRIPTION: &str =
-    "Sets the output format when --json is not passed. Options: human, json.";
+pub const BUT_OUTPUT_FORMAT_DESCRIPTION: &str = "Sets the output format when --json is not passed. Options: human, json. Only commands that take --json print JSON.";
 
 pub const BUT_PAGER: &str = "BUT_PAGER";
 pub const BUT_PAGER_DESCRIPTION: &str = "Sets the pager for large outputs. [default: less]";

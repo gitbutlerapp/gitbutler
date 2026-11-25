@@ -8,6 +8,10 @@ pub struct Platform {
     /// Also print every reference document after the core guide.
     #[clap(long)]
     pub full: bool,
+
+    #[clap(flatten)]
+    #[allow(missing_docs)]
+    pub json: crate::args::atoms::JsonArg,
 }
 
 impl Platform {

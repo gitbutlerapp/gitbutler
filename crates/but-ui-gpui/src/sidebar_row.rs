@@ -221,7 +221,7 @@ impl SidebarRow {
         self
     }
 
-    /// An action on the row is running: a spinner stands in for its glyph, in `color` where the
+    /// An action on the row is running: the terminal's dots stand in for its glyph, in `color` where the
     /// row colours its own.
     pub fn busy(mut self, busy: bool, color: Option<Hsla>) -> Self {
         self.busy = busy;
@@ -411,7 +411,7 @@ impl SidebarRow {
         });
         let unstepped = steps.is_none();
         let glyph = match (self.busy, glyph) {
-            (true, _) => Some(spinner(14., self.busy_color.unwrap_or(muted)).into_any_element()),
+            (true, _) => Some(spinning(self.busy_color.unwrap_or(muted), true).into_any_element()),
             (false, glyph) => glyph,
         }
         .map(|glyph| {
@@ -561,10 +561,14 @@ fn fold_step(
     solid: bool,
     theme: &Theme,
 ) -> Div {
-    // On a solid selection, the inverted ghost's, as but-ui-react's chevron button there.
-    let ground = match solid {
-        true => theme.inverse_ghost_hover,
-        false => theme.hover,
+    // On a solid selection, the inverted colours, as but-ui-react's chevron button there.
+    let (ground, rest, lit) = match solid {
+        true => (
+            theme.inverse_ghost_hover,
+            theme.inverse_muted_foreground,
+            theme.inverse_muted_foreground,
+        ),
+        false => (theme.hover, theme.subtle_foreground, theme.muted_foreground),
     };
     let step = h_flex()
         .relative()
@@ -573,11 +577,7 @@ fn fold_step(
         .self_stretch()
         .justify_center();
     match fold {
-        Fold::Empty => step.child(
-            icon_at(Icon::BulletDisc, 12.)
-                .text_color(theme.subtle_foreground)
-                .opacity(0.5),
-        ),
+        Fold::Empty => step.child(icon_at(Icon::BulletDisc, 12.).text_color(rest).opacity(0.5)),
         Fold::Open | Fold::Folded => {
             let open = fold == Fold::Open;
             match (toggle, row_folds) {
@@ -596,7 +596,7 @@ fn fold_step(
                         // the pointer, and the chevron a step louder.
                         .rounded(dp(theme.shape.sm))
                         .hover(move |el| el.bg(ground))
-                        .child(pressed_chevron((id.clone(), "chevron"), open, theme))
+                        .child(pressed_chevron((id.clone(), "chevron"), open, rest, lit))
                         .when_some(press, |el, press| {
                             el.on_mouse_down(MouseButton::Left, move |event, window, cx| {
                                 press(event, window, cx)
@@ -607,11 +607,7 @@ fn fold_step(
                             toggle(window, cx);
                         }),
                 ),
-                _ => step.child(chevron(
-                    (id.clone(), "chevron"),
-                    open,
-                    theme.subtle_foreground,
-                )),
+                _ => step.child(chevron((id.clone(), "chevron"), open, rest)),
             }
         }
     }
@@ -638,18 +634,18 @@ pub fn chevron(
 /// The group a chevron that folds on its own click is, so it lights up under the pointer.
 const FOLD_GROUP: &str = "sidebar-row-fold";
 
-/// [`chevron`] on its own button, in `subtle`, a step louder in `muted` and at full strength
-/// while the pointer's on it, as but-ui-react's chevron button.
+/// [`chevron`] on its own button, in `rest`, turning `lit` and at full strength while the
+/// pointer's on it, as but-ui-react's chevron button.
 fn pressed_chevron(
     id: impl Into<ElementId>,
     open: bool,
-    theme: &Theme,
+    rest: Hsla,
+    lit: Hsla,
 ) -> gpui::SpringAnimationElement<gpui::Svg> {
-    let muted = theme.muted_foreground;
     icon_at(Icon::ChevronRight, 12.)
-        .text_color(theme.subtle_foreground)
+        .text_color(rest)
         .opacity(0.6)
-        .group_hover(FOLD_GROUP, move |s| s.text_color(muted).opacity(1.))
+        .group_hover(FOLD_GROUP, move |s| s.text_color(lit).opacity(1.))
         .with_spring(id, switch_spring(open), move |el, phase| {
             el.with_transformation(gpui::Transformation::rotate(gpui::radians(
                 phase.interpolate_clamped(0., std::f32::consts::FRAC_PI_2),
@@ -839,7 +835,7 @@ pub fn uncommitted_item(
         _ => MetaCountType::Uncommitted,
     };
     sidebar_row(id)
-        .icon(Icon::Diff, theme)
+        .icon(Icon::FileCopy, theme)
         .label(item_name("Uncommitted changes"))
         .count(kind, Some(count.to_string().into()), tip)
 }
@@ -873,8 +869,8 @@ pub fn stack_caption(
 pub fn loading_item(id: impl Into<ElementId>, width: f32) -> SidebarRow {
     sidebar_row(id)
         .quiet()
-        .glyph(skeleton_circle("bone-glyph", 14.))
-        .label(skeleton_text("bone-name", TEXT_11, width))
+        .glyph(skeleton_circle(14.))
+        .label(skeleton_text(TEXT_11, width))
 }
 
 /// The last row of a long list: "12 more", or "Show fewer" once everything shows.
@@ -894,6 +890,21 @@ pub fn more_item(
         .inked_icon(glyph, 12., Ink::Subtle)
         .muted_text()
         .label(div().min_w_0().truncate().text_13().child(label.into()))
+}
+
+/// How tall a [`row_divider`] is.
+pub const ROW_DIVIDER: f32 = 14.;
+
+/// A line between a card's rows, as but-ui-react's `RowDivider`: a row of its own, under the
+/// `repo_item` heading a repository's card, with a faint line through its middle inset 6px.
+pub fn row_divider(theme: &Theme) -> Div {
+    h_flex().flex_none().h(dp(ROW_DIVIDER)).px(dp(6.)).child(
+        div()
+            .flex_grow(1.)
+            .h(fixed(1.))
+            .bg(theme.border)
+            .opacity(0.5),
+    )
 }
 
 /// The label over a group of pages: its name, small and quiet, so the pages under it read first.

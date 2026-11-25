@@ -212,7 +212,7 @@ fn uncommit_command_on_commit() {
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
 
     // Get the commit ID from status
-    let status_output = env.but("--json status").allow_json().output().unwrap();
+    let status_output = env.but("status --json").allow_json().output().unwrap();
     let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout).unwrap();
     let commit_cli_id = status_json["stacks"][0]["branches"][0]["commits"][0]["cliId"]
         .as_str()
@@ -224,7 +224,7 @@ fn uncommit_command_on_commit() {
         .success();
 
     // Verify the files are now uncommitted
-    env.but("--json status -f")
+    env.but("status --json -f")
         .allow_json()
         .assert()
         .success()

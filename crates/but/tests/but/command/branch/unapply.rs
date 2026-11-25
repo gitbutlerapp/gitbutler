@@ -156,7 +156,7 @@ fn unapply_with_json_output() {
     env.but("apply").arg(branch_name).assert().success();
 
     // Unapply with JSON output using the new `but unapply` command
-    env.but("--json unapply")
+    env.but("unapply --json")
         .arg(branch_name)
         .allow_json()
         .assert()
@@ -224,7 +224,7 @@ fn unapply_nonexistent_branch_with_json() {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
 
     // Try to unapply a branch that doesn't exist with JSON output - should fail
-    env.but("--json unapply nonexistent-branch")
+    env.but("unapply --json nonexistent-branch")
         .allow_json()
         .assert()
         .failure();
@@ -482,7 +482,7 @@ fn unapply_json_output_validation() {
 
     // Unapply with JSON output and validate structure
     let output = env
-        .but("--json unapply")
+        .but("unapply --json")
         .arg(branch_name)
         .allow_json()
         .output()
