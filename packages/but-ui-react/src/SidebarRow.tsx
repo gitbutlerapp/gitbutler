@@ -54,6 +54,11 @@ type RowProps = {
 	 * `data-split-room` while any of its rows has one, and the rows without keep the cell's room, so
 	 * their counts line up too. */
 	split?: ReactNode;
+	/** A small ghost icon `Button` that stands in for the row's glyph only while the pointer is on
+	 * the glyph, or the keys are on the button: passing over the row shows nothing, and nothing on
+	 * the row moves when it comes. A project's eye, which hides or shows it, is one. Its glyph says
+	 * the state, as a layers panel's does, and its tooltip what a press does. */
+	glyphAction?: ReactNode;
 } & useRender.ComponentProps<"div">;
 
 const Steps: FC<{
@@ -180,11 +185,17 @@ const Row: FC<
 	meta: metaSlot,
 	actions: actionsSlot,
 	split: splitSlot,
+	glyphAction: glyphActionSlot,
 	rowClassName,
 	render,
 	...props
 }) => {
-	const [meta, actions, split] = [filled(metaSlot), filled(actionsSlot), filled(splitSlot)];
+	const [meta, actions, split, glyphAction] = [
+		filled(metaSlot),
+		filled(actionsSlot),
+		filled(splitSlot),
+		filled(glyphActionSlot),
+	];
 	return useRender({
 		render: render ?? <div />,
 		state: { selected, linked },
@@ -207,7 +218,15 @@ const Row: FC<
 							{spinner}
 						</output>
 					) : (
-						icon !== undefined && <span className={styles.icon}>{icon}</span>
+						icon !== undefined &&
+						(glyphAction === undefined ? (
+							<span className={styles.icon}>{icon}</span>
+						) : (
+							<span className={classes(styles.icon, styles.glyphHost)}>
+								<span className={styles.glyph}>{icon}</span>
+								<span className={styles.glyphAction}>{glyphAction}</span>
+							</span>
+						))
 					)}
 					<span className={styles.label}>{label}</span>
 					{(meta !== undefined || actions !== undefined || split !== undefined) && (

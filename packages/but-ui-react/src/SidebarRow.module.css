@@ -217,6 +217,36 @@ button.toggle {
 	color: var(--but-muted-foreground);
 }
 
+/* A glyph with a button in its place: the button's box, wider than the glyph and centred on it,
+   is what the pointer finds, and under it the glyph gives way. Both keep their place, so nothing
+   on the row moves, and the button keeps taking the pointer and the keys while unseen. */
+.glyphHost {
+	position: relative;
+}
+
+.glyph {
+	display: flex;
+}
+
+.glyphAction {
+	display: flex;
+	position: absolute;
+	align-items: center;
+	justify-content: center;
+	inset: calc((14px - var(--but-size-control-sm)) / 2);
+	opacity: 0;
+}
+
+.glyphHost:is(:hover, :focus-within) {
+	.glyph {
+		opacity: 0;
+	}
+
+	.glyphAction {
+		opacity: 1;
+	}
+}
+
 .label {
 	display: flex;
 	column-gap: var(--but-space-md);
