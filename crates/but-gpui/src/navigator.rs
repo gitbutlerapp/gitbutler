@@ -2526,6 +2526,11 @@ impl Navigator {
                     .relative()
                     .flex_1()
                     .min_h_0()
+                    // While the room a hidden project takes opens, the card is short of its rows
+                    // by what's still to open, and the rows past that room are drawn up by as
+                    // much: the list runs on past the card's edge by that, cut off by the card,
+                    // so it draws its last rows too.
+                    .when(self.footer_room() < 0., |el| el.mb(dp(self.footer_room())))
                     // With no cards its rows scroll past where it's cut off, its thumb in the
                     // gap beside it as the cards' is.
                     .child(

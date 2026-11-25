@@ -31,9 +31,10 @@ fn travel_time(distance: f32) -> Duration {
 /// How far through its way the rows of a card under its heading start coming in.
 const BODY_FROM: f32 = 0.5;
 
-/// How far through its way the copy starts handing over to where it lands: by then it's within
-/// a pixel or so of there, eased as it is.
-const HANDOVER_FROM: f32 = 0.75;
+/// How far through its way a copy going to the hidden projects stops carrying its card's rows
+/// and carries the row it lands as: shrunk all but to a row by then, eased as it is, so the
+/// row it leaves at the end is the one under it.
+const ROW_FROM: f32 = 0.75;
 
 /// Above the rows and their slides, below menus and tooltips.
 const TRAVEL_PRIORITY: usize = 1;
@@ -44,7 +45,8 @@ pub(super) struct Travel {
     hiding: bool,
     /// Where it was drawn, in the window: its card, or its part of the hidden projects' card.
     from: Bounds<Pixels>,
-    since: Instant,
+    /// When it set out: once where it lands is drawn, as it waits where it was till then.
+    since: Cell<Instant>,
     /// How long it takes, once where it lands is drawn and so how far it goes is known.
     lasting: Cell<Option<Duration>>,
     /// The cards closing over the room it left or opening for it, from when the cards took it:
@@ -69,31 +71,29 @@ impl Travel {
 
     /// How far along its way it is, eased as the navigator's reorders are.
     fn along(&self, now: Instant) -> f32 {
-        openness_over(true, self.since, now, self.lasting())
+        openness_over(true, self.since.get(), now, self.lasting())
     }
 
-    /// Whether where it lands is drawn yet: from the handover on, whole, under the copy, so the
-    /// card is never half there with the page showing through.
-    fn landed_drawn(&self, now: Instant) -> bool {
+    /// How much of its time has gone, from 0 to 1, rather than of its way.
+    fn gone(&self, now: Instant) -> f32 {
         let lasting = self.lasting().as_secs_f32();
-        now.saturating_duration_since(self.since).as_secs_f32() / lasting >= HANDOVER_FROM
+        (now.saturating_duration_since(self.since.get())
+            .as_secs_f32()
+            / lasting)
+            .clamp(0., 1.)
+    }
+
+    /// Whether where it lands is drawn yet: once it's there, under it, for the one frame before
+    /// it goes. Drawn sooner, it would show past the copy's edge as the copy eases in, or through
+    /// the copy as it faded.
+    fn landed_drawn(&self, now: Instant) -> bool {
+        self.gone(now) >= 1.
     }
 
     /// How far in the rows of its card under its heading are, coming in under it from halfway
     /// along its way, so the card fills in round its heading rather than shows up at once.
     fn body_in(&self, now: Instant) -> f32 {
-        let lasting = self.lasting().as_secs_f32();
-        let gone = now.saturating_duration_since(self.since).as_secs_f32() / lasting;
-        ((gone - BODY_FROM) / (1. - BODY_FROM)).clamp(0., 1.)
-    }
-
-    /// How far it has handed over to where it lands, from 0 to 1: over the last part of its way,
-    /// its own ground fades out over where it lands, drawn whole under it by then, so what it
-    /// stood in for, a card's rows above all, comes in rather than shows up at once.
-    fn handed_over(&self, now: Instant) -> f32 {
-        let lasting = self.lasting().as_secs_f32();
-        let gone = now.saturating_duration_since(self.since).as_secs_f32();
-        ((gone / lasting - HANDOVER_FROM) / (1. - HANDOVER_FROM)).clamp(0., 1.)
+        ((self.gone(now) - BODY_FROM) / (1. - BODY_FROM)).clamp(0., 1.)
     }
 }
 
@@ -258,7 +258,7 @@ impl Navigator {
                 project: crossing.project.clone(),
                 hiding: crossing.hiding,
                 from,
-                since: now,
+                since: Cell::new(now),
                 lasting: Cell::new(None),
                 cards: None,
                 drawer: None,
@@ -300,7 +300,7 @@ impl Navigator {
         let done =
             |since: Instant, lasting: Duration| now.saturating_duration_since(since) >= lasting;
         let over = (self.travel.as_ref()).is_some_and(|t| {
-            done(t.since, t.lasting())
+            done(t.since.get(), t.lasting())
                 && t.cards.is_none_or(|(_, since)| done(since, REORDER))
                 && t.drawer.is_none_or(|(_, _, since)| done(since, REORDER))
         });
@@ -322,7 +322,7 @@ impl Navigator {
     pub(super) fn footer_opacity(&self) -> f32 {
         (self.travel.as_ref()).map_or(1., |t| match t.footer_comes {
             Some(comes) => {
-                let left = left_since(t.since);
+                let left = left_since(t.since.get());
                 if comes { 1. - left } else { left }
             }
             None => 1.,
@@ -458,8 +458,10 @@ impl Navigator {
         let at = |rows: &[Row]| {
             (rows.iter()).position(|row| matches!(row, Row::Item(it) if *it == item))
         };
-        // Hiding, the card it leaves, all its rows, cut off as the copy shrinks to a row.
+        // Hiding, the card it leaves, all its rows, cut off as the copy shrinks to a row, till
+        // it's all but a row.
         if travel.hiding
+            && travel.gone(clock::now()) < ROW_FROM
             && let Some((rows, insets)) = &travel.left_card
         {
             let drawn = rows.iter().enumerate().map(|(ix, row)| match row {
@@ -502,18 +504,20 @@ impl Navigator {
         let theme = Theme::get(cx);
         let landing = self.travel_to(travel, cx);
         // How far it goes is known once where it lands is drawn, and holds from then on.
+        // It sets out then too: till where it lands is drawn, it waits where it was, rather than
+        // being further along its way than it's shown once it's known.
+        let now = clock::now();
         if travel.lasting.get().is_none()
             && let Some((to, _)) = landing
         {
             let distance = f32::from(to.top() - travel.from.top()) / theme.scale;
             travel.lasting.set(Some(travel_time(distance)));
+            travel.since.set(now);
         }
-        let now = clock::now();
         let along = travel.along(now);
-        // It gives way to what it lands in, drawn whole under it by then: all of it, so its row
-        // over the same row there never doubles up.
-        let ground = 1. - travel.handed_over(now);
-        let (to, fades) = landing.unwrap_or((travel.from, true));
+        // Whole till it's there and what it lands as is drawn under it, and gone the frame after,
+        // so neither shows through the other. Only into the hidden projects' bar does it fade.
+        let (to, fades) = landing.unwrap_or((travel.from, false));
         let at = lerp(travel.from, to, along);
         let carded = match travel.hiding {
             true => 1. - along,
@@ -531,12 +535,18 @@ impl Navigator {
             .bg(theme.background)
             .border_1()
             .border_color(theme.border_subtle)
+            // All but a row in the hidden projects' card, its bottom edge would rule a second
+            // line over the card's or the next part's as the room under it closes: what's
+            // there draws that line.
+            .when(travel.hiding && travel.gone(now) >= ROW_FROM, |el| {
+                el.border_b_0()
+            })
             .rounded_t(dp(radius * carded))
             .rounded_b(dp(if last_part { radius } else { radius * carded }))
             // Its row sits as a card's first row and a part's do, a card's padding under its edge,
             // and sets itself in.
             .pt(dp(CARD_PADDING))
-            .opacity(if fades { (1. - along) * ground } else { ground })
+            .opacity(if fades { 1. - along } else { 1. })
             .child(self.travelling_row(travel, cx));
         Some(
             deferred(anchored().position(at.origin).child(copy))
