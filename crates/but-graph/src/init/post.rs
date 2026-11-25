@@ -11,7 +11,7 @@ use petgraph::{
 };
 
 use crate::{
-    CommitIndex, Edge, Graph, SegmentIndex,
+    CommitIndex, Edge, Graph, Segment, SegmentIndex,
     init::{
         PetGraph,
         overlay::OverlayMetadata,
@@ -158,7 +158,9 @@ impl Graph {
     /// branch another checkout has there. Where a worktree's lane connects
     /// into another [checkout's](Checkout) history, the commit-owning segment
     /// is thus made anonymous, its name extracted into an empty segment that
-    /// keeps its place in its own lane.
+    /// keeps its place in its own lane. A connection into an empty segment of
+    /// such a branch, as when several branches rest on one commit, passes its
+    /// reference all the same, so it lands on what the branch rests on.
     ///
     /// Only rewritable names can couple a worktree to a rewrite, so only local
     /// branches are extracted: routing through a remote reference is harmless
@@ -170,17 +172,56 @@ impl Graph {
         worktree_by_branch: &WorktreeByBranch,
     ) -> anyhow::Result<()> {
         let owners = self.checkout_owners();
+        let is_local_branch = |segment: &Segment| {
+            segment
+                .ref_name()
+                .is_some_and(|rn| rn.category() == Some(Category::LocalBranch))
+                && segment.workspace_metadata().is_none()
+        };
+        let mut passing_empty_branches = Vec::<(EdgeOwned, EdgeOwned)>::new();
+        for edge in self.inner.edge_references() {
+            let source_owner = owners.get(edge.source());
+            if !matches!(source_owner, Some(Checkout::Worktree(_))) {
+                continue;
+            }
+            let mut rests_on = None;
+            let mut sidx = edge.target();
+            while owners.get(sidx) != source_owner
+                && self[sidx].commits.is_empty()
+                && is_local_branch(&self[sidx])
+            {
+                let mut below = self.inner.edges_directed(sidx, Direction::Outgoing);
+                let (Some(below), None) = (below.next(), below.next()) else {
+                    break;
+                };
+                sidx = below.target();
+                rests_on = Some(below);
+            }
+            if let Some(rests_on) = rests_on {
+                passing_empty_branches.push((edge.into(), rests_on.into()));
+            }
+        }
+        let mut retargeted = BTreeSet::new();
+        for (edge, rests_on) in passing_empty_branches {
+            self.inner.remove_edge(edge.id);
+            self.connect_segments_with_ids(
+                edge.source,
+                edge.weight.src,
+                edge.weight.src_id,
+                rests_on.target,
+                rests_on.weight.dst,
+                rests_on.weight.dst_id,
+                edge.weight.parent_order,
+            );
+            retargeted.insert(edge.source);
+        }
         let mut leaving_by_branch = BTreeMap::<SegmentIndex, Vec<EdgeOwned>>::new();
         for edge in self.inner.edge_references() {
             let source_owner = owners.get(edge.source());
             let leaves_worktree_lane = matches!(source_owner, Some(Checkout::Worktree(_)))
                 && owners.get(edge.target()) != source_owner;
-            let target = &self[edge.target()];
-            let lands_on_local_branch = edge.weight().dst == Some(0)
-                && target
-                    .ref_name()
-                    .is_some_and(|rn| rn.category() == Some(Category::LocalBranch))
-                && target.workspace_metadata().is_none();
+            let lands_on_local_branch =
+                edge.weight().dst == Some(0) && is_local_branch(&self[edge.target()]);
             if leaves_worktree_lane && lands_on_local_branch {
                 leaving_by_branch
                     .entry(edge.target())
@@ -188,7 +229,6 @@ impl Graph {
                     .push(edge.into());
             }
         }
-        let mut retargeted = BTreeSet::new();
         for (branch_sidx, leaving) in leaving_by_branch {
             let commits_sidx =
                 self.split_segment(branch_sidx, 0, None, None, meta, worktree_by_branch)?;

@@ -148,6 +148,26 @@ git init worktree-ahead
   )
 )
 
+# `main` is checked out on the target commit, and so is `idle` in a linked worktree, with no
+# commits of its own. The `feature` worktree started there too, and its commits were merged
+# into `origin/main`.
+git init worktree-merged-beside-worktree-on-target
+(cd worktree-merged-beside-worktree-on-target
+  commit base
+  git worktree add -b feature ../worktree-merged-beside-worktree-on-target-feature
+  (cd ../worktree-merged-beside-worktree-on-target-feature
+    commit F1
+    commit F2
+  )
+  git worktree add -b idle ../worktree-merged-beside-worktree-on-target-idle
+  git checkout -b soon-origin-main
+    commit other
+    git merge --no-ff -m "merge feature" feature
+  git checkout main
+  setup_remote_tracking soon-origin-main main "move"
+  add_main_remote_setup
+)
+
 # A single root that splits up into 4 branches and merges again
 git init four-diamond
 (cd four-diamond

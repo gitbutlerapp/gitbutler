@@ -1459,6 +1459,82 @@ pub(super) mod tests {
         })
     }
 
+    /// The update drops a merged worktree branch even when another worktree is on the target's
+    /// commit with no commits of its own, which leaves the main checkout's branch there without
+    /// a commit. Rebasing the merged branch with that branch would pick its first commit again
+    /// onto the target, which has both commits' edits of `file`, and conflict.
+    #[test]
+    fn a_merged_worktree_branch_goes_without_conflicts_beside_a_worktree_on_the_target() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            let ctx = crate::backend::open(path).unwrap();
+            (ctx.db.get_cache_mut().unwrap())
+                .worktree_meta_mut()
+                .mark_adopted()
+                .unwrap();
+            drop(ctx);
+            let outside = tempfile::tempdir().unwrap();
+            let feature = outside.path().join("feature");
+            let feature_dir = feature.to_str().unwrap();
+            git(
+                path,
+                &[
+                    "worktree",
+                    "add",
+                    "-q",
+                    "-b",
+                    "feature",
+                    feature_dir,
+                    "main",
+                ],
+            );
+            std::fs::write(feature.join("file"), "two\n").unwrap();
+            git(&feature, &["commit", "-q", "-am", "two"]);
+            std::fs::write(feature.join("file"), "three\n").unwrap();
+            git(&feature, &["commit", "-q", "-am", "three"]);
+            let idle = outside.path().join("idle");
+            let idle_dir = idle.to_str().unwrap();
+            git(
+                path,
+                &["worktree", "add", "-q", "-b", "idle", idle_dir, "main"],
+            );
+            new_on_target(path, "other");
+            let merge = git(
+                path,
+                &[
+                    "commit-tree",
+                    "feature^{tree}",
+                    "-p",
+                    "origin/main",
+                    "-p",
+                    "feature",
+                    "-m",
+                    "merge feature",
+                ],
+            );
+            git(
+                path,
+                &["update-ref", "refs/remotes/origin/main", merge.trim()],
+            );
+
+            let outcome = update(path, UpdateScope::All);
+            let UpdateOutcome::Updated {
+                conflicted, merged, ..
+            } = outcome
+            else {
+                panic!("feature is merged, so nothing is left to conflict: {outcome:?}");
+            };
+            assert_eq!(conflicted, [], "the update left nothing conflicted");
+            assert_eq!(
+                merged,
+                [full("refs/heads/feature")],
+                "the update dropped feature as merged"
+            );
+        })
+    }
+
     #[test]
     fn an_update_rebases_a_worktree_on_the_target_too() {
         crate::backend::lane_tests::linked_workspace(|path| {
