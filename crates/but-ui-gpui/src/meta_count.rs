@@ -1,12 +1,7 @@
 //! A glyph and a short value in a row's meta, as but-ui-react's `MetaCount`, and where something
 //! that runs has got to, as its `MetaStatus`.
 
-use std::time::Duration;
-
-use gpui::{
-    Animation, AnimationExt as _, AnyElement, Div, Hsla, SharedString, Transformation, canvas, div,
-    percentage, prelude::*,
-};
+use gpui::{AnyElement, Div, Hsla, SharedString, div, prelude::*};
 
 use crate::theme::Theme;
 use crate::*;
@@ -172,15 +167,7 @@ fn counted(
         false => kind.color(theme),
     };
     let glyph = match kind {
-        // The terminal's dots, in a glyph's 14px box.
-        MetaCountType::Running => div()
-            .flex_none()
-            .size(dp(14.))
-            .flex()
-            .items_center()
-            .justify_center()
-            .child(spinning(color, turning))
-            .into_any_element(),
+        MetaCountType::Running => dots_glyph(color, turning).into_any_element(),
         // A step quieter than its value, as 🍑 But UI draws it, so the value reads first.
         _ => icon_at(kind.glyph(), 14.)
             .flex_none()
@@ -202,7 +189,7 @@ fn counted(
 /// Where the thing a [`meta_status`] names has got to, as React's `MetaStatusVariant`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MetaStatusVariant {
-    /// Under way, as checks that are running: the spinner, in amber.
+    /// Under way, as checks that are running: the terminal's dots, in amber.
     Working,
     /// Done and fine: a tick, in green.
     Passed,
@@ -218,43 +205,42 @@ pub enum MetaStatusVariant {
 /// label naming the thing ("CI"), in its state's colour. Without a label it's the glyph alone;
 /// give it an id and a tooltip that names both then, "Checks running".
 pub fn meta_status(variant: MetaStatusVariant, label: Option<SharedString>, theme: &Theme) -> Div {
-    let (glyph, color) = match variant {
-        MetaStatusVariant::Working => (Icon::Spinner, theme.warning_text),
-        MetaStatusVariant::Passed => (Icon::Tick, theme.success_text),
-        MetaStatusVariant::Failed => (Icon::Cross, theme.danger_text),
-        MetaStatusVariant::Warning => (Icon::Warning, theme.warning_text),
-        MetaStatusVariant::Neutral => (Icon::Pending, theme.muted_foreground),
+    let color = match variant {
+        MetaStatusVariant::Working | MetaStatusVariant::Warning => theme.warning_text,
+        MetaStatusVariant::Passed => theme.success_text,
+        MetaStatusVariant::Failed => theme.danger_text,
+        MetaStatusVariant::Neutral => theme.muted_foreground,
     };
-    // A step quieter than its label, as a MetaCount's glyph is.
     let glyph = match variant {
-        MetaStatusVariant::Working => div()
-            .flex_none()
-            .opacity(0.7)
-            .child(spinner(14., color))
-            .into_any_element(),
-        _ => icon_at(glyph, 14.)
-            .flex_none()
-            .text_color(color)
-            .opacity(0.7)
-            .into_any_element(),
+        MetaStatusVariant::Working => dots_glyph(color, true).opacity(0.7).into_any_element(),
+        MetaStatusVariant::Passed => status_icon(Icon::Tick, color),
+        MetaStatusVariant::Failed => status_icon(Icon::Cross, color),
+        MetaStatusVariant::Warning => status_icon(Icon::Warning, color),
+        MetaStatusVariant::Neutral => status_icon(Icon::Pending, color),
     };
     count_box(color, glyph, label)
 }
 
-/// The spinner glyph at `px`, turning once every 0.8s, as React's `Icon name="spinner"` does: an
-/// action of the user's own under way, or a check that's running.
-pub fn spinner(px: f32, color: Hsla) -> impl IntoElement {
-    icon_at(Icon::Spinner, px)
+/// The terminal's dots, [`spinning`] in a glyph's 14px box.
+fn dots_glyph(color: Hsla, turning: bool) -> Div {
+    div()
         .flex_none()
-        .text_color(color)
-        .with_animation(
-            "spinner",
-            Animation::new(Duration::from_millis(800)).repeat(),
-            |svg, delta| svg.with_transformation(Transformation::rotate(percentage(delta))),
-        )
+        .size(dp(14.))
+        .flex()
+        .items_center()
+        .justify_center()
+        .child(spinning(color, turning))
 }
 
-const SPIN_STEP: Duration = Duration::from_millis(100);
+/// A [`meta_status`]'s glyph, a step quieter than its label, as a MetaCount's glyph is.
+fn status_icon(icon: Icon, color: Hsla) -> AnyElement {
+    icon_at(icon, 14.)
+        .flex_none()
+        .text_color(color)
+        .opacity(0.7)
+        .into_any_element()
+}
+
 /// The dots each step of [`spinning`] shows, as braille's: the low three bits are the left
 /// column's, top down, the next three the right's. The terminal's dots spinner, ⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏.
 const SPIN_FRAMES: [u8; 10] = [0x0b, 0x19, 0x39, 0x38, 0x3c, 0x34, 0x26, 0x27, 0x07, 0x0f];
@@ -263,18 +249,16 @@ const SPIN_DOT: f32 = 2.;
 const SPIN_PITCH: f32 = 3.5;
 
 /// Dots running round, as a terminal's spinner does, while what it stands for is under way,
-/// `turning` only while it shows. It steps 10 times a second, each step drawing the view it's
-/// in, and with it the whole window, again: an agent's spinner turns for minutes, and drawing
-/// the window any more often kept it from going idle and WindowServer busy all that while.
-/// Dots read as stepping on purpose at that rate, where a turning glyph would look choppy.
+/// `turning` only while it shows. It steps a [`Looping`] motion, 10 times a second, each step
+/// drawing the view it's in, and with it the whole window, again: an agent's spinner turns for
+/// minutes, and CI for longer.
 pub fn spinning(color: Hsla, turning: bool) -> impl IntoElement {
-    static START: std::sync::LazyLock<std::time::Instant> =
-        std::sync::LazyLock::new(crate::clock::now);
-    let since = crate::clock::now().saturating_duration_since(*START);
-    let steps = since.as_nanos() / SPIN_STEP.as_nanos();
-    #[expect(clippy::indexing_slicing, reason = "taken modulo the length")]
-    let frame = SPIN_FRAMES[(steps % SPIN_FRAMES.len() as u128) as usize];
-    let due = SPIN_STEP - Duration::from_nanos((since.as_nanos() % SPIN_STEP.as_nanos()) as u64);
+    let at = Looping::now(SPIN_FRAMES.len());
+    #[expect(
+        clippy::indexing_slicing,
+        reason = "a step is below the number of steps"
+    )]
+    let frame = SPIN_FRAMES[at.step];
     let left = (12. - SPIN_PITCH - SPIN_DOT) / 2.;
     let top = (12. - 2. * SPIN_PITCH - SPIN_DOT) / 2.;
     let dots = (0..6)
@@ -294,22 +278,5 @@ pub fn spinning(color: Hsla, turning: bool) -> impl IntoElement {
         .flex_none()
         .size(dp(12.))
         .children(dots)
-        // The next step asked for as this one is drawn, so a spinner that's gone, or one in a
-        // view that isn't drawn, asks for no more.
-        .when(turning, |el| {
-            el.child(
-                canvas(
-                    |_, _, _| {},
-                    move |_, _, window, cx| {
-                        let view = window.current_view();
-                        (cx.spawn(async move |cx| {
-                            cx.background_executor().timer(due).await;
-                            cx.update(|cx| cx.notify(view));
-                        }))
-                        .detach();
-                    },
-                )
-                .absolute(),
-            )
-        })
+        .when(turning, |el| el.child(at.next()))
 }
