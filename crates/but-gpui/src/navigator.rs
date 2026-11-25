@@ -1948,16 +1948,9 @@ impl Navigator {
             (false, true) => theme.focus_edge(),
             (false, false) => theme.border_subtle,
         };
-        // How far row `ix` is drawn from where it's laid out: as far as a reorder slid it, but
-        // not while a fold moves it, which draws it as far as the fold's open.
-        let drawn_at = |ix: usize| match self.built.moving.get(ix).and_then(Option::as_ref) {
-            Some(m) if self.folds.openness(&m.fold).is_some() => 0.,
-            _ => (self.built.row_keys.get(ix).and_then(Option::as_ref))
-                .map_or(0., |key| self.reorder.offset(key)),
-        };
         // How far the card after row `ix`, its card's last, is drawn from where it's laid out.
         let next_card_at = |ix: usize| match self.built.rows.get(ix + 1) {
-            Some(Row::Gap) => Some(drawn_at(ix + 2)),
+            Some(Row::Gap) => Some(self.slid_by(ix + 2)),
             _ => None,
         };
         let crossing_at = |ix: usize| {
@@ -1969,7 +1962,7 @@ impl Navigator {
         // carries the card's bottom edge, so it keeps its distance from the card after it.
         let slid_at = |ix: usize| match crossing_at(ix) {
             true => next_card_at(ix).unwrap_or_default(),
-            false => drawn_at(ix),
+            false => self.slid_by(ix),
         };
         // A row slides with its slice of the card, so the card's edges follow its rows. Its
         // slice also stretches over the room between it and where it's laid out, as far as its
@@ -2118,7 +2111,7 @@ impl Navigator {
                     let over = (div().relative().bg(theme.background).child(el))
                         .when(first, |el| el.rounded_t(dp(corner)))
                         .when(last, |el| el.rounded_b(dp(corner)))
-                        .when(crossing, |el| el.top(dp(drawn_at(ix) - slid)));
+                        .when(crossing, |el| el.top(dp(self.slid_by(ix) - slid)));
                     let over = self.over_rows(over.children(guides()), over_rank);
                     card.child(div().relative().children(guides()).child(over))
                 }
@@ -2692,6 +2685,16 @@ impl Navigator {
         })
     }
 
+    /// How far row `ix` is drawn from where it's laid out in this frame: as far as a reorder
+    /// slid it, but not while a fold moves it, which draws it as far as the fold's open.
+    fn slid_by(&self, ix: usize) -> f32 {
+        match self.built.moving.get(ix).and_then(Option::as_ref) {
+            Some(m) if self.folds.openness(&m.fold).is_some() => 0.,
+            _ => (self.built.row_keys.get(ix).and_then(Option::as_ref))
+                .map_or(0., |key| self.reorder.offset(key)),
+        }
+    }
+
     /// Where the list's top and bottom edges cut a card off as it's scrolled in this frame,
     /// the drawer's too: there the card's edge is drawn along the list's, rounded as its own,
     /// so it keeps its shape. GPUI cuts what the list draws to a rectangle, so the ground the
@@ -2700,17 +2703,25 @@ impl Navigator {
     fn card_caps(&self, height: f32, theme: &Theme, cx: &App) -> Vec<Div> {
         let scale = Theme::get(cx).scale;
         let top = -f32::from(self.list.scroll_px_offset_for_scrollbar().y) / scale;
-        // Each card's top and bottom, from the list's top, as `cards_height` counts them.
+        // Each card's top and bottom, from the list's top, as `cards_height` counts them, where
+        // it's drawn in this frame: from its highest row to its lowest as they slide, as the
+        // card's slices hold together between them.
         let mut cards = Vec::new();
-        let (mut start, mut y) = (LIST_TOP, LIST_TOP + CARD_EDGE);
-        for (row, drawn) in self.drawn_heights() {
+        let mut y = LIST_TOP + CARD_EDGE;
+        // The top of the card's highest row and the bottom of its lowest, as drawn.
+        let mut card: Option<(f32, f32)> = None;
+        let edged = |(top, bottom): (f32, f32)| (top - CARD_EDGE, bottom + CARD_EDGE);
+        for (ix, (row, height)) in self.drawn_heights().enumerate() {
             if matches!(row, Row::Gap) {
-                cards.push((start, y + CARD_EDGE));
-                start = y + drawn - CARD_EDGE;
+                cards.extend(card.take().map(edged));
+            } else {
+                let top = y + self.slid_by(ix);
+                let (highest, lowest) = card.unwrap_or((top, top + height));
+                card = Some((highest.min(top), lowest.max(top + height)));
             }
-            y += drawn;
+            y += height;
         }
-        cards.push((start, y + CARD_EDGE));
+        cards.extend(card.map(edged));
         // The hidden projects' card after them, as `drawer_footer` sets it.
         let (spacer, drawer) = self.footer.get();
         if drawer > 0. {
