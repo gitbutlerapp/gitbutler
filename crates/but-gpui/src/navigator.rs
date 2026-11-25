@@ -85,9 +85,9 @@ pub(crate) use terminals::TerminalOverview;
 use crate::ui::Text;
 use moving::Mark;
 use rows::{
-    CARD_EDGE, CARD_PADDING, COMMIT_INDENT, Drawer, Fold, GONE_HEIGHT, GONE_PADDING, HEADER_RULE,
-    HEADING_HEIGHT, LOADING_WIDTHS, ROW_LEFT, ROW_MARGIN, Row, RowKey, caption, card_ends,
-    checkout_holds, in_checkout, in_inactive, inactive_open, span_height,
+    CARD_EDGE, CARD_PADDING, COMMIT_INDENT, Drawer, EmptyCard, Fold, GONE_HEIGHT, GONE_PADDING,
+    HEADER_RULE, HEADING_HEIGHT, LOADING_WIDTHS, ROW_LEFT, ROW_MARGIN, Row, RowKey, caption,
+    card_ends, checkout_holds, in_checkout, in_inactive, inactive_open, span_height,
 };
 
 /// How far apart the cards are, as the detail's are: but-ui's `gap/stack`, the one gap between
@@ -1843,6 +1843,7 @@ impl Navigator {
             Some(Row::HeaderRule(_)) => header_rule(theme),
             Some(Row::Note(text, is_error)) => note_row(text, *is_error, theme),
             Some(Row::Gone(project)) => self.gone_row(project, theme, cx),
+            Some(Row::Empty(project, card)) => self.empty_card_row(project, card, theme, cx),
             // A row still loading, as but-ui-react's LoadingItem.
             Some(Row::Loading(n)) => RowStyle::plain(theme, inset)
                 .draw(
@@ -2613,6 +2614,7 @@ impl Navigator {
             }
             Row::HeaderRule(_) => HEADER_RULE,
             Row::Gone(_) => GONE_HEIGHT,
+            Row::Empty(_, card) => card.height(),
             _ => 0.,
         };
         let (starts, ends) = part_ends(rows, ix);
@@ -2871,6 +2873,77 @@ impl Navigator {
             .into_any_element()
     }
 
+    /// What a project's card with nothing to list says under its heading, as 🍑 But UI's empty
+    /// project cards: why, and with a branch to start, New branch, and Apply a branch to pick one
+    /// beside it while there are some.
+    fn empty_card_row(
+        &self,
+        project: &ProjectId,
+        card: &EmptyCard,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let (title, detail) = card.copy();
+        let mut actions = Vec::new();
+        let picks = matches!(card, EmptyCard::ToApply(_));
+        if picks {
+            let id = project.clone();
+            let apply = button(
+                ElementId::Name(format!("apply-a-branch-{project}").into()),
+                "Apply a branch",
+            )
+            .medium()
+            .style(ButtonStyle::Outline)
+            .icon(Icon::Branch)
+            .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                let id = id.clone();
+                this.select_card(&id, cx);
+                (this.app).update_later(window, cx, move |app, window, cx| {
+                    app.pick_branch_to_apply(id, window, cx)
+                });
+            }));
+            actions.push(apply.into_any_element());
+        }
+        if card.acts() {
+            let id = project.clone();
+            let new = button(
+                ElementId::Name(format!("new-branch-{project}").into()),
+                if picks { "New" } else { "New branch" },
+            )
+            .medium()
+            .style(ButtonStyle::Outline)
+            .icon(Icon::Plus)
+            .tooltip_for("New branch", &crate::app::NewBranch)
+            .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                let id = id.clone();
+                this.select_card(&id, cx);
+                (this.app).update_later(window, cx, move |app, window, cx| {
+                    let create = crate::backend::CreateBranch { name: None };
+                    app.new_branch_at(id, true, None, None, window, cx, create)
+                });
+            }));
+            actions.push(new.into_any_element());
+        }
+        div()
+            .h(dp(card.height()))
+            .py(dp(GONE_PADDING))
+            .mx(dp(ROW_MARGIN))
+            .child(empty_state_tidy(title, detail, actions, theme))
+            .into_any_element()
+    }
+
+    /// Select project `id` as a button in its card starts something there, so what it makes is
+    /// selected once it's done, as it is from the project's own keys: an operation leaves the
+    /// selection alone when it's in another project.
+    fn select_card(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
+        let id = id.clone();
+        (self.store).update(cx, |store, cx| {
+            if store.selection.as_ref().is_none_or(|s| *s.project() != id) {
+                store.select(Some(Selection::Project(id)), cx);
+            }
+        });
+    }
+
     /// Unfold project `id` in the drawer, a card of its own there over the rest, or fold it back.
     /// Not watched, it may not be loaded yet, and unfolding it loads it, once.
     fn toggle_in_drawer(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
@@ -2901,6 +2974,7 @@ impl Navigator {
             _ if folding.is_some_and(|(height, _)| height <= 0.) => div().into_any_element(),
             Some(Row::Note(text, is_error)) => note_row(text, *is_error, theme),
             Some(Row::Gone(project)) => self.gone_row(project, theme, cx),
+            Some(Row::Empty(project, card)) => self.empty_card_row(project, card, theme, cx),
             Some(Row::Item(_)) => {
                 self.drawing_drawer.set(true);
                 let item = self.render_item(rows, ix, inset, theme, cx);
@@ -3085,6 +3159,14 @@ impl Navigator {
             );
             branches.into_iter().chain(worktrees)
         });
+        // A repository with no commits reads `empty` and nothing else, as an empty branch does;
+        // only folded, as open its card says so.
+        let open = (expanded && !card_folded) || open_here;
+        let unborn = workspace.is_some_and(|ws| ws.unborn) && !entry.gone && !open;
+        let (summary, held) = match unborn {
+            true => (None, None),
+            false => (summary, held),
+        };
         // However narrow the navigator, the name stays: what the row sums up gives way first,
         // a whole item at a time from its end. Each item that doesn't fit wraps to a second
         // line, which is cut off.
@@ -3108,6 +3190,14 @@ impl Navigator {
                     }),
             )
             .children(held.into_iter().flatten())
+            .when(unborn, |el| {
+                el.child(meta_count_on(
+                    MetaCountType::Empty,
+                    Some("empty".into()),
+                    style.solid,
+                    theme,
+                ))
+            })
             // Loading, a clock, unless the card's open, where its rows of bones say so.
             .when(
                 entry.is_loading() && !(expanded && !card_folded && !filtering) && !open_here,

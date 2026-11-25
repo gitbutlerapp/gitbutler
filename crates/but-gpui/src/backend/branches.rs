@@ -59,6 +59,29 @@ pub struct OwnCommit {
 
 /// Every branch but the target, newest first, a stack's branches together from the top, those
 /// the workspace has applied too.
+/// The branches outside the workspace, newest first, each by its full name and the name it shows
+/// by: what the Branches page lists, without what it shows of each.
+pub(super) fn to_apply(ctx: &but_ctx::Context) -> Result<Vec<(super::FullName, String)>> {
+    let mut listed: Vec<_> = (but_api::branch::branch_list(ctx)?.into_iter())
+        .filter(|stack| {
+            !matches!(
+                stack.status,
+                ListedStackStatus::Target | ListedStackStatus::Applied
+            )
+        })
+        .flat_map(|stack| stack.branches)
+        .map(|listed| {
+            let branch = listed.branch;
+            let name = branch.display_name.to_str_lossy().into_owned();
+            (branch.updated_at_ms, branch.ref_name, name)
+        })
+        .collect();
+    listed.sort_by_key(|(at, ..)| std::cmp::Reverse(*at));
+    Ok((listed.into_iter())
+        .map(|(_, ref_name, name)| (ref_name, name))
+        .collect())
+}
+
 pub fn all_branches(path: &Path) -> Result<Vec<OtherBranch>> {
     let ctx = open(path)?;
     let repo = ctx.repo.get()?;

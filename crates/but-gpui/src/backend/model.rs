@@ -96,6 +96,13 @@ pub struct Workspace {
     pub unrecorded: bool,
     /// The repository has no remote, so there's nowhere to push to.
     pub remoteless: bool,
+    /// `HEAD` has no commits yet: there's no branch to make or apply until the first commit,
+    /// which starts one.
+    pub unborn: bool,
+    /// With no stack in the main checkout, the branches there are to apply, newest first, each by
+    /// its full name and the name it shows by, for the project's empty card to offer. Empty
+    /// otherwise, as nothing else reads it.
+    pub to_apply: Vec<(FullName, String)>,
     /// The commit checked out to edit, while the project is in edit mode. There are no
     /// stacks to show then.
     pub editing: Option<super::edit::Editing>,

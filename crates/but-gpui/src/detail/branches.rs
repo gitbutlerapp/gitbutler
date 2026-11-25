@@ -39,6 +39,7 @@ use crate::backend::{self, CommitId, DiffSource, FullName, ReviewState};
 use crate::clipboard;
 use crate::edits::{BRANCH_ALIASES, CherryPick, Discard};
 use crate::overlays::{MenuItem, has_keys};
+use crate::palette::Choice;
 use crate::state::{BranchStatus, Label, Overlay, Picks, ProjectId, ProjectTab, Selection, Store};
 use crate::theme::Theme;
 use crate::transfer::Moving;
@@ -1115,65 +1116,14 @@ impl Detail {
         let Some(branch) = self.listed_branch(project, ref_name) else {
             return;
         };
-        // Applied, it would move under the archived worktree that has it checked out, leaving
-        // that worktree's index behind for the agent's next commit there to take back, so that
-        // worktree lets go of it first, once asked.
-        let archived = (self.store.read(cx).workspace(project))
-            .and_then(|ws| {
-                (ws.archived_worktrees.iter())
-                    .find(|(_, checked_out)| checked_out.as_ref() == Some(&branch.ref_name))
-            })
-            .map(|(worktree, _)| worktree.clone());
-        let (ref_name, name) = (branch.ref_name.clone(), branch.name.clone());
-        let (title, at) = (
-            format!("Apply {name}?"),
-            Selection::Project(project.clone()),
+        let (project, ref_name, name) = (
+            project.clone(),
+            branch.ref_name.clone(),
+            branch.name.clone(),
         );
-        let (project, selected) = (project.clone(), project.clone());
-        let (freeing, ask) = (
-            archived.clone(),
-            archived.map(|worktree| {
-                format!(
-                    "{name} is checked out in the archived worktree {worktree}, which stays on its \
-                 last commit, without the branch."
-                )
-            }),
-        );
-        let apply = move |store: &mut Store, cx: &mut Context<Store>| {
-            store.apply(
-                &project,
-                Label::new("Apply", format!("Apply {name}")),
-                Overlay::default(),
-                branches::ApplyBranch {
-                    branch: ref_name,
-                    freeing,
-                },
-                move |store, applied, cx| match &applied {
-                    ApplyOutcome::Applied(local) | ApplyOutcome::AlreadyApplied(local) => {
-                        store.select(Some(Selection::Branch(selected, Some(local.clone()))), cx);
-                        // As when an agent applied it meanwhile.
-                        if matches!(applied, ApplyOutcome::AlreadyApplied(_)) {
-                            return store.snack(format!("{name} is already applied"), cx);
-                        }
-                        store.snack_undoable(format!("Applied {name}"), cx)
-                    }
-                    ApplyOutcome::Conflicts(stacks) => store.error(
-                        format!("{name} wasn't applied"),
-                        format!("It conflicts with {}", stacks.join(", ")),
-                        cx,
-                    ),
-                },
-                cx,
-            )
-        };
-        match ask {
-            None => self.store.update(cx, apply),
-            Some(why) => self.app.update_later(window, cx, move |app, window, cx| {
-                let run =
-                    move |app: &mut AppView, cx: &mut Context<AppView>| app.store.update(cx, apply);
-                app.confirm_then(Some(at), title, &why, "Apply", window, cx, run)
-            }),
-        }
+        self.app.update_later(window, cx, move |app, window, cx| {
+            app.apply_other_branch(&project, ref_name, name, window, cx)
+        });
     }
 
     fn delete_other_branch(
@@ -2229,5 +2179,102 @@ pub(super) fn status_keeps(status: BranchStatus, branch: &OtherBranch) -> bool {
         BranchStatus::Closed => state == Some(ReviewState::Closed),
         BranchStatus::NoPullRequest => state.is_none(),
         BranchStatus::Any => true,
+    }
+}
+
+impl AppView {
+    /// Apply `project`'s branch `ref_name`, shown as `name`, from outside the workspace: the
+    /// Branches page's Apply and the Apply a branch picker's.
+    pub(crate) fn apply_other_branch(
+        &mut self,
+        project: &ProjectId,
+        ref_name: FullName,
+        name: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        // Applied, it would move under the archived worktree that has it checked out, leaving
+        // that worktree's index behind for the agent's next commit there to take back, so that
+        // worktree lets go of it first, once asked.
+        let archived = (self.store.read(cx).workspace(project))
+            .and_then(|ws| {
+                (ws.archived_worktrees.iter())
+                    .find(|(_, checked_out)| checked_out.as_ref() == Some(&ref_name))
+            })
+            .map(|(worktree, _)| worktree.clone());
+        let (title, at) = (
+            format!("Apply {name}?"),
+            Selection::Project(project.clone()),
+        );
+        let (project, selected) = (project.clone(), project.clone());
+        let (freeing, ask) = (
+            archived.clone(),
+            archived.map(|worktree| {
+                format!(
+                    "{name} is checked out in the archived worktree {worktree}, which stays on its \
+                 last commit, without the branch."
+                )
+            }),
+        );
+        let apply = move |store: &mut Store, cx: &mut Context<Store>| {
+            store.apply(
+                &project,
+                Label::new("Apply", format!("Apply {name}")),
+                Overlay::default(),
+                branches::ApplyBranch {
+                    branch: ref_name,
+                    freeing,
+                },
+                move |store, applied, cx| match &applied {
+                    ApplyOutcome::Applied(local) | ApplyOutcome::AlreadyApplied(local) => {
+                        store.select(Some(Selection::Branch(selected, Some(local.clone()))), cx);
+                        // As when an agent applied it meanwhile.
+                        if matches!(applied, ApplyOutcome::AlreadyApplied(_)) {
+                            return store.snack(format!("{name} is already applied"), cx);
+                        }
+                        store.snack_undoable(format!("Applied {name}"), cx)
+                    }
+                    ApplyOutcome::Conflicts(stacks) => store.error(
+                        format!("{name} wasn't applied"),
+                        format!("It conflicts with {}", stacks.join(", ")),
+                        cx,
+                    ),
+                },
+                cx,
+            )
+        };
+        match ask {
+            None => self.store.update(cx, apply),
+            Some(why) => {
+                let run =
+                    move |app: &mut AppView, cx: &mut Context<AppView>| app.store.update(cx, apply);
+                self.confirm_then(Some(at), title, &why, "Apply", window, cx, run)
+            }
+        }
+    }
+
+    /// Pick one of `project`'s branches outside the workspace to apply, as its empty card's Apply
+    /// a branch does: the ones its workspace's load listed, newest first.
+    pub(crate) fn pick_branch_to_apply(
+        &mut self,
+        project: ProjectId,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let store = self.store.read(cx);
+        let Some(workspace) = store.workspace(&project) else {
+            return;
+        };
+        let choices = (workspace.to_apply.iter())
+            .map(|(ref_name, name)| {
+                let (project, ref_name, shown) = (project.clone(), ref_name.clone(), name.clone());
+                Choice::new(name.clone(), move |app, window, cx| {
+                    app.apply_other_branch(&project, ref_name, shown, window, cx)
+                })
+                .icon(Icon::Branch)
+            })
+            .collect();
+        let place = store.place(&Selection::Project(project));
+        self.open_picker(Some(place), "Apply a branch", "Apply", choices, window, cx);
     }
 }

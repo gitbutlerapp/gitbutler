@@ -60,11 +60,26 @@ pub const EMPTY_TIDY_HEIGHT: f32 =
 /// card with a missing project's folder says so under its heading.
 pub const EMPTY_TIDY_DETAIL_HEIGHT: f32 = 13. * crate::text::LINE_HEIGHT_BODY + 12. + 24.;
 
+/// How tall [`empty_state_tidy`] is with a title or not, `lines` lines of detail, and a row of
+/// medium buttons or not.
+pub fn empty_tidy_height(title: bool, lines: usize, actions: bool) -> f32 {
+    let title = if title {
+        14. * crate::text::LINE_HEIGHT_BODY
+    } else {
+        0.
+    };
+    let detail = lines as f32 * 13. * crate::text::LINE_HEIGHT_BODY;
+    let between = if title > 0. && lines > 0 { 6. } else { 0. };
+    let actions = if actions { 12. + 24. } else { 0. };
+    title + between + detail + actions
+}
+
 /// A few rows with nothing in them, as but-ui-react's `EmptyState` with `variant="tidy"`: the
 /// title and the detail closed up, 6 apart, and 12 over the `actions`, medium buttons, at most
 /// two. As tall as its content and up to 320 wide, centred; the host's padding is the room
 /// around it. Each line keeps to one, cut short, where React's wraps, so a host can count its
-/// height ([`EMPTY_TIDY_HEIGHT`]).
+/// height ([`EMPTY_TIDY_HEIGHT`], [`empty_tidy_height`]). A `\n` in `detail` starts another
+/// line, as Figma's are broken by hand.
 pub fn empty_state_tidy(
     title: impl Into<SharedString>,
     detail: impl Into<SharedString>,
@@ -98,11 +113,16 @@ pub fn empty_state_tidy(
                 })
                 .when(!detail.is_empty(), |el| {
                     el.child(
-                        line()
-                            .text_13()
-                            .body()
-                            .text_color(theme.muted_foreground)
-                            .child(detail),
+                        v_flex()
+                            .w_full()
+                            .items_center()
+                            .children(detail.split('\n').map(|text| {
+                                line()
+                                    .text_13()
+                                    .body()
+                                    .text_color(theme.muted_foreground)
+                                    .child(SharedString::from(text.to_owned()))
+                            })),
                     )
                 }),
         )

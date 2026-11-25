@@ -397,6 +397,16 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
             rests_on: stack.lane().rests_on.map(CommitId),
         })
         .collect();
+    let unborn = ctx.repo.get()?.head()?.is_unborn();
+    // Listing the branches takes a while, so only a card with nothing in it does.
+    let to_apply = if unborn || lanes.iter().any(|lane| !lane.branches.is_empty()) {
+        Vec::new()
+    } else {
+        branches::to_apply(&ctx).unwrap_or_else(|err| {
+            tracing::warn!("couldn't list the branches to apply: {err:#}");
+            Vec::new()
+        })
+    };
     let meta = ctx.project_meta().ok();
     let (target, lost_target) = target(&ctx, meta.as_ref(), &info, &cached)?;
     let (worktrees, archived_worktrees) =
@@ -434,6 +444,8 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         git_operation,
         unrecorded,
         remoteless,
+        unborn,
+        to_apply,
         editing: None,
         // The branches the worktrees shown have checked out, which the Branches page leaves off.
         refs: (worktrees.iter()).fold(refs, |sum, w| {
