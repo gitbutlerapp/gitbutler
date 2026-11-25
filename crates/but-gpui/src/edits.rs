@@ -374,11 +374,10 @@ impl AppView {
                         el.on_action(cx.listener(Self::stack_on))
                     })
                     .when(edits.unstack, |el| el.on_action(cx.listener(Self::unstack)))
-                    // Outside the workspace there are no stacks to take out of it.
-                    .when(
-                        workspace.managed && workspace.stack_of(Some(ref_name)).is_some(),
-                        |el| el.on_action(cx.listener(Self::unapply_stack)),
-                    )
+                    // A branch checked out by itself unapplies too, which checks out the target.
+                    .when(workspace.stack_of(Some(ref_name)).is_some(), |el| {
+                        el.on_action(cx.listener(Self::unapply_stack))
+                    })
                     .when(edits.merge.is_some(), |el| {
                         el.on_action(cx.listener(Self::merge_branch))
                     })
@@ -396,9 +395,7 @@ impl AppView {
                     top.is_some_and(|top| BranchEdits::of(workspace, top).merge == Some(true));
                 el.when(merges, |el| el.on_action(cx.listener(Self::merge_branch)))
                     .when(
-                        workspace.managed
-                            && top.is_some()
-                            && workspace.stack_of(bottom.as_ref()).is_some(),
+                        top.is_some() && workspace.stack_of(bottom.as_ref()).is_some(),
                         |el| el.on_action(cx.listener(Self::unapply_stack)),
                     )
             }

@@ -6120,6 +6120,51 @@ managed true, below true: agent [one], <new> [two], agent checked out
     }
 
     #[test]
+    fn unapplying_a_branch_checked_out_by_itself_checks_out_the_target_and_undoes() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["checkout", "-q", "-b", "feature"]);
+            std::fs::write(path.join("feature.txt"), "work\n").unwrap();
+            git(path, &["add", "feature.txt"]);
+            git(path, &["commit", "-q", "-m", "feature work"]);
+            let work = head(path);
+            let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+            assert!(!workspace.managed, "a branch checked out by itself");
+
+            let unapply = UnapplyStack {
+                branch: full("refs/heads/feature"),
+            };
+            crate::backend::apply(path, unapply).unwrap();
+            let head_ref = |path: &Path| git(path, &["symbolic-ref", "HEAD"]).trim().to_owned();
+            assert_eq!(
+                head_ref(path),
+                "refs/heads/main",
+                "the target is checked out"
+            );
+            assert!(
+                !path.join("feature.txt").exists(),
+                "without the branch's file"
+            );
+            assert_eq!(
+                git(path, &["rev-parse", "feature"]).trim(),
+                work.0.to_string(),
+                "the branch stays, with its commit"
+            );
+
+            let last = newest_entry(path);
+            undo(path, last, None).unwrap();
+            assert_eq!(
+                head_ref(path),
+                "refs/heads/feature",
+                "undo checks it out again"
+            );
+            assert!(path.join("feature.txt").exists(), "with its file");
+        })
+    }
+
+    #[test]
     fn a_linked_worktrees_top_branch_goes_and_leaves_it_on_the_one_below() {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\n");
