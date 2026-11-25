@@ -54,7 +54,7 @@ Pass an explicit target only when the user gives one.
 Use JSON only when you need exact handles for drill-down:
 
 ```sh
-but --json agentlog skim
+but agentlog skim --json
 ```
 
 1. Start with `skim` for a clean orientation.

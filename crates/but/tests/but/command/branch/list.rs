@@ -6,7 +6,7 @@ fn list_hides_empty_applied_branches_by_default() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks-one-empty");
     env.setup_metadata(&["A", "B"]);
 
-    let result = env.but("--json branch list").allow_json().output().unwrap();
+    let result = env.but("branch --json list").allow_json().output().unwrap();
     assert!(result.status.success());
     let stdout = String::from_utf8_lossy(&result.stdout);
     let json: serde_json::Value = serde_json::from_str(stdout.trim()).unwrap();
@@ -25,7 +25,7 @@ fn list_hides_empty_applied_branches_by_default() {
     assert!(json["branches"].as_array().unwrap().is_empty());
 
     let result = env
-        .but("--json branch list --empty")
+        .but("branch --json list --empty")
         .allow_json()
         .output()
         .unwrap();

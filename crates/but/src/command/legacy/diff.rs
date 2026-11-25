@@ -565,7 +565,11 @@ pub fn diff<'a>(
     let guard = ctx.shared_worktree_access();
     let id_map = IdMap::new_from_context(ctx, guard.read_permission(), Some(invoked_from))?;
 
-    let Platform { targets, stat } = args;
+    let Platform {
+        targets,
+        stat,
+        json: _,
+    } = args;
     let targets = resolve(ctx, &id_map, targets, invoked_from)?;
     Ok(run(ctx, targets, stat)?)
 }

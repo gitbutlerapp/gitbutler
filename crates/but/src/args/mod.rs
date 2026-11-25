@@ -38,8 +38,13 @@ pub struct Args {
     /// Run as if but was started in PATH instead of the current working directory.
     #[clap(short = 'C', long, default_value = ".", value_name = "PATH")]
     pub current_dir: PathBuf,
-    #[clap(flatten)]
-    pub format: OutputFormatArg,
+    /// `--json` before the subcommand, a retired position.
+    ///
+    /// Commands that print JSON take `--json` themselves. This still selects JSON for them, with a
+    /// note teaching the new position, and is an error for commands that don't print JSON. Bare
+    /// `but --json` has no other position, so it selects JSON for the default alias without a note.
+    #[clap(long = "json", hide = true)]
+    pub json_before_subcommand: bool,
     /// Append workspace status when supported by a mutation command.
     ///
     /// Use when the next step needs IDs or details from the resulting workspace.
@@ -51,13 +56,6 @@ pub struct Args {
     /// is executed with the remaining arguments (`but <COMMAND> [ARGS]`).
     #[clap(subcommand)]
     pub cmd: Option<Subcommands>,
-}
-
-#[derive(Debug, clap::Args)]
-pub struct OutputFormatArg {
-    /// Output detailed information as JSON for tool consumption.
-    #[clap(long, global = true)]
-    pub json: bool,
 }
 
 /// How we should format anything written to [`std::io::stdout()`].
@@ -228,6 +226,8 @@ pub enum Subcommands {
         // `but status --short`.
         #[clap(long = "short", default_value_t = false, hide = true)]
         short: bool,
+        #[clap(flatten)]
+        json: atoms::JsonArg,
     },
 
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
@@ -279,6 +279,8 @@ pub enum Subcommands {
         /// same as `--verbose`.
         #[clap(long)]
         stat: bool,
+        #[clap(flatten)]
+        json: atoms::JsonArg,
     },
 
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
@@ -306,6 +308,8 @@ pub enum Subcommands {
     _Expand {
         /// CLI ID to parse.
         cli_id: CliIdArg,
+        #[clap(flatten)]
+        json: atoms::JsonArg,
     },
 
     /// Commands for managing branches.
@@ -458,6 +462,8 @@ pub enum Subcommands {
         /// Undo the result with `but undo`.
         #[clap(long)]
         ai: bool,
+        #[clap(flatten)]
+        json: atoms::JsonArg,
     },
 
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
@@ -513,6 +519,8 @@ pub enum Subcommands {
             default_value = "worktrees,workspace"
         )]
         update: Vec<PullUpdate>,
+        #[clap(flatten)]
+        json: atoms::JsonArg,
     },
 
     /// Commands for creating and managing reviews on a forge, e.g. GitHub PRs or GitLab MRs.
@@ -554,6 +562,8 @@ pub enum Subcommands {
         dry_run: bool,
         #[clap(flatten)]
         allow_merged: atoms::AllowMergedArg,
+        #[clap(flatten)]
+        json: atoms::JsonArg,
     },
 
     /// Edit the commit message of the specified commit.
@@ -598,6 +608,8 @@ pub enum Subcommands {
         no_diff: bool,
         #[clap(flatten)]
         allow_merged: atoms::AllowMergedArg,
+        #[clap(flatten)]
+        json: atoms::JsonArg,
     },
 
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
@@ -665,6 +677,8 @@ pub enum Subcommands {
         /// Explicit override for which local branch to checkout to.
         #[clap(long, short = 'c', value_name = "LOCAL_BRANCH")]
         checkout_to: Option<String>,
+        #[clap(flatten)]
+        json: atoms::JsonArg,
     },
 
     /// Open the GitButler GUI for the current project.
@@ -706,6 +720,8 @@ pub enum Subcommands {
         /// With `--gui`, print the link that opens it without opening it.
         #[clap(long = "dry-run", requires = "gui")]
         dry_run: bool,
+        #[clap(flatten)]
+        json: atoms::JsonArg,
     },
 
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
@@ -757,6 +773,8 @@ pub enum Subcommands {
         /// Also remove branches that have upstream-only commits but no local commits or changes.
         #[clap(long)]
         include_upstream: bool,
+        #[clap(flatten)]
+        json: atoms::JsonArg,
     },
 
     /// Manage GitButler CLI and app updates.
@@ -975,13 +993,18 @@ pub enum Subcommands {
     /// Hidden command that redirects to `but pull --check`
     #[clap(hide = true)]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    Fetch,
+    Fetch {
+        #[clap(flatten)]
+        json: atoms::JsonArg,
+    },
 
     /// AI: capture agent logs into GitMeta.
     #[clap(name = "agentlog", hide = true)]
     AgentLog {
         #[clap(subcommand)]
         cmd: but_agentlog::Command,
+        #[clap(flatten)]
+        json: atoms::JsonArg,
     },
 
     /// Show help information.
@@ -1012,6 +1035,88 @@ pub enum Subcommands {
     #[strum(disabled)]
     #[clap(hide = true, external_subcommand)]
     External(Vec<OsString>),
+}
+
+impl Subcommands {
+    /// The command's `--json` flag, or `None` if the command doesn't print JSON.
+    ///
+    /// For a subcommand, this is its own flag or that of the command above it, whichever has one.
+    pub fn json_arg(&self) -> Option<&atoms::JsonArg> {
+        match self {
+            Subcommands::Init(init::Platform { json, .. })
+            | Subcommands::Status { json, .. }
+            | Subcommands::Diff(diff::Platform { json, .. })
+            | Subcommands::Show { json, .. }
+            | Subcommands::Commit(commit::Platform { json, .. })
+            | Subcommands::Squash(squash::Platform { json, .. })
+            | Subcommands::Move(r#move::Platform { json, .. })
+            | Subcommands::Split(split::Platform { json, .. })
+            | Subcommands::_Reword2(reword2::Platform { json, .. })
+            | Subcommands::Branch(branch::Platform { json, .. })
+            | Subcommands::Worktree(worktree::Platform { json, .. })
+            | Subcommands::Discard(discard::Platform { json, .. })
+            | Subcommands::_Comment(comment::Platform { json, .. })
+            | Subcommands::Resolve { json, .. }
+            | Subcommands::Unapply(unapply::Platform { json, .. })
+            | Subcommands::Apply(apply::Platform { json, .. })
+            | Subcommands::Push(push::Command { json, .. })
+            | Subcommands::Pull { json, .. }
+            | Subcommands::Absorb { json, .. }
+            | Subcommands::Reword { json, .. }
+            | Subcommands::Uncommit(uncommit::Platform { json, .. })
+            | Subcommands::Amend(amend::Platform { json, .. })
+            | Subcommands::Oplog(oplog::Platform { json, .. })
+            | Subcommands::Undo(undo::Platform { json })
+            | Subcommands::Redo(redo::Platform { json })
+            | Subcommands::Teardown { json, .. }
+            | Subcommands::Clean { json, .. }
+            | Subcommands::Alias(alias::Platform { json, .. })
+            | Subcommands::Config(config::Platform { json, .. })
+            | Subcommands::Pick(pick::Platform { json, .. })
+            | Subcommands::Switch(switch::Platform { json, .. })
+            | Subcommands::Skill(skill::Platform { json, .. })
+            | Subcommands::Fetch { json }
+            | Subcommands::AgentLog { json, .. } => Some(json),
+            Subcommands::Pr(forge::pr::Platform { cmd, .. }) => match cmd {
+                Some(forge::pr::Subcommands::New { json, .. }) => Some(json),
+                Some(
+                    forge::pr::Subcommands::AutoMerge { .. }
+                    | forge::pr::Subcommands::SetDraft { .. }
+                    | forge::pr::Subcommands::SetReady { .. }
+                    | forge::pr::Subcommands::Template { .. },
+                )
+                | None => None,
+            },
+            Subcommands::Update(update::Platform { cmd }) => match cmd {
+                update::Subcommands::Check { json }
+                | update::Subcommands::Suppress { json, .. } => Some(json),
+                #[cfg(all(unix, not(feature = "packaged-but-distribution")))]
+                update::Subcommands::Install { .. } => None,
+            },
+            Subcommands::Agent(agent::Platform { cmd }) => match cmd {
+                Some(
+                    agent::Subcommands::Setup { json, .. } | agent::Subcommands::Uninstall { json },
+                ) => Some(json),
+                None => None,
+            },
+            Subcommands::Merge { .. }
+            | Subcommands::Setup { .. }
+            | Subcommands::Gui { .. }
+            | Subcommands::Tui(_)
+            | Subcommands::Edit { .. }
+            | Subcommands::RefreshRemoteData { .. }
+            | Subcommands::Mcp(_)
+            | Subcommands::Metrics { .. }
+            | Subcommands::Completions { .. }
+            | Subcommands::Help { .. }
+            | Subcommands::Onboarding
+            | Subcommands::External(_) => None,
+            #[cfg(feature = "nightly")]
+            Subcommands::_Expand { json, .. }
+            | Subcommands::_Ui(ui::Platform { json, .. })
+            | Subcommands::_Open { json, .. } => Some(json),
+        }
+    }
 }
 
 pub mod agent;

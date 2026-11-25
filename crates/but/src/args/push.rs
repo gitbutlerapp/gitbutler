@@ -50,4 +50,8 @@ pub struct Command {
 
     #[clap(flatten)]
     pub allow_merged: crate::args::atoms::AllowMergedArg,
+
+    #[clap(flatten)]
+    #[allow(missing_docs)]
+    pub json: crate::args::atoms::JsonArg,
 }

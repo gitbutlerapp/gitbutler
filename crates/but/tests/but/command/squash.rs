@@ -1665,7 +1665,7 @@ fn committed_file_to_uncommitted_area() {
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "second commit");
 
-    env.but("--json status -f")
+    env.but("status --json -f")
         .allow_json()
         .assert()
         .success()
@@ -1730,7 +1730,7 @@ fn committed_file_to_uncommitted_area() {
     env.but("squash k:p -t @").assert().success();
 
     // Verify that `status` reflects the move.
-    env.but("--json status -f")
+    env.but("status --json -f")
         .allow_json()
         .assert()
         .success()
@@ -1829,7 +1829,7 @@ fn uncommitted_hunk_to_commit() {
 
     // Verify that only one hunk was assigned ("a.txt" still appears in the
     // uncommitted area because there is one hunk still unassigned).
-    env.but("--json status -f")
+    env.but("status --json -f")
         .allow_json()
         .assert()
         .success()

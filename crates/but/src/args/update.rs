@@ -7,7 +7,10 @@ pub struct Platform {
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
     /// Check if a new version of the GitButler CLI is available
-    Check,
+    Check {
+        #[clap(flatten)]
+        json: crate::args::atoms::JsonArg,
+    },
 
     /// Suppress update notifications temporarily
     ///
@@ -17,6 +20,8 @@ pub enum Subcommands {
         /// Number of days to suppress (1-30, default: 1)
         #[clap(default_value = "1", value_parser = clap::value_parser!(u32).range(1..=30))]
         days: u32,
+        #[clap(flatten)]
+        json: crate::args::atoms::JsonArg,
     },
 
     /// Install or update the GitButler desktop application.

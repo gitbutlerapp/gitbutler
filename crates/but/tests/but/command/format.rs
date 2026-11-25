@@ -1,22 +1,15 @@
 use crate::utils::Sandbox;
 
 #[test]
-fn json_flag_can_be_placed_before_or_after_subcommand() {
+fn json_flag_goes_after_the_subcommand() {
     // TODO: use an actual repository here, but single-branch mode isn't really supported yet
     //       so everything fails anyway.
     let env = Sandbox::empty();
 
-    // Test that --json flag works in both positions with help command (doesn't need a valid repo)
-    env.but("--json completions --help").assert().success();
-
-    env.but("completions --help --json").assert().success();
-
     use snapbox::str;
 
     use crate::utils::CommandExt;
-    // Test with actual commands that need a repo (they'll fail but should accept the flag)
-    // Before subcommand
-    env.but("--json status")
+    env.but("status --json")
         .allow_json()
         .assert()
         .failure()
@@ -27,16 +20,74 @@ Hint: Run `but init` to initialize a Git repository.
 
 "#]]);
 
-    // After subcommand
-    env.but("status --json")
+    // The retired position before the subcommand still works, with a note.
+    env.but("--json status")
         .allow_json()
         .assert()
         .failure()
         .stderr_eq(str![[r#"
+
+note: `--json` now goes after the subcommand, as in `but status --json`. Placing it before the subcommand will stop working in a future release.
 Error: No git repository found at .git
 
 Hint: Run `but init` to initialize a Git repository.
 
+"#]]);
+}
+
+#[test]
+fn json_flag_is_rejected_by_commands_that_dont_print_json() {
+    let env = Sandbox::empty();
+
+    use snapbox::str;
+
+    use crate::utils::CommandExt;
+    env.but("completions zsh --json")
+        .allow_json()
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+error: unexpected argument '--json' found
+...
+"#]]);
+
+    env.but("--json completions zsh")
+        .allow_json()
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+error: `but completions` doesn't print JSON, so it doesn't take `--json`
+...
+"#]]);
+}
+
+#[test]
+fn json_from_the_environment_does_not_apply_to_commands_that_dont_print_json() {
+    let env = Sandbox::empty();
+
+    env.but("help")
+        .env("BUT_OUTPUT_FORMAT", "json")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+The GitButler CLI change control system
+...
+"#]]);
+}
+
+#[test]
+fn json_before_an_unknown_command_reports_the_unknown_command() {
+    let env = Sandbox::empty();
+
+    env.but("--json stauts")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+error: unrecognized subcommand 'stauts'
+...
 "#]]);
 }
 

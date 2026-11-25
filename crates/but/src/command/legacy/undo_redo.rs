@@ -216,11 +216,11 @@ fn commit_to_uncommit(
         .then(|| shorten_object_id(&repo, tip.id.detach())))
 }
 
-fn resolve_undo(undo::Platform {}: undo::Platform) -> CliResult<Operation> {
+fn resolve_undo(undo::Platform { json: _ }: undo::Platform) -> CliResult<Operation> {
     Ok(Operation::Undo)
 }
 
-fn resolve_redo(redo::Platform {}: redo::Platform) -> CliResult<Operation> {
+fn resolve_redo(redo::Platform { json: _ }: redo::Platform) -> CliResult<Operation> {
     Ok(Operation::Redo)
 }
 

@@ -16,8 +16,12 @@ pub fn handle(
     app_settings: &AppSettings,
 ) -> CliResult<()> {
     match cmd {
-        update::Subcommands::Check => out.print_cli_output(check_for_updates(app_settings)?),
-        update::Subcommands::Suppress { days } => out.print_cli_output(suppress_updates(days)?),
+        update::Subcommands::Check { json: _ } => {
+            out.print_cli_output(check_for_updates(app_settings)?)
+        }
+        update::Subcommands::Suppress { days, json: _ } => {
+            out.print_cli_output(suppress_updates(days)?)
+        }
         #[cfg(all(unix, not(feature = "packaged-but-distribution")))]
         update::Subcommands::Install { target } => Ok(install(out, target)?),
     }
@@ -151,17 +155,6 @@ fn suppress_updates(days: u32) -> Result<UpdateOutcome> {
 
 #[cfg(all(unix, not(feature = "packaged-but-distribution")))]
 fn install(out: &mut OutputChannel, target: Option<String>) -> Result<()> {
-    // Installation requires interactive output and cannot be used with JSON mode
-    // because the installer writes directly to stdout/stderr
-    if out.is_json() {
-        anyhow::bail!(
-            "JSON output is not supported for 'but update install'.\n\n\
-             The installation process requires interactive output.\n\
-             For automated installations, use the standalone installer:\n\
-             https://docs.gitbutler.com/installation"
-        );
-    }
-
     let version_request = match target.as_deref() {
         Some("nightly") => VersionRequest::Nightly,
         Some("release") => VersionRequest::Release,

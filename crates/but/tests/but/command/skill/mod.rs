@@ -139,7 +139,7 @@ fn agent_skill_notice_gating() {
 
     // JSON stdout remains machine-readable. Skill upkeep is silent when nothing needs attention.
     let json_run = env
-        .but("--json alias list")
+        .but("alias --json list")
         .as_agent()
         .allow_json()
         .output()
@@ -232,7 +232,7 @@ Default aliases (overridable):
 
 "#]]);
 
-    env.but("--json alias list")
+    env.but("alias --json list")
         .as_agent()
         .allow_json()
         .assert()

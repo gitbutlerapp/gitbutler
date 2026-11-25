@@ -232,7 +232,7 @@ fn resolve(
     repo: &gix::Repository,
     ws: &but_graph::Workspace,
 ) -> CliResult<ApplyOperation> {
-    let Platform { branch } = args;
+    let Platform { branch, json: _ } = args;
 
     let branch = branch
         .resolve_legacy_top_level_apply_branch_name(repo)

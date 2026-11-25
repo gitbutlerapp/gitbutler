@@ -58,6 +58,7 @@ fn resolve(
         message,
         file,
         allow_merged: _,
+        json: _,
     } = args;
 
     let context_lines = ctx.settings.context_lines;

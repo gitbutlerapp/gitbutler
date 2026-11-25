@@ -170,6 +170,7 @@ fn resolve(
         sources,
         allow_merged,
         switch,
+        json: _,
     } = args;
 
     let merged = MergedUpstream::new(
