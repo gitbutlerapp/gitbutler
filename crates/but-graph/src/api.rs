@@ -974,9 +974,6 @@ impl Graph {
                     outgoing,
                 )?;
             }
-            for tip in &self.traversal_tips {
-                self.check_traversal_tip_points_to_first_commit(tip)?;
-            }
         }
         for edge in self.inner.edge_references() {
             Self::check_edge(&self.inner, edge, false)?;
@@ -1027,11 +1024,6 @@ impl Graph {
                     .flat_map(Result::err),
                 );
             }
-            out.extend(
-                self.traversal_tips
-                    .iter()
-                    .filter_map(|tip| self.check_traversal_tip_points_to_first_commit(tip).err()),
-            );
         }
         out.extend(
             self.inner
@@ -1166,61 +1158,6 @@ impl Graph {
         ensure!(
             outgoing <= 1 || !segment.commits.is_empty(),
             "{segment_index:?}: tip or ancestor segment with {outgoing} outgoing connections must own at least one commit"
-        );
-        Ok(())
-    }
-
-    /// A retained traversal tip must resolve to its first commit.
-    ///
-    /// If the segment named by the tip is empty, following its single outgoing
-    /// edge chain must reach a non-empty segment whose first commit is the tip
-    /// id. This validates the final-graph form of the initial tip-segment
-    /// invariant.
-    fn check_traversal_tip_points_to_first_commit(
-        &self,
-        tip: &crate::init::Tip,
-    ) -> anyhow::Result<()> {
-        if let Ok(segment_owning_tip_id) = self.segment_by_commit_id(tip.id) {
-            ensure!(
-                segment_owning_tip_id.commit_index_of(tip.id) == Some(0),
-                "{tip:?}: tip segment {segment_id:?} must contain the tip id as its first commit",
-                segment_id = segment_owning_tip_id.id
-            );
-            return Ok(());
-        }
-
-        let Some(ref_name) = tip.ref_name.as_ref() else {
-            bail!(
-                "{tip:?}: tip id is not owned by any segment, but it must as no segment was found by commit-id"
-            );
-        };
-        let segment = self
-            .segment_by_ref_name(ref_name.as_ref())
-            .with_context(|| format!("{tip:?}: tip ref {ref_name} is not owned by any segment"))?;
-        ensure!(
-            segment.commits.is_empty(),
-            "{tip:?}: named tip segment {segment_id:?} must be empty if it does not own the tip id",
-            segment_id = segment.id
-        );
-        let (commit, owner_segment_index) = self
-            .resolve_to_unambiguously_pointed_to_commit(segment.id)
-            .with_context(|| {
-                format!(
-                    "{tip:?}: empty tip segment {segment_id:?} must resolve through one outgoing path to a commit",
-                    segment_id = segment.id
-                )
-            })?;
-        ensure!(
-            commit.id == tip.id,
-            "{tip:?}: empty tip segment {segment_id:?} resolves to {actual}, not {expected}",
-            segment_id = segment.id,
-            actual = commit.id,
-            expected = tip.id
-        );
-        // Extra-check - this invariant is also enforced by `resolve_to_unambiguously_pointed_to_commit()`.
-        ensure!(
-            self[owner_segment_index].commit_index_of(tip.id) == Some(0),
-            "{tip:?}: resolved tip owner {owner_segment_index:?} must contain the tip id as its first commit"
         );
         Ok(())
     }

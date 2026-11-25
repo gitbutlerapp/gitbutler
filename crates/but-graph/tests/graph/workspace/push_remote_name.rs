@@ -2,7 +2,7 @@ use but_core::RefMetadata;
 use but_testsupport::visualize_commit_graph_all;
 
 use super::target_meta;
-use crate::init::utils::{add_workspace, read_only_in_memory_scenario, standard_options};
+use crate::utils::{add_workspace, read_only_in_memory_scenario, standard_options};
 
 #[test]
 fn with_local_target_uses_fetch_remote() -> anyhow::Result<()> {

@@ -1,6 +1,6 @@
-use crate::init::{
-    StackState, add_stack_with_segments,
-    utils::{default_project_meta, read_only_in_memory_scenario, standard_options},
+use crate::utils::{
+    StackState, add_stack_with_segments, default_project_meta, read_only_in_memory_scenario,
+    standard_options,
 };
 
 #[test]

@@ -1,6 +1,6 @@
 use std::{
     borrow::Cow,
-    collections::{BTreeMap, BTreeSet, HashSet},
+    collections::{BTreeMap, BTreeSet},
 };
 
 use anyhow::bail;
@@ -9,10 +9,7 @@ use gix::{prelude::ReferenceExt, refs::Target};
 
 use crate::{
     Worktree, WorktreeKind,
-    init::{
-        Entrypoint, Overlay,
-        walk::{RefsById, WorktreeByBranch},
-    },
+    init::{Entrypoint, Overlay, walk::WorktreeByBranch},
 };
 
 impl Overlay {
@@ -165,14 +162,6 @@ pub(crate) struct OverlayRepo<'repo> {
 /// Note that functions with `'repo` in their return value technically leak the bare repo, and it's
 /// up to us to ensure it's not actually used directly, or only such that the in-memory feature isn't bypassed.
 impl<'repo> OverlayRepo<'repo> {
-    pub fn commit_graph_if_enabled(&self) -> anyhow::Result<Option<gix::commitgraph::Graph>> {
-        Ok(self.inner.commit_graph_if_enabled()?)
-    }
-
-    pub fn shallow_commits(&self) -> gix::Result<Option<gix::shallow::Commits>> {
-        self.inner.shallow_commits()
-    }
-
     pub fn try_find_reference(
         &self,
         ref_name: &gix::refs::FullNameRef,
@@ -258,100 +247,8 @@ impl<'repo> OverlayRepo<'repo> {
             .map(|result| result.map(Cow::Owned))
     }
 
-    pub fn find_commit(&self, id: gix::ObjectId) -> anyhow::Result<gix::Commit<'repo>> {
-        Ok(self.inner.find_commit(id)?)
-    }
-
-    pub fn for_attach_only(&self) -> &'repo gix::Repository {
-        self.inner
-    }
-
-    pub fn for_find_only(&self) -> &'repo gix::Repository {
-        self.inner
-    }
-
     pub fn remote_names(&self) -> gix::remote::Names {
         self.inner.remote_names()
-    }
-
-    pub fn upstream_branch_and_remote_for_tracking_branch(
-        &self,
-        name: &gix::refs::FullNameRef,
-    ) -> anyhow::Result<Option<(gix::refs::FullName, gix::Remote<'repo>)>> {
-        Ok(self
-            .inner
-            .upstream_branch_and_remote_for_tracking_branch(name)?)
-    }
-
-    /// Create a mapping of all heads to the object ids they point to.
-    /// `workspace_ref_names` is the names of all known workspace references.
-    pub fn collect_ref_mapping_by_prefix<'a>(
-        &self,
-        prefixes: impl Iterator<Item = &'a str>,
-        workspace_ref_names: &[&gix::refs::FullNameRef],
-    ) -> anyhow::Result<RefsById> {
-        let mut seen = HashSet::new();
-        let mut ref_filter =
-            |r: gix::Reference<'_>| -> Option<(gix::ObjectId, gix::refs::FullName)> {
-                if self.dropped_references.contains(r.name()) {
-                    return None;
-                }
-
-                if workspace_ref_names.contains(&r.name()) {
-                    return None;
-                }
-                let id = r.try_id()?;
-                let id = if matches!(r.name().category(), Some(gix::reference::Category::Tag)) {
-                    // TODO: also make use of the tag name (the tag object has its own name)
-                    id.object().ok()?.peel_tags_to_end().ok()?.id
-                } else {
-                    id.detach()
-                };
-                let name = r.detach().name;
-                // This is only for overrides.
-                seen.insert(name.clone()).then_some((id, name))
-            };
-        let mut all_refs_by_id = gix::hashtable::HashMap::<_, Vec<_>>::default();
-        for prefix in prefixes {
-            // apply overrides - they are seen first and take the spot of everything.
-            for (commit_id, git_reference) in self
-                .overriding_references
-                .values()
-                .filter(|rn| rn.name.as_bstr().starts_with(prefix.as_bytes()))
-                .filter_map(|rn| ref_filter(rn.clone().attach(self.inner)))
-            {
-                all_refs_by_id
-                    .entry(commit_id)
-                    .or_default()
-                    .push(git_reference);
-            }
-            for (commit_id, git_reference) in self
-                .inner
-                .references()?
-                .prefixed(prefix)?
-                .filter_map(Result::ok)
-                .filter_map(&mut ref_filter)
-            {
-                all_refs_by_id
-                    .entry(commit_id)
-                    .or_default()
-                    .push(git_reference);
-            }
-            // apply overrides (new only)
-            for (commit_id, git_reference) in self
-                .nonoverriding_references
-                .values()
-                .filter(|rn| rn.name.as_bstr().starts_with(prefix.as_bytes()))
-                .filter_map(|rn| ref_filter(rn.clone().attach(self.inner)))
-            {
-                all_refs_by_id
-                    .entry(commit_id)
-                    .or_default()
-                    .push(git_reference);
-            }
-        }
-        all_refs_by_id.values_mut().for_each(|v| v.sort());
-        Ok(all_refs_by_id)
     }
 
     /// This is a bit tricky but aims to map the `HEAD` targets of the main worktree to what possibly was overridden

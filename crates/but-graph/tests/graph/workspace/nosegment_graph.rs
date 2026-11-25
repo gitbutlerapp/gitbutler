@@ -1,7 +1,7 @@
 use but_testsupport::visualize_commit_graph_all;
 
 use super::target_meta;
-use crate::init::utils::{read_only_in_memory_scenario, standard_options};
+use crate::utils::{read_only_in_memory_scenario, standard_options};
 
 #[test]
 fn walk_stops_below_the_target_commit() -> anyhow::Result<()> {
