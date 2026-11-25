@@ -221,7 +221,7 @@ impl SidebarRow {
         self
     }
 
-    /// An action on the row is running: a spinner stands in for its glyph, in `color` where the
+    /// An action on the row is running: the terminal's dots stand in for its glyph, in `color` where the
     /// row colours its own.
     pub fn busy(mut self, busy: bool, color: Option<Hsla>) -> Self {
         self.busy = busy;
@@ -411,7 +411,7 @@ impl SidebarRow {
         });
         let unstepped = steps.is_none();
         let glyph = match (self.busy, glyph) {
-            (true, _) => Some(spinner(14., self.busy_color.unwrap_or(muted)).into_any_element()),
+            (true, _) => Some(spinning(self.busy_color.unwrap_or(muted), true).into_any_element()),
             (false, glyph) => glyph,
         }
         .map(|glyph| {
@@ -869,8 +869,8 @@ pub fn stack_caption(
 pub fn loading_item(id: impl Into<ElementId>, width: f32) -> SidebarRow {
     sidebar_row(id)
         .quiet()
-        .glyph(skeleton_circle("bone-glyph", 14.))
-        .label(skeleton_text("bone-name", TEXT_11, width))
+        .glyph(skeleton_circle(14.))
+        .label(skeleton_text(TEXT_11, width))
 }
 
 /// The last row of a long list: "12 more", or "Show fewer" once everything shows.

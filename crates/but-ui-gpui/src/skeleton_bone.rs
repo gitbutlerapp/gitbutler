@@ -1,11 +1,12 @@
 //! A placeholder for content that is still loading, as but-ui-react's `SkeletonBone`.
 
-use std::time::Duration;
-
-use gpui::{Animation, AnimationExt as _, App, ElementId, Window, div, prelude::*};
+use gpui::{App, Window, div, prelude::*};
 
 use crate::theme::Theme;
 use crate::*;
+
+/// How many [`STEP`]s a bone takes to rise and fall back: 1.6s.
+const PULSE_STEPS: usize = 16;
 
 /// What a bone stands in for, as React's `shape`.
 #[derive(Clone, Copy)]
@@ -17,28 +18,25 @@ enum Shape {
 }
 
 /// A placeholder for content that is still loading, pulsing until it lands, as React's
-/// `SkeletonBone`: `inverse` at a tenth, rising to 16% and back every 1.6s, still under reduced
-/// motion. Draw the row as it will look, with a bone where each piece goes, so nothing moves when
-/// the content arrives.
+/// `SkeletonBone`: `inverse` at a tenth, rising to 16% and back every 1.6s, a [`Looping`] step
+/// at a time, still under reduced motion. Draw the row as it will look, with a bone where each
+/// piece goes, so nothing moves when the content arrives.
 #[derive(IntoElement)]
 pub struct SkeletonBone {
-    id: ElementId,
     shape: Shape,
 }
 
 /// A line of text in `class` that is still loading, `width` wide: one line box of that class, with
 /// a bar as tall as its font in the middle, so the text replaces it in place.
-pub fn skeleton_text(id: impl Into<ElementId>, class: TextClass, width: f32) -> SkeletonBone {
+pub fn skeleton_text(class: TextClass, width: f32) -> SkeletonBone {
     SkeletonBone {
-        id: id.into(),
         shape: Shape::Text { class, width },
     }
 }
 
 /// An avatar or an icon `size` across that is still loading.
-pub fn skeleton_circle(id: impl Into<ElementId>, size: f32) -> SkeletonBone {
+pub fn skeleton_circle(size: f32) -> SkeletonBone {
     SkeletonBone {
-        id: id.into(),
         shape: Shape::Circle { size },
     }
 }
@@ -55,16 +53,11 @@ impl RenderOnce for SkeletonBone {
             Shape::Circle { size } => bone.size(dp(size)).rounded_full(),
         };
         let bone = match cx.reduce_motion() {
-            true => bone.opacity(0.1).into_any_element(),
-            false => bone
-                .with_animation(
-                    self.id,
-                    Animation::new(Duration::from_millis(1600))
-                        .repeat()
-                        .with_easing(gpui::pulsating_between(0.1, 0.16)),
-                    |el, delta| el.opacity(delta),
-                )
-                .into_any_element(),
+            true => bone.opacity(0.1),
+            false => {
+                let at = Looping::now(PULSE_STEPS);
+                (bone.opacity(gpui::pulsating_between(0.1, 0.16)(at.progress()))).child(at.next())
+            }
         };
         match self.shape {
             Shape::Text { class, width } => div()
@@ -75,7 +68,7 @@ impl RenderOnce for SkeletonBone {
                 .items_center()
                 .child(bone)
                 .into_any_element(),
-            Shape::Circle { .. } => bone,
+            Shape::Circle { .. } => bone.into_any_element(),
         }
     }
 }

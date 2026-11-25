@@ -206,8 +206,8 @@ To film after inputs of your own, `clock stop` first, before the input that star
 then `film` without `--`; `clock run` runs the clock again from where it stopped. `tick 8`
 moves a stopped clock on by hand, so `move`s and `shot`s can go between ticks.
 
-What GPUI animates itself (`with_animation`, `with_spring`, as a fold's chevron and spinners
-do) and timers keep the real time rather than `clock::now()`, so they jump between frames: a
+What GPUI animates itself (`with_animation`, `with_spring`, as a fold's chevron does) and timers
+keep the real time rather than `clock::now()`, so they jump between frames: a
 tooltip's delay, and a drag's edge scroll, which goes on scrolling near a list's top or bottom
 while the clock is stopped, so keep a filmed drag clear of the edges.
 
