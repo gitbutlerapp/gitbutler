@@ -18,6 +18,7 @@ use crate::state::{NewAt, NewCommit, ProjectEntry, ProjectId, Section, Selection
 use crate::terminal::TerminalId;
 use crate::transfer::{self, Dragged, Stop};
 use crate::ui::fold::{Folds, MOVING_ROWS};
+use crate::ui::{EMPTY_TIDY_DETAIL_HEIGHT, ROW_DIVIDER};
 
 /// How wide each loading row's name is, as 🍑 But UI's loading card draws them: names of the
 /// lengths a card's rows often have.
@@ -32,9 +33,9 @@ pub(super) const HEADING_HEIGHT: f32 = 28.;
 /// The room inside a card around its rows, as 🍑 But UI's sidebar cards have it.
 pub(super) const CARD_PADDING: f32 = 8.;
 
-/// How tall the line under a project's heading is with the room around it: the heading's
-/// padding below, the 1px line, and the padding above the card's rows.
-pub(super) const HEADER_RULE: f32 = 2. * CARD_PADDING + 1.;
+/// How tall the line under a project's heading is with the room around it: a `row_divider`, and
+/// the pixel but-ui-react leaves between rows on either side of it.
+pub(super) const HEADER_RULE: f32 = ROW_DIVIDER + 2.;
 
 /// How far a row's ground sits in from its card's sides: the card's padding.
 pub(super) const ROW_MARGIN: f32 = CARD_PADDING;
@@ -88,21 +89,21 @@ pub(super) enum Row {
     GhostStack(ProjectId),
     /// The commit uncommitted changes being committed would make where the commit's at.
     NewCommit(ProjectId),
-    /// Where one stack ends and the next starts, a hairline across, so two branches alone in
-    /// their lanes don't read as one stack. A branch dropped low on one stack's last branch
-    /// joins that stack rather than the next.
+    /// Where one stack ends and the next starts. It draws nothing, as levels group the rows,
+    /// never lines between them, but a branch dropped low on one stack's last branch joins that
+    /// stack rather than the next.
     Between(ProjectId),
     WorktreeDivider,
-    /// The line under a watched project's heading, across its card, which sets the heading apart
+    /// The line under a watched project's heading, a `row_divider`, which sets the heading apart
     /// from the rows under it, as 🍑 But UI's and but-ui-react's cards have their header; and
     /// whether the main worktree's rows follow it with no heading of their own.
     HeaderRule(bool),
     /// In a linked worktree's section, a branch its lane rests on, by the row it selects, with
     /// the checkout it's in on the first of each lane.
     RestsOn(Selection, Option<Checkout>),
-    /// The drawer with no projects hidden in it: a card saying so, as but-ui-react's Drawer
-    /// draws it empty.
-    Empty,
+    /// Under the heading of a project whose folder or repository is gone, what its error says,
+    /// and a way to point it at where it is now, as 🍑 But UI's card says so.
+    Gone(ProjectId),
 }
 
 /// What a row is across rebuilds, for a reorder to slide it from where it was.
@@ -216,13 +217,12 @@ impl Row {
     pub(super) fn height(&self, row: f32) -> f32 {
         match self {
             Row::Gap => super::CARD_GAP + 2. * CARD_EDGE,
-            Row::Between(_) => BETWEEN,
-            Row::Empty => super::DRAWER_EMPTY,
+            Row::Between(_) => 0.,
             // Worktrees follow one another with nothing between, as 🍑 But UI's sidebar has
             // them; the divider stays, for what drops and moves between them.
             Row::WorktreeDivider => 0.,
-            // The heading's padding below, the line, and the card's padding above its rows.
             Row::HeaderRule(_) => HEADER_RULE,
+            Row::Gone(_) => GONE_HEIGHT,
             Row::Item(Selection::Project(_)) => HEADING_HEIGHT,
             Row::Item(_)
             | Row::More(..)
@@ -295,8 +295,9 @@ pub(super) struct Rows {
     pub(super) row: f32,
 }
 
-/// The projects not watched, in the drawer under the cards: their rows while it's open, how
-/// many it lists, and how many there are, filters aside. With no cards it's always open.
+/// The projects not watched, in the hidden projects' card after the cards: their rows while it's
+/// open, how many it lists, and how many there are, filters aside. With no cards it's always
+/// open.
 #[derive(Default)]
 pub(super) struct Drawer {
     pub(super) rows: Vec<Row>,
@@ -307,17 +308,17 @@ pub(super) struct Drawer {
     pub(super) insets: Vec<f32>,
     pub(super) guides: Vec<Vec<f32>>,
     pub(super) ends: Vec<bool>,
-    /// Whether each row is a project folded in it, in a group of its own in a card of the
-    /// projects folded next to it, rather than a row of one unfolded, a card of its own.
-    pub(super) grouped: Vec<bool>,
     /// Where each row is in the fold of a project unfolding or folding here, as [`Rows`] has it.
     pub(super) moving: Vec<Option<Moving>>,
-    /// For a gap that parts a project's card from the folded projects only while it's unfolded,
-    /// that project's fold, which opens the gap as it opens.
-    pub(super) parting: Vec<Option<Fold>>,
     /// The folds of the projects listed, as [`Rows::folds`] has them.
     pub(super) folds: Vec<(Fold, bool, Option<usize>)>,
 }
+
+/// How tall [`Row::Gone`] is: its empty state and the room above and below it.
+pub(super) const GONE_HEIGHT: f32 = 2. * GONE_PADDING + EMPTY_TIDY_DETAIL_HEIGHT;
+
+/// The room above and below a missing folder's empty state.
+pub(super) const GONE_PADDING: f32 = 20.;
 
 /// Where an item row's content starts in its card: the row's margin and its padding, 8, as
 /// [`RowStyle::row`](super::RowStyle::row) and [`section_heading`](super::section_heading)
@@ -332,9 +333,6 @@ pub(super) const COMMIT_INDENT: f32 = STEP + 2. + 1.;
 /// Where the middle of a row's chevron sits in a row set in by nothing: the row's left edge
 /// and half the 12-point step, where the guide down to the rows under it hangs from.
 pub(super) const GUIDE_AT: f32 = ROW_LEFT + 6.;
-
-/// How tall the gap between two stacks is, its hairline across the middle.
-pub(super) const BETWEEN: f32 = 9.;
 
 /// The caption over `project`'s lane of `branches`, as drawn: over two or more, by the bottom one.
 pub(super) fn caption(project: &ProjectId, branches: &[Branch]) -> Option<Selection> {
@@ -574,35 +572,13 @@ impl Navigator {
         if prefs.projects_by_activity {
             listed.sort_by_key(|(_, at)| std::cmp::Reverse(*at));
         }
-        // Each project unfolded in it a card of its own where it is in the list, its heading
-        // over its rows as a watched project's card, splitting the projects folded around it
-        // into cards of their own, as 🍑 But UI's drawer has them.
-        // One unfolding or folding is a card of its own until it's folded, its rows opening or
-        // closing under its heading, as a watched card's do, and the gaps parting it from the
-        // folded projects around it opening and closing with them.
+        // Each project a part of the one card, ruled off from the one before across it, as
+        // but-ui-react's hidden projects' card has them; one unfolded keeps its rows in its part,
+        // under its heading and a `RowDivider`, as a watched project's card has them.
         let mut cards = Rows::new(self.row);
-        let mut grouped = Vec::new();
-        let mut parting = Vec::new();
-        // Whether the project before was a card of its own, and its fold if that's moving.
-        let mut was: Option<(bool, Option<Fold>)> = None;
         for (entry, _) in &listed {
             let fold = Fold::InDrawer(entry.id.clone());
             let open = self.drawer_open.contains(&entry.id);
-            let shown = self.folds.shows(&fold, open);
-            let moving = (shown && self.folds.openness(&fold).is_some()).then(|| fold.clone());
-            if let Some((was_shown, was_moving)) = &was
-                && (*was_shown || shown)
-            {
-                // Next to a card that stays open the gap stays; else it opens with the fold.
-                let parts = match (was_shown, shown) {
-                    (true, true) if was_moving.is_none() || moving.is_none() => None,
-                    _ => was_moving.clone().or_else(|| moving.clone()),
-                };
-                cards.push(Row::Gap);
-                parting.resize(cards.rows.len() - 1, None);
-                parting.push(parts);
-            }
-            was = Some((shown, moving));
             cards.push(Row::Item(Selection::Project(entry.id.clone())));
             cards.fold(fold, open, &self.folds, |cards| {
                 let rule = cards.rows.len();
@@ -610,16 +586,9 @@ impl Navigator {
                 self.card_rows(store, entry, cards);
                 cards.settle_rule(rule, &entry.id);
             });
-            grouped.resize(cards.rows.len(), !shown);
-        }
-        parting.resize(cards.rows.len(), None);
-        if others.is_empty() {
-            cards.push(Row::Empty);
-            grouped.push(false);
         }
         if listed.is_empty() && !others.is_empty() {
             cards.push(Row::Note("None active in the last 7 days".into(), false));
-            grouped.push(true);
         }
         Drawer {
             rows: cards.rows,
@@ -628,9 +597,7 @@ impl Navigator {
             insets: cards.insets,
             guides: cards.guides,
             ends: cards.ends,
-            grouped,
             moving: cards.moving,
-            parting,
             folds: cards.folds,
         }
     }
@@ -641,6 +608,7 @@ impl Navigator {
         let id = &entry.id;
         let Some(workspace) = &entry.workspace else {
             match &entry.error {
+                Some(_) if entry.gone => rows.push(Row::Gone(id.clone())),
                 Some(err) => rows.push(Row::Note(err.clone(), true)),
                 // Rows of bones, as many as a card often holds, so it keeps its shape while the
                 // workspace loads, as 🍑 But UI's loading card.

@@ -20,7 +20,7 @@ use super::rename::{on_terminal_name, terminal_name_input};
 use super::rows::CARD_PADDING;
 use super::{
     CARD_BAR_HEIGHT, CARD_BAR_INSET, DRAWER_BLOCK, DRAWER_GAP, DRAWER_ROW, RowStyle, card_bar,
-    drawer_bar, on_hover, status_mark,
+    drawer_bar, status_mark,
 };
 use crate::app::{
     AppHandle, AppView, Cancel, Confirm, FocusNavigator, SelectNext, SelectPrevious, SplitBelow,
@@ -843,8 +843,8 @@ impl TerminalOverview {
             false,
             theme,
         );
-        // At the navigator's foot a drawer, as but-ui-react's: its buttons only under the
-        // pointer, and folded, the room under its row. Under its tab, its rows go right under it.
+        // At the navigator's foot a drawer, as but-ui-react's, its buttons always shown, and
+        // folded, the room under its row. Under its tab, its rows go right under it.
         let bar = match in_tab {
             true => bar.mb_0(),
             false => drawer_bar(bar).when(folded_away, |el| el.mb(dp(DRAWER_BLOCK))),
@@ -867,11 +867,9 @@ impl TerminalOverview {
                     app.new_terminal_in(window, cx)
                 })
             });
-        bar.child(on_hover(grouping, in_tab))
-            .child(on_hover(new_terminal, in_tab))
-            .when(!in_tab, |el| {
-                el.on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.toggle_card(cx)))
-            })
+        bar.child(grouping).child(new_terminal).when(!in_tab, |el| {
+            el.on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.toggle_card(cx)))
+        })
     }
 }
 
@@ -901,7 +899,7 @@ impl Render for TerminalOverview {
                 true => {
                     let app = self.app.clone();
                     let new_terminal = button("overview-empty-new-terminal", "New terminal")
-                        .small()
+                        .medium()
                         .style(ButtonStyle::Outline)
                         .icon(Icon::Plus)
                         .on_click(move |_, window, cx| {

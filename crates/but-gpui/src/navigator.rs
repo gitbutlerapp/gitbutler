@@ -10,10 +10,10 @@ use std::time::Instant;
 
 use but_tty::Status;
 use gpui::{
-    AnyElement, App, Bounds, ClickEvent, Context, Div, DragMoveEvent, ElementId, Entity,
-    FocusHandle, Focusable, Hsla, ListAlignment, ListOffset, ListState, Modifiers, MouseButton,
-    MouseDownEvent, PathBuilder, Pixels, Point, Role, SharedString, Stateful, Subscription, Task,
-    Window, actions, canvas, div, fill, list, point, prelude::*, relative,
+    AnyElement, App, Bounds, ClickEvent, Context, Div, ElementId, Entity, FocusHandle, Focusable,
+    Hsla, ListAlignment, ListOffset, ListState, Modifiers, MouseButton, MouseDownEvent,
+    PathBuilder, Pixels, Point, Role, SharedString, Stateful, Subscription, Task, Window, actions,
+    canvas, div, fill, list, point, prelude::*, relative,
 };
 
 use crate::app::{AddProject, AppHandle, UpdateFromTarget};
@@ -26,8 +26,7 @@ use crate::backend::{
 use crate::detail::{ChecksChanged, Detail};
 use crate::overlays::MenuItem;
 use crate::state::{
-    Axis, DividerDrag, Pane, Part, Prefs, ProjectId, Section, Selection, Store, StoreEvent, Tile,
-    WatchedOrder,
+    Part, Prefs, ProjectId, Section, Selection, Store, StoreEvent, Tile, WatchedOrder,
 };
 use crate::terminal::TerminalId;
 use crate::theme::{Hue, Theme, tokens};
@@ -41,14 +40,13 @@ use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     BLINK, Button, ButtonStyle, HEADER_HEIGHT, Icon, MetaCountType, Tooltip, WINDOW_CONTROLS_WIDTH,
     above_drag, blink_once, button, commit_title, count_badge, dp, empty_state_tidy, faint, field,
-    field_leading, fixed, gap_divider, glow_once, guide_end_in, guide_in, h_flex, icon_at,
-    icon_button, mark_dragged, meta_count_on, plural, pulsing, review, section_label, small_icon,
-    v_flex,
+    field_leading, fixed, focus_ring, glow_once, guide_end_in, guide_in, h_flex, icon_at,
+    icon_button, meta_count_on, plural, pulsing, review, section_label, small_icon, v_flex,
 };
 use crate::ui::{
     CommitPlace, Fold as RowFold, MetaStatusVariant, PullRequestState, SidebarRow, SplitCell,
     SplitPreview, SplitTile, branch_item, commit_item, group_label, item_name, loading_item,
-    meta_status, more_item, press_in_pane, repo_item, running_count, sidebar_row,
+    meta_status, more_item, press_in_pane, repo_item, row_divider, running_count, sidebar_row,
     split_preview_map, stack_caption, terminal_item, uncommitted_item, upstream_item,
     worktree_item,
 };
@@ -86,9 +84,9 @@ pub(crate) use terminals::TerminalOverview;
 use crate::ui::Text;
 use moving::Mark;
 use rows::{
-    BETWEEN, CARD_EDGE, CARD_PADDING, COMMIT_INDENT, Drawer, Fold, HEADER_RULE, HEADING_HEIGHT,
-    LOADING_WIDTHS, ROW_LEFT, ROW_MARGIN, Row, RowKey, caption, card_ends, checkout_holds,
-    in_checkout, in_inactive, inactive_open, span_height,
+    CARD_EDGE, CARD_PADDING, COMMIT_INDENT, Drawer, Fold, GONE_HEIGHT, GONE_PADDING, HEADER_RULE,
+    HEADING_HEIGHT, LOADING_WIDTHS, ROW_LEFT, ROW_MARGIN, Row, RowKey, caption, card_ends,
+    checkout_holds, in_checkout, in_inactive, inactive_open, span_height,
 };
 
 /// How far apart the cards are, as the detail's are: but-ui's `gap/stack`, the one gap between
@@ -113,9 +111,6 @@ const ABOVE_LAST_LISTED: usize = 2;
 /// How tall the bar of a card at the navigator's foot is, the drawer's level with the commit
 /// footer beside it, and the space under the drawer's rows.
 pub(super) const CARD_BAR_HEIGHT: f32 = crate::detail::FOOTER_HEIGHT;
-/// The room around each project in the drawer's card, as 🍑 But UI's drawer has each in a
-/// group of its own: `space-lg` over and under its row.
-const DRAWER_GROUP_PADDING: f32 = 8.;
 
 /// How far that bar sits in from its card's edges, as a row from a card's.
 pub(super) const CARD_BAR_INSET: f32 = 3.;
@@ -131,18 +126,11 @@ pub(super) const DRAWER_BLOCK: f32 = 10.;
 /// The room between an open drawer's row and its card: `space-lg`.
 pub(super) const DRAWER_GAP: f32 = 8.;
 
-/// How tall the projects' drawer is around its rows: its hairline and the room over its row, the
-/// row, the room under it, and its card's edges, which take their room folded too.
-const DRAWER_CHROME: f32 = 1. + DRAWER_BLOCK + DRAWER_ROW + DRAWER_GAP + 2.;
-/// How tall the drawer's card is with no projects hidden in it: its edges, the room around its
-/// empty state, and the state.
-pub(super) const DRAWER_EMPTY: f32 =
-    2. + 2. * terminals::EMPTY_CARD_PADDING.0 + crate::ui::EMPTY_TIDY_HEIGHT;
+/// How tall the hidden projects' card is over its projects: its top edge, and its bar in the
+/// card's padding, as but-ui-react's hidden projects' card heads it with its `DrawerItem`.
+pub(super) const HIDDEN_HEAD: f32 = 1. + CARD_PADDING + DRAWER_ROW + CARD_PADDING;
 /// How far a drawer's line takes a press to drag it on either side of it.
 pub(crate) const DIVIDER_REACH: f32 = 6.;
-/// The most of the column the hidden projects' drawer takes once its line is dragged, as the
-/// terminals' takes.
-const DRAWER_MOST_DRAGGED: f32 = 0.85;
 
 /// How far the rows under a row sit in from it, as but-ui-react's steps: a chevron's 12 points
 /// and the gap after it, so a child's chevron sits right of the guide that hangs from its
@@ -255,8 +243,9 @@ pub(super) const MAIN_WORKTREE: &str = "Main worktree";
 /// The bar atop a card at the navigator's foot, the projects' drawer's and the terminal
 /// overview's: while it folds, its chevron, up while it's `open` is false and turning down as
 /// it opens up into the column, then its `title` and `count`. The caller adds its buttons and,
-/// while it folds, what a click on it does. `selected` draws it as a row with the keys on it,
-/// `solid` as one in a list that has them.
+/// while it folds, what a click on it does. `selected` says it's the row the keys are on, and
+/// `solid` rings it while its list has them: a drawer's row never takes a selected fill, as
+/// but-ui-react's `DrawerItem` shows the keys with the focus ring alone.
 pub(super) fn card_bar(
     id: &'static str,
     title: &'static str,
@@ -266,10 +255,7 @@ pub(super) fn card_bar(
     solid: bool,
     theme: &Theme,
 ) -> Stateful<Div> {
-    let (ink, muted) = match solid {
-        true => (theme.inverse_foreground, theme.inverse_muted_foreground),
-        false => (theme.muted_foreground, theme.subtle_foreground),
-    };
+    let (ink, muted) = (theme.muted_foreground, theme.subtle_foreground);
     // As but-ui-react's DrawerItem: its name, how many in a badge, then the chevron, right while
     // it's folded and turning down as it opens.
     let fold = h_flex()
@@ -313,8 +299,7 @@ pub(super) fn card_bar(
         .pl(dp(8.))
         .pr(dp(6.))
         .gap(dp(2.))
-        .when(selected, |el| el.bg(theme.selected_inactive))
-        .when(solid, |el| el.bg(theme.inverse))
+        .when(solid, |el| el.shadow(vec![focus_ring(theme)]))
         .child(fold)
         // No ground under the pointer, as but-ui-react's drawer: it sits on the panel's ground,
         // and its chevron says a press opens it.
@@ -331,20 +316,8 @@ pub(super) fn drawer_bar(bar: Stateful<Div>) -> Stateful<Div> {
         .pr(dp(4.))
 }
 
-/// The group a drawer's row is, so its buttons that wait for the pointer show under it.
+/// The group a drawer's row is, so its chevron lights up under the pointer.
 const DRAWER_GROUP: &str = "navigator-drawer";
-
-/// A drawer's button that shows only while the pointer's on its row or the keys are, `held`, as
-/// but-ui-react's Drawer's `hoverActions`. Laid out all along and only painted then: GPUI paints
-/// nothing it hasn't laid out, so one shown on hover from `hidden` would abort the app.
-pub(super) fn on_hover(button: impl IntoElement, held: bool) -> Div {
-    div()
-        .flex()
-        .when(!held, |el| {
-            el.invisible().group_hover(DRAWER_GROUP, |s| s.visible())
-        })
-        .child(button)
-}
 
 /// The rule over a drawer at the navigator's foot, as but-ui-react's Drawer draws it: across the
 /// column, out of its flow, so it takes no room.
@@ -1579,9 +1552,35 @@ impl Navigator {
         }
     }
 
-    /// Scroll the drawer's row `ix` into view: its own list does, pinned at the column's foot.
-    fn reveal_in_drawer(&self, ix: usize, _: Pixels) {
-        self.drawer_list.scroll_to_reveal_item(ix);
+    /// Scroll the hidden projects' row `ix` into view: the list does, as their card is its last
+    /// item, as tall as its rows; with no cards, the card's own list does.
+    fn reveal_in_drawer(&self, ix: usize, row: Pixels) {
+        if self.built.rows.is_empty() {
+            return self.drawer_list.scroll_to_reveal_item(ix);
+        }
+        let scale = f32::from(row) / self.row;
+        let above: f32 = (0..ix).map(|ix| self.drawer_row_height(ix)).sum();
+        let top = CARD_GAP + HIDDEN_HEAD + above;
+        let height = self.drawer_row_height(ix);
+        self.reveal_in_footer(fixed(top * scale), fixed(height * scale));
+    }
+
+    /// Scroll what's `top` down the list's last item, `height` tall, into the column.
+    pub(super) fn reveal_in_footer(&self, top: Pixels, height: Pixels) {
+        let footer = self.built.rows.len();
+        let Some(bounds) = self.list.bounds_for_item(footer) else {
+            return self.list.scroll_to(ListOffset {
+                item_ix: footer,
+                offset_in_item: top,
+            });
+        };
+        let view = self.list.viewport_bounds();
+        let (from, to) = (bounds.top() + top, bounds.top() + top + height);
+        if to > view.bottom() {
+            self.list.scroll_by(to - view.bottom());
+        } else if from < view.top() {
+            self.list.scroll_by(from - view.top());
+        }
     }
 
     /// How far each of the rows slides as the list goes from its rows to `rows`, keyed by `keys`,
@@ -1683,10 +1682,9 @@ impl Navigator {
     /// rows slide, those sliding into view from past its top or bottom are drawn by the first
     /// row it draws and by one near its last ([`Self::slide_edges`]).
     fn render_row(&self, ix: usize, cx: &Context<Self>) -> AnyElement {
-        // The list's last item was the drawer; it's pinned under the list now, at the column's
-        // foot as the terminals' is, and the item stays, empty, for the rows' indexes.
+        // The list's last item, after the cards: the hidden projects' card.
         if ix == self.built.rows.len() {
-            return div().into_any_element();
+            return self.drawer_footer(Theme::get(cx), cx);
         }
         let row = self.row_in_card(ix, cx);
         let Some((first, below)) = self.slide_edges else {
@@ -1803,16 +1801,9 @@ impl Navigator {
             // A dashed line, as but-ui-react's WorktreeDivider.
             // Nothing between worktrees, as 🍑 But UI's sidebar has them.
             Some(Row::WorktreeDivider) => div().into_any_element(),
-            // Only the drawer's.
-            Some(Row::Empty) => div().into_any_element(),
-            // Across the card, edge to edge, as but-ui-react's card header's border.
-            Some(Row::HeaderRule(_)) => div()
-                .h(dp(HEADER_RULE))
-                .flex()
-                .items_center()
-                .child(div().w_full().h(fixed(1.)).bg(theme.border_subtle))
-                .into_any_element(),
+            Some(Row::HeaderRule(_)) => header_rule(theme),
             Some(Row::Note(text, is_error)) => note_row(text, *is_error, theme),
+            Some(Row::Gone(project)) => self.gone_row(project, theme, cx),
             // A row still loading, as but-ui-react's LoadingItem.
             Some(Row::Loading(n)) => RowStyle::plain(theme, inset)
                 .draw(
@@ -1858,16 +1849,8 @@ impl Navigator {
                 let blink = self.blinking(Blink::Move);
                 moving::ghost_row(item, inset, with, blink, self.store.read(cx), theme)
             }
-            Some(Row::Between(_)) => h_flex()
-                .h(dp(BETWEEN))
-                .px(dp(12.))
-                .child(
-                    div()
-                        .flex_1()
-                        .border_t_1()
-                        .border_color(theme.border_subtle),
-                )
-                .into_any_element(),
+            // No line between stacks: levels group the rows, never lines between them.
+            Some(Row::Between(_)) => div().into_any_element(),
             Some(Row::GhostBranch(project, at)) => {
                 let mark = theme.hue(moving::mark_of(self.store.read(cx), project));
                 moving::ghost_branch_row(at, inset, mark, self.blinking(Blink::Move), theme)
@@ -2490,8 +2473,8 @@ impl Navigator {
         }
     }
 
-    /// The projects not watched, in a drawer under the cards as tall as its rows, which the
-    /// list scrolls. With no cards it's the column, open, and scrolls past that.
+    /// The projects not watched with no cards: their card is the column's only one, open, filling
+    /// it, and its rows scroll past that.
     fn drawer(&self, theme: &Theme, cx: &Context<Self>) -> impl IntoElement {
         let (left, right) = self.card_margins();
         // The column's only card, filling it, as far from its edges as cards are apart.
@@ -2505,7 +2488,9 @@ impl Navigator {
             .child(self.drawer_card(true, theme, cx))
     }
 
-    /// The drawer's card: its bar, and under it its rows as far as it's open.
+    /// The hidden projects' card, as but-ui-react's: its bar heading it in the card's padding,
+    /// then its projects as far as it's open, each ruled off from what's above it across the card.
+    /// Edged as the cards are while the selection's in it and the navigator has the keys.
     fn drawer_card(&self, alone: bool, theme: &Theme, cx: &Context<Self>) -> Div {
         let rows = list(
             self.drawer_list.clone(),
@@ -2513,25 +2498,27 @@ impl Navigator {
         )
         .size_full();
         let scroll = Scroll::List(self.drawer_list.clone());
-        let rows_height = self.drawer_rows_height();
         let closing = self.folds.closing(&Fold::Drawer);
-        // As but-ui-react's Drawer: a hairline over it, its bar, then its rows in a card. With
-        // none showing the card's edges still take their room, so its height adds up the same.
+        let focused = self.built.focused_drawer_card.borrow().is_some();
         v_flex()
             .relative()
             .size_full()
-            .child(hairline(theme))
+            .overflow_hidden()
+            .bg(theme.background)
+            .border_1()
+            .border_color(match focused {
+                true => theme.focus_edge(),
+                false => theme.border_subtle,
+            })
+            .rounded(dp(theme.shape.card))
             .child(self.drawer_bar(alone, theme, cx))
             .child(
                 div()
                     .relative()
                     .flex_1()
                     .min_h_0()
-                    // Each row draws its part of its card: the cards, one a project unfolded
-                    // here and one of the rest, have the drawer's room between them.
-                    .when(rows_height <= 0., |el| el.max_h(dp(2.)))
-                    // Its rows scroll past where it's cut off, its thumb in the gap beside the
-                    // cards as the cards' is, and the cards it cuts keep their edges, as theirs.
+                    // With no cards its rows scroll past where it's cut off, its thumb in the
+                    // gap beside it as the cards' is.
                     .child(
                         scrolled_in_gap(
                             rows,
@@ -2542,38 +2529,21 @@ impl Navigator {
                         )
                         .size_full(),
                     )
-                    .children(self.drawer_caps(theme))
                     .map(|el| inert(el, closing)),
             )
-            // Under its card, the room a drawer keeps under it, as it opens.
-            .child(div().flex_none().h(dp(self.drawer_below())))
     }
 
-    /// The room under the drawer's card while it shows one, as far as it's open: folded, the room
-    /// between its row and the card's edges is all it keeps under it.
-    fn drawer_below(&self) -> f32 {
-        match self.built.drawer.rows.is_empty() {
-            true => 0.,
-            false => DRAWER_BLOCK * self.folds.openness(&Fold::Drawer).unwrap_or(1.),
-        }
-    }
-
-    /// How tall the drawer's rows are: each one row tall, and opening or closing, as tall as
-    /// it's open.
+    /// How tall the hidden projects' rows are: each one row tall, and opening or closing, as tall
+    /// as it's open.
     fn drawer_rows_height(&self) -> f32 {
         self.drawer_rows_full() * self.folds.openness(&Fold::Drawer).unwrap_or(1.)
     }
 
-    /// How tall the drawer's rows are open, as [`Self::render_drawer_row`] draws them: each card's
-    /// edges and padding, the folded projects' groups and the lines between them, and the gaps
-    /// between cards, less the one card's edges the drawer's chrome counts.
+    /// How tall the hidden projects' rows are open, as [`Self::render_drawer_row`] draws them:
+    /// each project's line and padding around its rows.
     fn drawer_rows_full(&self) -> f32 {
-        let drawer = &self.built.drawer;
-        if drawer.rows.is_empty() {
-            return 0.;
-        }
-        let rows = (0..drawer.rows.len()).map(|ix| self.drawer_row_height(ix));
-        rows.sum::<f32>() - 2.
+        let rows = 0..self.built.drawer.rows.len();
+        rows.map(|ix| self.drawer_row_height(ix)).sum()
     }
 
     /// How far open the fold moving the drawer's row `ix` shows it, and whether it's closing.
@@ -2586,148 +2556,81 @@ impl Navigator {
         ))
     }
 
-    /// How tall the drawer's gap at `ix` is: a card's gap, opening as the fold parting it does.
-    fn drawer_gap(&self, ix: usize) -> f32 {
-        let parting = self.built.drawer.parting.get(ix).and_then(Option::as_ref);
-        CARD_GAP
-            * parting
-                .and_then(|fold| self.folds.openness(fold))
-                .unwrap_or(1.)
-    }
-
-    /// How tall the drawer's row `ix` is drawn, its part of its card's edges and padding with it.
+    /// How tall the hidden projects' row `ix` is drawn: the line and padding over a project's part
+    /// of the card when it starts one, and the padding under it when it ends one.
     fn drawer_row_height(&self, ix: usize) -> f32 {
-        let drawer = &self.built.drawer;
-        let Some(row) = drawer.rows.get(ix) else {
+        let rows = &self.built.drawer.rows;
+        let Some(row) = rows.get(ix) else {
             return 0.;
         };
-        match row {
-            Row::Gap => return self.drawer_gap(ix),
-            Row::Empty => return DRAWER_EMPTY,
-            _ => {}
-        }
-        let (first, last) = card_ends(&drawer.rows, ix);
         let own = match row {
             _ if let Some((height, _)) = self.drawer_folding(ix) => height,
             Row::Item(_) | Row::Note(..) | Row::Loading(_) | Row::More(..) | Row::Fewer(..) => {
                 self.row
             }
             Row::HeaderRule(_) => HEADER_RULE,
+            Row::Gone(_) => GONE_HEIGHT,
             _ => 0.,
         };
-        let padding = match drawer.grouped.get(ix).copied().unwrap_or(true) {
-            true => 2. * DRAWER_GROUP_PADDING + if first { 0. } else { 1. },
-            false => (if first { CARD_PADDING } else { 0. }) + if last { CARD_PADDING } else { 0. },
-        };
-        let edges = if first { 1. } else { 0. } + if last { 1. } else { 0. };
-        own + padding + edges
+        let (starts, ends) = part_ends(rows, ix);
+        own + if starts { 1. + CARD_PADDING } else { 0. } + if ends { CARD_PADDING } else { 0. }
     }
 
-    /// The drawer, pinned under the list at the column's foot, as the terminals' drawer is under
-    /// it: as tall as it's open, up to half the column, past which its rows scroll, until its
-    /// line is dragged, then as dragged. The terminals' drawer follows it right under, so the
-    /// two are as tall as each other folded.
-    fn pinned_drawer(&self, theme: &Theme, cx: &Context<Self>) -> Div {
+    /// The list's last item, after the cards: the hidden projects' card, as far from them as
+    /// they are apart, as tall as [`Self::fit_footer`] works it out. With none hidden, nothing.
+    fn drawer_footer(&self, theme: &Theme, cx: &Context<Self>) -> AnyElement {
+        let (_, height) = self.footer.get();
+        if height <= 0. {
+            return div().into_any_element();
+        }
         let (left, right) = self.card_margins();
-        let (height, dragged) = self.pinned_height(cx);
-        // Open, its line drags its height, as the terminals' drags theirs; folded to its bar,
-        // it has none to drag. A double-click puts it back to its rows'.
-        let open = !self.built.drawer.rows.is_empty() && !self.folds.closing(&Fold::Drawer);
-        let divider = open.then(|| {
-            let which = DividerDrag::HiddenProjects;
-            let store = self.store.clone();
-            // Over the line, its middle on it.
-            gap_divider(
-                "resize-hidden-projects",
-                Axis::Down,
-                which.clone(),
-                &self.store,
-                theme,
-                cx,
-            )
-            .left_0()
-            .right_0()
-            .top(dp(-DIVIDER_REACH))
-            .h(dp(2. * DIVIDER_REACH + 1.))
-            .on_drag(Pane::HiddenProjects, mark_dragged(&self.store, which))
-            .on_click(move |event, _, cx| {
-                if event.click_count() == 2 {
-                    store.update(cx, |store, cx| {
-                        store.put_back_width(Pane::HiddenProjects, height, cx)
-                    })
-                }
-            })
-        });
-        v_flex()
-            .relative()
-            .flex_none()
-            .h(dp(height))
-            .max_h(relative(if dragged { DRAWER_MOST_DRAGGED } else { 0.5 }))
+        div()
             .pl(dp(left))
             .pr(dp(right))
+            .pt(dp(CARD_GAP))
             .child(
                 div()
-                    .flex_1()
-                    .min_h_0()
+                    .h(dp(height))
                     .child(self.drawer_card(false, theme, cx)),
             )
-            .children(divider)
+            .into_any_element()
     }
 
-    /// How tall the pinned drawer is, and whether its line was dragged: as tall as its rows, or
-    /// as dragged but never taller than its rows, or sliding back from that to its rows',
-    /// folding or unfolding as far as it's open.
-    fn pinned_height(&self, cx: &App) -> (f32, bool) {
-        let fits = DRAWER_CHROME + self.drawer_rows_height() + self.drawer_below();
-        // Folded, its bar's.
-        if self.built.drawer.rows.is_empty() {
-            return (fits, false);
-        }
-        let store = self.store.read(cx);
-        let open = self.folds.openness(&Fold::Drawer).unwrap_or(1.);
-        match (
-            store.dragged_width(Pane::HiddenProjects),
-            store.width_glide(Pane::HiddenProjects),
-        ) {
-            (Some(dragged), _) => {
-                let rows = DRAWER_CHROME + self.drawer_rows_full() + DRAWER_BLOCK;
-                let dragged = dragged.min(rows);
-                (
-                    DRAWER_CHROME + (dragged - DRAWER_CHROME).max(0.) * open,
-                    true,
-                )
-            }
-            (None, Some(glide)) => (glide.at(fits, crate::clock::now()), true),
-            (None, None) => (fits, false),
-        }
-    }
-
-    /// The pinned drawer's height while its line is dragged, from the navigator's foot, as the
-    /// pointer has it.
-    fn drag_drawer_height(
-        &mut self,
-        event: &DragMoveEvent<Pane>,
-        _: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if *event.drag(cx) != Pane::HiddenProjects {
-            return;
-        }
-        let height = f32::from(event.bounds.bottom() - event.event.position.y);
-        let height = height / Theme::get(cx).scale;
-        self.store.update(cx, |store, cx| {
-            store.set_width(Pane::HiddenProjects, Some(height), cx)
-        });
-    }
-
-    /// How tall the list is in this frame: as it was last laid out, give or take as much as the
-    /// navigator has grown since, as the overview under it slides.
-    fn fit_footer(&self, _: &mut Window, cx: &mut Context<Self>) -> f32 {
+    /// Work out how tall the hidden projects' card is before the list lays it out: as tall as
+    /// it's open, folds and all, or nothing with none hidden. The list keeps an item's height, so
+    /// it measures this one again when it changes, and the navigator draws again, cached as it
+    /// is. Opening, the list scrolls as far as it grows, until its bar is at the column's top, so
+    /// what it opens shows. Gives how tall the list is in this frame.
+    fn fit_footer(&self, window: &mut Window, cx: &mut Context<Self>) -> f32 {
         let scale = Theme::get(cx).scale;
         let view = self.list.viewport_bounds();
+        // The list is as tall as it was last laid out, give or take as much as the navigator
+        // has grown since, as the overview under it slides.
         let drawn = self.drawn_height.get();
         let grown = drawn - self.listed_height.replace(drawn);
-        f32::from(view.size.height + grown) / scale
+        let column = f32::from(view.size.height + grown) / scale;
+        let height = match self.built.drawer.total {
+            0 => 0.,
+            _ => HIDDEN_HEAD + self.drawer_rows_height() + 1.,
+        };
+        let (_, was) = self.footer.get();
+        if was != height {
+            let opening =
+                self.folds.openness(&Fold::Drawer).is_some() && !self.folds.closing(&Fold::Drawer);
+            let past = height - was;
+            if opening && past > 0. {
+                let past = Theme::get(cx).scaled(past);
+                let above = (self.list.bounds_for_item(self.built.rows.len()))
+                    .map_or(past, |footer| footer.top() - view.top());
+                self.list.scroll_by(past.min(above).max(fixed(0.)));
+            }
+            self.footer.set((0., height));
+            let at = self.built.rows.len();
+            self.list.remeasure_items(at..at + 1);
+            // After this draw, as a notify during it draws nothing.
+            cx.defer_in(window, |_, _, cx| cx.notify());
+        }
+        column
     }
 
     /// Whether `keys` are in the rows, or a row's name being edited, rather than in the filter,
@@ -2808,9 +2711,12 @@ impl Navigator {
             y += drawn;
         }
         cards.push((start, y + CARD_EDGE));
+        // The hidden projects' card after them, as `drawer_footer` sets it.
         let (spacer, drawer) = self.footer.get();
-        let drawer_top = y + CARD_EDGE + spacer + CARD_MARGIN;
-        cards.push((drawer_top, drawer_top + drawer));
+        if drawer > 0. {
+            let drawer_top = y + CARD_EDGE + spacer + CARD_GAP;
+            cards.push((drawer_top, drawer_top + drawer));
+        }
         // Which card the selection's, while it's edged, counting them as `cards` does.
         let focused = (self.built.focused_card.borrow().as_ref()).map(|rows| {
             (self.built.rows.iter().take(rows.start))
@@ -2820,38 +2726,10 @@ impl Navigator {
         card_caps(&cards, top, height, focused, self.card_margins(), theme)
     }
 
-    /// [`card_caps`] for the drawer's list, pinned at the column's foot: its cards as tall as
-    /// [`Self::render_drawer_row`] draws them, as far as it's scrolled and as tall as it shows.
-    fn drawer_caps(&self, theme: &Theme) -> Vec<Div> {
-        let scale = theme.scale;
-        let top = -f32::from(self.drawer_list.scroll_px_offset_for_scrollbar().y) / scale;
-        let height = f32::from(self.drawer_list.viewport_bounds().size.height) / scale;
-        let drawer = &self.built.drawer;
-        let focused_rows = self.built.focused_drawer_card.borrow().clone();
-        let (mut cards, mut start, mut y, mut focused) = (Vec::new(), 0., 0., None);
-        for (ix, row) in drawer.rows.iter().enumerate() {
-            if matches!(row, Row::Gap) {
-                y += self.drawer_gap(ix);
-                continue;
-            }
-            let (first, last) = card_ends(&drawer.rows, ix);
-            if first {
-                start = y;
-            }
-            y += self.drawer_row_height(ix);
-            if last {
-                if focused_rows.as_ref().is_some_and(|rows| rows.contains(&ix)) {
-                    focused = Some(cards.len());
-                }
-                cards.push((start, y));
-            }
-        }
-        card_caps(&cards, top, height, focused, (0., 0.), theme)
-    }
-
-    /// The drawer's handle: a click opens or closes it, and it says how many projects it lists
-    /// of how many there are, and has ways to add, order and find them. With the keys on it,
-    /// it's drawn as a selected row is.
+    /// The hidden projects' card's heading, as 🍑 But UI's: a leading row, as but-ui-react's
+    /// `NavItem`, with its chevron, a closed eye, its name, and how many projects it lists of how many there
+    /// are. The whole row folds the card, and with the keys on it it's ringed, never filled, as
+    /// a drawer's row. Its menu orders and filters the projects.
     fn drawer_bar(&self, alone: bool, theme: &Theme, cx: &Context<Self>) -> impl IntoElement {
         let Drawer { listed, total, .. } = self.built.drawer;
         let title = drawer_title(alone);
@@ -2863,40 +2741,67 @@ impl Navigator {
         // Beside the page only: across the top, More projects' card's bar is under its tab,
         // which has the keys rather than it.
         let solid = self.keys.on_head_of(&List::Rows(None));
-        let selected = solid;
-        let open = toggles.then(|| !self.store.read(cx).prefs.projects_folded);
-        // How many, at zero too, as but-ui-react's DrawerItem.
-        let count = Some(count);
-        // As but-ui-react's Drawer: Sort and show and Add project only under the pointer or with
-        // the keys on it.
-        let sort = (total > 0).then(|| {
-            icon_button("project-view-options", Icon::Mixer)
-                .inverted(solid)
-                .tooltip("Sort and show")
-                .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
-                    this.open_menu(event.position(), |this, cx| this.view_options(cx), cx)
-                }))
-        });
-        drawer_bar(card_bar(
-            "drawer-bar",
-            title,
-            count,
-            open,
-            selected,
-            solid,
-            theme,
-        ))
-        .children(sort.map(|sort| on_hover(sort, selected)))
-        .child(on_hover(
-            icon_button("add-project", Icon::Plus)
-                .inverted(solid)
-                .tooltip("Add project")
-                .dispatch(&AddProject),
-            selected,
-        ))
-        .when(toggles, |el| {
-            el.on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.toggle_drawer(cx)))
-        })
+        let row = sidebar_row("drawer-bar")
+            .icon(Icon::EyeClosed, theme)
+            .label(item_name(title))
+            .meta(meta_count_on(
+                MetaCountType::Repos,
+                Some(count.into()),
+                false,
+                theme,
+            ));
+        let row = match toggles {
+            true => row
+                .row_folds()
+                .fold(match self.store.read(cx).prefs.projects_folded {
+                    true => RowFold::Folded,
+                    false => RowFold::Open,
+                })
+                .selected(solid, solid),
+            false => row,
+        };
+        row.build(theme)
+            .aria_label(title)
+            .mx(dp(ROW_MARGIN))
+            .my(dp(CARD_PADDING))
+            .when(toggles, |el| {
+                el.on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.toggle_drawer(cx)))
+            })
+            .when(total > 0, |el| {
+                el.on_mouse_down(
+                    MouseButton::Right,
+                    cx.listener(|this, event: &MouseDownEvent, _, cx| {
+                        this.open_menu(event.position, |this, cx| this.view_options(cx), cx)
+                    }),
+                )
+            })
+    }
+
+    /// Under the heading of a project whose folder or repository is gone, as 🍑 But UI's card
+    /// says so: what its error says, and Relocate folder, which points it at where it is now.
+    fn gone_row(&self, project: &ProjectId, theme: &Theme, cx: &Context<Self>) -> AnyElement {
+        let error = (self.store.read(cx).project(project))
+            .and_then(|entry| entry.error.clone())
+            .unwrap_or_default();
+        let id = project.clone();
+        let relocate = button(
+            ElementId::Name(format!("relocate-{project}").into()),
+            "Relocate folder",
+        )
+        .medium()
+        .style(ButtonStyle::Outline)
+        .icon(Icon::Folder)
+        .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+            let id = id.clone();
+            (this.app).update_later(window, cx, move |app, _, cx| app.locate_project(id, cx));
+        }))
+        .into_any_element();
+        div()
+            .h(dp(GONE_HEIGHT))
+            .py(dp(GONE_PADDING))
+            .mx(dp(ROW_MARGIN))
+            .child(empty_state_tidy("", error, [relocate], theme))
+            .into_any_element()
     }
 
     /// Unfold project `id` in the drawer, a card of its own there over the rest, or fold it back.
@@ -2922,40 +2827,13 @@ impl Navigator {
         let theme = Theme::get(cx);
         let drawer = &self.built.drawer;
         let rows = &drawer.rows;
-        if matches!(rows.get(ix), None | Some(Row::Gap)) {
-            return div().h(dp(self.drawer_gap(ix))).into_any_element();
-        }
-        // None hidden, as but-ui-react's Drawer draws it empty: a card of its own saying so,
-        // and a button adding another.
-        if matches!(rows.get(ix), Some(Row::Empty)) {
-            let add = button("drawer-empty-add-project", "Add project")
-                .small()
-                .style(ButtonStyle::Outline)
-                .icon(Icon::Plus)
-                .dispatch(&AddProject)
-                .into_any_element();
-            return div()
-                .h(dp(DRAWER_EMPTY))
-                .py(dp(terminals::EMPTY_CARD_PADDING.0))
-                .px(dp(terminals::EMPTY_CARD_PADDING.1))
-                .bg(theme.background)
-                .border_1()
-                .border_color(theme.border_subtle)
-                .rounded(dp(theme.shape.card))
-                .child(empty_state_tidy(
-                    "Every project is showing",
-                    "Hide one and it waits here, or add another",
-                    [add],
-                    theme,
-                ))
-                .into_any_element();
-        }
         let inset = drawer.insets.get(ix).copied().unwrap_or_default();
         // A row a fold is moving shows as far as it's open, as a card's rows do.
         let folding = self.drawer_folding(ix);
         let el = match rows.get(ix) {
             _ if folding.is_some_and(|(height, _)| height <= 0.) => div().into_any_element(),
             Some(Row::Note(text, is_error)) => note_row(text, *is_error, theme),
+            Some(Row::Gone(project)) => self.gone_row(project, theme, cx),
             Some(Row::Item(_)) => {
                 self.drawing_drawer.set(true);
                 let item = self.render_item(rows, ix, inset, theme, cx);
@@ -2971,12 +2849,7 @@ impl Navigator {
                     0.,
                 )
                 .into_any_element(),
-            Some(Row::HeaderRule(_)) => div()
-                .h(dp(HEADER_RULE))
-                .flex()
-                .items_center()
-                .child(div().w_full().h(fixed(1.)).bg(theme.border_subtle))
-                .into_any_element(),
+            Some(Row::HeaderRule(_)) => header_rule(theme),
             Some(Row::More(project, ref_name, hidden)) => {
                 let key = (project.clone(), ref_name.clone());
                 RowStyle::plain(theme, inset)
@@ -3014,44 +2887,16 @@ impl Navigator {
             Some((height, closing)) => clipped(row, dp(height), closing),
             None => row,
         };
-        let (first, last) = card_ends(rows, ix);
-        // The projects folded here each in a group of its own, room over and under its row,
-        // and a line across the card between one and the next, as 🍑 But UI's drawer lists
-        // them; one unfolded, a card of its own, its rows in the card's padding.
-        let row = match drawer.grouped.get(ix).copied().unwrap_or(true) {
-            true => div()
-                .py(dp(DRAWER_GROUP_PADDING))
-                .when(!first, |el| {
-                    el.border_t_1().border_color(theme.border_subtle)
-                })
-                .child(row),
-            false => div()
-                .when(first, |el| el.pt(dp(CARD_PADDING)))
-                .when(last, |el| el.pb(dp(CARD_PADDING)))
-                .child(row),
-        };
-        // Where a gap is parting a card from the projects folded beside it, the corners at the
-        // seam round as far as the gap's open, so the card comes apart from them and back
-        // together as one.
-        let corner = |gap: Option<usize>| {
-            let open = gap.map_or(1., |gap| self.drawer_gap(gap) / CARD_GAP);
-            dp(theme.shape.card * open)
-        };
-        // The card the selection's in, while the navigator has the keys, edged as the cards'.
-        let focused = (self.built.focused_drawer_card.borrow().as_ref())
-            .is_some_and(|card| card.contains(&ix));
+        // Each project a part of the card, ruled off from what's above it across the card, its
+        // rows in the card's padding.
+        let (starts, ends) = part_ends(rows, ix);
         div()
-            .bg(theme.background)
-            .border_color(match focused {
-                true => theme.focus_edge(),
-                false => theme.border_subtle,
+            .when(starts, |el| {
+                el.border_t_1()
+                    .border_color(theme.border_subtle)
+                    .pt(dp(CARD_PADDING))
             })
-            .border_l_1()
-            .border_r_1()
-            .when(first, |el| {
-                el.border_t_1().rounded_t(corner(ix.checked_sub(1)))
-            })
-            .when(last, |el| el.border_b_1().rounded_b(corner(Some(ix + 1))))
+            .when(ends, |el| el.pb(dp(CARD_PADDING)))
             .child(row)
             .into_any_element()
     }
@@ -4397,6 +4242,17 @@ fn past_last_row(mut above: impl Iterator<Item = f32>, slid: f32) -> f32 {
 /// How far the rest of row `ix`'s card goes on from it, down or else up, up to `room`, short of
 /// the card's last or first row: a stretch over those would show its square corners outside
 /// their round ones, which they're drawn with anyway, by the list or by [`Navigator::slid_in`].
+/// The line under a project's heading, as but-ui-react's `RowDivider` under a repository card's
+/// `RepoItem`: in the rows' column, with the pixel React leaves between rows above and below it.
+fn header_rule(theme: &Theme) -> AnyElement {
+    v_flex()
+        .h(dp(HEADER_RULE))
+        .justify_center()
+        .mx(dp(ROW_MARGIN))
+        .child(row_divider(theme))
+        .into_any_element()
+}
+
 fn card_beyond(rows: &[Row], ix: usize, down: bool, room: f32, row: f32) -> f32 {
     let (before, after) = rows.split_at(ix.min(rows.len()));
     let far = |rest: &mut dyn Iterator<Item = &Row>| {
@@ -4670,10 +4526,7 @@ impl Render for Navigator {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // After the rows are up to date, as a reorder of them starts sliding there, and nothing
         // else may draw the next frame, which what waits for the list's height needs too.
-        let drawer_gliding = (self.store.read(cx))
-            .width_glide(Pane::HiddenProjects)
-            .is_some();
-        if self.prepare(RowsIn::List, window, cx) || !self.list_drawn() || drawer_gliding {
+        if self.prepare(RowsIn::List, window, cx) || !self.list_drawn() {
             window.request_animation_frame();
         }
         let theme = Theme::get(cx).clone();
@@ -4726,6 +4579,15 @@ impl Render for Navigator {
             })
             .children(self.update_button(cx).map(|el| above_drag(div().child(el))))
             .child(above_drag(div().child(self.view_button(cx))))
+            // Adding a project acts on the whole list, so it's beside how the list goes, in
+            // reach whatever the cards are doing.
+            .child(above_drag(
+                div().child(
+                    icon_button("add-project", Icon::Plus)
+                        .tooltip_for("Add project", &AddProject)
+                        .dispatch(&AddProject),
+                ),
+            ))
             .child(above_drag(div().child(self.settings_button(&theme, cx))))
             // The line at the sidebar's end, setting it apart from the location bar beside it, 10
             // from the avatar.
@@ -4760,7 +4622,6 @@ impl Render for Navigator {
             .on_drag_move(cx.listener(Self::follow_worktree_drag))
             .on_drag_move(cx.listener(Self::follow_terminal_drag))
             .on_drag_move(cx.listener(Self::follow_dragged))
-            .on_drag_move(cx.listener(Self::drag_drawer_height))
             .map(|el| {
                 on_any_drag_move(el, cx, |this, at, bounds, _, cx| {
                     this.drag_moved(bounds.contains(&at), cx)
@@ -4831,13 +4692,24 @@ impl Render for Navigator {
                         .mb(dp(CARD_GAP))
                         .map(|el| on_any_drag_move(el, cx, Navigator::scroll_near_edge)),
                     )
-                    // Under the cards, at the column's foot, as the terminals' drawer is.
-                    .child(self.pinned_drawer(&theme, cx))
                 }
             })
         // A card out over the detail goes back once the pointer leaves it, so it's resized
         // only beside the detail, once it's all there.
     }
+}
+
+/// Whether the hidden projects' row `ix` starts a project's part of their card, and whether it
+/// ends one: a project's row starts one, which runs to the next, as does the card's own note
+/// when none are listed, always its first row. A note in a project's rows, as its error, stays
+/// in its part.
+fn part_ends(rows: &[Row], ix: usize) -> (bool, bool) {
+    let starts = |ix: usize| match rows.get(ix) {
+        None | Some(Row::Item(Selection::Project(_))) => true,
+        Some(Row::Note(..)) => ix == 0,
+        Some(_) => false,
+    };
+    (starts(ix), starts(ix + 1))
 }
 
 /// The rows of the card in `rows` that `selection` is a row of: those between the gaps round it.

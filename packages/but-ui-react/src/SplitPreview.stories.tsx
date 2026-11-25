@@ -67,7 +67,7 @@ const four: Tiling = {
 			split: "down",
 			parts: [
 				{ id: "claude", name: "claude", icon: "terminal", status: waiting },
-				{ id: "uncommitted", name: "Uncommitted changes", icon: "diff" },
+				{ id: "uncommitted", name: "Uncommitted changes", icon: "file-copy" },
 			],
 		},
 	],

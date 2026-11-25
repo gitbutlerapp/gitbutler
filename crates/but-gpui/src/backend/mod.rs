@@ -235,6 +235,18 @@ pub fn remove_project(id: &str) -> Result<()> {
     but_api::legacy::projects::delete_project(id.parse().context("Invalid project id")?)
 }
 
+/// Tell GitButler the project `id` now lives at `path`, as after its folder moved.
+pub fn relocate_project(id: &str, path: &Path) -> Result<()> {
+    let request = gitbutler_project::UpdateRequest {
+        path: Some(path.to_owned()),
+        git_dir: Some(path.join(".git")),
+        ..gitbutler_project::UpdateRequest::default_with_id(
+            id.parse().context("Invalid project id")?,
+        )
+    };
+    but_api::legacy::projects::update_project(request).map(|_| ())
+}
+
 /// Clone `url` into the folder `into`, which shouldn't exist yet.
 pub fn clone(url: &str, into: &Path) -> Result<()> {
     runtime()

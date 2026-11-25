@@ -2,6 +2,7 @@ import {
 	Children,
 	cloneElement,
 	isValidElement,
+	type CSSProperties,
 	type FC,
 	type ReactElement,
 	type ReactNode,
@@ -17,6 +18,7 @@ import {
 	MoreItem,
 	NoticeItem,
 	RepoItem,
+	RowDivider,
 	StackCaption,
 	TerminalItem,
 	UncommittedItem,
@@ -26,7 +28,7 @@ import {
 import { treeGuides, type Guides } from "../treeGuides.ts";
 
 /*
- * What the Workspace tree's stories share: the row's buttons, and the card, column and repository
+ * What the Workspace tree's stories share: the row's buttons, and the cards, column and repository
  * they stand in. Each page's own trees stay in its stories file.
  */
 /* oxlint-disable react/only-export-components -- The rows' buttons and the machine row are elements the stories drop in as they are, beside the components that hold them. */
@@ -56,8 +58,26 @@ export const push = (n: number) => step("push", "info", "arrow-up", `Push ${comm
 export const update = (n: number, from = "the target") =>
 	step("update", "warning", "arrow-down", `Update with ${commits(n)} from ${from}`, n);
 
+/** A sidebar card's ring and ground. */
+const cardStyle: CSSProperties = {
+	overflow: "hidden",
+	border: "1px solid var(--but-border-subtle)",
+	borderRadius: "var(--but-radius-card)",
+	backgroundColor: "var(--but-background)",
+};
+
+/** Rows one after another, a pixel apart. */
+const column: CSSProperties = { display: "flex", flexDirection: "column", gap: 1 };
+
+/** A card's one padded block, which every row and `RowDivider` in it sits in. */
+const block: CSSProperties = { ...column, padding: 8 };
+
+/** Whether `children` draws anything, so a card folded to its header shows no line under it. */
+const shows = (children: ReactNode) => Children.toArray(children).length > 0;
+
 /**
- * A sidebar card: a machine's header over its repositories, as the Workspace tree stories build them. A
+ * A sidebar card: a machine's header over its repositories, as the Workspace tree stories build them,
+ * a `RowDivider` under the header and between each `Repository`, all in one padded block. A
  * section of the page, named for its machine, so a screen reader can move between cards.
  */
 export const Card: FC<{
@@ -68,18 +88,32 @@ export const Card: FC<{
 }> = ({ children, focused = false, header, label }) => (
 	<section
 		aria-label={label}
-		style={{
-			width: 334,
-			flexShrink: 0,
-			overflow: "hidden",
-			border: "1px solid var(--but-border-subtle)",
-			borderRadius: "var(--but-radius-card)",
-			backgroundColor: "var(--but-background)",
-		}}
+		style={{ ...cardStyle, width: 334, flexShrink: 0 }}
 		data-selection-focused={focused ? "true" : undefined}
 	>
-		<div style={{ padding: 8, borderBottom: "1px solid var(--but-border-subtle)" }}>{header}</div>
-		{children}
+		<div style={block}>
+			{header}
+			{shows(children) && <RowDivider />}
+			{children}
+		</div>
+	</section>
+);
+
+/**
+ * A repository's card: its `RepoItem` on top and a `RowDivider` under it, in the same padded
+ * block as the rows `children` holds, which get their guides as `Repository`'s do.
+ */
+export const RepoCard: FC<{ children: ReactNode; header: ReactNode; label: string }> = ({
+	children,
+	header,
+	label,
+}) => (
+	<section aria-label={label} style={{ ...cardStyle, width: 334, flexShrink: 0 }}>
+		<div style={block}>
+			{header}
+			{shows(children) && <RowDivider />}
+			{guided(children)}
+		</div>
 	</section>
 );
 
@@ -122,31 +156,24 @@ const guided = (children: ReactNode): ReactNode => {
 
 /** Rows one after another, as a sidebar lists them. */
 export const Column: FC<{ children: ReactNode }> = ({ children }) => (
-	<div style={{ display: "flex", flexDirection: "column", gap: 1 }}>{guided(children)}</div>
+	<div style={column}>{guided(children)}</div>
 );
 
-/** One repository's rows in a card, ruled off from the next. */
+/** One repository's rows in a card, a `RowDivider` between it and the next. */
 export const Repository: FC<{ children: ReactNode; last?: boolean }> = ({
 	children,
 	last = false,
 }) => (
-	<div
-		style={{
-			display: "flex",
-			flexDirection: "column",
-			gap: 1,
-			padding: 8,
-			borderBottom: last ? undefined : "1px solid var(--but-border-subtle)",
-		}}
-	>
-		{guided(children)}
-	</div>
+	<>
+		<div style={column}>{guided(children)}</div>
+		{!last && <RowDivider />}
+	</>
 );
 
 type Terminal = { name: string; place: string; meta?: ReactNode };
 
-/** Terminals under their status's label in a card, ruled off from the next status, on the guide
- * that ties them to the label's chevron. */
+/** Terminals under their status's label in a drawer's card, ruled off from the next status across
+ * the card, on the guide that ties them to the label's chevron. */
 export const TerminalGroup: FC<{ label: string; terminals: Array<Terminal>; last?: boolean }> = ({
 	label,
 	terminals,
@@ -156,10 +183,7 @@ export const TerminalGroup: FC<{ label: string; terminals: Array<Terminal>; last
 	return (
 		<div
 			style={{
-				display: "flex",
-				flexDirection: "column",
-				gap: 1,
-				padding: 8,
+				...block,
 				borderBottom: last ? undefined : "1px solid var(--but-border-subtle)",
 			}}
 		>
