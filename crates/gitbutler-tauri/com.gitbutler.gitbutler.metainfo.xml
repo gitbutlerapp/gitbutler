@@ -22,8 +22,8 @@
   <launchable type="desktop-id">com.gitbutler.gitbutler.desktop</launchable>
 
   <branding>
-    <color type="primary" scheme_preference="light">#b0e8e7</color>
-    <color type="primary" scheme_preference="dark">#1d6868</color>
+    <color type="primary" scheme_preference="light">#b6e1e0</color>
+    <color type="primary" scheme_preference="dark">#264b51</color>
   </branding>
 
   <content_rating type="oars-1.1">
