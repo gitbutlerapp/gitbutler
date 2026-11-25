@@ -59,7 +59,7 @@ pub(super) const HEADING_MIDDLE: f32 = CARD_EDGE + HEADING_HEIGHT / 2.;
 const ACTIVE_WITHIN: Duration = Duration::from_secs(7 * 24 * 60 * 60);
 
 /// Rows in display order. Only [`Row::Item`] can be selected.
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 pub(super) enum Row {
     /// The space between two cards.
     Gap,

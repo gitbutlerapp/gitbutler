@@ -65,6 +65,7 @@ fn color_tokens(out: &Path) {
         })
         .collect::<String>()
         + &lengths(&data)
+        + &durations(&data)
         + &accents(&data)
         + &grounds(&data)
         + &shapes(&data);
@@ -230,6 +231,23 @@ fn lengths(tokens: &serde_json::Value) -> String {
                 .as_f64()
                 .unwrap_or_else(|| panic!("{token} is a number of px")) as f32;
             format!("pub const {name}: f32 = {px:?};\n")
+        })
+        .collect()
+}
+
+/// Each of but-ui's durations as a `Duration`, named as the token: `TRANSITION_MEDIUM`.
+fn durations(tokens: &serde_json::Value) -> String {
+    (tokens["durations"].as_object())
+        .expect("tokens.json has durations")
+        .iter()
+        .map(|(token, ms)| {
+            let name = token.to_uppercase().replace('-', "_");
+            let ms = ms
+                .as_u64()
+                .unwrap_or_else(|| panic!("{token} is a whole number of ms"));
+            format!(
+                "pub const {name}: std::time::Duration = std::time::Duration::from_millis({ms});\n"
+            )
         })
         .collect()
 }

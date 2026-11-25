@@ -386,7 +386,7 @@ impl Navigator {
                     && store.prefs.folded_projects.contains(id.as_ref());
                 match folded {
                     true => store.set_project_folded(&id, false, cx),
-                    false => store.set_expanded(&id, true, cx),
+                    false => store.show_project(&id, cx),
                 }
             }),
             Some(Selection::Branch(project, ref_name)) => {

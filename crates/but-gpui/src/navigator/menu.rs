@@ -75,7 +75,7 @@ impl AppView {
                 )
                 .when(!expanded, |el| {
                     el.on_action(cx.listener(move |this, _: &Watch, _, cx| {
-                        (this.store).update(cx, |store, cx| store.set_expanded(&watched, true, cx))
+                        (this.store).update(cx, |store, cx| store.show_project(&watched, cx))
                     }))
                 })
                 // At once: Collapse (h) folds an open card before it stops watching it.
@@ -365,31 +365,33 @@ impl Navigator {
             }
             Selection::Project(project) => {
                 let expanded = store.project(project).is_some_and(|p| p.expanded);
-                let mut items = vec![command(&Watch).keys(&Expand, cx), command(&StopWatching)];
+                let mut items = Vec::new();
                 if store.read_marks_of(target).is_some() {
                     items.push(MenuItem::action("Mark all as read", &MarkAllRead, cx));
                 }
                 if expanded {
                     items.push(command(&MoveSelection));
-                    let mut branch = new_branch_items(cx);
-                    if let Some(first) = branch.first_mut() {
-                        first.separated = true;
-                    }
-                    items.extend(branch);
-                    // Standing in for the main checkout's heading, it offers what that does.
-                    if !store.main_headed(project) {
-                        items
-                            .extend([command(&NewTerminal).separated(), command(&NewTerminalWith)]);
-                        items.extend(store.path(project).and_then(|path| build_item(&path, cx)));
-                    }
-                    items.extend([command(&Fetch).separated(), command(&Pull)]);
                 }
-                // An unwatched project's too, once its page has read it. With Fetch, else apart
-                // from Watch.
-                let update = command(&UpdateFromTarget);
-                items.push(if expanded { update } else { update.separated() });
+                // Beside Move, as where the project goes: among the cards or the hidden ones.
+                // Hidden, it's a project as any other, so the rest of the menu is the same.
+                items.extend([command(&Watch).keys(&Expand, cx), command(&StopWatching)]);
+                let mut branch = new_branch_items(cx);
+                if let Some(first) = branch.first_mut() {
+                    first.separated = true;
+                }
+                items.extend(branch);
+                // Standing in for the main checkout's heading, it offers what that does.
+                if !store.main_headed(project) {
+                    items.extend([command(&NewTerminal).separated(), command(&NewTerminalWith)]);
+                    items.extend(store.path(project).and_then(|path| build_item(&path, cx)));
+                }
                 items.extend([
+                    command(&Fetch).separated(),
+                    command(&Pull),
+                    command(&UpdateFromTarget),
                     command(&UnarchiveWorktree),
+                ]);
+                items.extend([
                     command(&crate::open_in::OpenInEditor).separated(),
                     command(&crate::open_in::OpenInTerminal),
                     command(&Reveal),

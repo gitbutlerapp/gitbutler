@@ -951,6 +951,15 @@ impl Store {
         }
     }
 
+    /// Show hidden project `id` among the cards, folded to its row: what's in it opens when
+    /// asked for, as it does for a card folded by hand.
+    pub fn show_project(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
+        if self.project(id).is_some_and(|entry| !entry.expanded) {
+            self.set_project_folded(id, true, cx);
+            self.set_expanded(id, true, cx);
+        }
+    }
+
     /// Unfold the card of the project the selection was taken into, when it's on a row in it, so
     /// it stays open once the selection leaves, as jumping there should.
     pub fn unfold_to_selection(&mut self, cx: &mut Context<Self>) {

@@ -9,7 +9,7 @@ use gpui::{
 use serde::{Deserialize, Serialize};
 
 /// but-ui's tokens as its build resolves them (`packages/but-ui/tokens/tokens.json`): each
-/// colour `[light, dark]` as `0xRRGGBBAA`, each length in px.
+/// colour `[light, dark]` as `0xRRGGBBAA`, each length in px, each duration a `Duration`.
 pub mod tokens {
     include!(concat!(env!("OUT_DIR"), "/color_tokens.rs"));
 }
