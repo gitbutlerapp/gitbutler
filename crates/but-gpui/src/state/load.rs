@@ -1240,9 +1240,9 @@ fn commit_in_place(
 /// sparse or commits were made on top of its workspace commit, otherwise as reported.
 pub(super) fn load_error(failure: &backend::LoadFailure, err: &anyhow::Error) -> SharedString {
     if failure.folder_gone {
-        "The project's folder isn't there any more.".into()
+        "This project folder isn’t there any more.".into()
     } else if failure.repo_gone {
-        "The project's folder isn't a Git repository any more.".into()
+        "This project folder isn’t a Git repository any more.".into()
     } else if failure.sparse_index {
         "GitButler can't read a sparse index yet. `git sparse-checkout reapply \
          --no-sparse-index` keeps the sparse checkout and makes it readable."

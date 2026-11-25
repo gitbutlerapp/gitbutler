@@ -111,6 +111,7 @@ icons! {
     Question => "question",
     Refresh => "refresh",
     Repo => "repo",
+    RepoCross => "repo-cross",
     Robot => "robot",
     Search => "search",
     Settings => "settings",

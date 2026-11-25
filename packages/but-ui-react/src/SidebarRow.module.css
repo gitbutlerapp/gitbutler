@@ -61,6 +61,7 @@
 	/* A pull request's state colours its glyph and a merged title. The opposite scheme makes those
 	   light-dark() colours resolve to their inverted values, as Badge and MetaCount do. */
 	.branchGlyph,
+	.missingGlyph,
 	.conflicted,
 	.unread,
 	.local,
@@ -508,6 +509,13 @@ button.toggle {
 
 .merged[data-selected] .title {
 	opacity: 1;
+}
+
+/* A repository whose folder is gone: its glyph in the danger mark, as the empty state under it
+   says why. */
+.missingGlyph {
+	display: flex;
+	color: var(--but-danger-mark);
 }
 
 .picture {

@@ -758,6 +758,18 @@ pub fn repo_item(
         .label(item_name(repo))
 }
 
+/// A repository whose folder isn't there any more, as but-ui-react's RepoItem `missing`: the
+/// crossed-out glyph in the danger mark, in place of any avatar.
+pub fn missing_repo_item(
+    id: impl Into<ElementId>,
+    repo: impl Into<SharedString>,
+    _theme: &Theme,
+) -> SidebarRow {
+    sidebar_row(id)
+        .inked_icon(Icon::RepoCross, 14., Ink::Danger)
+        .label(item_name(repo))
+}
+
 /// A worktree: the main one's folder, a linked one's doubled folder, or a fork's, which says
 /// "Fork" before its name.
 pub fn worktree_item(
