@@ -20,6 +20,7 @@ fn parses_sources_followed_by_long_target() {
         target,
         sources,
         allow_merged: _,
+        json: _,
     } = parse_amend(&["amend", "a1", "b2", "c3", "--target", "d4"]);
 
     assert_eq!(target.expect("a target").0, "d4");
@@ -38,6 +39,7 @@ fn parses_sources_followed_by_short_target() {
         target,
         sources,
         allow_merged: _,
+        json: _,
     } = parse_amend(&["amend", "a1", "b2", "-t", "d4"]);
 
     assert_eq!(target.expect("a target").0, "d4");
@@ -56,6 +58,7 @@ fn allows_omitted_sources() {
         target,
         sources,
         allow_merged: _,
+        json: _,
     } = parse_amend(&["amend", "--target", "d4"]);
 
     assert_eq!(target.expect("a target").0, "d4");

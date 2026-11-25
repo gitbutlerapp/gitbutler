@@ -220,7 +220,7 @@ fn pick_commit_to_existing_branch_outputs_json() {
 
     env.but("unapply B").assert().success();
 
-    env.but("--json pick d3e2ba3")
+    env.but("pick --json d3e2ba3")
         .allow_json()
         .assert()
         .success()
@@ -258,7 +258,7 @@ fn pick_duplicate_sources_outputs_each_commit_once() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
-    env.but("--json pick 9477ae7 9477ae7 d3e2ba3 --branch new-branch")
+    env.but("pick --json 9477ae7 9477ae7 d3e2ba3 --branch new-branch")
         .allow_json()
         .assert()
         .success()
@@ -289,7 +289,7 @@ fn pick_commit_to_new_branch_outputs_json() {
 
     env.but("unapply A").assert().success();
 
-    env.but("--json pick 9477ae7 --branch new-branch")
+    env.but("pick --json 9477ae7 --branch new-branch")
         .allow_json()
         .assert()
         .success()

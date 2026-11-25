@@ -58,7 +58,11 @@ pub fn handle(
             out.print_cli_output(PolicyOutcome(default_policy))?;
             Ok(Some(CommandOutcome::AgentSetupPrintOnly))
         }
-        Some(agent::Subcommands::Setup { print: false, stub }) => {
+        Some(agent::Subcommands::Setup {
+            print: false,
+            stub,
+            json: _,
+        }) => {
             let layout = if stub {
                 SkillLayout::Stub
             } else {
@@ -66,7 +70,7 @@ pub fn handle(
             };
             Ok(Some(setup(current_dir, out, layout)?))
         }
-        Some(agent::Subcommands::Uninstall) => {
+        Some(agent::Subcommands::Uninstall { json: _ }) => {
             let outcome = uninstall::uninstall(current_dir, out)?;
             out.print_cli_output(outcome)?;
             Ok(None)

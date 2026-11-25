@@ -278,11 +278,11 @@
 		"script": [
 			{
 				"type": "input",
-				"lines": ["# Everything takes --json"]
+				"lines": ["# Most commands take --json"]
 			},
 			{
 				"type": "input",
-				"lines": ["$ but --json branch new feature/ai-integration | jq ."]
+				"lines": ["$ but branch new feature/ai-integration --json | jq ."]
 			},
 			{
 				"type": "output",
@@ -313,7 +313,7 @@
 			},
 			{
 				"type": "input",
-				"lines": ["$ but --json status | jq '.stacks[].branches[].commits[]'"]
+				"lines": ["$ but status --json | jq '.stacks[].branches[].commits[]'"]
 			},
 			{
 				"type": "output",

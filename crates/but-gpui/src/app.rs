@@ -4690,13 +4690,14 @@ impl AppView {
         let theme = Theme::get(cx);
         let terminals = shown.then(|| {
             // As tall as its rows until its line is dragged, then as dragged but never taller
-            // than its rows, but just its bar while it's folded. Put back, it slides from where
-            // it was dragged to its rows, under the limit it had dragged.
+            // than its rows, but just its bar while it's folded, sliding between the two as it
+            // folds. Put back, it slides from where it was dragged to its rows, under the limit
+            // it had dragged.
             let overview = self.terminals.read(cx);
             let shut = overview.is_shut();
-            let dragged = (store.dragged_width(Pane::Terminals)).filter(|_| !shut);
+            let dragged = store.dragged_width(Pane::Terminals);
             let glide = store.width_glide(Pane::Terminals);
-            let (height, most) = match (dragged, glide) {
+            let (open, most) = match (dragged, glide) {
                 (Some(height), _) => (height.min(overview.height(cx)), TERMINALS_MOST_DRAGGED),
                 (None, Some(glide)) => (
                     glide.at(overview.height(cx), clock::now()),
@@ -4704,6 +4705,8 @@ impl AppView {
                 ),
                 (None, None) => (overview.height(cx), TERMINALS_MOST),
             };
+            let folded = crate::navigator::TerminalOverview::folded_height();
+            let height = folded + (open - folded) * overview.openness(cx);
             (height, most, shut)
         });
         let terminals = terminals.map(|(height, most, shut)| {
@@ -5572,12 +5575,14 @@ impl Render for AppView {
         // display's beat would be for the width before.
         let resizing = self.narrowing.is_some_and(|narrowing| !narrowing.settled);
         let widths_gliding = self.store.read(cx).widths_gliding();
+        let terminals_sliding = self.terminals.read(cx).sliding(now);
         let sliding = navigator_sliding
             || files_sliding
             || peek_sliding
             || detail_sliding
             || tabs_sliding
-            || widths_gliding;
+            || widths_gliding
+            || terminals_sliding;
         if sliding && !resizing {
             window.request_animation_frame();
         }

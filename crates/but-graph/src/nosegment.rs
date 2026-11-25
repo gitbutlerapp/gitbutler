@@ -1,5 +1,4 @@
-//! Segment graphs built from a topological walk of commits and references, rather than from
-//! the traversal of [`Graph::from_head()`](crate::Graph::from_head()).
+//! Segment graphs built from a topological walk of commits and references.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
@@ -420,7 +419,7 @@ pub(crate) fn graph(
     // Data regarding known OIDs that have not yet been assigned a `NodeIndex`.
     // Each OID is known because we have parsed at least one of its children.
     let mut unassigned_oid_map =
-        HashMap::<gix::ObjectId, HashMap<StackLineage, Vec<ToRepoint>>>::new();
+        BTreeMap::<gix::ObjectId, HashMap<StackLineage, Vec<ToRepoint>>>::new();
 
     let mut nodes = Vec::<Node>::new();
     let mut unclaimed_branches = BTreeSet::new();
@@ -521,7 +520,6 @@ pub(crate) fn graph(
                 })
             };
             let own_lane_reaches_it = workspace_commit.is_some()
-                && !is_in_target(commit_id, &mut revision_graph)
                 && stacks
                     .iter()
                     .any(|stack| stack.in_workspace && stack.branches.contains(&full_name))
@@ -529,7 +527,8 @@ pub(crate) fn graph(
                     lineages
                         .keys()
                         .any(|stack_lineage| stack_lineage.branches_in_lineage.contains(&full_name))
-                });
+                })
+                && !is_in_target(commit_id, &mut revision_graph);
             for (stack_lineage, to_repoints) in
                 unassigned_oid_map.remove(&commit_id).unwrap_or_default()
             {
@@ -571,10 +570,13 @@ pub(crate) fn graph(
                     new_map.insert(stack_lineage, to_repoints);
                 }
             }
-            // A remote-tracking branch leads through the local branch of the same name.
+            // A remote-tracking branch leads through the local branch of the same name. Without
+            // such a branch, no reference has that name, so it's left out of the lineage, which
+            // would otherwise grow with every remote-tracking branch above a commit.
             if category == Some(gix::refs::Category::RemoteBranch) {
                 if let Some((_remote, short_name)) =
                     but_core::extract_remote_name_and_short_name(full_name.as_ref(), remote_names)
+                    && !is_remote_only_branch
                 {
                     new_stack_lineage
                         .branches_in_lineage
@@ -1680,7 +1682,6 @@ impl WorkspaceGraph {
             inner: inner_graph,
             entrypoint,
             entrypoint_ref: None,
-            traversal_tips: Vec::new(),
             ad_hoc_branch_stack_orders,
             worktree_branch_stack_orders,
             hard_limit_hit: false,
@@ -1769,8 +1770,8 @@ impl WorkspaceGraph {
     }
 }
 
-/// Produce the [segment graph](segment_graph()) of `workspace`: walked from `heads` and everything
-/// the workspace's graph was traversed from, and ending below its target commit.
+/// Produce the [segment graph](segment_graph()) of `workspace`: walked from `heads` and ending
+/// below its target commit.
 ///
 /// It uses the workspace's project metadata and its own workspace metadata, which may not be
 /// persisted in `meta` yet.
@@ -1781,7 +1782,7 @@ pub fn workspace_segment_graph(
     workspace: &crate::Workspace,
     repo: &gix::Repository,
     meta: &impl RefMetadata,
-    mut heads: Vec<gix::ObjectId>,
+    heads: Vec<gix::ObjectId>,
 ) -> Result<crate::Graph> {
     let entrypoint = workspace.graph.entrypoint()?;
     let overlay = Overlay::default().with_workspace_metadata_override(
@@ -1790,9 +1791,6 @@ pub fn workspace_segment_graph(
             .map(ToOwned::to_owned)
             .zip(workspace.metadata.clone()),
     );
-    // Everything the workspace's graph was traversed from is part of it,
-    // even what lies above the entrypoint.
-    heads.extend(workspace.graph.traversal_tips.iter().map(|tip| tip.id));
     segment_graph(
         repo,
         meta,

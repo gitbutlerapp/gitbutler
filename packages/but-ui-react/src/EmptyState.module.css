@@ -1,6 +1,6 @@
 /* Spacing mirrors the "Empty state" component in 🍑 But UI: 24 under the
    illustration, 8 between the two lines, 18 above the actions. Its `Tidy`
-   variant, for a popup's list, closes those to 20, 6 and 12 to sit with small
+   variant, for a popup's list, closes those to 20, 6 and 12 to sit with medium
    buttons.
 
    Centred optically, which is not the same as centred. The block's weight sits
@@ -91,7 +91,7 @@
 
 /* Both still defaults rather than rules: a host that sets the properties wins
    here as it does on the default block. Centred plainly, since the line and a
-   small button weigh little.
+   medium button weigh little.
 
    As the "Empty state" component's `Tidy` variant draws it: as tall as its
    content, capped at 320 and centred like the default. It stands in

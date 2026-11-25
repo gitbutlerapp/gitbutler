@@ -217,6 +217,7 @@ fn resolve_args(
         use_source_message,
         // Consumed by the caller when building the `MergedUpstream` guard.
         allow_merged: _,
+        json: _,
     } = args;
 
     let reword = resolve_reword(

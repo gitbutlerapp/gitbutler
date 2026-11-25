@@ -5,7 +5,7 @@ use snapbox::str;
 fn github_stacks_configuration_is_repository_local() {
     let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
 
-    env.but("--json config forge github-stacks")
+    env.but("config --json forge github-stacks")
         .assert()
         .success()
         .stdout_eq(str![[r#"
@@ -26,7 +26,7 @@ The repository must be enrolled in GitHub's stacked pull requests preview.
         env.invoke_git("config --local --get gitbutler.githubStackingMode"),
         "native"
     );
-    env.but("--json config forge github-stacks")
+    env.but("config --json forge github-stacks")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -35,7 +35,7 @@ The repository must be enrolled in GitHub's stacked pull requests preview.
 }
 
 "#]]);
-    env.but("--json config forge github-stacks disable")
+    env.but("config --json forge github-stacks disable")
         .allow_json()
         .assert()
         .success()
@@ -74,6 +74,47 @@ fn github_stacks_configuration_requires_a_repository() {
 Error: No git repository found at .git
 
 Hint: Run `but init` to initialize a Git repository.
+
+"#]]);
+}
+
+#[test]
+fn target_change_prints_json() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.invoke_git("branch dev main");
+
+    env.but("config target dev --json")
+        .allow_json()
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+{
+  "branch": "dev",
+  "remote_url": "./fake/local/path/which-is-fine-as-we-dont-fetch-or-push",
+  "sha": "0dc37334a458df421bf67ea806103bf5004845dd"
+}
+
+"#]]);
+}
+
+#[test]
+fn target_that_cannot_be_read_is_an_error() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.invoke_git("branch dev main");
+    env.but("config target dev").assert().success();
+    env.invoke_git("branch -D dev");
+
+    env.but("config target --json")
+        .allow_json()
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: Failed to read the target branch 'dev'
+
+Caused by:
+    0: DefaultTargetNotFound
+    1: The ref partially named "refs/heads/dev" could not be found[..]
 
 "#]]);
 }
@@ -324,7 +365,7 @@ Feature Flags:
 fn feature_config_json_lists_no_flags() {
     let env = Sandbox::empty();
 
-    env.but("--json config feature")
+    env.but("config --json feature")
         .allow_json()
         .assert()
         .success()
@@ -501,7 +542,7 @@ fn ai_show_outputs_current_global_configuration_json() {
         .success();
 
     let output = env
-        .but("--json config ai show")
+        .but("config --json ai show")
         .env("GIT_CONFIG_GLOBAL", &global_config)
         .allow_json()
         .output()

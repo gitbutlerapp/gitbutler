@@ -44,13 +44,18 @@ fn experimental_metric_names_require_nightly() {
 fn metrics_use_invoked_command_names() {
     assert_command(
         Subcommands::Update(update::Platform {
-            cmd: update::Subcommands::Check,
+            cmd: update::Subcommands::Check {
+                json: Default::default(),
+            },
         }),
         "updateCheck",
     );
     assert_command(
         Subcommands::Update(update::Platform {
-            cmd: update::Subcommands::Suppress { days: 7 },
+            cmd: update::Subcommands::Suppress {
+                days: 7,
+                json: Default::default(),
+            },
         }),
         "updateSuppress",
     );
@@ -59,6 +64,7 @@ fn metrics_use_invoked_command_names() {
             cmd: Some(agent::Subcommands::Setup {
                 print: false,
                 stub: false,
+                json: Default::default(),
             }),
         }),
         "agentSetup",
@@ -69,7 +75,10 @@ fn metrics_use_invoked_command_names() {
         "agentSetup",
     );
     assert_command(
-        Subcommands::Branch(branch::Platform { cmd: None }),
+        Subcommands::Branch(branch::Platform {
+            cmd: None,
+            json: Default::default(),
+        }),
         "branchList",
     );
     assert_command(
@@ -83,6 +92,7 @@ fn metrics_use_invoked_command_names() {
             file: None,
             sources: Vec::from([CliIdArg("ci".to_owned())]),
             allow_merged: Default::default(),
+            json: Default::default(),
         }),
         "move",
     );
@@ -102,6 +112,7 @@ fn metrics_use_invoked_command_names() {
             target: Some(CliIdArg("c1".into())),
             sources: vec![CliIdArg("a1".into())],
             allow_merged: Default::default(),
+            json: Default::default(),
         }),
         "amend",
     );
@@ -113,27 +124,39 @@ fn formerly_unknown_commands_use_explicit_names() {
     assert_command(
         Subcommands::_Expand {
             cli_id: CliIdArg("c1".into()),
+            json: Default::default(),
         },
         "expand",
     );
     assert_command(
-        Subcommands::Config(config::Platform { cmd: None }),
+        Subcommands::Config(config::Platform {
+            cmd: None,
+            json: Default::default(),
+        }),
         "config",
     );
     assert_command(
         Subcommands::Config(config::Platform {
             cmd: Some(config::Subcommands::User { cmd: None }),
+            json: Default::default(),
         }),
         "config",
     );
     assert_command(
         Subcommands::Config(config::Platform {
             cmd: Some(config::Subcommands::Metrics { status: None }),
+            json: Default::default(),
         }),
         "config",
     );
 
-    assert_command(Subcommands::Teardown { checkout_to: None }, "teardown");
+    assert_command(
+        Subcommands::Teardown {
+            checkout_to: None,
+            json: Default::default(),
+        },
+        "teardown",
+    );
 }
 
 #[test]
@@ -145,6 +168,7 @@ fn formerly_unclassified_commands_have_explicit_names() {
                     wait: false,
                     timeout: 60,
                 },
+                json: Default::default(),
             }),
             "comment",
         ),
@@ -167,6 +191,7 @@ fn formerly_unclassified_commands_have_explicit_names() {
         (
             Subcommands::AgentLog {
                 cmd: but_agentlog::Command::Sync,
+                json: Default::default(),
             },
             "agentLog",
         ),
@@ -189,6 +214,7 @@ fn extra_props_keep_useful_source_and_target_kinds() {
         file: None,
         sources: Vec::from([CliIdArg("ci".to_owned())]),
         allow_merged: Default::default(),
+        json: Default::default(),
     });
     let props = moved.to_metrics_extra_props();
     assert_eq!(
@@ -262,6 +288,7 @@ fn commit_extra_props_describe_targeting_and_selection_without_ids() {
             no_hooks: false,
             allow_merged: Default::default(),
             switch: false,
+            json: Default::default(),
         });
         let props = command.to_metrics_extra_props();
 

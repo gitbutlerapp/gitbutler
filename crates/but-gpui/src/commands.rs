@@ -572,13 +572,11 @@ fn squash_picked_phrase(app: &AppView, cx: &App) -> Option<String> {
     Some(format!("Squash {n} commits into {title}"))
 }
 
-/// A branch alone in its stack is unapplied by itself.
+/// A branch that leaves without the others in its stack is unapplied by itself. Outside the
+/// workspace, that's a stack's top when the target's branch is below it.
 fn unapply_phrase(app: &AppView, cx: &App) -> Option<String> {
-    if !on_branch(app, cx) {
-        return None;
-    }
     let (workspace, ref_name) = selected_branch(app, cx)?;
-    (!BranchEdits::of(workspace, &ref_name).stacked).then(|| "Unapply branch".to_owned())
+    (BranchEdits::of(workspace, &ref_name).unapply.len() == 1).then(|| "Unapply branch".to_owned())
 }
 
 /// Merging a branch with others below it takes the whole stack.

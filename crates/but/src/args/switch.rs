@@ -43,4 +43,8 @@ pub struct Platform {
     /// Switch back to the GitButler workspace.
     #[clap(long, short = 'w', conflicts_with = "target")]
     pub workspace: bool,
+
+    #[clap(flatten)]
+    #[allow(missing_docs)]
+    pub json: crate::args::atoms::JsonArg,
 }

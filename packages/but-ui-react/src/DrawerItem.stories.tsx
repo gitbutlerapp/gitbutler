@@ -16,7 +16,7 @@ const meta = stories({
 
 /** A drawer, closed: its name, how many it holds and its chevron. */
 export const Default = meta.story({
-	args: { name: "Hidden projects", count: 24, folded: true },
+	args: { name: "Terminals", count: 5, folded: true },
 });
 
 /** A ghost icon button at a drawer's end, with its tooltip. */
@@ -28,13 +28,12 @@ const ghost = (icon: "plus" | "mixer", label: string) => (
 	</Tooltip>
 );
 
-/** Its buttons: Add project always shows, Sort and show only under the pointer. */
+/** Its buttons, Group terminals and New terminal…, always shown at its end. */
 export const WithButtons = meta.story({
 	args: {
-		name: "Hidden projects",
-		count: 24,
+		name: "Terminals",
+		count: 5,
 		folded: true,
-		actions: ghost("plus", "Add project"),
-		hoverActions: ghost("mixer", "Sort and show"),
+		actions: [ghost("mixer", "Group terminals"), ghost("plus", "New terminal…")],
 	},
 });

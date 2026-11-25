@@ -708,7 +708,6 @@ fn uncommitted_worktree_paths(ctx: &mut Context) -> Result<Vec<String>> {
 }
 
 fn cancel_resolution(ctx: &mut Context, out: &mut OutputChannel, force: bool) -> CliResult<()> {
-    let t = theme::get();
     let mode = operating_mode(ctx)?.operating_mode;
     if !matches!(mode, OperatingMode::Edit(_)) {
         return out.print_cli_output(WorkflowHelpOutcome);
@@ -726,7 +725,15 @@ fn cancel_resolution(ctx: &mut Context, out: &mut OutputChannel, force: bool) ->
     abort_edit_and_return_to_workspace(ctx, force)
         .context("Failed to cancel resolution and return to workspace")?;
 
-    if let Some(out) = out.for_human() {
+    out.print_cli_output(ResolutionCancelledOutcome)
+}
+
+/// `but resolve cancel` left resolution mode and discarded its changes.
+#[must_use]
+struct ResolutionCancelledOutcome;
+
+impl CliOutputHuman for ResolutionCancelledOutcome {
+    fn on_human(self, out: &mut dyn WriteWithUtils, _agent: bool, t: &'static Theme) -> Result<()> {
         writeln!(
             out,
             "{}",
@@ -736,9 +743,14 @@ fn cancel_resolution(ctx: &mut Context, out: &mut OutputChannel, force: bool) ->
             out,
             "All changes made during resolution have been discarded."
         )?;
+        Ok(())
     }
+}
 
-    Ok(())
+impl CliOutput for ResolutionCancelledOutcome {
+    fn on_json(self) -> impl serde::Serialize {
+        serde_json::json!({ "cancelled": true })
+    }
 }
 
 /// Where a conflicted-commit target resolved to, with enough context to tell

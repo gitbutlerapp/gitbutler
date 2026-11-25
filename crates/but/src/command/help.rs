@@ -294,10 +294,6 @@ fn print_grouped_with_truncation(
             "  -C, --current-dir <PATH>",
             "Run as if but was started in PATH instead of the current working directory [default: .]",
         ),
-        (
-            "      --json",
-            "              Output detailed information as JSON for tool consumption",
-        ),
         ("  -h, --help", "              Print help"),
     ];
 
@@ -401,7 +397,6 @@ To use the GitButler CLI with coding agents (Claude Code hooks, Cursor hooks, MC
 
 Options:
   -C, --current-dir <PATH>  Run as if but was started in PATH instead of the cu…
-      --json                Output detailed information as JSON for tool consum…
   -h, --help                Print help
 
 Environment variables:
@@ -427,7 +422,7 @@ Environment variables:
         );
         assert!(
             output.contains(
-                "BUT_OUTPUT_FORMAT  Sets the output format when --json is not passed. Options: human, json."
+                "BUT_OUTPUT_FORMAT  Sets the output format when --json is not passed. Options: human, json. Only commands that take --json print JSON."
             ),
             "agent help should document the output-format environment variable"
         );

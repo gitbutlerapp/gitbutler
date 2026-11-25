@@ -167,6 +167,24 @@ impl AppView {
         );
     }
 
+    /// Point a project whose folder moved at where it is now, picked with the system's picker.
+    pub fn locate_project(&mut self, project: ProjectId, cx: &mut Context<Self>) {
+        let store = self.store.clone();
+        let folder = pick_folder("Relocate project", "Relocate", store.clone(), cx);
+        cx.spawn(async move |_, cx| {
+            let Some(path) = folder.await else {
+                return;
+            };
+            let id = project.to_string();
+            let moved = backend::run(move || backend::relocate_project(&id, &path)).await;
+            store.update(cx, |store, cx| match moved {
+                Ok(()) => store.load_projects(cx),
+                Err(err) => store.failed("Couldn't relocate the project", &err, cx),
+            });
+        })
+        .detach();
+    }
+
     /// Offer the project's local branches to pick its target from; each one's upstream is what
     /// pulls bring in. Before its first commit, which makes its first branch, start that.
     pub fn pick_target(&mut self, project: ProjectId, window: &mut Window, cx: &mut Context<Self>) {

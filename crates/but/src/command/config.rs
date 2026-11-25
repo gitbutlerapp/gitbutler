@@ -947,66 +947,82 @@ fn extract_account_details(
     known_bb_accounts: Vec<but_bitbucket::BitbucketAccountIdentifier>,
     known_code_accounts: Vec<but_gitbutler_code::GitbutlerCodeAccountIdentifier>,
 ) -> Vec<ForgeAccount> {
-    let mut accounts: Vec<ForgeAccount> = Vec::new();
+    known_gh_accounts
+        .iter()
+        .map(ForgeAccount::github)
+        .chain(known_gl_accounts.iter().map(ForgeAccount::gitlab))
+        .chain(known_bb_accounts.iter().map(ForgeAccount::bitbucket))
+        .chain(known_code_accounts.iter().map(ForgeAccount::gitbutler_code))
+        .collect()
+}
 
-    for account in &known_gh_accounts {
+impl ForgeAccount {
+    fn github(account: &but_github::GithubAccountIdentifier) -> Self {
         let (username, account_type) = match account {
             but_github::GithubAccountIdentifier::OAuthUsername { username } => {
-                (username.clone(), "OAuth".to_string())
+                (username.clone(), "OAuth")
             }
             but_github::GithubAccountIdentifier::PatUsername { username } => {
-                (username.clone(), "Personal Access Token".to_string())
+                (username.clone(), "Personal Access Token")
             }
-            but_github::GithubAccountIdentifier::Enterprise { username, host } => (
-                format!("{username}@{host}"),
-                "GitHub Enterprise".to_string(),
-            ),
+            but_github::GithubAccountIdentifier::Enterprise { username, host } => {
+                (format!("{username}@{host}"), "GitHub Enterprise")
+            }
         };
-        accounts.push(ForgeAccount {
+        ForgeAccount {
             provider: "GitHub".to_string(),
             username,
-            account_type,
-        });
+            account_type: account_type.to_string(),
+        }
     }
 
-    for account in &known_gl_accounts {
+    fn gitlab(account: &but_gitlab::GitlabAccountIdentifier) -> Self {
         let (username, account_type) = match account {
             but_gitlab::GitlabAccountIdentifier::PatUsername { username } => {
-                (username.clone(), "Personal Access Token".to_string())
+                (username.clone(), "Personal Access Token")
             }
-            but_gitlab::GitlabAccountIdentifier::SelfHosted { username, host } => (
-                format!("{username}@{host}"),
-                "GitLab Self-Hosted".to_string(),
-            ),
+            but_gitlab::GitlabAccountIdentifier::SelfHosted { username, host } => {
+                (format!("{username}@{host}"), "GitLab Self-Hosted")
+            }
         };
-        accounts.push(ForgeAccount {
+        ForgeAccount {
             provider: "GitLab".to_string(),
             username,
-            account_type,
-        });
+            account_type: account_type.to_string(),
+        }
     }
 
-    for account in &known_bb_accounts {
+    fn bitbucket(account: &but_bitbucket::BitbucketAccountIdentifier) -> Self {
         let (username, account_type) = match account {
             but_bitbucket::BitbucketAccountIdentifier::ApiToken { email } => {
-                (email.clone(), "API Token".to_string())
+                (email.clone(), "API Token")
             }
         };
-        accounts.push(ForgeAccount {
+        ForgeAccount {
             provider: "Bitbucket".to_string(),
             username,
-            account_type,
-        });
+            account_type: account_type.to_string(),
+        }
     }
 
-    for account in &known_code_accounts {
-        accounts.push(ForgeAccount {
+    fn gitbutler_code(account: &but_gitbutler_code::GitbutlerCodeAccountIdentifier) -> Self {
+        ForgeAccount {
             provider: "GitButler Code".to_string(),
             username: account.username().to_owned(),
             account_type: "Device login".to_string(),
-        });
+        }
     }
-    accounts
+}
+
+impl From<&AccountToForget> for ForgeAccount {
+    fn from(account: &AccountToForget) -> Self {
+        match account {
+            AccountToForget::GitHub(account) => ForgeAccount::github(account),
+            AccountToForget::GitLab(account) => ForgeAccount::gitlab(account),
+            AccountToForget::Bitbucket(account) => ForgeAccount::bitbucket(account),
+            AccountToForget::GitbutlerCode(account) => ForgeAccount::gitbutler_code(account),
+        }
+    }
 }
 
 async fn forge_auth(out: &mut OutputChannel) -> CliResult<()> {
@@ -1446,7 +1462,7 @@ fn forget_account(account: &AccountToForget) -> Result<()> {
     }
 }
 
-async fn forge_forget(username: Option<String>, out: &mut OutputChannel) -> Result<()> {
+async fn forge_forget(username: Option<String>, out: &mut OutputChannel) -> CliResult<()> {
     let known_gh_accounts = but_api::github::list_known_github_accounts()?;
     let known_gl_accounts = but_api::gitlab::list_known_gitlab_accounts()?;
     let known_bb_accounts = but_api::bitbucket::list_known_bitbucket_accounts()?;
@@ -1478,23 +1494,17 @@ async fn forge_forget(username: Option<String>, out: &mut OutputChannel) -> Resu
         }
     }
 
-    if accounts_to_delete.is_empty() {
-        if let Some((username, out)) = username.zip(out.for_human()) {
-            writeln!(out, "No known forge account matching '{username}'")?;
-        }
-        return Ok(());
-    }
-
-    match accounts_to_delete.as_slice() {
+    let outcome = match accounts_to_delete.as_slice() {
+        [] => ForgetOutcome::NoMatch { username },
         [single_account] => {
             forget_account(single_account)?;
-            if let Some(out) = out.for_human() {
-                writeln!(out, "Forgot forge account '{single_account}'")?;
-            }
+            ForgetOutcome::Forgot(accounts_to_delete)
         }
         _ => {
             let Some(mut input) = out.prepare_for_terminal_input() else {
-                anyhow::bail!("Username ambiguous, got {accounts_to_delete:?}");
+                return Err(
+                    anyhow::anyhow!("Username ambiguous, got {accounts_to_delete:?}").into(),
+                );
             };
             let account_options = accounts_to_delete
                 .into_iter()
@@ -1511,18 +1521,60 @@ async fn forge_forget(username: Option<String>, out: &mut OutputChannel) -> Resu
                 .ok_or_else(|| anyhow::anyhow!("Could not determine which accounts to delete"))?;
 
             if selected_accounts.is_empty() {
-                writeln!(input, "No accounts were selected to forget.")?;
-                return Ok(());
-            }
-
-            for account in selected_accounts {
-                forget_account(account)?;
-                writeln!(input, "Forgot forge account '{account}'")?;
+                ForgetOutcome::NoneSelected
+            } else {
+                for account in &selected_accounts {
+                    forget_account(account)?;
+                }
+                ForgetOutcome::Forgot(selected_accounts.into_iter().cloned().collect())
             }
         }
-    }
+    };
+    out.print_cli_output(outcome)
+}
 
-    Ok(())
+#[must_use]
+enum ForgetOutcome {
+    /// No known account matched `username`, or there are no accounts if it's `None`.
+    NoMatch {
+        username: Option<String>,
+    },
+    /// Several accounts matched, and the user picked none of them.
+    NoneSelected,
+    Forgot(Vec<AccountToForget>),
+}
+
+impl CliOutputHuman for ForgetOutcome {
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        _t: &'static Theme,
+    ) -> Result<()> {
+        match self {
+            ForgetOutcome::NoMatch { username: None } => {}
+            ForgetOutcome::NoMatch {
+                username: Some(username),
+            } => writeln!(out, "No known forge account matching '{username}'")?,
+            ForgetOutcome::NoneSelected => writeln!(out, "No accounts were selected to forget.")?,
+            ForgetOutcome::Forgot(accounts) => {
+                for account in accounts {
+                    writeln!(out, "Forgot forge account '{account}'")?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+impl CliOutput for ForgetOutcome {
+    fn on_json(self) -> impl Serialize {
+        let forgotten: Vec<ForgeAccount> = match self {
+            ForgetOutcome::NoMatch { .. } | ForgetOutcome::NoneSelected => Vec::new(),
+            ForgetOutcome::Forgot(accounts) => accounts.iter().map(ForgeAccount::from).collect(),
+        };
+        serde_json::json!({ "forgotten": forgotten })
+    }
 }
 
 fn ai_config_with_repo(
@@ -2005,40 +2057,43 @@ async fn target_config(
     branch: Option<String>,
     push_remote: Option<String>,
 ) -> CliResult<()> {
-    let t = theme::get();
-    match branch {
-        None => {
-            let target = {
-                let mut guard = ctx.exclusive_worktree_access();
-                but_api::legacy::virtual_branches::get_base_branch_data(
-                    ctx,
-                    guard.write_permission(),
-                )?
-            };
-
-            if let Some(target_branch) = target {
-                out.print_cli_output(TargetOutcome {
-                    branch_name: target_branch.branch_name,
-                    remote_url: target_branch.remote_url,
-                    base_sha: target_branch.base_sha.to_string(),
-                })?;
-            }
-        }
+    let outcome = match branch {
+        None => match read_target(ctx)? {
+            Some(target) => TargetOutcome::Shown(target),
+            None => TargetOutcome::Unset,
+        },
         Some(new_branch) => {
-            if let Some(out) = out.for_human() {
-                writeln!(
-                    out,
-                    "{} Changing target branch to '{}'",
-                    t.sym().success,
-                    t.config_value.paint(&new_branch)
-                )?;
-            }
-
             set_target(ctx, &new_branch, push_remote)?;
+            let target = read_target(ctx)
+                .and_then(|target| target.context("The project has no target branch"))
+                .with_context(|| {
+                    format!("Set the target branch to '{new_branch}', but couldn't read it back")
+                })?;
+            TargetOutcome::Changed(target)
         }
-    }
+    };
+    out.print_cli_output(outcome)
+}
 
-    Ok(())
+/// The project's target branch, or `None` if it has none.
+fn read_target(ctx: &Context) -> Result<Option<Target>> {
+    let Some(target_ref) = ctx.project_meta()?.target_ref else {
+        return Ok(None);
+    };
+    let guard = ctx.shared_worktree_access();
+    let base_branch =
+        gitbutler_branch_actions::base::get_base_branch_data(ctx, guard.read_permission())
+            .with_context(|| {
+                format!(
+                    "Failed to read the target branch '{}'",
+                    target_ref.shorten()
+                )
+            })?;
+    Ok(Some(Target {
+        branch_name: base_branch.branch_name,
+        remote_url: base_branch.remote_url,
+        base_sha: base_branch.base_sha.to_string(),
+    }))
 }
 
 /// Make `branch` the target, as `but config target <branch>` does: a local branch, or a
@@ -2118,21 +2173,51 @@ pub(crate) fn set_target(
     Ok(())
 }
 
-/// The target branch that `but config target` shows.
-#[must_use]
-struct TargetOutcome {
+/// A project's target branch, as `but config target` shows it.
+struct Target {
     branch_name: String,
     remote_url: Option<String>,
     base_sha: String,
 }
 
+/// What `but config target` shows or changed.
+#[must_use]
+enum TargetOutcome {
+    /// The project has no target branch.
+    Unset,
+    /// The current target branch.
+    Shown(Target),
+    /// The target branch was changed to this one.
+    Changed(Target),
+}
+
 impl CliOutputHuman for TargetOutcome {
     fn on_human(self, out: &mut dyn WriteWithUtils, _agent: bool, t: &'static Theme) -> Result<()> {
-        let Self {
+        let Target {
             branch_name,
             remote_url,
             base_sha,
-        } = self;
+        } = match self {
+            TargetOutcome::Unset => {
+                writeln!(
+                    out,
+                    "No target branch is set. Set one with {}",
+                    t.command_suggestion
+                        .paint("but config target <branch_name>")
+                )?;
+                return Ok(());
+            }
+            TargetOutcome::Changed(Target { branch_name, .. }) => {
+                writeln!(
+                    out,
+                    "{} Changed target branch to '{}'",
+                    t.sym().success,
+                    t.config_value.paint(&branch_name)
+                )?;
+                return Ok(());
+            }
+            TargetOutcome::Shown(target) => target,
+        };
         writeln!(out, "{}", t.hint.paint("Used to determine common base to calculate commits unique to each branch (not yet integrated)\n"))?;
         writeln!(out, "{}:", t.important.paint("Target Branch"))?;
         writeln!(out, "\n  {}", t.config_value.paint(&branch_name))?;
@@ -2166,11 +2251,23 @@ impl CliOutputHuman for TargetOutcome {
 
 impl CliOutput for TargetOutcome {
     fn on_json(self) -> impl Serialize {
-        serde_json::json!({
-            "branch": self.branch_name,
-            "remote_url": self.remote_url,
-            "sha": self.base_sha,
-        })
+        match self {
+            TargetOutcome::Unset => serde_json::json!({ "branch": null }),
+            TargetOutcome::Shown(Target {
+                branch_name,
+                remote_url,
+                base_sha,
+            })
+            | TargetOutcome::Changed(Target {
+                branch_name,
+                remote_url,
+                base_sha,
+            }) => serde_json::json!({
+                "branch": branch_name,
+                "remote_url": remote_url,
+                "sha": base_sha,
+            }),
+        }
     }
 }
 
@@ -2318,3 +2415,6 @@ where
         None => serializer.serialize_none(),
     }
 }
+
+#[cfg(test)]
+mod tests;

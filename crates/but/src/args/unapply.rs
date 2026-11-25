@@ -33,4 +33,8 @@ pub struct Platform {
     /// The branch or stack to unapply.
     #[clap(value_name = "BRANCH_OR_STACK")]
     pub target: CliIdArg,
+
+    #[clap(flatten)]
+    #[allow(missing_docs)]
+    pub json: crate::args::atoms::JsonArg,
 }

@@ -316,8 +316,8 @@ and tests it.
   moment of it. Don't stretch a motion's duration to see it.
 - Dropped on purpose, so ask before adding them back: writing in PR conversations (replying,
   reacting, resolving), editing a commit in the app (the resolver and `but resolve` cover it),
-  editing a file in the diff, moving a commit one step, updating one stack, Locate for a moved
-  project, diff zoom and the palette's theme toggle.
+  editing a file in the diff, moving a commit one step, updating one stack, diff zoom and the
+  palette's theme toggle.
 - Format a file on its own with `rustfmt --edition 2024 <file>`. rustfmt also formats every
   module the file declares with `mod x;`, so given `lib.rs` it formats the whole crate, which
   matters when others edit the crate at once.

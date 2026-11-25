@@ -2,7 +2,7 @@ use but_testsupport::visualize_commit_graph_all;
 use snapbox::IntoData;
 
 use super::target_meta;
-use crate::init::utils::{add_workspace, read_only_in_memory_scenario, standard_options};
+use crate::utils::{add_workspace, read_only_in_memory_scenario, standard_options};
 
 #[test]
 fn with_selected_cutoff() -> anyhow::Result<()> {

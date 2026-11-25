@@ -577,6 +577,20 @@ button.toggle {
 	}
 }
 
+/* A row's worth of room in the rows' column, its line through the middle and kept half as strong
+   as a border, so it parts the rows without boxing them. An `hr`, so its own border and margin go. */
+.divider {
+	flex-shrink: 0;
+	height: 14px;
+	margin: 0;
+	padding-inline: var(--but-space-md);
+	border: none;
+	background: linear-gradient(var(--but-border), var(--but-border)) center / 100% 1px no-repeat;
+	background-origin: content-box;
+	background-clip: content-box;
+	opacity: 0.5;
+}
+
 /* A group's name and its chevron, quieter than the pages they head. A button when it folds, reset
    as MoreItem's is, keeping the row's tint. */
 .groupLabel {

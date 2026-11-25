@@ -609,7 +609,7 @@ export const UncommittedItem: FC<
 	<Row
 		{...props}
 		name="Uncommitted changes"
-		icon={<Icon name="diff" />}
+		icon={<Icon name="file-copy" />}
 		label={
 			<Name tooltip={tooltip} className={classes("text-14", styles.name)}>
 				Uncommitted changes
@@ -744,6 +744,17 @@ export const MoreItem: FC<
 			),
 		}),
 	});
+
+/**
+ * A line between a card's rows, such as under the `RepoItem` that heads a repository's card: a
+ * row of its own, 14px tall, in the rows' column, with a faint line through its middle inset 6px
+ * from either side. It takes no depth or guides, and the rows after it start at the top level.
+ *
+ * @import import { RowDivider } from "@gitbutler/but-ui-react/SidebarRow.tsx";
+ */
+export const RowDivider: FC<ComponentProps<"hr">> = ({ className, ...props }) => (
+	<hr {...props} className={classes(styles.divider, className)} />
+);
 
 /**
  * The label over a group of pages in a navigation panel, such as the docs site's "Getting
@@ -909,7 +920,7 @@ export const DrawerItem: FC<
  *
  * A `--but-border-subtle` hairline rules it off from what's above, the cards or another drawer,
  * an open one's card too. The last drawer at the panel's foot takes `last`, which rules it off
- * from the foot with a hairline under it.
+ * from the foot with a hairline under it while it's folded; open, its card ends it.
  *
  * @figma `folded=false` shows the `content` slot: put the card in it.
  * @import import { Drawer } from "@gitbutler/but-ui-react/SidebarRow.tsx";
@@ -923,14 +934,14 @@ export const Drawer: FC<
 		actions?: ReactNode;
 		hoverActions?: ReactNode;
 		children?: ReactNode;
-		/** The drawer at the panel's foot: a hairline under it too. */
+		/** The drawer at the panel's foot: a hairline under it too while it's folded. */
 		last?: boolean;
 	} & Omit<ComponentProps<"section">, "children">
 > = ({ name, count, folded, onToggleFolded, actions, hoverActions, children, last, ...props }) => (
 	<section
 		aria-label={name}
 		{...props}
-		className={classes(styles.drawerSection, last && styles.drawerLast, props.className)}
+		className={classes(styles.drawerSection, last && folded && styles.drawerLast, props.className)}
 	>
 		<DrawerItem
 			name={name}
@@ -960,7 +971,7 @@ export const Drawer: FC<
  *
  * `leadingRow` is the row that heads a card of groups, such as the docs site's Docs and Components:
  * its name a step louder, in 14 semibold, and a chevron (`folded`, `onToggleFolded`) that folds the
- * whole card away. It sits alone above the card's first group, past a hairline. Rendered as a link
+ * whole card away. It sits alone above the card's first group, past a `RowDivider`. Rendered as a link
  * it opens the card's own page, as Docs opens the overview, and only its chevron folds; with no page
  * of its own, the whole row is the button that folds.
  *

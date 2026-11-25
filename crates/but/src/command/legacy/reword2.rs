@@ -171,6 +171,7 @@ fn resolve(
         message,
         format,
         allow_merged: _,
+        json: _,
     } = args;
 
     let target = {

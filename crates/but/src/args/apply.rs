@@ -16,4 +16,8 @@ use crate::args::atoms::BranchArg;
 pub struct Platform {
     /// The branch to apply.
     pub branch: BranchArg,
+
+    #[clap(flatten)]
+    #[allow(missing_docs)]
+    pub json: crate::args::atoms::JsonArg,
 }

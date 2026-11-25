@@ -80,7 +80,7 @@ fn four_commits_with_short_traversal() -> Result<()> {
 "#]]
     );
 
-    let options = standard_options().with_hard_limit(4);
+    let options = standard_options().with_limit_hint(4);
     let graph = but_testsupport::graph_from_head(
         &repo,
         &*meta,

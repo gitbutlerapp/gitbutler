@@ -1866,7 +1866,7 @@ impl Detail {
                     .into_any_element()
             }),
             missing.then(|| {
-                let remove = project.clone();
+                let (relocate, remove) = (project.clone(), project.clone());
                 callout(theme.surface(Hue::Danger))
                     .child(
                         div()
@@ -1874,13 +1874,26 @@ impl Detail {
                             .children(entry.error.clone()),
                     )
                     .child(
-                        crate::ui::button("forget", "Remove")
-                            .small()
-                            .on_click(cx.listener(move |this, _, _, cx| {
-                                let project = remove.clone();
-                                this.store
-                                    .update(cx, |store, cx| store.remove_project(&project, cx));
-                            })),
+                        h_flex()
+                            .gap(dp(6.))
+                            .child(
+                                crate::ui::button("relocate", "Relocate folder")
+                                    .small()
+                                    .icon(Icon::Folder)
+                                    .on_click(cx.listener(move |this, _, window, cx| {
+                                        let project = relocate.clone();
+                                        this.app.update_later(window, cx, move |app, _, cx| {
+                                            app.locate_project(project, cx)
+                                        });
+                                    })),
+                            )
+                            .child(crate::ui::button("forget", "Remove").small().on_click(
+                                cx.listener(move |this, _, _, cx| {
+                                    let project = remove.clone();
+                                    this.store
+                                        .update(cx, |store, cx| store.remove_project(&project, cx));
+                                }),
+                            )),
                     )
                     .into_any_element()
             }),

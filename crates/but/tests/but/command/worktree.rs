@@ -156,7 +156,7 @@ old-3 - [..]/worktrees/old-3
 "#]]);
 
     // JSON is never cut off.
-    env.but("--json worktree list")
+    env.but("worktree --json list")
         .allow_json()
         .assert()
         .success()
@@ -310,7 +310,7 @@ Hint: Run `but worktree list` for the worktrees and their IDs.
         "a failed archive tells the apps nothing"
     );
 
-    env.but("--json worktree archive wt")
+    env.but("worktree --json archive wt")
         .allow_json()
         .assert()
         .success()
@@ -823,7 +823,7 @@ Created worktree feature-one on 'Feature/One' from 0dc3733 at [..]/home/.gitbutl
         "new checkouts live under the user's home, grouped by repository basename"
     );
     // Without a name the branch is canned, and its directory is the slug of that name.
-    env.but("--json worktree new")
+    env.but("worktree --json new")
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -2232,7 +2232,7 @@ fn recycle_creates_a_worktree_at_the_target_when_none_is_clean_and_behind() {
 
     // `ahead` has a commit the target doesn't, `dirty` an uncommitted change, and `detached`
     // no branch, so a new worktree is made at the target's tip instead, leaving them archived.
-    env.but("--json worktree recycle")
+    env.but("worktree --json recycle")
         .assert()
         .success()
         .stderr_eq(snapbox::str![])

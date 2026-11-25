@@ -8,7 +8,7 @@ use std::ops::Range;
 use gpui::{App, ListOffset, ListState, Pixels, Window};
 
 use super::cursor::OffRow;
-use super::rows::{Drawer, Fold, Moving, Row, RowKey, Rows, row_keys, span_height};
+use super::rows::{Drawer, Fold, Guide, Moving, Row, RowKey, Rows, row_keys, span_height};
 use super::{ABOVE_LAST_LISTED, LIST_TOP, Navigator, holder, moving, shows_where_it_lands};
 use crate::backend::Checkout;
 use crate::clock;
@@ -26,7 +26,7 @@ pub(super) struct Built {
     /// The rows as last drawn, which the list draws as they scroll into view.
     pub(super) rows: Vec<Row>,
     pub(super) insets: Vec<f32>,
-    pub(super) guides: Vec<Vec<f32>>,
+    pub(super) guides: Vec<Vec<Guide>>,
     /// Whether each row's innermost guide ends at it: see [`Rows::ends`].
     pub(super) ends: Vec<bool>,
     /// Each row's place in the fold it moves with, while one does.
@@ -232,7 +232,7 @@ impl Navigator {
             // A card holds all its rows in view, so they slide and fold all the way.
             RowsIn::Card => {}
         }
-        self.folds.any() || self.reorder.any()
+        self.folds.any() || self.reorder.any() || self.steps.any()
     }
 
     /// Which of the card's rows to scroll to, once the selection changed or where it'd be
@@ -263,6 +263,7 @@ impl Navigator {
     fn next_frame(&mut self) {
         self.folds.frame();
         self.reorder.frame();
+        self.steps.frame();
         let now = clock::now();
         self.stand_ins.retain_mut(|stand_in| stand_in.fade(now));
     }
@@ -288,8 +289,7 @@ impl Navigator {
             ..
         } = self.rows_now(cx);
         self.built.moving = moving;
-        self.sync_list(rows, drawer, window, cx);
-        self.built.insets = insets;
+        self.sync_list(rows, insets, drawer, window, cx);
         self.built.guides = guides;
         self.built.ends = ends;
         self.first_hit = first_hit;
@@ -364,7 +364,14 @@ impl Navigator {
     /// changed. Rows that didn't change keep their place on screen. When a load changed the
     /// cards' while the pointer is over them, so does the row under it: rows added above it,
     /// like an agent's new commit, push the rows above it up rather than it down.
-    fn sync_list(&mut self, rows: Vec<Row>, drawer: Drawer, window: &Window, cx: &App) {
+    fn sync_list(
+        &mut self,
+        rows: Vec<Row>,
+        insets: Vec<f32>,
+        drawer: Drawer,
+        window: &Window,
+        cx: &App,
+    ) {
         // Rows not drawn yet count as one row tall, which a project's row is.
         let row = Theme::get(cx).scaled(self.row);
         // At the very top a list stays there, showing what's added, as the diff does: rows
@@ -480,17 +487,19 @@ impl Navigator {
             // its top row where it is, so nothing slides.
             let room = room_came_or_went(&self.built.rows, &rows);
             let above_view = room && top.item_ix != self.list.logical_scroll_top().item_ix;
-            let offsets = match above_view {
-                true => HashMap::new(),
-                false => self.slides(&rows, &keys, held, every || room, landing),
+            let (offsets, steps) = match above_view {
+                true => (HashMap::new(), HashMap::new()),
+                false => self.slides(&rows, &keys, &insets, held, every || room, landing),
             };
             self.reorder.start(offsets, cx);
+            self.steps.start(steps, cx);
             if let Some(id) = crossed_cards(&self.built.rows, &rows) {
                 self.crossing = Some(RowKey::Terminal(id));
             }
             self.built.row_keys = keys;
         }
         self.built.rows = rows;
+        self.built.insets = insets;
         // The bar goes with the rows that made it a stop, or once something moves.
         if self.off_row == Some(OffRow::DrawerBar)
             && !(self.drawer_toggles(cx) && self.store.read(cx).moving.is_none())

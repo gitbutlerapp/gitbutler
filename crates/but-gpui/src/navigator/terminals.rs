@@ -10,8 +10,9 @@ use std::collections::HashSet;
 use std::time::Instant;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, ElementId, Entity, FocusHandle, Focusable, ListAlignment,
-    ListState, MouseButton, MouseDownEvent, Role, Subscription, Window, div, list, prelude::*,
+    AnyElement, App, ClickEvent, Context, Div, ElementId, Entity, FocusHandle, Focusable,
+    ListAlignment, ListState, MouseButton, MouseDownEvent, Role, Subscription, Window, div, list,
+    prelude::*,
 };
 
 use super::cursor::{Step, Stops, step_to};
@@ -20,20 +21,21 @@ use super::rename::{on_terminal_name, terminal_name_input};
 use super::rows::CARD_PADDING;
 use super::{
     CARD_BAR_HEIGHT, CARD_BAR_INSET, DRAWER_BLOCK, DRAWER_GAP, DRAWER_ROW, RowStyle, card_bar,
-    drawer_bar, on_hover, status_mark,
+    drawer_bar, status_mark,
 };
 use crate::app::{
     AppHandle, AppView, Cancel, Confirm, FocusNavigator, SelectNext, SelectPrevious, SplitBelow,
     SplitRight,
 };
 use crate::backend::{self, Checkout};
+use crate::clock;
 use crate::edits::{Discard, RenameTerminal};
 use crate::overlays::MenuItem;
 use crate::palette::StatusGroup;
 use crate::state::{Axis, NavigatorPlace, Part, ProjectId, Store, TerminalGrouping};
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
-use crate::ui::fold::{Folds, Place, clipped};
+use crate::ui::fold::{Folds, Place, Slide, clipped};
 use crate::ui::text_input::TextInput;
 use crate::ui::{
     Button, ButtonStyle, EMPTY_TIDY_HEIGHT, Guide, Icon, button, dp, empty_state_tidy, field,
@@ -188,6 +190,9 @@ pub struct TerminalOverview {
     /// The card folded to its bar: as it starts with no terminal open, and as the last one
     /// closes, till its chevron opens it or one opens.
     shut: bool,
+    /// The card sliding open or shut under its bar at the navigator's foot, as the hidden
+    /// projects' card does.
+    card: Slide,
     /// Whether no terminal was open when the store last changed, to fold or open the card as
     /// that changes.
     was_empty: bool,
@@ -235,7 +240,10 @@ impl TerminalOverview {
             let empty = store.terminals.count() == 0;
             if empty != this.was_empty {
                 this.was_empty = empty;
-                this.shut = empty;
+                if this.shut != empty {
+                    this.shut = empty;
+                    this.card.start(!empty, cx);
+                }
                 backend::metrics::terminal_card_folded(empty);
             }
             cx.notify()
@@ -251,6 +259,7 @@ impl TerminalOverview {
             list: ListState::new(0, ListAlignment::Top, fixed(56.)),
             hovered: false,
             shut: empty,
+            card: Slide::default(),
             was_empty: empty,
             grouped_by,
             folded: HashSet::new(),
@@ -352,23 +361,42 @@ impl TerminalOverview {
         self.shut && !self.in_tab(cx)
     }
 
-    /// How tall it is with every row showing, as far as a fold moving shows them, in design
-    /// pixels, or folded, its bar's.
+    /// Whether it's drawn as just its bar: folded away, and done sliding shut, as until then
+    /// its card shows going.
+    fn drawn_folded(&self, cx: &App) -> bool {
+        self.folded_away(cx) && !self.card.closing(clock::now())
+    }
+
+    /// Whether its card is sliding open or shut.
+    pub fn sliding(&self, now: Instant) -> bool {
+        self.card.openness(now).is_some()
+    }
+
+    /// How far open its card is, from 0 at its bar to 1 with its card; under its tab, open.
+    pub fn openness(&self, cx: &App) -> f32 {
+        match self.in_tab(cx) {
+            true => 1.,
+            false => self.card.share(!self.shut, clock::now()),
+        }
+    }
+
+    /// How tall it is folded to its bar at the navigator's foot, in design pixels: its hairline
+    /// and the room over its row, the row, the room under it and the hairline under the last
+    /// drawer.
+    pub fn folded_height() -> f32 {
+        1. + DRAWER_BLOCK + DRAWER_ROW + DRAWER_BLOCK + 1.
+    }
+
+    /// How tall it is open, with every row showing, as far as a fold moving shows them, in
+    /// design pixels.
     pub fn height(&self, cx: &App) -> f32 {
         let in_tab = self.in_tab(cx);
         // At the navigator's foot, a drawer: its hairline and the room over its row, the row,
-        // and the room under it, then its card's edges, the room under the card, and the
-        // hairline under the last drawer. Under its tab, the bar and its card's.
+        // and the room under it, then its card's edges, its card ending level with the detail's.
+        // Under its tab, the bar and its card's.
         let bar = match in_tab {
             true => CARD_BAR_HEIGHT + CARD_BAR_INSET,
-            false => 1. + DRAWER_BLOCK + DRAWER_ROW,
-        };
-        if self.folded_away(cx) {
-            return bar + DRAWER_BLOCK + 1.;
-        }
-        let bar = match in_tab {
-            true => bar,
-            false => bar + DRAWER_GAP + 2. + DRAWER_BLOCK + 1.,
+            false => 1. + DRAWER_BLOCK + DRAWER_ROW + DRAWER_GAP + 2.,
         };
         // None open, a card saying so, as tall as its padding and what it says.
         if self.items.is_empty() {
@@ -523,6 +551,7 @@ impl TerminalOverview {
 
     fn toggle_card(&mut self, cx: &mut Context<Self>) {
         self.shut ^= true;
+        self.card.start(!self.shut, cx);
         backend::metrics::terminal_card_folded(self.shut);
         cx.notify();
     }
@@ -833,7 +862,7 @@ impl TerminalOverview {
         let app = self.app.clone();
         let in_tab = self.in_tab(cx);
         let open = (!in_tab).then_some(!self.shut);
-        let folded_away = self.folded_away(cx);
+        let drawn_folded = self.drawn_folded(cx);
         let bar = card_bar(
             "overview-bar",
             "Terminals",
@@ -843,11 +872,11 @@ impl TerminalOverview {
             false,
             theme,
         );
-        // At the navigator's foot a drawer, as but-ui-react's: its buttons only under the
-        // pointer, and folded, the room under its row. Under its tab, its rows go right under it.
+        // At the navigator's foot a drawer, as but-ui-react's, its buttons always shown, and
+        // folded, the room under its row. Under its tab, its rows go right under it.
         let bar = match in_tab {
             true => bar.mb_0(),
-            false => drawer_bar(bar).when(folded_away, |el| el.mb(dp(DRAWER_BLOCK))),
+            false => drawer_bar(bar).when(drawn_folded, |el| el.mb(dp(DRAWER_BLOCK))),
         };
         // A drawer's buttons are regular, as but-ui-react's Drawer's; under its tab, small.
         let sized = |button: Button| match in_tab {
@@ -867,11 +896,9 @@ impl TerminalOverview {
                     app.new_terminal_in(window, cx)
                 })
             });
-        bar.child(on_hover(grouping, in_tab))
-            .child(on_hover(new_terminal, in_tab))
-            .when(!in_tab, |el| {
-                el.on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.toggle_card(cx)))
-            })
+        bar.child(grouping).child(new_terminal).when(!in_tab, |el| {
+            el.on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.toggle_card(cx)))
+        })
     }
 }
 
@@ -886,22 +913,29 @@ impl Render for TerminalOverview {
             self.hovered = false;
         }
         self.sort_out(landed || self.folds.any(), cx);
-        if self.folds.any() {
+        let now = clock::now();
+        if self.folds.any() || self.sliding(now) {
             window.request_animation_frame();
         }
+        // Its card shows while it slides shut, as the column it's in closes over it.
+        let drawn_folded = self.drawn_folded(cx);
+        // How far shut its card is while it slides: the room under its row and the hairline
+        // under the last drawer, as folded, cover the card that far, so it comes out from under
+        // them and goes back under them.
+        let shutting = (self.card.openness(now)).map(|open| 1. - open);
         let theme = Theme::get(cx);
         let outlined = self.store.read(cx).prefs.shows(Part::FocusOutline)
             && self.keys.in_list(&List::Terminals);
         let in_tab = self.in_tab(cx);
         let empty = self.items.is_empty();
-        let rows = (!folded_away).then(|| {
+        let rows = (!drawn_folded).then(|| {
             let rows = match empty {
                 // As but-ui-react's Drawer with none: a tidy empty state saying where a new one
                 // opens, and a button opening one.
                 true => {
                     let app = self.app.clone();
                     let new_terminal = button("overview-empty-new-terminal", "New terminal")
-                        .small()
+                        .medium()
                         .style(ButtonStyle::Outline)
                         .icon(Icon::Plus)
                         .on_click(move |_, window, cx| {
@@ -1006,21 +1040,36 @@ impl Render for TerminalOverview {
             .when(!in_tab, |el| el.child(super::hairline(theme)))
             .child(self.render_bar(cx))
             .children(rows)
-            // The last drawer at the navigator's foot: the room under its card, and a hairline
-            // under it, as but-ui-react's Drawer's `last`.
-            .when(!in_tab, |el| {
-                el.pb(dp(if folded_away { 0. } else { DRAWER_BLOCK } + 1.))
-                    .child(
-                        div()
-                            .absolute()
-                            .bottom_0()
-                            .left_0()
-                            .right_0()
-                            .h(fixed(1.))
-                            .bg(theme.border_subtle),
-                    )
+            // The last drawer at the navigator's foot: open, its card ends level with the
+            // detail's beside it; folded, a hairline under its row, as but-ui-react's Drawer's
+            // `last`.
+            .when(!in_tab && drawn_folded, |el| {
+                el.pb(dp(1.)).child(foot_line(theme))
+            })
+            .when_some(shutting.filter(|_| !in_tab && !drawn_folded), |el, shut| {
+                el.child(
+                    div()
+                        .absolute()
+                        .bottom_0()
+                        .left_0()
+                        .right_0()
+                        .h(dp((DRAWER_BLOCK + 1.) * shut))
+                        .bg(theme.canvas)
+                        .child(foot_line(theme).opacity(shut)),
+                )
             })
     }
+}
+
+/// The hairline under the last drawer at the navigator's foot, as but-ui-react's Drawer's `last`.
+fn foot_line(theme: &Theme) -> Div {
+    div()
+        .absolute()
+        .bottom_0()
+        .left_0()
+        .right_0()
+        .h(fixed(1.))
+        .bg(theme.border_subtle)
 }
 
 #[cfg(test)]

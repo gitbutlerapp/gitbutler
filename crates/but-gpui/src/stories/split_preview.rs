@@ -50,7 +50,7 @@ const FOUR: [Story; 4] = [
         (0.5, 0., 0.5, 0.5),
     ),
     tile(
-        Icon::Diff,
+        Icon::FileCopy,
         "Uncommitted changes",
         None,
         (0.5, 0.5, 0.5, 0.5),

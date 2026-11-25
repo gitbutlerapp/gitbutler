@@ -2,7 +2,7 @@
 
 #![deny(missing_docs)]
 
-use crate::args::atoms::{AllowMergedArg, CliIdArg, MessageFileArg};
+use crate::args::atoms::{AllowMergedArg, CliIdArg, JsonArg, MessageFileArg};
 
 /// Create a commit.
 ///
@@ -128,6 +128,10 @@ pub struct Platform {
     /// Switch to the target branch instead of remaining in the GitButler workspace.
     #[clap(long, short, group = "targeting")]
     pub switch: bool,
+
+    #[clap(flatten)]
+    #[allow(missing_docs)]
+    pub json: JsonArg,
 }
 
 /// Example invocations appended to a `but commit` parse error.

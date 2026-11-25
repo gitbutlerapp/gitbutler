@@ -9,7 +9,15 @@ import {
 	UncommittedItem,
 	WorktreeItem,
 } from "./SidebarRow.tsx";
-import { Card, Column, machine, push, Repository, update } from "./story-assets/workspaceTree.tsx";
+import {
+	Card,
+	Column,
+	machine,
+	push,
+	RepoCard,
+	Repository,
+	update,
+} from "./story-assets/workspaceTree.tsx";
 import { Tooltip } from "./Tooltip.tsx";
 
 const core = (node: string) =>
@@ -196,23 +204,21 @@ export const OfflineMachine = meta.story({
 export const NoBranch = meta.story({
 	parameters: { design: { type: "figma", url: core("5464-18190") } },
 	render: () => (
-		<Card label="gitbutler" header={<RepoItem name="gitbutler" folded={false} />}>
-			<Repository last>
-				<WorktreeItem name="Main worktree" main depth={0} folded />
-				<WorktreeItem
-					name="gpui-row-buttons"
-					depth={0}
-					folded={false}
-					meta={
-						<Tooltip content="No branch: on sidebar-unread-dot's last commit">
-							<MetaCount type="head" aria-label="No branch: on sidebar-unread-dot's last commit">
-								sidebar-unread-dot
-							</MetaCount>
-						</Tooltip>
-					}
-				/>
-				<TerminalItem name="claude" depth={1} />
-			</Repository>
-		</Card>
+		<RepoCard label="gitbutler" header={<RepoItem name="gitbutler" folded={false} />}>
+			<WorktreeItem name="Main worktree" main depth={0} folded />
+			<WorktreeItem
+				name="gpui-row-buttons"
+				depth={0}
+				folded={false}
+				meta={
+					<Tooltip content="No branch: on sidebar-unread-dot's last commit">
+						<MetaCount type="head" aria-label="No branch: on sidebar-unread-dot's last commit">
+							sidebar-unread-dot
+						</MetaCount>
+					</Tooltip>
+				}
+			/>
+			<TerminalItem name="claude" depth={1} />
+		</RepoCard>
 	),
 });

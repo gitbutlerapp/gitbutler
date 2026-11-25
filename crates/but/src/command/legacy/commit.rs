@@ -208,6 +208,8 @@ fn resolve(
         no_hooks: _,
         allow_merged,
         switch,
+        // Read before dispatch to pick the output format.
+        json: _,
     } = args;
 
     let merged = MergedUpstream::new(
