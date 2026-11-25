@@ -356,7 +356,7 @@ impl Gallery {
         Some(
             button("rebuild", label)
                 .small()
-                .style(ButtonStyle::Gray)
+                .style(ButtonStyle::Outline)
                 .tooltip(tooltip)
                 .on_click(cx.listener(|this, _, _, cx| this.rebuild(cx))),
         )
