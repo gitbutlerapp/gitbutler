@@ -1,6 +1,7 @@
 import { stories } from "../stories/stories.ts";
 import { Fragment, useState, type FC, type ReactNode } from "react";
 import { Button } from "./Button.tsx";
+import { EmptyState } from "./EmptyState.tsx";
 import { Icon } from "./Icon.tsx";
 import { ContextMenu, MenuItem, MenuSection } from "./Menu.tsx";
 import { MetaCount, MetaStatus } from "./MetaCount.tsx";
@@ -1241,6 +1242,29 @@ export const Loading = meta.story({
 				{[156, 76, 199, 116].map((width) => (
 					<LoadingItem key={width} width={width} />
 				))}
+			</div>
+		</RepoCard>
+	),
+});
+
+/**
+ * A repository whose folder isn't there any more: its row takes the crossed-out glyph and its name
+ * recedes, and the card under it says so, with Relocate folder to point it at where it is now.
+ */
+export const Missing = meta.story({
+	parameters: { design: { type: "figma", url: core("5579-132844") } },
+	render: () => (
+		<RepoCard
+			label="berlin-brutalism"
+			header={<RepoItem name="berlin-brutalism" folded={false} missing />}
+		>
+			<div style={{ paddingBlock: 24 }}>
+				<EmptyState variant="tidy" description="This project folder isn’t there any more.">
+					<Button size="medium" variant="outline">
+						<Icon name="folder" />
+						Relocate folder
+					</Button>
+				</EmptyState>
 			</div>
 		</RepoCard>
 	),

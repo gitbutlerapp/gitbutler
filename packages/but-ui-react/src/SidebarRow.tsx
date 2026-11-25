@@ -294,18 +294,31 @@ export const MachineItem: FC<
  *
  * `icon` defaults to the repository glyph; a host can pass the repository's own avatar.
  *
+ * A `missing` repository is one whose folder isn't there any more, moved or deleted: it takes the
+ * crossed-out repository glyph in `danger-mark` in place of any avatar, with no counts. Open, the
+ * card under it says so, and offers to relocate the folder.
+ *
  * @import import { RepoItem } from "@gitbutler/but-ui-react/SidebarRow.tsx";
  */
-export const RepoItem: FC<{ name: string; icon?: ReactNode } & RowProps> = ({
+export const RepoItem: FC<{ name: string; icon?: ReactNode; missing?: boolean } & RowProps> = ({
 	name,
 	icon,
+	missing = false,
 	tooltip,
 	...props
 }) => (
 	<Row
 		{...props}
 		name={name}
-		icon={icon ?? <Icon name="repo" />}
+		icon={
+			missing ? (
+				<span className={styles.missingGlyph}>
+					<Icon name="repo-cross" />
+				</span>
+			) : (
+				(icon ?? <Icon name="repo" />)
+			)
+		}
 		label={
 			<Name tooltip={tooltip} className={classes("text-14", styles.name)}>
 				{name}
