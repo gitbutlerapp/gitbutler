@@ -22,6 +22,10 @@ pub struct Platform {
     /// Show the changed files and their line counts instead of the patches.
     #[clap(long)]
     pub stat: bool,
+
+    #[clap(flatten)]
+    #[allow(missing_docs)]
+    pub json: crate::args::atoms::JsonArg,
 }
 
 /// Example invocations appended to a `but diff` parse error.

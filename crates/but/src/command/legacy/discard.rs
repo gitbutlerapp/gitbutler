@@ -359,7 +359,7 @@ fn resolve(
     args: Platform,
     invoked_from: &InvokedFrom,
 ) -> CliResult<DiscardOperation> {
-    let Platform { changes } = args;
+    let Platform { changes, json: _ } = args;
 
     let mut branch_sources = Vec::new();
     let mut commit_sources = Vec::new();

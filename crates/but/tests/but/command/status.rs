@@ -405,7 +405,7 @@ fn json_shows_paths_as_strings() {
     // Create a new file to ensure we have file assignments
     env.file("test-file.txt", "test content");
 
-    env.but("--json status")
+    env.but("status --json")
         .allow_json()
         .assert()
         .success()
@@ -528,7 +528,7 @@ fn uncommitted_and_committed_file_cli_ids() {
     env.file("a.txt", format!("firstb\n{}lastb\n", "line\n".repeat(100)));
     env.file("b.txt", "onlyb\n");
 
-    env.but("--json status -f")
+    env.but("status --json -f")
         .allow_json()
         .assert()
         .success()
@@ -660,7 +660,7 @@ fn json_commit_cli_ids_use_change_ids() {
 
     // Assert that JSON exposes each full change ID and uses its display-padded prefix as CLI ID,
     // while retaining the underlying commit ID.
-    env.but("--json status -f")
+    env.but("status --json -f")
         .allow_json()
         .with_assert(env.assert_with_uuid_and_timestamp_redactions())
         .assert()

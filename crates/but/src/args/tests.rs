@@ -43,6 +43,7 @@ mod config_ai {
         match cmd {
             Subcommands::Config(ConfigPlatform {
                 cmd: Some(ConfigCmd::Ai { local, global, cmd }),
+                json: _,
             }) => {
                 assert!(!local);
                 assert!(!global);
@@ -85,6 +86,7 @@ mod config_ai {
                             }),
                         ..
                     }),
+                json: _,
             }) => {
                 assert!(matches!(key_option, Some(AiKeyOption::BringYourOwn)));
                 assert_eq!(model.as_deref(), Some("gpt-5.4-nano"));
@@ -120,6 +122,7 @@ mod config_ai {
                         global,
                         cmd: Some(AiSubcommand::Ollama { endpoint, model }),
                     }),
+                json: _,
             }) => {
                 assert!(local);
                 assert!(!global);
@@ -143,6 +146,7 @@ mod config_ai {
                         global,
                         cmd: Some(AiSubcommand::Show),
                     }),
+                json: _,
             }) => {
                 assert!(!local);
                 assert!(!global);
@@ -224,6 +228,7 @@ mod branch_update {
                         verbose,
                         interactive,
                     }),
+                json: _,
             }) => {
                 assert_eq!(branch, "feature");
                 assert_eq!(strategy, IntegrationStrategy::PullRebase);
@@ -255,6 +260,7 @@ mod branch_update {
                         strategy: IntegrationStrategy::PullRebase,
                         ..
                     }),
+                json: _,
             }) => {}
             _ => panic!("unexpected command shape"),
         }
@@ -274,6 +280,7 @@ mod branch_update {
                         strategy: IntegrationStrategy::SmartSquash,
                         ..
                     }),
+                json: _,
             }) => {}
             _ => panic!("unexpected command shape"),
         }
@@ -304,6 +311,7 @@ mod branch_update {
                         interactive,
                         ..
                     }),
+                json: _,
             }) => {
                 assert!(dry_run);
                 assert!(!verbose);
@@ -322,6 +330,7 @@ mod branch_update {
         match cmd {
             Subcommands::Branch(Platform {
                 cmd: Some(BranchSubcommands::Update { verbose, .. }),
+                json: _,
             }) => {
                 assert!(verbose);
             }
@@ -338,6 +347,7 @@ mod branch_update {
         match cmd {
             Subcommands::Branch(Platform {
                 cmd: Some(BranchSubcommands::Update { interactive, .. }),
+                json: _,
             }) => {
                 assert!(interactive);
             }
@@ -426,6 +436,7 @@ fn status_short_is_hidden_noop_compatibility_flag() {
             upstream,
             no_hint,
             short,
+            json: _,
         } => {
             assert!(short, "compatibility-only flag should parse");
             assert!(!show_files);
@@ -509,6 +520,7 @@ mod config_target {
                         branch,
                         push_remote,
                     }),
+                json: _,
             }) => {
                 assert_eq!(branch.as_deref(), Some("upstream/main"));
                 assert_eq!(push_remote.as_deref(), Some("origin"));
@@ -526,6 +538,7 @@ mod config_target {
             args.cmd,
             Some(Subcommands::Config(ConfigPlatform {
                 cmd: Some(ConfigCmd::PushRemote { remote: Some(remote) }),
+                json: _,
             })) if remote == "origin"
         ));
     }
@@ -558,6 +571,7 @@ mod config_feature {
                     flag: None,
                     status: None,
                 }),
+                json: _,
             }))
         ));
     }
@@ -613,6 +627,7 @@ mod agentlog {
                         value,
                         dry_run,
                     },
+                json: _,
             } => {
                 assert_eq!(branch_or_target, "main");
                 assert_eq!(value, None);
@@ -643,6 +658,7 @@ mod agentlog {
                         value,
                         dry_run,
                     },
+                json: _,
             } => {
                 assert_eq!(branch_or_target, "review");
                 assert_eq!(value.as_deref(), Some("review-1"));
@@ -674,6 +690,7 @@ mod push {
                 private: false,
                 dry_run: false,
                 allow_merged: Default::default(),
+                json: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", false);
@@ -696,6 +713,7 @@ mod push {
                 private: false,
                 dry_run: false,
                 allow_merged: Default::default(),
+                json: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", false);
@@ -723,6 +741,7 @@ mod push {
                 private: false,
                 dry_run: false,
                 allow_merged: Default::default(),
+                json: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -747,6 +766,7 @@ mod push {
                 private: false,
                 dry_run: false,
                 allow_merged: Default::default(),
+                json: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -771,6 +791,7 @@ mod push {
                 private: false,
                 dry_run: false,
                 allow_merged: Default::default(),
+                json: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -806,6 +827,7 @@ mod push {
                 private: false,
                 dry_run: false,
                 allow_merged: Default::default(),
+                json: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -838,6 +860,7 @@ mod push {
                 private: false,
                 dry_run: false,
                 allow_merged: Default::default(),
+                json: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "my-branch-name", true);
@@ -870,6 +893,7 @@ mod push {
                 private: true,
                 dry_run: false,
                 allow_merged: Default::default(),
+                json: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -899,6 +923,7 @@ mod push {
                 private: true,
                 dry_run: false,
                 allow_merged: Default::default(),
+                json: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -946,6 +971,7 @@ mod push {
                 private: false,
                 dry_run: false,
                 allow_merged: Default::default(),
+                json: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -973,6 +999,7 @@ mod push {
                 private: false,
                 dry_run: false,
                 allow_merged: Default::default(),
+                json: Default::default(),
             };
 
             let result = get_gerrit_flags(&args, "test-branch", true);
@@ -1054,6 +1081,132 @@ mod pr {
                 }
                 _ => panic!("unexpected command shape"),
             }
+        }
+    }
+}
+
+mod json_flag {
+    use clap::CommandFactory as _;
+
+    /// Every command that takes `--json`, so a command gaining or losing the flag shows up in
+    /// review. A flag on a parent command covers its subcommands, which this lists too. Commands
+    /// starting with `_` are left out, as some of them only exist with the `nightly` feature.
+    ///
+    /// This reads the clap tree only. `Subcommands::json_arg` must return the flag for each of
+    /// these, or the command prints human output despite `--json`.
+    #[test]
+    fn commands_that_take_json() {
+        let mut cmd = crate::args::Args::command();
+        cmd.build();
+        let mut paths = Vec::new();
+        collect_commands_that_take_json(&cmd, "but", &mut paths);
+
+        snapbox::assert_data_eq!(
+            paths.join("\n"),
+            snapbox::str![[r#"
+but init
+but status
+but diff
+but show
+but commit
+but squash
+but move
+but split
+but branch
+but branch new
+but branch delete
+but branch list
+but branch show
+but branch move
+but branch update
+but worktree
+but worktree list
+but worktree new
+but worktree recycle
+but worktree archive
+but worktree unarchive
+but worktree remove
+but discard
+but resolve
+but resolve conflicts
+but resolve apply
+but resolve status
+but resolve finish
+but resolve cancel
+but unapply
+but apply
+but push
+but pull
+but pr new
+but absorb
+but reword
+but uncommit
+but amend
+but oplog
+but oplog list
+but oplog snapshot
+but oplog restore
+but undo
+but redo
+but teardown
+but clean
+but update check
+but update suppress
+but alias
+but alias list
+but alias add
+but alias remove
+but config
+but config user
+but config user set
+but config user unset
+but config forge
+but config forge auth
+but config forge list-users
+but config forge forget
+but config forge github-stacks
+but config target
+but config push-remote
+but config metrics
+but config feature
+but config ai
+but config ai show
+but config ai openai
+but config ai anthropic
+but config ai ollama
+but config ai lmstudio
+but config ai openrouter
+but pick
+but switch
+but skill
+but skill reference
+but skill concepts
+but skill examples
+but skill install
+but skill check
+but agent setup
+but agent uninstall
+but fetch
+but agentlog
+but agentlog hook
+but agentlog show
+but agentlog skim
+but agentlog publish
+but agentlog sync
+"#]]
+        );
+    }
+
+    fn collect_commands_that_take_json(cmd: &clap::Command, path: &str, paths: &mut Vec<String>) {
+        for subcommand in cmd
+            .get_subcommands()
+            .filter(|cmd| !cmd.get_name().starts_with('_'))
+        {
+            let path = format!("{path} {}", subcommand.get_name());
+            if subcommand.get_arguments().any(|arg| arg.get_id() == "json") {
+                paths.push(path.clone());
+            }
+            collect_commands_that_take_json(subcommand, &path, paths);
         }
     }
 }

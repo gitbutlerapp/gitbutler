@@ -46,6 +46,8 @@ pub mod pr {
             /// Create the review as a draft.
             #[clap(long, short = 'd', default_value_t = false)]
             draft: bool,
+            #[clap(flatten)]
+            json: crate::args::atoms::JsonArg,
         },
         /// Enable or disable the automatic merging of reviews.
         AutoMerge {

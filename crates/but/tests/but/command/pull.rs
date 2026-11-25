@@ -158,7 +158,7 @@ fn pull_check_reports_a_local_target_only_fast_forward() {
     let env = local_target_only_pull_scenario();
     let old_target = rev_parse(&env, "main");
     let output = env
-        .but("--json pull --check")
+        .but("pull --json --check")
         .allow_json()
         .assert()
         .success()
@@ -1435,7 +1435,7 @@ Hint: origin/main moved ahead; run `but pull` to update the workspace
 "#]]);
 
     let output = env
-        .but("--json pull --check")
+        .but("pull --json --check")
         .allow_json()
         .assert()
         .success()
@@ -1695,7 +1695,7 @@ Hint: origin/main moved ahead; run `but pull` to update the workspace
 "#]]);
 
     let output = env
-        .but("--json pull")
+        .but("pull --json")
         .allow_json()
         .assert()
         .success()

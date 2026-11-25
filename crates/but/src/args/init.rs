@@ -9,4 +9,8 @@ pub struct Platform {
     /// Also create an initial empty commit.
     #[clap(long)]
     pub commit: bool,
+
+    #[clap(flatten)]
+    #[allow(missing_docs)]
+    pub json: crate::args::atoms::JsonArg,
 }

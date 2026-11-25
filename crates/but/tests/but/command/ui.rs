@@ -222,7 +222,7 @@ fn state_in_json_lists_each_rows_layout() {
     let socket = env.app_data_dir().join("gpui.sock");
     fake_app(&socket, 1, answer);
     // The layout not open is listed too, with its tiles' places and no panes to focus.
-    env.but("--json _ui state")
+    env.but("_ui --json state")
         .env(SOCKET_ENV, &socket)
         .assert()
         .success()
@@ -412,7 +412,7 @@ test result: ok
 
 "#]]);
     // `--lines` reaches the app, which sends only those.
-    env.but("--json _ui read --tile 2 --lines 1")
+    env.but("_ui --json read --tile 2 --lines 1")
         .env(SOCKET_ENV, &socket)
         .assert()
         .success()
@@ -481,7 +481,7 @@ Opened tile 5: branch feature in repo.
 
 "#]]);
     // The fake app names the terminal after the command it was asked to run.
-    env.but("--json _ui open --beside 1 --below --terminal --run claude")
+    env.but("_ui --json open --beside 1 --below --terminal --run claude")
         .env(SOCKET_ENV, &socket)
         .assert()
         .success()
@@ -520,7 +520,7 @@ Opened tile 6: terminal claude in repo.
 
 "#]]);
     // The fake app names the terminal after the command it was asked to run.
-    env.but("--json _ui open --terminal --checkout aztec")
+    env.but("_ui --json open --terminal --checkout aztec")
         .env(SOCKET_ENV, &socket)
         .assert()
         .success()

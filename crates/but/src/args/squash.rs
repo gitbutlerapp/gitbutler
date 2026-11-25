@@ -88,6 +88,10 @@ pub struct Platform {
     #[clap(flatten)]
     #[allow(missing_docs)]
     pub allow_merged: AllowMergedArg,
+
+    #[clap(flatten)]
+    #[allow(missing_docs)]
+    pub json: crate::args::atoms::JsonArg,
 }
 
 /// Example invocations appended to a `but squash` parse error.

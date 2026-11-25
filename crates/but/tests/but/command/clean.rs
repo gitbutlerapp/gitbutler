@@ -92,7 +92,7 @@ fn json_output() {
 
     env.but("branch new empty-branch").assert().success();
 
-    env.but("--json clean")
+    env.but("clean --json")
         .allow_json()
         .assert()
         .success()
@@ -117,7 +117,7 @@ fn json_output_dry_run() {
 
     env.but("branch new empty-branch").assert().success();
 
-    env.but("--json clean --dry-run")
+    env.but("clean --json --dry-run")
         .allow_json()
         .assert()
         .success()
@@ -140,7 +140,7 @@ fn json_output_no_empty_branches() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata_at_target(&["A"], "origin/main");
 
-    env.but("--json clean")
+    env.but("clean --json")
         .allow_json()
         .assert()
         .success()

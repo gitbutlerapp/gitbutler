@@ -13,6 +13,10 @@ pub struct Platform {
     /// The subcommand to run.
     #[clap(subcommand)]
     pub cmd: Subcommands,
+
+    #[clap(flatten)]
+    #[allow(missing_docs)]
+    pub json: crate::args::atoms::JsonArg,
 }
 
 /// The `but _ui` subcommands.

@@ -76,7 +76,7 @@ fn agent_setup_print_json_outputs_policy_field() {
     let env = Sandbox::empty();
 
     let output = env
-        .but("--json agent setup --print")
+        .but("agent setup --print --json")
         .allow_json()
         .assert()
         .success()

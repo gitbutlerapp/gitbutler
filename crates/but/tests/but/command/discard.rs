@@ -348,7 +348,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 
 "#]]);
 
-    env.but("--json discard first-uncommitted.txt second-uncommitted.txt")
+    env.but("discard --json first-uncommitted.txt second-uncommitted.txt")
         .allow_json()
         .assert()
         .success()
@@ -617,7 +617,7 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but(format!("--json discard {source}:discarded-from-commit.txt"))
+    env.but(format!("discard --json {source}:discarded-from-commit.txt"))
         .allow_json()
         .assert()
         .success()
@@ -1236,7 +1236,7 @@ fn discard_that_conflicts_warns_on_stderr_in_json_mode() {
     // Discarding the bottom commit rebases its dependent on top of the base,
     // which conflicts. JSON output stays parseable, so the warning goes to
     // stderr.
-    env.but(format!("--json discard {bottom}"))
+    env.but(format!("discard --json {bottom}"))
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"

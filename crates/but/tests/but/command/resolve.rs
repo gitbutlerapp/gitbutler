@@ -246,7 +246,7 @@ fn resolve_finish_json_deduplicates_shared_conflicts() {
     env.file("top.txt", "resolved top\n");
     env.invoke_git("add top.txt");
 
-    let output = super::util::but_std_cmd(&env, "--json resolve finish")
+    let output = super::util::but_std_cmd(&env, "resolve --json finish")
         .output()
         .unwrap();
     assert!(output.status.success(), "resolve finish should succeed");
@@ -286,7 +286,7 @@ fn agent_resolve_finish_json_includes_result_and_status() {
     env.invoke_git("add file.txt");
 
     let output = env
-        .but("--json resolve finish --status-after")
+        .but("resolve --json finish --status-after")
         .as_agent()
         .allow_json()
         .assert()
@@ -352,7 +352,7 @@ fn agent_resolve_finish_json_status_tracks_rebased_conflict_queue() {
     env.invoke_git("add bottom.txt");
 
     let output = env
-        .but("--json resolve finish --status-after")
+        .but("resolve --json finish --status-after")
         .as_agent()
         .allow_json()
         .assert()
@@ -421,6 +421,24 @@ fn resolve_cancel_works_in_edit_mode() {
         .assert()
         .stderr_eq(str![""])
         .success();
+    assert_eq!(current_branch_name(&env), "gitbutler/workspace");
+}
+
+#[test]
+fn resolve_cancel_prints_json() {
+    let env = enter_edit_mode_with_conflicted_commit();
+
+    env.but("resolve cancel --force --json")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(str![""])
+        .stdout_eq(str![[r#"
+{
+  "cancelled": true
+}
+
+"#]]);
     assert_eq!(current_branch_name(&env), "gitbutler/workspace");
 }
 
@@ -616,7 +634,7 @@ fn check_out_submodule(env: &Sandbox, branch: &str) -> String {
 
 /// The conflicted and resolved paths `but resolve status` reports.
 fn resolve_status_paths(env: &Sandbox) -> (Vec<String>, Vec<String>) {
-    let output = env.but("--json resolve status").assert().success();
+    let output = env.but("resolve --json status").assert().success();
     let json: serde_json::Value = serde_json::from_slice(&output.get_output().stdout).unwrap();
     let paths = |key: &str| -> Vec<String> {
         serde_json::from_value(json[key].clone()).expect("status lists paths")
@@ -673,7 +691,7 @@ Unresolved submodule conflicts: "sm"
 Put the wanted submodule commit or file at each path and run `git add -- <path>`, remove it with `git rm -- <path>`, or discard the resolution with `but resolve cancel --force`.
 
 "#]]);
-    env.but("--json resolve finish")
+    env.but("resolve --json finish")
         .assert()
         .failure()
         .stdout_eq(str![""])

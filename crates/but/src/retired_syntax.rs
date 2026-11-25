@@ -68,6 +68,20 @@ pub(crate) fn hint(agent: bool) -> String {
     )
 }
 
+/// The hint for `--json` placed before a subcommand that has its own `--json` flag.
+///
+/// The command still prints JSON, so this only teaches the new position. Command events carry a
+/// `leadingJson` prop for these invocations; remove the root `--json` once it has aged out.
+pub(crate) fn leading_json_hint(subcommand: &str, agent: bool) -> String {
+    note(
+        &format!(
+            "`--json` now goes after the subcommand, as in `but {subcommand} --json`. \
+             Placing it before the subcommand will stop working in a future release."
+        ),
+        agent,
+    )
+}
+
 /// The hint for an invocation of a command removed by the revamp, which
 /// surfaces as an unknown external subcommand rather than a parse failure.
 pub(crate) fn removed_command_hint(command_name: &std::ffi::OsStr, agent: bool) -> Option<String> {
