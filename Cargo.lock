@@ -4869,6 +4869,7 @@ dependencies = [
  "but-core",
  "but-ctx",
  "but-graph",
+ "but-hunk-assignment",
  "but-meta",
  "but-oxidize",
  "but-rebase",
