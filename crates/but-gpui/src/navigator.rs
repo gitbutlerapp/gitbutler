@@ -46,9 +46,9 @@ use crate::ui::{
 use crate::ui::{
     CommitPlace, Fold as RowFold, MetaStatusVariant, PullRequestState, SidebarRow, SplitCell,
     SplitPreview, SplitTile, branch_item, commit_item, group_label, item_name, loading_item,
-    meta_status, more_item, press_in_pane, repo_item, row_divider, running_count, sidebar_row,
-    split_preview_map, stack_caption, terminal_item, uncommitted_item, upstream_item,
-    worktree_item,
+    meta_status, missing_repo_item, more_item, press_in_pane, repo_item, row_divider,
+    running_count, sidebar_row, split_preview_map, stack_caption, terminal_item, uncommitted_item,
+    upstream_item, worktree_item,
 };
 
 mod account;
@@ -3114,13 +3114,13 @@ impl Navigator {
                 |el| el.child(small_icon(Icon::Clock).text_color(theme.subtle_foreground)),
             );
         // Only folded, or in the drawer: open, the rows under it carry the dot.
-        // As but-ui's repo_item, wearing the project's own icon.
-        let row = repo_item(
-            ElementId::Name(format!("project-{id}").into()),
-            entry.project.name.clone(),
-            style.theme,
-        )
-        .glyph(glyph)
+        // As but-ui's repo_item, wearing the project's own icon; one whose folder is gone
+        // takes its missing row, the crossed-out glyph in red, over what says so.
+        let row_id = ElementId::Name(format!("project-{id}").into());
+        let row = match entry.gone {
+            true => missing_repo_item(row_id, entry.project.name.clone(), style.theme),
+            false => repo_item(row_id, entry.project.name.clone(), style.theme).glyph(glyph),
+        }
         .unread(unread && (card_folded || !expanded) && !open_here)
         .meta(summary)
         .meta_gives_way();

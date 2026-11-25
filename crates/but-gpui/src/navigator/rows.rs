@@ -326,7 +326,7 @@ pub(super) struct Drawer {
 pub(super) const GONE_HEIGHT: f32 = 2. * GONE_PADDING + EMPTY_TIDY_DETAIL_HEIGHT;
 
 /// The room above and below a missing folder's empty state.
-pub(super) const GONE_PADDING: f32 = 20.;
+pub(super) const GONE_PADDING: f32 = 24.;
 
 /// Where an item row's content starts in its card: the row's margin and its padding, 8, as
 /// [`RowStyle::row`](super::RowStyle::row) and [`section_heading`](super::section_heading)

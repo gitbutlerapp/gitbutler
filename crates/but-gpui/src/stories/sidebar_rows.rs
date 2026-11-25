@@ -6,9 +6,10 @@ use crate::theme::Theme;
 use crate::ui::person::author_avatar;
 use crate::ui::{
     ButtonStyle, CommitPlace, Fold, Icon, MetaCountType, MetaStatusVariant, PullRequestState,
-    SidebarRow, branch_item, button, commit_item, dp, icon_at, loading_item, machine_item,
-    machine_status, meta_count, meta_status, more_item, repo_item, row_divider, stack_caption,
-    terminal_item, tree_guides, uncommitted_item, upstream_item, v_flex, worktree_item,
+    SidebarRow, branch_item, button, commit_item, dp, empty_state_tidy, icon_at, loading_item,
+    machine_item, machine_status, meta_count, meta_status, missing_repo_item, more_item, repo_item,
+    row_divider, stack_caption, terminal_item, tree_guides, uncommitted_item, upstream_item,
+    v_flex, worktree_item,
 };
 
 /// A sidebar card, as the Workspace tree stories' `Card`: a machine's header over its
@@ -438,7 +439,7 @@ fn upstream(heading_open: bool, branch_open: bool, theme: &Theme) -> Div {
 }
 
 /// The stories of `SidebarRow.stories.tsx` this client can draw so far.
-pub(super) const EXAMPLES: [Example; 6] = [
+pub(super) const EXAMPLES: [Example; 7] = [
     Example {
         id: "components-sidebarrow--selection",
         name: "Selection",
@@ -476,6 +477,11 @@ pub(super) const EXAMPLES: [Example; 6] = [
         id: "components-sidebarrow--loading",
         name: "Loading",
         draw: |theme| loading(theme).into_any_element(),
+    },
+    Example {
+        id: "components-sidebarrow--missing",
+        name: "Missing",
+        draw: |theme| missing(theme).into_any_element(),
     },
     Example {
         id: "components-sidebarrow--divided-header",
@@ -671,6 +677,27 @@ fn loading(theme: &Theme) -> Div {
         repo_item("repo", "but-dev", theme).fold(Fold::Open),
         rows,
     )
+}
+
+/// A repository whose folder isn't there any more, as the `Missing` story: its header wears the
+/// crossed-out glyph in red, over the empty state that offers to relocate it.
+fn missing(theme: &Theme) -> Div {
+    let relocate = button("relocate", "Relocate folder")
+        .medium()
+        .style(ButtonStyle::Outline)
+        .icon(Icon::Folder)
+        .into_any_element();
+    repo_card(
+        theme,
+        missing_repo_item("repo", "berlin-brutalism", theme).fold(Fold::Open),
+        Vec::new(),
+    )
+    .child(gpui::div().py(dp(24.)).child(empty_state_tidy(
+        "",
+        "This project folder isn’t there any more.",
+        [relocate],
+        theme,
+    )))
 }
 
 /// What a terminal's program is at, as `TerminalItem.stories.tsx`'s `Statuses` gives each.
