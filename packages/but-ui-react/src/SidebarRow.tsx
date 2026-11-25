@@ -920,7 +920,7 @@ export const DrawerItem: FC<
  *
  * A `--but-border-subtle` hairline rules it off from what's above, the cards or another drawer,
  * an open one's card too. The last drawer at the panel's foot takes `last`, which rules it off
- * from the foot with a hairline under it.
+ * from the foot with a hairline under it while it's folded; open, its card ends it.
  *
  * @figma `folded=false` shows the `content` slot: put the card in it.
  * @import import { Drawer } from "@gitbutler/but-ui-react/SidebarRow.tsx";
@@ -934,14 +934,14 @@ export const Drawer: FC<
 		actions?: ReactNode;
 		hoverActions?: ReactNode;
 		children?: ReactNode;
-		/** The drawer at the panel's foot: a hairline under it too. */
+		/** The drawer at the panel's foot: a hairline under it too while it's folded. */
 		last?: boolean;
 	} & Omit<ComponentProps<"section">, "children">
 > = ({ name, count, folded, onToggleFolded, actions, hoverActions, children, last, ...props }) => (
 	<section
 		aria-label={name}
 		{...props}
-		className={classes(styles.drawerSection, last && styles.drawerLast, props.className)}
+		className={classes(styles.drawerSection, last && folded && styles.drawerLast, props.className)}
 	>
 		<DrawerItem
 			name={name}
