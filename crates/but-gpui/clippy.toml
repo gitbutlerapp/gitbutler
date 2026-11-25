@@ -83,6 +83,11 @@ disallowed-methods = [
     { path = "std::process::Command::status", reason = "blocks: do it in src/backend" },
     { path = "std::process::Command::spawn", reason = "blocks: do it in src/backend" },
     { path = "std::thread::sleep", reason = "blocks: do it in src/backend" },
+    # A repeating animation asks for the next frame on every frame, so for as long as it shows the
+    # whole window draws at the display's rate, up to 120 times a second, and the CPU and
+    # WindowServer never go idle. Motion that lasts as long as something is under way steps on a
+    # timer instead, as `meta_count::spinning` does.
+    { path = "gpui::Animation::repeat", reason = "redraws the window every frame for as long as it shows: step on a timer, as meta_count::spinning does" },
 ]
 
 # Tests may unwrap, expect and panic, which the crate denies elsewhere.
