@@ -219,19 +219,6 @@ impl Intent for DescribeBranch {
     }
 }
 
-/// Move branch `from`'s description to `to`, as `git branch -m` does.
-pub(super) fn move_description(repo: &gix::Repository, from: &BStr, to: &BStr) -> Result<()> {
-    let description = (but_core::git_config::open_repo_local_config_for_reading(repo)?)
-        .section("branch", Some(from))
-        .ok()
-        .and_then(|section| section.value("description"));
-    if description.is_none() {
-        return Ok(());
-    }
-    write_description(repo, from, None)?;
-    write_description(repo, to, description.as_ref().map(|d| d.as_bstr()))
-}
-
 fn write_description(
     repo: &gix::Repository,
     name: &BStr,

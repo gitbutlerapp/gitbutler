@@ -104,16 +104,7 @@ impl BranchArg {
         renamed: Option<&FullNameRef>,
     ) -> CliResult<FullName> {
         let branch_name = self.0.as_str();
-        let normalized = but_core::branch::normalize_short_name(branch_name).map_err(|err| {
-            CliError::from(bad_input(format!("Invalid branch name: {err}")).arg_value(branch_name))
-        })?;
-
-        if normalized != <&BStr>::from(branch_name) {
-            return Err(bad_input("Invalid branch name")
-                .arg_value(branch_name)
-                .hint(format!("Try '{normalized}' instead"))
-                .into());
-        }
+        self.require_normalized()?;
 
         let local_name = self.resolve_local_branch_name()?;
         if ws.refname_is_segment(local_name.as_ref()) {
@@ -146,6 +137,22 @@ impl BranchArg {
             .map_err(|err| CliError::from(err).hint("Pick another name"))?;
 
         Ok(local_name)
+    }
+
+    /// Fail unless the argument is already a valid branch name, hinting at the one it
+    /// would normalize to.
+    pub fn require_normalized(&self) -> CliResult<()> {
+        let branch_name = self.0.as_str();
+        let normalized = but_core::branch::normalize_short_name(branch_name).map_err(|err| {
+            CliError::from(bad_input(format!("Invalid branch name: {err}")).arg_value(branch_name))
+        })?;
+        if normalized != <&BStr>::from(branch_name) {
+            return Err(bad_input("Invalid branch name")
+                .arg_value(branch_name)
+                .hint(format!("Try '{normalized}' instead"))
+                .into());
+        }
+        Ok(())
     }
 
     /// Resolve the argument to a branch that exists in the repository.

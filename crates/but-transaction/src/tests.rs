@@ -963,7 +963,7 @@ fn extra_mutable_refs_outside_the_workspace_can_be_rewritten() {
 }
 
 #[test]
-fn undo_restores_an_extra_mutable_ref_the_transaction_rewrote() {
+fn undo_restores_a_listed_extra_mutable_ref_the_transaction_rewrote() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["branch"]);
     let [one] = find_commits(&env, ["dbdbcea"]);
@@ -984,6 +984,7 @@ fn undo_restores_an_extra_mutable_ref_the_transaction_rewrote() {
         guard.write_permission(),
         TransactionOptions {
             snapshot_details: Some(SnapshotDetails::new(OperationKind::UpdateCommitMessage)),
+            snapshot_refs: &[outside.as_ref()],
             extra_mutable_refs: vec![outside.clone()],
             ..Default::default()
         },
@@ -1706,5 +1707,47 @@ fn remove_references() {
 "#]]
     );
 
+    assert_num_snapshots(&ctx, 1);
+}
+
+#[test]
+fn rename_reference_then_reword_a_commit_of_it() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["branch"]);
+    let [three] = find_commits(&env, ["1e25c58"]);
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let mut meta = ctx.meta().unwrap();
+    let branch = FullName::try_from("refs/heads/branch").unwrap();
+    let renamed = FullName::try_from("refs/heads/renamed").unwrap();
+
+    with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::UpdateBranchName),
+        DryRun::No,
+        |mut tx| {
+            tx.rename_reference(branch.as_ref(), renamed.as_ref())?;
+            tx.reword_commit(three, "reworded".into())?;
+            Ok(())
+        },
+    )
+    .unwrap();
+
+    // The branch has its new name and follows its reworded commit.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 5272902 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 9727a8e (renamed) reworded
+* 9b3b3d5 add file-two
+* dbdbcea add file-one
+* 6674d4f (origin/main, origin/HEAD, main, gitbutler/target) add random-file
+
+"#]]
+    );
     assert_num_snapshots(&ctx, 1);
 }

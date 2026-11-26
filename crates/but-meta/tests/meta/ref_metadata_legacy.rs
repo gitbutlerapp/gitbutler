@@ -1329,41 +1329,6 @@ fn legacy_target_is_ignored_and_not_written() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[test]
-fn rename_onto_an_existing_branch_is_rejected() -> anyhow::Result<()> {
-    let (mut store, _tmp) = empty_vb_store_rw()?;
-
-    let a: gix::refs::FullName = "refs/heads/a".try_into()?;
-    let b: gix::refs::FullName = "refs/heads/b".try_into()?;
-
-    // Persist two distinct branches (each ends up in its own stack).
-    for name in [&a, &b] {
-        let mut branch = store.branch(name.as_ref())?;
-        branch.review.pull_request = Some(1);
-        store.set_branch(&branch)?;
-    }
-
-    // Renaming `a` onto the existing `b` must be rejected rather than creating a duplicate head.
-    let err = store
-        .rename(a.as_ref(), b.as_ref())
-        .expect_err("cannot rename onto an existing branch");
-    assert!(err.to_string().contains("already exists"), "{err}");
-    assert!(store.branch_opt(a.as_ref())?.is_some());
-    assert!(store.branch_opt(b.as_ref())?.is_some());
-
-    // Renaming onto a fresh name works and moves the metadata in place.
-    let c: gix::refs::FullName = "refs/heads/c".try_into()?;
-    store.rename(a.as_ref(), c.as_ref())?;
-    assert!(store.branch_opt(a.as_ref())?.is_none());
-    assert!(store.branch_opt(c.as_ref())?.is_some());
-
-    // Renaming a branch onto its own name is a no-op, not a self-conflict.
-    store.rename(c.as_ref(), c.as_ref())?;
-    assert!(store.branch_opt(c.as_ref())?.is_some());
-
-    Ok(())
-}
-
 fn empty_vb_store_rw() -> anyhow::Result<(VirtualBranchesMetadata, TempDir)> {
     let tmp = tempdir()?;
     let store = VirtualBranchesMetadata::from_path(tmp.path())?;

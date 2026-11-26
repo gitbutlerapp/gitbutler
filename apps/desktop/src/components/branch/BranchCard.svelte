@@ -153,14 +153,10 @@
 	async function updateBranchName(title: string) {
 		if (args.type === "stack-branch") {
 			if (!args.stackId) return;
-			// The backend re-normalizes, but we normalize here too so the optimistic selection
-			// update in `branchRename` lands on the name the branch will actually have.
-			const normalized = await stackService.normalizeBranchName(title);
-			if (!normalized || normalized === branchName) return;
 			await renameReference({
 				projectId,
 				refName: [...new TextEncoder().encode(`refs/heads/${branchName}`)],
-				newName: normalized,
+				newName: title,
 				laneId: args.laneId,
 				branchName,
 			});

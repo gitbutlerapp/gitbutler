@@ -265,35 +265,6 @@ impl BranchOrderHandleMut<'_> {
         sp.commit()
     }
 
-    pub fn rename_reference(self, old_ref_name: &str, new_ref_name: &str) -> rusqlite::Result<()> {
-        let sp = self.sp;
-        if old_ref_name == new_ref_name {
-            sp.commit()?;
-            return Ok(());
-        }
-
-        let order = BranchOrderHandle { conn: &sp };
-        let has_old = order.has_reference(old_ref_name)? || order.child_of(old_ref_name)?.is_some();
-        if !has_old {
-            sp.commit()?;
-            return Ok(());
-        }
-        if order.has_reference(new_ref_name)? || order.child_of(new_ref_name)?.is_some() {
-            return Err(rusqlite::Error::InvalidQuery);
-        }
-
-        sp.execute(
-            "UPDATE branch_order SET parent_ref_name = ?1 WHERE parent_ref_name = ?2",
-            [new_ref_name, old_ref_name],
-        )?;
-        sp.execute(
-            "UPDATE branch_order SET branch_ref_name = ?1 WHERE branch_ref_name = ?2",
-            [new_ref_name, old_ref_name],
-        )?;
-
-        sp.commit()
-    }
-
     pub fn remove_missing_references(self, existing_ref_names: &[String]) -> rusqlite::Result<()> {
         let sp = self.sp;
         let existing = existing_ref_names

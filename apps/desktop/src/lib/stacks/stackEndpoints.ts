@@ -526,8 +526,7 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				projectId: string;
 				refName: number[];
 				newName: string;
-				// Carried for the optimistic UI side effect only; not sent to the backend.
-				// (`newName` above IS sent to the backend as part of the rename payload.)
+				// Carried for the selection side effect only; not sent to the backend.
 				laneId?: string;
 				branchName?: string;
 			}
