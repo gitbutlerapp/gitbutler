@@ -26,7 +26,7 @@ use crate::virtual_branches_legacy_types::{Stack, StackBranch, VirtualBranches};
 #[cfg(feature = "legacy")]
 pub mod storage;
 
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 struct Snapshot {
     /// The time at which the `content` was changed, before it was written to disk.
     changed_at: Option<Instant>,
@@ -50,26 +50,21 @@ impl Snapshot {
             .then(|| gix::discover(&self.path).ok())
             .flatten();
         let repo = repo.or(discovered_repo.as_ref());
-        let mut projected_workspace = None;
-        self.write_if_changed_with_projection(repo, &mut projected_workspace)
-    }
-
-    fn write_if_changed_with_projection(
-        &mut self,
-        repo: Option<&gix::Repository>,
-        projected_workspace: &mut Option<Option<but_graph::Workspace>>,
-    ) -> anyhow::Result<()> {
+        let mut disposable_snapshot = self.clone();
+        let mut projected_segment_ids = None;
         if self.changed_at.is_some() || self.has_null_head_hash() || {
             let mut snapshot = self.clone();
             snapshot.enforce_constraints(
                 repo,
-                self.project_workspace_if_uncached(repo, projected_workspace),
-            )
+                &mut disposable_snapshot,
+                &mut projected_segment_ids,
+            )?
         } {
             let data = self.to_consistent_data(
                 repo,
-                self.project_workspace_if_uncached(repo, projected_workspace),
-            );
+                &mut disposable_snapshot,
+                &mut projected_segment_ids,
+            )?;
             storage::write_virtual_branches(&self.path, &data)?;
             self.content = data;
             self.changed_at.take();
@@ -99,14 +94,15 @@ impl Snapshot {
     fn to_consistent_data(
         &self,
         repo: Option<&gix::Repository>,
-        projected_workspace: Option<&but_graph::Workspace>,
-    ) -> VirtualBranches {
+        disposable_snapshot: &mut Snapshot,
+        projected_segment_ids: &mut Option<Option<BTreeMap<String, but_graph::SegmentIndex>>>,
+    ) -> anyhow::Result<VirtualBranches> {
         // EVIL HACK: assure we fill-in the CommitIDs of heads or else everything breaks.
         //            this probably won't be needed once no old code is running, and by then
         //            we should move away from this anyway and have a DB backed implementation.
         let mut clone = self.clone();
-        clone.enforce_constraints(repo, projected_workspace);
-        clone.content
+        clone.enforce_constraints(repo, disposable_snapshot, projected_segment_ids)?;
+        Ok(clone.content)
     }
 
     fn has_null_head_hash(&self) -> bool {
@@ -125,25 +121,12 @@ impl Snapshot {
     fn enforce_constraints(
         &mut self,
         repo: Option<&gix::Repository>,
-        projected_workspace: Option<&but_graph::Workspace>,
-    ) -> bool {
+        disposable_snapshot: &mut Snapshot,
+        projected_segment_ids: &mut Option<Option<BTreeMap<String, but_graph::SegmentIndex>>>,
+    ) -> anyhow::Result<bool> {
         let mut changed = false;
         let mut empty_stacks_to_remove = Vec::new();
         let null_id = gix::hash::Kind::Sha1.null();
-        let projected_segment_ids = projected_workspace
-            .filter(|workspace| workspace.kind.has_managed_commit())
-            .map(|workspace| {
-                workspace
-                    .stacks
-                    .iter()
-                    .flat_map(|stack| stack.segments.iter())
-                    .filter_map(|segment| {
-                        segment
-                            .ref_name()
-                            .map(|ref_name| (ref_name.shorten().to_string(), segment.id))
-                    })
-                    .collect::<BTreeMap<_, _>>()
-            });
         let mut seen_refnames = BTreeMap::<String, Option<but_graph::SegmentIndex>>::new();
         for (stack_id, stack) in self
             .content
@@ -171,33 +154,31 @@ impl Snapshot {
             // cross-stack `preserve_duplicate` carve-out below, which only makes sense
             // for two *different* stacks resolving to the same projected segment.
             let mut seen_in_this_stack = HashSet::<String>::new();
-            let head_indices_to_remove: Vec<_> = stack
-                .heads
-                .iter()
-                .enumerate()
-                .filter_map(|(head_idx, head)| {
-                    if !seen_in_this_stack.insert(head.name.clone()) {
-                        return Some(head_idx);
-                    }
-                    let projected_segment_id = projected_segment_ids
-                        .as_ref()
+            let mut head_indices_to_remove = Vec::new();
+            for (head_idx, head) in stack.heads.iter().enumerate() {
+                if !seen_in_this_stack.insert(head.name.clone()) {
+                    head_indices_to_remove.push(head_idx);
+                    continue;
+                }
+                let projected_segment_id =
+                    get_or_project_segment_ids(disposable_snapshot, repo, projected_segment_ids)?
                         .and_then(|ids| ids.get(&head.name).copied());
-                    match seen_refnames.entry(head.name.clone()) {
-                        btree_map::Entry::Vacant(entry) => {
-                            entry.insert(projected_segment_id);
-                            None
-                        }
-                        btree_map::Entry::Occupied(entry) => {
-                            let preserve_duplicate = entry
-                                .get()
-                                .as_ref()
-                                .zip(projected_segment_id)
-                                .is_some_and(|(seen, current)| *seen == current);
-                            (!preserve_duplicate).then_some(head_idx)
+                match seen_refnames.entry(head.name.clone()) {
+                    btree_map::Entry::Vacant(entry) => {
+                        entry.insert(projected_segment_id);
+                    }
+                    btree_map::Entry::Occupied(entry) => {
+                        let preserve_duplicate = entry
+                            .get()
+                            .as_ref()
+                            .zip(projected_segment_id)
+                            .is_some_and(|(seen, current)| *seen == current);
+                        if !preserve_duplicate {
+                            head_indices_to_remove.push(head_idx);
                         }
                     }
-                })
-                .collect();
+                }
+            }
             for head_idx in head_indices_to_remove.into_iter().rev() {
                 let head = stack.heads.remove(head_idx);
                 tracing::warn!(
@@ -217,43 +198,59 @@ impl Snapshot {
             tracing::warn!("Removed now empty stack {stack_id}");
             changed = true;
         }
-        changed
+        Ok(changed)
     }
+}
 
-    fn project_workspace_if_uncached<'a>(
-        &self,
-        repo: Option<&gix::Repository>,
-        cache: &'a mut Option<Option<but_graph::Workspace>>,
-    ) -> Option<&'a but_graph::Workspace> {
-        if cache.is_none() {
-            *cache = Some(repo.and_then(|repo| self.project_workspace(repo).ok()));
-        }
-        cache.as_ref().and_then(Option::as_ref)
+fn get_or_project_segment_ids<'a>(
+    snapshot: &mut Snapshot,
+    repo: Option<&gix::Repository>,
+    cache: &'a mut Option<Option<BTreeMap<String, but_graph::SegmentIndex>>>,
+) -> anyhow::Result<Option<&'a BTreeMap<String, but_graph::SegmentIndex>>> {
+    if let Some(cache) = cache {
+        return Ok(cache.as_ref());
     }
-
-    fn project_workspace(&self, repo: &gix::Repository) -> anyhow::Result<but_graph::Workspace> {
-        let mut reference = repo.find_reference(INTEGRATION_BRANCH)?;
-        let commit_id = reference.peel_to_commit()?.id;
-        let sideeffect_free_meta = std::mem::ManuallyDrop::new(VirtualBranchesMetadata {
-            snapshot: Snapshot {
-                changed_at: None,
-                ..self.clone()
-            },
-            write_on_drop: false,
-        });
-        but_graph::nosegment::workspace(
-            repo,
-            &*sideeffect_free_meta,
-            but_graph::init::Overlay::default(),
-            ProjectMeta::resolve(repo)?,
-            Some(reference.name()),
-            Some(commit_id),
-            [],
-            Vec::new(),
-            false,
-            but_graph::init::Options::limited().commits_limit_hint,
-        )
-    }
+    let Some(repo) = repo else {
+        return Ok(cache.insert(None).as_ref());
+    };
+    let Some(mut reference) = repo.try_find_reference(INTEGRATION_BRANCH)? else {
+        return Ok(cache.insert(None).as_ref());
+    };
+    let commit_id = reference.peel_to_commit()?.id;
+    let snapshot = std::mem::take(snapshot);
+    let sideeffect_free_meta = std::mem::ManuallyDrop::new(VirtualBranchesMetadata {
+        snapshot: Snapshot {
+            changed_at: None,
+            ..snapshot
+        },
+        write_on_drop: false,
+    });
+    let workspace = but_graph::nosegment::workspace(
+        repo,
+        &*sideeffect_free_meta,
+        but_graph::init::Overlay::default(),
+        ProjectMeta::resolve(repo)?,
+        Some(reference.name()),
+        Some(commit_id),
+        [],
+        Vec::new(),
+        false,
+        but_graph::init::Options::limited().commits_limit_hint,
+    )?;
+    Ok(cache
+        .insert(workspace.kind.has_managed_commit().then(|| {
+            workspace
+                .stacks
+                .iter()
+                .flat_map(|stack| stack.segments.iter())
+                .filter_map(|segment| {
+                    segment
+                        .ref_name()
+                        .map(|ref_name| (ref_name.shorten().to_string(), segment.id))
+                })
+                .collect()
+        }))
+        .as_ref())
 }
 
 /// An implementation to read and write metadata from the project database, meant to be a short-lived item
