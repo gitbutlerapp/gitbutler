@@ -1,5 +1,6 @@
 import { stories } from "../stories/stories.ts";
 import { useState, type FC } from "react";
+import { CrumbMenuButton } from "./Breadcrumbs.tsx";
 import { Button } from "./Button.tsx";
 import { Icon } from "./Icon.tsx";
 import {
@@ -13,6 +14,7 @@ import {
 } from "./Menu.tsx";
 import { MetaCount } from "./MetaCount.tsx";
 import { BranchItem } from "./SidebarRow.tsx";
+import { Tooltip } from "./Tooltip.tsx";
 
 const meta = stories({
 	title: "Overlays/Menu",
@@ -115,6 +117,65 @@ export const ViewOptions = meta.story({
 		},
 	},
 	render: (args) => <ViewOptionsMenu {...args} />,
+});
+
+type Layout = "both" | "sidebar" | "preview" | "top";
+
+/**
+ * The window's panels, beside the traffic lights: the glyph shows or hides the sidebar, and its
+ * ⌃⌄ picks a layout. The sidebar and the preview can't both go, so the layouts are a choice of one;
+ * the sidebar across the top is a fourth, apart from the three it replaces.
+ */
+const PanelLayoutMenu: FC<MenuProps> = (props) => {
+	const [layout, setLayout] = useState<Layout>("both");
+	const pick = (value: string) => setLayout(value as Layout);
+	const sidebarShown = layout === "both" || layout === "sidebar";
+	return (
+		<span style={{ display: "inline-flex", alignItems: "center" }}>
+			<Tooltip content={sidebarShown ? "Hide sidebar" : "Show sidebar"} kbd="Mod+B">
+				<Button
+					variant="ghost"
+					iconOnly
+					aria-label="Toggle sidebar"
+					aria-pressed={sidebarShown}
+					disabled={layout === "top"}
+					onClick={() => setLayout(sidebarShown ? "preview" : "both")}
+				>
+					<Icon name="sidebar" />
+				</Button>
+			</Tooltip>
+			<Menu {...props} aria-label="Layout" trigger={<CrumbMenuButton aria-label="Layout" />}>
+				<MenuRadioGroup label="Layout" value={layout} onValueChange={pick}>
+					<MenuRadioItem value="both" icon="sidebar-preview-pane">
+						Show both
+					</MenuRadioItem>
+					<MenuRadioItem value="sidebar" icon="sidebar" kbd="Mod+Alt+B">
+						Sidebar
+					</MenuRadioItem>
+					<MenuRadioItem value="preview" icon="preview-pane" kbd="Mod+B">
+						Preview
+					</MenuRadioItem>
+				</MenuRadioGroup>
+				<MenuRadioGroup value={layout} onValueChange={pick}>
+					<MenuRadioItem value="top" icon="sidebar-top">
+						Sidebar on top
+					</MenuRadioItem>
+				</MenuRadioGroup>
+			</Menu>
+		</span>
+	);
+};
+
+/** The window's panels: hide the sidebar, or pick a layout from its ⌃⌄. */
+export const PanelLayout = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=5645-2670",
+		},
+	},
+	args: { align: "start" },
+	render: (args) => <PanelLayoutMenu {...args} />,
 });
 
 /** The same actions on a right-click, at the pointer. */
