@@ -147,9 +147,9 @@ Important graph editor concepts:
 - none step (`but_rebase::graph_rebase::Step::None`) — placeholder after removing a pick/ref.
 - `Editor::rebase()` — materializes the edited graph back into Git objects and ref edits.
 
-Materializing also records how local branches stack, read off the step graph by `SuccessfulRebase::branch_stacks()`: the workspace stacks when `HEAD` is on the workspace reference above a workspace commit, and the branch stack order of `HEAD` otherwise and of every linked worktree. `overlayed_graph()` previews with the same stacks. A branch a linked worktree has checked out stacks with that worktree, and the workspace stacks are rebuilt rather than reconciled, keeping only a stack's id and position. An operation that needs something else in metadata still writes it after materializing.
+Materializing also records how local branches stack, read off the step graph by `SuccessfulRebase::branch_stacks()`: the workspace stacks when `HEAD` is on the workspace reference above a workspace commit, and the branch stack order of `HEAD` otherwise and of every linked worktree. `overlayed_graph()` previews with the same stacks. A branch a linked worktree has checked out stacks with that worktree, and the workspace stacks are rebuilt rather than reconciled, keeping only a stack's id and position. The apply and unapply code still writes other metadata itself. This is older behavior. Do not copy it in a new operation.
 
-Materializing moves `HEAD` and every active linked worktree off a branch the edit deletes. A branch any other worktree has checked out can't be deleted, so materializing refuses the whole edit.
+Materializing moves `HEAD` and every active linked worktree off a branch the edit deletes. A branch any other worktree has checked out can't be deleted, so materializing refuses the whole edit. Materializing also deletes the metadata and the `branch.<name>` Git configuration of each local branch that the edit deletes.
 
 `but-graph` reads a linked worktree's branch stack order back when it forks the worktree's checked-out branch out of the lanes: the branches the order puts at one commit become a chain of empty segments resting on that commit, and the worktree's first-parent path into the commit runs through them. They never own commits. The order only claims what the editor would give the worktree: branches on the worktree's own first-parent path that no checkout has checked out and that the entrypoint's metadata doesn't stack. A stale order thus can't take a branch from another lane, and the workspace stacks stay as they are.
 
@@ -166,6 +166,15 @@ The graph editor is not merely “a rebase command.” It is the in-memory graph
 That exclusivity is the part worth remembering. `but_ctx::Context` hands out its database handle through a runtime-checked cell, so **asking `Context` for another database handle while an editor chain is alive fails at run time, not at compile time** (`RefCell already mutably borrowed`). Take the handle once, thread it through the editor, and pull it back off the rebase or the materialize outcome instead of re-borrowing from `Context`. If later work in the same function needs `Context` again, drop the editor chain and the handle first.
 
 The same applies to the workspace and metadata borrows: an operation that wants to hand `Context` to a helper after materializing must release the editor's borrows before it does.
+
+### Editor operations are complete
+
+A `but_workspace` mutation is one complete action on the editor. The caller materializes the result. The caller does not change Git state or metadata after that.
+
+- Refuse invalid input in the operation. For example, `drop_reference` and `rename_reference` refuse a name outside `refs/heads` and a GitButler technical branch. Callers do not repeat these refusals.
+- Make sure that a reference is mutable before the operation changes it. The rebase does not move or delete a reference that is not mutable, and it reports no error. `rename_reference` refuses such a reference.
+- Do not move the state of a branch to another name. The metadata and the `branch.<name>` Git configuration belong to the name. A rename removes the old name and adds the new name. Materializing deletes the state of the old name, as it does for a deleted branch. Materializing writes the stacks from the graph, so the new name keeps its place.
+- Give the editor a graph that already contains each extra reference. `GraphEditorOptions::extra_mutable_refs` expects that the graph traversal found them. A transaction adds its extra references to the traversal before it creates the editor. Code that creates an `Editor` directly must do the same.
 
 ### Transactions compose editor operations
 
