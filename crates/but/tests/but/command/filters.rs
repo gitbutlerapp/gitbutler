@@ -118,3 +118,79 @@ fn resolve_cancel_restores_uncommitted_filtered_files_in_worktree_form() {
         "the worktree and index are as before resolving"
     );
 }
+
+#[test]
+fn resolve_finish_stores_filtered_files_once_and_writes_them_in_worktree_form() {
+    let env = resolve_conflicted_commit_with_filtered_file_after(|env| {
+        env.file("c.secret", "untracked before resolving\n");
+    });
+    env.file("file.txt", "resolved\n");
+    env.file("a.secret", "resolved secret\n");
+
+    env.but("resolve finish").assert().success();
+    assert_eq!(
+        env.invoke_git("cat-file -p A:a.secret")
+            .as_bytes()
+            .as_bstr(),
+        "SECRET\0erfbyirq frperg",
+        "the commit stores the resolved file cleaned once"
+    );
+    assert_eq!(
+        read(&env, "a.secret").as_bstr(),
+        "resolved secret\n",
+        "the committed file is written smudged"
+    );
+    assert_eq!(
+        read(&env, "c.secret").as_bstr(),
+        "untracked before resolving\n",
+        "the uncommitted file comes back smudged"
+    );
+    assert_eq!(
+        env.git_status(),
+        "?? c.secret\n",
+        "the worktree matches the workspace and its uncommitted file"
+    );
+}
+
+/// What a failed edit-mode transition must leave as it was: refs, `HEAD`, index, worktree
+/// status and edit-mode metadata.
+fn repo_state(env: &Sandbox) -> String {
+    let mut state = [
+        "symbolic-ref HEAD",
+        "for-each-ref",
+        "ls-files --stage",
+        "status --porcelain",
+    ]
+    .map(|args| env.invoke_git(args))
+    .join("\n");
+    state += &format!(
+        "\nedit mode metadata: {}",
+        env.projects_root()
+            .join(".git/gitbutler/edit_mode_metadata.toml")
+            .exists()
+    );
+    state
+}
+
+#[test]
+fn resolve_finish_changes_nothing_if_a_filter_fails_and_can_be_retried() {
+    let env = resolve_conflicted_commit_with_filtered_file_after(|env| {
+        env.file("b.secret", "edited\n");
+    });
+    env.file("file.txt", "resolved\n");
+    let fail_smudge = env.projects_root().join(".git/fail-smudge");
+    std::fs::write(&fail_smudge, "").unwrap();
+    let before = repo_state(&env);
+
+    env.but("resolve finish").assert().failure();
+    assert_eq!(repo_state(&env), before, "a failed finish changes nothing");
+
+    std::fs::remove_file(&fail_smudge).unwrap();
+    env.but("resolve finish").assert().success();
+    assert_eq!(
+        read(&env, "b.secret").as_bstr(),
+        "edited\n",
+        "the retried finish brings the uncommitted change back"
+    );
+    assert_eq!(env.invoke_git("show A:file.txt"), "resolved");
+}
