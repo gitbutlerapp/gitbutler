@@ -19,14 +19,17 @@
 - Keep `Context` at API/composition boundaries; pass granular dependencies
   like repo, workspace, metadata, database handles, or an `Editor` into
   lower-level crates where possible.
-- When an API offers both action-only and timeline-recording behavior, keep the
-  `*_only*` function free of oplog side effects; prepare a best-effort oplog
-  snapshot in the wrapper and commit it only after the mutation succeeds.
-- New user-facing mutations should participate in undo: record an oplog
-  snapshot via the existing `SnapshotDetails`/`OperationKind` wrapper pattern,
-  and call out any mutation intentionally left out of the timeline rather than
-  omitting it silently. Undo is snapshot-based; do not design bespoke inverse
-  operations for it.
+- A new `but-api` mutation of the graph, history or ref placement runs one
+  `but_transaction` transaction. It normalizes the caller's input, chooses the
+  `SnapshotDetails` and the references that undo must restore, declares
+  references outside the workspace as extra refs, and calls one `Transaction`
+  method. See `branch_remove_with_perm` and `branch_rename_with_perm`. Do not
+  add a `*_only*` variant or build an `Editor` in `but-api`. The ones that
+  exist predate transactions.
+- New user-facing mutations take part in undo. A transaction records the oplog
+  snapshot from its `snapshot_details`. When a mutation is left out of the
+  timeline on purpose, say so in its documentation. Undo is snapshot-based. Do
+  not design inverse operations for it.
 - Before changing or reviewing code that derives graph/workspace/branch/stack/commit
   relationships, reachability, dependencies, ordering, operation targets, or Git
   graph/history/ref-placement mutations, read `crates/WORKSPACE_MODEL.md`.
