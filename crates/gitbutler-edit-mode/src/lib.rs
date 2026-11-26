@@ -135,8 +135,6 @@ fn get_uncommitted_changes(repo: &gix::Repository) -> Result<gix::ObjectId> {
 
 fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
     let repo = &*ctx.repo.get()?;
-    #[expect(deprecated, reason = "checkout/index materialization boundary")]
-    let git2_repo = &*ctx.git2_repo.get()?;
     let commit = commit_id.attach(repo).object()?.try_into_commit()?;
 
     let base_commit_id = find_or_create_base_commit(repo, commit_id)?;
@@ -157,10 +155,6 @@ fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
         0,
     )?;
 
-    // Checkout the commit as unstaged changes
-    // TODO this may not be necessary if the commit is unconflicted
-    let mut index = get_commit_index(ctx, commit_id)?;
-
     let their_commit_msg = commit_title_to_merge_conflict_label(&commit)?;
     let their_label = format!("Current commit: {their_commit_msg}");
 
@@ -172,21 +166,125 @@ fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
     } else {
         "New base: (no commit)".to_string()
     };
+    let labels = gix::merge::blob::builtin_driver::text::Labels {
+        ancestor: Some("Common ancestor".into()),
+        current: Some(our_label.as_str().into()),
+        other: Some(their_label.as_str().into()),
+    };
 
-    git2_repo.checkout_index(
-        Some(&mut index),
-        Some(
-            CheckoutBuilder::new()
-                .force()
-                .remove_untracked(true)
-                .conflict_style_diff3(true)
-                .ancestor_label("Common ancestor")
-                .our_label(&our_label)
-                .their_label(&their_label),
-        ),
-    )?;
-
+    let repo = repo.clone().for_tree_diffing()?;
+    let commit = Commit::from_id(commit_id.attach(&repo))?;
+    match commit.conflicted_tree_ids()? {
+        Some((base, ours, theirs)) => {
+            let mut merge = repo.merge_trees(
+                base,
+                ours,
+                theirs,
+                repo.default_merge_labels(),
+                diff3_options(&repo)?,
+            )?;
+            let stages = merge.index(gix::merge::tree::TreatAsUnresolved::git(), None)?;
+            relabel_content_conflicts(&repo, &mut merge, &stages, labels)?;
+            let tree = merge.tree.write()?.detach();
+            but_core::worktree::overwrite_worktree(&repo, tree, Some(&stages))?;
+        }
+        None => {
+            let tree = commit.tree_id_or_auto_resolution()?.detach();
+            but_core::worktree::overwrite_worktree(&repo, tree, None)?;
+        }
+    }
     Ok(())
+}
+
+/// The mode a three-way merge gives a file whose sides have the modes `base`, `ours` and
+/// `theirs`: that of the side that changed it, or ours, like Git.
+fn merged_mode(
+    base: Option<gix::object::tree::EntryMode>,
+    ours: gix::object::tree::EntryMode,
+    theirs: gix::object::tree::EntryMode,
+) -> gix::object::tree::EntryMode {
+    if Some(ours) == base { theirs } else { ours }
+}
+
+/// Merge the files of `merge` whose content conflicts again, so their markers carry `labels`.
+/// The tree merge uses the default labels instead, as it also names files that it moves aside
+/// after them, and labels with `:` or `/` don't make valid file names everywhere.
+///
+/// `stages` is the index of `merge`, which holds the sides of each conflict.
+fn relabel_content_conflicts(
+    repo: &gix::Repository,
+    merge: &mut gix::merge::tree::Outcome<'_>,
+    stages: &gix::index::State,
+    labels: gix::merge::blob::builtin_driver::text::Labels<'_>,
+) -> Result<()> {
+    let options: gix::merge::plumbing::tree::Options = diff3_options(repo)?.into();
+    let side = |path: &bstr::BStr, stage| {
+        let entry = stages.entry_by_path_and_stage(path, stage)?;
+        Some((entry.id, entry.mode.to_tree_entry_mode()?))
+    };
+    let mut merged = Vec::new();
+    for conflict in merge
+        .conflicts
+        .iter()
+        .filter(|conflict| conflict.is_unresolved(gix::merge::tree::TreatAsUnresolved::git()))
+        .filter(|conflict| {
+            matches!(
+                conflict.resolution,
+                Ok(gix::merge::tree::Resolution::OursModifiedTheirsModifiedThenBlobContentMerge { .. })
+            )
+        })
+    {
+        let path = conflict.ours.location();
+        let base = side(path, gix::index::entry::Stage::Base);
+        let (Some((ours, ours_mode)), Some((theirs, theirs_mode))) = (
+            side(path, gix::index::entry::Stage::Ours),
+            side(path, gix::index::entry::Stage::Theirs),
+        ) else {
+            continue;
+        };
+        let base_mode = base.map(|(_, mode)| mode);
+        let read = |id: gix::ObjectId| -> Result<Vec<u8>> { Ok(repo.find_blob(id)?.take_data()) };
+        let base = base.map(|(id, _)| read(id)).transpose()?.unwrap_or_default();
+        let (ours_data, theirs_data) = (read(ours)?, read(theirs)?);
+        if [&base, &ours_data, &theirs_data]
+            .iter()
+            .any(|data| data.iter().take(8000).any(|byte| *byte == 0))
+        {
+            continue;
+        }
+        let mut out = Vec::new();
+        let mut input = gix::diff::blob::InternedInput::default();
+        gix::merge::blob::builtin_driver::text(
+            &mut out,
+            &mut input,
+            labels,
+            &ours_data,
+            &base,
+            &theirs_data,
+            options.blob_merge.text,
+        );
+        merged.push((
+            path.to_owned(),
+            merged_mode(base_mode, ours_mode, theirs_mode),
+            repo.write_blob(out)?.detach(),
+        ));
+    }
+    for (path, mode, id) in merged {
+        merge.tree.upsert(path.as_bstr(), mode.kind(), id)?;
+    }
+    Ok(())
+}
+
+/// Tree merge options that keep content conflicts as markers in diff3 style, which shows the
+/// common ancestor, whatever `merge.conflictStyle` says.
+fn diff3_options(repo: &gix::Repository) -> Result<gix::merge::tree::Options> {
+    let mut options: gix::merge::plumbing::tree::Options = repo.tree_merge_options()?.into();
+    options.blob_merge.text.conflict = gix::merge::blob::builtin_driver::text::Conflict::Keep {
+        style: gix::merge::blob::builtin_driver::text::ConflictStyle::Diff3,
+        marker_size: gix::merge::blob::builtin_driver::text::Conflict::DEFAULT_MARKER_SIZE
+            .try_into()?,
+    };
+    Ok(options.into())
 }
 
 fn open_workspace_ref<'repo>(repo: &'repo gix::Repository) -> Result<gix::Reference<'repo>> {

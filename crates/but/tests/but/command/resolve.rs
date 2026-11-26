@@ -414,6 +414,61 @@ fn agent_resolve_finish_json_status_tracks_rebased_conflict_queue() {
 }
 
 #[test]
+fn resolve_records_a_file_versus_directory_conflict_in_a_valid_index() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "upstream-conflicted-file-vs-directory",
+    );
+    env.setup_metadata_at_target(&["A"], "refs/heads/base");
+    env.invoke_git("remote set-url origin .");
+    env.but("pull").assert().success();
+    env.but(format!("resolve {}", env.invoke_git("rev-parse A")))
+        .assert()
+        .success();
+
+    // Like Git, the file's side moves aside, and its stages are recorded there.
+    snapbox::assert_data_eq!(
+        env.invoke_git("ls-files --stage"),
+        snapbox::str![[r#"
+100644 5be24b7e8f4ff445fb089b101bb4f0f4909d84d5 0	d/f
+100644 df967b96a579e45a18b8251732d16804b2e56a55 1	d~ours
+100644 d230ad4832d6185984caaae253362fa0c0167f52 2	d~ours
+"#]]
+    );
+}
+
+#[test]
+#[cfg(unix)]
+fn resolve_keeps_the_executable_bit_of_a_conflicted_file() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "upstream-conflicted-with-exec-bit",
+    );
+    env.setup_metadata_at_target(&["A"], "refs/heads/base");
+    env.invoke_git("remote set-url origin .");
+    env.but("pull").assert().success();
+    env.but(format!("resolve {}", env.invoke_git("rev-parse A")))
+        .assert()
+        .success();
+
+    let mode = std::fs::metadata(env.projects_root().join("f"))
+        .unwrap()
+        .permissions()
+        .mode();
+    assert_ne!(
+        mode & 0o111,
+        0,
+        "the commit's executable bit merges cleanly"
+    );
+    env.file("f", "line1\nresolved\nline3\n");
+    env.but("resolve finish").assert().success();
+    assert_eq!(
+        env.invoke_git("ls-tree A f").split_whitespace().next(),
+        Some("100755"),
+        "finishing keeps the executable bit"
+    );
+}
+
+#[test]
 fn resolve_cancel_works_in_edit_mode() {
     let env = enter_edit_mode_with_conflicted_commit();
 
@@ -612,7 +667,7 @@ Hint: Edit them to the wanted content, then run `but resolve commit.txt second.t
 }
 
 /// Enter edit mode on branch A's commit after integrating the target of `scenario`
-/// conflicted it on submodule `sm`. Entering edit mode removes the `sm` worktree.
+/// conflicted it on submodule `sm`. Like Git, entering edit mode keeps the `sm` worktree.
 fn enter_edit_mode_with_submodule_conflict(scenario: &str) -> Sandbox {
     let env = Sandbox::init_scenario_with_target_and_default_settings_slow(scenario);
     env.setup_metadata_at_target(&["A"], "refs/heads/base");
@@ -773,6 +828,7 @@ fn resolve_finish_refuses_empty_or_missing_submodule_until_removal_is_staged() {
     env.file("README", "resolved\n");
     let tip = env.invoke_git("rev-parse A");
 
+    std::fs::remove_dir_all(env.projects_root().join("sm")).unwrap();
     std::fs::create_dir(env.projects_root().join("sm")).unwrap();
     env.invoke_git_fails(
         "add -- sm",
