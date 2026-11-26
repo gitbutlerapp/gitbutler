@@ -58,26 +58,47 @@ pub(crate) fn layout_items(current: Layout, cx: &App) -> Vec<MenuItem> {
     ]
 }
 
+/// How long the pointer rests on the glyph before the hidden navigator comes out over the
+/// detail, so crossing the bar doesn't flash it open.
+pub(crate) const PEEK_DELAY: std::time::Duration = std::time::Duration::from_millis(300);
+
+/// What the glyph runs as the pointer comes onto it or leaves it.
+pub(crate) type HoverHandler = Box<dyn Fn(&bool, &mut Window, &mut App) + 'static>;
+
 /// The glyph, which shows or hides the navigator as ⌘B does, then the ⌃⌄, which runs `menu` to
-/// open [`layout_items`]. Across the top, the navigator has nothing to show or hide.
+/// open [`layout_items`]. Across the top, the navigator has nothing to show or hide. `hover`
+/// runs as the pointer comes onto the glyph and leaves it, to bring a hidden navigator out.
 pub(crate) fn layout_control(
     current: Layout,
     menu: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    hover: Option<HoverHandler>,
 ) -> Div {
     let tip = match current {
         Layout::Detail => "Show sidebar",
         _ => "Hide sidebar",
     };
+    // Where resting on it brings the navigator out, that says what it does, and the navigator
+    // covers it: a tooltip would stay over the navigator.
     let toggle = icon_button("layout-toggle", current.glyph())
-        .tooltip_for(tip, &ToggleNavigator)
         .disabled_because((current == Layout::Top).then_some("The sidebar is across the top"))
         .dispatch(&ToggleNavigator);
+    let toggle = match hover.is_some() {
+        true => toggle.aria_label(tip),
+        false => toggle.tooltip_for(tip, &ToggleNavigator),
+    };
     let menu = crumb_menu_button("layout-menu", "Layout")
         .tooltip("Layout")
         .on_click(menu);
     h_flex()
         .flex_none()
-        .child(above_drag(gpui::div().child(toggle)))
+        .child(above_drag(
+            gpui::div()
+                .id("layout-toggle-hover")
+                .when_some(hover, |el, hover| {
+                    el.on_hover(move |hovered, window, cx| hover(hovered, window, cx))
+                })
+                .child(toggle),
+        ))
         .child(above_drag(gpui::div().child(menu)))
 }
 

@@ -196,6 +196,9 @@ pub struct TerminalOverview {
     /// Whether no terminal was open when the store last changed, to fold or open the card as
     /// that changes.
     was_empty: bool,
+    /// Out over the detail with the navigator, a card of its own, whose edge ends it: no line
+    /// under its folded bar.
+    floating: bool,
     /// What the rows were last sorted out under, to sort them out again at once as it changes.
     grouped_by: TerminalGrouping,
     folded: HashSet<Group>,
@@ -229,6 +232,14 @@ impl Focusable for TerminalOverview {
 }
 
 impl TerminalOverview {
+    /// Out over the detail with the navigator, or back beside it.
+    pub(crate) fn set_floating(&mut self, floating: bool, cx: &mut Context<Self>) {
+        if self.floating != floating {
+            self.floating = floating;
+            cx.notify();
+        }
+    }
+
     pub fn new(app: AppHandle, store: Entity<Store>, cx: &mut Context<Self>) -> Self {
         let _store = cx.observe(&store, |this, store, cx| {
             let store = store.read(cx);
@@ -261,6 +272,7 @@ impl TerminalOverview {
             shut: empty,
             card: Slide::default(),
             was_empty: empty,
+            floating: false,
             grouped_by,
             folded: HashSet::new(),
             folds: Folds::default(),
@@ -1043,21 +1055,24 @@ impl Render for TerminalOverview {
             // The last drawer at the navigator's foot: open, its card ends level with the
             // detail's beside it; folded, a hairline under its row, as but-ui-react's Drawer's
             // `last`.
-            .when(!in_tab && drawn_folded, |el| {
+            .when(!in_tab && !self.floating && drawn_folded, |el| {
                 el.pb(dp(1.)).child(foot_line(theme))
             })
-            .when_some(shutting.filter(|_| !in_tab && !drawn_folded), |el, shut| {
-                el.child(
-                    div()
-                        .absolute()
-                        .bottom_0()
-                        .left_0()
-                        .right_0()
-                        .h(dp((DRAWER_BLOCK + 1.) * shut))
-                        .bg(theme.canvas)
-                        .child(foot_line(theme).opacity(shut)),
-                )
-            })
+            .when_some(
+                shutting.filter(|_| !in_tab && !self.floating && !drawn_folded),
+                |el, shut| {
+                    el.child(
+                        div()
+                            .absolute()
+                            .bottom_0()
+                            .left_0()
+                            .right_0()
+                            .h(dp((DRAWER_BLOCK + 1.) * shut))
+                            .bg(theme.canvas)
+                            .child(foot_line(theme).opacity(shut)),
+                    )
+                },
+            )
     }
 }
 

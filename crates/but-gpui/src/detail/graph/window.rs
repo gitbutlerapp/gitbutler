@@ -108,11 +108,11 @@ impl GraphWindow {
             }),
             #[cfg(target_os = "macos")]
             cx.observe_global_in::<Theme>(window, |_, window, cx| {
-                crate::app::place_traffic_lights(false, window, cx)
+                crate::app::place_traffic_lights(window, cx)
             }),
         ]);
         #[cfg(target_os = "macos")]
-        crate::app::place_traffic_lights(false, window, cx);
+        crate::app::place_traffic_lights(window, cx);
         // Visibility arrives only as it changes, so it starts as the window opens.
         let visible = crate::app::scripted() || window.is_visible();
         store.update(cx, |store, cx| store.set_visible(id, visible, cx));

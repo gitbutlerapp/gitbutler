@@ -609,6 +609,9 @@ pub struct Detail {
     pub navigator_shown: Cell<f32>,
     /// How much of the navigator's tabs show across the window's top, from 0 to 1, as they slide.
     pub tabs_shown: Cell<f32>,
+    /// The wait between the pointer resting on the layout control's glyph and the navigator
+    /// coming out over the detail, dropped as the pointer leaves it.
+    pub(super) glyph_hover: Option<Task<()>>,
     /// The window's width to lay out for, in unscaled pixels, while the window narrows to the
     /// navigator or widens back as the detail slides, so it isn't laid out again at every
     /// width; otherwise the window's own.
@@ -970,6 +973,7 @@ impl Detail {
             _files_popover_delay: Task::ready(()),
             navigator_shown: Cell::new(1.),
             tabs_shown: Cell::new(0.),
+            glyph_hover: None,
             window_width: Cell::new(None),
             graph,
             pinned,

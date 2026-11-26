@@ -37,7 +37,7 @@ use crate::transfer::{
     terminal_preview,
 };
 use crate::ui::Text;
-use crate::ui::fold::{OnTop, Slide, edge, inert, on_top};
+use crate::ui::fold::{OnTop, REORDER, Slide, edge, inert, on_top};
 use crate::ui::{
     Button, ButtonStyle, HEADER_HEIGHT, Icon, TILE_BAR, TILE_MARGIN, commit_title, dp, fixed,
     gap_divider, gap_junction, h_flex, icon_button, mark_dragged, placed, resize_pane, small_icon,
@@ -242,9 +242,6 @@ pub struct AppView {
     /// Where a commit or an amend being placed was started from, and the changes selected for
     /// it, so Esc goes back there, as it does from a move, which leaves the selection alone.
     placing_from: Option<(Selection, Selection)>,
-    /// macOS's traffic lights are out of the way of the navigator out over the detail.
-    #[cfg(target_os = "macos")]
-    lights_away: bool,
     pub palette: Option<Palette>,
     /// The colour scheme selected in its picker, and whether it's light's or dark's, which the
     /// window draws in until that closes.
@@ -282,6 +279,8 @@ const TERMINALS_MOST: f32 = 0.45;
 const TERMINALS_MOST_DRAGGED: f32 = 0.85;
 /// How far the navigator out over the detail floats from the window's edges.
 const PEEK_INSET: f32 = 6.;
+/// How far the navigator out over the detail comes up over the location bar's foot.
+const PEEK_OVER_BAR: f32 = 3.;
 /// How far past its card the shadow of the navigator out over the detail reaches, which goes
 /// off the window with it as it slides away.
 const PEEK_SHADOW: f32 = 16.;
@@ -291,7 +290,6 @@ const PEEK_GRACE: Duration = Duration::from_millis(300);
 
 /// The closed navigator out over the detail, as the pointer at the window's left edge brings
 /// it, until the pointer strays from it, or as ⌘1 brings it, until the keys leave it.
-#[derive(Default)]
 struct Peek {
     open: bool,
     /// It sliding in from the window's edge or back off it.
@@ -305,6 +303,21 @@ struct Peek {
     /// Brought out to place a commit in, as ⌘↩ does while it's hidden, so it goes back once
     /// that's committed or let go, as it went back from ⌘1.
     committing: bool,
+}
+
+impl Default for Peek {
+    fn default() -> Self {
+        Self {
+            open: false,
+            // A card travelling in from past the window's edge: on the slow tier, as what
+            // travels does, landing on ease-out, so it arrives rather than lunges.
+            slide: Slide::lasting(REORDER).ease_out(),
+            leaving: None,
+            keyed: false,
+            returns_to: None,
+            committing: false,
+        }
+    }
 }
 
 /// The window narrowing to the navigator as the detail slides in under it, or widening back as
@@ -467,7 +480,7 @@ impl AppView {
         cx.set_global(theme_for(store.read(cx), None, window));
         let window_id = window.window_handle().window_id();
         #[cfg(target_os = "macos")]
-        place_traffic_lights(false, window, cx);
+        place_traffic_lights(window, cx);
         #[cfg(target_os = "macos")]
         if backend::settings::dev_build() {
             keep_drags_through_other_buttons();
@@ -608,9 +621,7 @@ impl AppView {
                 this.apply_appearance(window, cx)
             }),
             #[cfg(target_os = "macos")]
-            cx.observe_global_in::<Theme>(window, |this, window, cx| {
-                place_traffic_lights(this.lights_away, window, cx)
-            }),
+            cx.observe_global_in::<Theme>(window, |_, window, cx| place_traffic_lights(window, cx)),
             // A scripted window opens off screen, which isn't where the user left theirs, and
             // one narrowed to the navigator opens again with the detail.
             cx.observe_window_bounds(window, |this, window, cx| {
@@ -709,8 +720,6 @@ impl AppView {
             resizing: None,
             peek: Peek::default(),
             placing_from: None,
-            #[cfg(target_os = "macos")]
-            lights_away: false,
             palette: None,
             previewed_scheme: None,
             modal: None,
@@ -2510,6 +2519,7 @@ impl AppView {
         if navigator_open {
             self.peek = Peek::default();
             (self.navigator).update(cx, |navigator, cx| navigator.set_floating(false, cx));
+            (self.terminals).update(cx, |terminals, cx| terminals.set_floating(false, cx));
         }
         if navigator_open && peeking {
             self.navigator_slide = Slide::default();
@@ -2678,11 +2688,24 @@ impl AppView {
         }
     }
 
+    /// Bring the closed navigator out over the detail as the pointer rests on the layout
+    /// control's glyph in the location bar, as at the window's left edge, unless it's out or
+    /// coming back already.
+    pub(crate) fn peek_from_glyph(&mut self, cx: &mut Context<AppView>) {
+        let now = clock::now();
+        let showing = self.navigator_open || self.navigator_slide.closing(now) || self.peek.open;
+        if showing || self.navigator_on_top || self.covered() {
+            return;
+        }
+        self.open_peek(cx);
+    }
+
     /// Bring the closed navigator out over the detail.
     fn open_peek(&mut self, cx: &mut Context<AppView>) {
         self.peek.open = true;
         self.peek.slide.start(true, cx);
         (self.navigator).update(cx, |navigator, cx| navigator.set_floating(true, cx));
+        (self.terminals).update(cx, |terminals, cx| terminals.set_floating(true, cx));
         cx.notify();
     }
 
@@ -4784,17 +4807,23 @@ impl AppView {
             .h(dp(2. * crate::navigator::DIVIDER_REACH + 1.))
             .on_drag(Pane::Terminals, mark_dragged(&self.store, which))
             .on_click(reset);
+            // Folded out over the detail, its bar's own room under its row ends the card, as
+            // much as over it; open, its card keeps off the card's edge.
+            let margin = match shut && at == Column::Out {
+                true => 0.,
+                false => TERMINALS_MARGIN,
+            };
             div()
                 .relative()
                 .flex_none()
-                .h(dp(height + TERMINALS_MARGIN))
+                .h(dp(height + margin))
                 .max_h(relative(most))
                 .pl(dp(TERMINALS_MARGIN))
                 .pr(dp(match at {
                     Column::Beside => TERMINALS_MARGIN - 1.,
                     Column::Alone | Column::Out => TERMINALS_MARGIN,
                 }))
-                .pb(dp(TERMINALS_MARGIN))
+                .pb(dp(margin))
                 .bg(theme.canvas)
                 .when(at == Column::Out, |el| el.rounded_b(dp(theme.shape.popup)))
                 .child((self.terminals.clone()).cached(StyleRefinement::default().size_full()))
@@ -4872,19 +4901,22 @@ impl AppView {
 
     /// The navigator out over the detail, the terminal overview under it as beside the panes: a
     /// card sliding in from past the window's edge, shadow and all, keeping its width as it
-    /// goes.
+    /// goes. It stands a little over the location bar's foot, so the bar's layout glyph, which
+    /// brings it out and back, stays in sight and in reach, and reaches down over the status
+    /// bar.
     fn render_peek(&self, now: Instant, window: &Window, cx: &App) -> impl IntoElement {
         let theme = Theme::get(cx);
         let width = self.detail.read(cx).navigator_width(now, window, cx);
         let away = PEEK_INSET + width + PEEK_SHADOW;
         let left = PEEK_INSET - away * (1. - self.peek.slide.share(self.peek.open, now));
-        let navigator = div()
+        let top = self.detail.read(cx).location_bar_height() - PEEK_OVER_BAR;
+        let column = div()
             .size_full()
             .child(self.render_side_column(Column::Out, cx));
         div()
             .absolute()
-            .top(dp(PEEK_INSET))
-            .bottom(dp(PEEK_INSET))
+            .top(dp(top))
+            .bottom(dp(PEEK_INSET + 1.))
             .left(dp(left))
             .w(dp(width))
             .bg(theme.canvas)
@@ -4894,7 +4926,7 @@ impl AppView {
             .shadow_lg()
             // Over the detail, taking the pointer from it.
             .occlude()
-            .child(inert(navigator, !self.peek.open))
+            .child(inert(column, !self.peek.open))
     }
 }
 
@@ -5632,20 +5664,11 @@ impl Render for AppView {
         if sliding && !resizing {
             window.request_animation_frame();
         }
-        // The navigator out over the detail goes over where macOS's traffic lights are, and
-        // AppKit draws them over everything the app does, so they make way while it's drawn.
-        #[cfg(target_os = "macos")]
-        {
-            let peeking = self.peek.open || self.peek.slide.closing(now);
-            let away = peeking && !self.navigator_on_top;
-            if away != self.lights_away {
-                self.lights_away = away;
-                place_traffic_lights(away, window, cx);
-            }
-        }
         let has_update_feed = cx
             .try_global::<crate::Embedded>()
             .is_some_and(|e| e.update_feed.is_some());
+        // The navigator out over the detail, over the status bar too.
+        let peeking = self.peek.open || self.peek.slide.closing(now);
         let root = div()
             .id("root")
             .role(Role::Application)
@@ -5956,6 +5979,7 @@ impl Render for AppView {
                 }),
             )
             .size_full()
+            .relative()
             .flex()
             .flex_col()
             .bg(theme.background)
@@ -6048,14 +6072,13 @@ impl Render for AppView {
                     })
                     // Closed, the navigator comes out over the detail as the pointer reaches
                     // the window's left edge, as Arc's sidebar does.
-                    .when(!self.navigator_open, |el| el.child(self.watch_pointer(cx)))
-                    .when(self.peek.open || self.peek.slide.closing(now), |el| {
-                        el.child(self.render_peek(now, window, cx))
-                    }),
+                    .when(!self.navigator_open, |el| el.child(self.watch_pointer(cx))),
             )
             .when(self.status_bar_shown(cx), |el| {
                 el.child(self.render_status_bar(window, cx))
             })
+            // Over the location bar's foot and the status bar, its shadow unclipped.
+            .when(peeking, |el| el.child(self.render_peek(now, window, cx)))
             .children(self.render_menu_bar(window, cx))
             .children(self.render_modal(cx).map(overlay))
             // Above a modal: Git can ask for credentials while one is open.
@@ -6082,22 +6105,15 @@ impl Render for AppView {
 }
 
 /// Puts macOS's traffic lights, which keep their size at every interface scale, halfway down
-/// the header, however tall the scale draws it. While `away`, they're past the window's left
-/// edge, where AppKit doesn't draw them.
+/// the header, however tall the scale draws it.
 #[cfg(target_os = "macos")]
-pub(crate) fn place_traffic_lights(away: bool, window: &Window, cx: &App) {
+pub(crate) fn place_traffic_lights(window: &Window, cx: &App) {
     use crate::ui::fixed;
     use gpui::point;
 
     const LIGHTS: f32 = 14.;
-    // Further than the three of them reach.
-    const AWAY: f32 = -100.;
     let top = (Theme::get(cx).scaled(HEADER_HEIGHT) - fixed(LIGHTS)) / 2.;
-    let left = match away {
-        true => fixed(AWAY),
-        false => fixed(14.),
-    };
-    window.set_traffic_light_position(point(left, top));
+    window.set_traffic_light_position(point(fixed(14.), top));
 }
 
 /// The theme the appearance setting and the system call for, or, while a scheme is

@@ -262,6 +262,7 @@ impl Move {
 pub struct Slide {
     sliding: Option<Sliding>,
     lasting: Duration,
+    curve: Curve,
 }
 
 #[derive(Clone, Copy)]
@@ -281,7 +282,14 @@ impl Slide {
         Self {
             sliding: None,
             lasting,
+            curve: Curve::Ease,
         }
+    }
+
+    /// On `ease-out`, for a card that travels in and lands, as the motion note has it.
+    pub fn ease_out(mut self) -> Self {
+        self.curve = Curve::EaseOut;
+        self
     }
 
     /// The pane just opened, or shut: it moves there from where it is.
@@ -298,7 +306,7 @@ impl Slide {
             false => 1.,
         };
         let at = self.openness(now).unwrap_or(shut);
-        let since = set_out(open, at, self.lasting, now);
+        let since = set_out_on(self.curve, open, at, self.lasting, now);
         self.sliding = Some(Sliding { open, since });
     }
 
@@ -306,7 +314,7 @@ impl Slide {
     pub fn openness(&self, now: Instant) -> Option<f32> {
         let Sliding { open, since } = self.sliding?;
         (now.saturating_duration_since(since) < self.lasting)
-            .then(|| openness_over(open, since, now, self.lasting))
+            .then(|| openness_on(self.curve, open, since, now, self.lasting))
     }
 
     /// Whether the pane is closing at `now`, so it's still drawn.
@@ -375,10 +383,15 @@ pub fn edge(color: Hsla) -> Div {
 /// When a move toward `open` that takes `lasting` and is `at` open by `now` set out, so it goes
 /// on from there.
 fn set_out(open: bool, at: f32, lasting: Duration, now: Instant) -> Instant {
+    set_out_on(Curve::Ease, open, at, lasting, now)
+}
+
+/// [`set_out`] of a move on `curve`.
+fn set_out_on(curve: Curve, open: bool, at: f32, lasting: Duration, now: Instant) -> Instant {
     // How far along its way there a move that's at `at` now is.
     let along = match open {
-        true => unease(at),
-        false => unease(1. - at),
+        true => curve.along(at),
+        false => curve.along(1. - at),
     };
     (now.checked_sub(lasting.mul_f32(along))).unwrap_or(now)
 }
@@ -390,11 +403,53 @@ pub fn openness(open: bool, since: Instant, now: Instant) -> f32 {
 
 /// [`openness`] of a move that takes `lasting`.
 pub fn openness_over(open: bool, since: Instant, now: Instant, lasting: Duration) -> f32 {
+    openness_on(Curve::Ease, open, since, now, lasting)
+}
+
+/// [`openness_over`] of a move on `curve`.
+fn openness_on(curve: Curve, open: bool, since: Instant, now: Instant, lasting: Duration) -> f32 {
     let along = now.saturating_duration_since(since).as_secs_f32() / lasting.as_secs_f32();
-    let eased = ease(along.clamp(0., 1.));
+    let eased = curve.at(along.clamp(0., 1.));
     match open {
         true => eased,
         false => 1. - eased,
+    }
+}
+
+/// How long something takes to travel `distance` design pixels, as the motion note has it: the
+/// slow tier for a short hop and 0.4ms more a pixel, up to half as long again, so a long way
+/// reads as a move rather than a jump.
+pub fn travel_time(distance: f32) -> Duration {
+    let ms = REORDER.as_secs_f32() * 1000. + distance.abs() * 0.4;
+    Duration::from_secs_f32(ms.min(1.5 * REORDER.as_secs_f32() * 1000.) / 1000.)
+}
+
+/// The curve a move rides: CSS's `ease`, which the tiers ride, or `ease-out`, for what travels
+/// in and lands.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Curve {
+    Ease,
+    EaseOut,
+}
+
+impl Curve {
+    /// How far along it is `x` of the way through its time.
+    fn at(self, x: f32) -> f32 {
+        match self {
+            Curve::Ease => ease(x),
+            Curve::EaseOut => ease_out(x),
+        }
+    }
+
+    /// How far through its time it is at `y`, as it climbs all the way.
+    fn along(self, y: f32) -> f32 {
+        match self {
+            Curve::Ease => unease(y),
+            Curve::EaseOut => {
+                let t = solve(y, |t| bezier(t, 0., 1.));
+                bezier(t, 0., 0.58)
+            }
+        }
     }
 }
 
@@ -720,6 +775,13 @@ pub fn turned_in_group(
 fn ease(x: f32) -> f32 {
     let t = solve(x, |t| bezier(t, 0.25, 0.25));
     bezier(t, 0.1, 1.)
+}
+
+/// CSS's `ease-out`, a cubic Bézier through (0, 0) and (0.58, 1), at `x` of the way through
+/// its time.
+fn ease_out(x: f32) -> f32 {
+    let t = solve(x, |t| bezier(t, 0., 0.58));
+    bezier(t, 0., 1.)
 }
 
 /// How far through its time [`ease`] is at `y`, as it climbs all the way.
@@ -1054,6 +1116,33 @@ mod tests {
                 "a move turned back finds where it was along its way"
             );
         }
+    }
+
+    #[test]
+    fn ease_out_turned_back_finds_where_it_was() {
+        for x in [0.1, 0.3, 0.5, 0.9] {
+            assert!(
+                (Curve::EaseOut.along(Curve::EaseOut.at(x)) - x).abs() < 1e-3,
+                "a slide on ease-out turned back finds where it was along its way"
+            );
+        }
+        assert!(
+            (ease_out(0.5) - 0.6846).abs() < 1e-3,
+            "ease-out is as far along halfway through as CSS's, cubic-bezier(0, 0, 0.58, 1)"
+        );
+    }
+
+    #[test]
+    fn travel_takes_longer_the_further_it_goes() {
+        let ms = |d: Duration| d.as_secs_f32() * 1000.;
+        assert!(
+            (ms(travel_time(0.)) - ms(REORDER)).abs() < 0.5,
+            "a short hop takes the slow tier"
+        );
+        assert!(
+            (ms(travel_time(10_000.)) - 1.5 * ms(REORDER)).abs() < 0.5,
+            "a long way takes half as long again, no more"
+        );
     }
 
     #[test]

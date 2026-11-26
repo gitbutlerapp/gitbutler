@@ -2692,6 +2692,7 @@ impl Navigator {
             cx.listener(|this, event: &ClickEvent, _, cx| {
                 this.open_menu(event.position(), |_, cx| layout_items(Layout::Top, cx), cx)
             }),
+            None,
         );
         // A line between the strip's drawers and the header's buttons, as before the layout's.
         let rule = bar_rule(&theme).mx(dp(8.)).into_any_element();

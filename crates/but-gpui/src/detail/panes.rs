@@ -22,7 +22,9 @@ use crate::backend::{
 use crate::clipboard;
 use crate::clock;
 use crate::edits::{NameBranch, RenameBranch, Reword};
-use crate::layout_menu::{Layout, bar_rule, layout_control, layout_items};
+use crate::layout_menu::{
+    HoverHandler, Layout, PEEK_DELAY, bar_rule, layout_control, layout_items,
+};
 use crate::navigator::{SelectFirst, SelectLast, account_button, settings_items, upstream_label};
 use crate::overlays::{MenuItem, has_keys};
 use crate::state::{Part, ProjectId, ProjectTab, Section, Selection, Side};
@@ -258,11 +260,31 @@ impl Detail {
                 },
             ))
         });
+        // With the navigator hidden, resting on the glyph brings it out over the detail, as
+        // the window's left edge does: the way to it a reader can see.
+        let peek = (layout == Layout::Detail).then(|| -> HoverHandler {
+            Box::new(cx.listener(|this, hovered: &bool, window, cx| {
+                if !*hovered {
+                    this.glyph_hover = None;
+                    return;
+                }
+                this.glyph_hover = Some(cx.spawn_in(window, async move |this, cx| {
+                    cx.background_executor().timer(PEEK_DELAY).await;
+                    this.update_in(cx, |this, window, cx| {
+                        this.glyph_hover = None;
+                        this.app
+                            .update_later(window, cx, |app, _, cx| app.peek_from_glyph(cx));
+                    })
+                    .ok();
+                }));
+            }))
+        });
         let control = layout_control(
             layout,
             cx.listener(move |this, event: &ClickEvent, _, cx| {
                 this.open_menu(event.position(), move |_, cx| layout_items(layout, cx), cx)
             }),
+            peek,
         );
         // As but-ui-react's LocationBar: on the window's second ground, the navigator's toggle, a
         // hairline, then the trail, every crumb quiet and joined by chevrons.

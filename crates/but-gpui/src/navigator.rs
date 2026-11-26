@@ -4841,6 +4841,7 @@ impl Render for Navigator {
                             cx,
                         )
                     }),
+                    None,
                 ))
             })
             // The line at the sidebar's end, setting it apart from the location bar beside it, 10
