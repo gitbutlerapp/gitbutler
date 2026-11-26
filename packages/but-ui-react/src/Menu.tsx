@@ -1,6 +1,7 @@
 import { classes } from "./classes.ts";
 import type { IconName } from "./iconNames.ts";
 import styles from "./Menu.module.css";
+import popupStyles from "./Popup.module.css";
 import { Popup, PopupItem, PopupSection } from "./Popup.tsx";
 import { Tooltip } from "./Tooltip.tsx";
 import { ContextMenu as BaseContextMenu, Menu as BaseMenu } from "@base-ui/react";
@@ -69,7 +70,7 @@ const MenuPopup: FC<
 			anchor={anchor ?? undefined}
 		>
 			<Popup anchored {...props} className={classes(className, styles.menu)} render={popup}>
-				<div className={styles.list}>{children}</div>
+				<div className={classes(styles.list, popupStyles.columns)}>{children}</div>
 			</Popup>
 		</BaseMenu.Positioner>
 	</BaseMenu.Portal>
@@ -110,6 +111,7 @@ export type MenuProps = {
  * Pressing an element anchor while the menu is open is left to that element's own click, which
  * toggles the menu, so the press doesn't close it only for the click to open it again.
  *
+ * @see packages/but-ui/design/components/menus.md
  * @import import { Menu, MenuItem, MenuSection } from "@gitbutler/but-ui-react/Menu.tsx";
  */
 export const Menu: FC<MenuProps> = ({
@@ -250,8 +252,9 @@ export const MenuItem: FC<
 );
 
 /**
- * A choice of one, as a section of a menu: the current {@link MenuRadioItem} carries a tick, and
- * picking another one sets it and closes the menu. "Group by", "Sort by", a theme.
+ * A choice of one, as a section of a menu: the current {@link MenuRadioItem} carries a tick at its
+ * start, in a gutter every row of the menu keeps, and picking another one sets it and closes the
+ * menu. "Group by", "Sort by", a theme.
  *
  * @import import { Menu, MenuRadioGroup, MenuRadioItem } from "@gitbutler/but-ui-react/Menu.tsx";
  */
@@ -294,13 +297,7 @@ export const MenuRadioItem: FC<RowProps & { value: string; disabled?: boolean }>
 		closeOnClick
 		nativeButton
 		render={(props, state) => (
-			<PopupItem
-				{...props}
-				icon={icon}
-				leading={leading}
-				kbd={kbd}
-				trailing={state.checked ? "tick" : undefined}
-			>
+			<PopupItem {...props} icon={icon} leading={leading} kbd={kbd} ticked={state.checked}>
 				{children}
 			</PopupItem>
 		)}

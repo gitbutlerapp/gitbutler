@@ -12,10 +12,8 @@
 }
 
 /* The popup clips to its rounded edge, so the rows scroll inside it when the window is shorter than
-   the list. */
+   the list. Its rows are Popup's two columns. */
 .list {
-	display: flex;
-	flex-direction: column;
 	min-height: 0;
 	overflow-y: auto;
 	overscroll-behavior: contain;

@@ -555,6 +555,10 @@ export const PopupSectionLabel: FC<{ divided?: boolean } & useRender.ComponentPr
  * One row of a popup: an optional glyph, the label, and — at the far end — a shortcut and a
  * trailing glyph marking what the row is or where it leads.
  *
+ * A menu's choice is ticked at the row's start, in a gutter every row of that popup keeps, so the
+ * end stays the shortcuts' and the submenus'. A select's list, which has neither, ticks the chosen
+ * row at its end instead, where the field's chevron was.
+ *
  * A button by default. Pass `render` to make it whatever a list primitive needs it to be, which is
  * how a picker's rows become `Combobox.Item`s without restating the row's chrome.
  *
@@ -562,6 +566,12 @@ export const PopupSectionLabel: FC<{ divided?: boolean } & useRender.ComponentPr
  */
 export const PopupItem: FC<
 	{
+		/**
+		 * Opens the row with a menu's tick gutter, ticked while `true`. Leave it out of a row that
+		 * isn't a choice: given a choice, every other row and heading in the popup steps in to
+		 * match.
+		 */
+		ticked?: boolean;
 		/** Leads the row — what kind of thing it is. */
 		icon?: IconName;
 		/**
@@ -580,20 +590,31 @@ export const PopupItem: FC<
 		kbd?: string | HotkeySequence;
 		children: ReactNode;
 	} & useRender.ComponentProps<"button">
-> = ({ icon, leading, trailing, end, kbd, children, render, ...props }) =>
+> = ({ ticked, icon, leading, trailing, end, kbd, children, render, ...props }) =>
 	useRender({
 		// oxlint-disable-next-line jsx_a11y/control-has-associated-label -- Labelled by its children.
 		render: render ?? <button type="button" />,
 		props: mergeProps<"button">(props, {
 			className: classes("text-13", styles.item),
+			// Two halves, so a menu can line them up as its two columns: what the row is, then what
+			// closes it.
 			children: (
 				<>
-					{icon !== undefined && <Icon name={icon} className={styles.itemIcon} />}
-					{leading}
-					<span className={styles.itemLabel}>{children}</span>
-					{end !== undefined && <span className={styles.itemEnd}>{end}</span>}
-					{kbd !== undefined && <Kbd hotkey={kbd} className={styles.itemKbd} />}
-					{trailing !== undefined && <Icon name={trailing} className={styles.itemIcon} />}
+					<span className={styles.itemStart}>
+						{ticked !== undefined && (
+							<span className={styles.itemTick}>{ticked && <Icon name="tick" size={14} />}</span>
+						)}
+						{icon !== undefined && <Icon name={icon} className={styles.itemIcon} />}
+						{leading}
+						<span className={styles.itemLabel}>{children}</span>
+					</span>
+					{(end !== undefined || kbd !== undefined || trailing !== undefined) && (
+						<span className={styles.itemEnds}>
+							{end !== undefined && <span className={styles.itemEnd}>{end}</span>}
+							{kbd !== undefined && <Kbd hotkey={kbd} className={styles.itemKbd} />}
+							{trailing !== undefined && <Icon name={trailing} className={styles.itemIcon} />}
+						</span>
+					)}
 				</>
 			),
 		}),
