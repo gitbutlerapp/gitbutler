@@ -9,8 +9,8 @@ import {
 	BranchItem,
 	CommitItem,
 	Drawer,
+	DrawerItem,
 	MoreItem,
-	NavItem,
 	RepoItem,
 	RowDivider,
 	UncommittedItem,
@@ -79,6 +79,7 @@ const show = (name: string) => (
 export const Default = meta.story({
 	args: {
 		name: "Terminals",
+		icon: "terminal-copy",
 		count: 2,
 		folded: false,
 		actions: [ghost("mixer", "Group terminals"), ghost("plus", "New terminal…")],
@@ -102,6 +103,7 @@ export const GroupedTerminals = meta.story({
 	parameters: { design: { type: "figma", url: core("5403-18924") } },
 	args: {
 		name: "Terminals",
+		icon: "terminal-copy",
 		count: 3,
 		folded: false,
 		actions: [ghost("mixer", "Group terminals"), ghost("plus", "New terminal…")],
@@ -128,6 +130,7 @@ export const GroupedTerminals = meta.story({
 export const Empty = meta.story({
 	args: {
 		name: "Terminals",
+		icon: "terminal-copy",
 		count: 0,
 		folded: false,
 		actions: [ghost("mixer", "Group terminals"), ghost("plus", "New terminal…")],
@@ -194,11 +197,39 @@ const hidden = [
 	{ name: "dnd-notes", meta: [["branch", "1"]] },
 ] as const;
 
+/** The hidden projects' card's head, as 🍑 But UI's: its `DrawerItem` on the canvas, in the card's
+ * padding. A press anywhere on it, its padding too, folds the card, as on the Terminals drawer. */
+const HiddenHead: FC<{ count: number; folded: boolean; onToggleFolded?: () => void }> = ({
+	count,
+	folded,
+	onToggleFolded,
+}) => (
+	// oxlint-disable-next-line jsx_a11y/click-events-have-key-events, jsx_a11y/no-static-element-interactions -- Its padding widens the press; the keys reach the DrawerItem's own button.
+	<div
+		onClick={(event) => {
+			if (!(event.target as Element).closest("button")) onToggleFolded?.();
+		}}
+		style={{
+			padding: 8,
+			backgroundColor: "var(--but-canvas)",
+			cursor: onToggleFolded ? "pointer" : undefined,
+		}}
+	>
+		<DrawerItem
+			name="Hidden projects"
+			icon="eye-closed"
+			count={count}
+			folded={folded}
+			onToggleFolded={onToggleFolded}
+		/>
+	</div>
+);
+
 /**
  * The hidden projects as the last card of the list, scrolling with the cards above it
- * rather than pinned at the panel's foot, where Terminals stays. A leading `NavItem` heads the card,
- * its chevron, its name and how many projects it holds, folded until opened, so it costs one row
- * while nobody looks. Open, a line across the card parts
+ * rather than pinned at the panel's foot, where Terminals stays. A `DrawerItem` heads the card on
+ * the canvas, its name, how many projects it holds and its chevron, the whole head pressable as the
+ * Terminals drawer is, folded until opened, so it costs one row while nobody looks. Open, a line across the card parts
  * one project from the next, and a project opened in place keeps its own `RowDivider` under its
  * `RepoItem`, so the two lines never read as the same.
  */
@@ -216,16 +247,7 @@ const HiddenCard: FC<{ open?: boolean; opened?: boolean }> = ({ open = false, op
 				backgroundColor: "var(--but-background)",
 			}}
 		>
-			<div style={{ padding: 8 }}>
-				<NavItem
-					leadingRow
-					name="Hidden projects"
-					icon="eye-closed"
-					folded={folded}
-					onToggleFolded={() => setFolded(!folded)}
-					meta={<MetaCount type="repos">24</MetaCount>}
-				/>
-			</div>
+			<HiddenHead count={24} folded={folded} onToggleFolded={() => setFolded(!folded)} />
 			{!folded && (
 				<>
 					<Part>
@@ -332,6 +354,7 @@ const Column334: FC<{ children: ReactNode }> = ({ children }) => (
 		</div>
 		<Open
 			name="Terminals"
+			icon="terminal-copy"
 			count={5}
 			actions={[ghost("mixer", "Group terminals"), ghost("plus", "New terminal…")]}
 			last
@@ -568,15 +591,7 @@ const HideAndShow: FC = () => {
 					backgroundColor: "var(--but-background)",
 				}}
 			>
-				<div style={{ padding: 8 }}>
-					<NavItem
-						leadingRow
-						name="Hidden projects"
-						icon="eye-closed"
-						folded={false}
-						meta={<MetaCount type="repos">{tucked.length}</MetaCount>}
-					/>
-				</div>
+				<HiddenHead count={tucked.length} folded={false} />
 				{tucked.map((project) => (
 					<Fragment key={project.name}>
 						<div
