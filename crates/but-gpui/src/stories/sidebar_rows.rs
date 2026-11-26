@@ -439,7 +439,7 @@ fn upstream(heading_open: bool, branch_open: bool, theme: &Theme) -> Div {
 }
 
 /// The stories of `SidebarRow.stories.tsx` this client can draw so far.
-pub(super) const EXAMPLES: [Example; 7] = [
+pub(super) const EXAMPLES: [Example; 10] = [
     Example {
         id: "components-sidebarrow--selection",
         name: "Selection",
@@ -482,6 +482,21 @@ pub(super) const EXAMPLES: [Example; 7] = [
         id: "components-sidebarrow--missing",
         name: "Missing",
         draw: |theme| missing(theme).into_any_element(),
+    },
+    Example {
+        id: "components-sidebarrow--no-commits",
+        name: "No Commits",
+        draw: |theme| no_commits(theme).into_any_element(),
+    },
+    Example {
+        id: "components-sidebarrow--nothing-applied",
+        name: "Nothing Applied",
+        draw: |theme| nothing_applied(theme).into_any_element(),
+    },
+    Example {
+        id: "components-sidebarrow--branches-to-apply",
+        name: "Branches To Apply",
+        draw: |theme| branches_to_apply(theme).into_any_element(),
     },
     Example {
         id: "components-sidebarrow--divided-header",
@@ -692,12 +707,109 @@ fn missing(theme: &Theme) -> Div {
         missing_repo_item("repo", "berlin-brutalism", theme).fold(Fold::Open),
         Vec::new(),
     )
-    .child(gpui::div().py(dp(24.)).child(empty_state_tidy(
+    .child(gpui::div().py(dp(16.)).child(empty_state_tidy(
         "",
         "This project folder isn’t there any more.",
         [relocate],
         theme,
     )))
+}
+
+/// A repository's card with nothing under its header, as the `EmptyRepoCard` the empty stories
+/// share: an empty state in its body, 24 from the rule and the card's edge.
+fn empty_repo_card(
+    theme: &Theme,
+    title: &'static str,
+    detail: &'static str,
+    actions: Vec<AnyElement>,
+) -> Div {
+    repo_card(
+        theme,
+        repo_item("repo", "but-dev", theme).fold(Fold::Open),
+        Vec::new(),
+    )
+    .child(
+        gpui::div()
+            .py(dp(16.))
+            .child(empty_state_tidy(title, detail, actions, theme)),
+    )
+}
+
+fn new_branch(id: &'static str, label: &'static str) -> AnyElement {
+    button(id, label)
+        .medium()
+        .style(ButtonStyle::Outline)
+        .icon(Icon::Plus)
+        .into_any_element()
+}
+
+/// A repository with no commits at all, as the `NoCommits` story: nothing to offer, as a branch
+/// needs a commit to stand on. Folded, its row reads `empty` and nothing else.
+fn no_commits(theme: &Theme) -> Div {
+    let open = empty_repo_card(
+        theme,
+        "No commits yet",
+        "Your first commit starts a branch",
+        Vec::new(),
+    );
+    let folded = repo_item("folded", "but-dev", theme)
+        .fold(Fold::Folded)
+        .meta(meta_count(
+            MetaCountType::Empty,
+            Some("empty".into()),
+            theme,
+        ));
+    let folded = v_flex()
+        .w(dp(334.))
+        .flex_none()
+        .overflow_hidden()
+        .border_1()
+        .border_color(theme.border_subtle)
+        .rounded(dp(theme.shape.card))
+        .bg(theme.background)
+        .p(dp(8.))
+        .child(folded.build(theme));
+    gpui::div()
+        .flex()
+        .flex_wrap()
+        .items_start()
+        .gap(dp(24.))
+        .child(open)
+        .child(folded)
+}
+
+/// Nothing applied and no branch to apply, as the `NothingApplied` story.
+fn nothing_applied(theme: &Theme) -> Div {
+    empty_repo_card(
+        theme,
+        "Nothing applied",
+        "You’re on main.\nYour next commit starts a branch",
+        vec![new_branch("new-branch", "New branch")],
+    )
+}
+
+/// Nothing applied with branches to apply, five and one, as the `BranchesToApply` story.
+fn branches_to_apply(theme: &Theme) -> Div {
+    let card = |id: &'static str, detail: &'static str| {
+        let apply = button(id, "Apply a branch")
+            .medium()
+            .style(ButtonStyle::Outline)
+            .icon(Icon::Branch)
+            .into_any_element();
+        empty_repo_card(
+            theme,
+            "Nothing applied",
+            detail,
+            vec![apply, new_branch("new", "New")],
+        )
+    };
+    gpui::div()
+        .flex()
+        .flex_wrap()
+        .items_start()
+        .gap(dp(24.))
+        .child(card("apply-5", "You have 5 branches to pick from"))
+        .child(card("apply-1", "You have 1 branch to pick from"))
 }
 
 /// What a terminal's program is at, as `TerminalItem.stories.tsx`'s `Statuses` gives each.

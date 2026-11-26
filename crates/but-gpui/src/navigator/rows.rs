@@ -12,13 +12,13 @@ use super::moving::{landing_at, left_behind};
 use super::{BranchKey, ClickOpened, MERGE_GUIDE, Navigator, STEP, UPSTREAM_GUIDE};
 use crate::backend::{
     Branch, Checkout, Commit, CommitId, Destination, FullName, InactiveAfter, Lane, Workspace,
-    Worktree,
+    Worktree, short_ref,
 };
 use crate::state::{NewAt, NewCommit, ProjectEntry, ProjectId, Section, Selection, Store};
 use crate::terminal::TerminalId;
 use crate::transfer::{self, Dragged, Stop};
 use crate::ui::fold::{Folds, MOVING_ROWS};
-use crate::ui::{EMPTY_TIDY_DETAIL_HEIGHT, ROW_DIVIDER};
+use crate::ui::{EMPTY_TIDY_DETAIL_HEIGHT, ROW_DIVIDER, empty_tidy_height};
 
 /// How wide each loading row's name is, as 🍑 But UI's loading card draws them: names of the
 /// lengths a card's rows often have.
@@ -104,6 +104,56 @@ pub(super) enum Row {
     /// Under the heading of a project whose folder or repository is gone, what its error says,
     /// and a way to point it at where it is now, as 🍑 But UI's card says so.
     Gone(ProjectId),
+    /// Under the heading of a project with nothing to list, why, and what can start something,
+    /// as 🍑 But UI's empty project cards say so.
+    Empty(ProjectId, EmptyCard),
+}
+
+/// Why a project's card has nothing under its heading.
+#[derive(Clone, PartialEq)]
+pub(super) enum EmptyCard {
+    /// `HEAD` has no commits yet. The first commit starts a branch, and nothing can before it.
+    NoCommits,
+    /// Nothing applied and no branch to apply, on the default branch by its short name.
+    NothingApplied(Option<SharedString>),
+    /// Nothing applied, with this many branches to apply.
+    ToApply(usize),
+}
+
+impl EmptyCard {
+    /// What it says: its title and its detail, a line apart at each `\n`.
+    pub(super) fn copy(&self) -> (&'static str, SharedString) {
+        match self {
+            EmptyCard::NoCommits => ("No commits yet", "Your first commit starts a branch".into()),
+            EmptyCard::NothingApplied(on) => (
+                "Nothing applied",
+                match on {
+                    Some(on) => format!("You’re on {on}.\nYour next commit starts a branch").into(),
+                    None => "Your next commit starts a branch".into(),
+                },
+            ),
+            EmptyCard::ToApply(count) => (
+                "Nothing applied",
+                format!(
+                    "You have {count} {} to pick from",
+                    if *count == 1 { "branch" } else { "branches" }
+                )
+                .into(),
+            ),
+        }
+    }
+
+    /// Whether it offers buttons: all but a repository with no commits, where a branch can't
+    /// start before the first commit.
+    pub(super) fn acts(&self) -> bool {
+        !matches!(self, EmptyCard::NoCommits)
+    }
+
+    /// How tall its row is: its empty state and the room above and below it.
+    pub(super) fn height(&self) -> f32 {
+        let lines = self.copy().1.split('\n').count();
+        2. * GONE_PADDING + empty_tidy_height(true, lines, self.acts())
+    }
 }
 
 /// What a row is across rebuilds, for a reorder to slide it from where it was.
@@ -223,6 +273,7 @@ impl Row {
             Row::WorktreeDivider => 0.,
             Row::HeaderRule(_) => HEADER_RULE,
             Row::Gone(_) => GONE_HEIGHT,
+            Row::Empty(_, card) => card.height(),
             Row::Item(Selection::Project(_)) => HEADING_HEIGHT,
             Row::Item(_)
             | Row::More(..)
@@ -325,8 +376,10 @@ pub(super) struct Drawer {
 /// How tall [`Row::Gone`] is: its empty state and the room above and below it.
 pub(super) const GONE_HEIGHT: f32 = 2. * GONE_PADDING + EMPTY_TIDY_DETAIL_HEIGHT;
 
-/// The room above and below a missing folder's empty state.
-pub(super) const GONE_PADDING: f32 = 24.;
+/// The room above and below the empty state of a card with nothing to list or a missing
+/// folder: with the rule's half above and the card's padding below, 24 either side, as 🍑 But
+/// UI's cards have it.
+pub(super) const GONE_PADDING: f32 = 16.;
 
 /// Where an item row's content starts in its card: the row's margin and its padding, 8, as
 /// [`RowStyle::row`](super::RowStyle::row) and [`section_heading`](super::section_heading)
@@ -640,6 +693,7 @@ impl Navigator {
             )));
             return;
         }
+        let start = rows.rows.len();
         // Alone, the main worktree's rows go right under the project's, which stands in for
         // its heading. Beside other checkouts its heading folds its branches away, which step
         // in under it, and each linked worktree is a section too, ruled off from the next.
@@ -690,6 +744,9 @@ impl Navigator {
         // Its checkouts on the user's other machines, as worktrees: none while signed out.
         self.mesh_rows(store, id, rows);
         rows.unrule_end();
+        if rows.rows.len() == start {
+            rows.push(Row::Empty(id.clone(), empty_card(workspace)));
+        }
     }
 
     /// What the main worktree's heading folds away: its uncommitted changes, its terminals and
@@ -704,10 +761,16 @@ impl Navigator {
         changes_row(store, workspace, id, &Checkout::Main, rows);
         terminal_rows(store, id, &Checkout::Main, rows);
         // A stack being unapplied leaves at once, as one whose branches are all being
-        // deleted does.
+        // deleted does. With no commits yet and nothing to commit, the branch `HEAD` names
+        // isn't one to list: the card says so instead. Once there's something to commit, it's
+        // listed, as where the first commit goes.
+        let bare = workspace.unborn
+            && !lists_changes(store, workspace, id, &Checkout::Main)
+            && store.terminals.on(id, &Checkout::Main).next().is_none();
         let stacks = workspace.lanes_in(&Checkout::Main).filter(|stack| {
-            !(stack.branches.iter())
-                .any(|b| (b.ref_name.as_ref()).is_some_and(|r| store.hides_branch(id, r)))
+            !bare
+                && !(stack.branches.iter())
+                    .any(|b| (b.ref_name.as_ref()).is_some_and(|r| store.hides_branch(id, r)))
                 && !store.after_deletes(id, &stack.branches).is_empty()
         });
         // Whether a branch is checked out on its own or several share the workspace,
@@ -1331,6 +1394,18 @@ pub(super) fn in_checkout(
         || store.terminals.checkout_of(selection) == Some(checkout)
 }
 
+/// Why `workspace` has nothing to list under its project's heading.
+fn empty_card(workspace: &Workspace) -> EmptyCard {
+    if workspace.unborn {
+        EmptyCard::NoCommits
+    } else if workspace.to_apply.is_empty() {
+        let on = (workspace.target_branch.as_ref()).map(|name| short_ref(name).into_owned().into());
+        EmptyCard::NothingApplied(on)
+    } else {
+        EmptyCard::ToApply(workspace.to_apply.len())
+    }
+}
+
 /// Whether `project`'s `checkout`'s uncommitted changes are listed, first under its heading:
 /// only while there are some, as with none there's nothing to show or commit.
 pub(crate) fn lists_changes(
@@ -1354,7 +1429,8 @@ pub(super) fn checkout_holds(
 ) -> bool {
     lists_changes(store, workspace, project, checkout)
         || store.terminals.on(project, checkout).next().is_some()
-        || (workspace.lanes_in(checkout)).any(|lane| !lane.branches.is_empty())
+        || (!workspace.unborn || *checkout != Checkout::Main)
+            && (workspace.lanes_in(checkout)).any(|lane| !lane.branches.is_empty())
 }
 
 /// `project`'s `checkout`'s uncommitted changes' row, while [`lists_changes`] says it's listed.

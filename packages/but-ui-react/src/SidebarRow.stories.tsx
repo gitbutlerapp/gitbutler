@@ -1258,7 +1258,7 @@ export const Missing = meta.story({
 			label="berlin-brutalism"
 			header={<RepoItem name="berlin-brutalism" folded={false} missing />}
 		>
-			<div style={{ paddingBlock: 24 }}>
+			<div style={{ paddingBlock: 16 }}>
 				<EmptyState variant="tidy" description="This project folder isn’t there any more.">
 					<Button size="medium" variant="outline">
 						<Icon name="folder" />
@@ -1267,5 +1267,94 @@ export const Missing = meta.story({
 				</EmptyState>
 			</div>
 		</RepoCard>
+	),
+});
+
+/** A repository's card with nothing under its header: an empty state in its body, 24 from the hairline and the card’s edge (16 on the body’s own 8). */
+const EmptyRepoCard: FC<{ title: string; description: ReactNode; children?: ReactNode }> = ({
+	title,
+	description,
+	children,
+}) => (
+	<RepoCard label="but-dev" header={<RepoItem name="but-dev" folded={false} />}>
+		<div style={{ paddingBlock: 16 }}>
+			<EmptyState variant="tidy" title={title} description={description}>
+				{children}
+			</EmptyState>
+		</div>
+	</RepoCard>
+);
+
+const NewBranch: FC<{ label?: string }> = ({ label = "New branch" }) => (
+	<Button size="medium" variant="outline">
+		<Icon name="plus" />
+		{label}
+	</Button>
+);
+
+/**
+ * A repository with no commits at all. Its first commit starts a branch, so there's nothing to
+ * offer: a branch needs a commit to stand on. Folded, its row reads `empty` and nothing else, as
+ * an empty branch's does; open, the card says so instead.
+ */
+export const NoCommits = meta.story({
+	parameters: { design: { type: "figma", url: core("5603-136558") } },
+	render: () => (
+		<div style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "flex-start" }}>
+			<EmptyRepoCard title="No commits yet" description="Your first commit starts a branch" />
+			<RepoCard
+				label="but-dev"
+				header={<RepoItem name="but-dev" folded meta={<MetaCount type="empty">empty</MetaCount>} />}
+			>
+				{null}
+			</RepoCard>
+		</div>
+	),
+});
+
+/**
+ * Nothing applied and no other branches to apply: it says which branch is checked out, and New
+ * branch is a shortcut, as the next commit starts one anyway.
+ */
+export const NothingApplied = meta.story({
+	parameters: { design: { type: "figma", url: core("5609-136623") } },
+	render: () => (
+		<EmptyRepoCard
+			title="Nothing applied"
+			description={
+				<>
+					You’re on main.
+					<br />
+					Your next commit starts a branch
+				</>
+			}
+		>
+			<NewBranch />
+		</EmptyRepoCard>
+	),
+});
+
+/**
+ * Nothing applied, with branches to apply: how many, Apply a branch to pick one, and New to start
+ * another. One branch reads the same.
+ */
+export const BranchesToApply = meta.story({
+	parameters: { design: { type: "figma", url: core("5609-136677") } },
+	render: () => (
+		<div style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "flex-start" }}>
+			{[5, 1].map((count) => (
+				<EmptyRepoCard
+					key={count}
+					title="Nothing applied"
+					description={`You have ${count} ${count === 1 ? "branch" : "branches"} to pick from`}
+				>
+					<Button size="medium" variant="outline">
+						<Icon name="branch" />
+						Apply a branch
+					</Button>
+					<NewBranch label="New" />
+				</EmptyRepoCard>
+			))}
+		</div>
 	),
 });
