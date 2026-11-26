@@ -3,6 +3,7 @@ import { useState, type FC } from "react";
 import { CrumbMenuButton } from "./Breadcrumbs.tsx";
 import { Button } from "./Button.tsx";
 import { Icon } from "./Icon.tsx";
+import type { IconName } from "./iconNames.ts";
 import {
 	ContextMenu,
 	Menu,
@@ -121,9 +122,17 @@ export const ViewOptions = meta.story({
 
 type Layout = "both" | "sidebar" | "preview" | "top";
 
+/** The control's glyph: the layout the window is in. */
+const layoutGlyph: Record<Layout, IconName> = {
+	both: "sidebar",
+	sidebar: "sidebar-only",
+	preview: "sidebar-narrow",
+	top: "sidebar-top",
+};
+
 /**
- * The window's panels, beside the traffic lights: the glyph shows or hides the sidebar, and its
- * ⌃⌄ picks a layout. The sidebar and the preview can't both go, so the layouts are a choice of one;
+ * The window's panels, at the start of the location bar: the glyph, the layout the window is in,
+ * shows or hides the sidebar, and its ⌃⌄ picks a layout. The sidebar and the preview can't both go, so the layouts are a choice of one;
  * the sidebar across the top is a fourth, apart from the three it replaces.
  */
 const PanelLayoutMenu: FC<MenuProps> = (props) => {
@@ -141,7 +150,7 @@ const PanelLayoutMenu: FC<MenuProps> = (props) => {
 					disabled={layout === "top"}
 					onClick={() => setLayout(sidebarShown ? "preview" : "both")}
 				>
-					<Icon name="sidebar" />
+					<Icon name={layoutGlyph[layout]} />
 				</Button>
 			</Tooltip>
 			<Menu {...props} aria-label="Layout" trigger={<CrumbMenuButton aria-label="Layout" />}>
