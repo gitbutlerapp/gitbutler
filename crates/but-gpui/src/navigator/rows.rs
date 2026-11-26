@@ -221,13 +221,12 @@ pub(super) fn row_keys(rows: &[Row], store: &Store) -> Vec<Option<RowKey>> {
             }
             _ => (before.clone()).map(|before| RowKey::After(Box::new(before))),
         };
+        // A row of no other kind right under a heading goes by its line, not the heading: by
+        // the heading, a card's empty state would take the key of the gap after the card
+        // folded, and slide from there as it opens or shuts.
         if !matches!(
             row,
-            Row::Ghost(_)
-                | Row::GhostBranch(..)
-                | Row::GhostStack(_)
-                | Row::NewCommit(_)
-                | Row::HeaderRule(_)
+            Row::Ghost(_) | Row::GhostBranch(..) | Row::GhostStack(_) | Row::NewCommit(_)
         ) {
             before = key.clone();
         }
