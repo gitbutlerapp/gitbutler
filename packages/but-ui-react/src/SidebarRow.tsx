@@ -57,7 +57,8 @@ type RowProps = {
 	/** A small ghost icon `Button` that stands in for the row's glyph only while the pointer is on
 	 * the glyph, or the keys are on the button: passing over the row shows nothing, and nothing on
 	 * the row moves when it comes. A project's eye, which hides or shows it, is one. Its glyph says
-	 * the state, as a layers panel's does, and its tooltip what a press does. */
+	 * what a press does, as its tooltip does: a closed eye hides a shown project, an open one shows
+	 * a hidden one. */
 	glyphAction?: ReactNode;
 } & useRender.ComponentProps<"div">;
 

@@ -3119,14 +3119,15 @@ impl Navigator {
             .text_12()
             .child(project_glyph_at(store, id, style.muted(), 14., theme));
         // Whether the project shows among the cards, as but-ui-react's RepoItem `glyphAction`
-        // marks it: the glyph turns into a ghost eye while the pointer is on the glyph,
-        // open on a shown project and closed on a hidden one, as a layers panel's. The row's
+        // marks it: the glyph turns into a ghost eye while the pointer is on the glyph, showing
+        // what a press does: closed on a shown project, which it hides, and open on a hidden
+        // one, which it shows. The row's
         // menu and the keys (h, l) do the same. Its press doesn't select the row, and while
         // something is being moved it's only part of the row, which a press puts the move at.
         let moving = store.moving.is_some();
         let (eye_icon, tooltip) = match expanded {
-            true => (Icon::Eye, "Hide project"),
-            false => (Icon::EyeClosed, "Unhide project"),
+            true => (Icon::EyeClosed, "Hide project"),
+            false => (Icon::Eye, "Unhide project"),
         };
         let eye = icon_button(
             ElementId::Name(format!("{}-{id}", if expanded { "unwatch" } else { "watch" }).into()),

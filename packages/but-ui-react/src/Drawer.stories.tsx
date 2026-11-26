@@ -65,12 +65,12 @@ const blocked = (
 	</Tooltip>
 );
 
-/** Puts a project the sidebar hides back among its cards: its row's `glyphAction`, a closed eye
- * while it's hidden, under the pointer on the glyph. */
+/** Puts a project the sidebar hides back among its cards: its row's `glyphAction`, an open eye
+ * while it's hidden, as a press shows it, under the pointer on the glyph. */
 const show = (name: string) => (
 	<Tooltip content="Unhide project">
 		<Button variant="ghost" size="small" iconOnly aria-label={`Show ${name}`}>
-			<Icon name="eye-closed" />
+			<Icon name="eye" />
 		</Button>
 	</Tooltip>
 );
@@ -391,8 +391,8 @@ const travellers = [
 	{ name: "blogerator", meta: undefined },
 ] as const;
 
-/** The eye on a project's glyph, open while it shows and closed while it's hidden, which moves it
- * to the other side. */
+/** The eye on a project's glyph, which moves it to the other side, showing what a press does:
+ * closed while it shows, as a press hides it, and open while it's hidden. */
 const travelEye = (name: string, hidden: boolean, onPress: (from: HTMLElement) => void) => (
 	<Tooltip content={hidden ? "Unhide project" : "Hide project"}>
 		<Button
@@ -402,7 +402,7 @@ const travelEye = (name: string, hidden: boolean, onPress: (from: HTMLElement) =
 			aria-label={`${hidden ? "Show" : "Hide"} ${name}`}
 			onClick={(event) => onPress(event.currentTarget)}
 		>
-			<Icon name={hidden ? "eye-closed" : "eye"} />
+			<Icon name={hidden ? "eye" : "eye-closed"} />
 		</Button>
 	</Tooltip>
 );
