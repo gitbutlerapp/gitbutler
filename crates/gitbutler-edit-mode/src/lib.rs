@@ -136,21 +136,6 @@ fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
 
     let base_commit_id = find_or_create_base_commit(repo, commit_id)?;
     let base_commit = base_commit_id.attach(repo).object()?.try_into_commit()?;
-    let edit_branch_ref: gix::refs::FullName = EDIT_BRANCH_REF.try_into()?;
-    repo.reference(
-        edit_branch_ref.as_ref(),
-        base_commit_id,
-        gix::refs::transaction::PreviousValue::Any,
-        "enter edit mode",
-    )?;
-    update_head_reference(
-        repo,
-        gix::refs::Target::Symbolic(edit_branch_ref),
-        false,
-        "enter edit mode",
-        EDIT_BRANCH_REF.into(),
-        0,
-    )?;
 
     let their_commit_msg = commit_title_to_merge_conflict_label(&commit)?;
     let their_label = format!("Current commit: {their_commit_msg}");
@@ -169,27 +154,45 @@ fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
         other: Some(their_label.as_str().into()),
     };
 
-    let repo = repo.clone().for_tree_diffing()?;
-    let commit = Commit::from_id(commit_id.attach(&repo))?;
-    match commit.conflicted_tree_ids()? {
-        Some((base, ours, theirs)) => {
-            let mut merge = repo.merge_trees(
-                base,
-                ours,
-                theirs,
-                repo.default_merge_labels(),
-                diff3_options(&repo)?,
-            )?;
-            let stages = merge.index(gix::merge::tree::TreatAsUnresolved::git(), None)?;
-            relabel_content_conflicts(&repo, &mut merge, &stages, labels)?;
-            let tree = merge.tree.write()?.detach();
-            but_core::worktree::overwrite_worktree(&repo, tree, Some(&stages))?;
-        }
-        None => {
-            let tree = commit.tree_id_or_auto_resolution()?.detach();
-            but_core::worktree::overwrite_worktree(&repo, tree, None)?;
+    {
+        let repo = repo.clone().for_tree_diffing()?;
+        let commit = Commit::from_id(commit_id.attach(&repo))?;
+        match commit.conflicted_tree_ids()? {
+            Some((base, ours, theirs)) => {
+                let mut merge = repo.merge_trees(
+                    base,
+                    ours,
+                    theirs,
+                    repo.default_merge_labels(),
+                    diff3_options(&repo)?,
+                )?;
+                let stages = merge.index(gix::merge::tree::TreatAsUnresolved::git(), None)?;
+                relabel_content_conflicts(&repo, &mut merge, &stages, labels)?;
+                let tree = merge.tree.write()?.detach();
+                but_core::worktree::overwrite_worktree(&repo, tree, Some(&stages))?;
+            }
+            None => {
+                let tree = commit.tree_id_or_auto_resolution()?.detach();
+                but_core::worktree::overwrite_worktree(&repo, tree, None)?;
+            }
         }
     }
+
+    let edit_branch_ref: gix::refs::FullName = EDIT_BRANCH_REF.try_into()?;
+    repo.reference(
+        edit_branch_ref.as_ref(),
+        base_commit_id,
+        gix::refs::transaction::PreviousValue::Any,
+        "enter edit mode",
+    )?;
+    update_head_reference(
+        repo,
+        gix::refs::Target::Symbolic(edit_branch_ref),
+        false,
+        "enter edit mode",
+        EDIT_BRANCH_REF.into(),
+        0,
+    )?;
     Ok(())
 }
 
@@ -334,8 +337,8 @@ pub(crate) fn enter_edit_mode(
 
     ensure_stack_in_workspace(ctx, stack_id)?;
 
-    // Fail before writing anything if the index is already locked, as checkout would only
-    // notice after refs and HEAD were moved. The probe is released so checkout can take it.
+    // Fail before writing anything if the index, or the file it links to, is already locked.
+    // The probe is released so checkout can take it.
     drop(
         gix::lock::File::acquire(
             repo.index_path(),
@@ -348,8 +351,11 @@ pub(crate) fn enter_edit_mode(
     );
 
     commit_uncommited_changes(repo)?;
+    if let Err(err) = checkout_edit_branch(ctx, commit_oid) {
+        repo.find_reference(UNCOMMITTED_CHANGES_REF)?.delete()?;
+        return Err(err.context("Failed to checkout edit branch"));
+    }
     write_edit_mode_metadata(ctx, &edit_mode_metadata).context("Failed to persist metadata")?;
-    checkout_edit_branch(ctx, commit_oid).context("Failed to checkout edit branch")?;
 
     Ok(edit_mode_metadata)
 }
