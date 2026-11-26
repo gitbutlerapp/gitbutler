@@ -1,6 +1,6 @@
 //! Keys, written as the platform writes them and drawn as but-ui-react's `Kbd`.
 
-use gpui::{App, Div, Hsla, SharedString, Window, div, prelude::*};
+use gpui::{App, Div, Font, Hsla, SharedString, TextRun, Window, div, prelude::*};
 
 use crate::theme::Theme;
 use crate::*;
@@ -133,7 +133,39 @@ pub fn keycap_large(text: &str, theme: &Theme) -> Div {
     keycaps(text, 20., 13., theme.foreground, theme)
 }
 
-fn keycaps(text: &str, height: f32, size: f32, color: Hsla, theme: &Theme) -> Div {
+/// How wide [`keycap`] draws `text`, in design pixels: for a column that lines several up, as a
+/// menu's keys do.
+pub fn keycap_width(text: &str, window: &Window, theme: &Theme) -> f32 {
+    let font = Font {
+        weight: weight(FONT_WEIGHT_SEMIBOLD),
+        ..gpui::font(theme.ui_font.clone())
+    };
+    let keys = key_caps(text);
+    let caps: f32 = (keys.iter())
+        .map(|key| {
+            let run = TextRun {
+                len: key.len(),
+                font: font.clone(),
+                color: theme.muted_foreground,
+                background_color: None,
+                underline: None,
+                strikethrough: None,
+            };
+            let line = (window.text_system()).shape_line(
+                SharedString::from(key.clone()),
+                theme.scaled(11.),
+                &[run],
+                None,
+            );
+            // Its padding and its border, which keeps its pixel at every scale.
+            (f32::from(line.width) / theme.scale + 6. + 2. / theme.scale).max(16.)
+        })
+        .sum();
+    caps + 3. * keys.len().saturating_sub(1) as f32
+}
+
+/// The caps `text` is drawn as: each modifier on its own, then the rest of each chord.
+fn key_caps(text: &str) -> Vec<String> {
     let mut keys: Vec<String> = Vec::new();
     for token in text.split(' ') {
         let mut rest = token;
@@ -149,6 +181,11 @@ fn keycaps(text: &str, height: f32, size: f32, color: Hsla, theme: &Theme) -> Di
             keys.push(keys_text(rest));
         }
     }
+    keys
+}
+
+fn keycaps(text: &str, height: f32, size: f32, color: Hsla, theme: &Theme) -> Div {
+    let keys = key_caps(text);
     h_flex()
         .flex_none()
         .gap(dp(3.))
