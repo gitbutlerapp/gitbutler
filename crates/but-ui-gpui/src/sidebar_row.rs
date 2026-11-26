@@ -1039,8 +1039,9 @@ pub fn notice_item(
 
 const DRAWER: &str = "drawer";
 
-/// A drawer at the foot of the sidebar, as React's `Drawer`: its row, `DrawerItem`'s name, how
-/// many it holds (shown at zero too) and a chevron after them, and while it's open, what it holds
+/// A drawer at the foot of the sidebar, as React's `Drawer`: its row, `DrawerItem`'s glyph
+/// ([`Drawer::icon`], as a closed eye or a stack of terminals), its name, how many it holds
+/// (shown at zero too) and a chevron after them, and while it's open, what it holds
 /// under it, such as a card of the hidden projects. A press anywhere on the row opens or closes it.
 /// The host keeps whether it's `folded`.
 ///
@@ -1054,6 +1055,7 @@ const DRAWER: &str = "drawer";
 /// off from the foot too.
 pub struct Drawer {
     id: ElementId,
+    icon: Option<Icon>,
     name: SharedString,
     count: Option<usize>,
     folded: bool,
@@ -1074,6 +1076,7 @@ pub fn drawer(
 ) -> Drawer {
     Drawer {
         id: id.into(),
+        icon: None,
         name: name.into(),
         count,
         folded,
@@ -1087,6 +1090,12 @@ pub fn drawer(
 }
 
 impl Drawer {
+    /// The glyph that names it, before its name.
+    pub fn icon(mut self, icon: Icon) -> Self {
+        self.icon = Some(icon);
+        self
+    }
+
     /// What a press on the row does: open or close the drawer.
     pub fn on_toggle(mut self, toggle: impl Fn(&mut Window, &mut App) + 'static) -> Self {
         self.on_toggle = Some(Rc::new(toggle));
@@ -1131,13 +1140,24 @@ impl Drawer {
             .min_w_0()
             .overflow_hidden()
             .gap(dp(6.))
+            // Its glyph and name a glyph's gap apart, closer than the count after them, the
+            // glyph a step quieter than the muted name.
             .child(
-                div()
+                h_flex()
                     .min_w_0()
-                    .truncate()
-                    .text_12()
-                    .semibold()
-                    .child(self.name.clone()),
+                    .gap(dp(8.))
+                    .children(
+                        self.icon
+                            .map(|icon| icon_at(icon, 14.).text_color(theme.subtle_foreground)),
+                    )
+                    .child(
+                        div()
+                            .min_w_0()
+                            .truncate()
+                            .text_12()
+                            .semibold()
+                            .child(self.name.clone()),
+                    ),
             )
             .children(
                 self.count
