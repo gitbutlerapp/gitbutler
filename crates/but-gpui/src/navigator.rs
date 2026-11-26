@@ -4782,11 +4782,37 @@ impl Render for Navigator {
             )
             .when(!self.floating, crate::ui::drags_window)
             .gap(dp(4.))
+            // Out over the detail, with the room the window's buttons took, adding a project
+            // leads the header and says what it does.
+            .when(self.floating, |el| {
+                el.child(above_drag(
+                    div().child(
+                        button("add-project", "Add new project")
+                            .icon(Icon::Plus)
+                            .style(ButtonStyle::Outline)
+                            .dispatch(&AddProject),
+                    ),
+                ))
+            })
             // As 🍑 But UI's SidebarHeader: the filter is a button until it's opened, then a
             // field in the room before the buttons for as long as it has the keys or a filter.
             .map(|el| match filter_open {
                 true => el.child(self.header_filter(window, &theme, cx)),
-                false => el.child(div().flex_1()).child(above_drag(
+                false => el.child(div().flex_1()),
+            })
+            // Beside the window's buttons, adding a project acts on the whole list, so it
+            // comes first of the buttons, in reach whatever the cards are doing.
+            .when(!self.floating, |el| {
+                el.child(above_drag(
+                    div().child(
+                        icon_button("add-project", Icon::Plus)
+                            .tooltip_for("Add project", &AddProject)
+                            .dispatch(&AddProject),
+                    ),
+                ))
+            })
+            .when(!filter_open, |el| {
+                el.child(above_drag(
                     div().child(
                         icon_button("open-filter", Icon::Filter)
                             .tooltip_for("Filter", &FocusFilter)
@@ -4795,20 +4821,14 @@ impl Render for Navigator {
                                 cx.notify();
                             })),
                     ),
-                )),
+                ))
             })
             .children(self.update_button(cx).map(|el| above_drag(div().child(el))))
             .child(above_drag(div().child(self.view_button(cx))))
-            // Adding a project acts on the whole list, so it's beside how the list goes, in
-            // reach whatever the cards are doing.
-            .child(above_drag(
-                div().child(
-                    icon_button("add-project", Icon::Plus)
-                        .tooltip_for("Add project", &AddProject)
-                        .dispatch(&AddProject),
-                ),
-            ))
-            .child(above_drag(div().child(self.settings_button(&theme, cx))))
+            // Out over the detail, the location bar has Settings and the account.
+            .when(!self.floating, |el| {
+                el.child(above_drag(div().child(self.settings_button(&theme, cx))))
+            })
             // With the detail folded away, the window's layout control the location bar has,
             // after a line, so the detail can come back.
             .when(!self.floating && detail_shown < 0.5, |el| {
