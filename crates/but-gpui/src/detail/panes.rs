@@ -22,7 +22,8 @@ use crate::backend::{
 use crate::clipboard;
 use crate::clock;
 use crate::edits::{NameBranch, RenameBranch, Reword};
-use crate::navigator::{SelectFirst, SelectLast, upstream_label};
+use crate::layout_menu::{Layout, bar_rule, layout_control, layout_items};
+use crate::navigator::{SelectFirst, SelectLast, account_button, settings_items, upstream_label};
 use crate::overlays::{MenuItem, has_keys};
 use crate::state::{Part, ProjectId, ProjectTab, Section, Selection, Side};
 use crate::theme::Theme;
@@ -241,6 +242,28 @@ impl Detail {
         }
         let last = crumbs.len().saturating_sub(1);
         let top_left = crate::menu_bar::top_left_room(window, &self.store.read(cx).prefs, theme);
+        let layout = match self.navigator_shown.get() < 0.5 {
+            true => Layout::Detail,
+            false => Layout::Both,
+        };
+        // The navigator gone, the bar keeps Settings and the account, which its header has.
+        let account = (layout == Layout::Detail).then(|| {
+            account_button(self.store.read(cx), theme).on_click(cx.listener(
+                |this, event: &ClickEvent, _, cx| {
+                    this.open_menu(
+                        event.position(),
+                        |this, cx| settings_items(this.store.read(cx), cx),
+                        cx,
+                    )
+                },
+            ))
+        });
+        let control = layout_control(
+            layout,
+            cx.listener(move |this, event: &ClickEvent, _, cx| {
+                this.open_menu(event.position(), move |_, cx| layout_items(layout, cx), cx)
+            }),
+        );
         // As but-ui-react's LocationBar: on the window's second ground, the navigator's toggle, a
         // hairline, then the trail, every crumb quiet and joined by chevrons.
         h_flex()
@@ -266,6 +289,12 @@ impl Detail {
             // On the ground the detail's cards are on, which they edge.
             .bg(theme.canvas)
             .text_color(theme.muted_foreground)
+            .when_some(account, |el, account| {
+                el.child(above_drag(div().flex_none().child(account)))
+                    .child(bar_rule(theme))
+            })
+            .child(control)
+            .child(bar_rule(theme))
             .child(
                 h_flex().flex_1().min_w_0().gap(dp(6.)).children(
                     crumbs

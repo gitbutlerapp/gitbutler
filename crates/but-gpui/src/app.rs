@@ -20,6 +20,7 @@ use crate::backend::upstream::{UpdateConflicts, UpdateScope};
 use crate::backend::{self, Checkout, short_ref};
 use crate::command_editor::OpenCommandEditor;
 use crate::detail::{Detail, DiffPane, KeptPages, KeyMove, KeyPane};
+use crate::layout_menu::Layout;
 use crate::navigator::{Navigator, NavigatorTabs, TerminalOverview};
 use crate::overlays::{ContextMenu, MenuItem, Prompt, overlay};
 use crate::palette::{Choice, Palette};
@@ -2415,6 +2416,51 @@ impl AppView {
                 cx,
             )
         });
+    }
+
+    /// Put the window in `layout`, as its control's menu picks it. Coming down from across the
+    /// top, the navigator first goes back to the side, and the panes follow once that's drawn.
+    pub(crate) fn set_layout(
+        &mut self,
+        layout: Layout,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let on_top = layout == Layout::Top;
+        let was_on_top = self.store.read(cx).prefs.navigator_place == NavigatorPlace::Top;
+        if on_top != was_on_top {
+            self.store.update(cx, |store, cx| {
+                store.set_prefs(
+                    |prefs| {
+                        prefs.navigator_place = match on_top {
+                            true => NavigatorPlace::Top,
+                            false => NavigatorPlace::Side,
+                        }
+                    },
+                    cx,
+                )
+            });
+            if !on_top {
+                Self::once_drawn(window, cx, move |this, window, cx| {
+                    this.set_side_layout(layout, window, cx)
+                });
+            }
+            return;
+        }
+        self.set_side_layout(layout, window, cx);
+    }
+
+    /// Show the navigator, the detail or both beside each other.
+    fn set_side_layout(&mut self, layout: Layout, window: &mut Window, cx: &mut Context<Self>) {
+        match layout {
+            Layout::Both => {
+                self.set_navigator(true, window, cx);
+                self.set_detail(true, window, cx);
+            }
+            Layout::Navigator => self.set_detail(false, window, cx),
+            Layout::Detail => self.set_navigator(false, window, cx),
+            Layout::Top => {}
+        }
     }
 
     /// Slide the navigator to where Settings just put it: out of the column as the tabs come

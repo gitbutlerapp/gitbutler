@@ -5,10 +5,11 @@ use gpui::{AnyElement, App, ClickEvent, Context, div, prelude::*};
 
 use super::Navigator;
 use crate::overlays::MenuItem;
+use crate::state::Store;
 use crate::theme::Theme;
 use crate::ui::Text;
 use crate::ui::person::account_avatar;
-use crate::ui::{ButtonStyle, Icon, button, dp, icon_button, picture_button};
+use crate::ui::{Button, ButtonStyle, Icon, button, dp, icon_button, picture_button};
 
 impl Navigator {
     /// New version, standing in for the update card while Later puts it off, and how far
@@ -55,38 +56,47 @@ impl Navigator {
     /// Settings and the GitButler account in one menu, there signed in or out on every
     /// platform, as only macOS has a menu bar. Signed in, it shows who as its picture.
     pub(super) fn settings_button(&self, theme: &Theme, cx: &Context<Self>) -> AnyElement {
-        let account = &self.store.read(cx).account;
-        // As 🍑 But UI's SidebarHeader: the 18px avatar in a 24px box, else a button as the
-        // header's others are.
-        let button = match &account.user {
-            Some(user) => picture_button(
-                "settings-menu",
-                account_avatar(user, account.avatar.clone(), 18., theme),
-            )
-            .medium(),
-            None => icon_button("settings-menu", Icon::Settings),
-        };
-        button
-            .tooltip("Settings")
+        account_button(self.store.read(cx), theme)
             .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
-                this.open_menu(event.position(), |this, cx| this.settings_menu(cx), cx)
+                this.open_menu(
+                    event.position(),
+                    |this, cx| settings_items(this.store.read(cx), cx),
+                    cx,
+                )
             }))
             .into_any_element()
     }
+}
 
-    fn settings_menu(&self, cx: &App) -> Vec<MenuItem> {
-        let account = match &self.store.read(cx).account.user {
-            Some(user) => {
-                let who = user.login.as_ref().unwrap_or(&user.name);
-                MenuItem::new(format!("Sign out {who}"), |app, _, cx| {
-                    app.store.update(cx, |store, cx| store.sign_out(cx))
-                })
-            }
-            None => MenuItem::new("Sign in…", |app, window, cx| app.sign_in(window, cx)),
-        };
-        Vec::from([
-            MenuItem::action("Settings", &crate::settings::OpenSettings, cx),
-            account.separated(),
-        ])
-    }
+/// The button the Settings and account menu opens from: the account's 18px picture in a 24px
+/// box, as 🍑 But UI's SidebarHeader has it, else a button as the header's others are. The
+/// location bar has it too while the navigator is hidden.
+pub(crate) fn account_button(store: &Store, theme: &Theme) -> Button {
+    let account = &store.account;
+    let button = match &account.user {
+        Some(user) => picture_button(
+            "settings-menu",
+            account_avatar(user, account.avatar.clone(), 18., theme),
+        )
+        .medium(),
+        None => icon_button("settings-menu", Icon::Settings),
+    };
+    button.tooltip("Settings")
+}
+
+/// What [`account_button`] opens: Settings, then signing in or out.
+pub(crate) fn settings_items(store: &Store, cx: &App) -> Vec<MenuItem> {
+    let account = match &store.account.user {
+        Some(user) => {
+            let who = user.login.as_ref().unwrap_or(&user.name);
+            MenuItem::new(format!("Sign out {who}"), |app, _, cx| {
+                app.store.update(cx, |store, cx| store.sign_out(cx))
+            })
+        }
+        None => MenuItem::new("Sign in…", |app, window, cx| app.sign_in(window, cx)),
+    };
+    Vec::from([
+        MenuItem::action("Settings", &crate::settings::OpenSettings, cx),
+        account.separated(),
+    ])
 }

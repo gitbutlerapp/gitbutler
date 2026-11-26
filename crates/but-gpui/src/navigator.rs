@@ -24,6 +24,7 @@ use crate::backend::{
     Target, Workspace,
 };
 use crate::detail::{ChecksChanged, Detail};
+use crate::layout_menu::{Layout, bar_rule, layout_control, layout_items};
 use crate::overlays::MenuItem;
 use crate::state::{
     Part, Prefs, ProjectId, Section, Selection, Store, StoreEvent, Tile, WatchedOrder,
@@ -52,6 +53,7 @@ use crate::ui::{
 };
 
 mod account;
+pub(crate) use account::{account_button, settings_items};
 mod cursor;
 mod drop;
 mod frame;
@@ -4807,6 +4809,20 @@ impl Render for Navigator {
                 ),
             ))
             .child(above_drag(div().child(self.settings_button(&theme, cx))))
+            // With the detail folded away, the window's layout control the location bar has,
+            // after a line, so the detail can come back.
+            .when(!self.floating && detail_shown < 0.5, |el| {
+                el.child(bar_rule(&theme).mx(dp(8.))).child(layout_control(
+                    Layout::Navigator,
+                    cx.listener(|this, event: &ClickEvent, _, cx| {
+                        this.open_menu(
+                            event.position(),
+                            |_, cx| layout_items(Layout::Navigator, cx),
+                            cx,
+                        )
+                    }),
+                ))
+            })
             // The line at the sidebar's end, setting it apart from the location bar beside it, 10
             // from the avatar.
             .when(ruled, |el| {
