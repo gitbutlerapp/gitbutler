@@ -49,6 +49,21 @@ export const Theme = meta.story({
 	},
 });
 
+/** The same setting in less room: the icons say enough, and each segment is named for a screen reader. */
+export const IconOnly = meta.story({
+	parameters: figma("5622-8510"),
+	render: function IconOnly() {
+		const [theme, setTheme] = useState<"system" | "light" | "dark">("system");
+		return (
+			<SegmentedControl value={theme} onValueChange={setTheme} aria-label="Theme">
+				<Segment value="system" iconOnly icon={<Icon name="theme-system" />} aria-label="System" />
+				<Segment value="light" iconOnly icon={<Icon name="theme-light" />} aria-label="Light" />
+				<Segment value="dark" iconOnly icon={<Icon name="theme-dark" />} aria-label="Dark" />
+			</SegmentedControl>
+		);
+	},
+});
+
 /** With `fill`, across the foot of a sidebar: the segments share the width evenly. */
 export const Fill = meta.story({
 	parameters: { ...figma("4819-878"), width: 240 },
