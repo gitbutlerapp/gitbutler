@@ -135,9 +135,13 @@ export const SegmentedControl = <Value extends string>({
  * optional `count` after it, for how many things the option holds. `kbd` names the shortcut that
  * picks it, faint after the label.
  *
+ * An `iconOnly` segment shows its `icon` and no label, square as an icon-only button is, and needs
+ * an `aria-label`: for a control whose icons say enough on their own, as a theme switch's.
+ *
  * A `disabled` segment is unavailable for now and stays at half strength; say why nearby, as a
  * tooltip or a hint.
  *
+ * @figma `iconOnly` is the Segment's variant of the same name.
  * @public
  */
 export const Segment: FC<
@@ -145,10 +149,11 @@ export const Segment: FC<
 		value: string;
 		className?: string;
 		icon?: ReactNode;
+		iconOnly?: boolean;
 		count?: number;
 		kbd?: string | HotkeySequence;
 	}
-> = ({ className, icon, count, kbd, children, ...props }) => {
+> = ({ className, icon, iconOnly = false, count, kbd, children, ...props }) => {
 	const size = useContext(SizeContext);
 	return (
 		<Toggle
@@ -158,13 +163,16 @@ export const Segment: FC<
 				"text-semibold",
 				size === "small" ? "text-12" : "text-13",
 				styles.segment,
+				iconOnly && styles.iconOnly,
 			)}
 		>
 			{icon !== undefined && <span className={styles.icon}>{icon}</span>}
-			<span className={styles.label}>
-				<span className={styles.text}>{children}</span>
-				{kbd !== undefined && <Kbd hotkey={kbd} variant="button" />}
-			</span>
+			{!iconOnly && (
+				<span className={styles.label}>
+					<span className={styles.text}>{children}</span>
+					{kbd !== undefined && <Kbd hotkey={kbd} variant="button" />}
+				</span>
+			)}
 			{count !== undefined && <Badge variant="lightGray">{count}</Badge>}
 		</Toggle>
 	);

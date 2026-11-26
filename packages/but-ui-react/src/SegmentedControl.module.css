@@ -140,8 +140,16 @@
 	}
 }
 
+/* Square, the icon centred: as tall as it is wide, at either size and any density. */
+.iconOnly {
+	--segment-padding-inline: calc((var(--segment-height) - var(--segment-icon-size)) / 2);
+}
+
 /* Unpicked segments are quieter; the pointer brings one up to the picked strength. */
 .icon {
+	/* An `Icon` sizes itself from this; a bare svg from the rule below. */
+	--icon-size: var(--segment-icon-size);
+
 	display: flex;
 	opacity: 0.6;
 	transition: opacity var(--but-transition-fast);
