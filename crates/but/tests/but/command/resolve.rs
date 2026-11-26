@@ -414,6 +414,70 @@ fn agent_resolve_finish_json_status_tracks_rebased_conflict_queue() {
 }
 
 #[test]
+fn resolve_finish_keeps_ignored_files_if_saving_the_rebase_fails() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "upstream-conflicted-below-unignore",
+    );
+    env.setup_metadata_at_target(&["A"], "refs/heads/base");
+    env.invoke_git("remote set-url origin .");
+    env.but("pull").assert().success();
+    env.but("switch --workspace").assert().success();
+    env.but(format!("resolve {}", env.invoke_git("rev-parse A~1")))
+        .assert()
+        .success();
+    // Like build output made while editing, ignored by the edited commit's .gitignore.
+    env.file("build.log", "build output\n");
+    env.file("file.txt", "resolved\n");
+    let lock = env.projects_root().join(".git/refs/heads/A.lock");
+    std::fs::write(&lock, "").unwrap();
+
+    env.but("resolve finish").assert().failure();
+    assert_eq!(
+        std::fs::read_to_string(env.projects_root().join("build.log")).ok(),
+        Some("build output\n".into()),
+        "undoing the finish leaves alone what it never wrote, though the workspace unignores it"
+    );
+    assert_eq!(current_branch_name(&env), "gitbutler/edit");
+}
+
+#[test]
+fn resolve_finish_keeps_an_edit_hidden_from_a_racy_stat_after_failing() {
+    let env = enter_edit_mode_with_conflicted_commit();
+    env.invoke_git("config core.trustctime false");
+    env.file("file.txt", "aaa\n");
+    env.invoke_git("add file.txt");
+    // An entry modified no earlier than the index was written is racy: its stat can't prove
+    // the content, so a same-size edit in that tick stays visible only by content.
+    let root = env.projects_root();
+    let mtime = std::fs::metadata(root.join("file.txt"))
+        .unwrap()
+        .modified()
+        .unwrap();
+    let set_mtime = |path: &std::path::Path| {
+        std::fs::File::options()
+            .write(true)
+            .open(path)
+            .unwrap()
+            .set_modified(mtime)
+            .unwrap();
+    };
+    set_mtime(&root.join(".git/index"));
+    env.file("file.txt", "bbb\n");
+    set_mtime(&root.join("file.txt"));
+    let lock = root.join(".git/refs/heads/A.lock");
+    std::fs::write(&lock, "").unwrap();
+
+    env.but("resolve finish").assert().failure();
+    std::fs::remove_file(&lock).unwrap();
+    env.but("resolve finish").assert().success();
+    assert_eq!(
+        env.invoke_git("show A:file.txt"),
+        "bbb",
+        "the restored index doesn't vouch for the racy stat, which would hide the edit"
+    );
+}
+
+#[test]
 fn resolve_records_a_file_versus_directory_conflict_in_a_valid_index() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "upstream-conflicted-file-vs-directory",

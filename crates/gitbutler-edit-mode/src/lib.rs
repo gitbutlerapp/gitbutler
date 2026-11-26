@@ -130,11 +130,14 @@ fn get_uncommitted_changes(repo: &gix::Repository) -> Result<gix::ObjectId> {
     Ok(uncommitted_changes)
 }
 
-fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
-    let repo = &*ctx.repo.get()?;
+/// Write the files of `commit_id` to the worktree for editing, with its conflicts merged again if
+/// it is conflicted. `base_commit_id` is what `HEAD` points to while editing.
+fn checkout_edit_commit(
+    repo: &gix::Repository,
+    commit_id: gix::ObjectId,
+    base_commit_id: gix::ObjectId,
+) -> Result<()> {
     let commit = commit_id.attach(repo).object()?.try_into_commit()?;
-
-    let base_commit_id = find_or_create_base_commit(repo, commit_id)?;
     let base_commit = base_commit_id.attach(repo).object()?.try_into_commit()?;
 
     let their_commit_msg = commit_title_to_merge_conflict_label(&commit)?;
@@ -177,7 +180,11 @@ fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
             }
         }
     }
+    Ok(())
+}
 
+/// Point `HEAD` at a new edit branch at `base_commit_id`.
+fn point_head_at_edit_branch(repo: &gix::Repository, base_commit_id: gix::ObjectId) -> Result<()> {
     let edit_branch_ref: gix::refs::FullName = EDIT_BRANCH_REF.try_into()?;
     repo.reference(
         edit_branch_ref.as_ref(),
@@ -350,12 +357,26 @@ pub(crate) fn enter_edit_mode(
         .context("Repository index is locked by another process")?,
     );
 
+    let head_name = repo
+        .head_name()?
+        .context("HEAD must point to the workspace")?;
     commit_uncommited_changes(repo)?;
-    if let Err(err) = checkout_edit_branch(ctx, commit_oid) {
-        repo.find_reference(UNCOMMITTED_CHANGES_REF)?.delete()?;
-        return Err(err.context("Failed to checkout edit branch"));
+    let entered = (|| -> Result<()> {
+        let base_commit_id = find_or_create_base_commit(repo, commit_oid)?;
+        point_head_at_edit_branch(repo, base_commit_id)?;
+        write_edit_mode_metadata(ctx, &edit_mode_metadata).context("Failed to persist metadata")?;
+        checkout_edit_commit(repo, commit_oid, base_commit_id)
+            .context("Failed to checkout edit branch")
+    })();
+    if let Err(err) = entered {
+        point_head_at(
+            repo,
+            &head_name.as_bstr().to_str_lossy(),
+            "abort entering edit mode",
+        )?;
+        cleanup_edit_mode(ctx, repo)?;
+        return Err(err);
     }
-    write_edit_mode_metadata(ctx, &edit_mode_metadata).context("Failed to persist metadata")?;
 
     Ok(edit_mode_metadata)
 }
@@ -390,8 +411,11 @@ pub(crate) fn abort_and_return_to_workspace(
 
     let repo = &*ctx.repo.get()?;
     let uncommited_changes = get_uncommitted_changes(repo)?;
-    but_core::worktree::overwrite_worktree(repo, uncommited_changes, None)?;
-    point_head_at_workspace(repo, "abort edit mode")?;
+    point_head_at(repo, WORKSPACE_BRANCH_REF, "abort edit mode")?;
+    if let Err(err) = but_core::worktree::overwrite_worktree(repo, uncommited_changes, None) {
+        point_head_at(repo, EDIT_BRANCH_REF, "keep edit mode")?;
+        return Err(err);
+    }
     but_core::worktree::reset_index(repo, repo.head_tree_id()?.detach())?;
     cleanup_edit_mode(ctx, repo)?;
 
@@ -422,14 +446,33 @@ fn uncommitted_changes_on_workspace(
     Ok(merge.tree.write()?.detach())
 }
 
-/// Point `HEAD` at the workspace branch again.
-fn point_head_at_workspace(repo: &gix::Repository, reason: &str) -> Result<()> {
+/// Put the edit-mode worktree `tree` and `index` back after finishing wrote the workspace's files,
+/// so edit mode holds what the user left in it. Stats racy against `index` are cleared, as the
+/// rewritten index would vouch for them.
+fn restore_edit_worktree(
+    repo: &gix::Repository,
+    tree: gix::ObjectId,
+    mut index: gix::index::File,
+) -> Result<()> {
+    but_core::worktree::revert_worktree(repo, tree)?;
+    let (timestamp, options) = (index.timestamp(), repo.stat_options()?);
+    for entry in index.entries_mut() {
+        if entry.stat.is_racy(timestamp, options) {
+            entry.stat = Default::default();
+        }
+    }
+    index.write(Default::default(), gix::fs::SharedPermissions::Umask)?;
+    Ok(())
+}
+
+/// Point `HEAD` at the branch `ref_name`.
+fn point_head_at(repo: &gix::Repository, ref_name: &str, reason: &str) -> Result<()> {
     update_head_reference(
         repo,
-        gix::refs::Target::Symbolic(WORKSPACE_BRANCH_REF.try_into()?),
+        gix::refs::Target::Symbolic(ref_name.try_into()?),
         false,
         reason,
-        WORKSPACE_BRANCH_REF.into(),
+        ref_name.into(),
         0,
     )
     .context("Failed to set head reference")?;
@@ -505,11 +548,24 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, _perm: &mut RepoExclus
             workspace_commit.tree_id()?.detach(),
             new_workspace_tree,
         )?;
+        let edit_index = repo.open_index()?;
         but_core::worktree::overwrite_worktree(outcome.repo(), worktree, None)?;
-        outcome.materialize_without_checkout()?;
+        let saved = point_head_at(repo, WORKSPACE_BRANCH_REF, "save edit mode")
+            .and_then(|()| outcome.materialize_without_checkout().map(drop));
+        if let Err(err) = saved {
+            restore_edit_worktree(repo, tree_id, edit_index).context(
+                "Failed to restore the edit-mode worktree after saving the rebase failed",
+            )?;
+            if repo
+                .head_name()?
+                .is_none_or(|name| name.as_bstr() != EDIT_BRANCH_REF)
+            {
+                point_head_at(repo, EDIT_BRANCH_REF, "keep edit mode")?;
+            }
+            return Err(err);
+        }
     }
     ctx.invalidate_workspace_cache()?;
-    point_head_at_workspace(repo, "save edit mode")?;
     but_core::worktree::reset_index(repo, repo.head_tree_id()?.detach())?;
 
     let session = git_meta_lib::Session::open(repo.path())?;
