@@ -79,6 +79,7 @@ export type SelectProps<Value extends string> = {
  * commit target — reach for the combobox directly instead.
  *
  * @public
+ * @see packages/but-ui/design/components/menus.md
  * @import import { Select } from "@gitbutler/but-ui-react/Select.tsx";
  */
 export const Select = <Value extends string>(props: SelectProps<Value>) => (

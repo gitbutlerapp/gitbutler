@@ -1113,7 +1113,7 @@ impl Detail {
         let glyph = match (toggles, hidden) {
             (false, _) => Icon::FileDiff,
             (true, true) => Icon::SidebarNarrow,
-            (true, false) => Icon::FilesSidebar,
+            (true, false) => Icon::SidebarFiles,
         };
         let counts = hidden.then_some((diff.files.len(), added, removed));
         // Hidden, the list opens on hover, which says more than a tooltip would, unless it

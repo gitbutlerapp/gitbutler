@@ -366,6 +366,50 @@
 	}
 }
 
+/* What the row is: its tick, glyph and label. It takes the width and gives it back last. */
+.itemStart {
+	display: flex;
+	flex: 1;
+	align-items: center;
+	min-width: 0;
+	gap: 8px;
+}
+
+/* What closes the row: a status, its shortcut, a trailing glyph. */
+.itemEnds {
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: 8px;
+}
+
+/* A menu's rows as two columns of one grid: the labels, as wide as the widest, then what closes
+   them, as wide as the widest of those. A label never runs into the shortcuts of the rows around
+   it. The rows and the sections they sit in are subgrids of it, a heading spanning both. */
+.columns {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	column-gap: 16px;
+	align-content: start;
+
+	/* `normal` takes the grid's gap, a row's own 8px being between the glyphs inside a half. */
+	& :is(.section, .sectionItems, .item) {
+		display: grid;
+		grid-template-columns: subgrid;
+		column-gap: normal;
+		grid-column: 1 / -1;
+	}
+
+	& .sectionLabel {
+		grid-column: 1 / -1;
+	}
+
+	& .itemEnds {
+		grid-column: 2;
+		justify-content: flex-end;
+	}
+}
+
 /* The label is what the row is about, so it takes the width and gives it back last. */
 .itemLabel {
 	flex: 1;
@@ -378,6 +422,29 @@
 .itemIcon {
 	flex: none;
 	color: var(--but-muted-foreground);
+}
+
+/* A menu's tick gutter, there whether or not the row is the choice, so the labels line up. The
+   tick is muted, as the row's glyph is: the label is what the row says. */
+.itemTick {
+	display: flex;
+	flex: none;
+	width: 14px;
+	color: var(--but-muted-foreground);
+}
+
+/* A popup with a choice in it steps its other rows in by the gutter and its gap, so every label
+   starts on one line. */
+.popup:has(.itemTick) .item:not(:has(.itemTick)) {
+	padding-inline-start: calc(8px + var(--but-density-padding) + 14px + 8px);
+}
+
+/* Its headings start on that line too, past the rows' inset: the 2px a heading steps out from the
+   rows elsewhere would read as a slip beside the gutter. */
+.popup:has(.itemTick) .sectionLabel {
+	padding-inline-start: calc(
+		var(--but-padding-menu) + 8px + var(--but-density-padding) + 14px + 8px
+	);
 }
 
 .itemKbd {

@@ -7,7 +7,7 @@ use anyhow::Result;
 use gpui::{
     Action, AnyElement, App, Bounds, ClickEvent, Context, DismissEvent, Div, Entity, FocusHandle,
     Focusable as _, ManagedView, MouseButton, MouseMoveEvent, Pixels, Point, Role, SharedString,
-    Stateful, Subscription, Window, anchored, deferred, div, point, prelude::*, relative,
+    Stateful, Subscription, TextRun, Window, anchored, deferred, div, point, prelude::*, relative,
 };
 
 use crate::app::{
@@ -25,8 +25,8 @@ use crate::ui::Text;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     ButtonStyle, FocusedAt, Icon, ShowFocused, SnackbarVariant, button, dp, error_summary, field,
-    fixed, h_flex, icon, keycap, list_row, muted, popover, shortcut, small_icon, snackbar_undo,
-    v_flex,
+    fixed, h_flex, icon, icon_at, keycap, keycap_width, list_row, muted, popover, shortcut,
+    snackbar_undo, v_flex,
 };
 
 /// A right-click menu. It takes the keys while it's open, as ⌘K does, so ↑ and ↓ go through
@@ -89,7 +89,7 @@ pub struct MenuItem {
     pub separated: bool,
     /// Starts a new group under this heading, as a choice of one does: "Sort by".
     pub heading: Option<SharedString>,
-    /// The choice its group stands at, which carries a tick.
+    /// The choice its group stands at, which carries a tick at the row's start.
     pub ticked: bool,
     /// The command it runs, which says when it's offered and how it reads for the selection
     /// once the menu opens.
@@ -778,6 +778,22 @@ impl AppView {
     ) -> Option<AnyElement> {
         let menu = self.menu.as_ref()?;
         let theme = Theme::get(cx);
+        // A menu with a choice ticks it at the row's start, in a gutter every row and heading keeps
+        // so the labels line up, leaving the row's end to the keys (but-ui's Menus note).
+        let choice = menu.items.iter().any(|item| item.ticked);
+        // Two columns, as but-ui-react's menu is a grid of them: the labels, then what closes the
+        // rows, as wide as the widest of those, so no label runs under another row's keys.
+        let end_width = (menu.items.iter())
+            .map(|item| {
+                let detail = (item.detail.as_ref()).map(|detail| text_width(detail, window, theme));
+                let key = (item.key.as_ref()).map(|key| keycap_width(key, window, theme));
+                match (detail, key) {
+                    (Some(detail), Some(key)) => detail + 16. + key,
+                    (detail, key) => detail.or(key).unwrap_or(0.),
+                }
+            })
+            .fold(0., f32::max)
+            .ceil();
         let items = menu.items.iter().enumerate().flat_map(|(ix, item)| {
             let line = (item.separated && ix > 0).then(|| {
                 div()
@@ -791,6 +807,9 @@ impl AppView {
             let heading = item.heading.clone().map(|heading| {
                 div()
                     .px(dp(14.))
+                    // Beside the gutter, on the labels' line: the row's inset and padding, the
+                    // tick and its gap. Without it, 2px out from them, as React's.
+                    .when(choice, |el| el.pl(dp(4. + 8. + 14. + 8.)))
                     .pt(dp(4.))
                     .pb(dp(2.))
                     .text_12()
@@ -807,17 +826,31 @@ impl AppView {
                 } else {
                     theme.foreground
                 })
-                .child(div().flex_1().child(item.label.clone()))
-                .when_some(item.detail.clone(), |el, detail| {
-                    el.child(div().text_color(theme.subtle_foreground).child(detail))
-                })
-                .when_some(item.key.clone(), |el, key| el.child(keycap(&key, theme)))
-                // A row with a detail keeps the tick's place, so the details line up.
-                .when(item.ticked || item.detail.is_some(), |el| {
-                    el.child(small_icon(Icon::Tick).text_color(match item.ticked {
-                        true => theme.foreground,
-                        false => gpui::transparent_black(),
-                    }))
+                .child(
+                    h_flex()
+                        .flex_1()
+                        .gap(dp(8.))
+                        .when(choice, |el| {
+                            // Muted, as but-ui-react's: the label is what the row says.
+                            el.child(icon_at(Icon::Tick, 14.).text_color(match item.ticked {
+                                true => theme.muted_foreground,
+                                false => gpui::transparent_black(),
+                            }))
+                        })
+                        .child(item.label.clone()),
+                )
+                .when(end_width > 0., |el| {
+                    el.child(
+                        h_flex()
+                            .flex_none()
+                            .min_w(dp(end_width))
+                            .justify_end()
+                            .gap(dp(16.))
+                            .when_some(item.detail.clone(), |el, detail| {
+                                el.child(div().text_color(theme.subtle_foreground).child(detail))
+                            })
+                            .when_some(item.key.clone(), |el, key| el.child(keycap(&key, theme))),
+                    )
                 })
                 // The pointer moves the highlight too, so only one item is lit.
                 .on_mouse_move(cx.listener(move |this, _: &MouseMoveEvent, _, cx| {
@@ -1250,4 +1283,18 @@ pub(crate) fn floating(
     )
     .with_priority(OVERLAY)
     .into_any_element()
+}
+
+/// How wide `text` draws in a menu row's 13px, in design pixels.
+fn text_width(text: &SharedString, window: &Window, theme: &Theme) -> f32 {
+    let run = TextRun {
+        len: text.len(),
+        font: gpui::font(theme.ui_font.clone()),
+        color: theme.foreground,
+        background_color: None,
+        underline: None,
+        strikethrough: None,
+    };
+    let line = (window.text_system()).shape_line(text.clone(), theme.scaled(13.), &[run], None);
+    f32::from(line.width) / theme.scale
 }

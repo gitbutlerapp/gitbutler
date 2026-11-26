@@ -6,7 +6,7 @@ use crate::ui::{Icon, icon_toggle, toggle_group};
 
 const TOGGLES: [(Icon, &str); 3] = [
     (Icon::TextWrap, "Wrap lines"),
-    (Icon::FilesSidebar, "Show files"),
+    (Icon::SidebarFiles, "Show files"),
     (Icon::Eye, "Show whitespace"),
 ];
 

@@ -152,7 +152,7 @@ const Changes: FC = () => (
 				}}
 			>
 				<Button variant="ghost" iconOnly aria-label="Hide the file list">
-					<Icon name="files-sidebar" />
+					<Icon name="sidebar-files" />
 				</Button>
 				<span style={{ flex: 1 }} />
 				<Button>Mark all viewed</Button>
