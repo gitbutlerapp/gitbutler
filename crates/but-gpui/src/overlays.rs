@@ -91,6 +91,8 @@ pub struct MenuItem {
     pub heading: Option<SharedString>,
     /// The choice its group stands at, which carries a tick at the row's start.
     pub ticked: bool,
+    /// Leads the row, after any tick: what kind of thing it acts on, as but-ui-react's `icon`.
+    pub icon: Option<Icon>,
     /// The command it runs, which says when it's offered and how it reads for the selection
     /// once the menu opens.
     pub command: Option<&'static dyn Command>,
@@ -124,6 +126,7 @@ impl MenuItem {
             separated: false,
             heading: None,
             ticked: false,
+            icon: None,
             command: None,
             discards: None,
             aliases: &[],
@@ -220,6 +223,11 @@ impl MenuItem {
     pub fn under(mut self, heading: impl Into<SharedString>) -> Self {
         self.heading = Some(heading.into());
         self.separated = true;
+        self
+    }
+
+    pub fn icon(mut self, icon: Icon) -> Self {
+        self.icon = Some(icon);
         self
     }
 
@@ -836,6 +844,9 @@ impl AppView {
                                 true => theme.muted_foreground,
                                 false => gpui::transparent_black(),
                             }))
+                        })
+                        .when_some(item.icon, |el, glyph| {
+                            el.child(icon(glyph).text_color(theme.muted_foreground))
                         })
                         .child(item.label.clone()),
                 )
