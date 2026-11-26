@@ -865,7 +865,7 @@ impl TerminalOverview {
         let drawn_folded = self.drawn_folded(cx);
         let bar = card_bar(
             "overview-bar",
-            "Terminals",
+            (Icon::TerminalCopy, "Terminals"),
             Some(count.to_string()),
             open,
             false,

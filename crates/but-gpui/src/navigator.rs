@@ -242,14 +242,14 @@ const MERGE_GUIDE: f32 = UPSTREAM_GUIDE + STEP;
 pub(super) const MAIN_WORKTREE: &str = "Main worktree";
 
 /// The bar atop a card at the navigator's foot, the projects' drawer's and the terminal
-/// overview's: while it folds, its chevron, up while it's `open` is false and turning down as
-/// it opens up into the column, then its `title` and `count`. The caller adds its buttons and,
+/// overview's: its glyph and `title`, its `count`, then while it folds, its chevron, right
+/// while `open` is false and turning down as it opens up into the column. The caller adds its buttons and,
 /// while it folds, what a click on it does. `selected` says it's the row the keys are on, and
 /// `solid` rings it while its list has them: a drawer's row never takes a selected fill, as
 /// but-ui-react's `DrawerItem` shows the keys with the focus ring alone.
 pub(super) fn card_bar(
     id: &'static str,
-    title: &'static str,
+    (icon, title): (Icon, &'static str),
     count: Option<String>,
     open: Option<bool>,
     selected: bool,
@@ -257,14 +257,20 @@ pub(super) fn card_bar(
     theme: &Theme,
 ) -> Stateful<Div> {
     let (ink, muted) = (theme.muted_foreground, theme.subtle_foreground);
-    // As but-ui-react's DrawerItem: its name, how many in a badge, then the chevron, right while
-    // it's folded and turning down as it opens.
+    // As but-ui-react's DrawerItem: its glyph a step quieter than its name, a glyph's gap from
+    // it, how many in a badge, then the chevron, right while it's folded and turning down as it
+    // opens.
+    let name = h_flex()
+        .min_w_0()
+        .gap(dp(8.))
+        .child(icon_at(icon, 14.).text_color(muted))
+        .child(section_label(title, theme).text_color(ink).truncate());
     let fold = h_flex()
         .flex_1()
         .min_w_0()
         .h_full()
         .gap(dp(6.))
-        .child(section_label(title, theme).text_color(ink).truncate())
+        .child(name)
         .children(count.map(|count| {
             match count.parse::<usize>() {
                 Ok(n) => count_badge(n, theme).flex_none().into_any_element(),
@@ -2768,7 +2774,8 @@ impl Navigator {
         let mut y = LIST_TOP + CARD_EDGE;
         // The top of the card's highest row and the bottom of its lowest, as drawn.
         let mut card: Option<(f32, f32)> = None;
-        let edged = |(top, bottom): (f32, f32)| (top - CARD_EDGE, bottom + CARD_EDGE);
+        let white = (theme.background, theme.background);
+        let edged = |(top, bottom): (f32, f32)| (top - CARD_EDGE, bottom + CARD_EDGE, white);
         for (ix, (row, height)) in self.drawn_heights().enumerate() {
             if matches!(row, Row::Gap) {
                 cards.extend(card.take().map(edged));
@@ -2780,11 +2787,16 @@ impl Navigator {
             y += height;
         }
         cards.extend(card.map(edged));
-        // The hidden projects' card after them, as `drawer_footer` sets it.
+        // The hidden projects' card after them, as `drawer_footer` sets it: its head on the
+        // canvas, which is all of it while it's folded.
         let (spacer, drawer) = self.footer.get();
         if drawer > 0. {
             let drawer_top = y + CARD_EDGE + spacer + CARD_GAP;
-            cards.push((drawer_top, drawer_top + drawer));
+            let bottom = match self.drawer_rows_height() + self.footer_room() > 0. {
+                true => theme.background,
+                false => theme.canvas,
+            };
+            cards.push((drawer_top, drawer_top + drawer, (theme.canvas, bottom)));
         }
         // Which card the selection's, while it's edged, counting them as `cards` does.
         let focused = (self.built.focused_card.borrow().as_ref()).map(|rows| {
@@ -2795,10 +2807,11 @@ impl Navigator {
         card_caps(&cards, top, height, focused, self.card_margins(), theme)
     }
 
-    /// The hidden projects' card's heading, as 🍑 But UI's: a leading row, as but-ui-react's
-    /// `NavItem`, with its chevron, a closed eye, its name, and how many projects it lists of how many there
-    /// are. The whole row folds the card, and with the keys on it it's ringed, never filled, as
-    /// a drawer's row. Its menu orders and filters the projects.
+    /// The hidden projects' card's head, as 🍑 But UI's: a drawer's row, as but-ui-react's
+    /// `DrawerItem`, with its name, how many projects it lists of how many there are and its
+    /// chevron, on the canvas in the card's padding. A press anywhere on it, its padding too,
+    /// folds the card, as on the terminals' drawer, and with the keys on it it's ringed, never
+    /// filled. Its menu orders and filters the projects.
     fn drawer_bar(&self, alone: bool, theme: &Theme, cx: &Context<Self>) -> impl IntoElement {
         let Drawer { listed, total, .. } = self.built.drawer;
         let title = drawer_title(alone);
@@ -2810,31 +2823,29 @@ impl Navigator {
         // Beside the page only: across the top, More projects' card's bar is under its tab,
         // which has the keys rather than it.
         let solid = self.keys.on_head_of(&List::Rows(None));
-        let row = sidebar_row("drawer-bar")
-            .icon(Icon::EyeClosed, theme)
-            .label(item_name(title))
-            .meta(meta_count_on(
-                MetaCountType::Repos,
-                Some(count.into()),
-                false,
-                theme,
-            ));
-        let row = match toggles {
-            true => row
-                .row_folds()
-                .fold(match self.store.read(cx).prefs.projects_folded {
-                    true => RowFold::Folded,
-                    false => RowFold::Open,
-                })
-                .selected(solid, solid),
-            false => row,
-        };
-        row.build(theme)
-            .aria_label(title)
-            .mx(dp(ROW_MARGIN))
-            .my(dp(CARD_PADDING))
+        let open = toggles.then(|| !self.store.read(cx).prefs.projects_folded);
+        let bar = card_bar(
+            "drawer-bar",
+            (Icon::EyeClosed, title),
+            Some(count),
+            open,
+            solid,
+            solid,
+            theme,
+        )
+        .h(dp(DRAWER_ROW))
+        .my_0()
+        .pr(dp(4.));
+        v_flex()
+            .id("drawer-head")
+            .group(DRAWER_GROUP)
+            .flex_none()
+            .p(dp(CARD_PADDING))
+            .bg(theme.canvas)
+            .child(bar)
             .when(toggles, |el| {
-                el.on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.toggle_drawer(cx)))
+                el.cursor_pointer()
+                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.toggle_drawer(cx)))
             })
             .when(total > 0, |el| {
                 el.on_mouse_down(
@@ -3108,14 +3119,15 @@ impl Navigator {
             .text_12()
             .child(project_glyph_at(store, id, style.muted(), 14., theme));
         // Whether the project shows among the cards, as but-ui-react's RepoItem `glyphAction`
-        // marks it: the glyph turns into a ghost eye while the pointer is on the glyph,
-        // open on a shown project and closed on a hidden one, as a layers panel's. The row's
+        // marks it: the glyph turns into a ghost eye while the pointer is on the glyph, showing
+        // what a press does: closed on a shown project, which it hides, and open on a hidden
+        // one, which it shows. The row's
         // menu and the keys (h, l) do the same. Its press doesn't select the row, and while
         // something is being moved it's only part of the row, which a press puts the move at.
         let moving = store.moving.is_some();
         let (eye_icon, tooltip) = match expanded {
-            true => (Icon::Eye, "Hide project"),
-            false => (Icon::EyeClosed, "Unhide project"),
+            true => (Icon::EyeClosed, "Hide project"),
+            false => (Icon::Eye, "Unhide project"),
         };
         let eye = icon_button(
             ElementId::Name(format!("{}-{id}", if expanded { "unwatch" } else { "watch" }).into()),
@@ -4951,13 +4963,14 @@ fn row_guides<'a>(
 }
 
 /// Where a list's top and bottom edges cut a card off as it's scrolled, `top` down its `cards`
-/// (each's top and bottom, from the list's top) and `height` tall: there the card's edge is
+/// (each's top and bottom, from the list's top, and the ground at each of those ends) and
+/// `height` tall: there the card's edge is
 /// drawn along the list's, rounded as its own, so it keeps its shape. GPUI cuts what a list
 /// draws to a rectangle, so the ground the cards are on is painted past the corners. The
 /// `focused` card is edged in the focus's colour, and the cards are in from the list's sides by
 /// `margins`.
 fn card_caps(
-    cards: &[(f32, f32)],
+    cards: &[(f32, f32, (Hsla, Hsla))],
     top: f32,
     height: f32,
     focused: Option<usize>,
@@ -4968,12 +4981,18 @@ fn card_caps(
     // its edge.
     let cut = |at: f32, at_top: bool| {
         (cards.iter())
-            .position(|&(card_top, bottom)| at > card_top + 1. && at < bottom - 1.)
+            .position(|&(card_top, bottom, _)| at > card_top + 1. && at < bottom - 1.)
             .and_then(|ix| Some((ix, *cards.get(ix)?)))
-            .map(|(ix, (card_top, bottom))| (ix, if at_top { bottom - at } else { at - card_top }))
+            .map(
+                |(ix, (card_top, bottom, (top_ground, bottom_ground)))| match at_top {
+                    // The list's top shows the card's bottom end, and its bottom the card's top.
+                    true => (ix, bottom - at, bottom_ground),
+                    false => (ix, at - card_top, top_ground),
+                },
+            )
     };
     let ground = theme.canvas;
-    let cap = |at_top: bool, (card, shows): (usize, f32)| {
+    let cap = |at_top: bool, (card, shows, own_ground): (usize, f32, Hsla)| {
         let line = match focused == Some(card) {
             true => theme.focus_edge(),
             false => theme.border_subtle,
@@ -5034,14 +5053,14 @@ fn card_caps(
                 };
                 let mut ends = vec![(y, toward)];
                 if sliver {
-                    // The card's own end, its corners under the card's ground, rounder
-                    // than the sliver's.
+                    // The card's own end, its corners under the card's ground at that end,
+                    // rounder than the sliver's.
                     let end = y + toward / r * theme.scaled(shows);
                     let (top, bottom) = (y.min(end), y.max(end));
                     let wide = theme.scaled(theme.shape.card);
                     for x in [x0, x1 - wide] {
                         let under = Bounds::from_corners(point(x, top), point(x + wide, bottom));
-                        window.paint_quad(fill(under, theme.background));
+                        window.paint_quad(fill(under, own_ground));
                     }
                     ends.push((end, -toward));
                 }

@@ -57,7 +57,8 @@ type RowProps = {
 	/** A small ghost icon `Button` that stands in for the row's glyph only while the pointer is on
 	 * the glyph, or the keys are on the button: passing over the row shows nothing, and nothing on
 	 * the row moves when it comes. A project's eye, which hides or shows it, is one. Its glyph says
-	 * the state, as a layers panel's does, and its tooltip what a press does. */
+	 * what a press does, as its tooltip does: a closed eye hides a shown project, an open one shows
+	 * a hidden one. */
 	glyphAction?: ReactNode;
 } & useRender.ComponentProps<"div">;
 
@@ -879,8 +880,9 @@ export const TerminalItem: FC<{ name: string; place?: string } & RowProps> = ({
 );
 
 /**
- * A drawer at the foot of the sidebar, such as the hidden projects or the terminals: its name, how
- * many it holds (`count`, shown at zero too) and a chevron after them. A press anywhere on it opens
+ * A drawer at the foot of the sidebar, such as the hidden projects or the terminals: the glyph that
+ * names it (`icon`, as a closed eye or a stack of terminals), its name, how many it holds (`count`,
+ * shown at zero too) and a chevron after them. A press anywhere on it opens
  * or closes it (`folded`, `onToggleFolded`), and what it holds opens under it.
  *
  * Its buttons sit at its end and take their own clicks: `actions` always show, `hoverActions` only
@@ -893,12 +895,14 @@ export const TerminalItem: FC<{ name: string; place?: string } & RowProps> = ({
  * which rules it off and opens what it holds under it.
  *
  * @figma `state=hover` is the drawer under the pointer: its chevron comes up and `hoverActions`
- * shows. Hide a slot the drawer doesn't need, as an empty one still keeps a button's width.
+ * shows. `icon` shows the glyph; swap it in the `glyph` slot. Hide a slot the drawer doesn't
+ * need, as an empty one still keeps a button's width.
  * @import import { DrawerItem } from "@gitbutler/but-ui-react/SidebarRow.tsx";
  */
 export const DrawerItem: FC<
 	{
 		name: string;
+		icon?: IconName;
 		count?: number;
 		/** `true` while what it holds is hidden. */
 		folded: boolean;
@@ -906,7 +910,7 @@ export const DrawerItem: FC<
 		actions?: ReactNode;
 		hoverActions?: ReactNode;
 	} & useRender.ComponentProps<"button">
-> = ({ name, count, folded, onToggleFolded, actions, hoverActions, render, ...props }) => {
+> = ({ name, icon, count, folded, onToggleFolded, actions, hoverActions, render, ...props }) => {
 	const [shown, onHover] = [filled(actions), filled(hoverActions)];
 	const toggle = useRender({
 		// oxlint-disable-next-line jsx_a11y/control-has-associated-label -- Labelled by its children.
@@ -917,7 +921,14 @@ export const DrawerItem: FC<
 			className: styles.drawerToggle,
 			children: (
 				<span className={styles.label}>
-					<span className={classes("text-12", "text-semibold", styles.name)}>{name}</span>
+					<span className={styles.drawerTitle}>
+						{icon !== undefined && (
+							<span className={styles.icon} aria-hidden>
+								<Icon name={icon} />
+							</span>
+						)}
+						<span className={classes("text-12", "text-semibold", styles.name)}>{name}</span>
+					</span>
 					{count !== undefined && (
 						<Badge variant="lightGray" className={styles.badge}>
 							{count}
@@ -960,6 +971,7 @@ export const DrawerItem: FC<
 export const Drawer: FC<
 	{
 		name: string;
+		icon?: IconName;
 		count?: number;
 		folded: boolean;
 		onToggleFolded?: () => void;
@@ -969,7 +981,18 @@ export const Drawer: FC<
 		/** The drawer at the panel's foot: a hairline under it too while it's folded. */
 		last?: boolean;
 	} & Omit<ComponentProps<"section">, "children">
-> = ({ name, count, folded, onToggleFolded, actions, hoverActions, children, last, ...props }) => (
+> = ({
+	name,
+	icon,
+	count,
+	folded,
+	onToggleFolded,
+	actions,
+	hoverActions,
+	children,
+	last,
+	...props
+}) => (
 	<section
 		aria-label={name}
 		{...props}
@@ -977,6 +1000,7 @@ export const Drawer: FC<
 	>
 		<DrawerItem
 			name={name}
+			icon={icon}
 			count={count}
 			folded={folded}
 			onToggleFolded={onToggleFolded}

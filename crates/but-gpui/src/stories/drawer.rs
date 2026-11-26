@@ -72,7 +72,7 @@ pub(super) const ITEM_EXAMPLES: [Example; 2] = [
         id: "components-draweritem--default",
         name: "Default",
         draw: |theme| {
-            let mut item = drawer("drawer", "Terminals", Some(5), true);
+            let mut item = drawer("drawer", "Terminals", Some(5), true).icon(Icon::TerminalCopy);
             div().w(dp(334.)).child(item.item(theme)).into_any_element()
         },
     },
@@ -81,6 +81,7 @@ pub(super) const ITEM_EXAMPLES: [Example; 2] = [
         name: "With Buttons",
         draw: |theme| {
             let mut item = drawer("drawer", "Terminals", Some(5), true)
+                .icon(Icon::TerminalCopy)
                 .action(ghost("group", Icon::Mixer, "Group terminals"))
                 .action(ghost("new", Icon::Plus, "New terminal…"));
             div().w(dp(334.)).child(item.item(theme)).into_any_element()
@@ -126,6 +127,7 @@ pub(super) const EXAMPLES: [Example; 3] = [
             );
             on_page(
                 drawer("drawer", "Terminals", Some(2), false)
+                    .icon(Icon::TerminalCopy)
                     .action(ghost("group", Icon::Mixer, "Group terminals"))
                     .action(ghost("new", Icon::Plus, "New terminal…"))
                     .content(terminals),
@@ -160,6 +162,7 @@ pub(super) const EXAMPLES: [Example; 3] = [
             );
             on_page(
                 drawer("drawer", "Terminals", Some(3), false)
+                    .icon(Icon::TerminalCopy)
                     .action(ghost("group", Icon::Mixer, "Group terminals"))
                     .action(ghost("new", Icon::Plus, "New terminal…"))
                     .content(terminals),
@@ -173,6 +176,7 @@ pub(super) const EXAMPLES: [Example; 3] = [
         draw: |theme| {
             on_page(
                 drawer("terminals", "Terminals", Some(0), false)
+                    .icon(Icon::TerminalCopy)
                     .action(ghost("group", Icon::Mixer, "Group terminals"))
                     .action(ghost("new", Icon::Plus, "New terminal…"))
                     .last()

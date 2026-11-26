@@ -691,6 +691,11 @@ button.nav {
 		position: relative;
 	}
 
+	/* A step quieter than its muted name. */
+	.icon {
+		color: var(--but-subtle-foreground);
+	}
+
 	/* After the name and the count rather than before, as the drawer has no indent to hang it in. */
 	.toggle {
 		display: flex;
@@ -723,6 +728,14 @@ button.nav {
 	&:focus-visible {
 		outline: none;
 	}
+}
+
+/* A drawer's glyph and name, a glyph's gap apart, closer to each other than to the count after them. */
+.drawerTitle {
+	display: flex;
+	column-gap: var(--but-gap-icon-text);
+	align-items: center;
+	min-width: 0;
 }
 
 /* Out of the row until the pointer is on it or the keys are in it, which they reach through the

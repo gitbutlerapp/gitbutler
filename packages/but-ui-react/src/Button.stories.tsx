@@ -151,7 +151,7 @@ export const ColoursOnASelection = meta.story({
 				Merge
 			</Button>
 			<Button size="small" variant="outline-inverted" iconOnly aria-label="Hide project">
-				<Icon name="eye" />
+				<Icon name="eye-closed" />
 			</Button>
 		</div>
 	),

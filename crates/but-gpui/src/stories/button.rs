@@ -88,7 +88,7 @@ pub(super) const EXAMPLES: [Example; 6] = [
                             .style(ButtonStyle::Warning)
                             .tooltip("Update 3 commits"),
                         button("selected-merge", "Merge").style(ButtonStyle::Success),
-                        icon_button("selected-hide", Icon::Eye)
+                        icon_button("selected-hide", Icon::EyeClosed)
                             .style(ButtonStyle::Outline)
                             .tooltip("Hide project"),
                     ]

@@ -126,6 +126,7 @@ icons! {
     TextCode => "text-code",
     TextWrap => "text-wrap",
     Terminal => "terminal",
+    TerminalCopy => "terminal-copy",
     Tick => "tick",
     Undo => "undo",
     Warning => "warning",

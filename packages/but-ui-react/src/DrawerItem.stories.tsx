@@ -14,9 +14,9 @@ const meta = stories({
 	parameters: { design: { type: "figma", url: core("5375-4379") }, width: 334 },
 });
 
-/** A drawer, closed: its name, how many it holds and its chevron. */
+/** A drawer, closed: its glyph, its name, how many it holds and its chevron. */
 export const Default = meta.story({
-	args: { name: "Terminals", count: 5, folded: true },
+	args: { name: "Terminals", icon: "terminal-copy", count: 5, folded: true },
 });
 
 /** A ghost icon button at a drawer's end, with its tooltip. */
@@ -32,6 +32,7 @@ const ghost = (icon: "plus" | "mixer", label: string) => (
 export const WithButtons = meta.story({
 	args: {
 		name: "Terminals",
+		icon: "terminal-copy",
 		count: 5,
 		folded: true,
 		actions: [ghost("mixer", "Group terminals"), ghost("plus", "New terminal…")],
