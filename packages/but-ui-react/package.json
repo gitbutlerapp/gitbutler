@@ -26,7 +26,7 @@
 		"@base-ui/react": "^1.6.0",
 		"@tanstack/react-hotkeys": "^0.10.0",
 		"@tanstack/react-virtual": "^3.14.10",
-		"effect": "^3.20.0",
+		"effect": "^3.22.1",
 		"markdown-to-jsx": "^7.7.17",
 		"react-resizable-panels": "^4.11.2"
 	},
