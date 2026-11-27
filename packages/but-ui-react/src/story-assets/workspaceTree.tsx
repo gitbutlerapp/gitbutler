@@ -132,7 +132,8 @@ const rowTypes = new Set<unknown>([
 ]);
 
 /** Gives the rows in `children` their guides, worked out with `treeGuides` from the rows in the
- * order they draw, as a host does from the tree it shows. */
+ * order they draw, as a host does from the tree it shows: a stack's branches and a branch's
+ * own commits are `chained` on the line they hang from. */
 const guided = (children: ReactNode): ReactNode => {
 	const walk = (node: ReactNode, visit: (row: ReactElement) => ReactNode): ReactNode =>
 		Children.map(node, (child) => {
@@ -141,12 +142,32 @@ const guided = (children: ReactNode): ReactNode => {
 			if (child.props.children === undefined) return child;
 			return cloneElement(child, undefined, walk(child.props.children, visit));
 		});
-	const rows: Array<{ depth: number }> = [];
+	const found: Array<{ depth: number; type: unknown; upstream: boolean }> = [];
 	void walk(children, (row) => {
-		const { depth = 0 } = row.props as { depth?: number };
-		rows.push({ depth });
+		const { depth = 0, upstream = false } = row.props as { depth?: number; upstream?: boolean };
+		found.push({ depth, type: row.type, upstream });
 		return row;
 	});
+	// Each row's parent, the last row above it a level up.
+	const ancestors: Array<number> = [];
+	const parents = found.map(({ depth }, index) => {
+		const parent = depth > 0 ? ancestors[depth - 1] : undefined;
+		ancestors.length = depth;
+		ancestors[depth] = index;
+		return parent;
+	});
+	const inStack = (index: number) => {
+		const parent = parents[index];
+		return (
+			found[index]?.type === BranchItem &&
+			parent !== undefined &&
+			found[parent]?.type === StackCaption
+		);
+	};
+	const rows = found.map(({ depth, type, upstream }, index) => ({
+		depth,
+		chained: (type === CommitItem && !upstream) || inStack(index),
+	}));
 	const guides = treeGuides(rows);
 	let next = 0;
 	return walk(children, (row) =>

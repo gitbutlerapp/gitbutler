@@ -45,4 +45,19 @@ describe("treeGuides", () => {
 			["none", "last"],
 		]);
 	});
+
+	test("a chained row sits on its parent's line, which ends at the last one", () => {
+		// A stack's caption, its branches, and the commits of the middle one.
+		expect(
+			treeGuides([
+				{ depth: 0 },
+				{ depth: 1, chained: true },
+				{ depth: 1, chained: true },
+				{ depth: 2, chained: true },
+				{ depth: 2, chained: true },
+				{ depth: 1, chained: true },
+				{ depth: 0 },
+			]),
+		).toEqual([[], ["node"], ["node"], ["line", "node"], ["line", "nodeLast"], ["nodeLast"], []]);
+	});
 });

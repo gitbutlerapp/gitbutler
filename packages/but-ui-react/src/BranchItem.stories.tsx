@@ -7,10 +7,18 @@ import {
 	CommitItem,
 	RepoItem,
 	StackCaption,
+	TerminalItem,
 	UncommittedItem,
 	WorktreeItem,
 } from "./SidebarRow.tsx";
-import { Card, Column, machine, push, Repository } from "./story-assets/workspaceTree.tsx";
+import {
+	Card,
+	Column,
+	machine,
+	push,
+	RepoCard,
+	Repository,
+} from "./story-assets/workspaceTree.tsx";
 
 const core = (node: string) =>
 	`https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=${node}`;
@@ -435,4 +443,70 @@ export const Conflicts = meta.story({
 			</Card>
 		</div>
 	),
+});
+
+/** One repository with a stack of three and a pull request, as a host lists it. */
+const MeshTree: FC = () => {
+	const [stackFolded, setStackFolded] = useState(false);
+	const [experimentFolded, setExperimentFolded] = useState(false);
+	const [previewFolded, setPreviewFolded] = useState(false);
+	return (
+		<RepoCard label="mesh" header={<RepoItem name="mesh" folded={false} />}>
+			<UncommittedItem count={1} />
+			<TerminalItem name="Terminal" />
+			<StackCaption
+				count={3}
+				tip="mesh-on-enroute"
+				folded={stackFolded}
+				onToggleFolded={() => setStackFolded(!stackFolded)}
+				meta={stackFolded && <MetaCount type="unpushed">3</MetaCount>}
+			/>
+			{!stackFolded && (
+				<>
+					<BranchItem title="mesh-on-enroute" depth={1} folded="empty" />
+					<BranchItem
+						title="enroute-experiment"
+						depth={1}
+						folded={experimentFolded}
+						onToggleFolded={() => setExperimentFolded(!experimentFolded)}
+						actions={push(3)}
+					/>
+					{!experimentFolded && (
+						<>
+							<CommitItem message="Signing is optional" pushed={false} depth={2} />
+							<CommitItem message="Split enroute repositories" pushed={false} depth={2} />
+							<CommitItem message="Answer enroute's authorization" pushed={false} depth={2} />
+						</>
+					)}
+					<BranchItem title="co-branch-1" depth={1} folded="empty" selected />
+				</>
+			)}
+			<BranchItem
+				title="Preview of enroute experiment"
+				pr={{ number: 778, state: "draft" }}
+				folded={previewFolded}
+				onToggleFolded={() => setPreviewFolded(!previewFolded)}
+				meta={<MetaStatus variant="failed">CI</MetaStatus>}
+			/>
+			{!previewFolded && (
+				<>
+					<CommitItem message="Enable GA again" depth={1} />
+					<CommitItem message="Port enroute-compute module" depth={1} />
+					<CommitItem message="Disable enroute compute and mesh" depth={1} />
+					<CommitItem message="Add back preview mesh" depth={1} />
+					<CommitItem message="Add enroute experiment" depth={1} />
+				</>
+			)}
+		</RepoCard>
+	);
+};
+
+/**
+ * A stack's branches and a branch's commits build on each other, so they sit on the line they
+ * hang from (`treeGuides`' `chained`) rather than off it, where the tree's tails say its rows sit
+ * side by side. The line runs through each stack branch's dot and each commit's own mark, and
+ * ends at the last.
+ */
+export const Chained = meta.story({
+	render: () => <MeshTree />,
 });

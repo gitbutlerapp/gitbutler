@@ -70,21 +70,32 @@ const Steps: FC<{
 	name: string;
 	/** The row itself is the button that folds, so the chevron only says which way it is. */
 	rowFolds?: boolean;
-}> = ({ depth, guides, folded, onToggleFolded, name, rowFolds = false }) =>
+	/** What the row draws on its parent's line while its own guide is a node: a dot unless given. */
+	marker?: ReactNode;
+}> = ({ depth, guides, folded, onToggleFolded, name, rowFolds = false, marker }) =>
 	depth > 0 || folded !== undefined ? (
 		<span className={styles.steps}>
-			{Array.from({ length: depth }, (_, level) => (
-				<span
-					key={level}
-					className={classes(
-						styles.step,
-						styles.guide,
-						guides?.[level] === "last" && styles.guideLast,
-						guides?.[level] === "none" && styles.guideNone,
-					)}
-					aria-hidden
-				/>
-			))}
+			{Array.from({ length: depth }, (_, level) => {
+				const kind = guides?.[level];
+				const node = kind === "node" || kind === "nodeLast";
+				const own = node && level === depth - 1 && marker !== undefined;
+				return (
+					<span
+						key={level}
+						className={classes(
+							styles.step,
+							styles.guide,
+							kind === "last" && styles.guideLast,
+							kind === "none" && styles.guideNone,
+							node && styles.guideNode,
+							kind === "nodeLast" && styles.guideNodeLast,
+						)}
+						aria-hidden={own ? undefined : true}
+					>
+						{own ? marker : node && <span className={styles.dot} />}
+					</span>
+				);
+			})}
 			{folded === "empty" && (
 				<span className={classes(styles.step, styles.empty)} aria-hidden>
 					<Icon size={12} name="bullet-disc" />
@@ -168,11 +179,15 @@ const Row: FC<
 		label: ReactNode;
 		rowClassName?: string;
 		rowFolds?: boolean;
+		/** Stands in for `icon` while the row's own guide is a node: drawn on its parent's line, in
+		 * the guide's column, so the row needs no glyph after it. */
+		marker?: ReactNode;
 	}
 > = ({
 	name,
 	icon,
 	rowFolds,
+	marker,
 	spinner = <Icon name="spinner" />,
 	label,
 	busy = false,
@@ -197,6 +212,8 @@ const Row: FC<
 		filled(splitSlot),
 		filled(glyphActionSlot),
 	];
+	const ownGuide = depth > 0 ? guides?.[depth - 1] : undefined;
+	const onLine = marker !== undefined && (ownGuide === "node" || ownGuide === "nodeLast");
 	return useRender({
 		render: render ?? <div />,
 		state: { selected, linked },
@@ -212,8 +229,20 @@ const Row: FC<
 						onToggleFolded={onToggleFolded}
 						name={name}
 						rowFolds={rowFolds}
+						marker={
+							onLine ? (
+								busy ? (
+									// The spinner itself is hidden from a screen reader; its cell says what it means.
+									<output className={styles.nodeIcon} aria-label="Working">
+										{spinner}
+									</output>
+								) : (
+									marker
+								)
+							) : undefined
+						}
 					/>
-					{busy ? (
+					{onLine ? null : busy ? (
 						// The spinner itself is hidden from a screen reader; its cell says what it means.
 						<output className={styles.icon} aria-label="Working">
 							{spinner}
@@ -531,63 +560,81 @@ export const CommitItem: FC<
 	tooltip,
 	meta,
 	...props
-}) => (
-	<Row
-		{...props}
-		name={message}
-		meta={
-			merge ? (
-				props.folded === true && authors.length > 0 ? (
+}) => {
+	const tone = upstream
+		? styles.upstream
+		: merge
+			? undefined
+			: integrated
+				? styles.integrated
+				: pushed
+					? styles.remote
+					: styles.local;
+	const solid = pushed || upstream || integrated;
+	return (
+		<Row
+			{...props}
+			name={message}
+			marker={
+				conflicted ? (
+					<span
+						// oxlint-disable-next-line jsx_a11y/prefer-tag-over-role -- A glyph with a name, not a picture with a source.
+						role="img"
+						aria-label="Conflicted"
+						className={classes(styles.conflicted, styles.nodeIcon)}
+					>
+						<Icon name="warning" size={12} />
+					</span>
+				) : merge ? (
+					<span className={classes(styles.nodeIcon, tone)} aria-hidden>
+						<Icon name="branch-merge" size={12} />
+					</span>
+				) : (
+					<span
+						className={classes(styles.commitNode, solid && styles.commitNodeSolid, tone)}
+						aria-hidden
+					/>
+				)
+			}
+			meta={
+				merge ? (
+					props.folded === true && authors.length > 0 ? (
+						<>
+							{meta}
+							<Authors authors={authors} />
+						</>
+					) : (
+						meta
+					)
+				) : author ? (
 					<>
 						{meta}
-						<Authors authors={authors} />
+						<span className={styles.author}>
+							<Avatar src={author.src} seed={author.seed} size={14} />
+						</span>
 					</>
 				) : (
 					meta
 				)
-			) : author ? (
-				<>
-					{meta}
-					<span className={styles.author}>
-						<Avatar src={author.src} seed={author.seed} size={14} />
+			}
+			icon={
+				conflicted ? (
+					// oxlint-disable-next-line jsx_a11y/prefer-tag-over-role -- A glyph with a name, not a picture with a source.
+					<span role="img" aria-label="Conflicted" className={styles.conflicted}>
+						<Icon name="warning" />
 					</span>
-				</>
-			) : (
-				meta
-			)
-		}
-		icon={
-			conflicted ? (
-				// oxlint-disable-next-line jsx_a11y/prefer-tag-over-role -- A glyph with a name, not a picture with a source.
-				<span role="img" aria-label="Conflicted" className={styles.conflicted}>
-					<Icon name="warning" />
-				</span>
-			) : (
-				<Icon
-					name={
-						merge ? "branch-merge" : pushed || upstream || integrated ? "commit-fill" : "commit"
-					}
-					className={
-						upstream
-							? styles.upstream
-							: merge
-								? undefined
-								: integrated
-									? styles.integrated
-									: pushed
-										? styles.remote
-										: styles.local
-					}
-				/>
-			)
-		}
-		label={
-			<Name tooltip={tooltip} className={classes("text-13", styles.name)}>
-				{message}
-			</Name>
-		}
-	/>
-);
+				) : (
+					<Icon name={merge ? "branch-merge" : solid ? "commit-fill" : "commit"} className={tone} />
+				)
+			}
+			label={
+				<Name tooltip={tooltip} className={classes("text-13", styles.name)}>
+					{message}
+				</Name>
+			}
+		/>
+	);
+};
 
 /**
  * What a branch's remote (`remote`, such as `origin`) has that the branch doesn't: a heading one
