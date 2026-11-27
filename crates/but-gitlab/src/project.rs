@@ -20,18 +20,14 @@ impl GitLabProjectId {
         }
     }
 
-    pub fn username(&self) -> &str {
-        &self.username
-    }
-
-    pub fn project_name(&self) -> &str {
-        &self.project_name
+    pub(crate) fn full_path(&self) -> String {
+        format!("{}/{}", self.username, self.project_name)
     }
 }
 
 impl Display for GitLabProjectId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let project_id = format!("{}/{}", self.username, self.project_name);
+        let project_id = self.full_path();
         let encoded = urlencoding::encode(&project_id);
         write!(f, "{encoded}")
     }
