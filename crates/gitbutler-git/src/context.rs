@@ -157,16 +157,28 @@ pub fn prune_with_askpass(
     with_askpass(repo_path, remote_name, action, RemoteCall::Prune)
 }
 
-#[derive(Clone, Copy)]
+/// Fetch `object_ids` from `remote_name`, the objects a partial clone is missing, as
+/// [`fetch_with_askpass()`] fetches refs.
+pub fn fetch_objects_with_askpass(
+    repo_path: impl AsRef<Path>,
+    remote_name: &str,
+    object_ids: &[gix::ObjectId],
+    action: Option<String>,
+) -> Result<()> {
+    let call = RemoteCall::FetchObjects(object_ids.to_vec());
+    with_askpass(repo_path, remote_name, action, call)
+}
+
 enum RemoteCall {
     Fetch,
+    FetchObjects(Vec<gix::ObjectId>),
     Prune,
 }
 
 impl RemoteCall {
-    fn git_command(self) -> &'static str {
+    fn git_command(&self) -> &'static str {
         match self {
-            RemoteCall::Fetch => "git fetch",
+            RemoteCall::Fetch | RemoteCall::FetchObjects(_) => "git fetch",
             RemoteCall::Prune => "git remote prune",
         }
     }
@@ -196,6 +208,9 @@ fn with_askpass(
         Ok(runtime.block_on(async {
             match call {
                 RemoteCall::Fetch => crate::fetch(repo_path, executor, &remote, on_prompt).await,
+                RemoteCall::FetchObjects(object_ids) => {
+                    crate::fetch_objects(repo_path, executor, &remote, &object_ids, on_prompt).await
+                }
                 RemoteCall::Prune => crate::prune(repo_path, executor, &remote, on_prompt).await,
             }
         }))
