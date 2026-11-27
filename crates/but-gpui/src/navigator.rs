@@ -46,8 +46,8 @@ use crate::ui::{
 };
 use crate::ui::{
     CommitPlace, Fold as RowFold, MetaStatusVariant, PullRequestState, SidebarRow, SplitCell,
-    SplitPreview, SplitTile, branch_item, commit_item, group_label, item_name, loading_item,
-    meta_status, missing_repo_item, more_item, press_in_pane, repo_item, row_divider,
+    SplitPreview, SplitTile, branch_item, chain_node, commit_item, group_label, item_name,
+    loading_item, meta_status, missing_repo_item, more_item, press_in_pane, repo_item, row_divider,
     running_count, sidebar_row, split_preview_map, stack_caption, terminal_item, uncommitted_item,
     upstream_item, worktree_item,
 };
@@ -88,8 +88,8 @@ use crate::ui::Text;
 use moving::Mark;
 use rows::{
     CARD_EDGE, CARD_PADDING, COMMIT_INDENT, Drawer, EmptyCard, Fold, GONE_HEIGHT, GONE_PADDING,
-    HEADER_RULE, HEADING_HEIGHT, LOADING_WIDTHS, ROW_LEFT, ROW_MARGIN, Row, RowKey, caption,
-    card_ends, checkout_holds, in_checkout, in_inactive, inactive_open, span_height,
+    HEADER_RULE, HEADING_HEIGHT, LOADING_WIDTHS, ON_LINE_TEXT, ROW_LEFT, ROW_MARGIN, Row, RowKey,
+    Tip, caption, card_ends, checkout_holds, in_checkout, in_inactive, inactive_open, span_height,
 };
 
 /// How far apart the cards are, as the detail's are: but-ui's `gap/stack`, the one gap between
@@ -211,6 +211,9 @@ pub(crate) struct RowStyle<'a> {
     split: Option<&'a RefCell<RowSplit>>,
     /// In the split whose map the pointer is over: the hover's ground, as its rows read as one.
     linked: bool,
+    /// Sits on its branch's line, which draws its mark ([`Tip::node`]): a commit's row then
+    /// draws no glyph of its own.
+    on_line: bool,
 }
 
 /// What a row of a split carries for it: the map in its split cell, and before its counts the
@@ -432,6 +435,7 @@ impl<'a> RowStyle<'a> {
             goes_here: false,
             split: None,
             linked: false,
+            on_line: false,
         }
     }
 
@@ -558,6 +562,10 @@ impl<'a> RowStyle<'a> {
             self.theme,
         )
         .unread(unread);
+        let row = match self.on_line {
+            true => row.on_line(),
+            false => row,
+        };
         match rename {
             Some(field) => row.rename(field),
             None => row,
@@ -577,8 +585,13 @@ impl<'a> RowStyle<'a> {
         self.commit_drawn(row, indent - 3., title)
     }
 
-    /// A commit's `row` drawn `by` in, saying `title`, glowing if it just showed up.
+    /// A commit's `row` drawn `by` in, or on its branch's line its title where that puts it,
+    /// saying `title`, glowing if it just showed up.
     fn commit_drawn(&self, row: SidebarRow, by: f32, title: SharedString) -> Stateful<Div> {
+        let by = match self.on_line {
+            true => ON_LINE_TEXT,
+            false => by,
+        };
         self.draw(row, by)
             .aria_label(title)
             // Under its row's id, which goes by the commit.
@@ -1844,7 +1857,9 @@ impl Navigator {
         let el = match self.built.rows.get(ix) {
             None | Some(Row::Gap) => return div().h(dp(CARD_GAP)).into_any_element(),
             _ if hidden => div().into_any_element(),
-            Some(Row::Item(_)) => self.render_item(&self.built.rows, ix, inset, theme, cx),
+            Some(Row::Item(_)) => {
+                self.render_item(&self.built.rows, &self.built.tips, ix, inset, theme, cx)
+            }
             // A dashed line, as but-ui-react's WorktreeDivider.
             // Nothing between worktrees, as 🍑 But UI's sidebar has them.
             Some(Row::WorktreeDivider) => div().into_any_element(),
@@ -1895,7 +1910,16 @@ impl Navigator {
                 let ghost = |ix: usize| matches!(self.built.rows.get(ix), Some(Row::Ghost(_)));
                 let with = (ix > 0 && ghost(ix - 1), ghost(ix + 1));
                 let blink = self.blinking(Blink::Move);
-                moving::ghost_row(item, inset, with, blink, self.store.read(cx), theme)
+                let on_line = (self.built.tips.get(ix)).is_some_and(|tip| tip.node.is_some());
+                moving::ghost_row(
+                    item,
+                    inset,
+                    on_line,
+                    with,
+                    blink,
+                    self.store.read(cx),
+                    theme,
+                )
             }
             // No line between stacks: levels group the rows, never lines between them.
             Some(Row::Between(_)) => div().into_any_element(),
@@ -1909,7 +1933,8 @@ impl Navigator {
             }
             Some(Row::NewCommit(project)) => {
                 let blink = self.blinking(Blink::Move);
-                moving::new_commit_row(project, inset, blink, self.store.read(cx), theme)
+                let on_line = (self.built.tips.get(ix)).is_some_and(|tip| tip.node.is_some());
+                moving::new_commit_row(project, inset, on_line, blink, self.store.read(cx), theme)
             }
             Some(Row::RestsOn(item, checkout)) => {
                 match self.rests_on_label(item, checkout.as_ref(), cx) {
@@ -1982,8 +2007,8 @@ impl Navigator {
         let solid = self.solid_at(ix, cx);
         let levels = self.guides_at(ix);
         let guides = || {
-            let ends = self.built.ends.get(ix).copied().unwrap_or(false);
-            row_guides(&levels, ends, solid, theme)
+            let tip = self.built.tips.get(ix).copied().unwrap_or_default();
+            row_guides(&levels, tip, solid, theme)
         };
         // The card dragged by its heading is edged as what's moving is where it would land.
         let held = (self.built.held_card.as_ref()).is_some_and(|card| card.contains(&ix));
@@ -2102,6 +2127,7 @@ impl Navigator {
                             item,
                             self.built.insets.get(ix).copied().unwrap_or_default()
                                 + self.steps.offset(own),
+                            (self.built.tips.get(ix)).is_some_and(|tip| tip.node.is_some()),
                             with,
                             self.blinking(Blink::Move),
                             store,
@@ -2218,10 +2244,11 @@ impl Navigator {
         div().child(row).into_any_element()
     }
 
-    /// Item row `ix` of `rows`, the cards' or the drawer's.
+    /// Item row `ix` of `rows`, the cards' or the drawer's, with how each meets its guide.
     fn render_item(
         &self,
         rows: &[Row],
+        tips: &[Tip],
         ix: usize,
         inset: f32,
         theme: &Theme,
@@ -2306,6 +2333,7 @@ impl Navigator {
             split: Some(&split),
             linked: (self.lit_split.as_ref())
                 .is_some_and(|rows| rows.contains(&store.row_key(item))),
+            on_line: tips.get(ix).is_some_and(|tip| tip.node.is_some()),
         };
         let el = match item {
             Selection::Project(id) => self.project_row(item, id, style, cx),
@@ -2990,7 +3018,7 @@ impl Navigator {
             Some(Row::Empty(project, card)) => self.empty_card_row(project, card, theme, cx),
             Some(Row::Item(_)) => {
                 self.drawing_drawer.set(true);
-                let item = self.render_item(rows, ix, inset, theme, cx);
+                let item = self.render_item(rows, &drawer.tips, ix, inset, theme, cx);
                 self.drawing_drawer.set(false);
                 item
             }
@@ -3036,8 +3064,8 @@ impl Navigator {
         let levels: Vec<f32> = (drawer.guides.get(ix).into_iter().flatten())
             .map(|guide| guide.at)
             .collect();
-        let ends = drawer.ends.get(ix).copied().unwrap_or(false);
-        let guides = row_guides(&levels, ends, self.solid_in(rows, ix, cx), theme);
+        let tip = drawer.tips.get(ix).copied().unwrap_or_default();
+        let guides = row_guides(&levels, tip, self.solid_in(rows, ix, cx), theme);
         let row = div().relative().child(el).children(guides);
         let row = match folding {
             Some((height, closing)) => clipped(row, dp(height), closing),
@@ -4980,12 +5008,14 @@ fn card_of(rows: &[Row], selection: &Selection) -> Option<std::ops::Range<usize>
 }
 
 /// A guide for each level a row is under, at `levels`, joining those of the rows above and below
-/// into one line, as but.dev's sidebar draws them; the last level ends in a tail where the row
-/// `ends` it. On a row selected on the solid fill they're in the fill's own guide ink, as
-/// SidebarRow's. The cards and the drawer both draw a row's guides with this.
+/// into one line, as but.dev's sidebar draws them. The last level, as the row's `tip` says,
+/// ends in a tail where the row ends it, or carries the row's mark where it sits on it as a node
+/// of a chain, ending there on the last. On a row selected on the solid fill they're in the
+/// fill's own guide ink, as SidebarRow's. The cards and the drawer both draw a row's guides with
+/// this.
 fn row_guides<'a>(
     levels: &'a [f32],
-    ends: bool,
+    tip: Tip,
     solid: bool,
     theme: &'a Theme,
 ) -> impl Iterator<Item = Div> + 'a {
@@ -4993,9 +5023,19 @@ fn row_guides<'a>(
         true => theme.derived.inverse_guide,
         false => theme.border_subtle,
     };
-    (levels.iter().enumerate()).map(move |(level, at)| match ends && level + 1 == levels.len() {
-        true => guide_end_in(*at, color, theme),
-        false => guide_in(*at, color),
+    (levels.iter().enumerate()).map(move |(level, at)| {
+        let innermost = level + 1 == levels.len();
+        match (innermost, tip.node) {
+            // The node's 12-wide column, its line where the guide is.
+            (true, Some(mark)) => div()
+                .absolute()
+                .top_0()
+                .bottom_0()
+                .left(dp(*at - 5.5))
+                .child(chain_node(mark, tip.ends, solid, theme)),
+            (true, None) if tip.ends => guide_end_in(*at, color, theme),
+            _ => guide_in(*at, color),
+        }
     })
 }
 

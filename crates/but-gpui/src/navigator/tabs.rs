@@ -2612,7 +2612,7 @@ impl Navigator {
             rows,
             insets,
             guides,
-            ends,
+            tips,
             moving,
             drawer,
             ..
@@ -2628,7 +2628,7 @@ impl Navigator {
             rows,
             insets,
             guides,
-            ends,
+            tips,
             moving,
             drawer,
             row_keys,
