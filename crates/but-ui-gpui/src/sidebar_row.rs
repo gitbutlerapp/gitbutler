@@ -264,10 +264,11 @@ impl SidebarRow {
         self
     }
 
-    /// Whether the row is a commit of a branch's own, which sits on its branch's line, for a host
-    /// laying out rows it holds already built, as [`chain_guides`] takes them.
+    /// Whether the row is a commit, which sits on the line it hangs from, its branch's or its
+    /// remote's heading's, for a host laying out rows it holds already built, as
+    /// [`chain_guides`] takes them.
     pub fn chains(&self) -> bool {
-        matches!(self.mark, Some(NodeMark::Commit { place, .. }) if place != CommitPlace::Upstream)
+        matches!(self.mark, Some(NodeMark::Commit { .. }))
     }
 
     /// Whether the row is a stack's caption, whose branches sit on its line, numbered.

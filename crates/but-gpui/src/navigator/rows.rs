@@ -404,6 +404,10 @@ pub(super) const COMMIT_INDENT: f32 = STEP + 2. + 1.;
 /// a row's parts, as but-ui's `SidebarRow` sets a name after a node.
 pub(super) const ON_LINE_TEXT: f32 = 12. + 1. + 8.;
 
+/// How much further in a commit's title starts on its line than its glyph did off it: a
+/// remote's commits, set in under their heading, move as far as a branch's own.
+pub(super) const ON_LINE_SHIFT: f32 = ON_LINE_TEXT - (COMMIT_INDENT - 3.);
+
 /// Where the middle of a row's chevron sits in a row set in by nothing: the row's left edge
 /// and half the 12-point step, where the guide down to the rows under it hangs from.
 pub(super) const GUIDE_AT: f32 = ROW_LEFT + 6.;
@@ -1253,6 +1257,12 @@ impl Navigator {
             for commit in commits {
                 let item = Selection::Upstream(id.clone(), owner.clone(), commit.id);
                 rows.push(Row::Item(item.clone()));
+                // On the heading's line, as a branch's own commits are on its.
+                rows.node(NodeMark::Commit {
+                    place: CommitPlace::Upstream,
+                    merge: commit.merge,
+                    conflicted: false,
+                });
                 if !commit.merge {
                     continue;
                 }
@@ -1266,9 +1276,18 @@ impl Navigator {
                 rows.fold(Fold::Under(item), open, &self.folds, |rows| {
                     if let Some(merged) = merged {
                         rows.open_at(MERGE_GUIDE);
-                        rows.extend(merged.iter().map(|merged| {
-                            Row::Item(Selection::Upstream(id.clone(), owner.clone(), merged.id))
-                        }));
+                        for merged in merged {
+                            rows.push(Row::Item(Selection::Upstream(
+                                id.clone(),
+                                owner.clone(),
+                                merged.id,
+                            )));
+                            rows.node(NodeMark::Commit {
+                                place: CommitPlace::Upstream,
+                                merge: false,
+                                conflicted: false,
+                            });
+                        }
                         rows.close();
                     }
                 });

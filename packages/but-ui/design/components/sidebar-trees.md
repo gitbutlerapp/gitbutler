@@ -51,7 +51,8 @@ commit's mark takes its glyph's place on its branch's line: hollow while it's
 only here, solid once pushed, in its commit token, or its merge or warning
 glyph, 7px. The line stops 2px short of each mark either side, in the guides'
 one colour, so every connector in the tree is the same line. A remote's new
-commits, under their heading, keep the tree's guides.
+commits sit on their heading's line the same way, in `--but-commit-upstream`,
+and so do the commits a merge among them brought in, on the merge's.
 
 **The row's end says where it stands.** Its counts sit there and stay, and its
 next step follows them, always shown, never only under the pointer. A step that

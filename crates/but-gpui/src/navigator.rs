@@ -88,7 +88,7 @@ use crate::ui::Text;
 use moving::Mark;
 use rows::{
     CARD_EDGE, CARD_PADDING, COMMIT_INDENT, Drawer, EmptyCard, Fold, GONE_HEIGHT, GONE_PADDING,
-    HEADER_RULE, HEADING_HEIGHT, LOADING_WIDTHS, ON_LINE_TEXT, ROW_LEFT, ROW_MARGIN, Row, RowKey,
+    HEADER_RULE, HEADING_HEIGHT, LOADING_WIDTHS, ON_LINE_SHIFT, ROW_LEFT, ROW_MARGIN, Row, RowKey,
     Tip, caption, card_ends, checkout_holds, in_checkout, in_inactive, inactive_open, span_height,
 };
 
@@ -585,11 +585,11 @@ impl<'a> RowStyle<'a> {
         self.commit_drawn(row, indent - 3., title)
     }
 
-    /// A commit's `row` drawn `by` in, or on its branch's line its title where that puts it,
-    /// saying `title`, glowing if it just showed up.
+    /// A commit's `row` drawn `by` in, its glyph's place, or on its line its title further in
+    /// by as much as a branch's commits' is, saying `title`, glowing if it just showed up.
     fn commit_drawn(&self, row: SidebarRow, by: f32, title: SharedString) -> Stateful<Div> {
         let by = match self.on_line {
-            true => ON_LINE_TEXT,
+            true => by + ON_LINE_SHIFT,
             false => by,
         };
         self.draw(row, by)
@@ -3211,11 +3211,12 @@ impl Navigator {
         };
         // However narrow the navigator, the name stays: what the row sums up gives way first,
         // a whole item at a time from its end. Each item that doesn't fit wraps to a second
-        // line, which is cut off.
+        // line, which is cut off. What stays keeps to the row's end, as every other row's counts.
         let summary = h_flex()
             .min_w_0()
             .h(dp(20.))
             .flex_wrap()
+            .justify_end()
             .overflow_hidden()
             .when_some(summary, |el, (files, unpushed)| {
                 el.children(style.files(files))
