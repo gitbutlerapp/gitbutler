@@ -28,7 +28,7 @@ read as the same.
 **A row folds one way.** A row that holds others shows its chevron, always, in
 a column of its own before its glyph, and the guide of the rows under it hangs
 from the chevron's middle. A row that could hold others and holds nothing yet,
-such as a branch without commits, keeps a faint dot in the chevron's place, so
+such as a branch without commits, keeps a faint dash in the chevron's place, so
 it lines up with the rows that fold. A row that never holds others, a commit or
 uncommitted changes, has its glyph under its parent's glyph instead, 6px after
 its last guide, as a glyph sits 6px after a chevron; at the top level, with no

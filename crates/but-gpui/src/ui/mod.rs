@@ -358,7 +358,7 @@ pub fn guide_end_in(at: f32, color: Hsla, theme: &Theme) -> Div {
 }
 
 /// A fold's glyph in a step as wide as a branch's chevron: a chevron, down while `open` and
-/// turning as that changes (see [`fold::chevron`]), or with nothing to fold (`None`) a dot at
+/// turning as that changes (see [`fold::chevron`]), or with nothing to fold (`None`) a dash at
 /// half strength, as but-ui-react's.
 pub fn fold_glyph(id: impl Into<ElementId>, open: Option<bool>, color: Hsla) -> Div {
     let step = div()
@@ -369,7 +369,7 @@ pub fn fold_glyph(id: impl Into<ElementId>, open: Option<bool>, color: Hsla) -> 
         .items_center()
         .justify_center();
     match open {
-        None => step.child(small_icon(Icon::BulletDisc).text_color(color).opacity(0.5)),
+        None => step.child(small_icon(Icon::Dash).text_color(color).opacity(0.5)),
         Some(open) => step.child(fold::chevron(id, open, color)),
     }
 }

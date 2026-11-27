@@ -13,7 +13,7 @@ use crate::theme::Theme;
 use crate::*;
 
 /// Whether a row folds, as React's `folded`: a chevron in a step of its own before its glyph,
-/// pointing down while `Open`, or the dot of a row that could hold children and has none yet.
+/// pointing down while `Open`, or the dash of a row that could hold children and has none yet.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Fold {
     Open,
@@ -173,7 +173,7 @@ impl SidebarRow {
         self
     }
 
-    /// Gives the row a chevron, or the dot of a row with nothing to unfold.
+    /// Gives the row a chevron, or the dash of a row with nothing to unfold.
     pub fn fold(mut self, fold: Fold) -> Self {
         self.fold = Some(fold);
         self
@@ -653,7 +653,7 @@ impl SidebarRow {
     }
 }
 
-/// The chevron's step, or the dot of a row with nothing to unfold. The chevron is faded, so the
+/// The chevron's step, or the dash of a row with nothing to unfold. The chevron is faded, so the
 /// glyph after it reads first; one that folds on its own click takes a ground under the pointer,
 /// wider than its step.
 fn fold_step(
@@ -681,7 +681,7 @@ fn fold_step(
         .self_stretch()
         .justify_center();
     match fold {
-        Fold::Empty => step.child(icon_at(Icon::BulletDisc, 12.).text_color(rest).opacity(0.5)),
+        Fold::Empty => step.child(icon_at(Icon::Dash, 12.).text_color(rest).opacity(0.5)),
         Fold::Open | Fold::Folded => {
             let open = fold == Fold::Open;
             match (toggle, row_folds) {

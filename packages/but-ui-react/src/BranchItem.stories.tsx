@@ -205,7 +205,7 @@ export const StacksFolded = meta.story({
 
 /**
  * Rows that could hold something and hold nothing yet: a branch with no commits, a worktree with
- * no branches and no changes, and a repository whose only worktree is such a one. Each has a dot
+ * no branches and no changes, and a repository whose only worktree is such a one. Each has a dash
  * in its chevron's place, so nothing offers to open and it lines up with the rows that fold, and
  * says why first in its state: `empty` for a branch without commits, and for a worktree what it
  * is on, `empty` with nothing applied or `detached`.

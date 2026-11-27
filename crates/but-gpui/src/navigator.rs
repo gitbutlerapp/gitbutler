@@ -981,7 +981,7 @@ impl Navigator {
 
     /// `row`'s fold, as but-ui's `SidebarRow` draws it: the chevron, down while `open`, whose
     /// click runs `toggle` without selecting the row and whose press keeps the keys in the
-    /// list; the dot with nothing to fold (`None`); and while the filter lists what it finds,
+    /// list; the dash with nothing to fold (`None`); and while the filter lists what it finds,
     /// which folds don't hide, the chevron's room alone, so the row doesn't move.
     fn folding(
         &self,

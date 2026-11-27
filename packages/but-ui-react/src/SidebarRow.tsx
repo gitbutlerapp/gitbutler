@@ -21,7 +21,7 @@ type RowProps = {
 	guides?: Guides;
 	/** Gives the row a chevron, in a step of its own before its glyph: `true` while its children
 	 * are hidden. Leave it out on a leaf. `"empty"` on a row that could hold children and has none
-	 * yet, such as a branch without commits: a dot in the chevron's place keeps it in line with the
+	 * yet, such as a branch without commits: a dash in the chevron's place keeps it in line with the
 	 * rows that fold. */
 	folded?: boolean | "empty";
 	onToggleFolded?: () => void;
@@ -98,7 +98,7 @@ const Steps: FC<{
 			})}
 			{folded === "empty" && (
 				<span className={classes(styles.step, styles.empty)} aria-hidden>
-					<Icon size={12} name="bullet-disc" />
+					<Icon size={12} name="dash" />
 				</span>
 			)}
 			{typeof folded === "boolean" && rowFolds && (
