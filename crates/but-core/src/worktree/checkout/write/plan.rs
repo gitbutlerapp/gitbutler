@@ -60,12 +60,30 @@ pub(super) struct Plan {
 
 impl Plan {
     /// Plan the checkout of `trees` over an index that has `index`'s entries.
+    ///
+    /// Where a submodule is in conflict, the worktree gets no side, so the user can put the wanted
+    /// one in place. A submodule's directory stays if it has anything in it, as always.
     pub fn new(index: &gix::index::State, trees: &Trees, conflicts: Conflicts<'_>) -> Self {
-        let changes = changes(&trees.baseline, &trees.target);
+        let conflicts = conflict_stages(conflicts);
+        let mut changes = changes(&trees.baseline, &trees.target);
+        for conflict in conflicts
+            .iter()
+            .filter(|conflict| conflict.content.is_submodule())
+        {
+            if trees
+                .baseline
+                .entry_by_path(conflict.path.as_ref())
+                .is_some()
+            {
+                changes.insert(conflict.path.clone(), Change::Delete);
+            } else {
+                changes.remove(&conflict.path);
+            }
+        }
         Plan {
             records: already_in_worktree(trees, index, &changes),
             removals: deleted_by_new_head(trees, index),
-            conflicts: conflict_stages(conflicts),
+            conflicts,
             changes,
         }
     }

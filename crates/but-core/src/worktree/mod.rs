@@ -3,7 +3,9 @@ pub mod checkout;
 use std::{io::Read, path::Path};
 
 use bstr::{BStr, BString};
-pub use checkout::function::safe_checkout_from_head;
+pub use checkout::function::{
+    overwrite_worktree, reset_index, revert_worktree, safe_checkout_from_head,
+};
 use gix::filter::plumbing::pipeline::convert::ToGitOutcome;
 
 /// Read the target of the symlink at `path` as Git stores it: with `/` separators, even if
