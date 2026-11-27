@@ -6,10 +6,10 @@ use crate::theme::Theme;
 use crate::ui::person::author_avatar;
 use crate::ui::{
     ButtonStyle, CommitPlace, Fold, Icon, MetaCountType, MetaStatusVariant, PullRequestState,
-    SidebarRow, branch_item, button, commit_item, dp, empty_state_tidy, icon_at, loading_item,
-    machine_item, machine_status, meta_count, meta_status, missing_repo_item, more_item, repo_item,
-    row_divider, stack_caption, terminal_item, tree_guides, uncommitted_item, upstream_item,
-    v_flex, worktree_item,
+    SidebarRow, branch_item, button, chain_guides, commit_item, dp, empty_state_tidy, icon_at,
+    loading_item, machine_item, machine_status, meta_count, meta_status, missing_repo_item,
+    more_item, repo_item, row_divider, stack_caption, terminal_item, uncommitted_item,
+    upstream_item, v_flex, worktree_item,
 };
 
 /// A sidebar card, as the Workspace tree stories' `Card`: a machine's header over its
@@ -38,18 +38,39 @@ fn card(theme: &Theme, repositories: impl IntoIterator<Item = Div>) -> Div {
         .children(repositories)
 }
 
-/// One repository's rows, with their guides worked out from how deep each sits, as the stories'
-/// `Repository` does, a `row_divider` after them unless `last`.
+/// `rows` at their depths with their guides worked out from how deep each sits, as the stories'
+/// `guided` does: a stack's branches and a branch's own commits on the line they hang from.
+fn laid_out(rows: Vec<(usize, SidebarRow)>) -> impl Iterator<Item = SidebarRow> {
+    // Each row's parent, the last row above it a level up.
+    let mut ancestors: Vec<usize> = Vec::new();
+    let parents: Vec<Option<usize>> = (rows.iter().enumerate())
+        .map(|(ix, (depth, _))| {
+            let parent = depth
+                .checked_sub(1)
+                .and_then(|up| ancestors.get(up).copied());
+            ancestors.truncate(*depth);
+            ancestors.push(ix);
+            parent
+        })
+        .collect();
+    let in_stack = |ix: usize| {
+        (parents.get(ix).copied().flatten())
+            .and_then(|parent| rows.get(parent))
+            .is_some_and(|(_, row)| row.holds_stack())
+    };
+    let chained: Vec<(usize, bool)> = (rows.iter().enumerate())
+        .map(|(ix, (depth, row))| (*depth, row.chains() || in_stack(ix)))
+        .collect();
+    let guides = chain_guides(&chained);
+    (rows.into_iter().zip(guides)).map(|((depth, row), guides)| row.depth(depth, guides))
+}
+
+/// One repository's rows, laid out as [`laid_out`] does, as the stories' `Repository` does, a
+/// `row_divider` after them unless `last`.
 pub(super) fn repository(theme: &Theme, last: bool, rows: Vec<(usize, SidebarRow)>) -> Div {
-    let depths: Vec<usize> = rows.iter().map(|(depth, _)| *depth).collect();
-    let guides = tree_guides(&depths);
     v_flex()
         .gap(dp(1.))
-        .children(
-            rows.into_iter()
-                .zip(guides)
-                .map(|((depth, row), guides)| row.depth(depth, guides).build(theme)),
-        )
+        .children(laid_out(rows).map(|row| row.build(theme)))
         .when(!last, |el| el.child(row_divider(theme)))
 }
 
@@ -523,8 +544,6 @@ pub(super) const EXAMPLES: [Example; 10] = [
 /// A repository's card headed by its row, a `row_divider` under it in the same block as its rows,
 /// as the stories' `RepoCard`.
 fn repo_card(theme: &Theme, header: SidebarRow, rows: Vec<(usize, SidebarRow)>) -> Div {
-    let depths: Vec<usize> = rows.iter().map(|(depth, _)| *depth).collect();
-    let guides = tree_guides(&depths);
     v_flex()
         .w(dp(334.))
         .flex_none()
@@ -537,11 +556,7 @@ fn repo_card(theme: &Theme, header: SidebarRow, rows: Vec<(usize, SidebarRow)>) 
         .p(dp(8.))
         .child(header.build(theme))
         .child(row_divider(theme))
-        .children(
-            rows.into_iter()
-                .zip(guides)
-                .map(|((depth, row), guides)| row.depth(depth, guides).build(theme)),
-        )
+        .children(laid_out(rows).map(|row| row.build(theme)))
 }
 
 /// The `DividedHeader` story: each repository's row heads its card over a `row_divider`.
@@ -881,6 +896,101 @@ pub(super) const TERMINAL_EXAMPLES: [Example; 2] = [
     },
 ];
 
+/// The `Chained` story's `MeshTree`: one repository with a stack of three and a pull request, in
+/// its own card under its row.
+fn mesh(theme: &Theme) -> Div {
+    let branch = |id: &'static str, title: &'static str, fold: Fold| {
+        branch_item(id, title, None, false, false, theme).fold(fold)
+    };
+    let commit = |id: &'static str, message: &'static str, place: CommitPlace| {
+        commit_item(id, message, place, false, false, theme)
+    };
+    let rows = vec![
+        (0, uncommitted_item("uncommitted", 1, None, theme)),
+        (0, terminal_item("terminal", "Terminal", None, theme)),
+        (
+            0,
+            stack_caption("stack", 3, "mesh-on-enroute", Some(false), theme),
+        ),
+        (1, branch("mesh-on-enroute", "mesh-on-enroute", Fold::Empty)),
+        (
+            1,
+            branch("enroute-experiment", "enroute-experiment", Fold::Open)
+                .action(push("push-enroute", 3)),
+        ),
+        (
+            2,
+            commit("signing", "Signing is optional", CommitPlace::Local),
+        ),
+        (
+            2,
+            commit("split", "Split enroute repositories", CommitPlace::Local),
+        ),
+        (
+            2,
+            commit(
+                "answer",
+                "Answer enroute's authorization",
+                CommitPlace::Local,
+            ),
+        ),
+        (
+            1,
+            branch("co-branch-1", "co-branch-1", Fold::Empty).selected(true, false),
+        ),
+        (
+            0,
+            branch_item(
+                "preview",
+                "Preview of enroute experiment",
+                Some((778, PullRequestState::Draft)),
+                false,
+                false,
+                theme,
+            )
+            .fold(Fold::Open)
+            .meta(meta_status(
+                MetaStatusVariant::Failed,
+                Some("CI".into()),
+                theme,
+            )),
+        ),
+        (1, commit("ga", "Enable GA again", CommitPlace::Pushed)),
+        (
+            1,
+            commit("port", "Port enroute-compute module", CommitPlace::Pushed),
+        ),
+        (
+            1,
+            commit(
+                "disable",
+                "Disable enroute compute and mesh",
+                CommitPlace::Pushed,
+            ),
+        ),
+        (
+            1,
+            commit("back", "Add back preview mesh", CommitPlace::Pushed),
+        ),
+        (
+            1,
+            commit("add", "Add enroute experiment", CommitPlace::Pushed),
+        ),
+    ];
+    repo_card(
+        theme,
+        repo_item("repo", "mesh", theme).fold(Fold::Open),
+        rows,
+    )
+}
+
+/// The stories of `BranchItem.stories.tsx` this client can draw so far.
+pub(super) const BRANCH_EXAMPLES: [Example; 1] = [Example {
+    id: "components-sidebarrow-branch--chained",
+    name: "Chained",
+    draw: |theme| mesh(theme).into_any_element(),
+}];
+
 pub struct SidebarRowsStory;
 
 impl Render for SidebarRowsStory {
@@ -888,6 +998,7 @@ impl Render for SidebarRowsStory {
         let theme = Theme::get(cx);
         page(
             (EXAMPLES.into_iter())
+                .chain(BRANCH_EXAMPLES)
                 .chain(TERMINAL_EXAMPLES)
                 .map(|e| example(e, theme)),
         )

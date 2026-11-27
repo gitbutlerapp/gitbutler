@@ -79,6 +79,20 @@ enum Meta {
 }
 type Press = Rc<dyn Fn(&MouseDownEvent, &mut Window, &mut App)>;
 
+/// What a row on a chain draws on the line it sits on, as but-ui-react's rows do while their
+/// guide is a node: a stack's branch a `Dot`, a commit its own mark in its glyph's place, and a
+/// row whose action runs (`Busy`) the spinner.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NodeMark {
+    Dot,
+    Commit {
+        place: CommitPlace,
+        merge: bool,
+        conflicted: bool,
+    },
+    Busy,
+}
+
 /// The one line every sidebar item is drawn on, as React's `Row`: the name takes the line, and
 /// the state, the next step and a split's map sit at the end, where they stay. Build it with
 /// [`sidebar_row`] or one of the kinds, then [`SidebarRow::build`] it and add the host's own
@@ -110,6 +124,9 @@ pub struct SidebarRow {
     actions: Vec<AnyElement>,
     split: Option<AnyElement>,
     split_room: bool,
+    mark: Option<NodeMark>,
+    on_line: bool,
+    stack: bool,
 }
 
 /// A row with nothing on it yet: give it a glyph and its words.
@@ -141,6 +158,9 @@ pub fn sidebar_row(id: impl Into<ElementId>) -> SidebarRow {
         actions: Vec::new(),
         split: None,
         split_room: false,
+        mark: None,
+        on_line: false,
+        stack: false,
     }
 }
 
@@ -241,6 +261,24 @@ impl SidebarRow {
     /// pointer.
     pub fn quiet(mut self) -> Self {
         self.quiet = true;
+        self
+    }
+
+    /// Whether the row is a commit of a branch's own, which sits on its branch's line, for a host
+    /// laying out rows it holds already built, as [`chain_guides`] takes them.
+    pub fn chains(&self) -> bool {
+        matches!(self.mark, Some(NodeMark::Commit { place, .. }) if place != CommitPlace::Upstream)
+    }
+
+    /// Whether the row is a stack's caption, whose branches sit on its line, numbered.
+    pub fn holds_stack(&self) -> bool {
+        self.stack
+    }
+
+    /// A row on a chain whose host draws its mark on the line it sits on ([`chain_node`]), as
+    /// the navigator draws its guides itself: it draws no glyph of its own.
+    pub fn on_line(mut self) -> Self {
+        self.on_line = true;
         self
     }
 
@@ -377,7 +415,22 @@ impl SidebarRow {
                     .into_any_element()
             })
         });
-        let has_glyph = glyph.is_some() || self.busy;
+        // A row on a chain draws its mark on its parent's line: a commit's in its glyph's place,
+        // a stack's branch's number, or a dot.
+        let own_node = (self.depth.checked_sub(1))
+            .and_then(|level| self.guides.get(level))
+            .is_some_and(|guide| matches!(guide, Guide::Node | Guide::NodeLast));
+        let marked = (own_node && self.mark.is_some()) || self.on_line;
+        let node_mark = own_node.then(|| {
+            let mark = match (self.mark, self.busy) {
+                (Some(_), true) => NodeMark::Busy,
+                (Some(mark), false) => mark,
+                (None, _) => NodeMark::Dot,
+            };
+            node_mark(mark, self.busy_color.unwrap_or(muted), self.solid, inks)
+        });
+        let glyph = glyph.filter(|_| !marked);
+        let has_glyph = (glyph.is_some() || self.busy) && !marked;
         let fold_room = self.fold_room && self.fold.is_none();
         let inset = self.inset;
         // In a tree that shows splits, a row without one keeps the cell's room: the end's gap,
@@ -400,6 +453,7 @@ impl SidebarRow {
                 fold_step.or_else(|| fold_room.then(|| h_flex().flex_none().w(dp(12.))));
             let levels = self.depth;
             let last_step = fold_step.is_none();
+            let mut node_mark = node_mark;
             h_flex()
                 .flex_none()
                 .self_stretch()
@@ -409,6 +463,11 @@ impl SidebarRow {
                 .when(!has_glyph && self.fold.is_none(), |el| el.mr(dp(1.)))
                 .children((0..levels).map(|level| {
                     let guide = self.guides.get(level).copied().unwrap_or(Guide::Line);
+                    if level + 1 == levels
+                        && let Some((mark, size, gap)) = node_mark.take()
+                    {
+                        return node_guide(guide == Guide::NodeLast, mark, size, gap, guide_color);
+                    }
                     // Into the glyph on the last step, 3px short of it; before a chevron, a pixel on.
                     crate::file_list::guide(
                         guide,
@@ -421,7 +480,7 @@ impl SidebarRow {
         });
         let unstepped = steps.is_none();
         let glyph_action = self.glyph_action.filter(|_| !self.busy);
-        let glyph = match (self.busy, glyph) {
+        let glyph = match (self.busy && !marked, glyph) {
             (true, _) => Some(spinning(self.busy_color.unwrap_or(muted), true).into_any_element()),
             (false, glyph) => glyph,
         }
@@ -658,6 +717,117 @@ fn fold_step(
     }
 }
 
+/// A node of a chain, as a row on one draws it in its guide's column: `mark` on the line, which
+/// stops 2px short of it either side and runs on through the pixel between
+/// rows, or, on the `last`, ends at it, in the guides' colour as every line of the tree is. 12 wide, as a guide's step, and the row's height; a mark wider than that spills
+/// evenly either side. A host that draws its guides itself, as the navigator does, sets it over
+/// its row, which it gives [`SidebarRow::on_line`]. On a `solid` selection it takes the fill's
+/// inks.
+pub fn chain_node(mark: NodeMark, last: bool, solid: bool, theme: &Theme) -> Div {
+    let flipped;
+    let inks = match solid {
+        true => {
+            flipped = theme.for_solid();
+            &flipped
+        }
+        false => theme,
+    };
+    let color = match solid {
+        true => theme.derived.inverse_guide,
+        false => theme.border_subtle,
+    };
+    let (mark, size, gap) = node_mark(mark, inks.muted_foreground, solid, inks);
+    node_guide(last, mark, size, gap, color)
+}
+
+/// A node's mark, its size and how far the line stays off its middle: 2px clear of its edge.
+fn node_mark(mark: NodeMark, busy: Hsla, solid: bool, inks: &Theme) -> (AnyElement, f32, f32) {
+    let round = |px: f32| div().size(dp(px)).flex_none().rounded_full();
+    match mark {
+        NodeMark::Dot => (
+            // An unread dot's gray, between the guide and the glyphs, as React's `--node-color`.
+            round(6.)
+                .bg(match solid {
+                    true => inks.derived.inverse_node,
+                    false => inks.derived.unread_dot,
+                })
+                .into_any_element(),
+            6.,
+            5.,
+        ),
+        NodeMark::Commit {
+            place,
+            merge,
+            conflicted,
+        } => match (conflicted || merge, commit_glyph(place, merge, conflicted)) {
+            (true, (glyph, ink)) => (
+                icon_at(glyph, 12.)
+                    .text_color(ink.of(inks))
+                    .into_any_element(),
+                12.,
+                8.,
+            ),
+            // Hollow while it's only here, solid once it's pushed, as its glyph is.
+            (false, (_, ink)) => {
+                let color = ink.of(inks);
+                let mut ring = (round(7.).border_color(color))
+                    .when(place != CommitPlace::Local, |el| el.bg(color));
+                let width = dp(1.5);
+                ring.style().border_widths = gpui::EdgesRefinement {
+                    top: Some(width.into()),
+                    right: Some(width.into()),
+                    bottom: Some(width.into()),
+                    left: Some(width.into()),
+                };
+                (ring.into_any_element(), 7., 5.5)
+            }
+        },
+        NodeMark::Busy => (spinning(busy, true).into_any_element(), 12., 8.),
+    }
+}
+
+/// A node's level: its mark on the line, which stops `gap` short of its middle either side and
+/// runs on through the pixel between rows, or, on the last, ends at it. A mark wider than the
+/// step spills evenly either side.
+fn node_guide(last: bool, mark: AnyElement, size: f32, gap: f32, color: Hsla) -> Div {
+    let step = 12.;
+    let segment = || div().w(fixed(1.)).h_full().bg(color);
+    v_flex()
+        .flex_none()
+        .w(dp(step))
+        .h_full()
+        .items_center()
+        .child(div().flex_1().child(segment()))
+        .child(
+            div()
+                .relative()
+                .flex_none()
+                .w(dp(step))
+                .h(dp(2. * gap))
+                .child(
+                    div()
+                        .absolute()
+                        .left(dp((step - size) / 2.))
+                        .top(dp(gap - size / 2.))
+                        .size(dp(size))
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .child(mark),
+                ),
+        )
+        .child(div().relative().flex_1().w(fixed(1.)).when(!last, |el| {
+            el.child(
+                div()
+                    .absolute()
+                    .top_0()
+                    .bottom(fixed(-1.))
+                    .w(fixed(1.))
+                    .bg(color),
+            )
+        }))
+}
+
 /// A fold's chevron, in `color` and faded so the glyph after it reads first: pointing right, or
 /// down while `open`, turning between the two on the spring a switch's knob slides on. One clicked again mid-turn turns back from where it
 /// is, and a row drawn for the first time starts where it points.
@@ -834,8 +1004,23 @@ pub fn branch_item(
     }
 }
 
-/// A commit under its branch: the hollow glyph while it's only here, the solid one once pushed,
-/// each in its commit token; a merge's glyph; or the warning in amber when it's conflicted.
+/// A commit's glyph and its ink: the hollow glyph while it's only here, the solid one once
+/// pushed, each in its commit token; a merge's glyph; or the warning in amber when it's
+/// conflicted.
+fn commit_glyph(place: CommitPlace, merge: bool, conflicted: bool) -> (Icon, Ink) {
+    match (conflicted, merge, place) {
+        (true, _, _) => (Icon::Warning, Ink::Warning),
+        (false, true, CommitPlace::Upstream) => (Icon::BranchMerge, Ink::CommitUpstream),
+        (false, true, _) => (Icon::BranchMerge, Ink::Muted),
+        (false, false, CommitPlace::Local) => (Icon::Commit, Ink::CommitLocal),
+        (false, false, CommitPlace::Pushed) => (Icon::CommitFill, Ink::CommitRemote),
+        (false, false, CommitPlace::Upstream) => (Icon::CommitFill, Ink::CommitUpstream),
+        (false, false, CommitPlace::Integrated) => (Icon::CommitFill, Ink::CommitIntegrated),
+    }
+}
+
+/// A commit under its branch, as [`commit_glyph`] draws its glyph. On a chain it draws its mark
+/// on its branch's line instead ([`NodeMark::Commit`]).
 pub fn commit_item(
     id: impl Into<ElementId>,
     message: impl Into<SharedString>,
@@ -844,16 +1029,14 @@ pub fn commit_item(
     conflicted: bool,
     _theme: &Theme,
 ) -> SidebarRow {
-    let (glyph, ink) = match (conflicted, merge, place) {
-        (true, _, _) => (Icon::Warning, Ink::Warning),
-        (false, true, CommitPlace::Upstream) => (Icon::BranchMerge, Ink::CommitUpstream),
-        (false, true, _) => (Icon::BranchMerge, Ink::Muted),
-        (false, false, CommitPlace::Local) => (Icon::Commit, Ink::CommitLocal),
-        (false, false, CommitPlace::Pushed) => (Icon::CommitFill, Ink::CommitRemote),
-        (false, false, CommitPlace::Upstream) => (Icon::CommitFill, Ink::CommitUpstream),
-        (false, false, CommitPlace::Integrated) => (Icon::CommitFill, Ink::CommitIntegrated),
-    };
-    sidebar_row(id).inked_icon(glyph, 14., ink).label(
+    let (glyph, ink) = commit_glyph(place, merge, conflicted);
+    let mut row = sidebar_row(id).inked_icon(glyph, 14., ink);
+    row.mark = Some(NodeMark::Commit {
+        place,
+        merge,
+        conflicted,
+    });
+    row.label(
         div()
             .min_w_0()
             .truncate()
@@ -907,7 +1090,9 @@ pub fn stack_caption(
     folded: Option<bool>,
     _theme: &Theme,
 ) -> SidebarRow {
-    let row = sidebar_row(id)
+    let mut row = sidebar_row(id);
+    row.stack = true;
+    let row = row
         .inked_icon(Icon::Stack, 14., Ink::Subtle)
         .badge(BadgeVariant::LightGray, count.to_string())
         .inked_label(item_name("Stack").flex_none(), Ink::Muted);
