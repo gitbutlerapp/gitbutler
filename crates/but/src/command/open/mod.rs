@@ -56,7 +56,7 @@ impl Openable {
         )
     }
 
-    fn try_from_hunk(
+    pub fn try_from_hunk(
         repo: &gix::Repository,
         hunk: &SingleHunk,
         is_entire_file: bool,
