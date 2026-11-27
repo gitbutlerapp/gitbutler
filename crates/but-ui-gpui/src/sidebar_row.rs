@@ -1019,8 +1019,9 @@ fn commit_glyph(place: CommitPlace, merge: bool, conflicted: bool) -> (Icon, Ink
     }
 }
 
-/// A commit under its branch, as [`commit_glyph`] draws its glyph. On a chain it draws its mark
-/// on its branch's line instead ([`NodeMark::Commit`]).
+/// A commit under its branch: the hollow glyph while it's only here, the solid one once pushed,
+/// each in its commit token; a merge's glyph; or the warning in amber when it's conflicted. On a
+/// chain it draws its mark on its branch's line instead ([`NodeMark::Commit`]).
 pub fn commit_item(
     id: impl Into<ElementId>,
     message: impl Into<SharedString>,
