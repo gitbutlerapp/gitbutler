@@ -207,7 +207,7 @@ rusqlite = { version = "0.39.0", features = ["bundled"] }
 backoff = "0.4.0"
 bstr = "1.12.1"
 # Version must match the one in `tauri plugin updater` to avoid duplication.
-zip = { version = "4", default-features = false, features = ["bzip2"] }
+zip = { version = "9", default-features = false, features = ["bzip2"] }
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
 # When adjusting this, update `gix-testtools` as well!
 gix = { version = "0.91.0", default-features = false, features = [
