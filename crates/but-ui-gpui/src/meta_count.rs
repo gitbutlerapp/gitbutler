@@ -1,7 +1,7 @@
 //! A glyph and a short value in a row's meta, as but-ui-react's `MetaCount`, and where something
 //! that runs has got to, as its `MetaStatus`.
 
-use gpui::{AnyElement, Div, Hsla, SharedString, div, prelude::*};
+use gpui::{AnyElement, Div, Hsla, SharedString, Transformation, div, percentage, prelude::*};
 
 use crate::theme::Theme;
 use crate::*;
@@ -189,7 +189,7 @@ fn counted(
 /// Where the thing a [`meta_status`] names has got to, as React's `MetaStatusVariant`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MetaStatusVariant {
-    /// Under way, as checks that are running: the terminal's dots, in amber.
+    /// Under way, as checks that are running: the [`spinner`], in amber.
     Working,
     /// Done and fine: a tick, in green.
     Passed,
@@ -212,7 +212,11 @@ pub fn meta_status(variant: MetaStatusVariant, label: Option<SharedString>, them
         MetaStatusVariant::Neutral => theme.muted_foreground,
     };
     let glyph = match variant {
-        MetaStatusVariant::Working => dots_glyph(color, true).opacity(0.7).into_any_element(),
+        MetaStatusVariant::Working => div()
+            .flex_none()
+            .opacity(0.7)
+            .child(spinner(14., color, true))
+            .into_any_element(),
         MetaStatusVariant::Passed => status_icon(Icon::Tick, color),
         MetaStatusVariant::Failed => status_icon(Icon::Cross, color),
         MetaStatusVariant::Warning => status_icon(Icon::Warning, color),
@@ -241,6 +245,28 @@ fn status_icon(icon: Icon, color: Hsla) -> AnyElement {
         .into_any_element()
 }
 
+/// The steps of one turn of [`spinner`]: 8 of 45° at a [`Looping`] motion's 10 a second, the
+/// 0.8s React's takes to go round.
+const SPINNER_STEPS: usize = 8;
+
+/// The spinner glyph at `px`, as React's `Icon name="spinner"`: an action of the user's own
+/// under way, or a check that's running. It goes round in 45° steps on a [`Looping`] motion,
+/// `turning` only while it shows, as turning it every frame would draw the whole window at the
+/// display's rate for as long as CI runs. A program at work in a terminal is [`spinning`]'s dots.
+pub fn spinner(px: f32, color: Hsla, turning: bool) -> impl IntoElement {
+    let at = Looping::now(SPINNER_STEPS);
+    div()
+        .relative()
+        .flex_none()
+        .size(dp(px))
+        .child(
+            icon_at(Icon::Spinner, px)
+                .text_color(color)
+                .with_transformation(Transformation::rotate(percentage(at.progress()))),
+        )
+        .when(turning, |el| el.child(at.next()))
+}
+
 /// The dots each step of [`spinning`] shows, as braille's: the low three bits are the left
 /// column's, top down, the next three the right's. The terminal's dots spinner, ⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏.
 const SPIN_FRAMES: [u8; 10] = [0x0b, 0x19, 0x39, 0x38, 0x3c, 0x34, 0x26, 0x27, 0x07, 0x0f];
@@ -248,7 +274,7 @@ const SPIN_FRAMES: [u8; 10] = [0x0b, 0x19, 0x39, 0x38, 0x3c, 0x34, 0x26, 0x27, 0
 const SPIN_DOT: f32 = 2.;
 const SPIN_PITCH: f32 = 3.5;
 
-/// Dots running round, as a terminal's spinner does, while what it stands for is under way,
+/// Dots running round, as a terminal's spinner does, while a program in a terminal is at work,
 /// `turning` only while it shows. It steps a [`Looping`] motion, 10 times a second, each step
 /// drawing the view it's in, and with it the whole window, again: an agent's spinner turns for
 /// minutes, and CI for longer.

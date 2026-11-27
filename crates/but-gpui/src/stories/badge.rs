@@ -3,12 +3,12 @@ use gpui::{AnyElement, Context, Div, Window, div, prelude::*};
 use super::{Example, example, page};
 use crate::theme::Theme;
 use crate::ui::{
-    BadgeSize, BadgeVariant, Icon, Text, badge, dp, h_flex, small_icon, spinning, v_flex,
+    BadgeSize, BadgeVariant, Icon, Text, badge, dp, h_flex, small_icon, spinner, v_flex,
 };
 
 /// The stories of `Badge.stories.tsx` this client can draw. Its badges don't turn to the other
 /// scheme's colours on a selected row, so `Inverted` isn't here. An icon takes the badge's text
-/// colour, which `svg` doesn't inherit, and the spinner is the client's own running dots.
+/// colour, which `svg` doesn't inherit.
 pub(super) const EXAMPLES: [Example; 5] = [
     Example {
         id: "components-badge--default",
@@ -56,7 +56,7 @@ pub(super) const EXAMPLES: [Example; 5] = [
                     .child(small_icon(Icon::Tick).text_color(theme.success_text)),
                 regular(BadgeVariant::Danger, theme)
                     .child(small_icon(Icon::Cross).text_color(theme.danger_text)),
-                regular(BadgeVariant::LightGray, theme).child(spinning(theme.foreground, true)),
+                regular(BadgeVariant::LightGray, theme).child(spinner(12., theme.foreground, true)),
                 regular(BadgeVariant::Warn, theme)
                     .child(small_icon(Icon::Warning).text_color(theme.warning_text)),
                 (regular(BadgeVariant::Safe, theme))
@@ -88,7 +88,7 @@ pub(super) const EXAMPLES: [Example; 5] = [
                         let color = variant.colors(theme).1;
                         let mark = match icon {
                             Some(icon) => small_icon(icon).text_color(color).into_any_element(),
-                            None => spinning(color, true).into_any_element(),
+                            None => spinner(12., color, true).into_any_element(),
                         };
                         h_flex()
                             .gap(dp(8.))

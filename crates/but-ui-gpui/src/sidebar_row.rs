@@ -422,7 +422,9 @@ impl SidebarRow {
         let unstepped = steps.is_none();
         let glyph_action = self.glyph_action.filter(|_| !self.busy);
         let glyph = match (self.busy, glyph) {
-            (true, _) => Some(spinning(self.busy_color.unwrap_or(muted), true).into_any_element()),
+            (true, _) => {
+                Some(spinner(14., self.busy_color.unwrap_or(muted), true).into_any_element())
+            }
             (false, glyph) => glyph,
         }
         .map(|glyph| match glyph_action {
