@@ -17,6 +17,7 @@ mod badge;
 mod button;
 mod checkbox;
 mod counts;
+mod crumb_menu;
 mod diff_stats;
 mod drawer;
 mod dropdown_button;
@@ -210,6 +211,7 @@ impl Gallery {
             story("Button", button::ButtonStory, cx),
             story("Checkbox", checkbox::CheckboxStory::default(), cx),
             story("Counts and marks", counts::CountsStory, cx),
+            story("Crumb menu button", crumb_menu::CrumbMenuStory, cx),
             story("Diff stats", diff_stats::DiffStatsStory, cx),
             story("Drawer", drawer::DrawerStory, cx),
             story("Dropdown button", dropdown_button::DropdownButtonStory, cx),

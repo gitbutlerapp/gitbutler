@@ -36,6 +36,7 @@ use super::{
 use crate::app::{AppHandle, AppView, Cancel};
 use crate::backend::Checkout;
 use crate::clock;
+use crate::layout_menu::{Layout, bar_rule, layout_control, layout_items};
 use crate::overlays::{OVERLAY, keys_at};
 use crate::state::{NavigatorPlace, Part, ProjectId, Selection, Store, WatchedOrder};
 use crate::theme::Theme;
@@ -2504,9 +2505,10 @@ impl Render for NavigatorTabs {
             .bg(theme.canvas)
             .map(crate::ui::drags_window)
             .pl(top_left.unwrap_or(theme.scaled(CARD_MARGIN)))
-            .pr(dp(8.))
+            // 12 from the window's edge, as the location bar under the tabs keeps its trail.
+            .pr(dp(12.))
             .when(crate::ui::draws_window_controls(window), |el| {
-                el.pr(fixed(crate::ui::WINDOW_CONTROLS_WIDTH + 8.))
+                el.pr(fixed(crate::ui::WINDOW_CONTROLS_WIDTH + 12.))
             })
             .gap(dp(6.))
             .child(self.watch_pointer(cx))
@@ -2680,14 +2682,29 @@ impl Navigator {
         row(&self.built.rows).or_else(|| row(&self.built.drawer.rows).map(|row| row + 1))
     }
 
-    /// What the navigator's header has but its filter, at the strip's right end.
+    /// What the navigator's header has but its filter, at the strip's right end after a line,
+    /// then the window's layout control, which across the top has nowhere else to be.
     pub(super) fn strip_controls(&mut self, cx: &mut Context<Self>) -> Vec<AnyElement> {
         let theme = Theme::get(cx).clone();
         let update = self.update_button(cx);
-        update
-            .into_iter()
+        let layout = layout_control(
+            Layout::Top,
+            cx.listener(|this, event: &ClickEvent, _, cx| {
+                this.open_menu(event.position(), |_, cx| layout_items(Layout::Top, cx), cx)
+            }),
+            None,
+        );
+        // A line between the strip's drawers and the header's buttons, as before the layout's.
+        let rule = bar_rule(&theme).mx(dp(8.)).into_any_element();
+        let buttons = (update.into_iter())
             .chain([self.view_button(cx), self.settings_button(&theme, cx)])
-            .map(|el| above_drag(div().flex_none().child(el)).into_any_element())
+            .map(|el| above_drag(div().flex_none().child(el)).into_any_element());
+        std::iter::once(rule)
+            .chain(buttons)
+            .chain([
+                bar_rule(&theme).mx(dp(8.)).into_any_element(),
+                layout.into_any_element(),
+            ])
             .collect()
     }
 

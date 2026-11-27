@@ -46,6 +46,8 @@ pub struct Button {
     tint: Option<Hue>,
     on_click: Option<ClickHandler>,
     tooltip: Option<SharedString>,
+    /// What screen readers call it where it has neither a label nor a tooltip to name it.
+    aria_label: Option<SharedString>,
     tooltip_key: Option<SharedString>,
     /// The action whose keys the tooltip shows when it names none.
     tooltip_action: Option<Box<dyn Action>>,
@@ -82,6 +84,7 @@ pub fn button(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Butto
         tint: None,
         on_click: None,
         tooltip: None,
+        aria_label: None,
         tooltip_key: None,
         tooltip_action: None,
         half: None,
@@ -182,6 +185,13 @@ impl Button {
 
     pub fn tooltip(mut self, tooltip: impl Into<SharedString>) -> Self {
         self.tooltip = Some(tooltip.into());
+        self
+    }
+
+    /// Names it to screen readers without a tooltip, for a glyph whose hover does something
+    /// else, as the layout control's brings the hidden sidebar out.
+    pub fn aria_label(mut self, label: impl Into<SharedString>) -> Self {
+        self.aria_label = Some(label.into());
         self
     }
 
@@ -341,7 +351,9 @@ impl RenderOnce for Button {
             _ => 0.8,
         };
         let shrinks = self.shrinks;
-        let name = self.label.clone().or_else(|| self.tooltip.clone());
+        let name = (self.aria_label.clone())
+            .or_else(|| self.label.clone())
+            .or_else(|| self.tooltip.clone());
         h_flex()
             .id(self.id)
             .role(Role::Button)

@@ -17,16 +17,8 @@ use super::{CARD_GAP, HIDDEN_HEAD, Navigator, RowStyle, card_of, part_ends};
 use crate::clock;
 use crate::state::{ProjectId, Selection};
 use crate::theme::Theme;
-use crate::ui::fold::{REORDER, openness_over};
+use crate::ui::fold::{REORDER, openness_over, travel_time};
 use crate::ui::{dp, repo_item};
-
-/// How long the copy takes to go `distance` design pixels: as a reorder does for a short hop,
-/// and longer the further it goes, up to half as long again, so going across the sidebar doesn't
-/// jump.
-fn travel_time(distance: f32) -> Duration {
-    let ms = REORDER.as_secs_f32() * 1000. + distance.abs() * 0.4;
-    Duration::from_secs_f32(ms.min(1.5 * REORDER.as_secs_f32() * 1000.) / 1000.)
-}
 
 /// How far through its way the rows of a card under its heading start coming in.
 const BODY_FROM: f32 = 0.5;

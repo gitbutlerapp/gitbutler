@@ -42,6 +42,7 @@ mod edits;
 mod fps;
 mod help;
 mod keymap;
+mod layout_menu;
 mod links;
 mod menu_bar;
 mod navigator;
