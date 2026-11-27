@@ -2175,6 +2175,159 @@ second work
 "#]]);
 }
 
+/// A linked worktree forked from the tip of a mid-stack branch joins onto that branch's header
+/// above its commits rather than splitting the branch header from its commits.
+#[test]
+fn worktree_lane_off_mid_stack_branch_tip() {
+    use but_testsupport::CommandExt as _;
+
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    // Add a second commit to A and stack B above A so A is a mid-stack branch with multiple
+    // commits.
+    env.file("A2", "second on A\n");
+    env.but("commit -b A -m 'second commit on A'")
+        .assert()
+        .success();
+    env.but("branch new B --above A").assert().success();
+    env.file("B", "on B\n");
+    env.but("commit -b B -m 'commit on B'").assert().success();
+
+    // Fork a linked worktree from the tip of mid-stack branch A and add a commit on it.
+    env.but("worktree new C -A A").assert().success();
+    let wt_c = env.linked_worktree_root("C");
+    std::fs::write(wt_c.join("C"), "on C\n").unwrap();
+    but_testsupport::git_at_dir(&wt_c).args(["add", "C"]).run();
+    but_testsupport::git_at_dir(&wt_c)
+        .args(["commit", "-q", "-m", "commit on C"])
+        .run();
+
+    // C's lane must join directly onto A's header so A's commits stay immediately under A.
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B]
+┊●   oso commit on B
+┊┊
+┊┊╭┄ i0:@ [uncommitted] {c} (no changes)
+┊┊├┄ i0 [C]
+┊┊●   rvu commit on C
+┊├╯
+┊├┄ h0 [A]
+┊●   ynv second commit on A
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    // File and verbose variants share the same rendering path.
+    env.but("status -f")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B]
+┊●   oso commit on B
+┊│     oso:p A B
+┊┊
+┊┊╭┄ i0:@ [uncommitted] {c} (no changes)
+┊┊├┄ i0 [C]
+┊┊●   rvu commit on C
+┊┊│     rvu:w A C
+┊├╯
+┊├┄ h0 [A]
+┊●   ynv second commit on A
+┊│     ynv:o A A2
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("status -v")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B]
+┊● oso author 2000-01-01 00:00:00 +0000 (sha c8d2a97)
+┊│     commit on B
+┊┊
+┊┊╭┄ i0:@ [uncommitted] {c} (no changes)
+┊┊├┄ i0 [C]
+┊┊● rvu author 2000-01-01 00:00:00 +0000 (sha 364625f)
+┊┊│     commit on C 
+┊├╯
+┊├┄ h0 [A]
+┊● ynv author 2000-01-01 00:00:00 +0000 (sha 90741c7)
+┊│     second commit on A
+┊● tpm author 2000-01-01 00:00:00 +0000 (sha 9477ae7)
+┊│     add A 
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    // A worktree forked from a non-tip commit of A still opens directly above that commit.
+    env.but("worktree new D -A tpm").assert().success();
+    let wt_d = env.linked_worktree_root("D");
+    std::fs::write(wt_d.join("D"), "on D\n").unwrap();
+    but_testsupport::git_at_dir(&wt_d).args(["add", "D"]).run();
+    but_testsupport::git_at_dir(&wt_d)
+        .args(["commit", "-q", "-m", "commit on D"])
+        .run();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B]
+┊●   oso commit on B
+┊┊
+┊┊╭┄ i0:@ [uncommitted] {c} (no changes)
+┊┊├┄ i0 [C]
+┊┊●   rvu commit on C
+┊├╯
+┊├┄ h0 [A]
+┊●   ynv second commit on A
+┊┊
+┊┊╭┄ j0:@ [uncommitted] {d} (no changes)
+┊┊├┄ j0 [D]
+┊┊●   rrv commit on D
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
 /// Running from inside a linked worktree resolves to the main worktree, so the workspace and
 /// its IDs are the same as they are from the main worktree.
 #[test]
