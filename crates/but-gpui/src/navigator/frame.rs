@@ -8,7 +8,7 @@ use std::ops::Range;
 use gpui::{App, ListOffset, ListState, Pixels, Window};
 
 use super::cursor::OffRow;
-use super::rows::{Drawer, Fold, Guide, Moving, Row, RowKey, Rows, row_keys, span_height};
+use super::rows::{Drawer, Fold, Guide, Moving, Row, RowKey, Rows, Tip, row_keys, span_height};
 use super::{ABOVE_LAST_LISTED, LIST_TOP, Navigator, holder, moving, shows_where_it_lands};
 use crate::backend::Checkout;
 use crate::clock;
@@ -27,8 +27,8 @@ pub(super) struct Built {
     pub(super) rows: Vec<Row>,
     pub(super) insets: Vec<f32>,
     pub(super) guides: Vec<Vec<Guide>>,
-    /// Whether each row's innermost guide ends at it: see [`Rows::ends`].
-    pub(super) ends: Vec<bool>,
+    /// How each row meets its innermost guide: see [`Tip`].
+    pub(super) tips: Vec<Tip>,
     /// Each row's place in the fold it moves with, while one does.
     pub(super) moving: Vec<Option<Moving>>,
     /// Each row's key, to tell which rows a reorder moved.
@@ -282,7 +282,7 @@ impl Navigator {
             rows,
             insets,
             guides,
-            ends,
+            tips,
             moving,
             drawer,
             first_hit,
@@ -291,7 +291,7 @@ impl Navigator {
         self.built.moving = moving;
         self.sync_list(rows, insets, drawer, window, cx);
         self.built.guides = guides;
-        self.built.ends = ends;
+        self.built.tips = tips;
         self.first_hit = first_hit;
     }
 

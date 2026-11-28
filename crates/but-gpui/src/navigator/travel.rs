@@ -459,7 +459,8 @@ impl Navigator {
             let drawn = rows.iter().enumerate().map(|(ix, row)| match row {
                 Row::Item(_) => {
                     let inset = insets.get(ix).copied().unwrap_or_default();
-                    self.render_item(rows, ix, inset, theme, cx)
+                    // Drawn without their guides, so each commit keeps its glyph.
+                    self.render_item(rows, &[], ix, inset, theme, cx)
                 }
                 Row::HeaderRule(_) => super::header_rule(theme),
                 _ => div().h(dp(row.height(self.row))).into_any_element(),
@@ -471,13 +472,14 @@ impl Navigator {
         {
             let inset = (self.built.drawer.insets.get(ix).copied()).unwrap_or_default();
             self.drawing_drawer.set(true);
-            let row = self.render_item(&self.built.drawer.rows, ix, inset, theme, cx);
+            let drawer = &self.built.drawer;
+            let row = self.render_item(&drawer.rows, &drawer.tips, ix, inset, theme, cx);
             self.drawing_drawer.set(false);
             return row;
         }
         if let Some(ix) = at(&self.built.rows) {
             let inset = self.built.insets.get(ix).copied().unwrap_or_default();
-            return self.render_item(&self.built.rows, ix, inset, theme, cx);
+            return self.render_item(&self.built.rows, &self.built.tips, ix, inset, theme, cx);
         }
         let name = (self.store.read(cx).project(&travel.project))
             .map(|entry| entry.project.name.clone())

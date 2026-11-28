@@ -151,6 +151,7 @@ fn examples() -> impl Iterator<Item = Example> {
         .chain(meta_count::COUNT_EXAMPLES)
         .chain(meta_count::STATUS_EXAMPLES)
         .chain(sidebar_rows::EXAMPLES)
+        .chain(sidebar_rows::BRANCH_EXAMPLES)
         .chain(sidebar_rows::TERMINAL_EXAMPLES)
         .chain(split_preview::EXAMPLES)
 }

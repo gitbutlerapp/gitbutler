@@ -28,12 +28,12 @@ read as the same.
 **A row folds one way.** A row that holds others shows its chevron, always, in
 a column of its own before its glyph, and the guide of the rows under it hangs
 from the chevron's middle. A row that could hold others and holds nothing yet,
-such as a branch without commits, keeps a faint dot in the chevron's place, so
+such as a branch without commits, keeps a faint dash in the chevron's place, so
 it lines up with the rows that fold. A row that never holds others, a commit or
 uncommitted changes, has its glyph under its parent's glyph instead, 6px after
 its last guide, as a glyph sits 6px after a chevron; at the top level, with no
-parent, its glyph takes the chevrons' column. A file tree's folders and files
-line up the same way.
+parent, its glyph takes the chevrons' column. A commit sits on its branch's
+line instead (below). A file tree's folders and files line up the same way.
 
 **Guides say how the rows hang together.** One guide a level ties each row to
 the row it sits under. The last row under its parent ends that guide with a
@@ -41,6 +41,18 @@ round tail into its glyph, and the rows below it drop the guide. The other rows
 leave the guide plain, with no stub toward them. A row can't see the rows after it, so a host works every
 row's guides out with `treeGuides`, from the rows it shows, never by hand; a
 file tree takes them the same way.
+
+**A chain sits on its line.** A stack's branches build on each other, and so do
+a branch's commits, so they don't hang off their parent's guide as side-by-side
+rows do: each sits on it as a node (`treeGuides`' `chained`), and the line ends
+at the last one's mark, with no tail. A stack's branch is a 6px dot there, with
+no number or label, and keeps its own dot or chevron and glyph after it. A
+commit's mark takes its glyph's place on its branch's line: hollow while it's
+only here, solid once pushed, in its commit token, or its merge or warning
+glyph, 7px. The line stops 2px short of each mark either side, in the guides'
+one colour, so every connector in the tree is the same line. A remote's new
+commits sit on their heading's line the same way, in `--but-commit-upstream`,
+and so do the commits a merge among them brought in, on the merge's.
 
 **The row's end says where it stands.** Its counts sit there and stay, and its
 next step follows them, always shown, never only under the pointer. A step that

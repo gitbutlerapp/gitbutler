@@ -3,6 +3,7 @@
 	   bottom. */
 	--row-end: calc((var(--but-size-control) - var(--but-size-control-sm)) / 2);
 	--guide-color: color-mix(in srgb, var(--but-muted-foreground) 20%, transparent);
+	--node-color: color-mix(in srgb, var(--but-muted-foreground) 45%, transparent);
 
 	display: flex;
 	position: relative;
@@ -39,6 +40,7 @@
 	.row[data-selected] {
 	--selection-inverted: true;
 	--guide-color: color-mix(in srgb, var(--but-inverse-muted-foreground) 40%, transparent);
+	--node-color: color-mix(in srgb, var(--but-inverse-muted-foreground) 70%, transparent);
 
 	background-color: var(--but-selected);
 	color: var(--but-selected-foreground);
@@ -154,6 +156,65 @@
 
 .guideNone::before {
 	display: none;
+}
+
+/* A row on a chain, a stack's branch or a commit, sits on its parent's line as a node: the line
+   stops 2px short of its mark either side and ends at the last one's, one line in the guides' own
+   colour throughout. A branch's mark is a dot; a commit's is its own, in its state's colour. */
+.guideNode {
+	/* Half the mark and the 2px between it and the line. */
+	--node-gap: 5px;
+
+	&:has(> .commitNode) {
+		--node-gap: 5.5px;
+	}
+
+	&:has(> .nodeIcon) {
+		--node-gap: 8px;
+	}
+
+	&::before {
+		inset-block: 0 calc(50% + var(--node-gap));
+	}
+
+	&::after {
+		position: absolute;
+		width: 1px;
+		inset-block: calc(50% + var(--node-gap)) -1px;
+		background-color: var(--guide-color);
+		content: "";
+	}
+}
+
+.guideNodeLast::after {
+	display: none;
+}
+
+.dot {
+	width: 6px;
+	height: 6px;
+	border-radius: var(--but-radius-full);
+	background-color: var(--node-color);
+}
+
+/* Hollow while the commit is only here, solid once it is pushed, as its glyph is. */
+.commitNode {
+	box-sizing: border-box;
+	width: 7px;
+	height: 7px;
+	border: 1.5px solid;
+	border-radius: var(--but-radius-full);
+}
+
+.commitNodeSolid {
+	background-color: currentcolor;
+}
+
+.nodeIcon {
+	--icon-size: 12px;
+
+	display: flex;
+	color: var(--but-muted-foreground);
 }
 
 /* Faded, so the glyph after it reads first; it comes up under the pointer. */

@@ -21,17 +21,32 @@ type OnClick = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
 /// How one level's guide draws on a tree's row, as but-ui-react's `Guides` has them: `Line` runs
 /// on through the row; `Last`, on the last row under its directory, turns into the row's glyph
 /// and ends there; `None` on the rows under a `Last` one, where that level has ended.
+///
+/// A row on a chain, a stack's branch or a commit, sits on its parent's guide as a node: `Node`
+/// puts its mark on the line, which runs on through, and `NodeLast` ends the line at the last
+/// one's mark.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Guide {
     Line,
     Last,
     None,
+    Node,
+    NodeLast,
 }
 
 /// Each row's guides, outermost first, from how deep each row of a tree sits, in the order they
 /// draw, as but-ui-react's `treeGuides`. A row can't see the rows after it, so the list works its
 /// guides out here from the rows it shows.
 pub fn tree_guides(depths: &[usize]) -> Vec<Vec<Guide>> {
+    let rows: Vec<(usize, bool)> = depths.iter().map(|&depth| (depth, false)).collect();
+    chain_guides(&rows)
+}
+
+/// [`tree_guides`] for rows that say whether each is `chained`, as `treeGuides`' rows do: a
+/// chained row sits on its parent's line as a node, as a stack's branches and a branch's
+/// commits, which build on each other.
+pub fn chain_guides(rows: &[(usize, bool)]) -> Vec<Vec<Guide>> {
+    let depths: Vec<usize> = rows.iter().map(|&(depth, _)| depth).collect();
     let mut last = vec![false; depths.len()];
     let mut followed: Vec<bool> = Vec::new();
     for (ix, &depth) in depths.iter().enumerate().rev() {
@@ -44,16 +59,18 @@ pub fn tree_guides(depths: &[usize]) -> Vec<Vec<Guide>> {
         }
     }
     let mut ancestor_last: Vec<bool> = Vec::new();
-    (depths.iter().zip(last))
-        .map(|(&depth, is_last)| {
+    (rows.iter().zip(last))
+        .map(|(&(depth, chained), is_last)| {
             let guides = (0..depth)
-                .map(|level| match (level + 1 < depth, is_last) {
-                    (true, _) if ancestor_last.get(level + 1).copied().unwrap_or(false) => {
+                .map(|level| match (level + 1 < depth, is_last, chained) {
+                    (true, _, _) if ancestor_last.get(level + 1).copied().unwrap_or(false) => {
                         Guide::None
                     }
-                    (true, _) => Guide::Line,
-                    (false, true) => Guide::Last,
-                    (false, false) => Guide::Line,
+                    (true, _, _) => Guide::Line,
+                    (false, true, true) => Guide::NodeLast,
+                    (false, false, true) => Guide::Node,
+                    (false, true, false) => Guide::Last,
+                    (false, false, false) => Guide::Line,
                 })
                 .collect();
             ancestor_last.resize(depth + 1, false);
@@ -983,8 +1000,9 @@ pub(crate) fn guide(kind: Guide, into_icon: bool, radius: f32, color: Hsla) -> D
     let step = div().relative().flex_none().w(dp(STEP)).h_full();
     match kind {
         Guide::None => step,
-        // Through the pixel between rows too, so the guides of the rows above and below join.
-        Guide::Line => step.child(
+        // Through the pixel between rows too, so the guides of the rows above and below join. A
+        // node's mark is the row's to draw (the sidebar's `node_guide`); here its line runs on.
+        Guide::Line | Guide::Node => step.child(
             div()
                 .absolute()
                 .top_0()
@@ -997,7 +1015,7 @@ pub(crate) fn guide(kind: Guide, into_icon: bool, radius: f32, color: Hsla) -> D
         // corner by at most half the box, and this one is narrower than twice a round corner, so
         // the turn draws in a box reaching past this one's top and end, cut back to it. Like CSS,
         // the corner rounds by no more than the box is wide.
-        Guide::Last => {
+        Guide::Last | Guide::NodeLast => {
             let reach = STEP / 2.
                 + 0.5
                 + match into_icon {
@@ -1080,7 +1098,34 @@ fn toggle(folded: bool, on_toggle: Option<OnClick>, name: &str, solid: bool, the
 
 #[cfg(test)]
 mod tests {
-    use super::{Guide, tree_guides};
+    use super::{Guide, chain_guides, tree_guides};
+
+    #[test]
+    fn a_chained_row_sits_on_its_parents_line() {
+        // A stack's caption, its branches, the commits of the middle one, then a branch of its own.
+        let guides = chain_guides(&[
+            (0, false),
+            (1, true),
+            (1, true),
+            (2, true),
+            (2, true),
+            (1, true),
+            (0, false),
+        ]);
+        assert_eq!(
+            guides,
+            vec![
+                vec![],
+                vec![Guide::Node],
+                vec![Guide::Node],
+                vec![Guide::Line, Guide::Node],
+                vec![Guide::Line, Guide::NodeLast],
+                vec![Guide::NodeLast],
+                vec![],
+            ],
+            "as but-ui-react's treeGuides works them out for chained rows"
+        );
+    }
 
     #[test]
     fn guides_end_at_each_directorys_last_row() {

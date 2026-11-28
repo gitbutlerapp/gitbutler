@@ -11,7 +11,8 @@ use gpui::{AnyElement, App, Context, Div, ElementId, Hsla, SharedString, Window,
 use super::drop::{stack_end, stack_start};
 use super::order::moving_terminal;
 use super::rows::{
-    COMMIT_INDENT, Fold, Row, RowKey, Rows, heads, listed_with, lists_changes, span_height,
+    COMMIT_INDENT, Fold, ON_LINE_TEXT, Row, RowKey, Rows, Tip, heads, listed_with, lists_changes,
+    span_height,
 };
 use super::{Navigator, RowStyle};
 use crate::app::{
@@ -27,8 +28,8 @@ use crate::transfer::{
 use crate::ui::Text;
 use crate::ui::fold::{self, on_top};
 use crate::ui::{
-    CommitPlace, Fold as RowFold, Icon, blink_once, branch_item, commit_item, count_badge, dp,
-    fixed, guide, h_flex, icon, small_icon,
+    CommitPlace, Fold as RowFold, Icon, NodeMark, blink_once, branch_item, chain_node, commit_item,
+    count_badge, dp, fixed, guide, h_flex, icon, small_icon,
 };
 
 /// The move of commits or a branch shown in `project`, or the squash of those or files, with
@@ -324,6 +325,8 @@ pub(super) struct StandIn {
     by: f32,
     inset: f32,
     guides: Vec<f32>,
+    /// How it met its innermost guide, which it still draws its mark on.
+    tip: Tip,
     /// When it was taken away, which it fades from as the rows close over it, at their pace:
     /// so no sliver of it stays as they come to rest, nor does it brighten if they set off again.
     since: Instant,
@@ -423,12 +426,24 @@ impl Rows {
             | Moving::Terminal { .. }
             | Moving::Files(_) => return,
         };
+        // Each on the line, as the commit it'd be once it lands, which a move makes anew: only
+        // here.
+        let push = |rows: &mut Self, copies: Vec<Row>| {
+            for copy in copies {
+                rows.push(copy);
+                rows.node(NodeMark::Commit {
+                    place: CommitPlace::Local,
+                    merge: false,
+                    conflicted: false,
+                });
+            }
+        };
         if !new_branch {
-            return self.extend(copies);
+            return push(self, copies);
         }
         self.push(Row::GhostBranch(moving.project.clone(), moving.at.clone()));
         self.open();
-        self.extend(copies);
+        push(self, copies);
         self.close();
     }
 }
@@ -739,6 +754,7 @@ impl Navigator {
                     by: span_height(&self.built.rows, above..ix, self.row),
                     inset: self.built.insets.get(ix).copied().unwrap_or_default(),
                     guides: self.guides_at(ix),
+                    tip: self.built.tips.get(ix).copied().unwrap_or_default(),
                     since: now,
                     shown: 1.,
                     op,
@@ -1885,6 +1901,7 @@ fn copied_title(store: &Store, project: &ProjectId, id: CommitId) -> Option<Shar
 pub(super) fn ghost_row(
     item: &Selection,
     inset: f32,
+    on_line: bool,
     outlined_with: (bool, bool),
     blink: Option<usize>,
     store: &Store,
@@ -1896,6 +1913,7 @@ pub(super) fn ghost_row(
         mark: mark_of(store, item.project()),
         outlined_with,
         blink,
+        on_line,
         ..RowStyle::plain(theme, inset)
     };
     let row = match item {
@@ -1926,6 +1944,7 @@ pub(super) fn ghost_row(
 pub(super) fn new_commit_row(
     project: &ProjectId,
     inset: f32,
+    on_line: bool,
     blink: Option<usize>,
     store: &Store,
     theme: &Theme,
@@ -1952,8 +1971,14 @@ pub(super) fn new_commit_row(
         conflicts,
         theme,
     );
-    // Where a commit's row puts its glyph: see `RowStyle::commit_line`.
-    style.draw(row, COMMIT_INDENT - 3.).into_any_element()
+    // On its branch's line, which draws its mark, as the commits it lands among are, its title
+    // where theirs start; otherwise where a commit's row puts its glyph: see
+    // `RowStyle::commit_line`.
+    match on_line {
+        true => style.draw(row.on_line(), ON_LINE_TEXT),
+        false => style.draw(row, COMMIT_INDENT - 3.),
+    }
+    .into_any_element()
 }
 
 /// Where what's moving lands outlined over its row, as dropping on it outlines it but in the
@@ -2015,6 +2040,7 @@ pub(super) fn stand_in(
         by,
         inset,
         guides,
+        tip,
         shown,
         op,
         outlined_with,
@@ -2024,6 +2050,7 @@ pub(super) fn stand_in(
         taken: true,
         mark: op.hue(),
         outlined_with: *outlined_with,
+        on_line: tip.node.is_some(),
         ..RowStyle::plain(theme, *inset)
     };
     let row = match of {
@@ -2037,7 +2064,18 @@ pub(super) fn stand_in(
         Gone::NewBranch(at) => ghost_branch_row(at, *inset, op.colour(theme), None, theme),
         Gone::NewStack => ghost_stack_row(*inset, op.colour(theme), None, theme),
     };
-    let guides = guides.iter().map(|at| guide(*at, theme));
+    let guides = (guides.iter().enumerate()).map(|(level, at)| {
+        match (level + 1 == guides.len(), tip.node) {
+            // Its mark on the line, the node's 12-wide column where the guide is.
+            (true, Some(mark)) => div()
+                .absolute()
+                .top_0()
+                .bottom_0()
+                .left(dp(*at - 5.5))
+                .child(chain_node(mark, tip.ends, false, theme)),
+            _ => guide(*at, theme),
+        }
+    });
     div()
         .absolute()
         .top(dp(*by))

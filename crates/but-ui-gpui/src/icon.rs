@@ -68,6 +68,7 @@ icons! {
     Commit => "commit",
     CommitFill => "commit-fill",
     Danger => "danger",
+    Dash => "dash",
     Diff => "diff",
     Discord => "discord",
     Docs => "docs",

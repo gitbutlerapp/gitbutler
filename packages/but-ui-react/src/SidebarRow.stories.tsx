@@ -474,24 +474,32 @@ type TreeNode = {
 	id: string;
 	row: (place: Place, fold: Fold) => ReactNode;
 	children?: ReadonlyArray<TreeNode>;
+	/** A commit, on its branch's line. */
+	chained?: boolean;
+	/** A stack's caption: its branches sit on its line. */
+	stack?: boolean;
 };
 
 /** Lays the tree out as the flat list of rows it is drawn as, skipping what is folded, and gives
- * each row its guides from that list with `treeGuides`. */
+ * each row its guides from that list with `treeGuides`: a stack's branches and a branch's commits
+ * `chained` on the line they hang from. */
 const layOut = (
 	nodes: ReadonlyArray<TreeNode>,
 	folded: ReadonlySet<string>,
 	toggle: (id: string) => void,
 ): Array<ReactNode> => {
-	const shown: Array<{ node: TreeNode; depth: number }> = [];
-	const visit = (list: ReadonlyArray<TreeNode>, depth: number) => {
+	const shown: Array<{ node: TreeNode; depth: number; stacked: boolean }> = [];
+	const visit = (list: ReadonlyArray<TreeNode>, depth: number, stacked: boolean) => {
 		for (const node of list) {
-			shown.push({ node, depth });
-			if (node.children !== undefined && !folded.has(node.id)) visit(node.children, depth + 1);
+			shown.push({ node, depth, stacked });
+			if (node.children !== undefined && !folded.has(node.id))
+				visit(node.children, depth + 1, node.stack === true);
 		}
 	};
-	visit(nodes, 0);
-	const guides = treeGuides(shown.map(({ depth }) => ({ depth })));
+	visit(nodes, 0, false);
+	const guides = treeGuides(
+		shown.map(({ node, depth, stacked }) => ({ depth, chained: node.chained === true || stacked })),
+	);
 	return shown.map(({ node, depth }, index) => (
 		<Fragment key={node.id}>
 			{node.row(
@@ -509,6 +517,7 @@ const since = (value: string) => <MetaCount type="age">{value}</MetaCount>;
 const commits = (id: string, messages: ReadonlyArray<string>, unpushed = 0): Array<TreeNode> =>
 	messages.map((message, index) => ({
 		id: `${id}-${index}`,
+		chained: true,
 		row: (place) => <CommitItem {...place} message={message} pushed={index >= unpushed} />,
 	}));
 
@@ -554,6 +563,7 @@ const repositories: ReadonlyArray<TreeNode> = [
 					},
 					{
 						id: "stack",
+						stack: true,
 						row: (place, fold) => (
 							<StackCaption
 								{...place}

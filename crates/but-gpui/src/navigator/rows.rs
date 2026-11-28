@@ -18,7 +18,7 @@ use crate::state::{NewAt, NewCommit, ProjectEntry, ProjectId, Section, Selection
 use crate::terminal::TerminalId;
 use crate::transfer::{self, Dragged, Stop};
 use crate::ui::fold::{Folds, MOVING_ROWS};
-use crate::ui::{EMPTY_TIDY_DETAIL_HEIGHT, ROW_DIVIDER, empty_tidy_height};
+use crate::ui::{CommitPlace, EMPTY_TIDY_DETAIL_HEIGHT, NodeMark, ROW_DIVIDER, empty_tidy_height};
 
 /// How wide each loading row's name is, as 🍑 But UI's loading card draws them: names of the
 /// lengths a card's rows often have.
@@ -320,6 +320,16 @@ pub(super) struct Guide {
     pub(super) from: usize,
 }
 
+/// How a row's innermost guide meets it: whether the row ends it, the last under it, and
+/// whether the row sits on it as a node of a chain, a stack's branch or a branch's commit, with
+/// what it draws there ([`crate::ui::chain_node`]). A node that ends it ends the line at its
+/// mark, rather than turning into it.
+#[derive(Clone, Copy, Default, PartialEq)]
+pub(super) struct Tip {
+    pub(super) ends: bool,
+    pub(super) node: Option<NodeMark>,
+}
+
 /// The rows as they're built, each with how far in it sits: a worktree's section and a
 /// stack's branches step in from what holds them. Each also has the guides it draws, as
 /// but.dev's sidebar does: one for each row it's under, and while a fold holding it moves,
@@ -329,9 +339,8 @@ pub(super) struct Rows {
     pub(super) rows: Vec<Row>,
     pub(super) insets: Vec<f32>,
     pub(super) guides: Vec<Vec<Guide>>,
-    /// Whether each row is the last under its innermost guide, which turns into it there, as
-    /// but-ui-react's tree guides end, rather than running on.
-    pub(super) ends: Vec<bool>,
+    /// How each row meets its innermost guide: see [`Tip`].
+    pub(super) tips: Vec<Tip>,
     pub(super) moving: Vec<Option<Moving>>,
     /// How many guides were open as each row was pushed: a row is under the last one of them.
     depths: Vec<usize>,
@@ -361,11 +370,11 @@ pub(super) struct Drawer {
     pub(super) rows: Vec<Row>,
     pub(super) listed: usize,
     pub(super) total: usize,
-    /// How far in each row sits, the guides it draws, and whether it ends its innermost one,
-    /// as [`Rows`] has them: the rows of a project unfolded in the drawer step in as a card's.
+    /// How far in each row sits, the guides it draws, and how it meets its innermost one, as
+    /// [`Rows`] has them: the rows of a project unfolded in the drawer step in as a card's.
     pub(super) insets: Vec<f32>,
     pub(super) guides: Vec<Vec<Guide>>,
-    pub(super) ends: Vec<bool>,
+    pub(super) tips: Vec<Tip>,
     /// Where each row is in the fold of a project unfolding or folding here, as [`Rows`] has it.
     pub(super) moving: Vec<Option<Moving>>,
     /// The folds of the projects listed, as [`Rows::folds`] has them.
@@ -389,6 +398,15 @@ pub(super) const ROW_LEFT: f32 = ROW_MARGIN + 8.;
 /// 2 on, where but-ui-react puts the glyph of a row that doesn't fold, under its branch's
 /// glyph, and a point into that 14-point box.
 pub(super) const COMMIT_INDENT: f32 = STEP + 2. + 1.;
+
+/// Where a commit's title starts, from its branch's, while the commit sits on its branch's line
+/// and draws no glyph: after the line's 12-point column, the pixel a step keeps and the 8 between
+/// a row's parts, as but-ui's `SidebarRow` sets a name after a node.
+pub(super) const ON_LINE_TEXT: f32 = 12. + 1. + 8.;
+
+/// How much further in a commit's title starts on its line than its glyph did off it: a
+/// remote's commits, set in under their heading, move as far as a branch's own.
+pub(super) const ON_LINE_SHIFT: f32 = ON_LINE_TEXT - (COMMIT_INDENT - 3.);
 
 /// Where the middle of a row's chevron sits in a row set in by nothing: the row's left edge
 /// and half the 12-point step, where the guide down to the rows under it hangs from.
@@ -415,7 +433,7 @@ impl Rows {
         self.rows.push(row);
         self.insets.push(self.inset);
         self.guides.push(self.open.clone());
-        self.ends.push(false);
+        self.tips.push(Tip::default());
         self.depths.push(self.open.len());
         self.moving.push(None);
     }
@@ -498,8 +516,8 @@ impl Rows {
                 .rev()
                 .find(|&ix| self.depths.get(ix) == Some(&level));
             if let Some(last) = last {
-                if let Some(end) = self.ends.get_mut(last) {
-                    *end = true;
+                if let Some(tip) = self.tips.get_mut(last) {
+                    tip.ends = true;
                 }
                 for guides in self.guides.iter_mut().skip(last + 1) {
                     guides.retain(|g| *g != at);
@@ -540,6 +558,14 @@ impl Rows {
         }
     }
 
+    /// Set the row just pushed on its innermost guide as a node of a chain, drawing `mark`
+    /// there, as a stack's branches and a branch's commits sit on the line they hang from.
+    pub(super) fn node(&mut self, mark: NodeMark) {
+        if let Some(tip) = self.tips.last_mut() {
+            tip.node = Some(mark);
+        }
+    }
+
     /// Push `item`, the filter's first hit if it's `hit` and none came before it.
     pub(super) fn push_found(&mut self, item: Selection, hit: bool) {
         if hit && self.first_hit.is_none() {
@@ -553,7 +579,7 @@ impl Rows {
         self.rows.truncate(len);
         self.insets.truncate(len);
         self.guides.truncate(len);
-        self.ends.truncate(len);
+        self.tips.truncate(len);
         self.depths.truncate(len);
         self.moving.truncate(len);
     }
@@ -660,7 +686,7 @@ impl Navigator {
             total: others.len(),
             insets: cards.insets,
             guides: cards.guides,
-            ends: cards.ends,
+            tips: cards.tips,
             moving: cards.moving,
             folds: cards.folds,
         }
@@ -942,9 +968,13 @@ impl Navigator {
                 Selection::Branch(id.clone(), branch.ref_name.clone()),
                 branch_hit,
             );
+            if caption.is_some() {
+                rows.node(NodeMark::Dot);
+            }
             rows.open();
             for commit in commits {
                 rows.push_found(Selection::Commit(id.clone(), commit.id), true);
+                rows.node(commit_node(store, id, commit));
             }
             rows.close();
         }
@@ -973,11 +1003,11 @@ impl Navigator {
                 )
             };
             if !branches.iter().any(|branch| stacks(branch).is_some()) {
-                return self.stacked_rows(store, id, branches, rows);
+                return self.stacked_rows(store, id, branches, false, rows);
             }
             rows.push(Row::GhostStack(id.clone()));
             rows.open_in(STEP);
-            self.stacked_rows(store, id, branches, rows);
+            self.stacked_rows(store, id, branches, true, rows);
             return rows.close();
         };
         let selected = (store.selection.as_ref())
@@ -986,14 +1016,22 @@ impl Navigator {
         rows.push(Row::Item(caption.clone()));
         rows.fold(Fold::Under(caption), open, &self.folds, |rows| {
             rows.open_in(STEP);
-            self.stacked_rows(store, id, branches, rows);
+            self.stacked_rows(store, id, branches, true, rows);
             rows.close();
         });
     }
 
     /// The rows of a lane's `branches`, and copies of commits being moved where they'd land
-    /// in a new branch above one of them, or below the last.
-    fn stacked_rows(&self, store: &Store, id: &ProjectId, branches: &[Branch], rows: &mut Rows) {
+    /// in a new branch above one of them, or below the last. Under a stack's caption
+    /// (`stacked`) each sits on its line.
+    fn stacked_rows(
+        &self,
+        store: &Store,
+        id: &ProjectId,
+        branches: &[Branch],
+        stacked: bool,
+        rows: &mut Rows,
+    ) {
         let new_branch = |branch: &Branch, side: bool| {
             landing_at(store, id, |at| {
                 matches!(at, Stop::NewBranch { beside, below }
@@ -1004,16 +1042,23 @@ impl Navigator {
             if let Some(moving) = new_branch(branch, false) {
                 rows.push_ghosts(moving, true);
             }
-            self.branch_rows(store, id, branch, rows);
+            self.branch_rows(store, id, branch, stacked, rows);
         }
         if let Some(moving) = branches.last().and_then(|bottom| new_branch(bottom, true)) {
             rows.push_ghosts(moving, true);
         }
     }
 
-    /// A branch's row and, unless it's closed, its remote's commits and its own, up to the
-    /// fold unless that's open.
-    fn branch_rows(&self, store: &Store, id: &ProjectId, branch: &Branch, rows: &mut Rows) {
+    /// A branch's row, on its stack's line while it's in one (`stacked`), and, unless it's closed,
+    /// its remote's commits and its own, each on its line, up to the fold unless that's open.
+    fn branch_rows(
+        &self,
+        store: &Store,
+        id: &ProjectId,
+        branch: &Branch,
+        stacked: bool,
+        rows: &mut Rows,
+    ) {
         let key = (id.clone(), branch.ref_name.clone());
         // Past the fold, but never past the selected commit, as after moving it down a step,
         // nor the one a selected commit on its way goes next to.
@@ -1034,6 +1079,9 @@ impl Navigator {
         };
         let item = Selection::Branch(key.0.clone(), key.1.clone());
         rows.push(Row::Item(item.clone()));
+        if stacked {
+            rows.node(NodeMark::Dot);
+        }
         let at_top = |at: &Stop| matches!(at, Stop::In(Destination::Branch(top)) if branch.ref_name.as_ref() == Some(top));
         let inside = |rows: &mut Rows| {
             rows.open();
@@ -1041,19 +1089,29 @@ impl Navigator {
             if let (Some(workspace), Some(ref_name)) = (store.workspace(id), &branch.ref_name) {
                 self.upstream_rows(store, workspace, id, ref_name, rows);
             }
-            let pending = |at: &dyn Fn(&NewAt) -> bool| {
-                (store.new_commit(id, at).into_iter()).map(|new| match new {
-                    NewCommit::Made(pending) => Row::Item(pending),
-                    NewCommit::Shown(title, slow, moved) => Row::Pending(
-                        title,
-                        slow,
-                        moved.map(|key| RowKey::Commit(id.clone(), key)),
-                    ),
-                })
+            let pending = |at: &dyn Fn(&NewAt) -> bool, rows: &mut Rows| {
+                if let Some(new) = store.new_commit(id, at) {
+                    match new {
+                        NewCommit::Made(pending) => {
+                            rows.push(Row::Item(pending));
+                            rows.node(NodeMark::Commit {
+                                place: CommitPlace::Local,
+                                merge: false,
+                                conflicted: false,
+                            });
+                        }
+                        NewCommit::Shown(title, slow, moved) => rows.push(Row::Pending(
+                            title,
+                            slow,
+                            moved.map(|key| RowKey::Commit(id.clone(), key)),
+                        )),
+                    }
+                }
             };
-            rows.extend(pending(
+            pending(
                 &|at| matches!(at, NewAt::Top(ref_name) if branch.ref_name.as_ref() == Some(ref_name)),
-            ));
+                rows,
+            );
             if let Some(moving) = landing_at(store, id, at_top) {
                 rows.push_ghosts(moving, false);
             }
@@ -1069,17 +1127,20 @@ impl Navigator {
             let count = commits.len();
             let commit_rows = |commits: &[&Commit], rows: &mut Rows| {
                 for commit in commits {
-                    rows.extend(pending(
+                    pending(
                         &|at| matches!(at, NewAt::Above(key) if *key == commit.key),
-                    ));
+                        rows,
+                    );
                     rows.push(Row::Item(Selection::Commit(id.clone(), commit.id)));
+                    rows.node(commit_node(store, id, commit));
                     let below = |at: &Stop| matches!(at, Stop::In(Destination::BelowCommit(c)) if *c == commit.id);
                     if let Some(moving) = landing_at(store, id, below) {
                         rows.push_ghosts(moving, false);
                     }
-                    rows.extend(pending(
+                    pending(
                         &|at| matches!(at, NewAt::Below(key) if *key == commit.key),
-                    ));
+                        rows,
+                    );
                 }
             };
             let (first, rest) = commits.split_at(fold_at.min(count));
@@ -1196,6 +1257,12 @@ impl Navigator {
             for commit in commits {
                 let item = Selection::Upstream(id.clone(), owner.clone(), commit.id);
                 rows.push(Row::Item(item.clone()));
+                // On the heading's line, as a branch's own commits are on its.
+                rows.node(NodeMark::Commit {
+                    place: CommitPlace::Upstream,
+                    merge: commit.merge,
+                    conflicted: false,
+                });
                 if !commit.merge {
                     continue;
                 }
@@ -1209,15 +1276,39 @@ impl Navigator {
                 rows.fold(Fold::Under(item), open, &self.folds, |rows| {
                     if let Some(merged) = merged {
                         rows.open_at(MERGE_GUIDE);
-                        rows.extend(merged.iter().map(|merged| {
-                            Row::Item(Selection::Upstream(id.clone(), owner.clone(), merged.id))
-                        }));
+                        for merged in merged {
+                            rows.push(Row::Item(Selection::Upstream(
+                                id.clone(),
+                                owner.clone(),
+                                merged.id,
+                            )));
+                            rows.node(NodeMark::Commit {
+                                place: CommitPlace::Upstream,
+                                merge: false,
+                                conflicted: false,
+                            });
+                        }
                         rows.close();
                     }
                 });
             }
             rows.close();
         });
+    }
+}
+
+/// What `commit` of `id` draws on its branch's line: its mark by its state, or the warning while
+/// it's conflicted, as its row's glyph would be.
+fn commit_node(store: &Store, id: &ProjectId, commit: &Commit) -> NodeMark {
+    let item = Selection::Commit(id.clone(), commit.id);
+    NodeMark::Commit {
+        place: match commit.state {
+            crate::backend::CommitState::Local => CommitPlace::Local,
+            crate::backend::CommitState::Pushed => CommitPlace::Pushed,
+            crate::backend::CommitState::Integrated => CommitPlace::Integrated,
+        },
+        merge: false,
+        conflicted: commit.conflicted || super::moving::left_conflicted(store, &item),
     }
 }
 
