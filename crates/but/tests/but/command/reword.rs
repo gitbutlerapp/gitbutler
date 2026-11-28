@@ -77,13 +77,12 @@ Named anonymous branch 'i0' as 'named'
 ┊
 ┊╭┄ g0
 ┊●   sxu anonymous (no changes)
-┊│
-┊├┄ h0 [A]
 ┊┊
 ┊┊╭┄ na:@ [uncommitted] {W} (no changes)
 ┊┊├┄ na [named]
 ┊┊●   nsn add W
 ┊├╯
+┊├┄ h0 [A]
 ┊●   tpm add A
 ├╯
 ┊

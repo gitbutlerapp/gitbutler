@@ -1457,20 +1457,22 @@ enum LaneSeparator {
 
 /// Print each linked worktree resting on `base` as a lane nested `depth` levels deep.
 ///
-/// Nothing is printed when no worktree branches off `base`, which is the common case.
+/// Returns `true` if at least one worktree lane was printed. Nothing is printed when no
+/// worktree branches off `base`, which is the common case.
 fn print_worktree_lanes_on(
     ctx: &Context,
     status_ctx: &StatusContext,
     base: gix::ObjectId,
     depth: usize,
     output: &mut StatusOutput<'_>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<bool> {
+    let mut printed = false;
     for worktree in status_ctx
         .worktrees
         .iter()
         .filter(|wt| wt.base.map(|base| base.commit_id()) == Some(base))
     {
-        print_worktree_lane(
+        printed |= print_worktree_lane(
             ctx,
             status_ctx,
             worktree,
@@ -1479,11 +1481,13 @@ fn print_worktree_lanes_on(
             output,
         )?;
     }
-    Ok(())
+    Ok(printed)
 }
 
 /// Print one linked worktree as its own lane: uncommitted changes, its segments, and the
 /// connector merging back into the lane it branched from.
+///
+/// Returns `false` if the worktree was skipped because it has no entry in the ID map.
 fn print_worktree_lane(
     ctx: &Context,
     status_ctx: &StatusContext,
@@ -1491,12 +1495,12 @@ fn print_worktree_lane(
     depth: usize,
     separator: Option<LaneSeparator>,
     output: &mut StatusOutput<'_>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<bool> {
     let repo = ctx.repo.get()?;
     let Some(lane) = status_ctx.id_map.worktree_lane(worktree.name.as_ref()) else {
         // Only worktrees the ID map knows can be addressed, so printing one without IDs would
         // show selectors that no other command resolves.
-        return Ok(());
+        return Ok(false);
     };
     let uncommitted_id = lane
         .uncommitted_id()
@@ -1535,7 +1539,7 @@ fn print_worktree_lane(
     if separator == Some(LaneSeparator::Below) {
         output.connector(in_lane(depth, [Span::raw("┊")]))?;
     }
-    Ok(())
+    Ok(true)
 }
 
 /// The commit a worktree lane rests on and how it relates to the target tip, empty when that
@@ -1757,9 +1761,22 @@ fn print_lane_segments(
         } else {
             "├"
         };
-        if segment_index > 0 {
-            output.connector(in_lane(depth, [Span::raw("┊│")]))?;
-        }
+        // For a mid-stack branch, worktrees resting on its tip commit are children of this
+        // branch alongside the segment above it. Draw them above the branch header so they
+        // close onto the header/tip instead of splitting the header from its commits.
+        let tip_lanes_printed_above = if segment_index > 0 {
+            let printed = if let Some(tip) = segment.workspace_commits.first() {
+                print_worktree_lanes_on(ctx, status_ctx, tip.commit_id(), depth + 1, output)?
+            } else {
+                false
+            };
+            if !printed {
+                output.connector(in_lane(depth, [Span::raw("┊│")]))?;
+            }
+            printed
+        } else {
+            false
+        };
 
         let no_commits = if segment.workspace_commits.is_empty() {
             "(no commits)"
@@ -1932,10 +1949,12 @@ fn print_lane_segments(
             })
             .max()
             .unwrap_or(0);
-        for commit in segment.workspace_commits.iter() {
+        for (commit_index, commit) in segment.workspace_commits.iter().enumerate() {
             // Commits are listed newest first, so a worktree branching off this commit
             // opens its lane just above it and closes back onto it.
-            print_worktree_lanes_on(ctx, status_ctx, commit.commit_id(), depth + 1, output)?;
+            if !(commit_index == 0 && tip_lanes_printed_above) {
+                print_worktree_lanes_on(ctx, status_ctx, commit.commit_id(), depth + 1, output)?;
+            }
             let inner = status_ctx
                 .local_commits_by_id
                 .get(&commit.commit_id())
